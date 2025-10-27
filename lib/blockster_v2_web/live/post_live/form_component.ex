@@ -106,7 +106,8 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
               />
               <button
                 type="button"
-                onclick="document.getElementById('featured-image-input').click()"
+                phx-click={JS.dispatch("click", to: "#featured-image-input")}
+                phx-target={@myself}
                 class="w-full px-4 py-3 bg-[#F3F5FF] text-[#141414] rounded-lg font-haas_medium_65 text-sm hover:bg-[#E7E8F1] transition-all border border-[#E7E8F1] flex items-center justify-center gap-2"
               >
                 <svg
