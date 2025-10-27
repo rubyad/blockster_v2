@@ -27,6 +27,13 @@ import { QuillEditor } from "./quill_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
 import topbar from "../vendor/topbar";
 
+// Import Quill from npm
+import Quill from "quill";
+import "quill/dist/quill.snow.css";
+
+// Make Quill available globally for the hook
+window.Quill = Quill;
+
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
