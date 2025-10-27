@@ -29,6 +29,7 @@ defmodule BlocksterV2.Blog.Post do
       :view_count,
       :category,
       :featured_image
+      :featured_image
     ])
     |> validate_required([:title, :author_name])
     |> generate_slug()
