@@ -96,4 +96,20 @@
       <% end %>
     </div>
   </div>
+
+  <.modal
+    :if={@live_action in [:new, :edit]}
+    id="post-modal"
+    show
+    on_cancel={JS.patch(~p"/")}
+  >
+    <.live_component
+      module={BlocksterV2Web.PostLive.FormComponent}
+      id={@post.id || :new}
+      title={@page_title}
+      action={@live_action}
+      post={@post}
+      patch={~p"/"}
+    />
+  </.modal>
 </Layouts.app>
