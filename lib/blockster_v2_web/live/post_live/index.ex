@@ -44,7 +44,8 @@ defmodule BlocksterV2Web.PostLive.Index do
     post = Blog.get_post!(id)
     {:ok, _} = Blog.delete_post(post)
 
-    {:noreply, assign(socket, :posts, Blog.list_published_posts())}
+    # After deletion, navigate back to the index page to ensure the list is refreshed.
+    {:noreply, push_navigate(socket, to: ~p"/")}
   end
 
   @impl true
