@@ -52,143 +52,136 @@ defmodule BlocksterV2Web.PostLive.Show do
     html_parts =
       ops
       |> Enum.with_index()
-      |> Enum.reduce([], fn {op, index}, acc ->
-        prev_op = if index > 0, do: Enum.at(ops, index - 1), else: nil
+      |> Enum.map(fn {op, index} ->
         next_op = Enum.at(ops, index + 1)
-
-        case op do
-          # Handle newline with header attribute - look BACK at previous text
-          %{"insert" => "\n", "attributes" => %{"header" => level}} ->
-            case prev_op do
-              %{"insert" => text} when is_binary(text) ->
-                # Split by newlines - lines before last are paragraphs, last line is header
-                lines = String.split(text, "\n")
-
-                # Get all lines except the last (these are paragraphs)
-                paragraph_lines = Enum.drop(lines, -1)
-
-                # Get the last line (this is the header)
-                header_text = List.last(lines) |> String.trim()
-
-                # Render paragraphs first
-                paragraphs =
-                  paragraph_lines
-                  |> Enum.reject(&(&1 == ""))
-                  |> Enum.map(fn para ->
-                    trimmed = String.trim(para)
-
-                    if trimmed != "" do
-                      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
-                    else
-                      ""
-                    end
-                  end)
-                  |> Enum.reject(&(&1 == ""))
-
-                # Render header
-                {size_class, font_size} =
-                  case level do
-                    1 -> {"text-4xl", "48px"}
-                    2 -> {"text-3xl", "36px"}
-                    _ -> {"text-2xl", "24px"}
-                  end
-
-                header_html =
-                  ~s(<h#{level} class="#{size_class} font-bold my-6 text-[#141414]" style="font-size: #{font_size};">#{header_text}</h#{level}>)
-
-                # Add paragraphs first, then header
-                (paragraphs ++ [header_html]) ++ acc
-
-              _ ->
-                acc
-            end
-
-          # Handle regular text ONLY if next op is NOT a header newline
-          %{"insert" => text} when is_binary(text) ->
-            case next_op do
-              # Skip if next is header newline - we'll handle it above
-              %{"insert" => "\n", "attributes" => %{"header" => _}} ->
-                acc
-
-              _ ->
-                # Regular text - convert newlines to paragraphs
-                paragraphs =
-                  text
-                  |> String.split("\n\n")
-                  |> Enum.reject(&(&1 == ""))
-                  |> Enum.map(fn para ->
-                    trimmed = String.trim(para)
-
-                    if trimmed != "" do
-                      # Replace single newlines with <br> within paragraphs
-                      content = String.replace(trimmed, "\n", "<br>")
-                      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
-                    else
-                      ""
-                    end
-                  end)
-                  |> Enum.reject(&(&1 == ""))
-
-                paragraphs ++ acc
-            end
-
-          # Handle text with formatting attributes (bold, italic, etc.)
-          %{"insert" => text, "attributes" => attrs} when is_binary(text) and is_map(attrs) ->
-            # Don't process if this is a header (those are handled above)
-            if Map.has_key?(attrs, "header") do
-              acc
-            else
-              # Build formatted content
-              content = to_string(text)
-
-              # Apply formatting in order: bold, italic, underline, strike
-              content =
-                if attrs["bold"] do
-                  ~s(<strong>#{content}</strong>)
-                else
-                  content
-                end
-
-              content =
-                if attrs["italic"] do
-                  ~s(<em>#{content}</em>)
-                else
-                  content
-                end
-
-              content =
-                if attrs["underline"] do
-                  ~s(<u>#{content}</u>)
-                else
-                  content
-                end
-
-              content =
-                if attrs["strike"] do
-                  ~s(<s>#{content}</s>)
-                else
-                  content
-                end
-
-              # Wrap in span to preserve inline formatting
-              formatted = ~s(<span>#{content}</span>)
-              [formatted | acc]
-            end
-
-          # Handle images
-          %{"insert" => %{"image" => url}} ->
-            img_html = ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
-            [img_html | acc]
-
-          _ ->
-            acc
-        end
+        render_single_op(op, next_op)
       end)
-      |> Enum.reverse()
+      |> List.flatten()
+      |> Enum.reject(&(&1 == "" || &1 == nil))
       |> Enum.join("")
 
     Phoenix.HTML.raw(html_parts)
   end
 
   defp render_quill_content(_), do: ""
+
+  # Handle text that will be followed by a header newline
+  defp render_single_op(
+         %{"insert" => text},
+         %{"insert" => "\n", "attributes" => %{"header" => level}}
+       )
+       when is_binary(text) do
+    # Split the text by newlines
+    lines = String.split(text, "\n")
+
+    # All lines except the last are regular paragraphs
+    paragraph_lines = Enum.drop(lines, -1)
+
+    # The last line is the header text
+    header_text = List.last(lines) |> String.trim()
+
+    # Render paragraphs first
+    paragraphs =
+      paragraph_lines
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.map(fn para ->
+        trimmed = String.trim(para)
+
+        if trimmed != "" do
+          ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
+        else
+          ""
+        end
+      end)
+
+    # Render header
+    {size_class, font_size} =
+      case level do
+        1 -> {"text-4xl", "48px"}
+        2 -> {"text-3xl", "36px"}
+        _ -> {"text-2xl", "24px"}
+      end
+
+    header_html =
+      ~s(<h#{level} class="#{size_class} font-bold my-6 text-[#141414]" style="font-size: #{font_size};">#{header_text}</h#{level}>)
+
+    # Return paragraphs followed by header
+    paragraphs ++ [header_html]
+  end
+
+  # Skip header newlines (they're processed above)
+  defp render_single_op(%{"insert" => "\n", "attributes" => %{"header" => _}}, _next_op) do
+    nil
+  end
+
+  # Handle regular text without header following
+  defp render_single_op(%{"insert" => text}, _next_op) when is_binary(text) do
+    # Convert double newlines to separate paragraphs
+    text
+    |> String.split("\n\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn para ->
+      trimmed = String.trim(para)
+
+      if trimmed != "" do
+        # Replace single newlines with <br> within paragraphs
+        content = String.replace(trimmed, "\n", "<br>")
+        ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
+      else
+        ""
+      end
+    end)
+  end
+
+  # Handle text with formatting attributes (bold, italic, etc.)
+  defp render_single_op(%{"insert" => text, "attributes" => attrs}, _next_op)
+       when is_binary(text) and is_map(attrs) do
+    # Don't process if this is a header (those are handled above)
+    if Map.has_key?(attrs, "header") do
+      nil
+    else
+      # Build formatted content
+      content = to_string(text)
+
+      # Apply formatting in order: bold, italic, underline, strike
+      content =
+        if attrs["bold"] do
+          ~s(<strong>#{content}</strong>)
+        else
+          content
+        end
+
+      content =
+        if attrs["italic"] do
+          ~s(<em>#{content}</em>)
+        else
+          content
+        end
+
+      content =
+        if attrs["underline"] do
+          ~s(<u>#{content}</u>)
+        else
+          content
+        end
+
+      content =
+        if attrs["strike"] do
+          ~s(<s>#{content}</s>)
+        else
+          content
+        end
+
+      # Return as inline span
+      ~s(<span>#{content}</span>)
+    end
+  end
+
+  # Handle images
+  defp render_single_op(%{"insert" => %{"image" => url}}, _next_op) do
+    ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
+  end
+
+  # Catch-all for unknown ops
+  defp render_single_op(_op, _next_op), do: nil
 end
