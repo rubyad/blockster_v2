@@ -272,8 +272,6 @@ export const QuillEditor = {
 // Register custom tweet embed with Quill
 const BlockEmbed = Quill.import("blots/block/embed");
 
-const BlockEmbed = Quill.import("blots/block/embed");
-
 class TweetEmbed extends BlockEmbed {
   static create(value) {
     const node = super.create();
