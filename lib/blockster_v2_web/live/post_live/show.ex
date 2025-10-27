@@ -9,8 +9,8 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
-  def handle_params(%{"id" => id}, _url, socket) do
-    post = Blog.get_post!(id)
+  def handle_params(%{"slug" => slug}, _url, socket) do
+    post = Blog.get_post_by_slug!(slug)
 
     # Increment view count
     {:ok, updated_post} = Blog.increment_view_count(post)
