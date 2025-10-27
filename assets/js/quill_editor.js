@@ -1,6 +1,38 @@
-// Quill Editor Hook with S3 Image Upload
+// Quill Editor Hook with S3 Image Upload and Tweet Embeds
 export const QuillEditor = {
   mounted() {
+    // Register custom tweet embed format
+    const BlockEmbed = Quill.import("blots/block/embed");
+
+    class TweetBlot extends BlockEmbed {
+      static create(value) {
+        const node = super.create();
+        node.setAttribute("data-tweet-id", value);
+        node.setAttribute("contenteditable", "false");
+        node.className = "tweet-embed-placeholder";
+        node.innerHTML = `
+          <div style="border: 2px dashed #1DA1F2; padding: 20px; border-radius: 8px; background: #F7F9FA; text-align: center; color: #1DA1F2; font-family: system-ui, -apple-system, sans-serif;">
+            <svg style="width: 24px; height: 24px; display: inline-block; margin-bottom: 8px;" viewBox="0 0 24 24" fill="#1DA1F2">
+              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+            </svg>
+            <div style="font-size: 14px; font-weight: 600;">Tweet Embed</div>
+            <div style="font-size: 12px; color: #657786; margin-top: 4px;">ID: ${value}</div>
+          </div>
+        `;
+        return node;
+      }
+
+      static value(node) {
+        return node.getAttribute("data-tweet-id");
+      }
+    }
+
+    TweetBlot.blotName = "tweet";
+    TweetBlot.tagName = "div";
+    TweetBlot.className = "tweet-embed";
+
+    Quill.register(TweetBlot);
+
     const toolbarOptions = [
       ["bold", "italic", "underline", "strike"],
       ["blockquote", "code-block"],
@@ -12,7 +44,7 @@ export const QuillEditor = {
       [{ header: [1, 2, 3, 4, 5, 6, false] }],
       [{ color: [] }, { background: [] }],
       [{ align: [] }],
-      ["link", "image"],
+      ["link", "image", "tweet"],
       ["clean"],
     ];
 
@@ -23,6 +55,7 @@ export const QuillEditor = {
           container: toolbarOptions,
           handlers: {
             image: () => this.imageHandler(),
+            tweet: () => this.tweetHandler(),
           },
         },
       },
@@ -76,6 +109,59 @@ export const QuillEditor = {
       // Trigger change event for LiveView
       hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
     }
+  },
+
+  tweetHandler() {
+    const tweetUrl = prompt(
+      "Enter Twitter/X tweet URL:\n(e.g., https://twitter.com/user/status/1234567890)",
+    );
+
+    if (!tweetUrl) return;
+
+    // Extract tweet ID from various Twitter URL formats
+    const tweetId = this.extractTweetId(tweetUrl);
+
+    if (!tweetId) {
+      alert(
+        "Invalid tweet URL. Please enter a valid Twitter/X URL.\n\nExamples:\n• https://twitter.com/user/status/1234567890\n• https://x.com/user/status/1234567890",
+      );
+      return;
+    }
+
+    // Insert tweet embed at current cursor position
+    const range = this.quill.getSelection(true);
+    this.quill.insertEmbed(range.index, "tweet", tweetId);
+    this.quill.setSelection(range.index + 1);
+
+    // Sync to hidden input after tweet insertion
+    this.syncToHiddenInput();
+  },
+
+  extractTweetId(url) {
+    // Handle various Twitter/X URL formats:
+    // https://twitter.com/username/status/1234567890
+    // https://x.com/username/status/1234567890
+    // https://twitter.com/username/status/1234567890?s=20
+    // https://mobile.twitter.com/username/status/1234567890
+
+    const patterns = [
+      /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/,
+      /mobile\.twitter\.com\/\w+\/status\/(\d+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+
+    // If it's just a number, assume it's already a tweet ID
+    if (/^\d+$/.test(url.trim())) {
+      return url.trim();
+    }
+
+    return null;
   },
 
   imageHandler() {
