@@ -18,8 +18,8 @@ defmodule BlocksterV2Web.Router do
     pipe_through :browser
 
     live "/", PostLive.Index, :index
-    live "/posts/new", PostLive.Index, :new
-    live "/posts/:id/edit", PostLive.Index, :edit
+    live "/posts/new", PostLive.Form, :new
+    live "/posts/:id/edit", PostLive.Form, :edit
     live "/posts/:id", PostLive.Show, :show
   end
 
