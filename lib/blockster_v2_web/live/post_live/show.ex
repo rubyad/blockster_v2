@@ -45,7 +45,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   def handle_event("delete", _params, socket) do
     {:ok, _} = Blog.delete_post(socket.assigns.post)
 
-    {:noreply, push_navigate(socket, to: ~p"/"_)}
+    {:noreply, push_navigate(socket, to: ~p"/")}
   end
 
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
