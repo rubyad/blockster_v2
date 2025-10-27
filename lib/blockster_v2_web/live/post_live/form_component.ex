@@ -351,6 +351,8 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   defp save_post(socket, :edit, post_params) do
+    IO.inspect(post_params, label: "Saving post with params")
+
     case Blog.update_post(socket.assigns.post, post_params) do
       {:ok, post} ->
         notify_parent({:saved, post})
@@ -361,11 +363,14 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
          |> push_navigate(to: ~p"/posts/#{post.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        IO.inspect(changeset.errors, label: "Post update validation errors")
         {:noreply, assign_form(socket, changeset)}
     end
   end
 
   defp save_post(socket, :new, post_params) do
+    IO.inspect(post_params, label: "Creating new post with params")
+
     case Blog.create_post(post_params) do
       {:ok, post} ->
         notify_parent({:saved, post})
@@ -376,6 +381,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
          |> push_navigate(to: ~p"/posts/#{post.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        IO.inspect(changeset.errors, label: "Post update validation errors")
         {:noreply, assign_form(socket, changeset)}
     end
   end
