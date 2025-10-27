@@ -7,7 +7,16 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-[#F7F8FA]">
-      <!-- Header matching reference -->
+      <!-- Load Quill.js CSS and JS -->
+      <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
+      <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js">
+      </script>
+      
+    <!-- Load Twitter widgets script -->
+      <script src="https://platform.twitter.com/widgets.js">
+      </script>
+      
+    <!-- Header matching reference -->
       <div class="main-header-banner pt-24 lg:pt-0 pb-5 lg:mt-0 px-6 lg:pl-11 lg:pr-7 fixed top-0 left-0 right-0 w-full z-50 bg-white border-b border-[#E7E8F1]">
         <header class="pt-6 flex items-center justify-between gap-4">
           <div class="flex items-center gap-4">
@@ -126,7 +135,11 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                   </svg>
                   {if @form[:featured_image].value, do: "Change Cover", else: "Add Article Cover"}
                 </button>
-                <input type="hidden" name="post[featured_image]" value={@form[:featured_image].value} />
+                <input
+                  type="hidden"
+                  name="post[featured_image]"
+                  value={@form[:featured_image].value}
+                />
               </div>
               
     <!-- Categories -->
@@ -294,7 +307,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                       type="hidden"
                       name="post[content]"
                       value={
-                        if @form[:content].value, do: Jason.encode!(@form[:content].value), else: "{}"
+                        if @form[:content].value,
+                          do: Jason.encode!(@form[:content].value),
+                          else: "{}"
                       }
                     />
                   </div>
