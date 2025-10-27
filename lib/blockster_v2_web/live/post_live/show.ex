@@ -182,17 +182,6 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
-  # Handle tweet embeds
-  defp render_single_op(%{"insert" => %{"tweet" => tweet_id}}, _next_op) do
-    ~s"""
-    <div class="tweet-embed-container my-6">
-      <blockquote class="twitter-tweet" data-theme="light">
-        <a href="https://twitter.com/x/status/#{tweet_id}"></a>
-      </blockquote>
-    </div>
-    """
-  end
-
   # Catch-all for unknown ops
   defp render_single_op(_op, _next_op), do: nil
 end
