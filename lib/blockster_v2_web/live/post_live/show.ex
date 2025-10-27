@@ -56,30 +56,31 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> Enum.with_index()
       |> Enum.map(fn {op, index} ->
         next_op = Enum.at(ops, index + 1)
-        
+
         case op do
           # Skip newlines with header attributes - they will be handled by the preceding text
           %{"insert" => "\n", "attributes" => %{"header" => _}} ->
             ""
-          
+
           # Handle text that might be followed by a header newline
           %{"insert" => text} when is_binary(text) ->
             case next_op do
               # Next op is a header newline - wrap this text in header tag
               %{"insert" => "\n", "attributes" => %{"header" => level}} ->
                 clean_text = String.replace(text, "\n", "", global: true)
+
                 ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{clean_text}</h#{level}>)
-              
+
               _ ->
                 # No header - just regular text with line breaks
                 text |> String.replace("\n", "<br>", global: true)
             end
-          
+
           # Handle text with attributes (bold, italic, etc.) - but NOT header
           %{"insert" => text, "attributes" => attrs} when is_binary(text) and is_map(attrs) ->
             # Build content with formatting
             content = text |> String.replace("\n", "<br>", global: true)
-            
+
             # Apply bold
             content =
               if attrs["bold"] do
@@ -87,7 +88,7 @@ defmodule BlocksterV2Web.PostLive.Show do
               else
                 content
               end
-            
+
             # Apply italic
             content =
               if attrs["italic"] do
@@ -95,7 +96,7 @@ defmodule BlocksterV2Web.PostLive.Show do
               else
                 content
               end
-            
+
             # Apply underline
             content =
               if attrs["underline"] do
@@ -103,7 +104,7 @@ defmodule BlocksterV2Web.PostLive.Show do
               else
                 content
               end
-            
+
             # Apply strike
             content =
               if attrs["strike"] do
@@ -111,67 +112,16 @@ defmodule BlocksterV2Web.PostLive.Show do
               else
                 content
               end
-            
+
             content
-          
+
           # Handle images
           %{"insert" => %{"image" => url}} ->
             ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
-          
+
           _ ->
             ""
         end
-      end)
-      |> Enum.join("")
-    
-    Phoenix.HTML.raw(html_parts)
-            end
-
-          # Apply bold
-          content =
-            if attrs["bold"] do
-              ~s(<strong>#{content}</strong>)
-            else
-              content
-            end
-
-          # Apply italic
-          content =
-            if attrs["italic"] do
-              ~s(<em>#{content}</em>)
-            else
-              content
-            end
-
-          # Apply underline
-          content =
-            if attrs["underline"] do
-              ~s(<u>#{content}</u>)
-            else
-              content
-            end
-
-          # Apply strike
-          content =
-            if attrs["strike"] do
-              ~s(<s>#{content}</s>)
-            else
-              content
-            end
-
-          content
-
-        # Handle plain text without attributes
-        %{"insert" => text} when is_binary(text) ->
-          text
-          |> String.replace("\n", "<br>", global: true)
-
-        # Handle images
-        %{"insert" => %{"image" => url}} ->
-          ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
-
-        _ ->
-          ""
       end)
       |> Enum.join("")
 
