@@ -68,9 +68,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                 clean_text = String.trim(text)
 
                 header_html =
-                  header_tag = "h#{level}"
-                  header_class = "text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]"
-                  ~s(<#{header_tag} class="#{header_class}">#{clean_text}</#{header_tag}>)
+                  ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{clean_text}</h#{level}>)
 
                 [header_html | acc]
 
