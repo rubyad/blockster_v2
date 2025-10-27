@@ -39,20 +39,43 @@ export const QuillEditor = {
   },
 
   updated() {
-    // When LiveView updates the component, check if content changed
-    // Only reload if the data-content attribute changed
+    // Prevent reloading content unless it truly changed from the server
+    // This avoids clearing the editor when user makes formatting changes
     const newContent = this.el.dataset.content;
-    const currentContent = JSON.stringify(this.quill.getContents());
 
-    // Only update if content actually changed from server
-    if (newContent && newContent !== currentContent) {
-      const currentSelection = this.quill.getSelection();
-      this.loadContent();
+    // Skip update if no new content from server
+    if (!newContent || newContent === "{}") {
+      return;
+    }
 
-      // Restore cursor position if it existed
-      if (currentSelection) {
-        this.quill.setSelection(currentSelection);
+    // Get current editor content
+    const currentContent = this.quill.getContents();
+
+    // Only reload if the content structure actually changed
+    // Don't reload on every LiveView update - only when server sends new content
+    try {
+      const serverContent = JSON.parse(newContent);
+
+      // Deep comparison of ops arrays
+      const currentOps = JSON.stringify(currentContent.ops);
+      const serverOps = JSON.stringify(serverContent.ops);
+
+      // Only reload if content is truly different
+      if (
+        currentOps !== serverOps &&
+        serverContent.ops &&
+        serverContent.ops.length > 0
+      ) {
+        const currentSelection = this.quill.getSelection();
+        this.quill.setContents(serverContent);
+
+        // Restore cursor position if it existed
+        if (currentSelection) {
+          this.quill.setSelection(currentSelection);
+        }
       }
+    } catch (e) {
+      console.error("Failed to compare content:", e);
     }
   },
 
