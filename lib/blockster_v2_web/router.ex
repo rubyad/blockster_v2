@@ -19,8 +19,8 @@ defmodule BlocksterV2Web.Router do
 
     live "/", PostLive.Index, :index
     live "/posts/new", PostLive.Form, :new
-    live "/posts/:id/edit", PostLive.Form, :edit
-    live "/posts/:id", PostLive.Show, :show
+    live "/posts/:slug/edit", PostLive.Form, :edit
+    live "/posts/:slug", PostLive.Show, :show
   end
 
   # Other scopes may use custom stacks.
