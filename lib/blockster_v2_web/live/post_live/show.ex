@@ -53,24 +53,33 @@ defmodule BlocksterV2Web.PostLive.Show do
       ops
       |> Enum.with_index()
       |> Enum.reduce([], fn {op, index}, acc ->
-        next_op = Enum.at(ops, index + 1)
+        prev_op = if index > 0, do: Enum.at(ops, index - 1), else: nil
 
         case op do
-          # Skip standalone newlines with header attributes - will be handled by preceding text
-          %{"insert" => "\n", "attributes" => %{"header" => _}} ->
-            acc
-
-          # Handle regular text that precedes a header newline
-          %{"insert" => text} when is_binary(text) ->
-            case next_op do
-              %{"insert" => "\n", "attributes" => %{"header" => level}} ->
-                # This text should be wrapped in a header tag
+          # Handle newline with header attribute - look BACK at previous text
+          %{"insert" => "\n", "attributes" => %{"header" => level}} ->
+            case prev_op do
+              %{"insert" => text} when is_binary(text) ->
+                # The previous text is the header content
                 clean_text = String.trim(text)
 
                 header_html =
                   ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{clean_text}</h#{level}>)
 
                 [header_html | acc]
+
+              _ ->
+                acc
+            end
+
+          # Handle regular text ONLY if next op is NOT a header newline
+          %{"insert" => text} when is_binary(text) ->
+            next_op = Enum.at(ops, index + 1)
+
+            case next_op do
+              # Skip if next is header newline - we'll handle it above
+              %{"insert" => "\n", "attributes" => %{"header" => _}} ->
+                acc
 
               _ ->
                 # Regular text - convert newlines to paragraphs
@@ -101,7 +110,6 @@ defmodule BlocksterV2Web.PostLive.Show do
               acc
             else
               # Build formatted content
-              # Build formatted content - keep as string
               content = to_string(text)
 
               # Apply formatting in order: bold, italic, underline, strike
@@ -140,9 +148,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
           # Handle images
           %{"insert" => %{"image" => url}} ->
-            img_html =
-              ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
-
+            img_html = ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
             [img_html | acc]
 
           _ ->
