@@ -1,5 +1,11 @@
 import Config
 
+# S3 Configuration for image uploads
+# The S3 bucket and region can be configured via environment variables
+config :blockster_v2,
+  s3_bucket: System.get_env("S3_BUCKET") || "your-bucket-name",
+  s3_region: System.get_env("AWS_REGION") || "us-east-1"
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
