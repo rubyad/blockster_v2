@@ -141,7 +141,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
               data-content={
                 if @form[:content].value, do: Jason.encode!(@form[:content].value), else: "{}"
               }
-              class="bg-white rounded-lg"
+              class="bg-white rounded-lg text-gray-900"
             >
               <div class="editor-container" style="min-height: 400px;"></div>
               <input
