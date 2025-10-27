@@ -293,6 +293,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                   </label>
                   <div
                     id="quill-editor"
+                    phx-update="ignore"
                     phx-hook="QuillEditor"
                     data-content={
                       if @form[:content].value, do: Jason.encode!(@form[:content].value), else: "{}"
