@@ -20,8 +20,13 @@ export const FeaturedImageUpload = {
       }
 
       try {
+        // Find the upload button within the same parent container
+        const uploadSection = this.el.closest(".bg-white.rounded-\\[16px\\]");
+        const uploadButton = uploadSection.querySelector(
+          'button[phx-click*="featured-image-input"]',
+        );
+
         // Show loading state
-        const uploadButton = document.querySelector('button[type="button"]');
         if (uploadButton) {
           uploadButton.disabled = true;
           uploadButton.innerHTML =
@@ -70,7 +75,6 @@ export const FeaturedImageUpload = {
         }
 
         // Show preview image by creating/updating the preview div
-        const uploadSection = this.el.closest("div").parentElement;
         let previewDiv = uploadSection.querySelector(".image-preview");
 
         if (!previewDiv) {
@@ -84,9 +88,8 @@ export const FeaturedImageUpload = {
             </button>
           `;
 
-          // Insert before the upload button section
-          const uploadButtonDiv = uploadSection.querySelector(".flex.gap-3");
-          uploadSection.insertBefore(previewDiv, uploadButtonDiv);
+          // Insert before the file input
+          uploadSection.insertBefore(previewDiv, this.el.parentElement);
 
           // Add remove handler
           previewDiv
@@ -96,7 +99,7 @@ export const FeaturedImageUpload = {
               previewDiv.remove();
               if (uploadButton) {
                 uploadButton.innerHTML =
-                  '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Upload Image';
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17 13V17H3V13H1V17C1 18.1 1.9 19 3 19H17C18.1 19 19 18.1 19 17V13H17ZM16 9L14.59 7.59L11 11.17V1H9V11.17L5.41 7.59L4 9L10 15L16 9Z" fill="#141414"/></svg> Add Article Cover';
               }
             });
         } else {
@@ -108,7 +111,7 @@ export const FeaturedImageUpload = {
         if (uploadButton) {
           uploadButton.disabled = false;
           uploadButton.innerHTML =
-            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Change Image';
+            '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17 13V17H3V13H1V17C1 18.1 1.9 19 3 19H17C18.1 19 19 18.1 19 17V13H17ZM16 9L14.59 7.59L11 11.17V1H9V11.17L5.41 7.59L4 9L10 15L16 9Z" fill="#141414"/></svg> Change Cover';
         }
 
         // Clear the file input
@@ -118,11 +121,14 @@ export const FeaturedImageUpload = {
         alert("Failed to upload image. Please try again.");
 
         // Reset button state on error
-        const uploadButton = document.querySelector('button[type="button"]');
+        const uploadSection = this.el.closest(".bg-white.rounded-\\[16px\\]");
+        const uploadButton = uploadSection.querySelector(
+          'button[phx-click*="featured-image-input"]',
+        );
         if (uploadButton) {
           uploadButton.disabled = false;
           uploadButton.innerHTML =
-            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Upload Image';
+            '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17 13V17H3V13H1V17C1 18.1 1.9 19 3 19H17C18.1 19 19 18.1 19 17V13H17ZM16 9L14.59 7.59L11 11.17V1H9V11.17L5.41 7.59L4 9L10 15L16 9Z" fill="#141414"/></svg> Add Article Cover';
         }
 
         // Clear the file input
