@@ -64,13 +64,36 @@ defmodule BlocksterV2Web.PostLive.Show do
                 lines = String.split(text, "\n")
                 header_text = List.last(lines) |> String.trim()
 
-                # Get everything BEFORE the last line (this is body text)
+                # Only emit the header HTML - don't re-process body paragraphs
+                # because they've already been handled in the regular text processing
+                header_html =
+                  if header_text != "" do
+                    ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{header_text}</h#{level}>)
+                  else
+                    ""
+                  end
+
+                [header_html | acc]
+
+              _ ->
+                acc
+            end
+
+          # Handle regular text ONLY if next op is NOT a header newline
+          %{"insert" => text} when is_binary(text) ->
+            next_op = Enum.at(ops, index + 1)
+
+            case next_op do
+              # If next is header newline, only process text BEFORE the last line
+              %{"insert" => "\n", "attributes" => %{"header" => _}} ->
+                lines = String.split(text, "\n")
+                # Get everything EXCEPT the last line (which will become the header)
                 body_lines = Enum.drop(lines, -1)
 
-                body_html =
-                  if body_lines != [] do
-                    body_text = Enum.join(body_lines, "\n")
-                    # Process body text as regular paragraphs
+                if body_lines != [] do
+                  body_text = Enum.join(body_lines, "\n")
+
+                  paragraphs =
                     body_text
                     |> String.split("\n\n")
                     |> Enum.reject(&(&1 == ""))
@@ -85,36 +108,14 @@ defmodule BlocksterV2Web.PostLive.Show do
                       end
                     end)
                     |> Enum.reject(&(&1 == ""))
-                  else
-                    []
-                  end
 
-                # Create header HTML
-                header_html =
-                  if header_text != "" do
-                    ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{header_text}</h#{level}>)
-                  else
-                    ""
-                  end
-
-                # Add both body and header (body first, then header)
-                [header_html | body_html] ++ acc
+                  paragraphs ++ acc
+                else
+                  acc
+                end
 
               _ ->
-                acc
-            end
-
-          # Handle regular text ONLY if next op is NOT a header newline
-          %{"insert" => text} when is_binary(text) ->
-            next_op = Enum.at(ops, index + 1)
-
-            case next_op do
-              # Skip if next is header newline - we'll handle it above
-              %{"insert" => "\n", "attributes" => %{"header" => _}} ->
-                acc
-
-              _ ->
-                # Regular text - convert newlines to paragraphs
+                # Regular text - convert all of it to paragraphs
                 paragraphs =
                   text
                   |> String.split("\n\n")
@@ -123,7 +124,6 @@ defmodule BlocksterV2Web.PostLive.Show do
                     trimmed = String.trim(para)
 
                     if trimmed != "" do
-                      # Replace single newlines with <br> within paragraphs
                       content = String.replace(trimmed, "\n", "<br>")
                       ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
                     else
