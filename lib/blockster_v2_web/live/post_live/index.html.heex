@@ -8,7 +8,7 @@
           <p class="text-xl text-gray-300">Crypto insights and blockchain updates</p>
         </div>
         <.link
-          navigate={~p"/posts/new"}
+          patch={~p"/posts/new"}
           class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
         >
           <.icon name="hero-plus" class="w-5 h-5 inline mr-2" /> New Post
@@ -40,7 +40,7 @@
           <h2 class="text-2xl font-bold text-white mb-2">No posts yet</h2>
           <p class="text-gray-400 mb-6">Be the first to create a post and share your insights!</p>
           <.link
-            navigate={~p"/posts/new"}
+            patch={~p"/posts/new"}
             class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all inline-block"
           >
             Create First Post
@@ -96,4 +96,20 @@
       <% end %>
     </div>
   </div>
+
+  <.modal
+    :if={@live_action in [:new, :edit]}
+    id="post-modal"
+    show
+    on_cancel={JS.patch(~p"/")}
+  >
+    <.live_component
+      module={BlocksterV2Web.PostLive.FormComponent}
+      id={@post.id || :new}
+      title={@page_title}
+      action={@live_action}
+      post={@post}
+      patch={~p"/"}
+    />
+  </.modal>
 </Layouts.app>
