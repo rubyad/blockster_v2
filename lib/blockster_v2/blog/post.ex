@@ -11,6 +11,7 @@ defmodule BlocksterV2.Blog.Post do
     field :published_at, :utc_datetime
     field :view_count, :integer, default: 0
     field :category, :string
+    field :featured_image, :string
 
     timestamps()
   end
