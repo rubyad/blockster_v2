@@ -1,4 +1,4 @@
-// Quill Editor Hook with S3 Image Upload
+// Quill Editor Hook with S3 Image Upload and Tweet Embeds
 export const QuillEditor = {
   mounted() {
     console.log("=== QuillEditor Hook Mounted ===");
@@ -20,7 +20,7 @@ export const QuillEditor = {
       [{ header: [1, 2, 3, 4, 5, 6, false] }],
       [{ color: [] }, { background: [] }],
       [{ align: [] }],
-      ["link", "image"],
+      ["link", "image", "tweet"],
       ["clean"],
     ];
 
@@ -41,12 +41,13 @@ export const QuillEditor = {
             container: toolbarOptions,
             handlers: {
               image: () => this.imageHandler(),
+              tweet: () => this.tweetHandler(),
             },
           },
         },
         placeholder: "Write your post content here...",
       });
-      this.el.__quill = this.quill; // Moved this line here
+      this.el.__quill = this.quill;
       console.log("6. Quill instance created:", this.quill);
     } catch (error) {
       console.error("ERROR creating Quill:", error);
@@ -208,6 +209,58 @@ export const QuillEditor = {
     };
   },
 
+  tweetHandler() {
+    console.log("=== Tweet Handler Called ===");
+
+    // Prompt user for tweet URL
+    const tweetUrl = prompt(
+      "Enter Twitter/X post URL:\n(e.g., https://twitter.com/username/status/1234567890)",
+    );
+
+    if (!tweetUrl) {
+      console.log("Tweet embed cancelled");
+      return;
+    }
+
+    // Validate tweet URL format
+    const tweetPattern =
+      /^https?:\/\/(twitter\.com|x\.com)\/[\w]+\/status\/(\d+)/;
+    const match = tweetUrl.match(tweetPattern);
+
+    if (!match) {
+      alert(
+        "Invalid tweet URL. Please use format:\nhttps://twitter.com/username/status/1234567890",
+      );
+      return;
+    }
+
+    const tweetId = match[2];
+    console.log("Valid tweet URL, ID:", tweetId);
+
+    try {
+      // Get current cursor position
+      const range = this.quill.getSelection(true);
+
+      // Insert tweet embed as a custom block
+      // We'll store it as a special insert with tweet data
+      this.quill.insertText(range.index, "\n");
+      this.quill.insertEmbed(range.index + 1, "tweet", {
+        url: tweetUrl,
+        id: tweetId,
+      });
+      this.quill.insertText(range.index + 2, "\n");
+      this.quill.setSelection(range.index + 3);
+
+      // Sync to hidden input
+      this.syncToHiddenInput();
+
+      console.log("Tweet embed inserted successfully");
+    } catch (error) {
+      console.error("Failed to insert tweet:", error);
+      alert("Failed to insert tweet. Please try again.");
+    }
+  },
+
   destroyed() {
     console.log("=== QuillEditor Hook Destroyed ===");
     if (this.quill) {
@@ -215,3 +268,43 @@ export const QuillEditor = {
     }
   },
 };
+
+// Register custom tweet embed with Quill
+const BlockEmbed = Quill.import("blots/block/embed");
+
+class TweetEmbed extends BlockEmbed {
+  static create(value) {
+    const node = super.create();
+    node.setAttribute("data-tweet-url", value.url);
+    node.setAttribute("data-tweet-id", value.id);
+    node.setAttribute("contenteditable", "false");
+    node.classList.add("tweet-embed-placeholder");
+    node.innerHTML = `
+      <div style="padding: 12px; background: #f7f9fa; border: 1px solid #e1e8ed; border-radius: 8px; margin: 12px 0;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <svg style="width: 20px; height: 20px; fill: #1DA1F2;" viewBox="0 0 24 24">
+            <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+          </svg>
+          <span style="color: #14171a; font-weight: 600; font-size: 14px;">Tweet Embed</span>
+        </div>
+        <div style="color: #657786; font-size: 13px; word-break: break-all;">
+          ${value.url}
+        </div>
+      </div>
+    `;
+    return node;
+  }
+
+  static value(node) {
+    return {
+      url: node.getAttribute("data-tweet-url"),
+      id: node.getAttribute("data-tweet-id"),
+    };
+  }
+}
+
+TweetEmbed.blotName = "tweet";
+TweetEmbed.tagName = "div";
+TweetEmbed.className = "tweet-embed";
+
+Quill.register(TweetEmbed);
