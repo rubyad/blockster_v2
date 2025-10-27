@@ -60,13 +60,45 @@ defmodule BlocksterV2Web.PostLive.Show do
           %{"insert" => "\n", "attributes" => %{"header" => level}} ->
             case prev_op do
               %{"insert" => text} when is_binary(text) ->
-                # The previous text is the header content
-                clean_text = String.trim(text)
+                # Split by newlines and get the LAST line only (the actual header text)
+                lines = String.split(text, "\n")
+                header_text = List.last(lines) |> String.trim()
 
+                # Get everything BEFORE the last line (this is body text)
+                body_lines = Enum.drop(lines, -1)
+
+                body_html =
+                  if body_lines != [] do
+                    body_text = Enum.join(body_lines, "\n")
+                    # Process body text as regular paragraphs
+                    body_text
+                    |> String.split("\n\n")
+                    |> Enum.reject(&(&1 == ""))
+                    |> Enum.map(fn para ->
+                      trimmed = String.trim(para)
+
+                      if trimmed != "" do
+                        content = String.replace(trimmed, "\n", "<br>")
+                        ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
+                      else
+                        ""
+                      end
+                    end)
+                    |> Enum.reject(&(&1 == ""))
+                  else
+                    []
+                  end
+
+                # Create header HTML
                 header_html =
-                  ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{clean_text}</h#{level}>)
+                  if header_text != "" do
+                    ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{header_text}</h#{level}>)
+                  else
+                    ""
+                  end
 
-                [header_html | acc]
+                # Add both body and header (body first, then header)
+                [header_html | body_html] ++ acc
 
               _ ->
                 acc
@@ -141,8 +173,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                   content
                 end
 
-              # Wrap in span to preserve inline formatting
-              formatted = ~s(<span>#{content}</span>)
+              # Wrap in paragraph to maintain proper spacing
+              formatted = ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
               [formatted | acc]
             end
 
