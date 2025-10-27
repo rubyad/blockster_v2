@@ -105,4 +105,27 @@
   display: contents;
 }
 
-/* This file is for your main application CSS */
+/* Custom font families matching the reference design */
+.font-inter {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-haas_roman_55 {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+}
+
+.font-haas_medium_65 {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.font-work_sans {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.font-segoe_regular {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+}
