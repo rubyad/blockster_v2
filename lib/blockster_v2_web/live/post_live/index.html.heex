@@ -51,11 +51,21 @@
           <%= for post <- @posts do %>
             <.link navigate={~p"/posts/#{post.id}"} class="group cursor-pointer">
               <div class="h-full bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all">
-                <!-- Post Image Placeholder -->
-                <div class="aspect-video bg-gradient-to-br from-purple-600/20 to-blue-600/20 flex items-center justify-center">
-                  <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                    <.icon name="hero-document-text" class="w-8 h-8 text-white" />
-                  </div>
+                <!-- Post Image -->
+                <div class="aspect-video bg-gradient-to-br from-purple-600/20 to-blue-600/20 overflow-hidden">
+                  <%= if post.featured_image do %>
+                    <img
+                      src={post.featured_image}
+                      alt={post.title}
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  <% else %>
+                    <div class="w-full h-full flex items-center justify-center">
+                      <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                        <.icon name="hero-document-text" class="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  <% end %>
                 </div>
                 
 <!-- Post Content -->
