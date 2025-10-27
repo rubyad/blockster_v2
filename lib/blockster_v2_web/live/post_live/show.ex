@@ -49,80 +49,106 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
-    # Quill stores headers as: text insert followed by newline with header attribute
-    # We need to look ahead to see if the next op is a header newline
     html_parts =
       ops
       |> Enum.with_index()
-      |> Enum.map(fn {op, index} ->
+      |> Enum.reduce([], fn {op, index}, acc ->
         next_op = Enum.at(ops, index + 1)
 
         case op do
-          # Skip newlines with header attributes - they will be handled by the preceding text
+          # Skip standalone newlines with header attributes - will be handled by preceding text
           %{"insert" => "\n", "attributes" => %{"header" => _}} ->
-            ""
+            acc
 
-          # Handle text that might be followed by a header newline
+          # Handle regular text that precedes a header newline
           %{"insert" => text} when is_binary(text) ->
             case next_op do
-              # Next op is a header newline - wrap this text in header tag
               %{"insert" => "\n", "attributes" => %{"header" => level}} ->
-                clean_text = String.replace(text, "\n", "", global: true)
+                # This text should be wrapped in a header tag
+                clean_text = String.trim(text)
 
-                ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{clean_text}</h#{level}>)
+                header_html =
+                  ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{Phoenix.HTML.html_escape(clean_text)}</h#{level}>)
+
+                [header_html | acc]
 
               _ ->
-                # No header - just regular text with line breaks
-                text |> String.replace("\n", "<br>", global: true)
+                # Regular text - convert newlines to paragraphs
+                paragraphs =
+                  text
+                  |> String.split("\n\n")
+                  |> Enum.reject(&(&1 == ""))
+                  |> Enum.map(fn para ->
+                    trimmed = String.trim(para)
+
+                    if trimmed != "" do
+                      # Replace single newlines with <br> within paragraphs
+                      content = String.replace(trimmed, "\n", "<br>")
+                      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
+                    else
+                      ""
+                    end
+                  end)
+                  |> Enum.reject(&(&1 == ""))
+
+                paragraphs ++ acc
             end
 
-          # Handle text with attributes (bold, italic, etc.) - but NOT header
+          # Handle text with formatting attributes (bold, italic, etc.)
           %{"insert" => text, "attributes" => attrs} when is_binary(text) and is_map(attrs) ->
-            # Build content with formatting
-            content = text |> String.replace("\n", "<br>", global: true)
+            # Don't process if this is a header (those are handled above)
+            if Map.has_key?(attrs, "header") do
+              acc
+            else
+              # Build formatted content
+              content = Phoenix.HTML.html_escape(text)
 
-            # Apply bold
-            content =
-              if attrs["bold"] do
-                ~s(<strong>#{content}</strong>)
-              else
-                content
-              end
+              # Apply formatting in order: bold, italic, underline, strike
+              content =
+                if attrs["bold"] do
+                  ~s(<strong>#{content}</strong>)
+                else
+                  content
+                end
 
-            # Apply italic
-            content =
-              if attrs["italic"] do
-                ~s(<em>#{content}</em>)
-              else
-                content
-              end
+              content =
+                if attrs["italic"] do
+                  ~s(<em>#{content}</em>)
+                else
+                  content
+                end
 
-            # Apply underline
-            content =
-              if attrs["underline"] do
-                ~s(<u>#{content}</u>)
-              else
-                content
-              end
+              content =
+                if attrs["underline"] do
+                  ~s(<u>#{content}</u>)
+                else
+                  content
+                end
 
-            # Apply strike
-            content =
-              if attrs["strike"] do
-                ~s(<s>#{content}</s>)
-              else
-                content
-              end
+              content =
+                if attrs["strike"] do
+                  ~s(<s>#{content}</s>)
+                else
+                  content
+                end
 
-            content
+              # Wrap in span to preserve inline formatting
+              formatted = ~s(<span>#{content}</span>)
+              [formatted | acc]
+            end
 
           # Handle images
           %{"insert" => %{"image" => url}} ->
-            ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
+            img_html =
+              ~s(<img src="#{Phoenix.HTML.html_escape(url)}" class="max-w-full h-auto rounded-lg my-4" />)
+
+            [img_html | acc]
 
           _ ->
-            ""
+            acc
         end
       end)
+      |> Enum.reverse()
       |> Enum.join("")
 
     Phoenix.HTML.raw(html_parts)
