@@ -49,7 +49,6 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                   type="button"
                   phx-click="remove_featured_image"
                   phx-target={@myself}
-                  phx-submit="save"
                   class="mt-2 text-sm text-red-400 hover:text-red-300 transition-colors"
                 >
                   Remove image
@@ -188,18 +187,6 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   @impl true
-  def handle_event("validate", %{"post" => post_params}, socket) do
-    # Parse content if it's a JSON string
-    post_params = parse_content(post_params)
-
-    changeset =
-      socket.assigns.post
-      |> Blog.change_post(post_params)
-      |> Map.put(:action, :validate)
-
-    {:noreply, assign_form(socket, changeset)}
-  end
-
   def handle_event("save", %{"post" => post_params}, socket) do
     # Parse content if it's a JSON string
     post_params = parse_content(post_params)
@@ -208,19 +195,29 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   def handle_event("remove_featured_image", _params, socket) do
+    # Get current form data to preserve it
+    current_data = get_current_form_data(socket.assigns.form)
+
+    # Update only the featured_image field
+    updated_data = Map.put(current_data, "featured_image", nil)
+
     changeset =
       socket.assigns.post
-      |> Blog.change_post(%{featured_image: nil})
-      |> Map.put(:action, :validate)
+      |> Blog.change_post(updated_data)
 
     {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("set_featured_image", %{"url" => url}, socket) do
+    # Get current form data to preserve it
+    current_data = get_current_form_data(socket.assigns.form)
+
+    # Update only the featured_image field
+    updated_data = Map.put(current_data, "featured_image", url)
+
     changeset =
       socket.assigns.post
-      |> Blog.change_post(%{featured_image: url})
-      |> Map.put(:action, :validate)
+      |> Blog.change_post(updated_data)
 
     {:noreply, assign_form(socket, changeset)}
   end
@@ -269,4 +266,16 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   defp parse_content(params), do: params
+
+  # Helper to extract current form data
+  defp get_current_form_data(form) do
+    %{
+      "title" => form[:title].value || "",
+      "author_name" => form[:author_name].value || "",
+      "category" => form[:category].value || "",
+      "excerpt" => form[:excerpt].value || "",
+      "content" => form[:content].value || %{},
+      "featured_image" => form[:featured_image].value
+    }
+  end
 end
