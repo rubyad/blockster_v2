@@ -35,7 +35,6 @@ export const QuillEditor = {
     try {
       console.log("5. Creating Quill instance...");
       this.quill = new Quill(editorContainer, {
-    this.el.__quill = this.quill;
         theme: "snow",
         modules: {
           toolbar: {
@@ -47,6 +46,7 @@ export const QuillEditor = {
         },
         placeholder: "Write your post content here...",
       });
+      this.el.__quill = this.quill; // Moved this line here
       console.log("6. Quill instance created:", this.quill);
     } catch (error) {
       console.error("ERROR creating Quill:", error);
