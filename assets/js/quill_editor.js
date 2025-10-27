@@ -35,6 +35,7 @@ export const QuillEditor = {
     try {
       console.log("5. Creating Quill instance...");
       this.quill = new Quill(editorContainer, {
+    this.el.__quill = this.quill;
         theme: "snow",
         modules: {
           toolbar: {
