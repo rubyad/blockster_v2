@@ -56,7 +56,9 @@ content = %{
       "Alongside this financial backing, Orbs' technical expertise and marketing efforts have greatly enhanced THENA's visibility, particularly within the BNB Chain ecosystem.",
     author_name: "BlockRise Capital",
     category: "Trading",
-    published_at: ~U[2024-11-09 00:00:00Z]
+    featured_image:
+      "https://blockster-images.s3.us-east-1.amazonaws.com/uploads/reference-article.jpg",
+    published_at: ~U[2025-10-28 00:00:00Z]
   })
 
 IO.puts("Created reference article post with ID: #{post.id}")
