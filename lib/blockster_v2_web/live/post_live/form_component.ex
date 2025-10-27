@@ -7,12 +7,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-[#F7F8FA]">
-      <!-- Load Quill.js CSS and JS -->
-      <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
-      <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js">
-      </script>
-      
-    <!-- Header matching reference -->
+      <!-- Header matching reference -->
       <div class="main-header-banner pt-24 lg:pt-0 pb-5 lg:mt-0 px-6 lg:pl-11 lg:pr-7 fixed top-0 left-0 right-0 w-full z-50 bg-white border-b border-[#E7E8F1]">
         <header class="pt-6 flex items-center justify-between gap-4">
           <div class="flex items-center gap-4">
@@ -142,22 +137,28 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
               <div class="bg-white rounded-[16px] p-6 border border-[#E7E8F1]">
                 <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">categories</h3>
                 <div class="space-y-2">
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" />
-                    <span class="text-sm text-[#141414]">People</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" />
-                    <span class="text-sm text-[#141414]">Fashion</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" />
-                    <span class="text-sm text-[#141414]">Art</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" />
-                    <span class="text-sm text-[#141414]">Music</span>
-                  </label>
+                  <ul class="flex flex-col gap-2">
+                    <li class="border border-[#14141414] rounded-lg">
+                      <button class="w-full text-left p-3 text-[#141414] text-md font-haas_roman_55">
+                        People
+                      </button>
+                    </li>
+                    <li class="border border-[#14141414] rounded-lg">
+                      <button class="w-full text-left p-3 text-[#141414] text-md font-haas_roman_55">
+                        Fashion
+                      </button>
+                    </li>
+                    <li class="border border-[#14141414] rounded-lg">
+                      <button class="w-full text-left p-3 text-md font-haas_roman_55">
+                        Art
+                      </button>
+                    </li>
+                    <li class="border border-[#14141414] rounded-lg">
+                      <button class="w-full text-left p-3 text-[#141414] text-md font-haas_roman_55">
+                        Music
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               </div>
               
