@@ -69,9 +69,9 @@ export const QuillEditor = {
 
   updated() {
     console.log("=== QuillEditor Hook Updated ===");
-    // CRITICAL FIX: Don't reload editor content on updates!
+    // CRITICAL: Don't reload editor content on updates!
     // The editor maintains its own state and shouldn't be cleared
-    // when LiveView re-renders (e.g., during validation errors)
+    // when LiveView re-renders (e.g., during validation or save errors)
 
     // Only load content on first update if not yet loaded
     if (!this.contentLoaded) {
