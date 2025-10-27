@@ -30,8 +30,35 @@ export const QuillEditor = {
     });
 
     // Load initial content if provided
+    this.loadContent();
+
+    // Update hidden input on content change
+    this.quill.on("text-change", () => {
+      this.syncToHiddenInput();
+    });
+  },
+
+  updated() {
+    // When LiveView updates the component, check if content changed
+    // Only reload if the data-content attribute changed
+    const newContent = this.el.dataset.content;
+    const currentContent = JSON.stringify(this.quill.getContents());
+
+    // Only update if content actually changed from server
+    if (newContent && newContent !== currentContent) {
+      const currentSelection = this.quill.getSelection();
+      this.loadContent();
+
+      // Restore cursor position if it existed
+      if (currentSelection) {
+        this.quill.setSelection(currentSelection);
+      }
+    }
+  },
+
+  loadContent() {
     const initialContent = this.el.dataset.content;
-    if (initialContent) {
+    if (initialContent && initialContent !== "{}") {
       try {
         const content = JSON.parse(initialContent);
         this.quill.setContents(content);
@@ -39,17 +66,16 @@ export const QuillEditor = {
         console.error("Failed to parse initial content:", e);
       }
     }
+  },
 
-    // Update hidden input on content change
-    this.quill.on("text-change", () => {
-      const content = this.quill.getContents();
-      const hiddenInput = this.el.querySelector('input[type="hidden"]');
-      if (hiddenInput) {
-        hiddenInput.value = JSON.stringify(content);
-        // Trigger change event for LiveView
-        hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-    });
+  syncToHiddenInput() {
+    const content = this.quill.getContents();
+    const hiddenInput = this.el.querySelector('input[type="hidden"]');
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(content);
+      // Trigger change event for LiveView
+      hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   },
 
   imageHandler() {
@@ -117,6 +143,9 @@ export const QuillEditor = {
         this.quill.deleteText(range.index, 18);
         this.quill.insertEmbed(range.index, "image", public_url);
         this.quill.setSelection(range.index + 1);
+
+        // Sync to hidden input after image upload
+        this.syncToHiddenInput();
       } catch (error) {
         console.error("Image upload failed:", error);
         alert("Failed to upload image. Please try again.");
