@@ -182,6 +182,31 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
+  # Handle tweet embeds
+  defp render_single_op(%{"insert" => %{"tweet" => tweet_data}}, _next_op) do
+    url = tweet_data["url"]
+
+    # Extract tweet ID from URL
+    tweet_id =
+      case Regex.run(~r/status\/(\d+)/, url) do
+        [_, id] -> id
+        _ -> nil
+      end
+
+    if tweet_id do
+      ~s"""
+      <div class="my-6">
+        <blockquote class="twitter-tweet" data-theme="light">
+          <a href="#{url}"></a>
+        </blockquote>
+      </div>
+      """
+    else
+      # Fallback if we can't parse the tweet ID
+      ~s(<p class="my-4"><a href="#{url}" target="_blank" class="text-blue-600 hover:underline">View Tweet</a></p>)
+    end
+  end
+
   # Catch-all for unknown ops
   defp render_single_op(_op, _next_op), do: nil
 end
