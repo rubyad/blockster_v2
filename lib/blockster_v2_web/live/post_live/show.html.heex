@@ -11,6 +11,17 @@
       
 <!-- Post Header -->
       <div class="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden border border-white/10 mb-8">
+        <!-- Featured Image -->
+        <%= if @post.featured_image do %>
+          <div class="w-full aspect-video overflow-hidden">
+            <img
+              src={@post.featured_image}
+              alt={@post.title}
+              class="w-full h-full object-cover"
+            />
+          </div>
+        <% end %>
+
         <div class="p-8">
           <!-- Category & Meta -->
           <div class="flex items-center gap-4 mb-6">
