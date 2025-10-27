@@ -45,25 +45,26 @@ defmodule BlocksterV2Web.PostLive.Show do
   def handle_event("delete", _params, socket) do
     {:ok, _} = Blog.delete_post(socket.assigns.post)
 
-    {:noreply, push_navigate(socket, to: ~p"/")}
+    {:noreply, push_navigate(socket, to: ~p"/"_)}
   end
 
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
-    ops
-    |> Enum.map(fn
-      %{"insert" => text} when is_binary(text) ->
-        text
-        |> String.replace("\n", "<br>", global: true)
-        |> Phoenix.HTML.raw()
+    html_parts =
+      ops
+      |> Enum.map(fn
+        %{"insert" => text} when is_binary(text) ->
+          text
+          |> String.replace("\n", "<br>", global: true)
 
-      %{"insert" => %{"image" => url}} ->
-        ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
-        |> Phoenix.HTML.raw()
+        %{"insert" => %{"image" => url}} ->
+          ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
 
-      _ ->
-        ""
-    end)
-    |> Enum.intersperse("")
+        _ ->
+          ""
+      end)
+      |> Enum.join("")
+
+    Phoenix.HTML.raw(html_parts)
   end
 
   defp render_quill_content(_), do: ""
