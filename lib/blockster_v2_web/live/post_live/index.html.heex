@@ -49,7 +49,7 @@
       <% else %>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for post <- @posts do %>
-            <.link navigate={~p"/posts/#{post.id}"} class="group cursor-pointer">
+            <.link navigate={~p"/posts/#{post.slug}"} class="group cursor-pointer">
               <div class="h-full bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all">
                 <!-- Post Image -->
                 <div class="aspect-video bg-gradient-to-br from-purple-600/20 to-blue-600/20 overflow-hidden">
