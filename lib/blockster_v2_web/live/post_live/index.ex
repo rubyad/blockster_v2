@@ -2,6 +2,7 @@ defmodule BlocksterV2Web.PostLive.Index do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Blog
+  alias BlocksterV2.Blog.Post
 
   @impl true
   def mount(_params, _session, socket) do
@@ -21,11 +22,13 @@ defmodule BlocksterV2Web.PostLive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Latest Posts")
+    |> assign(:post, nil)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Post")
+    |> assign(:post, %Post{})
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -41,6 +44,11 @@ defmodule BlocksterV2Web.PostLive.Index do
     post = Blog.get_post!(id)
     {:ok, _} = Blog.delete_post(post)
 
+    {:noreply, assign(socket, :posts, Blog.list_published_posts())}
+  end
+
+  @impl true
+  def handle_info({BlocksterV2Web.PostLive.FormComponent, {:saved, _post}}, socket) do
     {:noreply, assign(socket, :posts, Blog.list_published_posts())}
   end
 end
