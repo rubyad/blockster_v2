@@ -42,7 +42,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
       </div>
       
     <!-- Form wraps EVERYTHING -->
-      <.form for={@form} id="post-form" phx-target={@myself} phx-submit="save">
+      <.form for={@form} id="post-form" phx-target={@myself} phx-change="validate" phx-submit="save">
         <!-- Main Content Area -->
         <div class="container mx-auto flex gap-8 pt-32 px-6 max-w-[1400px]">
           <!-- Left Sidebar -->
