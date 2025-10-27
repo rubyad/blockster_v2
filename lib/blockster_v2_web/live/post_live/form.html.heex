@@ -1,0 +1,9 @@
+<Layouts.app flash={@flash}>
+  <.live_component
+    module={BlocksterV2Web.PostLive.FormComponent}
+    id={@post.id || :new}
+    title={@page_title}
+    action={@live_action}
+    post={@post}
+  />
+</Layouts.app>
