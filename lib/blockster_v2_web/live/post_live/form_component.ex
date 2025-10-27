@@ -34,6 +34,52 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
             />
           </div>
           
+    <!-- Featured Image Upload -->
+          <div>
+            <label class="block text-sm font-semibold text-purple-300 mb-2">
+              Featured Image
+            </label>
+            <%= if @form[:featured_image].value do %>
+              <div class="mb-3">
+                <img
+                  src={@form[:featured_image].value}
+                  alt="Featured image preview"
+                  class="w-full max-w-md h-48 object-cover rounded-lg border border-white/20"
+                />
+                <button
+                  type="button"
+                  phx-click="remove_featured_image"
+                  phx-target={@myself}
+                  class="mt-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Remove image
+                </button>
+              </div>
+            <% end %>
+            <div class="flex gap-3">
+              <input
+                type="file"
+                id="featured-image-input"
+                accept="image/*"
+                phx-hook="FeaturedImageUpload"
+                data-target={@myself}
+                class="hidden"
+              />
+              <button
+                type="button"
+                onclick="document.getElementById('featured-image-input').click()"
+                class="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg font-semibold hover:bg-purple-500/30 transition-all border border-purple-500/30"
+              >
+                <.icon name="hero-photo" class="w-5 h-5 inline mr-2" />
+                {if @form[:featured_image].value, do: "Change Image", else: "Upload Image"}
+              </button>
+              <input type="hidden" name="post[featured_image]" value={@form[:featured_image].value} />
+            </div>
+            <p class="mt-2 text-xs text-gray-400">
+              Upload a featured image for your post (max 5MB)
+            </p>
+          </div>
+          
     <!-- Author Name Input -->
           <div>
             <label class="block text-sm font-semibold text-purple-300 mb-2">
@@ -160,6 +206,24 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     post_params = parse_content(post_params)
 
     save_post(socket, socket.assigns.action, post_params)
+  end
+
+  def handle_event("remove_featured_image", _params, socket) do
+    changeset =
+      socket.assigns.post
+      |> Blog.change_post(%{featured_image: nil})
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("set_featured_image", %{"url" => url}, socket) do
+    changeset =
+      socket.assigns.post
+      |> Blog.change_post(%{featured_image: url})
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp save_post(socket, :edit, post_params) do
