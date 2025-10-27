@@ -113,7 +113,8 @@ export const FeaturedImageUpload = {
           `;
 
           // Insert before the file input
-          uploadSection.insertBefore(previewDiv, this.el.parentElement);
+          // Insert at the beginning of the upload section
+          uploadSection.insertBefore(previewDiv, uploadSection.firstChild);
 
           // Add remove handler
           previewDiv
