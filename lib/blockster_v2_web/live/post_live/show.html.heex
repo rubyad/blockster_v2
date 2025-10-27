@@ -1,6 +1,199 @@
 <Layouts.app flash={@flash}>
   <div class="article-page bg-[#F7F8FA] min-h-screen">
-    <!-- Full Height Hero Section -->
+    <!-- Main Header Banner -->
+    <div class="main-header-banner pt-24 lg:pt-0 pb-5 lg:mt-0 px-6 lg:pl-11 lg:pr-7 absolute w-full">
+      <header class="pt-6 lg:flex items-center justify-between gap-4 hidden">
+        <div class="left-header-inner flex items-center gap-9 w-full">
+          <div>
+            <a href="/" class="bg-white py-6 px-5 rounded-[85px] block">
+              <img src="/images/Logo.png" alt="Logo" />
+            </a>
+          </div>
+          <div class="flex gap-2 bg-white p-2 rounded-[85px] justify-between w-full">
+            <div class="flex gap-2 items-center">
+              <div class="right-section-left">
+                <div class="input-wrapper relative max-w-[247px] w-[100%]">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                    >
+                      <path
+                        d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
+                        stroke="#101C36"
+                        stroke-opacity="0.5"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    class="text-left text-grey-30 h-12 px-5 pl-[29px] bg-bg-input text-sm font-[400] font-haas_roman_55 w-full"
+                  />
+                </div>
+              </div>
+              <div class="inner-section-right">
+                <ul class="flex gap-2 items-center">
+                  <li class="relative child-list">
+                    <a
+                      href=""
+                      class="px-4 pr-[9px] py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid flex items-center"
+                    >
+                      <span class="flex items-center">News</span>
+                      <span class="flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M8 10L12 14L16 10"
+                            stroke="#101D36"
+                            stroke-width="1.5"
+                            stroke-linecap="square"
+                          />
+                        </svg>
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href=""
+                      class="px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]"
+                    >
+                      Blockchain
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href=""
+                      class="px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]"
+                    >
+                      Shop
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href=""
+                      class="xl:px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]"
+                    >
+                      Events
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href=""
+                      class="xl:px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid"
+                    >
+                      Play
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="right-outer flex items-center gap-2 w-1/4 justify-end">
+              <div class="flex items-center gap-2 rounded-[100px] bg-bg-light py-2 pl-2 pr-4 fixed-client shadow-sm cursor-pointer !rotate-0 transform">
+                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
+                  <img
+                    src="/images/avatar.png"
+                    alt="User"
+                    class="h-full w-full min-w-auto object-cover"
+                  />
+                </div>
+                <div class="!rotate-0">
+                  <div class="flex flex-col justify-center gap-0.5 min-w-0">
+                    <div class="flex items-center gap-0.5 flex-wrap">
+                      <span class="flex h-4 items-center justify-center rounded-[4px] bg-green_gradient text-black w-[20px] text-xs font-work_sans font-bold leading-none">
+                        1
+                      </span>
+                      <h4 class="text-sm font-inter leading-none font-semibold text-[#000000] truncate">
+                        Freddie Ljun
+                      </h4>
+                    </div>
+                    <span class="relative h-1.5 w-full rounded-full bg-white border-[#0000001F] border-[0.5px] overflow-hidden relative flex">
+                      <span
+                        class="h-1 bg-[#223436] rounded-full absolute top-0 left-0"
+                        style="width: 56%"
+                      >
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+<!-- Mobile Header -->
+      <div class="mobile-header border border-[#E7E8F1] p-3 z-50 items-center justify-between bg-white rounded-[16px] fixed top-3 w-[calc(100%-24px)] left-3 lg:hidden">
+        <div class="no-search-wrapper flex justify-between items-center">
+          <div>
+            <a href="/">
+              <img src="/images/Logo.png" alt="Logo" />
+            </a>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button class="search-trigger top-[-30px] right-0 w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md block">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="13"
+                height="13"
+                viewBox="0 0 20 19"
+                fill="none"
+              >
+                <path
+                  d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
+                  stroke="#101D36"
+                  stroke-opacity="0.5"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-1 shadow-sm">
+              <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF] relative">
+                <img
+                  src="/images/avatar.png"
+                  alt="User"
+                  class="h-full w-full min-w-auto object-cover"
+                />
+                <div class="absolute flex h-3 items-center justify-center rounded-[4px] bg-green_gradient p-2 text-black w-3 text-xs font-work_sans font-bold leading-none -right-2 -top-1">
+                  1
+                </div>
+              </div>
+              <span class="flex items-center transition-all ease-linear dution-500">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M8 10L12 14L16 10"
+                    stroke="#101D36"
+                    stroke-width="1.5"
+                    stroke-linecap="square"
+                  />
+                </svg>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+<!-- Full Height Hero Section -->
     <section class="full-height-section md:h-screen flex md:flex-row flex-col bg-[#F7F8FA] max-md:items-center max-md:px-0">
       <!-- Left Section: Content -->
       <div class="left-section md:w-1/2 w-full md:pt-[124px] pt-20 max-md:px-0 px-6 flex items-center flex-col justify-center">
