@@ -24,9 +24,11 @@ defmodule BlocksterV2Web.Router do
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", BlocksterV2Web do
-  #   pipe_through :api
-  # end
+  scope "/api", BlocksterV2Web do
+    pipe_through :api
+
+    post "/s3/presigned-url", S3Controller, :presigned_url
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:blockster_v2, :dev_routes) do
