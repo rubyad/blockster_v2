@@ -63,17 +63,54 @@ export const FeaturedImageUpload = {
           throw new Error("Failed to upload image");
         }
 
-        // Get the target component ID from data attribute
-        const targetId = this.el.dataset.target;
+        // Update the hidden input directly (no LiveView event!)
+        const hiddenInput = document.querySelector(
+          'input[name="post[featured_image]"]',
+        );
+        if (hiddenInput) {
+          hiddenInput.value = public_url;
+        }
 
-        // Push the public URL to the LiveView component
-        this.pushEventTo(targetId, "set_featured_image", { url: public_url });
+        // Show preview image by creating/updating the preview div
+        const uploadSection = this.el.closest("div").parentElement;
+        let previewDiv = uploadSection.querySelector(".image-preview");
+
+        if (!previewDiv) {
+          // Create preview div if it doesn't exist
+          previewDiv = document.createElement("div");
+          previewDiv.className = "image-preview mb-3";
+          previewDiv.innerHTML = `
+            <img src="${public_url}" alt="Featured image preview" class="w-full max-w-md h-48 object-cover rounded-lg border border-white/20" />
+            <button type="button" class="remove-image mt-2 text-sm text-red-400 hover:text-red-300 transition-colors">
+              Remove image
+            </button>
+          `;
+
+          // Insert before the upload button section
+          const uploadButtonDiv = uploadSection.querySelector(".flex.gap-3");
+          uploadSection.insertBefore(previewDiv, uploadButtonDiv);
+
+          // Add remove handler
+          previewDiv
+            .querySelector(".remove-image")
+            .addEventListener("click", () => {
+              hiddenInput.value = "";
+              previewDiv.remove();
+              if (uploadButton) {
+                uploadButton.innerHTML =
+                  '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Upload Image';
+              }
+            });
+        } else {
+          // Update existing preview
+          previewDiv.querySelector("img").src = public_url;
+        }
 
         // Reset button state
         if (uploadButton) {
           uploadButton.disabled = false;
           uploadButton.innerHTML =
-            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Change Image';
+            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Change Image';
         }
 
         // Clear the file input
@@ -89,7 +126,7 @@ export const FeaturedImageUpload = {
         if (uploadButton) {
           uploadButton.disabled = false;
           uploadButton.innerHTML =
-            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Upload Image';
+            '<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>Upload Image';
         }
 
         // Clear the file input
