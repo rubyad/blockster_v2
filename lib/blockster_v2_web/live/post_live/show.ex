@@ -68,7 +68,9 @@ defmodule BlocksterV2Web.PostLive.Show do
                 clean_text = String.trim(text)
 
                 header_html =
-                  ~s(<h#{level} class="text-[#{if level == 1, do: "3xl", else: "2xl"}] font-bold my-6 text-[#141414]">#{Phoenix.HTML.html_escape(clean_text)}</h#{level}>)
+                  header_tag = "h#{level}"
+                  header_class = "text-[#{if level == 1, do: \"3xl\", else: \"2xl\"}] font-bold my-6 text-[#141414]"
+                  ~s(<#{header_tag} class="#{header_class}">#{clean_text}</#{header_tag}>)
 
                 [header_html | acc]
 
@@ -101,7 +103,8 @@ defmodule BlocksterV2Web.PostLive.Show do
               acc
             else
               # Build formatted content
-              content = Phoenix.HTML.html_escape(text)
+              # Build formatted content - keep as string
+              content = to_string(text)
 
               # Apply formatting in order: bold, italic, underline, strike
               content =
@@ -140,7 +143,7 @@ defmodule BlocksterV2Web.PostLive.Show do
           # Handle images
           %{"insert" => %{"image" => url}} ->
             img_html =
-              ~s(<img src="#{Phoenix.HTML.html_escape(url)}" class="max-w-full h-auto rounded-lg my-4" />)
+              ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
 
             [img_html | acc]
 
