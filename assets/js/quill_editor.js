@@ -29,6 +29,9 @@ export const QuillEditor = {
       placeholder: "Write your post content here...",
     });
 
+    // Track if we've loaded initial content
+    this.contentLoaded = false;
+
     // Load initial content if provided
     this.loadContent();
 
@@ -39,44 +42,17 @@ export const QuillEditor = {
   },
 
   updated() {
-    // Prevent reloading content unless it truly changed from the server
-    // This avoids clearing the editor when user makes formatting changes
-    const newContent = this.el.dataset.content;
+    // CRITICAL: Don't reload editor during normal edits!
+    // Only reload on initial mount or when explicitly switching posts
+    // This prevents the editor from clearing when user applies formatting
 
-    // Skip update if no new content from server
-    if (!newContent || newContent === "{}") {
+    // If we've already loaded content, don't reload unless explicitly needed
+    if (this.contentLoaded) {
       return;
     }
 
-    // Get current editor content
-    const currentContent = this.quill.getContents();
-
-    // Only reload if the content structure actually changed
-    // Don't reload on every LiveView update - only when server sends new content
-    try {
-      const serverContent = JSON.parse(newContent);
-
-      // Deep comparison of ops arrays
-      const currentOps = JSON.stringify(currentContent.ops);
-      const serverOps = JSON.stringify(serverContent.ops);
-
-      // Only reload if content is truly different
-      if (
-        currentOps !== serverOps &&
-        serverContent.ops &&
-        serverContent.ops.length > 0
-      ) {
-        const currentSelection = this.quill.getSelection();
-        this.quill.setContents(serverContent);
-
-        // Restore cursor position if it existed
-        if (currentSelection) {
-          this.quill.setSelection(currentSelection);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to compare content:", e);
-    }
+    // Only load content on first update if not yet loaded
+    this.loadContent();
   },
 
   loadContent() {
@@ -85,6 +61,7 @@ export const QuillEditor = {
       try {
         const content = JSON.parse(initialContent);
         this.quill.setContents(content);
+        this.contentLoaded = true;
       } catch (e) {
         console.error("Failed to parse initial content:", e);
       }
