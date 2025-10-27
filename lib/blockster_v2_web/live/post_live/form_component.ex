@@ -331,9 +331,52 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   @impl true
+  def handle_event("validate", %{"post" => post_params}, socket) do
+    post_params = parse_content(post_params)
+
+    # Auto-generate slug from title if title exists and slug is empty
+    post_params =
+      if post_params["title"] && post_params["title"] != "" &&
+           (not post_params["slug"] || post_params["slug"] == "") do
+        slug =
+          post_params["title"]
+          |> String.downcase()
+          |> String.replace(~r/[^a-z0-9\s-]/, "")
+          |> String.replace(~r/\s+/, "-")
+          |> String.trim("-")
+
+        Map.put(post_params, "slug", slug)
+      else
+        post_params
+      end
+
+    changeset =
+      socket.assigns.post
+      |> Blog.change_post(post_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
+  end
+
   def handle_event("save", %{"post" => post_params}, socket) do
     # Parse content if it's a JSON string
     post_params = parse_content(post_params)
+
+    # Auto-generate slug from title if title exists and slug is empty
+    post_params =
+      if post_params["title"] && post_params["title"] != "" &&
+           (not post_params["slug"] || post_params["slug"] == "") do
+        slug =
+          post_params["title"]
+          |> String.downcase()
+          |> String.replace(~r/[^a-z0-9\s-]/, "")
+          |> String.replace(~r/\s+/, "-")
+          |> String.trim("-")
+
+        Map.put(post_params, "slug", slug)
+      else
+        post_params
+      end
 
     save_post(socket, socket.assigns.action, post_params)
   end
