@@ -22,6 +22,26 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
+  @impl true
+  def handle_event("publish", _params, socket) do
+    {:ok, post} = Blog.publish_post(socket.assigns.post)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Post published successfully")
+     |> assign(:post, post)}
+  end
+
+  @impl true
+  def handle_event("unpublish", _params, socket) do
+    {:ok, post} = Blog.unpublish_post(socket.assigns.post)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Post unpublished successfully")
+     |> assign(:post, post)}
+  end
+
   def handle_event("delete", _params, socket) do
     defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
       ops
