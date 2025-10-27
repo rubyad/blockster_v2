@@ -54,17 +54,38 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> Enum.with_index()
       |> Enum.reduce([], fn {op, index}, acc ->
         prev_op = if index > 0, do: Enum.at(ops, index - 1), else: nil
+        next_op = Enum.at(ops, index + 1)
 
         case op do
           # Handle newline with header attribute - look BACK at previous text
           %{"insert" => "\n", "attributes" => %{"header" => level}} ->
             case prev_op do
               %{"insert" => text} when is_binary(text) ->
-                # Split by newlines and take only the last line (the actual header text)
+                # Split by newlines - lines before last are paragraphs, last line is header
                 lines = String.split(text, "\n")
+
+                # Get all lines except the last (these are paragraphs)
+                paragraph_lines = Enum.drop(lines, -1)
+
+                # Get the last line (this is the header)
                 header_text = List.last(lines) |> String.trim()
 
-                # Create header with proper sizing
+                # Render paragraphs first
+                paragraphs =
+                  paragraph_lines
+                  |> Enum.reject(&(&1 == ""))
+                  |> Enum.map(fn para ->
+                    trimmed = String.trim(para)
+
+                    if trimmed != "" do
+                      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
+                    else
+                      ""
+                    end
+                  end)
+                  |> Enum.reject(&(&1 == ""))
+
+                # Render header
                 {size_class, font_size} =
                   case level do
                     1 -> {"text-4xl", "48px"}
@@ -75,7 +96,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                 header_html =
                   ~s(<h#{level} class="#{size_class} font-bold my-6 text-[#141414]" style="font-size: #{font_size};">#{header_text}</h#{level}>)
 
-                [header_html | acc]
+                # Add paragraphs first, then header
+                (paragraphs ++ [header_html]) ++ acc
 
               _ ->
                 acc
@@ -83,8 +105,6 @@ defmodule BlocksterV2Web.PostLive.Show do
 
           # Handle regular text ONLY if next op is NOT a header newline
           %{"insert" => text} when is_binary(text) ->
-            next_op = Enum.at(ops, index + 1)
-
             case next_op do
               # Skip if next is header newline - we'll handle it above
               %{"insert" => "\n", "attributes" => %{"header" => _}} ->
