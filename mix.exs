@@ -62,8 +62,8 @@ defmodule BlocksterV2.MixProject do
       {:ex_aws, "~> 2.5"},
       {:ex_aws_s3, "~> 2.5"},
       {:hackney, "~> 1.20"},
-      {:sweet_xml, "~> 0.7"}, # Added missing comma here
-      {:dotenv, "~> 3.1.0", only: [:dev, :test]} # Removed trailing comma as it's the last item
+      {:sweet_xml, "~> 0.7"},
+      {:dotenv, "~> 3.1.0", only: [:dev, :test]}
     ]
   end
 
