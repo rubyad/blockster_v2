@@ -69,18 +69,17 @@ export const QuillEditor = {
 
   updated() {
     console.log("=== QuillEditor Hook Updated ===");
-    // CRITICAL: Don't reload editor during normal edits!
-    // Only reload on initial mount or when explicitly switching posts
-    // This prevents the editor from clearing when user applies formatting
-
-    // If we've already loaded content, don't reload unless explicitly needed
-    if (this.contentLoaded) {
-      console.log("Content already loaded, skipping update");
-      return;
-    }
+    // CRITICAL FIX: Don't reload editor content on updates!
+    // The editor maintains its own state and shouldn't be cleared
+    // when LiveView re-renders (e.g., during validation errors)
 
     // Only load content on first update if not yet loaded
-    this.loadContent();
+    if (!this.contentLoaded) {
+      console.log("First update - loading initial content");
+      this.loadContent();
+    } else {
+      console.log("Skipping content reload - editor already has content");
+    }
   },
 
   loadContent() {
@@ -98,6 +97,10 @@ export const QuillEditor = {
       } catch (e) {
         console.error("Failed to parse initial content:", e);
       }
+    } else {
+      // Mark as loaded even if empty so we don't reload on updates
+      this.contentLoaded = true;
+      console.log("No initial content to load");
     }
   },
 
