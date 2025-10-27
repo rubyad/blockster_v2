@@ -358,7 +358,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Post updated successfully")
-         |> push_navigate(to: ~p"/posts/#{post}")}
+         |> push_navigate(to: ~p"/posts/#{post.id}")}	1
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -373,7 +373,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Post created successfully")
-         |> push_navigate(to: ~p"/posts/#{post}")}
+         |> push_navigate(to: ~p"/posts/#{post.id}")}	1
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
