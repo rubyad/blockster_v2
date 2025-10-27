@@ -337,7 +337,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     # Auto-generate slug from title if title exists and slug is empty
     post_params =
       if post_params["title"] && post_params["title"] != "" &&
-           (not post_params["slug"] || post_params["slug"] == "") do
+           (is_nil(post_params["slug"]) or post_params["slug"] == "") do
         slug =
           post_params["title"]
           |> String.downcase()
@@ -365,7 +365,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     # Auto-generate slug from title if title exists and slug is empty
     post_params =
       if post_params["title"] && post_params["title"] != "" &&
-           (not post_params["slug"] || post_params["slug"] == "") do
+           (is_nil(post_params["slug"]) or post_params["slug"] == "") do
         slug =
           post_params["title"]
           |> String.downcase()
