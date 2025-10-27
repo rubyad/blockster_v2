@@ -129,3 +129,38 @@
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   font-weight: 400;
 }
+
+/* Quill Editor Styles for Dark Theme Compatibility */
+.ql-toolbar.ql-snow {
+  border: 1px solid #ccc;
+  background: white;
+}
+.ql-toolbar .ql-stroke {
+  stroke: #444 !important;
+}
+.ql-toolbar .ql-fill {
+  fill: #444 !important;
+}
+.ql-toolbar button:hover .ql-stroke {
+  stroke: #06c !important;
+}
+.ql-toolbar button:hover .ql-fill {
+  fill: #06c !important;
+}
+.ql-toolbar button.ql-active .ql-stroke {
+  stroke: #06c !important;
+}
+.ql-toolbar button.ql-active .ql-fill {
+  fill: #06c !important;
+}
+.ql-editor {
+  min-height: 400px;
+  color: #000 !important;
+  background: white;
+}
+.ql-editor.ql-blank::before {
+  color: #999 !important;
+}
+.ql-container.ql-snow {
+  border: 1px solid #ccc;
+}
