@@ -16,7 +16,6 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
           for={@form}
           id="post-form"
           phx-target={@myself}
-          phx-change="validate"
           phx-submit="save"
           class="space-y-6"
         >
@@ -50,6 +49,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                   type="button"
                   phx-click="remove_featured_image"
                   phx-target={@myself}
+                  phx-submit="save"
                   class="mt-2 text-sm text-red-400 hover:text-red-300 transition-colors"
                 >
                   Remove image
