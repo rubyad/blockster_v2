@@ -21,8 +21,8 @@ defmodule BlocksterV2Web.PostLive.Form do
     |> assign_form(Blog.change_post(%Post{}))
   end
 
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    post = Blog.get_post!(id)
+  defp apply_action(socket, :edit, %{"slug" => slug}) do
+    post = Blog.get_post_by_slug!(slug)
 
     socket
     |> assign(:page_title, "Edit Post - #{post.title}")
@@ -53,7 +53,7 @@ defmodule BlocksterV2Web.PostLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Post updated successfully")
-         |> push_navigate(to: ~p"/posts/#{post}")}
+         |> push_navigate(to: ~p"/posts/#{post.slug}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -66,7 +66,7 @@ defmodule BlocksterV2Web.PostLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Post created successfully")
-         |> push_navigate(to: ~p"/posts/#{post}")}
+         |> push_navigate(to: ~p"/posts/#{post.slug}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
