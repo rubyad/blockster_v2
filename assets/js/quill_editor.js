@@ -1,6 +1,14 @@
 // Quill Editor Hook with S3 Image Upload
 export const QuillEditor = {
   mounted() {
+    console.log("=== QuillEditor Hook Mounted ===");
+    console.log("1. Hook element:", this.el);
+    console.log("2. Quill available:", typeof Quill);
+    console.log(
+      "3. Editor container:",
+      this.el.querySelector(".editor-container"),
+    );
+
     const toolbarOptions = [
       ["bold", "italic", "underline", "strike"],
       ["blockquote", "code-block"],
@@ -16,18 +24,33 @@ export const QuillEditor = {
       ["clean"],
     ];
 
-    this.quill = new Quill(this.el.querySelector(".editor-container"), {
-      theme: "snow",
-      modules: {
-        toolbar: {
-          container: toolbarOptions,
-          handlers: {
-            image: () => this.imageHandler(),
+    console.log("4. Toolbar options:", toolbarOptions);
+
+    const editorContainer = this.el.querySelector(".editor-container");
+    if (!editorContainer) {
+      console.error("ERROR: .editor-container not found!");
+      return;
+    }
+
+    try {
+      console.log("5. Creating Quill instance...");
+      this.quill = new Quill(editorContainer, {
+        theme: "snow",
+        modules: {
+          toolbar: {
+            container: toolbarOptions,
+            handlers: {
+              image: () => this.imageHandler(),
+            },
           },
         },
-      },
-      placeholder: "Write your post content here...",
-    });
+        placeholder: "Write your post content here...",
+      });
+      console.log("6. Quill instance created:", this.quill);
+    } catch (error) {
+      console.error("ERROR creating Quill:", error);
+      return;
+    }
 
     // Track if we've loaded initial content
     this.contentLoaded = false;
@@ -37,17 +60,22 @@ export const QuillEditor = {
 
     // Update hidden input on content change
     this.quill.on("text-change", () => {
+      console.log("Text changed, syncing...");
       this.syncToHiddenInput();
     });
+
+    console.log("=== QuillEditor Hook Mount Complete ===");
   },
 
   updated() {
+    console.log("=== QuillEditor Hook Updated ===");
     // CRITICAL: Don't reload editor during normal edits!
     // Only reload on initial mount or when explicitly switching posts
     // This prevents the editor from clearing when user applies formatting
 
     // If we've already loaded content, don't reload unless explicitly needed
     if (this.contentLoaded) {
+      console.log("Content already loaded, skipping update");
       return;
     }
 
@@ -56,12 +84,17 @@ export const QuillEditor = {
   },
 
   loadContent() {
+    console.log("=== Loading Content ===");
     const initialContent = this.el.dataset.content;
+    console.log("Initial content:", initialContent);
+
     if (initialContent && initialContent !== "{}") {
       try {
         const content = JSON.parse(initialContent);
+        console.log("Parsed content:", content);
         this.quill.setContents(content);
         this.contentLoaded = true;
+        console.log("Content loaded successfully");
       } catch (e) {
         console.error("Failed to parse initial content:", e);
       }
@@ -75,10 +108,14 @@ export const QuillEditor = {
       hiddenInput.value = JSON.stringify(content);
       // Trigger change event for LiveView
       hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+      console.log("Synced to hidden input");
+    } else {
+      console.error("ERROR: Hidden input not found!");
     }
   },
 
   imageHandler() {
+    console.log("=== Image Handler Called ===");
     const input = document.createElement("input");
     input.setAttribute("type", "file");
     input.setAttribute("accept", "image/*");
@@ -87,6 +124,8 @@ export const QuillEditor = {
     input.onchange = async () => {
       const file = input.files[0];
       if (!file) return;
+
+      console.log("Selected file:", file.name, file.size);
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
@@ -105,6 +144,8 @@ export const QuillEditor = {
         const range = this.quill.getSelection(true);
         this.quill.insertText(range.index, "Uploading image...");
         this.quill.setSelection(range.index + 18);
+
+        console.log("Requesting presigned URL...");
 
         // Request presigned URL from server
         const response = await fetch("/api/s3/presigned-url", {
@@ -125,6 +166,7 @@ export const QuillEditor = {
         }
 
         const { upload_url, public_url } = await response.json();
+        console.log("Got presigned URL, uploading to S3...");
 
         // Upload to S3
         const uploadResponse = await fetch(upload_url, {
@@ -139,6 +181,8 @@ export const QuillEditor = {
           throw new Error("Failed to upload image");
         }
 
+        console.log("Upload successful, inserting image...");
+
         // Remove loading text and insert image
         this.quill.deleteText(range.index, 18);
         this.quill.insertEmbed(range.index, "image", public_url);
@@ -146,6 +190,8 @@ export const QuillEditor = {
 
         // Sync to hidden input after image upload
         this.syncToHiddenInput();
+
+        console.log("Image inserted successfully");
       } catch (error) {
         console.error("Image upload failed:", error);
         alert("Failed to upload image. Please try again.");
@@ -159,6 +205,7 @@ export const QuillEditor = {
   },
 
   destroyed() {
+    console.log("=== QuillEditor Hook Destroyed ===");
     if (this.quill) {
       this.quill = null;
     }
