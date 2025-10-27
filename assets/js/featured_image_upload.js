@@ -21,9 +21,7 @@ export const FeaturedImageUpload = {
 
       try {
         // Show loading state
-        const uploadButton = document.querySelector(
-          'button[onclick*="featured-image-input"]',
-        );
+        const uploadButton = document.querySelector('button[type="button"]');
         if (uploadButton) {
           uploadButton.disabled = true;
           uploadButton.innerHTML =
@@ -120,9 +118,7 @@ export const FeaturedImageUpload = {
         alert("Failed to upload image. Please try again.");
 
         // Reset button state on error
-        const uploadButton = document.querySelector(
-          'button[onclick*="featured-image-input"]',
-        );
+        const uploadButton = document.querySelector('button[type="button"]');
         if (uploadButton) {
           uploadButton.disabled = false;
           uploadButton.innerHTML =
