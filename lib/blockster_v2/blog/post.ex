@@ -60,7 +60,7 @@ defmodule BlocksterV2.Blog.Post do
 
   def publish(post) do
     post
-    |> change(published_at: DateTime.utc_now())
+    |> change(published_at: DateTime.utc_now() |> DateTime.truncate(:second))
   end
 
   def unpublish(post) do
