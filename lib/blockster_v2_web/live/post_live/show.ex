@@ -52,10 +52,60 @@ defmodule BlocksterV2Web.PostLive.Show do
     html_parts =
       ops
       |> Enum.map(fn
+        # Handle text with attributes (bold, italic, header, etc.)
+        %{"insert" => text, "attributes" => attrs} when is_binary(text) and is_map(attrs) ->
+          # Build HTML tags based on attributes
+          content = text |> String.replace("\n", "<br>", global: true)
+
+          # Wrap in header tag if header attribute exists
+          content =
+            if attrs["header"] do
+              level = attrs["header"]
+              ~s(<h#{level} class="font-bold my-4">#{content}</h#{level}>)
+            else
+              content
+            end
+
+          # Apply bold
+          content =
+            if attrs["bold"] do
+              ~s(<strong>#{content}</strong>)
+            else
+              content
+            end
+
+          # Apply italic
+          content =
+            if attrs["italic"] do
+              ~s(<em>#{content}</em>)
+            else
+              content
+            end
+
+          # Apply underline
+          content =
+            if attrs["underline"] do
+              ~s(<u>#{content}</u>)
+            else
+              content
+            end
+
+          # Apply strike
+          content =
+            if attrs["strike"] do
+              ~s(<s>#{content}</s>)
+            else
+              content
+            end
+
+          content
+
+        # Handle plain text without attributes
         %{"insert" => text} when is_binary(text) ->
           text
           |> String.replace("\n", "<br>", global: true)
 
+        # Handle images
         %{"insert" => %{"image" => url}} ->
           ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
 
