@@ -18,9 +18,9 @@ defmodule BlocksterV2Web.Router do
     pipe_through :browser
 
     live "/", PostLive.Index, :index
-    live "/posts/new", PostLive.Form, :new
-    live "/posts/:slug/edit", PostLive.Form, :edit
-    live "/posts/:slug", PostLive.Show, :show
+    live "/new", PostLive.Form, :new
+    live "/:slug/edit", PostLive.Form, :edit
+    live "/:slug", PostLive.Show, :show
   end
 
   # Other scopes may use custom stacks.
