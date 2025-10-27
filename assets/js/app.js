@@ -24,6 +24,7 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import { hooks as colocatedHooks } from "phoenix-colocated/blockster_v2";
 import { QuillEditor } from "./quill_editor.js";
+import { FeaturedImageUpload } from "./featured_image_upload.js";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document
@@ -32,7 +33,7 @@ const csrfToken = document
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, QuillEditor },
+  hooks: { ...colocatedHooks, QuillEditor, FeaturedImageUpload },
 });
 
 // Show progress bar on live navigation and form submits
