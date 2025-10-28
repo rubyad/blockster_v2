@@ -20,8 +20,8 @@ content_with_tweet = %{
     %{
       "insert" => %{
         "tweet" => %{
-          "url" => "https://twitter.com/VitalikButerin/status/1735056849162223744",
-          "id" => "1735056849162223744"
+          "url" => "https://twitter.com/jack/status/20",
+          "id" => "20"
         }
       }
     },
