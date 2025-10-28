@@ -182,37 +182,37 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
-  # Handle tweet embeds with proper Twitter widget structure
+  # Handle tweet embeds with Twitter's official embed structure
   defp render_single_op(%{"insert" => %{"tweet" => tweet_data}}, _next_op) do
     url = tweet_data["url"]
 
-    # Extract tweet ID from URL
-    tweet_id =
-      case Regex.run(~r/status\/(\d+)/, url) do
-        [_, id] -> id
-        _ -> nil
-      end
-
-    if tweet_id do
-      # Twitter widget requires this EXACT structure to work:
-      # 1. A paragraph with actual content (not just "Loading tweet...")
-      # 2. A link with the tweet URL
-      # The widget script looks for this specific pattern
-      ~s"""
-      <div class="my-6">
-        <blockquote class="twitter-tweet" data-lang="en" data-theme="light">
+    # Extract username and tweet ID from URL
+    case Regex.run(~r/(?:twitter\.com|x\.com)\/([\w]+)\/status\/(\d+)/, url) do
+      [_, username, tweet_id] ->
+        # Use Twitter's official embed structure with proper fallback content
+        # This is the exact structure Twitter's widget script expects
+        ~s"""
+        <blockquote class="twitter-tweet" data-dnt="true" data-theme="light">
           <p lang="en" dir="ltr">
-            <a href="#{url}">#{url}</a>
+            Check out this tweet from @#{username}
           </p>
+          &mdash; #{username} (@#{username})
+          <a href="#{url}">#{format_date()}</a>
         </blockquote>
-      </div>
-      """
-    else
-      # Fallback if we can't parse the tweet ID
-      ~s(<p class="my-4"><a href="#{url}" target="_blank" class="text-blue-600 hover:underline">View Tweet</a></p>)
+        """
+
+      _ ->
+        # Fallback if we can't parse the URL
+        ~s(<p class="my-4"><a href="#{url}" target="_blank" class="text-blue-600 hover:underline">View Tweet</a></p>)
     end
   end
 
   # Catch-all for unknown ops
   defp render_single_op(_op, _next_op), do: nil
+
+  # Helper to format current date for tweet fallback
+  defp format_date do
+    DateTime.utc_now()
+    |> Calendar.strftime("%B %d, %Y")
+  end
 end
