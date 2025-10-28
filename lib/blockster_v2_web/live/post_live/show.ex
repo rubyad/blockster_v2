@@ -182,37 +182,50 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
-  # Handle tweet embeds with Twitter's official embed structure
+  # Handle tweet embeds using Twitter's oEmbed API
   defp render_single_op(%{"insert" => %{"tweet" => tweet_data}}, _next_op) do
     url = tweet_data["url"]
 
-    # Extract username and tweet ID from URL
-    case Regex.run(~r/(?:twitter\.com|x\.com)\/([\w]+)\/status\/(\d+)/, url) do
-      [_, username, tweet_id] ->
-        # Use Twitter's official embed structure with proper fallback content
-        # This is the exact structure Twitter's widget script expects
-        ~s"""
-        <blockquote class="twitter-tweet" data-dnt="true" data-theme="light">
-          <p lang="en" dir="ltr">
-            Check out this tweet from @#{username}
-          </p>
-          &mdash; #{username} (@#{username})
-          <a href="#{url}">#{format_date()}</a>
-        </blockquote>
-        """
+    # Fetch tweet HTML from Twitter's oEmbed API
+    case fetch_tweet_embed(url) do
+      {:ok, html} ->
+        # Wrap in container for styling
+        ~s(<div class="my-6">#{html}</div>)
 
-      _ ->
-        # Fallback if we can't parse the URL
-        ~s(<p class="my-4"><a href="#{url}" target="_blank" class="text-blue-600 hover:underline">View Tweet</a></p>)
+      {:error, _reason} ->
+        # Fallback to simple link if oEmbed fails
+        ~s(<p class="my-4"><a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">View Tweet on Twitter</a></p>)
     end
   end
 
   # Catch-all for unknown ops
   defp render_single_op(_op, _next_op), do: nil
 
-  # Helper to format current date for tweet fallback
-  defp format_date do
-    DateTime.utc_now()
-    |> Calendar.strftime("%B %d, %Y")
+  # Fetch tweet embed HTML from Twitter's oEmbed API
+  defp fetch_tweet_embed(url) do
+    # Twitter's oEmbed endpoint
+    oembed_url =
+      "https://publish.twitter.com/oembed?url=#{URI.encode_www_form(url)}&theme=light&dnt=true"
+
+    case Req.get(oembed_url) do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        # Extract HTML from oEmbed response
+        case Map.get(body, "html") do
+          html when is_binary(html) ->
+            {:ok, html}
+
+          _ ->
+            {:error, :invalid_response}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  rescue
+    error ->
+      {:error, error}
   end
 end
