@@ -45,7 +45,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   def handle_event("delete", _params, socket) do
     {:ok, _} = Blog.delete_post(socket.assigns.post)
 
-    {:noreply, push_navigate(socket, to: ~p"/")}
+    {:noreply, push_navigate(socket, to: ~p"/"_)}
   end
 
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
@@ -57,7 +57,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         render_single_op(op, next_op)
       end)
       |> List.flatten()
-      |> Enum.reject(&(&1 == "" || &1 == nil))
+      |> Enum.reject(&(&1 == "" || &(&1 == nil)))
       |> Enum.join("")
 
     Phoenix.HTML.raw(html_parts)
@@ -197,7 +197,8 @@ defmodule BlocksterV2Web.PostLive.Show do
       ~s"""
       <div class="my-6">
         <blockquote class="twitter-tweet" data-theme="light">
-          <a href="#{url}"></a>
+          <p lang="en" dir="ltr">Loading tweet...</p>
+          <a href="#{url}">View on Twitter</a>
         </blockquote>
       </div>
       """
