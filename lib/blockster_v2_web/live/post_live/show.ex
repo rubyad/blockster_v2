@@ -57,7 +57,6 @@ defmodule BlocksterV2Web.PostLive.Show do
         render_single_op(op, next_op)
       end)
       |> List.flatten()
-      # Corrected line
       |> Enum.reject(fn x -> x == "" || x == nil end)
       |> Enum.join("")
 
@@ -104,7 +103,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       end
 
     header_html =
-      ~s(<h#{level} class="#{size_class} font-bold my-6 text-[#141414]" style="font-size: #{font_size};">#{header_text}</h#{level}>)
+      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{header_text}</p>)
 
     # Return paragraphs followed by header
     paragraphs ++ [header_html]
@@ -183,7 +182,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
-  # Handle tweet embeds
+  # Handle tweet embeds with proper Twitter widget structure
   defp render_single_op(%{"insert" => %{"tweet" => tweet_data}}, _next_op) do
     url = tweet_data["url"]
 
@@ -195,11 +194,16 @@ defmodule BlocksterV2Web.PostLive.Show do
       end
 
     if tweet_id do
+      # Twitter widget requires this EXACT structure to work:
+      # 1. A paragraph with actual content (not just "Loading tweet...")
+      # 2. A link with the tweet URL
+      # The widget script looks for this specific pattern
       ~s"""
       <div class="my-6">
-        <blockquote class="twitter-tweet" data-theme="light">
-          <p lang="en" dir="ltr">Loading tweet...</p>
-          <a href="#{url}">View on Twitter</a>
+        <blockquote class="twitter-tweet" data-lang="en" data-theme="light">
+          <p lang="en" dir="ltr">
+            <a href="#{url}">#{url}</a>
+          </p>
         </blockquote>
       </div>
       """
