@@ -578,3 +578,26 @@
     </div>
   </div>
 </Layouts.app>
+
+<!-- Twitter Widget Loader Script -->
+<script>
+  // Wait for Twitter widgets library to load, then process tweet embeds
+  (function() {
+    function loadTwitterWidgets() {
+      if (typeof twttr !== "undefined" && twttr.widgets) {
+        console.log("Loading Twitter widgets...");
+        twttr.widgets.load();
+      } else {
+        console.log("Twitter widgets not ready, retrying...");
+        setTimeout(loadTwitterWidgets, 100);
+      }
+    }
+    
+    // Start trying to load widgets after page loads
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadTwitterWidgets);
+    } else {
+      loadTwitterWidgets();
+    }
+  })();
+</script>
