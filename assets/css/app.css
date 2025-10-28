@@ -92,6 +92,125 @@
   --noise: 0;
 }
 
+/* Tailwind Theme Configuration */
+@theme {
+  /* Container settings */
+  --container-center: true;
+  --container-padding: 1rem;
+  --container-padding-md: 12px;
+  --container-padding-lg: 30px;
+  --container-padding-xl: 3rem;
+  --container-padding-2xl: 4rem;
+
+  /* Custom Screens */
+  --breakpoint-xs: 480px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1380px;
+
+  /* Custom Colors */
+  --color-primary-red-warning: #DA4E4E;
+  --color-primary-600: #B6F442;
+  --color-primary-700: #A6E636;
+  --color-primary: #C6FF4F;
+
+  --color-secondary-500: #9239FF;
+  --color-secondary-600: #812BEF;
+  --color-secondary: #9239FF;
+
+  --color-grey-30: #101C364D;
+
+  --color-accent-500: #26E3F0;
+  --color-accent: #26E3F0;
+
+  --color-fg: #1E1E1E;
+  --color-fg-muted: #6B7280;
+  --color-fg-on-primary: #000000;
+
+  --color-border-grey-12: #0000001F;
+
+  --color-bg-dark: #141414;
+  --color-bg-light: #F5F6FB;
+  --color-bg-grey-primary: #F3F5FF;
+  --color-bg-green-light: #9AE97A;
+  --color-bg-green-dark: #243837;
+  --color-bg-input: #F1F3F6;
+  --color-bg-btn-primary: #EEF0F4;
+  --color-bg-btn-primary-dark: #252525;
+
+  /* Custom Shadows */
+  --shadow-primary: 0px 16px 16px -8px #0E3F7E0A, 0px 8px 8px -4px #0E3F7E0A, 0px 4px 4px -2px #2A33460A, 0px 2px 2px -1px #2A33460A, 0px 1px 1px -0.5px #2A33450A, 0px 0px 0px 1px #0E3F7E0A;
+  --shadow-0-12: 0px 2px 12px 0px #0000001F;
+
+  /* Custom Spacing */
+  --spacing-btn-primary-x: 20px;
+  --spacing-btn-primary-y: 12px;
+  --spacing-btn-sm-y: 0.375rem;
+  --spacing-btn-md-x: 1.25rem;
+  --spacing-btn-md-y: 0.5rem;
+  --spacing-btn-lg-x: 1.5rem;
+  --spacing-btn-lg-y: 0.75rem;
+}
+
+/* Custom Background Gradients */
+.bg-green_gradient {
+  background-image: linear-gradient(180.69deg, #8AE388 0.6%, #BAF55F 60.58%);
+}
+
+.bg-green_gradient_2 {
+  background-image: linear-gradient(179.78deg, #87E28A 0.2%, #BAF55F 50.01%, #F4FDB0 99.82%);
+}
+
+.bg-pastel_gradient {
+  background-image: linear-gradient(180deg, #E1E3FD 0%, #AFB5FF 100%);
+}
+
+/* Custom Shadow Utilities */
+.shadow-primary_shadow {
+  box-shadow: var(--shadow-primary);
+}
+
+.shadow-0-12 {
+  box-shadow: var(--shadow-0-12);
+}
+
+/* Custom Spacing Utilities */
+.px-btn-primary-x {
+  padding-left: var(--spacing-btn-primary-x);
+  padding-right: var(--spacing-btn-primary-x);
+}
+
+.py-btn-primary-y {
+  padding-top: var(--spacing-btn-primary-y);
+  padding-bottom: var(--spacing-btn-primary-y);
+}
+
+.py-btn-sm-y {
+  padding-top: var(--spacing-btn-sm-y);
+  padding-bottom: var(--spacing-btn-sm-y);
+}
+
+.px-btn-md-x {
+  padding-left: var(--spacing-btn-md-x);
+  padding-right: var(--spacing-btn-md-x);
+}
+
+.py-btn-md-y {
+  padding-top: var(--spacing-btn-md-y);
+  padding-bottom: var(--spacing-btn-md-y);
+}
+
+.px-btn-lg-x {
+  padding-left: var(--spacing-btn-lg-x);
+  padding-right: var(--spacing-btn-lg-x);
+}
+
+.py-btn-lg-y {
+  padding-top: var(--spacing-btn-lg-y);
+  padding-bottom: var(--spacing-btn-lg-y);
+}
+
 /* Add variants based on LiveView classes */
 @custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
@@ -106,29 +225,406 @@
   display: contents;
 }
 
-/* Custom font families matching the reference design */
+/* Custom Font-Face Declarations */
+@font-face {
+    font-family: 'segoe_italic';
+    src: url('fonts/SegoeUIThis-Italic.woff2') format('woff2'),
+        url('fonts/SegoeUIThis-Italic.woff') format('woff');
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'segoe_regular';
+    src: url('fonts/SegoeUIThis.woff2') format('woff2'),
+        url('fonts/SegoeUIThis.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'segoe_bold_it';
+    src: url('SegoeUIThis-BoldItalic.woff2') format('woff2'),
+        url('SegoeUIThis-BoldItalic.woff') format('woff');
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'segoe_bold';
+    src: url('fonts/SegoeUIThis-Bold.woff2') format('woff2'),
+        url('fonts/SegoeUIThis-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'haas_medium_65';
+    src: url('fonts/neuehaasdisplaymediu-webfont.woff2') format('woff2'),
+        url('fonts/neuehaasdisplaymediu-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'haas_roman_55';
+    src: url('fonts/neuehaasgrotdispround-55roman-trial-webfont.woff2') format('woff2'),
+         url('fonts/neuehaasgrotdispround-55roman-trial-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'haas_bold_75';
+    src: url('font/neuehaasgrotdisp-75bold-trial-webfont.woff2') format('woff2'),
+        url('fonts/neuehaasgrotdisp-75bold-trial-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'haas_thin_45';
+    src: url('fonts/neuehaasgrotdispround-45light-trial-webfont.woff2') format('woff2'),
+        url('fonts/neuehaasgrotdispround-45light-trial-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
 .font-inter {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 .font-haas_roman_55 {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 400;
+  font-family: 'haas_roman_55', sans-serif;
 }
 
 .font-haas_medium_65 {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 600;
+  font-family: 'haas_medium_65', sans-serif;
+}
+
+.font-haas_medium_55 {
+  font-family: 'haas_roman_55', sans-serif;
+  font-weight: 500;
+}
+
+.font-haas_thin_45 {
+  font-family: 'haas_thin_45', sans-serif;
+}
+
+.font-haas_bold_75 {
+  font-family: 'haas_bold_75', sans-serif;
 }
 
 .font-work_sans {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 700;
+  font-family: 'Work Sans', sans-serif;
 }
 
 .font-segoe_regular {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 400;
+  font-family: 'segoe_regular', sans-serif;
+}
+
+.font-segoe_bold {
+  font-family: 'segoe_bold', sans-serif;
+}
+
+/* Custom color and background classes from the design */
+.bg-bg-input {
+  background-color: #F3F5FF;
+}
+
+.bg-bg-light {
+  background-color: #F3F5FF;
+}
+
+.bg-bg-grey_primary {
+  background-color: #EEF0F4;
+}
+
+.bg-bg-dark {
+  background-color: #141414;
+}
+
+.bg-bg-green-dark {
+  background: linear-gradient(180deg, #8AE388 0%, #BAF55F 100%);
+}
+
+.bg-bg-btn_primary {
+  background: linear-gradient(180deg, #8AE388 0%, #BAF55F 100%);
+}
+
+.bg-bg-btn_primary_dark {
+  background-color: #000000;
+}
+
+.bg-green_gradient {
+  background: linear-gradient(180deg, #8AE388 0%, #BAF55F 100%);
+}
+
+.bg-green_gradient_2 {
+  background: linear-gradient(180deg, #8AE388 0%, #BAF55F 100%);
+}
+
+.border-border-grey_12 {
+  border-color: rgba(20, 20, 20, 0.12);
+}
+
+.text-grey-30 {
+  color: rgba(20, 20, 20, 0.3);
+}
+
+.text-primary-red_warning {
+  color: #EF4444;
+}
+
+/* Custom button shadows */
+.primary-btn-shadow {
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+.small-buttons-shadow {
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+/* Banner background */
+.banner {
+  background: linear-gradient(180deg, #8AE388 0%, #BAF55F 100%);
+  border-radius: 12px;
+}
+
+/* Card styling */
+.dark-card {
+  background-color: #1A1A1A;
+}
+
+.card-info-bitcoin {
+  background: linear-gradient(180deg, #1E3A8A 0%, #3B82F6 100%);
+  position: relative;
+}
+
+.wrapper-blue-dark {
+  background: linear-gradient(180deg, #1E3A8A 0%, #3B82F6 100%);
+}
+
+/* Dot separator */
+.dot::before {
+  content: "•";
+  position: absolute;
+  left: -12px;
+  color: #141414;
+}
+
+/* Custom padding values */
+.px-btn-primary-x {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.py-btn-primary-y {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+/* Scrollbar hide */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Container styling */
+.container {
+  max-width: 1334px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* How it works section backgrounds */
+.fixed-w-container {
+  background: white;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .fixed-w-container {
+    background: linear-gradient(360deg, #B0B6FE 0%, #E1E3FD 100%), linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%);
+    box-shadow: none;
+  }
+}
+
+.bg-bolt {
+  background-image: url('/images/blxr-floating.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Conversations with Industry Leaders section */
+.dark-card {
+  background-color: #1a1a1a;
+}
+
+.card-info-bitcoin {
+  position: relative;
+  background-image: linear-gradient(180deg, #E1E3FD 0%, #AFB5FF 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.card-info-bitcoin .button-group {
+  background: linear-gradient(266.21deg, rgba(255, 255, 255, 0.2) 0.77%, rgba(74, 74, 74, 0.2) 94.03%);
+  backdrop-filter: blur(16.1px);
+  box-shadow: 0px 0px 13.7px 0px rgba(255, 255, 255, 0.25) inset;
+}
+
+.bottom-fixed {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+/* Shop Section Styles */
+.our-store {
+  background-color: #F5F6FB;
+}
+
+@media (min-width: 1024px) {
+  .our-store .inner {
+    align-items: stretch;
+  }
+
+  .our-store .wrapper-green-gradient {
+    min-height: 720px;
+  }
+
+  .our-store .lg\:w-1\/2:last-child {
+    min-height: 720px;
+  }
+}
+
+.wrapper-green-gradient {
+  background:
+    url('/images/long-card-girl.png') no-repeat center/contain,
+    url('/images/bolt-white.png') top/280px auto no-repeat,
+    linear-gradient(179.78deg, #BAF55F 30%, #87E28A 50.01%, #F4FDB0 99.82%);
+}
+
+.product-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+}
+
+.small-buttons-shadow {
+  box-shadow: 0px 1px 1px -0.5px rgba(77, 94, 128, 0.07), 0px 4px 4px -2px rgba(77, 94, 128, 0.05), 0px 8px 8px -4px rgba(77, 94, 128, 0.06), 0px 16px 16px -8px rgba(77, 94, 128, 0.08);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Smooth scrolling for carousel */
+.overflow-x-auto {
+  scroll-behavior: smooth;
+}
+
+/* Swiper Navigation Buttons */
+.slider-main .swiper-button-next,
+.slider-main .swiper-button-prev {
+  display: block;
+  height: 36px;
+  width: 36px;
+  background: #EEF0F4;
+  border-radius: 100%;
+  border: 1px solid #00000017;
+  cursor: pointer;
+  z-index: 10;
+  position: absolute;
+}
+
+.slider-main .swiper-button-next {
+  top: 22px !important;
+  right: 0px !important;
+  left: auto !important;
+}
+
+.slider-main .swiper-button-prev {
+  top: 22px;
+  right: 48px !important;
+  left: auto !important;
+}
+
+.slider-main .swiper-button-prev:after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='13' viewBox='0 0 12 13' fill='none'%3E%3Cpath d='M7 3.5L10.125 6.62499L7 9.75M9.75 6.62499H1.875' stroke='black' stroke-width='1.5' stroke-linecap='square'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  font-family: none;
+  content: '';
+  height: 12px;
+  width: 12px;
+  top: 50%;
+  left: 50%;
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+.slider-main .swiper-button-next:after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='13' viewBox='0 0 12 13' fill='none'%3E%3Cpath d='M7 3.5L10.125 6.62499L7 9.75M9.75 6.62499H1.875' stroke='black' stroke-width='1.5' stroke-linecap='square'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  font-family: none;
+  content: '';
+  height: 12px;
+  width: 12px;
+  top: 50%;
+  left: 50%;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.slider-main .swiper {
+  height: auto;
+  min-height: 350px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.slider-main .swiper-slide {
+  height: auto;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .slider-main .swiper-slide {
+    width: calc(50% - 5px);
+  }
+}
+
+.slider-main .swiper-wrapper {
+  padding-top: 50px;
+  padding-bottom: 20px;
 }
 
 /* Quill Editor Styles for Dark Theme Compatibility */

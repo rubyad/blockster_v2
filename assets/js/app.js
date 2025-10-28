@@ -22,9 +22,9 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-import { hooks as colocatedHooks } from "phoenix-colocated/blockster_v2";
 import { QuillEditor } from "./quill_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
+import { TwitterWidgets } from "./twitter_widgets.js";
 import topbar from "../vendor/topbar";
 
 // Import Quill from npm
@@ -39,7 +39,7 @@ const csrfToken = document
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, QuillEditor, FeaturedImageUpload },
+  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets },
 });
 
 // Show progress bar on live navigation and form submits

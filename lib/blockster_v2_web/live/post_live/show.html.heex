@@ -530,7 +530,9 @@
           <div class="prose prose-lg max-w-none">
             <%= if @post.content && @post.content != %{} do %>
               <div
+                id="post-content"
                 class="text-[#343434] leading-[1.4] space-y-6 font-segoe_regular"
+                phx-hook="TwitterWidgets"
                 phx-no-format
               >
                 <%= raw(render_quill_content(@post.content)) %>

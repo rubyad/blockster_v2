@@ -1,5 +1,29 @@
 import Config
 
+# Load .env file in development and test environments
+if config_env() in [:dev, :test] do
+  dotenv_path = Path.join([__DIR__, "..", ".env"])
+
+  if File.exists?(dotenv_path) do
+    # Read and parse the .env file
+    dotenv_path
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.reject(&String.starts_with?(&1, "#"))
+    |> Enum.each(fn line ->
+      case String.split(line, "=", parts: 2) do
+        [key, value] ->
+          # Remove quotes if present
+          clean_value = String.trim(value, "\"")
+          System.put_env(key, clean_value)
+
+        _ ->
+          :ok
+      end
+    end)
+  end
+end
+
 # S3 Configuration for image uploads
 # The S3 bucket and region can be configured via environment variables
 config :blockster_v2,

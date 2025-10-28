@@ -1,0 +1,9 @@
+{
+  "name": "blockster_v2",
+  "version": "1.0.0",
+  "description": "Blockster V2 frontend dependencies",
+  "private": true,
+  "dependencies": {
+    "quill": "^2.0.2"
+  }
+}

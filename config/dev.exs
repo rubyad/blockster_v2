@@ -2,8 +2,8 @@ import Config
 
 # Configure your database
 config :blockster_v2, BlocksterV2.Repo,
-  username: "postgres",
-  password: "postgres",
+  username: "tenmerry",
+  password: "",
   hostname: "localhost",
   database: "blockster_v2_dev",
   stacktrace: true,

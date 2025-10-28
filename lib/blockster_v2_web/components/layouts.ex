@@ -35,7 +35,7 @@ defmodule BlocksterV2Web.Layouts do
 
   def app(assigns) do
     ~H"""
-    <main class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-pink-900">
+    <main class="min-h-screen bg-[#F5F6FB]">
       {render_slot(@inner_block)}
     </main>
 

@@ -94,16 +94,18 @@ defmodule BlocksterV2Web.PostLive.Show do
         end
       end)
 
-    # Render header
-    {size_class, font_size} =
+    # Render header with proper HTML tag and size
+    size_class =
       case level do
-        1 -> {"text-4xl", "48px"}
-        2 -> {"text-3xl", "36px"}
-        _ -> {"text-2xl", "24px"}
+        1 -> "text-4xl font-bold"
+        2 -> "text-3xl font-bold"
+        _ -> "text-2xl font-bold"
       end
 
+    header_tag = "h#{level}"
+
     header_html =
-      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{header_text}</p>)
+      ~s(<#{header_tag} class="mb-4 text-[#343434] leading-[1.2] #{size_class}">#{header_text}</#{header_tag}>)
 
     # Return paragraphs followed by header
     paragraphs ++ [header_html]
