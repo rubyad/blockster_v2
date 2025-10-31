@@ -8,19 +8,38 @@ defmodule BlocksterV2Web.Router do
     plug :put_root_layout, html: {BlocksterV2Web.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug BlocksterV2Web.Plugs.AuthPlug
   end
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug :fetch_session
+    plug BlocksterV2Web.Plugs.AuthPlug
   end
 
   scope "/", BlocksterV2Web do
     pipe_through :browser
 
-    live "/", PostLive.Index, :index
-    live "/new", PostLive.Form, :new
-    live "/:slug/edit", PostLive.Form, :edit
-    live "/:slug", PostLive.Show, :show
+    live_session :admin,
+      on_mount: [BlocksterV2Web.UserAuth, BlocksterV2Web.AdminAuth],
+      layout: {BlocksterV2Web.Layouts, :app} do
+      live "/admin", AdminLive, :index
+    end
+
+    live_session :authenticated,
+      on_mount: [BlocksterV2Web.UserAuth],
+      layout: {BlocksterV2Web.Layouts, :app} do
+      live "/profile", UserProfileLive, :index
+    end
+
+    live_session :default,
+      layout: {BlocksterV2Web.Layouts, :app} do
+      live "/", PostLive.Index, :index
+      live "/how-it-works", PostLive.HowItWorks, :index
+      live "/new", PostLive.Form, :new
+      live "/:slug/edit", PostLive.Form, :edit
+      live "/:slug", PostLive.Show, :show
+    end
   end
 
   # Other scopes may use custom stacks.
@@ -28,6 +47,12 @@ defmodule BlocksterV2Web.Router do
     pipe_through :api
 
     post "/s3/presigned-url", S3Controller, :presigned_url
+
+    # Authentication endpoints
+    post "/auth/wallet/verify", AuthController, :verify_wallet
+    post "/auth/email/verify", AuthController, :verify_email
+    post "/auth/logout", AuthController, :logout
+    get "/auth/me", AuthController, :me
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

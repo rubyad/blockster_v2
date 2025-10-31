@@ -280,7 +280,7 @@
 
 @font-face {
     font-family: 'haas_bold_75';
-    src: url('font/neuehaasgrotdisp-75bold-trial-webfont.woff2') format('woff2'),
+    src: url('fonts/neuehaasgrotdisp-75bold-trial-webfont.woff2') format('woff2'),
         url('fonts/neuehaasgrotdisp-75bold-trial-webfont.woff') format('woff');
     font-weight: normal;
     font-style: normal;

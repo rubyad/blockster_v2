@@ -9,7 +9,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
-  def handle_params(%{"slug" => slug}, _url, socket) do
+  def handle_params(%{"slug" => slug} = params, _url, socket) do
     post = Blog.get_post_by_slug!(slug)
 
     # Increment view count
@@ -116,6 +116,26 @@ defmodule BlocksterV2Web.PostLive.Show do
     nil
   end
 
+  # Handle blockquote text
+  defp render_single_op(
+         %{"insert" => text},
+         %{"insert" => "\n", "attributes" => %{"blockquote" => true}}
+       )
+       when is_binary(text) do
+    trimmed = String.trim(text)
+
+    if trimmed != "" do
+      ~s(<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-700 my-4">#{trimmed}</blockquote>)
+    else
+      ""
+    end
+  end
+
+  # Skip blockquote newlines (they're processed above)
+  defp render_single_op(%{"insert" => "\n", "attributes" => %{"blockquote" => true}}, _next_op) do
+    nil
+  end
+
   # Handle regular text without header following
   defp render_single_op(%{"insert" => text}, _next_op) when is_binary(text) do
     # Convert double newlines to separate paragraphs
@@ -184,10 +204,27 @@ defmodule BlocksterV2Web.PostLive.Show do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
   end
 
-  # Handle tweet embeds using Twitter's oEmbed API
-  defp render_single_op(%{"insert" => %{"tweet" => tweet_data}}, _next_op) do
-    url = tweet_data["url"]
+  # Handle tweet embeds with embedded HTML
+  defp render_single_op(%{"insert" => %{"tweet" => %{"html" => html}}}, _next_op) do
+    ~s{<div class="my-6">#{html}<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div>}
+  end
 
+  # Handle tweet embeds using Twitter's oEmbed API (legacy format with URL)
+  defp render_single_op(%{"insert" => %{"tweet" => %{"url" => url}}}, _next_op) do
+    # Fetch tweet HTML from Twitter's oEmbed API
+    case fetch_tweet_embed(url) do
+      {:ok, html} ->
+        # Wrap in container for styling
+        ~s(<div class="my-6">#{html}</div>)
+
+      {:error, _reason} ->
+        # Fallback to simple link if oEmbed fails
+        ~s(<p class="my-4"><a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">View Tweet on Twitter</a></p>)
+    end
+  end
+
+  # Handle tweet embeds with just a URL string (backward compatibility)
+  defp render_single_op(%{"insert" => %{"tweet" => url}}, _next_op) when is_binary(url) do
     # Fetch tweet HTML from Twitter's oEmbed API
     case fetch_tweet_embed(url) do
       {:ok, html} ->

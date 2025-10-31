@@ -285,7 +285,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
                     error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                   />
                 </div>
-                
+
     <!-- Quill Editor -->
                 <div>
                   <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">

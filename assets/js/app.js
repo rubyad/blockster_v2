@@ -25,6 +25,7 @@ import { LiveSocket } from "phoenix_live_view";
 import { QuillEditor } from "./quill_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
+import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin } from "./home_hooks.js";
 import topbar from "../vendor/topbar";
 
 // Import Quill from npm
@@ -39,7 +40,7 @@ const csrfToken = document
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets },
+  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin },
 });
 
 // Show progress bar on live navigation and form submits
@@ -55,6 +56,35 @@ liveSocket.connect();
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket;
+
+// Dropdown toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    const desktopDropdown = document.getElementById('desktop-dropdown-menu');
+    const mobileDropdown = document.getElementById('mobile-dropdown-menu');
+    const desktopButton = document.getElementById('desktop-user-button');
+    const mobileButton = document.getElementById('mobile-user-button');
+
+    // Close desktop dropdown if clicking outside
+    if (desktopDropdown && !event.target.closest('#desktop-user-dropdown')) {
+      desktopDropdown.classList.add('hidden');
+    }
+
+    // Close mobile dropdown if clicking outside
+    if (mobileDropdown && !event.target.closest('#mobile-user-dropdown')) {
+      mobileDropdown.classList.add('hidden');
+    }
+  });
+});
+
+// Global function to toggle dropdowns
+window.toggleDropdown = function(dropdownId) {
+  const dropdown = document.getElementById(dropdownId);
+  if (dropdown) {
+    dropdown.classList.toggle('hidden');
+  }
+};
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:

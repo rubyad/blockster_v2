@@ -50,6 +50,8 @@ defmodule BlocksterV2Web do
     quote do
       use Phoenix.LiveView
 
+      on_mount BlocksterV2Web.UserAuth
+
       unquote(html_helpers())
     end
   end

@@ -1,0 +1,1339 @@
+<div class="unregistered-page bg-[#F5F6FB]">
+  <!-- How it works Section -->
+    <section class="section">
+      <div class="container">
+        <div class="md:py-12 md:mt-12 mt-6 py-6 fixed-w-container rounded-[24px] relative overflow-hidden max-md:bg-[linear-gradient(360deg,#B0B6FE_0%,#E1E3FD_100%),linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0)_100%)]">
+          <div class="inner-container max-w-[1040px] mx-auto flex px-10 md:flex-row flex-col">
+            <div class="left-se md:w-1/2 w-full max-md:text-center">
+              <div class="md:max-w-[461px] max-md:text-center">
+                <div class="flex max-md:justify-center">
+                  <button class="flex relative z-20 gap-2.5 !bg-[#ffffff] items-center primary-btn-shadow bg-white px-btn-primary-x py-btn-primary-y text-[#000000] w-auto rounded-[100px] leading-[1.4] border-[1] border-[] font-haas_roman_55 text-sm max-sm:hidden">
+                    <span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="26" viewBox="0 0 16 26" fill="none">
+                        <path d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z" fill="#AFB5FF" />
+                      </svg>
+                    </span>
+                    Want to know all?
+                  </button>
+                </div>
+                <h2 class="sm:mt-6 mt-0 text-4xl font-haas_medium_65">How it works</h2>
+                <p class="font-haas_roman_55 text-[#343434] md:text-lg text-sm leading-[1.4] sm:mt-4 mt-3 tracking-[0.04em]">
+                  Blockster turns your curiosity into rewards. Read articles, earn $BUX, and use it to redeem crypto rewards, merch and events.
+                </p>
+                <div class="flex max-md:justify-center">
+                  <button class="p-4 relative z-20 bg-[#000000] max-md:justify-self-center sm:mt-6 mt-4 text-[#ffffff] small-buttons-shadow sm:py-3.5 py-3 px-6 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">
+                    Learn more
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="md:w-1/2 flex justify-center items-center relative bg-bolt">
+              <button class="max-md:hidden big-cta-shadow relative z-[20] max-md:justify-self-center flex items-center md:gap-2.5 gap-1 bg-white rounded-[100px] px-2.5 md:py-2.5 py-2 md:w-[178px] w-[101px] backdrop-blur-[181.734px] shadow-[0_5.48px_12.34px_0_#232B9F1A,2.74px_21.94px_21.94px_0_#232B9F17,4.11px_50.73px_30.16px_0_#232B9F0D,8.23px_89.12px_35.65px_0_#232B9F03,13.71px_139.85px_39.76px_0_#232B9F00]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="47" height="46" viewBox="0 0 47 46" fill="none">
+                  <rect x="0.801758" y="0.479248" width="45.4336" height="45.4336" rx="22.7168" fill="url(#paint0_linear_234_15157)" />
+                  <path d="M25.7925 12.2936C25.7925 10.6078 23.6062 9.9459 22.6711 11.3485L13.5097 25.0906C12.7549 26.2228 13.5665 27.7394 14.9273 27.7394H21.2491V34.0985C21.2491 35.7842 23.4354 36.4462 24.3705 35.0436L33.5319 21.3015C34.2867 20.1693 33.4751 18.6527 32.1143 18.6527H25.7925V12.2936Z" fill="black" />
+                  <defs>
+                    <linearGradient id="paint0_linear_234_15157" x1="23.5185" y1="0.479248" x2="23.1851" y2="28.0587" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#8AE388" />
+                      <stop offset="1" stop-color="#BAF55F" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span class="text-[27px] font-haas_medium_65 md:leading-[45.43px] leading-[27px] max-md:text-[16px]">+1,264</span>
+              </button>
+              <img src="/images/blxr-floating.png" alt="" class="absolute -top-2 md:left-10 -left-5 max-md:hidden" />
+              <img src="/images/blxr-floating.png" alt="" class="absolute -top-6 -right-32 max-md:-right-5 scale-[0.8] max-md:hidden" />
+              <img src="/images/blxr-floating.png" alt="" class="absolute md:-bottom-8 bottom-0 md:left-10 -left-5 max-md:hidden" />
+              <img src="/images/blxr-floating.png" alt="" class="absolute md:-bottom-6 bottom-0 md:-right-32 scale-[0.8] right-0 max-md:hidden" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Posts Section -->
+    <section class="blog-section md:py-20 py-6 relative">
+        <div class="container mx-auto">
+          <div class="inner xl:flex gap-6">
+            <div class="left-content xl:w-2/3 w-full">
+              <h2 class="font-haas_medium_65 text-2xl mb-5">Latest News</h2>
+
+              <%= if @posts == [] do %>
+                <div class="text-center py-20">
+                  <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
+                </div>
+              <% else %>
+                <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col md:gap-3">
+                  <%= for chunk <- Enum.chunk_every(Enum.take(@posts, 5), 5, 5, []) do %>
+                    <!-- Left Column - 2 small cards -->
+                    <div class="md:w-1/3 flex flex-col gap-3">
+                      <%= for post <- Enum.slice(chunk, 0..1) do %>
+                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
+                            <div class="img-wrapper md:h-[128px] h-[163px]">
+                              <%= if post.featured_image do %>
+                                <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                              <% else %>
+                                <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                                    <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                                    <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                                  </svg>
+                                </div>
+                              <% end %>
+                            </div>
+                            <div class="px-2 py-2">
+                              <div class="flex justify-between items-center">
+                                <ul class="gap-3 flex">
+                                  <%= if post.category do %>
+                                    <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category}</span></li>
+                                  <% end %>
+                                  <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                                    <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                                  </li>
+                                </ul>
+                                <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                                  <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                      <g clip-path="url(#clip0_35_1235)">
+                                        <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                      </g>
+                                      <defs>
+                                        <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                          <stop stop-color="#8AE388" />
+                                          <stop offset="1" stop-color="#BAF55F" />
+                                        </linearGradient>
+                                        <clipPath id="clip0_35_1235">
+                                          <rect width="24" height="24" rx="12" fill="white" />
+                                        </clipPath>
+                                      </defs>
+                                    </svg>
+                                    <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                                  </button>
+                                </div>
+                              </div>
+                              <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
+                            </div>
+                          </.link>
+                      <% end %>
+                    </div>
+
+                    <!-- Middle Column - 1 tall card -->
+                    <%= if Enum.at(chunk, 2) do %>
+                      <% post = Enum.at(chunk, 2) %>
+                      <div class="md:w-1/3 md:mt-0 mt-3">
+                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all max-md:p-2">
+                          <div class="img-wrapper md:h-[358px] h-[220px]">
+                            <%= if post.featured_image do %>
+                              <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                            <% else %>
+                              <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                                  <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                                  <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                                </svg>
+                              </div>
+                            <% end %>
+                          </div>
+                          <div class="px-4 md:py-6 py-2">
+                            <div class="flex justify-between items-center">
+                              <ul class="gap-3 flex">
+                                <%= if post.category do %>
+                                  <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category}</span></li>
+                                <% end %>
+                                <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                                  <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                                </li>
+                              </ul>
+                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <g clip-path="url(#clip0_35_1235)">
+                                      <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                    </g>
+                                    <defs>
+                                      <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="#8AE388" />
+                                        <stop offset="1" stop-color="#BAF55F" />
+                                      </linearGradient>
+                                      <clipPath id="clip0_35_1235">
+                                        <rect width="24" height="24" rx="12" fill="white" />
+                                      </clipPath>
+                                    </defs>
+                                  </svg>
+                                  <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                                </button>
+                              </div>
+                            </div>
+                            <h3 class="font-haas_medium_65 text-[#141414] mt-2 line-clamp-2">{post.title}</h3>
+                          </div>
+                        </.link>
+                      </div>
+                    <% end %>
+
+                    <!-- Right Column - 2 small cards -->
+                    <div class="md:w-1/3 flex flex-col gap-3">
+                      <%= for post <- Enum.slice(chunk, 3..4) do %>
+                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
+                          <div class="img-wrapper md:h-[128px] h-[163px]">
+                            <%= if post.featured_image do %>
+                              <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                            <% else %>
+                              <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                                  <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                                  <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                                </svg>
+                              </div>
+                            <% end %>
+                          </div>
+                          <div class="px-2 py-2">
+                            <div class="flex justify-between items-center">
+                              <ul class="gap-3 flex">
+                                <%= if post.category do %>
+                                  <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category}</span></li>
+                                <% end %>
+                                <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                                  <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                                </li>
+                              </ul>
+                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <g clip-path="url(#clip0_35_1235)">
+                                      <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                    </g>
+                                    <defs>
+                                      <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="#8AE388" />
+                                        <stop offset="1" stop-color="#BAF55F" />
+                                      </linearGradient>
+                                      <clipPath id="clip0_35_1235">
+                                        <rect width="24" height="24" rx="12" fill="white" />
+                                      </clipPath>
+                                    </defs>
+                                  </svg>
+                                  <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                                </button>
+                              </div>
+                            </div>
+                            <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
+                          </div>
+                        </.link>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+
+            <!-- Recommended Sidebar -->
+            <div class="right-content xl:w-1/3 w-full">
+              <div class="right-innner border-[#1414141A] border-[1px] rounded-[12px] md:p-6 p-3 pb-0 lg:mt-0 mt-5 bg-white">
+                <button class="p-4 bg-[#000000] text-[#ffffff] small-buttons-shadow py-1 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">
+                  Recommended
+                </button>
+
+                <!-- Recommended Post 1 -->
+                <div class="card-horizontal-variant flex md:gap-4 px-2 py-2 gap-3 md:mb-4 mb-1 md:pb-4 pb-3 border-b border-[#E8EAEC] justify-between xl:items-center">
+                  <div>
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span>Blockchain</span></li>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <g clip-path="url(#clip0_35_1235)">
+                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                            </g>
+                            <defs>
+                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#8AE388" />
+                                <stop offset="1" stop-color="#BAF55F" />
+                              </linearGradient>
+                              <clipPath id="clip0_35_1235">
+                                <rect width="24" height="24" rx="12" fill="white" />
+                              </clipPath>
+                            </defs>
+                          </svg>
+                          <span class="text-xs font-haas_medium_65">1,264</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-xs:text-lg max-xs:leading-[1.4]">
+                      The Faces of Web3: Meet the Visionaries Shaping the Future at Major Summits
+                    </h4>
+                  </div>
+                  <div class="img-wrapper">
+                    <img src="/images/group-shot.png" class="object-cover rounded-[12px] h-[115px] min-w-[115px] max-md:min-w-20 max-md:h-20" alt="" />
+                  </div>
+                </div>
+
+                <!-- Recommended Post 2 -->
+                <div class="card-horizontal-variant flex px-2 py-2 md:gap-4 items-center gap-3 md:mb-4 mb-1 md:pb-4 pb-3 border-b border-[#E8EAEC] justify-between xl:items-center">
+                  <div>
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span>Blockchain</span></li>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <g clip-path="url(#clip0_35_1235)">
+                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                            </g>
+                            <defs>
+                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#8AE388" />
+                                <stop offset="1" stop-color="#BAF55F" />
+                              </linearGradient>
+                              <clipPath id="clip0_35_1235">
+                                <rect width="24" height="24" rx="12" fill="white" />
+                              </clipPath>
+                            </defs>
+                          </svg>
+                          <span class="text-xs font-haas_medium_65">1,264</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-xs:text-lg max-xs:leading-[1.4]">
+                      The Faces of Web3: Meet the Visionaries Shaping the Future at Major Summits
+                    </h4>
+                  </div>
+                  <div class="img-wrapper">
+                    <img src="/images/crypto-bull.png" class="h-[115px] min-w-[115px] rounded-[12px] max-md:min-w-20 max-md:h-20 object-cover rounded-[12px]" alt="" />
+                  </div>
+                </div>
+
+                <!-- Recommended Post 3 -->
+                <div class="card-horizontal-variant px-2 py-2 gap-3 md:mb-4 mb-1 md:pb-4 pb-3 flex md:gap-4 items-center border-b border-[#E8EAEC] justify-between xl:items-center">
+                  <div>
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span>Blockchain</span></li>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <g clip-path="url(#clip0_35_1235)">
+                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                            </g>
+                            <defs>
+                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#8AE388" />
+                                <stop offset="1" stop-color="#BAF55F" />
+                              </linearGradient>
+                              <clipPath id="clip0_35_1235">
+                                <rect width="24" height="24" rx="12" fill="white" />
+                              </clipPath>
+                            </defs>
+                          </svg>
+                          <span class="text-xs font-haas_medium_65">1,264</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-xs:text-lg max-xs:leading-[1.4]">
+                      The Faces of Web3: Meet the Visionaries Shaping the Future at Major Summits
+                    </h4>
+                  </div>
+                  <div class="img-wrapper">
+                    <img src="/images/group-shot.png" class="object-cover rounded-[12px] h-[115px] min-w-[115px] max-md:min-w-20 max-md:h-20" alt="" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Conversations with Industry Leaders Section -->
+      <section class="blog-section md:py-20 py-6 bg-bg-dark dark-variant">
+        <div class="container mx-auto">
+          <div class="inner flex xl:flex-row flex-col items-center gap-6">
+            <div class="left-content xl:w-2/3 w-full">
+              <!-- Breadcrumb -->
+              <nav aria-label="Breadcrumb" class="breadcrumb-wrapper">
+                <ol class="flex items-center gap-1.5">
+                  <li>
+                    <a href="#" class="font-haas_medium_65 text-[#515B70] text-xs">
+                      News
+                    </a>
+                  </li>
+                  <li class="">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
+                      <path d="M7 3.375L10.125 6.49999L7 9.625M9.75 6.49999H1.875" stroke="black" stroke-width="1.5" stroke-linecap="square" />
+                    </svg>
+                  </li>
+                  <li>
+                    <a href="#" class="font-haas_roman_55 text-[#515B70] text-xs font-[400]">
+                      Latest News
+                    </a>
+                  </li>
+                </ol>
+              </nav>
+
+              <!-- Search/Heading Wrapper -->
+              <div class="search-wrapper flex justify-between items-center">
+                <h2 class="font-haas_medium_65 text-white text-3xl md:text-4xl lg:text-5xl">Conversations with industry leaders</h2>
+              </div>
+
+              <!-- Filter Buttons Row -->
+              <div class="overflow-x-auto w-full no-scrollbar scroll-smooth snap-x snap-mandatory walker" id="">
+                <ul class="flex gap-2 items-center mt-5 flex-nowrap whitespace-nowrap button-group-slider">
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">News</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#E5E7EB] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-[#141414] transition-colors">Blockchain</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Shop</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Events</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">People</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">RWAs</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Trading</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Gaming</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Play</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Play</button>
+                  </li>
+                  <li>
+                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Play</button>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Mobile-only "Most Viewed" Card -->
+              <div class="right-content xl:w-1/3 w-full mt-10 md:hidden block">
+                <a href="" class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-80 block relative overflow-hidden">
+                  <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-20 relative">
+                    <span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_35_1235)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_35_1235">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                    </span>
+                    <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
+                  </div>
+                  <div class="top-structure absolute top-0 left-1/2 -translate-x-1/2 z-0 w-[288px]">
+                    <img src="/images/bg-top.png" alt="" srcset="" class="scale-[]" />
+                  </div>
+                  <img src="/images/bitcoin-guru.png" alt="" class="z-10 max-w-[350px] absolute -top-0 left-1/2 -translate-x-1/2" />
+                  <div class="bottom-fixed md:p-6 px-[18px] py-3 rounded-[18px] z-10">
+                    <div class="p-[2px] bg-gradient-to1-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <g clip-path="url(#clip0_35_1235)">
+                            <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                            <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                          </g>
+                          <defs>
+                            <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                              <stop stop-color="#8AE388" />
+                              <stop offset="1" stop-color="#BAF55F" />
+                            </linearGradient>
+                            <clipPath id="clip0_35_1235">
+                              <rect width="24" height="24" rx="12" fill="white" />
+                            </clipPath>
+                          </defs>
+                        </svg>
+                        <span class="text-xs font-haas_medium_65">1,264</span>
+                      </button>
+                    </div>
+                    <h4 class="md:text-[32px] text-[24px] relative text-[#ffffff] font-haas_medium_65 line-clamp-2 leading-[1.2] mt-2">
+                      "Bitcoin Is Just Getting Started" – Michael Saylor on the Future of Digital Gold
+                    </h4>
+                  </div>
+                </a>
+              </div>
+
+              <%
+                # Filter posts by the specified images
+                interview_posts = Enum.filter(@posts, fn p ->
+                  p.featured_image in ["/images/smile.png", "/images/idris.png", "/images/ecstatic.png", "/images/sam.png", "/images/vitaly.png"]
+                end)
+
+                # Take 5 posts for the cards
+                top_row_posts = Enum.take(interview_posts, 3)
+                bottom_row_posts = Enum.slice(interview_posts, 3, 2)
+              %>
+
+              <!-- Latest News Blog Cards -->
+              <div class="latest-news-blog_cards mt-3 gap-3">
+                <!-- Row Top: 3 vertical cards -->
+                <div class="row-top flex md:flex-row flex-col gap-3">
+                  <!-- Column 1 -->
+                  <div class="md:w-1/3 w-full flex flex-col gap-3">
+                    <%= if Enum.at(top_row_posts, 0) do %>
+                      <% post = Enum.at(top_row_posts, 0) %>
+                      <a href="#" class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                        <div class="img-wrapper h-[160px] max-md:h-[240px] max-sm:h-[151px]">
+                          <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        </div>
+                        <div class="px-2 py-2">
+                          <div class="flex justify-between items-center">
+                            <ul class="gap-3 flex">
+                              <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category %></span></li>
+                              <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                            </ul>
+                            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                              <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                  <g clip-path="url(#clip0_35_1235)">
+                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                  </g>
+                                  <defs>
+                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                      <stop stop-color="#8AE388" />
+                                      <stop offset="1" stop-color="#BAF55F" />
+                                    </linearGradient>
+                                    <clipPath id="clip0_35_1235">
+                                      <rect width="24" height="24" rx="12" fill="white" />
+                                    </clipPath>
+                                  </defs>
+                                </svg>
+                                <span class="text-xs font-haas_medium_65">1,264</span>
+                              </button>
+                            </div>
+                          </div>
+                          <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-sm:text-lg max-sm:leading-[1.4]">{post.title}</h4>
+                        </div>
+                      </a>
+                    <% end %>
+                  </div>
+
+                  <!-- Column 2 -->
+                  <div class="md:w-1/3 w-full">
+                    <%= if Enum.at(top_row_posts, 1) do %>
+                      <% post = Enum.at(top_row_posts, 1) %>
+                      <a href="#" class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                        <div class="img-wrapper h-[160px] max-md:h-[240px] max-sm:h-[151px]">
+                          <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        </div>
+                        <div class="px-2 py-2">
+                          <div class="flex justify-between items-center">
+                            <ul class="gap-3 flex">
+                              <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category %></span></li>
+                              <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                            </ul>
+                            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                              <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                  <g clip-path="url(#clip0_35_1235)">
+                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                  </g>
+                                  <defs>
+                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                      <stop stop-color="#8AE388" />
+                                      <stop offset="1" stop-color="#BAF55F" />
+                                    </linearGradient>
+                                    <clipPath id="clip0_35_1235">
+                                      <rect width="24" height="24" rx="12" fill="white" />
+                                    </clipPath>
+                                  </defs>
+                                </svg>
+                                <span class="text-xs font-haas_medium_65">1,264</span>
+                              </button>
+                            </div>
+                          </div>
+                          <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-sm:text-lg max-sm:leading-[1.4]">{post.title}</h4>
+                        </div>
+                      </a>
+                    <% end %>
+                  </div>
+
+                  <!-- Column 3 -->
+                  <div class="md:w-1/3 w-full flex flex-col gap-3">
+                    <%= if Enum.at(top_row_posts, 2) do %>
+                      <% post = Enum.at(top_row_posts, 2) %>
+                      <a href="#" class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                        <div class="img-wrapper h-[160px] max-md:h-[240px] max-sm:h-[151px]">
+                          <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        </div>
+                        <div class="px-2 py-2">
+                          <div class="flex justify-between items-center">
+                            <ul class="gap-3 flex">
+                              <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category %></span></li>
+                              <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                            </ul>
+                            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                              <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                  <g clip-path="url(#clip0_35_1235)">
+                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                  </g>
+                                  <defs>
+                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                      <stop stop-color="#8AE388" />
+                                      <stop offset="1" stop-color="#BAF55F" />
+                                    </linearGradient>
+                                    <clipPath id="clip0_35_1235">
+                                      <rect width="24" height="24" rx="12" fill="white" />
+                                    </clipPath>
+                                  </defs>
+                                </svg>
+                                <span class="text-xs font-haas_medium_65">1,264</span>
+                              </button>
+                            </div>
+                          </div>
+                          <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-sm:text-lg max-sm:leading-[1.4]">{post.title}</h4>
+                        </div>
+                      </a>
+                    <% end %>
+                  </div>
+                </div>
+
+                <!-- Row Bottom: 2 horizontal cards (desktop only) -->
+                <div class="row-bottom flex md:flex-row flex-col gap-3 m mt-3 max-md:hidden">
+                  <%= if Enum.at(bottom_row_posts, 0) do %>
+                    <% post = Enum.at(bottom_row_posts, 0) %>
+                    <a href="" class="card-horizontal-variant flex gap-4 items-center p-2 bg-white rounded-[12px] block">
+                      <div class="img-wrapper h-[115px] min-w-[115px] rounded-[12px] overflow-hidden">
+                        <img src={post.featured_image} class="object-cover w-full h-full rounded-[12px]" alt="" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex justify-between md:items-center items-start sm:flex-row md:gap-0 gap-2 flex-col-reverse">
+                          <ul class="gap-3 flex">
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category %></span></li>
+                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                          </ul>
+                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <g clip-path="url(#clip0_35_1235)">
+                                  <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                  <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                </g>
+                                <defs>
+                                  <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#8AE388" />
+                                    <stop offset="1" stop-color="#BAF55F" />
+                                  </linearGradient>
+                                  <clipPath id="clip0_35_1235">
+                                    <rect width="24" height="24" rx="12" fill="white" />
+                                  </clipPath>
+                                </defs>
+                              </svg>
+                              <span class="text-xs font-haas_medium_65">1,264</span>
+                            </button>
+                          </div>
+                        </div>
+                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-xs:text-lg max-xs:leading-[1.4]">{post.title}</h4>
+                      </div>
+                    </a>
+                  <% end %>
+
+                  <%= if Enum.at(bottom_row_posts, 1) do %>
+                    <% post = Enum.at(bottom_row_posts, 1) %>
+                    <a href="" class="card-horizontal-variant md:flex gap-4 items-center p-2 bg-white rounded-[12px] hidden">
+                      <div class="img-wrapper h-[115px] min-w-[115px] rounded-[12px] overflow-hidden">
+                        <img src={post.featured_image} class="object-cover w-full h-full rounded-[12px]" alt="" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                          <ul class="gap-3 flex">
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category %></span></li>
+                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
+                          </ul>
+                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <g clip-path="url(#clip0_35_1235)">
+                                  <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                                  <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                </g>
+                                <defs>
+                                  <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#8AE388" />
+                                    <stop offset="1" stop-color="#BAF55F" />
+                                  </linearGradient>
+                                  <clipPath id="clip0_35_1235">
+                                    <rect width="24" height="24" rx="12" fill="white" />
+                                  </clipPath>
+                                </defs>
+                              </svg>
+                              <span class="text-xs font-haas_medium_65">1,264</span>
+                            </button>
+                          </div>
+                        </div>
+                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2 max-xs:text-lg max-xs:leading-[1.4]">{post.title}</h4>
+                      </div>
+                    </a>
+                  <% end %>
+                </div>
+              </div>
+
+              <!-- Watch More Interviews Button -->
+              <div class="flex items-center justify-center mt-6">
+                <button class="primary-btn-shadow bg-bg-btn_primary_dark px-btn-primary-x py-btn-primary-y text-[#ffffff] rounded-[100px] leading-[1.4] border-[1] border-[] font-haas_medium_65 text-sm max-sm:w-[calc(100%-12px)]">Watch more interviews</button>
+              </div>
+            </div>
+
+            <!-- Desktop "Most Viewed" Sidebar -->
+            <div class="right-content xl:w-1/3 w-1/2 md:block hidden">
+              <a href="" class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 block">
+                <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-10 relative">
+                  <span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none">
+                      <g clip-path="url(#clip0_35_1235)">
+                        <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                      </g>
+                      <defs>
+                        <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#8AE388" />
+                          <stop offset="1" stop-color="#BAF55F" />
+                        </linearGradient>
+                        <clipPath id="clip0_35_1235">
+                          <rect width="24" height="24" rx="12" fill="white" />
+                        </clipPath>
+                      </defs>
+                    </svg>
+                  </span>
+                  <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
+                </div>
+                <div class="top-structure absolute top-0 left-1/2 -translate-x-1/2 z-0 w-[288px]">
+                  <img src="/images/bg-top.png" alt="" srcset="" />
+                </div>
+                <img src="/images/bitcoin-guru.png" alt="" class="z-10 relative" />
+                <div class="bottom-fixed p-6 rounded-[18px] z-10">
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_35_1235)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_35_1235">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                      <span class="text-xs font-haas_medium_65">1,264</span>
+                    </button>
+                  </div>
+                  <h4 class="text-[32px] relative text-[#ffffff] font-haas_medium_65 line-clamp-2 leading-[1.2] mt-2">
+                    "Bitcoin Is Just Getting Started" – Michael Saylor on the Future of Digital Gold
+                  </h4>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Blockster Shop Section -->
+      <section class="our-store md:py-20 pt-6 pb-0">
+        <div class="container">
+          <div class="inner flex lg:flex-row flex-col-reverse gap-6">
+            <!-- Left Column: Essentials Card with Floating Products -->
+            <div class="lg:w-1/2 max-sm:hidden inner-wrapper wrapper-green-gradient md:p-6 p-4 card-info-bitcoin rounded-[18px] block md:min-h-[641px] min-h-[385px] relative overflow-hidden">
+              <!-- Floating Product Card - Right -->
+              <a href="#" class="block rounded-lg p-2 border-[#1414141A] border-[1px] z-10 bg-[#ffffff] absolute max-w-[202px] md:right-10 -right-[30px] md:top-[100px] top-[0px] md:scale-[1] scale-[0.5]">
+                <div class="img-wrapper md:h-[128px] h-[100px]">
+                  <img alt="" src="/images/blockster-hoodie.png" class="w-full h-full rounded-[12px] object-cover" />
+                </div>
+                <div class="pt-2">
+                  <h4 class="text-[12px] font-haas_medium_65 text-[#101D36] mb-1">Unofficial Standard Hoodie</h4>
+                  <div class="flex justify-between items-center">
+                    <div class="gap-1 flex">
+                      <span class="text-xs font-haas_medium_65 text-[#141414]">$50</span>
+                      <span class="text-[10px] font-haas_roman_55 text-[#141414] relative">$65</span>
+                    </div>
+                    <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <g clip-path="url(#clip_float1)">
+                            <circle cx="12" cy="12" r="12" fill="url(#paint_float1)" />
+                            <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                          </g>
+                          <defs>
+                            <linearGradient id="paint_float1" x1="12" y1="0" x2="12" y2="24">
+                              <stop stop-color="#8AE388" />
+                              <stop offset="1" stop-color="#BAF55F" />
+                            </linearGradient>
+                            <clipPath id="clip_float1">
+                              <rect width="24" height="24" rx="12" fill="white" />
+                            </clipPath>
+                          </defs>
+                        </svg>
+                        <span class="text-[7.5px] font-haas_medium_65">1,264 = 25% Discount</span>
+                      </button>
+                    </div>
+                  </div>
+                  <button class="w-full mt-2.5 p-4 bg-[#000000] text-[#ffffff] small-buttons-shadow py-1 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[9.5px] border-solid">
+                    Buy Now
+                  </button>
+                </div>
+              </a>
+
+              <!-- Floating Product Card - Left -->
+              <a href="#" class="block z-10 md:scale-[0.63] scale-[0.5] transform rounded-lg p-2 border-[#1414141A] border-[1px] bg-[#ffffff] absolute max-w-[202px] md:left-12 -left-[20px] md:top-[97px] top-5">
+                <div class="img-wrapper md:h-[128px] h-[75px]">
+                  <img alt="" src="/images/cargo.png" class="w-full h-full rounded-[12px] object-cover" />
+                </div>
+                <div class="pt-2">
+                  <h4 class="text-[12px] font-haas_medium_65 text-[#101D36] mb-1">Unofficial Cargo Pants</h4>
+                  <div class="flex justify-between items-center">
+                    <div class="gap-1 flex">
+                      <span class="text-xs font-haas_medium_65 text-[#141414]">$50</span>
+                      <span class="text-[10px] font-haas_roman_55 text-[#141414] relative">$65</span>
+                    </div>
+                    <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <g clip-path="url(#clip_float2)">
+                            <circle cx="12" cy="12" r="12" fill="url(#paint_float2)" />
+                            <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                          </g>
+                          <defs>
+                            <linearGradient id="paint_float2" x1="12" y1="0" x2="12" y2="24">
+                              <stop stop-color="#8AE388" />
+                              <stop offset="1" stop-color="#BAF55F" />
+                            </linearGradient>
+                            <clipPath id="clip_float2">
+                              <rect width="24" height="24" rx="12" fill="white" />
+                            </clipPath>
+                          </defs>
+                        </svg>
+                        <span class="text-[7.5px] font-haas_medium_65">1,264 = 25% Discount</span>
+                      </button>
+                    </div>
+                  </div>
+                  <button class="w-full mt-2.5 p-4 bg-[#000000] text-[#ffffff] small-buttons-shadow py-1 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[9.5px] border-solid">
+                    Buy Now
+                  </button>
+                </div>
+              </a>
+
+              <!-- Our Store Button -->
+              <div class="rounded-[100px] button-group md:p-2 p-1 inline-flex md:gap-2 gap-1 z-10 relative items-center">
+                <span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" class="max-md:h-[24px] max-md:w-[24px]">
+                    <g clip-path="url(#clip_store)">
+                      <circle cx="12" cy="12" r="12" fill="url(#paint_store)" />
+                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                    </g>
+                    <defs>
+                      <linearGradient id="paint_store" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#8AE388" />
+                        <stop offset="1" stop-color="#BAF55F" />
+                      </linearGradient>
+                      <clipPath id="clip_store">
+                        <rect width="24" height="24" rx="12" fill="white" />
+                      </clipPath>
+                    </defs>
+                  </svg>
+                </span>
+                <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">
+                  Our Store
+                </button>
+              </div>
+
+              <!-- Bottom Text -->
+              <div class="bottom-fixed md:p-6 py-3 px-[18px] rounded-[18px] z-10">
+                <h4 class="md:text-[32px] text-[16px] relative text-white font-haas_medium_65 line-clamp-2 leading-[1.2] mt-2">
+                  "Blockset Essentials — Streetwear for the Web3 Way of Life
+                </h4>
+                <button class="p-4 relative z-11 bg-[#000000] md:mt-4 mt-2 text-[#ffffff] small-buttons-shadow md:py-3 py-2 md:px-6 px-4 border-btn font-haas_medium_65 border-border-grey_12 border rounded-[100px] block text-sm border-solid">
+                  Learn more
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Column: Shop Content -->
+            <div class="lg:w-1/2 flex flex-col gap-6">
+              <div class="cta-section-top-shop bg-white md:px-[51.74px] md:py-8 p-6 rounded-[24px]">
+                <!-- Shop Header -->
+                <div class="flex items-center justify-center">
+                  <button class="flex gap-2.5 items-center shadow-[0px_1px_1px_-0.5px_#4D5E8012,0px_4px_4px_-2px_#4D5E800D,0px_8px_8px_-4px_#4D5E800F,0px_16px_16px_-8px_#4D5E8014] bg-white px-[15.5px] md:py-btn-primary-y py-[9px] text-[#000000] rounded-[100px] leading-[1.4] border border-[#0000000D] font-haas_roman_55 text-sm">
+                    <span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="26" viewBox="0 0 16 26" fill="none">
+                        <path d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z" fill="#AFB5FF" />
+                      </svg>
+                    </span>The Crypto-Infused Look
+                  </button>
+                </div>
+
+                <h1 class="flex gap-3 items-center justify-center mt-4 md:text-[48px] text-[24px]">
+                  <span>Blockster</span>
+                  <div class="flex -space-x-4 overflow-hidden items-center">
+                    <span class="img-rounded rounded-full bg-[#AFB5FF] inline-block size-10 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
+                      <img src="/images/pyjamas.png" class="h-full w-full" alt="Pyjamas" />
+                    </span>
+                    <span class="img-rounded rounded-full bg-[#85EC87] inline-block size-10 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
+                      <img src="/images/tee.png" class="h-full w-full" alt="Tee" />
+                    </span>
+                  </div>
+                  <span>Shop</span>
+                </h1>
+
+                <div class="max-w-[430px] mx-auto text-center">
+                  <p class="font-haas_medium_55 text-[#141414A3] text-center leading-[1.5] md:text-[16px] text-sm md:mt-6 mt-4 tracking-[0.02em]">
+                    Streetwear inspired by crypto culture. Use your $BLXR to score instant discounts and rep the future every day.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Best Offers Section -->
+              <div class="offer-main slider-main">
+                  <h2 class="font-haas_medium_65 text-[24px] text-[#000000] mt-6 max-md:mb-3">Best offers</h2>
+
+                  <div class="swiper slider-style blogSlider -mt-9 max-md:-mt-12 relative">
+                    <div class="swiper-wrapper">
+                      <!-- Product 1 -->
+                      <div class="swiper-slide">
+                        <div class="block rounded-lg py-2 px-2 bg-[#ffffff]">
+                          <div class="img-wrapper h-[191px]">
+                            <img alt="Cargo Comfort Pants" src="/images/blockster-hoodie.png" class="w-full h-full rounded-[12px] object-cover" />
+                          </div>
+                          <div class="py-2">
+                            <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2 line-clamp-1">Cargo Comfort Pants</h4>
+                            <div class="flex justify-between items-center gap-2 mb-2">
+                              <div class="gap-1 flex items-center shrink-0">
+                                <span class="text-[20px] font-haas_medium_65 text-[#141414]">$50</span>
+                                <span class="text-[11px] font-haas_roman_55 text-[#141414] line-through">$65</span>
+                              </div>
+                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-flex shrink">
+                                <button class="flex items-center gap-1 bg-white rounded-[100px] px-2 py-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="shrink-0">
+                                    <g clip-path="url(#clip0)">
+                                      <circle cx="12" cy="12" r="12" fill="url(#paint0)" />
+                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                    </g>
+                                    <defs>
+                                      <linearGradient id="paint0" x1="12" y1="0" x2="12" y2="24">
+                                        <stop stop-color="#8AE388" />
+                                        <stop offset="1" stop-color="#BAF55F" />
+                                      </linearGradient>
+                                      <clipPath id="clip0">
+                                        <rect width="24" height="24" rx="12" fill="white" />
+                                      </clipPath>
+                                    </defs>
+                                  </svg>
+                                  <span class="text-[10px] font-haas_medium_65 leading-tight whitespace-nowrap">1,264 = 25%</span>
+                                </button>
+                              </div>
+                            </div>
+                            <button class="w-full mt-1 bg-[#000000] text-[#ffffff] small-buttons-shadow py-2.5 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
+                              Buy Now
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Product 2 -->
+                      <div class="swiper-slide">
+                        <div class="block rounded-lg py-2 px-2 bg-[#ffffff]">
+                          <div class="img-wrapper h-[191px]">
+                            <img alt="Cargo Pants" src="/images/cargo.png" class="w-full h-full rounded-[12px] object-cover" />
+                          </div>
+                          <div class="py-2">
+                            <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2 line-clamp-1">Unofficial Cargo Pants</h4>
+                            <div class="flex justify-between items-center gap-2 mb-2">
+                              <div class="gap-1 flex items-center shrink-0">
+                                <span class="text-[20px] font-haas_medium_65 text-[#141414]">$50</span>
+                                <span class="text-[11px] font-haas_roman_55 text-[#141414] line-through">$65</span>
+                              </div>
+                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-flex shrink">
+                                <button class="flex items-center gap-1 bg-white rounded-[100px] px-2 py-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="shrink-0">
+                                    <g clip-path="url(#clip1)">
+                                      <circle cx="12" cy="12" r="12" fill="url(#paint1)" />
+                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                    </g>
+                                    <defs>
+                                      <linearGradient id="paint1" x1="12" y1="0" x2="12" y2="24">
+                                        <stop stop-color="#8AE388" />
+                                        <stop offset="1" stop-color="#BAF55F" />
+                                      </linearGradient>
+                                      <clipPath id="clip1">
+                                        <rect width="24" height="24" rx="12" fill="white" />
+                                      </clipPath>
+                                    </defs>
+                                  </svg>
+                                  <span class="text-[10px] font-haas_medium_65 leading-tight whitespace-nowrap">1,264 = 25%</span>
+                                </button>
+                              </div>
+                            </div>
+                            <button class="w-full mt-1 bg-[#000000] text-[#ffffff] small-buttons-shadow py-2.5 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
+                              Buy Now
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Product 3 -->
+                      <div class="swiper-slide">
+                        <div class="block rounded-lg py-2 px-2 bg-[#ffffff]">
+                          <div class="img-wrapper h-[191px]">
+                            <img alt="T-Shirt" src="/images/tee.png" class="w-full h-full rounded-[12px] object-cover" />
+                          </div>
+                          <div class="py-2">
+                            <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2 line-clamp-1">Blockster Tee</h4>
+                            <div class="flex justify-between items-center gap-2 mb-2">
+                              <div class="gap-1 flex items-center shrink-0">
+                                <span class="text-[20px] font-haas_medium_65 text-[#141414]">$50</span>
+                                <span class="text-[11px] font-haas_roman_55 text-[#141414] line-through">$65</span>
+                              </div>
+                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-flex shrink">
+                                <button class="flex items-center gap-1 bg-white rounded-[100px] px-2 py-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="shrink-0">
+                                    <g clip-path="url(#clip2)">
+                                      <circle cx="12" cy="12" r="12" fill="url(#paint2)" />
+                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                                    </g>
+                                    <defs>
+                                      <linearGradient id="paint2" x1="12" y1="0" x2="12" y2="24">
+                                        <stop stop-color="#8AE388" />
+                                        <stop offset="1" stop-color="#BAF55F" />
+                                      </linearGradient>
+                                      <clipPath id="clip2">
+                                        <rect width="24" height="24" rx="12" fill="white" />
+                                      </clipPath>
+                                    </defs>
+                                  </svg>
+                                  <span class="text-[10px] font-haas_medium_65 leading-tight whitespace-nowrap">1,264 = 25%</span>
+                                </button>
+                              </div>
+                            </div>
+                            <button class="w-full mt-1 bg-[#000000] text-[#ffffff] small-buttons-shadow py-2.5 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
+                              Buy Now
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="swiper-button-next"></div>
+                    <div class="swiper-button-prev"></div>
+                  </div>
+                </div>
+
+              <script>
+                window.addEventListener('load', function() {
+                  if (typeof Swiper !== 'undefined') {
+                    const swiperEl = document.querySelector('.blogSlider');
+                    if (swiperEl) {
+                      const swiper = new Swiper('.blogSlider', {
+                        slidesPerView: 1,
+                        spaceBetween: 10,
+                        slidesPerGroup: 1,
+                        allowTouchMove: true,
+                        navigation: {
+                          nextEl: '.blogSlider .swiper-button-next',
+                          prevEl: '.blogSlider .swiper-button-prev',
+                        },
+                        breakpoints: {
+                          640: {
+                            slidesPerView: 2,
+                            spaceBetween: 10,
+                            slidesPerGroup: 1,
+                          },
+                        },
+                        observer: true,
+                        observeParents: true,
+                      });
+
+                      console.log('Swiper initialized with', swiper.slides.length, 'slides');
+
+                      // Verify buttons are found and add manual click handlers
+                      const nextBtn = document.querySelector('.blogSlider .swiper-button-next');
+                      const prevBtn = document.querySelector('.blogSlider .swiper-button-prev');
+                      console.log('Next button found:', !!nextBtn);
+                      console.log('Prev button found:', !!prevBtn);
+
+                      if (nextBtn) {
+                        nextBtn.addEventListener('click', function() {
+                          console.log('Next button clicked');
+                          swiper.slideNext();
+                        });
+                      }
+
+                      if (prevBtn) {
+                        prevBtn.addEventListener('click', function() {
+                          console.log('Prev button clicked');
+                          swiper.slidePrev();
+                        });
+                      }
+                    }
+                  }
+                });
+              </script>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Upcoming Events Section -->
+      <section class="upcoming-events md:py-20 py-6">
+        <div class="container mx-auto">
+          <h2 class="font-haas_medium_65 text-3xl md:text-4xl lg:text-5xl text-[#141414] mb-8">Upcoming Events</h2>
+
+          <!-- Featured Event Card - Full Width -->
+          <div class="featured-event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC] mb-6">
+            <div class="md:flex">
+              <!-- Left Side - Image -->
+              <div class="md:w-1/2 relative">
+                <img src="/images/group-shot.png" alt="Blockster Meetup" class="w-full h-full min-h-[300px] md:min-h-[400px] object-cover" />
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                  <div class="flex -space-x-2">
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                  </div>
+                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
+                </div>
+              </div>
+
+              <!-- Right Side - Content -->
+              <div class="md:w-1/2 p-6 md:p-8 flex flex-col justify-center">
+                <div class="flex gap-2 mb-4">
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
+                </div>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-3">Dec 12, 2025</p>
+                <h3 class="font-haas_medium_65 text-2xl md:text-3xl text-[#141414] mb-4">Blockster Meet-Up: Web3 Creators Unite</h3>
+                <p class="text-base font-haas_roman_55 text-[#515B70] mb-6">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
+                <div class="flex items-center justify-between">
+                  <button class="bg-[#000000] text-white font-haas_medium_65 py-3 px-8 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
+                    Buy Ticket
+                  </button>
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_featured_event)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_featured_event)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_featured_event" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_featured_event">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                      <span class="text-xs font-haas_medium_65">1,264</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Event Card 1 -->
+            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
+              <div class="relative">
+                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                  <div class="flex -space-x-2">
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                  </div>
+                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
+                </div>
+                <div class="absolute top-4 right-4">
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_event_1)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_1)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_event_1" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_event_1">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                      <span class="text-xs font-haas_medium_65">1,264</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="p-4">
+                <div class="flex gap-2 mb-3">
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
+                </div>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
+                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
+                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
+                  Buy Ticket
+                </button>
+              </div>
+            </div>
+
+            <!-- Event Card 2 -->
+            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
+              <div class="relative">
+                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                  <div class="flex -space-x-2">
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                  </div>
+                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
+                </div>
+                <div class="absolute top-4 right-4">
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_event_2)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_2)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_event_2" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_event_2">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                      <span class="text-xs font-haas_medium_65">1,264</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="p-4">
+                <div class="flex gap-2 mb-3">
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
+                </div>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
+                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
+                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
+                  Buy Ticket
+                </button>
+              </div>
+            </div>
+
+            <!-- Event Card 3 -->
+            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
+              <div class="relative">
+                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
+                <div class="absolute top-4 left-4 flex items-center gap-2">
+                  <div class="flex -space-x-2">
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
+                  </div>
+                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
+                </div>
+                <div class="absolute top-4 right-4">
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <g clip-path="url(#clip0_event_3)">
+                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_3)" />
+                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                        </g>
+                        <defs>
+                          <linearGradient id="paint0_linear_event_3" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#8AE388" />
+                            <stop offset="1" stop-color="#BAF55F" />
+                          </linearGradient>
+                          <clipPath id="clip0_event_3">
+                            <rect width="24" height="24" rx="12" fill="white" />
+                          </clipPath>
+                        </defs>
+                      </svg>
+                      <span class="text-xs font-haas_medium_65">1,264</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="p-4">
+                <div class="flex gap-2 mb-3">
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
+                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
+                </div>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
+                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
+                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
+                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
+                  Buy Ticket
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Get Rewards Section -->
+      <section class="get-rewards-section md:py-20 py-10 bg-[url('/images/mobile-gradient.png')] md:bg-[url('/images/spiral.png')] bg-no-repeat bg-cover bg-center md:min-h-[766px] flex items-center justify-center">
+        <div class="mx-auto text-center max-w-[360px] md:max-w-[600px] px-6">
+          <h1 class="leading-[100%] tracking-[0] md:text-[64px] text-[24px] font-haas_bold_75 mb-2">Get rewards for reading more</h1>
+          <p class="font-haas_roman_55 text-[#141414A3] md:text-[20px] text-sm leading-[1.5] mt-2 tracking-[0.02em] mb-6">Blockster turns your curiosity into rewards. Read articles, earn $BUX, and use it to redeem crypto rewards, merch and events.</p>
+
+          <button class="bg-[#000000] text-white font-haas_medium_65 py-4 px-8 rounded-[100px] text-lg hover:bg-[#2C2C2C] transition-colors mb-8">
+            Start Earning $BUX
+          </button>
+
+          <div class="flex items-center justify-center gap-4">
+            <div class="flex -space-x-2">
+              <img src="/images/avatar.png" alt="User" class="w-10 h-10 rounded-full border-2 border-white" />
+              <img src="/images/avatar.png" alt="User" class="w-10 h-10 rounded-full border-2 border-white" />
+              <img src="/images/avatar.png" alt="User" class="w-10 h-10 rounded-full border-2 border-white" />
+              <img src="/images/avatar.png" alt="User" class="w-10 h-10 rounded-full border-2 border-white" />
+            </div>
+            <p class="text-sm font-haas_roman_55 text-[#515B70]">Join 500,000+ exploring Blockster</p>
+          </div>
+        </div>
+      </section>
+</div>

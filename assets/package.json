@@ -4,6 +4,7 @@
   "description": "Blockster V2 frontend dependencies",
   "private": true,
   "dependencies": {
-    "quill": "^2.0.2"
+    "quill": "^2.0.2",
+    "thirdweb": "^5.110.6"
   }
 }

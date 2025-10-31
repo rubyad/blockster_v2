@@ -1,185 +1,5 @@
-<Layouts.app flash={@flash}>
-  <div class="unregistered-page bg-[#F5F6FB]">
-    <div class="main-header-banner pt-24 lg:pt-0 pb-5 lg:mt-0 px-6 lg:pl-11 lg:pr-7 md:bg-green_gradient_2 bg-[linear-gradient(180deg,#e6f8f1_0%,#c1f27f_20%,#d2f93f_100%)]">
-      <!-- Desktop Header -->
-      <header class="pt-8 hidden lg:flex items-center justify-between gap-4">
-        <div class="left-header-inner flex items-center gap-9 w-full">
-          <div>
-            <.link navigate={~p"/"} class="bg-white py-6 px-5 rounded-[85px] block">
-              <img src="/images/Logo.png" alt="Blockster" />
-            </.link>
-          </div>
-          <div class="flex gap-2 bg-white p-2 rounded-[85px] justify-between w-full">
-            <div class="flex gap-2 items-center">
-              <div class="right-section-left">
-                <div class="input-wrapper relative max-w-[247px] w-[100%]">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z" stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                  </span>
-                  <input type="text" placeholder="Search" class="text-left text-grey-30 h-12 px-5 pl-[29px] bg-bg-input text-sm font-[400] font-haas_roman_55 w-full rounded-[85px]" />
-                </div>
-              </div>
-              <div class="inner-section-right">
-                <ul class="flex gap-2 items-center">
-                  <li class="relative child-list">
-                    <a href="#" class="px-4 pr-[9px] py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid flex items-center">
-                      <span class="flex items-center">News</span>
-                      <span class="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                          <path d="M8 10L12 14L16 10" stroke="#101C36" stroke-width="1.5" stroke-linecap="square" />
-                        </svg>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
-                    <.link navigate={~p"/"} class="px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]">
-                      Blockchain
-                    </.link>
-                  </li>
-                  <li>
-                    <a href="#" class="px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]">Shop</a>
-                  </li>
-                  <li>
-                    <a href="#" class="xl:px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px]">Events</a>
-                  </li>
-                  <li>
-                    <a href="#" class="xl:px-4 px-3 py-2 border-btn font-inter border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid">Play</a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <div class="right-outer flex items-center gap-2 w-1/4 justify-end">
-              <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-6 py-3 min-w-[73px] bg-green_gradient_2 px-3 py-2">
-                <span class="text-md font-haas_medium_65">Connect wallet</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <!-- Mobile Header -->
-      <div class="mobile-header border border-[#E7E8F1] p-3 z-50 items-center justify-between bg-white rounded-[16px] fixed top-3 w-[calc(100%-24px)] left-3 lg:hidden">
-        <div class="no-search-wrapper flex justify-between items-center">
-          <div>
-            <.link navigate={~p"/"}>
-              <img src="/images/Logo.png" alt="Blockster" />
-            </.link>
-          </div>
-          <div class="flex gap-2 items-center">
-            <button class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
-                <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z" stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </button>
-            <button class="flex items-center gap-1.5 bg-white rounded-[100px] bg-green_gradient_2 px-3 py-2">
-              <span class="text-xs font-haas_medium_65">Connect wallet</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hero/CTA Section -->
-      <div class="cta-outer">
-        <div class="cta-inner mx-auto max-w-[980px] text-center md:mt-[50px] mt-0 flex flex-col items-center justify-center">
-          <button class="flex gap-2.5 !bg-[#FFFFFF66] items-center primary-btn-shadow bg-white px-btn-primary-x py-[9px] text-[#242424] rounded-[100px] leading-[1.4] border-[1] border-[] font-haas_roman_55 text-sm">
-            <span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="26" viewBox="0 0 16 26" fill="none">
-                <path d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z" fill="#AFB5FF" />
-              </svg>
-            </span>
-            What's happening in crypto
-          </button>
-
-          <h1 class="items-center leading-[1.2] sm:mt-6 mt-3 max-md:max-w-[277px] text-4xl md:text-5xl lg:text-6xl font-haas_bold_75">
-            <span class="inline-block">Read and earn</span>
-            <img src="/images/blockster-bolt.png" alt="BLXR" class="max-w-[90px] inline-block max-md:hidden" />
-            <span>$BUX <br class="max-md:hidden" />to get crypto rewards,<br class="max-md:hidden" />merch and</span>
-            <div class="inline-flex items-center max-md:hidden">
-              <div class="inline-flex -space-x-4 overflow-hidden items-center">
-                <span class="img-rounded h-14 w-14 rounded-full inline-block bg-pastel_gradient rounded-full border-[3px] border-[#ffffff]">
-                  <img src="/images/tickets.png" class="-mt-4 h-full w-full object-cover" alt="Tickets" />
-                </span>
-                <span class="img-rounded rounded-full bg-[#AFB5FF] inline-block h-14 w-14 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
-                  <img src="/images/t-shirt.png" class="h-full w-full object-cover" alt="Merch" />
-                </span>
-              </div>
-              <span class="inline-flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="33" height="33" viewBox="0 0 33 33" fill="none">
-                  <path d="M18.7165 8.42987L27.0498 16.7632L18.7165 25.0965M26.0498 16.7632H5.0498" stroke="black" stroke-width="2" stroke-linecap="square" />
-                </svg>
-              </span>
-              <div class="flex flex-col">
-                <button class="px-4 py-2.5 border-btn border-border-grey_12 border-[1px] font-haas_medium_65 rounded-[100px] !bg-[#243837] block text-sm text-white border-solid">500k+</button>
-                <span class="text-[10px] font-inter text-[#515B70] mt-2">Join exploring Blockster</span>
-              </div>
-            </div>
-            <span>event tickets.</span>
-          </h1>
-
-          <div class="btn-group gap-4 flex md:mt-12 mt-3 max-xs:w-full">
-            <div class="btn-group-inner flex max-md:w-full">
-              <button class="md:py-3 py-2 bg-[#000000] text-[#ffffff] max-md:w-full small-buttons-shadow px-6 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block md:text-lg text-sm text-[#515B70] border-solid">
-                Join for free!
-              </button>
-              <button class="md:p-3.5 p-2.5 arrow-animated bg-[#000000] text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-full block text-lg text-[#515B70] border-solid">
-                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none" class="max-md:h-[15px] max-md:w-[15px]">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9.2749 7.01318C8.86069 7.01318 8.5249 6.6774 8.5249 6.26318C8.5249 5.84897 8.86069 5.51318 9.2749 5.51318H18.2749C18.6891 5.51318 19.0249 5.84897 19.0249 6.26318V15.2632C19.0249 15.6774 18.6891 16.0132 18.2749 16.0132C17.8607 16.0132 17.5249 15.6774 17.5249 15.2632V8.07384L6.80523 18.7935C6.51234 19.0864 6.03747 19.0864 5.74457 18.7935C5.45168 18.5006 5.45168 18.0257 5.74457 17.7329L16.4642 7.01318H9.2749Z" fill="white" stroke="white" />
-                </svg>
-              </button>
-            </div>
-            <button class="max-md:hidden py-3.5 bg-[#ffffff] text-[#000000] small-buttons-shadow px-6 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-lg text-[#515B70] border-solid">
-              Blockchain hub
-            </button>
-          </div>
-        </div>
-
-        <!-- Hero Images Section (Desktop) -->
-        <div class="bottom-absolute flex gap-3 items-end -mt-6 justify-center max-md:hidden max-w-[1334px] mx-auto">
-          <div class="block z-10 dark-card-hero relative overflow-hidden rounded-[24px] p-2 border-[#1414141A] border-[1px] bg-[#000000] !max-w-[] w-1/5">
-            <div class="flex gap-2 justify-center items-center py-4 xl:flex-row flex-col">
-              <h2 class="text-[24px] font-haas_medium_65 text-white">Industry</h2>
-              <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-6 py-3 min-w-[73px] bg-green_gradient_2 px-3 py-2">
-                <span class="text-md font-haas_medium_65">Events</span>
-              </button>
-            </div>
-            <div class="img-wrapper md:h-[163px] h-[163px]">
-              <img alt="Industry Events" src="/images/hero-industry.png" class="w-full h-full rounded-[12px] object-cover" />
-            </div>
-            <div>
-              <button class="w-full mt-2.5 p-2 bg-[#000000] text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] backdrop-blur-[16px] shadow-[inset_0_0_16px_#ffffff40,inset_0_4px_4px_#ffffff40] bg-white/10 rounded-[100px] block text-md text-[#515B70] border-solid">
-                See All
-              </button>
-            </div>
-          </div>
-          <div class="h-[230px] w-1/5 relative px-[6px] pt-[14px] flex justify-center overflow-hidden rounded-[24px] bg-[linear-gradient(360deg,#B0B6FE_0%,#E1E3FD_100%),linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0)_100%)]">
-            <img src="/images/girl-pose.png" alt="Merch" class="h-[304px]" />
-            <div class="rounded-[100px] button-group p-2 inline-flex gap-2 left-2 absolute bottom-2 justify-between flex-row-reverse w-[calc(100%-16px)] backdrop-blur-[16px] shadow-[inset_0_0_13.7px_#ffffff40] bg-[linear-gradient(266.21deg,rgba(255,255,255,0.2)_0.77%,rgba(74,74,74,0.2)_94.03%)]">
-              <button class="p-1.5 arrow-animated bg-white text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-full block text-lg text-[#515B70] border-solid">
-                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9.2749 7.01318C8.86069 7.01318 8.5249 6.6774 8.5249 6.26318C8.5249 5.84897 8.86069 5.51318 9.2749 5.51318H18.2749C18.6891 5.51318 19.0249 5.84897 19.0249 6.26318V15.2632C19.0249 15.6774 18.6891 16.0132 18.2749 16.0132C17.8607 16.0132 17.5249 15.6774 17.5249 15.2632V8.07384L6.80523 18.7935C6.51234 19.0864 6.03747 19.0864 5.74457 18.7935C5.45168 18.5006 5.45168 18.0257 5.74457 17.7329L16.4642 7.01318H9.2749Z" fill="black" stroke="black" />
-                </svg>
-              </button>
-              <button class="flex font-haas_medium_65 text-md items-center justify-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] bg-green_gradient_2 px-3 py-2">
-                Merch
-              </button>
-            </div>
-          </div>
-          <div class="w-1/5">
-            <img src="/images/iphone.png" alt="App" class="w-full" />
-          </div>
-          <div class="w-1/5">
-            <img src="/images/app-store.png" alt="App Store" class="w-full" />
-          </div>
-          <div class="w-1/5">
-            <img src="/images/crypto-news.png" alt="Crypto News" class="w-full" />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- How it works Section -->
+<div class="unregistered-page bg-[#F5F6FB]">
+  <!-- How it works Section -->
     <section class="section">
       <div class="container">
         <div class="md:py-12 md:mt-12 mt-6 py-6 fixed-w-container rounded-[24px] relative overflow-hidden max-md:bg-[linear-gradient(360deg,#B0B6FE_0%,#E1E3FD_100%),linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0)_100%)]">
@@ -232,8 +52,7 @@
     </section>
 
     <!-- Posts Section -->
-    <main class="bg-[#F5F6FB]">
-      <section class="blog-section md:py-20 py-6 relative">
+    <section class="blog-section md:py-20 py-6 relative">
         <div class="container mx-auto">
           <div class="inner xl:flex gap-6">
             <div class="left-content xl:w-2/3 w-full">
@@ -274,21 +93,7 @@
                                 </ul>
                                 <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                   <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                      <g clip-path="url(#clip0_35_1235)">
-                                        <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                      </g>
-                                      <defs>
-                                        <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                          <stop stop-color="#8AE388" />
-                                          <stop offset="1" stop-color="#BAF55F" />
-                                        </linearGradient>
-                                        <clipPath id="clip0_35_1235">
-                                          <rect width="24" height="24" rx="12" fill="white" />
-                                        </clipPath>
-                                      </defs>
-                                    </svg>
+                                    <.lightning_icon id={"bux_left_#{post.id}"} size="20" />
                                     <span class="text-xs font-haas_medium_65">{post.view_count}</span>
                                   </button>
                                 </div>
@@ -328,21 +133,7 @@
                               </ul>
                               <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                    <g clip-path="url(#clip0_35_1235)">
-                                      <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                    </g>
-                                    <defs>
-                                      <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                        <stop stop-color="#8AE388" />
-                                        <stop offset="1" stop-color="#BAF55F" />
-                                      </linearGradient>
-                                      <clipPath id="clip0_35_1235">
-                                        <rect width="24" height="24" rx="12" fill="white" />
-                                      </clipPath>
-                                    </defs>
-                                  </svg>
+                                  <.lightning_icon id="bux_icon_2" size="20" />
                                   <span class="text-xs font-haas_medium_65">{post.view_count}</span>
                                 </button>
                               </div>
@@ -381,21 +172,7 @@
                               </ul>
                               <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                    <g clip-path="url(#clip0_35_1235)">
-                                      <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                      <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                    </g>
-                                    <defs>
-                                      <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                        <stop stop-color="#8AE388" />
-                                        <stop offset="1" stop-color="#BAF55F" />
-                                      </linearGradient>
-                                      <clipPath id="clip0_35_1235">
-                                        <rect width="24" height="24" rx="12" fill="white" />
-                                      </clipPath>
-                                    </defs>
-                                  </svg>
+                                  <.lightning_icon id={"bux_middle_#{post.id}"} size="20" />
                                   <span class="text-xs font-haas_medium_65">{post.view_count}</span>
                                 </button>
                               </div>
@@ -427,21 +204,7 @@
                       </ul>
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <g clip-path="url(#clip0_35_1235)">
-                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                            </g>
-                            <defs>
-                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#8AE388" />
-                                <stop offset="1" stop-color="#BAF55F" />
-                              </linearGradient>
-                              <clipPath id="clip0_35_1235">
-                                <rect width="24" height="24" rx="12" fill="white" />
-                              </clipPath>
-                            </defs>
-                          </svg>
+                          <.lightning_icon id="bux_icon_4" size="20" />
                           <span class="text-xs font-haas_medium_65">1,264</span>
                         </button>
                       </div>
@@ -465,21 +228,7 @@
                       </ul>
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <g clip-path="url(#clip0_35_1235)">
-                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                            </g>
-                            <defs>
-                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#8AE388" />
-                                <stop offset="1" stop-color="#BAF55F" />
-                              </linearGradient>
-                              <clipPath id="clip0_35_1235">
-                                <rect width="24" height="24" rx="12" fill="white" />
-                              </clipPath>
-                            </defs>
-                          </svg>
+                          <.lightning_icon id="bux_icon_5" size="20" />
                           <span class="text-xs font-haas_medium_65">1,264</span>
                         </button>
                       </div>
@@ -503,21 +252,7 @@
                       </ul>
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <g clip-path="url(#clip0_35_1235)">
-                              <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                              <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                            </g>
-                            <defs>
-                              <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#8AE388" />
-                                <stop offset="1" stop-color="#BAF55F" />
-                              </linearGradient>
-                              <clipPath id="clip0_35_1235">
-                                <rect width="24" height="24" rx="12" fill="white" />
-                              </clipPath>
-                            </defs>
-                          </svg>
+                          <.lightning_icon id="bux_icon_6" size="20" />
                           <span class="text-xs font-haas_medium_65">1,264</span>
                         </button>
                       </div>
@@ -611,21 +346,7 @@
                 <a href="" class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-80 block relative overflow-hidden">
                   <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-20 relative">
                     <span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_35_1235)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_35_1235">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
+                      <.lightning_icon id="bux_icon_7" size="34" />
                     </span>
                     <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
                   </div>
@@ -636,21 +357,7 @@
                   <div class="bottom-fixed md:p-6 px-[18px] py-3 rounded-[18px] z-10">
                     <div class="p-[2px] bg-gradient-to1-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                       <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                          <g clip-path="url(#clip0_35_1235)">
-                            <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                            <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                          </g>
-                          <defs>
-                            <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                              <stop stop-color="#8AE388" />
-                              <stop offset="1" stop-color="#BAF55F" />
-                            </linearGradient>
-                            <clipPath id="clip0_35_1235">
-                              <rect width="24" height="24" rx="12" fill="white" />
-                            </clipPath>
-                          </defs>
-                        </svg>
+                        <.lightning_icon id="bux_icon_8" size="20" />
                         <span class="text-xs font-haas_medium_65">1,264</span>
                       </button>
                     </div>
@@ -692,21 +399,7 @@
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                               <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                  <g clip-path="url(#clip0_35_1235)">
-                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                  </g>
-                                  <defs>
-                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                      <stop stop-color="#8AE388" />
-                                      <stop offset="1" stop-color="#BAF55F" />
-                                    </linearGradient>
-                                    <clipPath id="clip0_35_1235">
-                                      <rect width="24" height="24" rx="12" fill="white" />
-                                    </clipPath>
-                                  </defs>
-                                </svg>
+                                <.lightning_icon id="bux_icon_9" size="20" />
                                 <span class="text-xs font-haas_medium_65">1,264</span>
                               </button>
                             </div>
@@ -733,21 +426,7 @@
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                               <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                  <g clip-path="url(#clip0_35_1235)">
-                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                  </g>
-                                  <defs>
-                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                      <stop stop-color="#8AE388" />
-                                      <stop offset="1" stop-color="#BAF55F" />
-                                    </linearGradient>
-                                    <clipPath id="clip0_35_1235">
-                                      <rect width="24" height="24" rx="12" fill="white" />
-                                    </clipPath>
-                                  </defs>
-                                </svg>
+                                <.lightning_icon id="bux_icon_10" size="20" />
                                 <span class="text-xs font-haas_medium_65">1,264</span>
                               </button>
                             </div>
@@ -774,21 +453,7 @@
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                               <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                  <g clip-path="url(#clip0_35_1235)">
-                                    <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                    <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                  </g>
-                                  <defs>
-                                    <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                      <stop stop-color="#8AE388" />
-                                      <stop offset="1" stop-color="#BAF55F" />
-                                    </linearGradient>
-                                    <clipPath id="clip0_35_1235">
-                                      <rect width="24" height="24" rx="12" fill="white" />
-                                    </clipPath>
-                                  </defs>
-                                </svg>
+                                <.lightning_icon id="bux_icon_11" size="20" />
                                 <span class="text-xs font-haas_medium_65">1,264</span>
                               </button>
                             </div>
@@ -816,21 +481,7 @@
                           </ul>
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                             <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <g clip-path="url(#clip0_35_1235)">
-                                  <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                  <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                </g>
-                                <defs>
-                                  <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#8AE388" />
-                                    <stop offset="1" stop-color="#BAF55F" />
-                                  </linearGradient>
-                                  <clipPath id="clip0_35_1235">
-                                    <rect width="24" height="24" rx="12" fill="white" />
-                                  </clipPath>
-                                </defs>
-                              </svg>
+                              <.lightning_icon id="bux_icon_12" size="20" />
                               <span class="text-xs font-haas_medium_65">1,264</span>
                             </button>
                           </div>
@@ -854,21 +505,7 @@
                           </ul>
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                             <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <g clip-path="url(#clip0_35_1235)">
-                                  <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                                  <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                                </g>
-                                <defs>
-                                  <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#8AE388" />
-                                    <stop offset="1" stop-color="#BAF55F" />
-                                  </linearGradient>
-                                  <clipPath id="clip0_35_1235">
-                                    <rect width="24" height="24" rx="12" fill="white" />
-                                  </clipPath>
-                                </defs>
-                              </svg>
+                              <.lightning_icon id="bux_icon_13" size="20" />
                               <span class="text-xs font-haas_medium_65">1,264</span>
                             </button>
                           </div>
@@ -891,21 +528,7 @@
               <a href="" class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 block">
                 <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-10 relative">
                   <span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none">
-                      <g clip-path="url(#clip0_35_1235)">
-                        <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                      </g>
-                      <defs>
-                        <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                          <stop stop-color="#8AE388" />
-                          <stop offset="1" stop-color="#BAF55F" />
-                        </linearGradient>
-                        <clipPath id="clip0_35_1235">
-                          <rect width="24" height="24" rx="12" fill="white" />
-                        </clipPath>
-                      </defs>
-                    </svg>
+                    <.lightning_icon id="bux_icon_14" size="34" />
                   </span>
                   <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
                 </div>
@@ -916,21 +539,7 @@
                 <div class="bottom-fixed p-6 rounded-[18px] z-10">
                   <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                     <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_35_1235)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_35_1235)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_35_1235" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_35_1235">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
+                      <.lightning_icon id="bux_icon_15" size="20" />
                       <span class="text-xs font-haas_medium_65">1,264</span>
                     </button>
                   </div>
@@ -1492,251 +1101,6 @@
                 </button>
               </div>
             </div>
-
-            <!-- Event Card 4 -->
-            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
-              <div class="relative">
-                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
-                <div class="absolute top-4 left-4 flex items-center gap-2">
-                  <div class="flex -space-x-2">
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                  </div>
-                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
-                </div>
-                <div class="absolute top-4 right-4">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_event_4)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_4)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_event_4" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_event_4">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="p-4">
-                <div class="flex gap-2 mb-3">
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
-                </div>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
-                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
-                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
-                  Buy Ticket
-                </button>
-              </div>
-            </div>
-
-            <!-- Event Card 5 -->
-            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
-              <div class="relative">
-                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
-                <div class="absolute top-4 left-4 flex items-center gap-2">
-                  <div class="flex -space-x-2">
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                  </div>
-                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
-                </div>
-                <div class="absolute top-4 right-4">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_event_5)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_5)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_event_5" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_event_5">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="p-4">
-                <div class="flex gap-2 mb-3">
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
-                </div>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
-                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
-                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
-                  Buy Ticket
-                </button>
-              </div>
-            </div>
-
-            <!-- Event Card 6 -->
-            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
-              <div class="relative">
-                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
-                <div class="absolute top-4 left-4 flex items-center gap-2">
-                  <div class="flex -space-x-2">
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                  </div>
-                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
-                </div>
-                <div class="absolute top-4 right-4">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_event_6)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_6)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_event_6" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_event_6">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="p-4">
-                <div class="flex gap-2 mb-3">
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
-                </div>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
-                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
-                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
-                  Buy Ticket
-                </button>
-              </div>
-            </div>
-
-            <!-- Event Card 7 -->
-            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
-              <div class="relative">
-                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
-                <div class="absolute top-4 left-4 flex items-center gap-2">
-                  <div class="flex -space-x-2">
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                  </div>
-                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
-                </div>
-                <div class="absolute top-4 right-4">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_event_7)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_7)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_event_7" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_event_7">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="p-4">
-                <div class="flex gap-2 mb-3">
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
-                </div>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
-                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
-                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
-                  Buy Ticket
-                </button>
-              </div>
-            </div>
-
-            <!-- Event Card 8 -->
-            <div class="event-card bg-white rounded-[16px] overflow-hidden border border-[#E8EAEC]">
-              <div class="relative">
-                <img src="/images/group-shot.png" alt="Event" class="w-full h-[240px] object-cover" />
-                <div class="absolute top-4 left-4 flex items-center gap-2">
-                  <div class="flex -space-x-2">
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                    <img src="/images/avatar.png" alt="Attendee" class="w-8 h-8 rounded-full border-2 border-white" />
-                  </div>
-                  <span class="text-xs font-haas_medium_65 text-white bg-black/50 px-2 py-1 rounded-full">+200</span>
-                </div>
-                <div class="absolute top-4 right-4">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <g clip-path="url(#clip0_event_8)">
-                          <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_event_8)" />
-                          <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-                        </g>
-                        <defs>
-                          <linearGradient id="paint0_linear_event_8" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#8AE388" />
-                            <stop offset="1" stop-color="#BAF55F" />
-                          </linearGradient>
-                          <clipPath id="clip0_event_8">
-                            <rect width="24" height="24" rx="12" fill="white" />
-                          </clipPath>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="p-4">
-                <div class="flex gap-2 mb-3">
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">NFT's</span>
-                  <span class="text-xs font-haas_medium_65 text-[#141414] bg-[#F5F6FB] px-3 py-1 rounded-full">Trading</span>
-                </div>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-2">Dec 12, 2025</p>
-                <h3 class="font-haas_medium_65 text-xl text-[#141414] mb-3">Blockster Meet-Up: Web3 Creators Unite</h3>
-                <p class="text-sm font-haas_roman_55 text-[#515B70] mb-4 line-clamp-3">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, spark collaborations, and dive deep into the evolving world of Web3.</p>
-                <button class="w-full bg-[#000000] text-white font-haas_medium_65 py-3 rounded-[100px] text-sm hover:bg-[#2C2C2C] transition-colors">
-                  Buy Ticket
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -1762,67 +1126,4 @@
           </div>
         </div>
       </section>
-
-      <!-- Footer -->
-      <footer class="bg-[#141414] text-white py-12 md:py-16">
-        <div class="container mx-auto">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
-            <!-- Logo and Description -->
-            <div class="lg:col-span-2">
-              <div class="mb-6">
-                <img src="/images/logo-footer.png" alt="Blockster" class="h-8" />
-              </div>
-              <p class="text-sm font-haas_roman_55 text-[#FFFFFFB3] leading-relaxed">Lorem ipsum dolor sit amet consectetur. Augue placerat posuere pharetra ultrices ut ipsum. Eu mauris neque nam quam nascetur.</p>
-            </div>
-
-            <!-- Resource Links -->
-            <div>
-              <h3 class="font-haas_medium_65 text-lg mb-4">Resources</h3>
-              <ul class="space-y-3">
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Event Page</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Blockchain Hub</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Create Account</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Become an ambassador</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Store</a></li>
-              </ul>
-            </div>
-
-            <!-- Blockchain Links -->
-            <div>
-              <h3 class="font-haas_medium_65 text-lg mb-4">Blockchain</h3>
-              <ul class="space-y-3">
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Bitcoin</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Ethereum</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Solana</a></li>
-                <li><a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Superchain</a></li>
-              </ul>
-            </div>
-
-            <!-- Newsletter and Contact -->
-            <div>
-              <h3 class="font-haas_medium_65 text-lg mb-4">Subscribe to our newsletter</h3>
-              <div class="mb-6">
-                <input type="email" placeholder="Enter your email" class="w-full px-4 py-3 rounded-[100px] bg-[#2C2C2C] text-white text-sm font-haas_roman_55 placeholder-[#FFFFFF66] border border-[#FFFFFF1A] focus:outline-none focus:border-[#FFFFFF33]" />
-              </div>
-
-              <div class="space-y-2">
-                <p class="text-sm font-haas_roman_55 text-[#FFFFFFB3]">Selection committee: <a href="tel:+18919891192" class="hover:text-white">+1 891 989-11-92</a></p>
-                <p class="text-sm font-haas_roman_55 text-[#FFFFFFB3]">Phone: <a href="tel:+18919891193" class="hover:text-white">+1 891 989-11-93</a></p>
-                <p class="text-sm font-haas_roman_55 text-[#FFFFFFB3]">Email: <a href="mailto:info@logoipsum.com" class="hover:text-white">info@logoipsum.com</a></p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Bar -->
-          <div class="border-t border-[#FFFFFF1A] pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p class="text-sm font-haas_roman_55 text-[#FFFFFFB3]">Blockster. All right reserved. © 2025</p>
-            <div class="flex gap-6">
-              <a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" class="text-sm font-haas_roman_55 text-[#FFFFFFB3] hover:text-white transition-colors">Privacy Policy</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </main>
-  </div>
-</Layouts.app>
+</div>
