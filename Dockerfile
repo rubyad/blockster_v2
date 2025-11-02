@@ -51,6 +51,13 @@ RUN mkdir config
 COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
+# Copy assets directory BEFORE assets.setup (node_modules excluded by .dockerignore)
+COPY assets assets
+
+# Install npm packages first
+RUN cd assets && npm ci --prefer-offline --no-audit && cd ..
+
+# Now run assets.setup (installs tailwind and esbuild binaries)
 RUN mix assets.setup
 
 COPY priv priv
@@ -59,12 +66,6 @@ COPY lib lib
 
 # Compile the release
 RUN mix compile
-
-# Copy assets directory (node_modules excluded by .dockerignore)
-COPY assets assets
-
-# Install npm packages
-RUN cd assets && npm ci --prefer-offline --no-audit && cd ..
 
 # compile assets
 RUN mix assets.deploy
