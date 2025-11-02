@@ -132,7 +132,7 @@ defmodule BlocksterV2Web.PostLive.Show do
               String.replace(l, ~s(<p class="blockquote-line">), "<p>")
             end
           end)
-          wrapped = ~s(<blockquote>#{Enum.join(cleaned_lines, "\n")}</blockquote>)
+          wrapped = ~s(<blockquote class="mt-4 mb-8">#{Enum.join(cleaned_lines, "\n")}</blockquote>)
           {acc ++ [wrapped, line], []}
 
         # Otherwise just accumulate
@@ -155,7 +155,7 @@ defmodule BlocksterV2Web.PostLive.Show do
           String.replace(l, ~s(<p class="blockquote-line">), "<p>")
         end
       end)
-      wrapped = ~s(<blockquote>#{Enum.join(cleaned_lines, "\n")}</blockquote>)
+      wrapped = ~s(<blockquote class="mt-4 mb-8">#{Enum.join(cleaned_lines, "\n")}</blockquote>)
       result ++ [wrapped]
     else
       result
@@ -204,10 +204,18 @@ defmodule BlocksterV2Web.PostLive.Show do
         _ -> "text-2xl font-bold"
       end
 
+    # Add mt-4 mb-8 spacing for h1 and h2 tags
+    spacing_class =
+      case level do
+        1 -> "mt-4 mb-8"
+        2 -> "mt-4 mb-8"
+        _ -> "mb-4"
+      end
+
     header_tag = "h#{level}"
 
     header_html =
-      ~s(<#{header_tag} class="mb-4 text-[#343434] leading-[1.2] #{size_class}">#{header_text}</#{header_tag}>)
+      ~s(<#{header_tag} class="#{spacing_class} text-[#343434] leading-[1.2] #{size_class}">#{header_text}</#{header_tag}>)
 
     # Return paragraphs followed by header
     paragraphs ++ [header_html]
@@ -341,49 +349,57 @@ defmodule BlocksterV2Web.PostLive.Show do
          Map.has_key?(attrs, "list") do
       nil
     else
-      # Build formatted content
-      content = to_string(text)
+      # Split text into paragraphs first, then apply formatting to each
+      text
+      |> String.split("\n\n")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(fn para ->
+        # Reject empty strings and separator-only strings like "--"
+        para == "" || String.match?(para, ~r/^[-\s]+$/)
+      end)
+      |> Enum.map(fn para ->
+        # Apply formatting to the paragraph content
+        content = para
 
-      # Apply formatting in order: bold, italic, underline, strike
-      content =
-        if attrs["bold"] do
-          ~s(<strong>#{content}</strong>)
-        else
-          content
-        end
+        content =
+          if attrs["bold"] do
+            ~s(<strong>#{content}</strong>)
+          else
+            content
+          end
 
-      content =
-        if attrs["italic"] do
-          ~s(<em>#{content}</em>)
-        else
-          content
-        end
+        content =
+          if attrs["italic"] do
+            ~s(<em>#{content}</em>)
+          else
+            content
+          end
 
-      content =
-        if attrs["underline"] do
-          ~s(<u>#{content}</u>)
-        else
-          content
-        end
+        content =
+          if attrs["underline"] do
+            ~s(<u>#{content}</u>)
+          else
+            content
+          end
 
-      content =
-        if attrs["strike"] do
-          ~s(<s>#{content}</s>)
-        else
-          content
-        end
+        content =
+          if attrs["strike"] do
+            ~s(<s>#{content}</s>)
+          else
+            content
+          end
 
-      # Apply link if present (should be outermost wrapper)
-      content =
-        if attrs["link"] do
-          url = attrs["link"]
-          ~s(<a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">#{content}</a>)
-        else
-          content
-        end
+        content =
+          if attrs["link"] do
+            url = attrs["link"]
+            ~s(<a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">#{content}</a>)
+          else
+            content
+          end
 
-      # Return formatted content
-      content
+        # Wrap in paragraph tag with spacing
+        ~s(<p class="mt-4 mb-8 text-[#343434] leading-[1.6]">#{content}</p>)
+      end)
     end
   end
 
@@ -393,16 +409,24 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Single newlines within paragraphs are ignored
     text
     |> String.split("\n\n")
-    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(fn para ->
+      # Reject empty strings and separator-only strings like "--"
+      para == "" || String.match?(para, ~r/^[-\s]+$/)
+    end)
     |> Enum.map(fn para ->
-      trimmed = String.trim(para)
-      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
+      ~s(<p class="mt-4 mb-8 text-[#343434] leading-[1.6]">#{para}</p>)
     end)
   end
 
   # Handle images
   defp render_single_op(%{"insert" => %{"image" => url}}, _next_op) do
     ~s(<img src="#{url}" class="max-w-full h-auto rounded-lg my-4" />)
+  end
+
+  # Handle spacer embeds
+  defp render_single_op(%{"insert" => %{"spacer" => _}}, _next_op) do
+    ~s(<div style="height: 16px; display: block;"></div>)
   end
 
   # Handle tweet embeds with embedded HTML
