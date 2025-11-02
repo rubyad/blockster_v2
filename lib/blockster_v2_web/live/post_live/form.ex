@@ -6,7 +6,14 @@ defmodule BlocksterV2Web.PostLive.Form do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    # Load all authors (users with is_author = true) for admin dropdown
+    authors = if socket.assigns.current_user && socket.assigns.current_user.is_admin do
+      BlocksterV2.Accounts.list_authors()
+    else
+      []
+    end
+
+    {:ok, assign(socket, authors: authors)}
   end
 
   @impl true
@@ -15,10 +22,17 @@ defmodule BlocksterV2Web.PostLive.Form do
   end
 
   defp apply_action(socket, :new, _params) do
+    # Auto-populate author_name with username for new posts
+    post = if socket.assigns.current_user && socket.assigns.current_user.username do
+      %Post{author_name: socket.assigns.current_user.username}
+    else
+      %Post{}
+    end
+
     socket
     |> assign(:page_title, "New Post")
-    |> assign(:post, %Post{})
-    |> assign_form(Blog.change_post(%Post{}))
+    |> assign(:post, post)
+    |> assign_form(Blog.change_post(post))
   end
 
   defp apply_action(socket, :edit, %{"slug" => slug}) do
@@ -61,6 +75,9 @@ defmodule BlocksterV2Web.PostLive.Form do
   end
 
   defp save_post(socket, :new, post_params) do
+    # Add author_id from current user
+    post_params = Map.put(post_params, "author_id", socket.assigns.current_user.id)
+
     case Blog.create_post(post_params) do
       {:ok, post} ->
         {:noreply,

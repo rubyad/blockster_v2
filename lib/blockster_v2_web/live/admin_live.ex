@@ -10,6 +10,25 @@ defmodule BlocksterV2Web.AdminLive do
   end
 
   @impl true
+  def handle_event("toggle_author_status", %{"user-id" => user_id}, socket) do
+    user = Accounts.get_user(user_id)
+
+    if user do
+      case Accounts.update_user(user, %{is_author: !user.is_author}) do
+        {:ok, _updated_user} ->
+          # Reload users list
+          users = Accounts.list_users()
+          {:noreply, assign(socket, users: users)}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-gray-50 py-8">
@@ -44,6 +63,9 @@ defmodule BlocksterV2Web.AdminLive do
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Author Status
                   </th>
                 </tr>
               </thead>
@@ -87,6 +109,18 @@ defmodule BlocksterV2Web.AdminLive do
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <%= Calendar.strftime(user.inserted_at, "%b %d, %Y") %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        phx-click="toggle_author_status"
+                        phx-value-user-id={user.id}
+                        class={[
+                          "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                          if(user.is_author, do: "bg-green-100 text-green-800 hover:bg-green-200", else: "bg-gray-100 text-gray-600 hover:bg-gray-200")
+                        ]}
+                      >
+                        <%= if user.is_author, do: "Author ✓", else: "Make Author" %>
+                      </button>
                     </td>
                   </tr>
                 <% end %>

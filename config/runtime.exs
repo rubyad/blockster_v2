@@ -27,9 +27,11 @@ end
 # S3 Configuration for image uploads
 # The S3 bucket and region can be configured via environment variables
 config :blockster_v2,
-  s3_bucket: System.get_env("S3_BUCKET") || "your-bucket-name",
+  s3_bucket: System.get_env("AWS_S3_BUCKET") || System.get_env("S3_BUCKET") || "your-bucket-name",
   s3_region: System.get_env("AWS_REGION") || "us-east-1",
-  thirdweb_client_id: System.get_env("THIRDWEB_CLIENT_ID")
+  thirdweb_client_id: System.get_env("THIRDWEB_CLIENT_ID"),
+  aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
+  aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the

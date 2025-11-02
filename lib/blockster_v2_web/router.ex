@@ -32,12 +32,27 @@ defmodule BlocksterV2Web.Router do
       live "/profile", UserProfileLive, :index
     end
 
+    live_session :author_new,
+      on_mount: [{BlocksterV2Web.UserAuth, :default}, {BlocksterV2Web.AuthorAuth, :require_author}],
+      layout: {BlocksterV2Web.Layouts, :app} do
+      live "/new", PostLive.Form, :new
+    end
+
+    live_session :author_edit,
+      on_mount: [{BlocksterV2Web.UserAuth, :default}, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
+      layout: {BlocksterV2Web.Layouts, :app} do
+      live "/:slug/edit", PostLive.Form, :edit
+    end
+
     live_session :default,
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/", PostLive.Index, :index
+      live "/login", LoginLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
-      live "/new", PostLive.Form, :new
-      live "/:slug/edit", PostLive.Form, :edit
+      live "/hubs", HubLive.Index, :index
+      live "/hub/:slug", HubLive.Show, :show
+      live "/category/:category", PostLive.Category, :show
+      live "/tag/:tag", PostLive.Tag, :show
       live "/:slug", PostLive.Show, :show
     end
   end

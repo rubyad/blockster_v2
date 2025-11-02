@@ -9,6 +9,7 @@ defmodule BlocksterV2.Accounts.User do
     field :auth_method, :string, default: "wallet"
     field :is_verified, :boolean, default: false
     field :is_admin, :boolean, default: false
+    field :is_author, :boolean, default: false
     field :bux_balance, :integer, default: 0
     field :level, :integer, default: 1
     field :experience_points, :integer, default: 0
@@ -16,6 +17,7 @@ defmodule BlocksterV2.Accounts.User do
     field :chain_id, :integer, default: 560013
 
     has_many :sessions, BlocksterV2.Accounts.UserSession
+    has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
 
     timestamps()
   end
@@ -24,7 +26,8 @@ defmodule BlocksterV2.Accounts.User do
   def changeset(user, attrs) do
     user
     |> cast(attrs, [:email, :wallet_address, :username, :auth_method, :is_verified,
-                    :bux_balance, :level, :experience_points, :avatar_url, :chain_id])
+                    :is_admin, :is_author, :bux_balance, :level, :experience_points,
+                    :avatar_url, :chain_id])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)

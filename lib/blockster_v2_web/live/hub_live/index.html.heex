@@ -1,0 +1,82 @@
+<div class="unregistered-page bg-[#F5F6FB]">
+  <!-- Hero Section -->
+  <section class="section pt-8 pb-6">
+    <div class="container mx-auto px-4">
+      <div class="text-center max-w-3xl mx-auto">
+        <h1 class="text-4xl md:text-5xl font-haas_bold_75 text-[#141414] mb-4">Business Hubs</h1>
+        <p class="text-lg font-haas_roman_55 text-[#515B70] leading-relaxed">
+          Explore dedicated pages for leading blockchain businesses, exchanges, and protocols. Each hub features curated content and latest updates.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hubs Grid Section -->
+  <section class="section pb-20">
+    <div class="container mx-auto px-4">
+      <%= if @hubs == [] do %>
+        <div class="text-center py-20">
+          <p class="text-[#515B70] font-haas_roman_55">No hubs available yet.</p>
+        </div>
+      <% else %>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <%= for hub <- @hubs do %>
+            <.link
+              navigate={~p"/hub/#{hub.slug}"}
+              class="group block bg-white rounded-2xl border border-[#E7E8F1] hover:shadow-xl transition-all duration-300 overflow-hidden"
+            >
+              <!-- Hub Header with Brand Color -->
+              <div
+                class="h-32 flex items-center justify-center relative overflow-hidden"
+                style={"background: linear-gradient(135deg, #{hub.color_primary || "#6366F1"} 0%, #{hub.color_secondary || "#4F46E5"} 100%)"}
+              >
+                <%= if hub.logo_url do %>
+                  <img
+                    src={hub.logo_url}
+                    alt={hub.name}
+                    class="h-16 w-auto object-contain relative z-10 filter brightness-0 invert"
+                  />
+                <% else %>
+                  <div class="text-white text-3xl font-haas_bold_75 relative z-10">
+                    {String.first(hub.name)}
+                  </div>
+                <% end %>
+
+                <!-- Decorative overlay -->
+                <div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-all"></div>
+              </div>
+
+              <!-- Hub Info -->
+              <div class="p-5">
+                <h3 class="font-haas_bold_75 text-xl text-[#141414] mb-2 group-hover:text-[#6366F1] transition-colors">
+                  {hub.name}
+                </h3>
+
+                <%= if hub.description do %>
+                  <p class="text-sm font-haas_roman_55 text-[#515B70] line-clamp-2 leading-relaxed">
+                    {hub.description}
+                  </p>
+                <% end %>
+
+                <!-- View Hub Link -->
+                <div class="mt-4 flex items-center text-sm font-haas_medium_65 text-[#6366F1] group-hover:translate-x-1 transition-transform">
+                  <span>View Hub</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="mt-12 text-center">
+          <p class="text-[#515B70] font-haas_roman_55">
+            Showing <span class="font-haas_medium_65 text-[#141414]">{length(@hubs)}</span> business hubs
+          </p>
+        </div>
+      <% end %>
+    </div>
+  </section>
+</div>

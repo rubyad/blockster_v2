@@ -33,21 +33,33 @@
             </div>
 
             <div class="wrapper max-md:px-6">
+              <!-- Category -->
+              <%= if @post.category do %>
+                <div class="mt-6">
+                  <span class="text-[#141414] text-[24px] max-md:text-[18px] font-haas_medium_65 tracking-[0.02em]">
+                    {@post.category}
+                  </span>
+                </div>
+              <% end %>
+
               <!-- Title -->
-              <h1 class="text-black text-[64px] max-md:text-[24px] max-lg:text-[50px] xs:mt-6 mt-4 text-left leading-[100%] tracking-[0.02em] font-bold">
+              <h1 class="text-black text-[64px] max-md:text-[24px] max-lg:text-[50px] mt-4 text-left leading-[100%] tracking-[0.02em] font-bold">
                 {@post.title}
               </h1>
-              
-<!-- Category Tags -->
-              <ul class="gap-2 items-start mt-5 w-full flex flex-wrap">
-                <%= if @post.category do %>
-                  <li>
-                    <button class="px-4 py-1 border-btn font-haas_roman_55 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid bg-white">
-                      {@post.category}
-                    </button>
-                  </li>
-                <% end %>
-              </ul>
+
+              <!-- Tags -->
+              <%= if @post.tags && length(@post.tags) > 0 do %>
+                <div class="flex flex-wrap gap-2 mt-4">
+                  <%= for tag <- @post.tags do %>
+                    <.link
+                      navigate={~p"/tag/#{tag.slug}"}
+                      class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] hover:border-[#B0B6FE] transition-all cursor-pointer"
+                    >
+                      {tag.name}
+                    </.link>
+                  <% end %>
+                </div>
+              <% end %>
             </div>
             
 <!-- Author Info Card (Desktop) -->
@@ -347,40 +359,42 @@
               <p class="text-gray-400 italic">No content available</p>
             <% end %>
           </div>
-          
-<!-- Action Buttons -->
-          <div class="flex items-center gap-3 mt-12 flex-wrap">
-            <.link
-              navigate={~p"/#{@post.slug}/edit"}
-              class="px-6 py-3 bg-white border border-[#E7E8F1] text-[#141414] rounded-full font-haas_medium_65 hover:bg-gray-50 transition-all text-sm"
-            >
-              Edit Post
-            </.link>
 
-            <%= if @post.published_at do %>
-              <button
-                phx-click="unpublish"
+<!-- Action Buttons -->
+          <%= if @current_user && (@current_user.is_admin || @current_user.id == @post.author_id) do %>
+            <div class="flex items-center gap-3 mt-12 flex-wrap">
+              <.link
+                navigate={~p"/#{@post.slug}/edit"}
                 class="px-6 py-3 bg-white border border-[#E7E8F1] text-[#141414] rounded-full font-haas_medium_65 hover:bg-gray-50 transition-all text-sm"
               >
-                Unpublish
-              </button>
-            <% else %>
-              <button
-                phx-click="publish"
-                class="px-6 py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm"
-              >
-                Publish
-              </button>
-            <% end %>
+                Edit Post
+              </.link>
 
-            <button
-              phx-click="delete"
-              data-confirm="Are you sure you want to delete this post?"
-              class="px-6 py-3 bg-white border border-red-200 text-red-600 rounded-full font-haas_medium_65 hover:bg-red-50 transition-all text-sm"
-            >
-              Delete
-            </button>
-          </div>
+              <%= if @post.published_at do %>
+                <button
+                  phx-click="unpublish"
+                  class="px-6 py-3 bg-white border border-[#E7E8F1] text-[#141414] rounded-full font-haas_medium_65 hover:bg-gray-50 transition-all text-sm"
+                >
+                  Unpublish
+                </button>
+              <% else %>
+                <button
+                  phx-click="publish"
+                  class="px-6 py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm"
+                >
+                  Publish
+                </button>
+              <% end %>
+
+              <button
+                phx-click="delete"
+                data-confirm="Are you sure you want to delete this post?"
+                class="px-6 py-3 bg-white border border-red-200 text-red-600 rounded-full font-haas_medium_65 hover:bg-red-50 transition-all text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          <% end %>
         </div>
       </div>
     </div>

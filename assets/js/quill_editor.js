@@ -42,6 +42,7 @@ export const QuillEditor = {
             handlers: {
               image: () => this.imageHandler(),
               tweet: () => this.tweetHandler(),
+              blockquote: () => this.blockquoteHandler(),
             },
           },
         },
@@ -154,10 +155,38 @@ export const QuillEditor = {
       hiddenInput.value = JSON.stringify(content);
       // Trigger change event for LiveView
       hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-      console.log("Synced to hidden input");
+      console.log("=== Synced to hidden input ===");
+      console.log("Content delta:", content);
+      console.log("JSON string:", hiddenInput.value);
     } else {
       console.error("ERROR: Hidden input not found!");
     }
+  },
+
+  blockquoteHandler() {
+    console.log("=== Blockquote Handler Called ===");
+    const range = this.quill.getSelection();
+    if (!range) {
+      console.log("No selection");
+      return;
+    }
+
+    console.log("Selection range:", range);
+
+    // Get the format of the current line
+    const format = this.quill.getFormat(range);
+    console.log("Current format:", format);
+
+    // Toggle blockquote for the entire selection
+    // If already a blockquote, remove it; otherwise add it
+    const isBlockquote = format.blockquote === true;
+    console.log("Is blockquote:", isBlockquote);
+
+    // Apply or remove blockquote formatting to all lines in selection
+    this.quill.formatLine(range.index, range.length || 1, 'blockquote', !isBlockquote);
+
+    console.log("Blockquote toggled to:", !isBlockquote);
+    this.syncToHiddenInput();
   },
 
   imageHandler() {

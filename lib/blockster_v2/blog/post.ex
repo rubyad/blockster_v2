@@ -9,9 +9,14 @@ defmodule BlocksterV2.Blog.Post do
     field :excerpt, :string
     field :author_name, :string
     field :published_at, :utc_datetime
+    field :custom_published_at, :utc_datetime
     field :view_count, :integer, default: 0
     field :category, :string
     field :featured_image, :string
+
+    belongs_to :author, BlocksterV2.Accounts.User
+    belongs_to :category_ref, BlocksterV2.Blog.Category, foreign_key: :category_id
+    many_to_many :tags, BlocksterV2.Blog.Tag, join_through: "post_tags", on_replace: :delete
 
     timestamps()
   end
@@ -26,9 +31,11 @@ defmodule BlocksterV2.Blog.Post do
       :excerpt,
       :author_name,
       :published_at,
+      :custom_published_at,
       :view_count,
       :category,
-      :featured_image
+      :featured_image,
+      :author_id
     ])
     |> validate_required([:title, :author_name])
     |> generate_slug()
@@ -61,8 +68,16 @@ defmodule BlocksterV2.Blog.Post do
   end
 
   def publish(post) do
+    # Use custom_published_at if set (for admin backdating), otherwise use current time
+    published_date =
+      if post.custom_published_at do
+        post.custom_published_at
+      else
+        DateTime.utc_now() |> DateTime.truncate(:second)
+      end
+
     post
-    |> change(published_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> change(published_at: published_date)
   end
 
   def unpublish(post) do

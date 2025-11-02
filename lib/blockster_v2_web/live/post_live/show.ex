@@ -49,18 +49,119 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
+    IO.puts("=== ALL QUILL OPS ===")
+    IO.inspect(ops, label: "OPS", limit: :infinity)
+
     html_parts =
       ops
       |> Enum.with_index()
       |> Enum.map(fn {op, index} ->
         next_op = Enum.at(ops, index + 1)
-        render_single_op(op, next_op)
+        result = render_single_op(op, next_op)
+        IO.inspect({op, result}, label: "OP -> RESULT")
+        result
       end)
       |> List.flatten()
+      |> tap(fn parts -> IO.inspect(parts, label: "BEFORE REJECT", limit: :infinity) end)
       |> Enum.reject(fn x -> x == "" || x == nil end)
-      |> Enum.join("")
+      |> tap(fn parts -> IO.inspect(parts, label: "AFTER REJECT", limit: :infinity) end)
+      |> Enum.join("\n")
+      |> wrap_list_items()
 
     Phoenix.HTML.raw(html_parts)
+  end
+
+  # Wrap consecutive list items in ul/ol tags and blockquote paragraphs in blockquote tags
+  defp wrap_list_items(html) do
+    html
+    |> String.replace(
+      ~r/<li class="[^"]*list-item-ordered">.*?<\/li>/s,
+      fn match ->
+        # Check if already wrapped
+        if String.contains?(match, "<ol") do
+          match
+        else
+          match
+        end
+      end
+    )
+    # Wrap bullet list items
+    |> String.replace(
+      ~r/(<li class="[^"]*list-item-bullet">[^<]*<\/li>)+/s,
+      fn matches ->
+        ~s(<ul class="list-disc pl-6 mb-4">#{matches}</ul>)
+      end
+    )
+    # Wrap ordered list items
+    |> String.replace(
+      ~r/(<li class="[^"]*list-item-ordered">[^<]*<\/li>)+/s,
+      fn matches ->
+        ~s(<ol class="list-decimal pl-6 mb-4">#{matches}</ol>)
+      end
+    )
+    # Wrap consecutive blockquote paragraphs in a single blockquote
+    |> wrap_blockquotes()
+  end
+
+  # Wrap consecutive blockquote-line paragraphs
+  defp wrap_blockquotes(html) do
+    IO.puts("=== WRAP_BLOCKQUOTES CALLED ===")
+    IO.inspect(String.contains?(html, "blockquote-line"), label: "Contains blockquote-line?")
+
+    # Split HTML into lines and process sequentially
+    lines = String.split(html, "\n")
+    IO.inspect(length(lines), label: "Number of lines")
+
+    {result, current_group} = Enum.reduce(lines, {[], []}, fn line, {acc, group} ->
+      cond do
+        # If line contains blockquote-line opening tag
+        String.contains?(line, ~s(<p class="blockquote-line">)) ->
+          {acc, [line | group]}
+
+        # If we have accumulated blockquote lines and this isn't one, wrap them
+        length(group) > 0 and not String.contains?(line, "blockquote-line") ->
+          # Process the group - mark last paragraph as attribution
+          reversed_group = Enum.reverse(group)
+          cleaned_lines = reversed_group
+          |> Enum.with_index()
+          |> Enum.map(fn {l, idx} ->
+            # Last item gets attribution class
+            if idx == length(reversed_group) - 1 do
+              String.replace(l, ~s(<p class="blockquote-line">), ~s(<p class="blockquote-attribution">))
+            else
+              String.replace(l, ~s(<p class="blockquote-line">), "<p>")
+            end
+          end)
+          wrapped = ~s(<blockquote>#{Enum.join(cleaned_lines, "\n")}</blockquote>)
+          {acc ++ [wrapped, line], []}
+
+        # Otherwise just accumulate
+        true ->
+          {acc ++ [line], group}
+      end
+    end)
+
+    # Handle remaining group at end
+    final_result = if length(current_group) > 0 do
+      # Process the group - mark last paragraph as attribution
+      reversed_group = Enum.reverse(current_group)
+      cleaned_lines = reversed_group
+      |> Enum.with_index()
+      |> Enum.map(fn {l, idx} ->
+        # Last item gets attribution class
+        if idx == length(reversed_group) - 1 do
+          String.replace(l, ~s(<p class="blockquote-line">), ~s(<p class="blockquote-attribution">))
+        else
+          String.replace(l, ~s(<p class="blockquote-line">), "<p>")
+        end
+      end)
+      wrapped = ~s(<blockquote>#{Enum.join(cleaned_lines, "\n")}</blockquote>)
+      result ++ [wrapped]
+    else
+      result
+    end
+
+    Enum.join(final_result, "\n")
   end
 
   defp render_quill_content(_), do: ""
@@ -80,19 +181,20 @@ defmodule BlocksterV2Web.PostLive.Show do
     # The last line is the header text
     header_text = List.last(lines) |> String.trim()
 
-    # Render paragraphs first
+    # Render paragraphs first (only non-empty ones)
     paragraphs =
       paragraph_lines
-      |> Enum.reject(&(&1 == ""))
       |> Enum.map(fn para ->
         trimmed = String.trim(para)
 
         if trimmed != "" do
           ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
         else
-          ""
+          # Skip empty lines, margins provide spacing
+          nil
         end
       end)
+      |> Enum.reject(&is_nil/1)
 
     # Render header with proper HTML tag and size
     size_class =
@@ -111,24 +213,97 @@ defmodule BlocksterV2Web.PostLive.Show do
     paragraphs ++ [header_html]
   end
 
-  # Skip header newlines (they're processed above)
-  defp render_single_op(%{"insert" => "\n", "attributes" => %{"header" => _}}, _next_op) do
-    nil
+  # Handle header newlines - just skip them, margins handle spacing
+  defp render_single_op(%{"insert" => text, "attributes" => %{"header" => _}}, _next_op) when is_binary(text) do
+    # Check if the text is ONLY newlines (no actual text content)
+    if String.trim(text) == "" do
+      # Skip newline-only header operations, margins provide spacing
+      nil
+    else
+      # Has actual text content, should be handled by the header+text handler above
+      nil
+    end
   end
 
-  # Handle blockquote text
+  # Handle blockquote text - mark it as blockquote paragraph, wrapping happens later
   defp render_single_op(
          %{"insert" => text},
          %{"insert" => "\n", "attributes" => %{"blockquote" => true}}
        )
        when is_binary(text) do
-    trimmed = String.trim(text)
+    IO.inspect(text, label: "BLOCKQUOTE TEXT")
 
-    if trimmed != "" do
-      ~s(<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-700 my-4">#{trimmed}</blockquote>)
+    # Check if text contains a double newline (paragraph separator)
+    # If so, only render paragraphs AFTER the first double newline as blockquote
+    # This handles Quill's behavior of including preceding text in blockquote
+    result = if String.contains?(text, "\n\n") do
+      # Split by double newline to separate paragraphs
+      paragraphs = String.split(text, "\n\n")
+      IO.inspect(paragraphs, label: "SPLIT PARAGRAPHS")
+
+      # First paragraph(s) before the last one should be rendered as normal text
+      # Only the last paragraph(s) should be blockquoted
+      {non_blockquote_parts, blockquote_parts} = Enum.split(paragraphs, -1)
+
+      # Render non-blockquote parts as regular paragraphs (skip empty ones)
+      regular_html = non_blockquote_parts
+      |> Enum.map(fn para ->
+        trimmed = String.trim(para)
+        if trimmed != "" do
+          ~s(<p>#{trimmed}</p>)
+        else
+          nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
+
+      # Render blockquote parts with blockquote-line class (skip empty lines)
+      blockquote_html = blockquote_parts
+      |> Enum.flat_map(fn para -> String.split(para, "\n") end)
+      |> Enum.map(fn line ->
+        trimmed = String.trim(line)
+        if trimmed != "" do
+          ~s(<p class="blockquote-line">#{trimmed}</p>)
+        else
+          nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
+
+      # Combine regular and blockquote HTML
+      [regular_html, blockquote_html]
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.join("\n")
     else
-      ""
+      # No double newline - render all as blockquote (skip empty lines)
+      lines = String.split(text, "\n")
+
+      lines
+      |> Enum.map(fn line ->
+        trimmed = String.trim(line)
+        if trimmed != "" do
+          ~s(<p class="blockquote-line">#{trimmed}</p>)
+        else
+          nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
     end
+
+    IO.inspect(result, label: "BLOCKQUOTE RESULT")
+    result
+  end
+
+  # Detect if a line is an attribution (e.g., "John Doe, CEO at Company")
+  defp is_attribution?(text) do
+    # Pattern: Name, Title at Company or Name, Title
+    # Look for patterns like ", CEO at", ", CTO at", etc.
+    String.match?(text, ~r/^[^,]+,\s+[A-Z][^,]+ at .+$/) or
+    # Also match simpler pattern: just "Name, Position"
+    String.match?(text, ~r/^[^,]+,\s+[A-Z][^,]+$/)
   end
 
   # Skip blockquote newlines (they're processed above)
@@ -136,30 +311,34 @@ defmodule BlocksterV2Web.PostLive.Show do
     nil
   end
 
-  # Handle regular text without header following
-  defp render_single_op(%{"insert" => text}, _next_op) when is_binary(text) do
-    # Convert double newlines to separate paragraphs
-    text
-    |> String.split("\n\n")
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(fn para ->
-      trimmed = String.trim(para)
+  # Handle list item text (ordered or bullet)
+  defp render_single_op(
+         %{"insert" => text},
+         %{"insert" => "\n", "attributes" => %{"list" => list_type}}
+       )
+       when is_binary(text) do
+    trimmed = String.trim(text)
 
-      if trimmed != "" do
-        # Replace single newlines with <br> within paragraphs
-        content = String.replace(trimmed, "\n", "<br>")
-        ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{content}</p>)
-      else
-        ""
-      end
-    end)
+    if trimmed != "" do
+      ~s(<li class="mb-2 text-[#343434] leading-[1.6] list-item-#{list_type}">#{trimmed}</li>)
+    else
+      ""
+    end
   end
 
-  # Handle text with formatting attributes (bold, italic, etc.)
+  # Skip list newlines (they're processed above)
+  defp render_single_op(%{"insert" => "\n", "attributes" => %{"list" => _}}, _next_op) do
+    nil
+  end
+
+  # Handle text with inline formatting attributes (bold, italic, underline, strike, link)
+  # This MUST come before the plain text handler to match more specific patterns first
   defp render_single_op(%{"insert" => text, "attributes" => attrs}, _next_op)
        when is_binary(text) and is_map(attrs) do
-    # Don't process if this is a header (those are handled above)
-    if Map.has_key?(attrs, "header") do
+    # Don't process if this is a block-level attribute (header, blockquote, list)
+    # Those are handled by their specific handlers above
+    if Map.has_key?(attrs, "header") or Map.has_key?(attrs, "blockquote") or
+         Map.has_key?(attrs, "list") do
       nil
     else
       # Build formatted content
@@ -194,9 +373,31 @@ defmodule BlocksterV2Web.PostLive.Show do
           content
         end
 
-      # Return as inline span
-      ~s(<span>#{content}</span>)
+      # Apply link if present (should be outermost wrapper)
+      content =
+        if attrs["link"] do
+          url = attrs["link"]
+          ~s(<a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">#{content}</a>)
+        else
+          content
+        end
+
+      # Return formatted content
+      content
     end
+  end
+
+  # Handle regular text without any formatting
+  defp render_single_op(%{"insert" => text}, _next_op) when is_binary(text) do
+    # Split by double newlines (paragraph breaks) to preserve paragraph structure
+    # Single newlines within paragraphs are ignored
+    text
+    |> String.split("\n\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn para ->
+      trimmed = String.trim(para)
+      ~s(<p class="mb-4 text-[#343434] leading-[1.6]">#{trimmed}</p>)
+    end)
   end
 
   # Handle images
@@ -235,6 +436,11 @@ defmodule BlocksterV2Web.PostLive.Show do
         # Fallback to simple link if oEmbed fails
         ~s(<p class="my-4"><a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">View Tweet on Twitter</a></p>)
     end
+  end
+
+  # Handle plain newlines (blank lines) - just skip them, margins handle spacing
+  defp render_single_op(%{"insert" => "\n"}, _next_op) do
+    nil
   end
 
   # Catch-all for unknown ops

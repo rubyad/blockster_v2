@@ -37,10 +37,25 @@ window.Quill = Quill;
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
+// TagInput Hook for handling Enter key
+let TagInput = {
+  mounted() {
+    this.el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const value = this.el.value.trim();
+        if (value) {
+          this.pushEventTo(this.el.dataset.componentId, "add_tag_from_input", { value });
+        }
+      }
+    });
+  }
+};
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin },
+  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput },
 });
 
 // Show progress bar on live navigation and form submits
@@ -76,6 +91,29 @@ document.addEventListener('DOMContentLoaded', function() {
       mobileDropdown.classList.add('hidden');
     }
   });
+
+  // Smooth scrolling for anchor links using event delegation
+  document.addEventListener('click', function(e) {
+    const anchor = e.target.closest('a[href^="#"]');
+    if (!anchor) return;
+
+    const href = anchor.getAttribute('href');
+    // Skip if it's just "#" or empty
+    if (!href || href === '#') return;
+
+    const targetElement = document.querySelector(href);
+    if (targetElement) {
+      e.preventDefault();
+      const headerOffset = 100; // Offset for fixed header
+      const elementPosition = targetElement.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+  });
 });
 
 // Global function to toggle dropdowns
@@ -85,6 +123,14 @@ window.toggleDropdown = function(dropdownId) {
     dropdown.classList.toggle('hidden');
   }
 };
+
+// Event listener to clear tag input
+window.addEventListener("phx:clear-tag-input", () => {
+  const tagInput = document.getElementById("tag-input");
+  if (tagInput) {
+    tagInput.value = "";
+  }
+});
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:

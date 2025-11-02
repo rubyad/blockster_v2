@@ -1,5 +1,6 @@
 import { createThirdwebClient } from "thirdweb";
-import { inAppWallet, preAuthenticate } from "thirdweb/wallets/in-app";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
+import { preAuthenticate } from "thirdweb/wallets/in-app";
 
 // Initialize Thirdweb client - client ID is loaded from environment variable
 // Set THIRDWEB_CLIENT_ID in your .env file
@@ -135,7 +136,7 @@ export const SearchHooks = {
 
 export const ThirdwebLogin = {
   mounted() {
-    console.log('ThirdwebLogin hook mounted');
+    console.log('ThirdwebLogin hook mounted on login page');
 
     // Expose this hook instance globally for disconnect button
     window.ThirdwebLoginHook = this;
@@ -148,17 +149,125 @@ export const ThirdwebLogin = {
 
     // Initialize the in-app wallet
     this.wallet = inAppWallet();
+    this.activeWallet = null;
 
-    // Check if user is already authenticated
+    // Check if user is already authenticated (redirect if so)
     this.checkCurrentUser();
 
-    // Initialize the connect button
-    this.initializeConnectButton();
+    // Attach event listeners to buttons
+    this.attachEventListeners();
   },
 
   updated() {
-    console.log('ThirdwebLogin hook updated');
-    this.initializeConnectButton();
+    console.log('ThirdwebLogin hook updated - reattaching event listeners');
+    this.attachEventListeners();
+  },
+
+  attachEventListeners() {
+    console.log('attachEventListeners() called');
+
+    // Get all the buttons
+    const metamaskBtn = document.getElementById('connect-metamask');
+    const trustBtn = document.getElementById('connect-trust');
+    const walletConnectBtn = document.getElementById('connect-walletconnect');
+    const emailBtn = document.getElementById('connect-email');
+    const sendCodeBtn = document.getElementById('send-code-btn');
+    const verifyCodeBtn = document.getElementById('verify-code-btn');
+    const resendCodeBtn = document.getElementById('resend-code-btn');
+
+    console.log('Found buttons:', {
+      metamaskBtn,
+      trustBtn,
+      walletConnectBtn,
+      emailBtn,
+      sendCodeBtn,
+      verifyCodeBtn,
+      resendCodeBtn
+    });
+
+    // Wallet connections
+    if (metamaskBtn && !metamaskBtn.dataset.listenerAttached) {
+      metamaskBtn.addEventListener('click', () => {
+        console.log('MetaMask button clicked');
+        this.connectMetaMask();
+      });
+      metamaskBtn.dataset.listenerAttached = 'true';
+    }
+
+    if (trustBtn && !trustBtn.dataset.listenerAttached) {
+      trustBtn.addEventListener('click', () => {
+        console.log('Trust Wallet button clicked');
+        this.connectTrust();
+      });
+      trustBtn.dataset.listenerAttached = 'true';
+    }
+
+    if (walletConnectBtn && !walletConnectBtn.dataset.listenerAttached) {
+      walletConnectBtn.addEventListener('click', () => {
+        console.log('WalletConnect button clicked');
+        this.connectWalletConnect();
+      });
+      walletConnectBtn.dataset.listenerAttached = 'true';
+    }
+
+    if (emailBtn && !emailBtn.dataset.listenerAttached) {
+      emailBtn.addEventListener('click', () => {
+        console.log('Email button clicked');
+        this.pushEvent("show_email_form", {});
+      });
+      emailBtn.dataset.listenerAttached = 'true';
+    }
+
+    // Email flow
+    if (sendCodeBtn && !sendCodeBtn.dataset.listenerAttached) {
+      sendCodeBtn.addEventListener('click', () => {
+        console.log('Send code button clicked');
+        this.sendVerificationCode();
+      });
+      sendCodeBtn.dataset.listenerAttached = 'true';
+    }
+
+    if (verifyCodeBtn && !verifyCodeBtn.dataset.listenerAttached) {
+      verifyCodeBtn.addEventListener('click', () => {
+        console.log('Verify code button clicked');
+        this.verifyCode();
+      });
+      verifyCodeBtn.dataset.listenerAttached = 'true';
+    }
+
+    if (resendCodeBtn && !resendCodeBtn.dataset.listenerAttached) {
+      resendCodeBtn.addEventListener('click', () => {
+        console.log('Resend code button clicked');
+        this.sendVerificationCode();
+      });
+      resendCodeBtn.dataset.listenerAttached = 'true';
+    }
+
+    // Enter key support
+    const emailInput = document.getElementById('email-input');
+    const codeInput = document.getElementById('code-input');
+
+    if (emailInput && !emailInput.dataset.listenerAttached) {
+      emailInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          console.log('Enter key pressed in email input');
+          this.sendVerificationCode();
+        }
+      });
+      emailInput.dataset.listenerAttached = 'true';
+    }
+
+    if (codeInput && !codeInput.dataset.listenerAttached) {
+      codeInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          console.log('Enter key pressed in code input');
+          this.verifyCode();
+        }
+      });
+      codeInput.dataset.listenerAttached = 'true';
+    }
+
+    console.log('Event listeners attached successfully');
   },
 
   async checkCurrentUser() {
@@ -184,85 +293,181 @@ export const ThirdwebLogin = {
     }
   },
 
-  initializeConnectButton() {
-    const connectButton = this.el.querySelector('button');
-    if (connectButton && !connectButton.hasAttribute('data-thirdweb-initialized')) {
-      connectButton.setAttribute('data-thirdweb-initialized', 'true');
-      connectButton.addEventListener('click', () => this.handleConnect());
-    }
-  },
 
-  async handleConnect() {
+  async connectMetaMask() {
     try {
-      console.log('Connecting wallet...');
-
-      // For now, let's show a simple prompt to test the backend integration
-      // In production, you'll integrate the full Thirdweb SDK modal
-      const useWallet = confirm('Connect with wallet? (Click OK for wallet, Cancel for email)');
-
-      if (useWallet) {
-        // Test with MetaMask
-        if (typeof window.ethereum !== 'undefined') {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const walletAddress = accounts[0];
-          console.log('Connected to MetaMask:', walletAddress);
-          await this.authenticateWallet(walletAddress);
-        } else {
-          alert('Please install MetaMask to connect with a wallet');
-        }
+      this.pushEvent("show_loading", {});
+      if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const walletAddress = accounts[0];
+        console.log('Connected to MetaMask:', walletAddress);
+        await this.authenticateWallet(walletAddress);
       } else {
-        // Email signup with verification code
-        await this.handleEmailAuth();
+        alert('Please install MetaMask to connect with this wallet');
+        this.pushEvent("back_to_wallets", {});
       }
     } catch (error) {
-      console.error('Connection error:', error);
-      alert('Failed to connect wallet. Please try again.');
+      console.error('MetaMask connection error:', error);
+      alert('Failed to connect to MetaMask. Please try again.');
+      this.pushEvent("back_to_wallets", {});
     }
   },
 
-  async handleEmailAuth() {
+  async connectTrust() {
     try {
-      // Step 1: Get user's email
-      const email = prompt('Enter your email:');
-      if (!email) return;
+      this.pushEvent("show_loading", {});
 
-      console.log('Sending verification email to:', email);
+      // Trust Wallet uses the injected provider like MetaMask
+      if (typeof window.ethereum !== 'undefined') {
+        // Check if Trust Wallet is available
+        const isTrust = window.ethereum.isTrust;
 
-      // Step 2: Send verification email using Thirdweb preAuthenticate
+        if (isTrust) {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const walletAddress = accounts[0];
+          console.log('Connected to Trust Wallet:', walletAddress);
+          await this.authenticateWallet(walletAddress);
+        } else {
+          // If not Trust Wallet specifically, try connecting anyway (might be Trust Wallet without the flag)
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const walletAddress = accounts[0];
+          console.log('Connected to wallet (possibly Trust):', walletAddress);
+          await this.authenticateWallet(walletAddress);
+        }
+      } else {
+        alert('Please install Trust Wallet to connect. Download it from trustwallet.com');
+        this.pushEvent("back_to_wallets", {});
+      }
+    } catch (error) {
+      console.error('Trust Wallet connection error:', error);
+      alert('Failed to connect to Trust Wallet. Please try again.');
+      this.pushEvent("back_to_wallets", {});
+    }
+  },
+
+  async connectWalletConnect() {
+    try {
+      this.pushEvent("show_loading", {});
+      const wallet = createWallet("walletConnect");
+      const account = await wallet.connect({ client });
+      console.log('Connected via WalletConnect:', account.address);
+      await this.authenticateWallet(account.address);
+    } catch (error) {
+      console.error('WalletConnect connection error:', error);
+      alert('Failed to connect via WalletConnect. Please try again.');
+      this.pushEvent("back_to_wallets", {});
+    }
+  },
+
+  async sendVerificationCode() {
+    console.log('sendVerificationCode() called');
+
+    const emailInput = document.getElementById('email-input');
+    const email = emailInput?.value.trim();
+
+    console.log('Email input element:', emailInput);
+    console.log('Email value:', email);
+
+    if (!email) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    if (!this.isValidEmail(email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      console.log('Sending verification code to:', email);
+      console.log('Thirdweb client:', client);
+
+      if (!client) {
+        alert('Thirdweb client not initialized. Please check THIRDWEB_CLIENT_ID configuration.');
+        return;
+      }
+
+      // Disable the button to prevent double-clicks
+      const sendCodeBtn = document.getElementById('send-code-btn');
+      if (sendCodeBtn) {
+        sendCodeBtn.disabled = true;
+        sendCodeBtn.textContent = 'Sending...';
+      }
+
+      console.log('Calling preAuthenticate...');
       await preAuthenticate({
         client: client,
         strategy: "email",
         email: email,
       });
 
-      alert(`Verification code sent to ${email}. Please check your inbox.`);
+      console.log('preAuthenticate succeeded! Showing code input...');
 
-      // Step 3: Prompt for verification code
-      const code = prompt('Enter the 6-digit verification code from your email:');
-      if (!code) {
-        alert('Verification cancelled.');
-        return;
+      // Store email for later use
+      this.pendingEmail = email;
+      console.log('Stored pending email:', this.pendingEmail);
+
+      // Update LiveView state to show code input
+      this.pushEvent("show_code_input", { email: email });
+
+      // Focus on code input after LiveView updates
+      setTimeout(() => {
+        const codeInput = document.getElementById('code-input');
+        console.log('Focusing code input:', codeInput);
+        codeInput?.focus();
+      }, 100);
+
+      console.log('Verification code sent successfully!');
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      console.error('Error details:', error.message, error.stack);
+
+      // Re-enable the button on error
+      const sendCodeBtn = document.getElementById('send-code-btn');
+      if (sendCodeBtn) {
+        sendCodeBtn.disabled = false;
+        sendCodeBtn.textContent = 'Send Verification Code';
       }
 
+      alert('Failed to send verification code. Please try again. Error: ' + error.message);
+    }
+  },
+
+  async verifyCode() {
+    const codeInput = document.getElementById('code-input');
+    const code = codeInput?.value.trim();
+
+    if (!code || code.length !== 6) {
+      alert('Please enter the 6-digit verification code');
+      return;
+    }
+
+    try {
+      this.pushEvent("show_loading", {});
       console.log('Verifying code...');
 
-      // Step 4: Connect wallet with the verification code
       const account = await this.wallet.connect({
         client: client,
         strategy: "email",
-        email: email,
+        email: this.pendingEmail,
         verificationCode: code,
       });
 
       console.log('Email verified! Wallet address:', account.address);
-
-      // Step 5: Authenticate with your backend
-      await this.authenticateEmail(email, account.address);
-
+      await this.authenticateEmail(this.pendingEmail, account.address);
     } catch (error) {
-      console.error('Email authentication error:', error);
-      alert('Failed to verify email. Please try again.');
+      console.error('Verification error:', error);
+      alert('Invalid verification code. Please try again.');
+      this.pushEvent("show_code_input", { email: this.pendingEmail });
+      if (codeInput) {
+        codeInput.value = '';
+        setTimeout(() => codeInput?.focus(), 100);
+      }
     }
+  },
+
+  isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   },
 
   async authenticateWallet(walletAddress) {

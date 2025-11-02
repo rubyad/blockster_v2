@@ -21,10 +21,10 @@ defmodule BlocksterV2Web.ThirdwebLoginLive do
     assigns = assign(assigns, button_classes: button_classes, text_classes: text_classes)
 
     ~H"""
-    <div id={"thirdweb-login-#{@id}"} phx-hook="ThirdwebLogin" class="thirdweb-login-container">
-      <button class={@button_classes}>
+    <div>
+      <.link navigate={~p"/login"} class={@button_classes}>
         <span class={@text_classes}>Connect wallet</span>
-      </button>
+      </.link>
     </div>
     """
   end

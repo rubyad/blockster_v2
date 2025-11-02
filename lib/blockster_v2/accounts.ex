@@ -38,6 +38,18 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
+  Lists all authors (users with is_author = true) with their usernames.
+  """
+  def list_authors do
+    from(u in User,
+      where: u.is_author == true and not is_nil(u.username),
+      select: %{id: u.id, username: u.username},
+      order_by: u.username
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Creates a user from wallet connection.
   Expects attrs to contain at minimum: %{wallet_address: "0x...", chain_id: 560013}
   """

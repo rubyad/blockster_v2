@@ -7,6 +7,11 @@
 @source "../js";
 @source "../../lib/blockster_v2_web";
 
+/* Enable smooth scrolling globally */
+html {
+  scroll-behavior: smooth;
+}
+
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
@@ -660,4 +665,190 @@
 }
 .ql-container.ql-snow {
   border: 1px solid #ccc;
+}
+
+/* Quill List Styles */
+.ql-editor ol,
+.ql-editor ul {
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+.ql-editor ol {
+  list-style-type: decimal !important;
+}
+
+.ql-editor ul {
+  list-style-type: disc !important;
+}
+
+.ql-editor li {
+  padding-left: 0.5em !important;
+  margin: 0.25em 0 !important;
+}
+
+.ql-editor li:not(.ql-direction-rtl) {
+  padding-left: 0.5em !important;
+}
+
+.ql-editor ol > li,
+.ql-editor ul > li {
+  list-style-type: inherit !important;
+}
+
+/* Nested lists */
+.ql-editor li > ol,
+.ql-editor li > ul {
+  margin-top: 0.25em !important;
+  margin-bottom: 0.25em !important;
+}
+
+/* Indentation levels */
+.ql-editor li.ql-indent-1 {
+  padding-left: 3em !important;
+}
+
+.ql-editor li.ql-indent-2 {
+  padding-left: 4.5em !important;
+}
+
+.ql-editor li.ql-indent-3 {
+  padding-left: 6em !important;
+}
+
+.ql-editor li.ql-indent-4 {
+  padding-left: 7.5em !important;
+}
+
+.ql-editor li.ql-indent-5 {
+  padding-left: 9em !important;
+}
+
+.ql-editor li.ql-indent-6 {
+  padding-left: 10.5em !important;
+}
+
+.ql-editor li.ql-indent-7 {
+  padding-left: 12em !important;
+}
+
+.ql-editor li.ql-indent-8 {
+  padding-left: 13.5em !important;
+}
+
+/* List styles for rendered content (post show page) */
+#post-content ul,
+#post-content ol {
+  padding-left: 1.5em !important;
+  margin: 0.5em 0 !important;
+}
+
+#post-content ol {
+  list-style-type: decimal !important;
+}
+
+#post-content ul {
+  list-style-type: disc !important;
+}
+
+#post-content li {
+  padding-left: 0.5em !important;
+  margin: 0.25em 0 !important;
+  list-style-position: outside !important;
+}
+
+#post-content ol > li,
+#post-content ul > li {
+  list-style-type: inherit !important;
+}
+
+/* Quill Blockquote Styles */
+.ql-editor blockquote {
+  border-left: 4px solid #ccc !important;
+  padding-left: 16px !important;
+  margin: 16px 0 !important;
+  color: #666 !important;
+  font-style: italic !important;
+}
+
+/* Blockquote styles for rendered content */
+#post-content blockquote {
+  background-color: #e5e5e5 !important;
+  border-left: 4px solid #333 !important;
+  padding: 40px 50px !important;
+  margin: 32px 0 !important;
+  border-radius: 8px !important;
+  position: relative !important;
+}
+
+#post-content blockquote::before {
+  content: '\201C' !important;
+  font-size: 100px !important;
+  line-height: 1 !important;
+  color: #bbb !important;
+  position: absolute !important;
+  top: 0px !important;
+  left: 10px !important;
+  font-family: 'Times New Roman', Times, serif !important;
+  font-weight: normal !important;
+}
+
+#post-content blockquote::after {
+  content: '\201D' !important;
+  font-size: 100px !important;
+  line-height: 1 !important;
+  color: #bbb !important;
+  position: absolute !important;
+  bottom: -20px !important;
+  right: 15px !important;
+  font-family: 'Times New Roman', Times, serif !important;
+  font-weight: normal !important;
+}
+
+#post-content blockquote p {
+  font-size: 1.4rem !important;
+  line-height: 1.6 !important;
+  font-style: normal !important;
+  color: #1a1a1a !important;
+  margin: 0 0 16px 0 !important;
+  font-weight: 600 !important;
+  position: relative !important;
+}
+
+/* Attribution styling - can be last child or have the attribution class */
+#post-content blockquote p:last-child,
+#post-content blockquote p.blockquote-attribution {
+  font-size: 1rem !important; /* h4 size */
+  font-style: normal !important;
+  font-weight: 600 !important;
+  color: #666 !important;
+  margin-top: 20px !important;
+  margin-bottom: 0 !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #ddd !important;
+}
+
+/* Custom Tweet Button Icon */
+.ql-toolbar button.ql-tweet {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.ql-toolbar button.ql-tweet::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23444'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.ql-toolbar button.ql-tweet:hover::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2306c'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E");
+}
+
+.ql-toolbar button.ql-tweet.ql-active::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2306c'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E");
 }

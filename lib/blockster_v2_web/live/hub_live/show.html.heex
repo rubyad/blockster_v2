@@ -1,0 +1,248 @@
+<div class="unregistered-page bg-[#F5F6FB]">
+  <!-- Back Button -->
+  <section class="pt-6 pb-0">
+    <div class="container mx-auto px-4">
+      <.link
+        navigate={~p"/hubs"}
+        class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-sm font-haas_medium_65 hover:bg-[#F5F6FB] hover:shadow-md transition-all group"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+        </svg>
+        <span>Back to All Hubs</span>
+      </.link>
+    </div>
+  </section>
+
+  <!-- Hub Header Section -->
+  <section class="section">
+    <div class="container">
+      <div class="md:py-12 md:mt-12 mt-6 py-6 fixed-w-container rounded-[24px] relative overflow-hidden" style={"background: linear-gradient(360deg, #{@hub.color_secondary || "#B0B6FE"} 0%, #{@hub.color_primary || "#E1E3FD"} 100%)"}>
+        <div class="inner-container max-w-[1040px] mx-auto flex px-10 md:flex-row flex-col items-center">
+          <div class="left-se md:w-1/2 w-full max-md:text-center">
+            <div class="md:max-w-[461px] max-md:text-center">
+              <%= if @hub.logo_url do %>
+                <div class="flex max-md:justify-center mb-4">
+                  <img src={@hub.logo_url} alt={@hub.name} class="h-16 w-auto" />
+                </div>
+              <% end %>
+              <h1 class="sm:mt-6 mt-0 text-4xl font-haas_medium_65">{@hub.name}</h1>
+              <%= if @hub.description do %>
+                <p class="font-haas_roman_55 text-[#343434] md:text-lg text-sm leading-[1.4] sm:mt-4 mt-3 tracking-[0.04em]">
+                  {@hub.description}
+                </p>
+              <% end %>
+              <%= if @hub.website_url do %>
+                <div class="flex max-md:justify-center">
+                  <a href={@hub.website_url} target="_blank" rel="noopener noreferrer" class="p-4 relative z-20 bg-[#000000] max-md:justify-self-center sm:mt-6 mt-4 text-[#ffffff] small-buttons-shadow sm:py-3.5 py-3 px-6 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
+                    Visit Website
+                  </a>
+                </div>
+              <% end %>
+            </div>
+          </div>
+          <div class="md:w-1/2 flex justify-center items-center relative">
+            <%= if @hub.banner_url do %>
+              <img src={@hub.banner_url} alt={@hub.name} class="w-full h-auto rounded-lg" />
+            <% else %>
+              <div class="w-full h-48 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Posts Section -->
+  <section class="blog-section md:py-20 py-6 relative">
+    <div class="container mx-auto">
+      <div class="inner xl:flex gap-6">
+        <div class="left-content xl:w-2/3 w-full">
+          <h2 class="font-haas_medium_65 text-2xl mb-5">Latest from {@hub.name}</h2>
+
+          <%= if @posts == [] do %>
+            <div class="text-center py-20">
+              <p class="text-[#515B70] font-haas_roman_55">No posts available yet for {@hub.name}.</p>
+            </div>
+          <% else %>
+            <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col md:gap-3">
+              <%= for chunk <- Enum.chunk_every(Enum.take(@posts, 5), 5, 5, []) do %>
+                <!-- Left Column - 2 small cards -->
+                <div class="md:w-1/3 flex flex-col gap-3">
+                  <%= for post <- Enum.slice(chunk, 0..1) do %>
+                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
+                      <div class="img-wrapper md:h-[128px] h-[163px]">
+                        <%= if post.featured_image do %>
+                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        <% else %>
+                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                            </svg>
+                          </div>
+                        <% end %>
+                      </div>
+                      <div class="px-2 py-2">
+                        <div class="flex justify-between items-center">
+                          <ul class="gap-3 flex items-center">
+                            <%= if post.category do %>
+                              <li>
+                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                  {post.category}
+                                </span>
+                              </li>
+                            <% end %>
+                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                            </li>
+                          </ul>
+                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                              <.lightning_icon id={"bux_left_#{post.id}"} size="20" />
+                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
+                      </div>
+                    </.link>
+                  <% end %>
+
+                  <!-- View More Button -->
+                  <div class="flex justify-center mt-3 w-full">
+                    <button class="w-[90%] py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm">
+                      View More
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Middle Column - 1 tall card -->
+                <%= if Enum.at(chunk, 2) do %>
+                  <% post = Enum.at(chunk, 2) %>
+                  <div class="md:w-1/3 md:mt-0 mt-3">
+                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all max-md:p-2">
+                      <div class="img-wrapper md:h-[358px] h-[220px]">
+                        <%= if post.featured_image do %>
+                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        <% else %>
+                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                            </svg>
+                          </div>
+                        <% end %>
+                      </div>
+                      <div class="px-4 md:py-6 py-2">
+                        <div class="flex justify-between items-center">
+                          <ul class="gap-3 flex items-center">
+                            <%= if post.category do %>
+                              <li>
+                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                  {post.category}
+                                </span>
+                              </li>
+                            <% end %>
+                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                            </li>
+                          </ul>
+                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                              <.lightning_icon id="bux_icon_2" size="20" />
+                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <h3 class="font-haas_medium_65 text-[#141414] mt-2 line-clamp-2">{post.title}</h3>
+                      </div>
+                    </.link>
+                  </div>
+                <% end %>
+
+                <!-- Right Column - 2 small cards -->
+                <div class="md:w-1/3 flex flex-col gap-3">
+                  <%= for post <- Enum.slice(chunk, 3..4) do %>
+                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
+                      <div class="img-wrapper md:h-[128px] h-[163px]">
+                        <%= if post.featured_image do %>
+                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        <% else %>
+                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                            </svg>
+                          </div>
+                        <% end %>
+                      </div>
+                      <div class="px-2 py-2">
+                        <div class="flex justify-between items-center">
+                          <ul class="gap-3 flex items-center">
+                            <%= if post.category do %>
+                              <li>
+                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                  {post.category}
+                                </span>
+                              </li>
+                            <% end %>
+                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                            </li>
+                          </ul>
+                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                              <.lightning_icon id={"bux_right_#{post.id}"} size="20" />
+                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
+                      </div>
+                    </.link>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="right-content xl:w-1/3 w-full max-xl:mt-6">
+          <!-- About Section -->
+          <div class="bg-white rounded-lg p-6 border border-[#E7E8F1] mb-4">
+            <h3 class="font-haas_medium_65 text-xl mb-3">About {@hub.name}</h3>
+            <%= if @hub.description do %>
+              <p class="text-[#515B70] font-haas_roman_55 text-sm leading-relaxed">
+                {@hub.description}
+              </p>
+            <% end %>
+            <%= if @hub.website_url do %>
+              <a href={@hub.website_url} target="_blank" rel="noopener noreferrer" class="inline-block mt-4 text-sm font-haas_medium_65 text-[#6366F1] hover:underline">
+                Visit Official Website →
+              </a>
+            <% end %>
+          </div>
+
+          <!-- Stats -->
+          <div class="bg-white rounded-lg p-6 border border-[#E7E8F1]">
+            <h3 class="font-haas_medium_65 text-xl mb-3">Stats</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-[#515B70] font-haas_roman_55 text-sm">Total Articles</span>
+                <span class="font-haas_medium_65 text-lg">{length(@posts)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

@@ -92,7 +92,7 @@ defmodule BlocksterV2Web.Layouts do
             <!-- Navigation Links -->
             <div class="inner-section-right">
               <ul class="flex gap-2 items-center">
-                <li class="relative child-list">
+                <li class="relative group">
                   <a href="#" class="px-4 pr-[9px] py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid flex items-center hover:bg-[#F5F6FB] transition-colors">
                     <span class="flex items-center">News</span>
                     <span class="flex items-center">
@@ -101,24 +101,64 @@ defmodule BlocksterV2Web.Layouts do
                       </svg>
                     </span>
                   </a>
+
+                  <!-- Dropdown Menu -->
+                  <div class="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl border border-[#E7E8F1] shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div class="py-2">
+                      <.link navigate={~p"/"} class="block px-4 py-2.5 text-sm font-haas_medium_65 text-[#141414] hover:bg-[#F5F6FB] transition-colors">
+                        All News
+                      </.link>
+                      <div class="border-t border-[#E7E8F1] my-2"></div>
+                      <.link navigate={~p"/category/blockchain"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Blockchain
+                      </.link>
+                      <.link navigate={~p"/category/market-analysis"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Market Analysis
+                      </.link>
+                      <.link navigate={~p"/category/investment"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Investment
+                      </.link>
+                      <.link navigate={~p"/category/events"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Events
+                      </.link>
+                      <.link navigate={~p"/category/crypto-trading"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Crypto Trading
+                      </.link>
+                      <.link navigate={~p"/category/people"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        People
+                      </.link>
+                      <.link navigate={~p"/category/defi"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        DeFi
+                      </.link>
+                      <.link navigate={~p"/category/announcements"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Announcements
+                      </.link>
+                      <.link navigate={~p"/category/gaming"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Gaming
+                      </.link>
+                      <.link navigate={~p"/category/tech"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
+                        Tech
+                      </.link>
+                    </div>
+                  </div>
                 </li>
                 <li>
-                  <.link navigate={~p"/"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
-                    Blockchain
+                  <.link navigate={~p"/hubs"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
+                    Hub
                   </.link>
                 </li>
                 <li>
-                  <a href="#" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
+                  <a href="/#shop-section" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors smooth-scroll">
                     Shop
                   </a>
                 </li>
                 <li>
-                  <a href="#" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
+                  <a href="/#upcoming-events" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors smooth-scroll">
                     Events
                   </a>
                 </li>
                 <li>
-                  <a href="#" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid hover:bg-[#F5F6FB] transition-colors">
+                  <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid hover:bg-[#F5F6FB] transition-colors">
                     Play
                   </a>
                 </li>
@@ -168,6 +208,14 @@ defmodule BlocksterV2Web.Layouts do
                     >
                       View Profile
                     </.link>
+                    <%= if @current_user.is_author || @current_user.is_admin do %>
+                      <.link
+                        navigate={~p"/new"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Create Article
+                      </.link>
+                    <% end %>
                     <button
                       onclick="fetch('/api/auth/logout', {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json'}}).then(r => r.json()).then(d => {if(d.success) window.location.reload(); else alert('Failed to logout');}).catch(e => alert('Error disconnecting'));"
                       class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -234,6 +282,14 @@ defmodule BlocksterV2Web.Layouts do
                   >
                     View Profile
                   </.link>
+                  <%= if @current_user.is_author || @current_user.is_admin do %>
+                    <.link
+                      navigate={~p"/new"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Create Article
+                    </.link>
+                  <% end %>
                   <button
                     onclick="fetch('/api/auth/logout', {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json'}}).then(r => r.json()).then(d => {if(d.success) window.location.reload(); else alert('Failed to logout');}).catch(e => alert('Error disconnecting'));"
                     class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

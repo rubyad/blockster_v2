@@ -1,0 +1,62 @@
+# Elixir / Mix
+/_build
+/deps
+/*.ez
+.fetch
+
+# Generated on crash by the VM
+erl_crash.dump
+
+# Generated on crash by NPM
+npm-debug.log
+
+# Static artifacts - you should commit these when using mix phx.digest
+# /priv/static
+
+# Since we are building assets from assets/,
+# we ignore priv/static except for images directory
+/priv/static/*
+!/priv/static/images/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-*
+
+# Test artifacts
+/cover
+/doc
+
+# Ignore package tarball (built via "mix ecto.gen.migration").
+blockster_v2-*.tar
+
+# Ignore assets that are produced by build tools
+/assets/node_modules
+
+# Ignore digested assets cache
+/priv/static/cache_manifest.json
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.elixir_ls/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+/tmp
+/temp

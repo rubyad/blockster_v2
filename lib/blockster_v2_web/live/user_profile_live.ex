@@ -6,7 +6,7 @@ defmodule BlocksterV2Web.UserProfileLive do
   @impl true
   def mount(_params, _session, socket) do
     if socket.assigns.current_user do
-      {:ok, socket}
+      {:ok, assign(socket, editing_username: false, username_form: %{"username" => socket.assigns.current_user.username})}
     else
       {:ok, socket |> put_flash(:error, "You must be logged in to view your profile") |> redirect(to: "/")}
     end
@@ -134,6 +134,53 @@ defmodule BlocksterV2Web.UserProfileLive do
           </div>
 
           <div class="px-6 py-4 space-y-4">
+            <!-- Username -->
+            <div>
+              <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                Username
+              </label>
+              <%= if @editing_username do %>
+                <form phx-submit="save_username" class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    name="username"
+                    value={@username_form["username"]}
+                    phx-change="update_username_form"
+                    class="flex-1 text-sm bg-white px-4 py-3 rounded-lg border border-gray-300 focus:border-[#8AE388] focus:ring-2 focus:ring-[#8AE388] focus:ring-opacity-50 outline-none transition-all"
+                    placeholder="Enter username"
+                  />
+                  <button
+                    type="submit"
+                    class="px-4 py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-lg font-haas_medium_65 hover:shadow-lg transition-all text-sm"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="cancel_edit_username"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-haas_medium_65 hover:bg-gray-200 transition-all text-sm"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              <% else %>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                    <%= @current_user.username || "Not set" %>
+                  </div>
+                  <button
+                    phx-click="edit_username"
+                    class="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                    title="Edit username"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+              <% end %>
+            </div>
+
             <!-- Wallet Address -->
             <div>
               <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
@@ -206,5 +253,36 @@ defmodule BlocksterV2Web.UserProfileLive do
   @impl true
   def handle_event("copy_wallet", _params, socket) do
     {:noreply, socket |> put_flash(:info, "Wallet address copied to clipboard!")}
+  end
+
+  @impl true
+  def handle_event("edit_username", _params, socket) do
+    {:noreply, assign(socket, editing_username: true)}
+  end
+
+  @impl true
+  def handle_event("cancel_edit_username", _params, socket) do
+    {:noreply, assign(socket, editing_username: false, username_form: %{"username" => socket.assigns.current_user.username})}
+  end
+
+  @impl true
+  def handle_event("update_username_form", %{"username" => username}, socket) do
+    {:noreply, assign(socket, username_form: %{"username" => username})}
+  end
+
+  @impl true
+  def handle_event("save_username", %{"username" => username}, socket) do
+    current_user = socket.assigns.current_user
+
+    case BlocksterV2.Accounts.update_user(current_user, %{username: username}) do
+      {:ok, updated_user} ->
+        {:noreply,
+         socket
+         |> assign(current_user: updated_user, editing_username: false)
+         |> put_flash(:info, "Username updated successfully!")}
+
+      {:error, _changeset} ->
+        {:noreply, socket |> put_flash(:error, "Failed to update username")}
+    end
   end
 end
