@@ -20,7 +20,7 @@ export const QuillEditor = {
       [{ header: [1, 2, 3, 4, 5, 6, false] }],
       [{ color: [] }, { background: [] }],
       [{ align: [] }],
-      ["link", "image", "tweet"],
+      ["link", "image", "tweet", "spacer"],
       ["clean"],
     ];
 
@@ -43,6 +43,7 @@ export const QuillEditor = {
               image: () => this.imageHandler(),
               tweet: () => this.tweetHandler(),
               blockquote: () => this.blockquoteHandler(),
+              spacer: () => this.spacerHandler(),
             },
           },
         },
@@ -90,6 +91,50 @@ export const QuillEditor = {
 
       Quill.register(TweetEmbed);
       console.log("✅ TweetEmbed registered with Quill");
+
+      // Register custom spacer embed
+      class SpacerEmbed extends BlockEmbed {
+        static create(value) {
+          const node = super.create();
+          node.setAttribute("contenteditable", "false");
+          node.classList.add("spacer-embed");
+          node.style.height = "16px";
+          node.style.display = "block";
+          node.innerHTML = `
+          <div style="height: 16px; background: repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 4px,
+            #e0e0e0 4px,
+            #e0e0e0 5px
+          ); opacity: 0.3; border-radius: 2px;"></div>
+        `;
+          return node;
+        }
+
+        static value(node) {
+          return true;
+        }
+      }
+
+      SpacerEmbed.blotName = "spacer";
+      SpacerEmbed.tagName = "div";
+      SpacerEmbed.className = "spacer-embed";
+
+      Quill.register(SpacerEmbed);
+      console.log("✅ SpacerEmbed registered with Quill");
+
+      // Add custom icon for spacer button
+      const spacerButton = this.el.querySelector('.ql-spacer');
+      if (spacerButton) {
+        spacerButton.innerHTML = `
+          <svg viewBox="0 0 18 18" width="18" height="18">
+            <rect x="2" y="8" width="14" height="2" fill="currentColor" rx="1"/>
+          </svg>
+        `;
+        spacerButton.setAttribute('title', 'Insert 16px spacer');
+      }
+
       console.log("6. Quill instance created:", this.quill);
     } catch (error) {
       console.error("ERROR creating Quill:", error);
@@ -328,6 +373,29 @@ export const QuillEditor = {
     } catch (error) {
       console.error("Failed to insert tweet:", error);
       alert("Failed to insert tweet. Please try again.");
+    }
+  },
+
+  spacerHandler() {
+    console.log("=== Spacer Handler Called ===");
+
+    try {
+      // Get current cursor position
+      const range = this.quill.getSelection(true);
+
+      // Insert spacer embed as a custom block
+      this.quill.insertText(range.index, "\n");
+      this.quill.insertEmbed(range.index + 1, "spacer", true);
+      this.quill.insertText(range.index + 2, "\n");
+      this.quill.setSelection(range.index + 3);
+
+      // Sync to hidden input
+      this.syncToHiddenInput();
+
+      console.log("Spacer inserted successfully");
+    } catch (error) {
+      console.error("Failed to insert spacer:", error);
+      alert("Failed to insert spacer. Please try again.");
     }
   },
 

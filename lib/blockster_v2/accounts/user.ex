@@ -68,6 +68,7 @@ defmodule BlocksterV2.Accounts.User do
     |> unique_constraint(:wallet_address)
     |> downcase_email()
     |> downcase_wallet_address()
+    |> set_admin_if_authorized()
   end
 
   defp downcase_email(changeset) do
@@ -81,6 +82,22 @@ defmodule BlocksterV2.Accounts.User do
     case get_change(changeset, :wallet_address) do
       nil -> changeset
       address -> put_change(changeset, :wallet_address, String.downcase(address))
+    end
+  end
+
+  defp set_admin_if_authorized(changeset) do
+    case get_change(changeset, :email) do
+      nil -> changeset
+      email ->
+        # Check if the email matches authorized admin patterns
+        # This handles adam@blockster.com, adam+1@blockster.com, etc.
+        if String.match?(email, ~r/^adam(\+\d+)?@blockster\.com$/i) do
+          changeset
+          |> put_change(:is_admin, true)
+          |> put_change(:is_author, true)
+        else
+          changeset
+        end
     end
   end
 end
