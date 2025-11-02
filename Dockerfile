@@ -60,21 +60,11 @@ COPY lib lib
 # Compile the release
 RUN mix compile
 
-# Copy package files first to leverage Docker cache
-COPY assets/package.json assets/package-lock.json assets/
+# Copy assets directory (node_modules excluded by .dockerignore)
+COPY assets assets
+
+# Install npm packages
 RUN cd assets && npm ci --prefer-offline --no-audit && cd ..
-
-# Debug: verify TipTap packages are installed
-RUN ls -la assets/node_modules/@tiptap/ || echo "TipTap packages NOT found!"
-
-# Copy rest of assets EXCEPT node_modules (copy specific directories only)
-COPY assets/js assets/js
-COPY assets/css assets/css
-COPY assets/vendor assets/vendor
-COPY assets/tsconfig.json assets/tsconfig.json
-
-# Debug: verify TipTap packages still exist after COPY
-RUN ls -la assets/node_modules/@tiptap/ || echo "TipTap packages LOST after COPY!"
 
 # compile assets
 RUN mix assets.deploy
