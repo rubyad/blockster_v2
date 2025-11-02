@@ -10,68 +10,219 @@ defmodule BlocksterV2.Blog do
   alias BlocksterV2.Blog.Category
   alias BlocksterV2.Blog.Hub
 
+  # Base queries with proper preloading
+
+  @doc false
+  defp posts_base_query do
+    from p in Post,
+      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)],
+      order_by: [desc: p.published_at]
+  end
+
+  @doc false
+  defp published_posts_query do
+    from p in posts_base_query(),
+      where: not is_nil(p.published_at)
+  end
+
+  @doc false
+  defp populate_author_names(posts) when is_list(posts) do
+    Enum.map(posts, &Post.populate_author_name/1)
+  end
+
+  @doc false
+  defp populate_author_names(%Post{} = post) do
+    Post.populate_author_name(post)
+  end
+
+  # Post listing functions
+
   @doc """
-  Returns the list of published posts.
+  Returns the list of published posts with all associations loaded.
+
+  ## Options
+    * `:limit` - Maximum number of posts to return
+    * `:offset` - Number of posts to skip
+
+  ## Examples
+      iex> list_published_posts()
+      [%Post{}, ...]
+
+      iex> list_published_posts(limit: 10, offset: 20)
+      [%Post{}, ...]
   """
-  def list_published_posts do
-    Post
-    |> where([p], not is_nil(p.published_at))
-    |> order_by([p], desc: p.published_at)
-    |> preload(:tags)
+  def list_published_posts(opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+    offset = Keyword.get(opts, :offset, 0)
+
+    published_posts_query()
+    |> limit(^limit)
+    |> offset(^offset)
     |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
+  Returns a paginated list of published posts with metadata.
+
+  ## Examples
+      iex> list_published_posts_paginated(1, 20)
+      %{
+        posts: [%Post{}, ...],
+        page: 1,
+        per_page: 20,
+        total_count: 45,
+        total_pages: 3
+      }
+  """
+  def list_published_posts_paginated(page \\ 1, per_page \\ 20) do
+    offset = (page - 1) * per_page
+
+    posts = published_posts_query()
+      |> limit(^per_page)
+      |> offset(^offset)
+      |> Repo.all()
+      |> populate_author_names()
+
+    total_count = from(p in Post,
+      where: not is_nil(p.published_at),
+      select: count(p.id)
+    ) |> Repo.one()
+
+    %{
+      posts: posts,
+      page: page,
+      per_page: per_page,
+      total_count: total_count,
+      total_pages: ceil(total_count / per_page)
+    }
   end
 
   @doc """
   Returns the list of published posts filtered by tag slug.
+  Uses association joins for efficiency.
   """
-  def list_published_posts_by_tag(tag_slug) do
-    Post
-    |> join(:inner, [p], pt in "post_tags", on: p.id == pt.post_id)
-    |> join(:inner, [p, pt], t in Tag, on: t.id == pt.tag_id)
-    |> where([p, pt, t], not is_nil(p.published_at) and t.slug == ^tag_slug)
-    |> order_by([p], desc: p.published_at)
-    |> preload(:tags)
+  def list_published_posts_by_tag(tag_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+
+    from(p in published_posts_query(),
+      join: t in assoc(p, :tags),
+      where: t.slug == ^tag_slug,
+      limit: ^limit
+    )
     |> Repo.all()
+    |> populate_author_names()
   end
 
   @doc """
   Returns the list of published posts filtered by category slug.
+  Uses association joins for efficiency.
   """
-  def list_published_posts_by_category(category_slug) do
-    Post
-    |> join(:inner, [p], c in Category, on: p.category_id == c.id)
-    |> where([p, c], not is_nil(p.published_at) and c.slug == ^category_slug)
-    |> order_by([p], desc: p.published_at)
-    |> preload([:tags, :category_ref])
+  def list_published_posts_by_category(category_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+
+    from(p in published_posts_query(),
+      join: c in assoc(p, :category),
+      where: c.slug == ^category_slug,
+      limit: ^limit
+    )
     |> Repo.all()
+    |> populate_author_names()
   end
 
   @doc """
-  Returns the list of all posts (including unpublished).
+  Returns the list of all posts (including unpublished) with all associations loaded.
   """
   def list_posts do
-    Post
-    |> order_by([p], desc: p.inserted_at)
-    |> preload(:tags)
+    from(p in posts_base_query(),
+      order_by: [desc: p.inserted_at]
+    )
     |> Repo.all()
+    |> populate_author_names()
   end
 
   @doc """
-  Gets a single post by slug.
+  Searches published posts by title, excerpt, or author email.
+
+  ## Examples
+      iex> search_posts("blockchain")
+      [%Post{}, ...]
+
+      iex> search_posts("bitcoin", limit: 10)
+      [%Post{}, ...]
+  """
+  def search_posts(query_string, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    search_term = "%#{query_string}%"
+
+    from(p in published_posts_query(),
+      left_join: a in assoc(p, :author),
+      where: ilike(p.title, ^search_term) or
+             ilike(p.excerpt, ^search_term) or
+             ilike(a.email, ^search_term),
+      limit: ^limit
+    )
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
+  Gets a single post by slug with all associations loaded.
+  Raises `Ecto.NoResultsError` if the Post does not exist.
   """
   def get_post_by_slug!(slug) do
-    Post
-    |> Repo.get_by!(slug: slug)
-    |> Repo.preload(:tags)
+    from(p in Post,
+      where: p.slug == ^slug,
+      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)]
+    )
+    |> Repo.one!()
+    |> populate_author_names()
   end
 
   @doc """
-  Gets a single post.
+  Gets a single post with all associations loaded.
+  Raises `Ecto.NoResultsError` if the Post does not exist.
   """
   def get_post!(id) do
-    Post
-    |> Repo.get!(id)
-    |> Repo.preload(:tags)
+    from(p in Post,
+      where: p.id == ^id,
+      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)]
+    )
+    |> Repo.one!()
+    |> populate_author_names()
+  end
+
+  @doc """
+  Gets related posts based on shared tags.
+  Returns posts that share the most tags with the given post.
+
+  ## Examples
+      iex> get_related_posts(post, 5)
+      [%Post{}, ...]
+  """
+  def get_related_posts(%Post{} = post, limit \\ 5) do
+    tag_ids = case post.tags do
+      %Ecto.Association.NotLoaded{} ->
+        post = Repo.preload(post, :tags)
+        Enum.map(post.tags, & &1.id)
+      tags when is_list(tags) ->
+        Enum.map(tags, & &1.id)
+    end
+
+    if Enum.empty?(tag_ids) do
+      []
+    else
+      from(p in published_posts_query(),
+        where: p.id != ^post.id,
+        join: pt in "post_tags", on: pt.post_id == p.id,
+        where: pt.tag_id in ^tag_ids,
+        group_by: p.id,
+        order_by: [desc: count(pt.tag_id), desc: p.published_at],
+        limit: ^limit
+      )
+      |> Repo.all()
+      |> populate_author_names()
+    end
   end
 
   @doc """

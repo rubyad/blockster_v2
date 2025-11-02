@@ -7,16 +7,21 @@ defmodule BlocksterV2.Blog.Post do
     field :slug, :string
     field :content, :map
     field :excerpt, :string
-    field :author_name, :string
     field :published_at, :utc_datetime
     field :custom_published_at, :utc_datetime
     field :view_count, :integer, default: 0
-    field :category, :string
     field :featured_image, :string
 
+    # Virtual field - computed from author association
+    field :author_name, :string, virtual: true
+
+    # Associations
     belongs_to :author, BlocksterV2.Accounts.User
-    belongs_to :category_ref, BlocksterV2.Blog.Category, foreign_key: :category_id
-    many_to_many :tags, BlocksterV2.Blog.Tag, join_through: "post_tags", on_replace: :delete
+    belongs_to :category, BlocksterV2.Blog.Category
+    many_to_many :tags, BlocksterV2.Blog.Tag,
+      join_through: "post_tags",
+      on_replace: :delete,
+      preload_order: [asc: :name]
 
     timestamps()
   end
@@ -29,20 +34,37 @@ defmodule BlocksterV2.Blog.Post do
       :slug,
       :content,
       :excerpt,
-      :author_name,
       :published_at,
       :custom_published_at,
       :view_count,
-      :category,
       :featured_image,
-      :author_id
+      :author_id,
+      :category_id
     ])
-    |> validate_required([:title, :author_name])
+    |> validate_required([:title])
     |> generate_slug()
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
       message: "must be lowercase alphanumeric with dashes"
     )
     |> unique_constraint(:slug)
+  end
+
+  @doc """
+  Computes the author_name from the loaded author association.
+  Returns "Unknown" if author is not loaded or doesn't exist.
+  """
+  def compute_author_name(%__MODULE__{author: %Ecto.Association.NotLoaded{}}), do: "Unknown"
+  def compute_author_name(%__MODULE__{author: nil}), do: "Unknown"
+  def compute_author_name(%__MODULE__{author: author}) when is_map(author) do
+    author.email || "Unknown"
+  end
+
+  @doc """
+  Populates the virtual author_name field from the author association.
+  Call this after preloading the author.
+  """
+  def populate_author_name(%__MODULE__{} = post) do
+    %{post | author_name: compute_author_name(post)}
   end
 
   defp generate_slug(changeset) do
