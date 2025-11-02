@@ -60,10 +60,12 @@ COPY lib lib
 # Compile the release
 RUN mix compile
 
-COPY assets assets
-
-# Install npm dependencies and compile assets
+# Copy package files first to leverage Docker cache
+COPY assets/package.json assets/package-lock.json assets/
 RUN cd assets && npm ci --prefer-offline --no-audit && cd ..
+
+# Copy rest of assets after npm install
+COPY assets assets
 
 # compile assets
 RUN mix assets.deploy
