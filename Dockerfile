@@ -64,8 +64,11 @@ RUN mix compile
 COPY assets/package.json assets/package-lock.json assets/
 RUN cd assets && npm ci --prefer-offline --no-audit && cd ..
 
-# Copy rest of assets after npm install (node_modules excluded via .dockerignore)
-COPY assets assets
+# Copy rest of assets EXCEPT node_modules (copy specific directories only)
+COPY assets/js assets/js
+COPY assets/css assets/css
+COPY assets/vendor assets/vendor
+COPY assets/tsconfig.json assets/tsconfig.json
 
 # compile assets
 RUN mix assets.deploy
