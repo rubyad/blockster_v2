@@ -67,7 +67,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> tap(fn parts -> IO.inspect(parts, label: "AFTER REJECT", limit: :infinity) end)
       |> wrap_inline_paragraphs()
       |> Enum.join("\n")
-      |> wrap_list_items()
+      |> wrap_list_items() # Groups list items with formatted content
 
     Phoenix.HTML.raw(html_parts)
   end
