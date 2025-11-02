@@ -446,7 +446,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   # Handle spacer embeds
   defp render_single_op(%{"insert" => %{"spacer" => _}}, _next_op) do
-    ~s(<div style="height: 16px; display: block;"></div>)
+    ~s(<div class="text-center text-gray-400 my-4">--</div>)
   end
 
   # Handle tweet embeds with embedded HTML
