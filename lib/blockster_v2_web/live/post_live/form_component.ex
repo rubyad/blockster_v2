@@ -29,7 +29,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
 
     # Load all categories from database
     categories = Blog.list_categories()
-    category_options = [{"Select a category", ""}] ++ Enum.map(categories, &{&1.name, &1.name})
+    category_options = [{"Select a category", ""}] ++ Enum.map(categories, &{&1.name, &1.id})
 
     # Initialize author autocomplete state
     authors = Map.get(assigns, :authors, [])
