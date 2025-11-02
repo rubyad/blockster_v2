@@ -65,10 +65,40 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> tap(fn parts -> IO.inspect(parts, label: "BEFORE REJECT", limit: :infinity) end)
       |> Enum.reject(fn x -> x == "" || x == nil end)
       |> tap(fn parts -> IO.inspect(parts, label: "AFTER REJECT", limit: :infinity) end)
+      |> wrap_inline_paragraphs()
       |> Enum.join("\n")
       |> wrap_list_items()
 
     Phoenix.HTML.raw(html_parts)
+  end
+
+  # Wrap consecutive inline text/formatted elements in paragraph tags
+  defp wrap_inline_paragraphs(parts) do
+    {result, current_para} = Enum.reduce(parts, {[], []}, fn part, {acc, para} ->
+      cond do
+        # If it's a block-level element (starts with known block tags), flush current paragraph
+        String.starts_with?(part, ["<h1", "<h2", "<h3", "<h4", "<h5", "<h6", "<blockquote", "<ul", "<ol", "<div", "<img", "<p "]) ->
+          if length(para) > 0 do
+            # Wrap accumulated inline content in a paragraph
+            wrapped = ~s(<p class="mt-4 mb-8 text-[#343434] leading-[1.6]">#{Enum.join(para, "")}</p>)
+            {acc ++ [wrapped, part], []}
+          else
+            {acc ++ [part], []}
+          end
+
+        # Otherwise, accumulate inline content
+        true ->
+          {acc, para ++ [part]}
+      end
+    end)
+
+    # Handle remaining accumulated inline content
+    if length(current_para) > 0 do
+      wrapped = ~s(<p class="mt-4 mb-8 text-[#343434] leading-[1.6]">#{Enum.join(current_para, "")}</p>)
+      result ++ [wrapped]
+    else
+      result
+    end
   end
 
   # Wrap consecutive list items in ul/ol tags and blockquote paragraphs in blockquote tags
@@ -349,57 +379,47 @@ defmodule BlocksterV2Web.PostLive.Show do
          Map.has_key?(attrs, "list") do
       nil
     else
-      # Split text into paragraphs first, then apply formatting to each
-      text
-      |> String.split("\n\n")
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(fn para ->
-        # Reject empty strings and separator-only strings like "--"
-        para == "" || String.match?(para, ~r/^[-\s]+$/)
-      end)
-      |> Enum.map(fn para ->
-        # Apply formatting to the paragraph content
-        content = para
+      # Just apply inline formatting without wrapping in <p> tags
+      # The wrapping happens later when we join ops together
+      content = text
 
-        content =
-          if attrs["bold"] do
-            ~s(<strong>#{content}</strong>)
-          else
-            content
-          end
+      content =
+        if attrs["bold"] do
+          ~s(<strong>#{content}</strong>)
+        else
+          content
+        end
 
-        content =
-          if attrs["italic"] do
-            ~s(<em>#{content}</em>)
-          else
-            content
-          end
+      content =
+        if attrs["italic"] do
+          ~s(<em>#{content}</em>)
+        else
+          content
+        end
 
-        content =
-          if attrs["underline"] do
-            ~s(<u>#{content}</u>)
-          else
-            content
-          end
+      content =
+        if attrs["underline"] do
+          ~s(<u>#{content}</u>)
+        else
+          content
+        end
 
-        content =
-          if attrs["strike"] do
-            ~s(<s>#{content}</s>)
-          else
-            content
-          end
+      content =
+        if attrs["strike"] do
+          ~s(<s>#{content}</s>)
+        else
+          content
+        end
 
-        content =
-          if attrs["link"] do
-            url = attrs["link"]
-            ~s(<a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">#{content}</a>)
-          else
-            content
-          end
+      content =
+        if attrs["link"] do
+          url = attrs["link"]
+          ~s(<a href="#{url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">#{content}</a>)
+        else
+          content
+        end
 
-        # Wrap in paragraph tag with spacing
-        ~s(<p class="mt-4 mb-8 text-[#343434] leading-[1.6]">#{content}</p>)
-      end)
+      content
     end
   end
 
