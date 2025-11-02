@@ -117,14 +117,14 @@ defmodule BlocksterV2Web.PostLive.Show do
     )
     # Wrap bullet list items
     |> String.replace(
-      ~r/(<li class="[^"]*list-item-bullet">[^<]*<\/li>)+/s,
+      ~r/(<li class="[^"]*list-item-bullet">.*?<\/li>)+/s,
       fn matches ->
         ~s(<ul class="list-disc pl-6 mb-4">#{matches}</ul>)
       end
     )
     # Wrap ordered list items
     |> String.replace(
-      ~r/(<li class="[^"]*list-item-ordered">[^<]*<\/li>)+/s,
+      ~r/(<li class="[^"]*list-item-ordered">.*?<\/li>)+/s,
       fn matches ->
         ~s(<ol class="list-decimal pl-6 mb-4">#{matches}</ol>)
       end
