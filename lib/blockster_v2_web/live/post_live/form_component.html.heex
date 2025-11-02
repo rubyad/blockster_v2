@@ -309,21 +309,22 @@
               </div>
             <% end %>
 
-<!-- Quill Editor -->
+<!-- TipTap Editor -->
             <div>
               <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
                 Content
               </label>
               <div
-                id="quill-editor"
+                id="tiptap-editor"
                 phx-update="ignore"
-                phx-hook="QuillEditor"
+                phx-hook="TipTapEditor"
                 data-content={
                   if @form[:content].value, do: Jason.encode!(@form[:content].value), else: "{}"
                 }
-                class="bg-white rounded-lg border border-[#E7E8F1]"
+                class="tiptap-editor"
               >
-                <div class="editor-container" style="min-height: 400px;"></div>
+                <div class="tiptap-toolbar"></div>
+                <div class="editor-container"></div>
                 <input
                   type="hidden"
                   name="post[content]"

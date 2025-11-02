@@ -2,6 +2,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Blog
+  alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
   def mount(_params, _session, socket) do
@@ -48,8 +49,14 @@ defmodule BlocksterV2Web.PostLive.Show do
     {:noreply, push_navigate(socket, to: ~p"/")}
   end
 
+  # Handle TipTap format
+  defp render_quill_content(%{"type" => "doc"} = content) do
+    TipTapRenderer.render_content(content)
+  end
+
+  # Handle old Quill format (for backward compatibility during migration)
   defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
-    IO.puts("=== ALL QUILL OPS ===")
+    IO.puts("=== LEGACY QUILL FORMAT DETECTED ===")
     IO.inspect(ops, label: "OPS", limit: :infinity)
 
     html_parts =

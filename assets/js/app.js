@@ -22,17 +22,11 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-import { QuillEditor } from "./quill_editor.js";
+import { TipTapEditor } from "./tiptap_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
 import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin } from "./home_hooks.js";
 import topbar from "../vendor/topbar";
-
-// Import Quill from npm
-import Quill from "quill";
-
-// Make Quill available globally for the hook
-window.Quill = Quill;
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -55,7 +49,7 @@ let TagInput = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { QuillEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput },
+  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput },
 });
 
 // Show progress bar on live navigation and form submits
