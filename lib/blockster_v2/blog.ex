@@ -289,7 +289,7 @@ defmodule BlocksterV2.Blog do
   """
   def update_post_tags(%Post{} = post, tag_names) when is_list(tag_names) do
     # Get or create all tags
-    tags =
+    new_tags =
       Enum.map(tag_names, fn tag_name ->
         case get_or_create_tag(tag_name) do
           {:ok, tag} -> tag
@@ -298,11 +298,14 @@ defmodule BlocksterV2.Blog do
       end)
       |> Enum.reject(&is_nil/1)
 
+    # Merge with existing tags to avoid deletion
+    post = Repo.preload(post, :tags)
+    all_tags = (post.tags ++ new_tags) |> Enum.uniq_by(& &1.id)
+
     # Update the post's tags association
     post
-    |> Repo.preload(:tags)
     |> Ecto.Changeset.change()
-    |> Ecto.Changeset.put_assoc(:tags, tags)
+    |> Ecto.Changeset.put_assoc(:tags, all_tags)
     |> Repo.update()
   end
 
