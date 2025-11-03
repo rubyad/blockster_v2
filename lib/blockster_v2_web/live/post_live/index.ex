@@ -9,10 +9,15 @@ defmodule BlocksterV2Web.PostLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     posts = Blog.list_published_posts()
+    interview_posts =
+      Blog.list_published_posts_by_tag("interview", limit: 10)
+      |> Enum.shuffle()
 
     {:ok,
      socket
      |> assign(:posts, posts)
+     |> assign(:interview_posts, interview_posts)
+     |> assign(:selected_interview_category, nil)
      |> assign(:page_title, "Latest Posts")}
   end
 
@@ -48,6 +53,24 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     # After deletion, navigate back to the index page to ensure the list is refreshed.
     {:noreply, push_navigate(socket, to: ~p"/")}
+  end
+
+  @impl true
+  def handle_event("filter_interview_category", %{"category" => category}, socket) do
+    all_interview_posts = Blog.list_published_posts_by_tag("interview", limit: 10)
+
+    filtered_posts = if category == "" do
+      Enum.shuffle(all_interview_posts)
+    else
+      all_interview_posts
+      |> Enum.filter(fn post -> post.category.name == category end)
+      |> Enum.shuffle()
+    end
+
+    {:noreply,
+     socket
+     |> assign(:interview_posts, filtered_posts)
+     |> assign(:selected_interview_category, if(category == "", do: nil, else: category))}
   end
 
   @impl true

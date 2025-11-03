@@ -315,7 +315,7 @@
                 Content
               </label>
               <div
-                id="tiptap-editor"
+                id={"tiptap-editor-#{@action}-#{@post.id || "new"}"}
                 phx-update="ignore"
                 phx-hook="TipTapEditor"
                 data-content={

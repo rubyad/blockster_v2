@@ -46,6 +46,19 @@ export const QuillEditor = {
               spacer: () => this.spacerHandler(),
             },
           },
+          keyboard: {
+            bindings: {
+              linebreak: {
+                key: 13, // Enter key
+                handler: (range, context) => {
+                  // Insert two line breaks to create a space line
+                  this.quill.insertText(range.index, "\n\n");
+                  this.quill.setSelection(range.index + 2);
+                  return false; // Prevent default behavior
+                },
+              },
+            },
+          },
         },
         placeholder: "Write your post content here...",
       });

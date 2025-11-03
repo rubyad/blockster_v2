@@ -56,10 +56,13 @@ export const TipTapEditor = {
       onUpdate: () => {
         this.syncToHiddenInput()
       },
+      onCreate: ({ editor }) => {
+        // Load content after editor is fully initialized
+        setTimeout(() => {
+          this.loadContent()
+        }, 100)
+      },
     })
-
-    // Load initial content
-    this.loadContent()
 
     // Store editor reference
     this.el.__tiptap = this.editor
@@ -225,14 +228,38 @@ export const TipTapEditor = {
 
   loadContent() {
     const initialContent = this.el.dataset.content
+    console.log('=== Loading Content ===')
+    console.log('Raw data-content:', initialContent)
 
     if (initialContent && initialContent !== '{}') {
       try {
         const content = JSON.parse(initialContent)
-        this.editor.commands.setContent(content)
+        console.log('Parsed content:', content)
+
+        // Check if this is Quill format (has "ops" key)
+        if (content.ops) {
+          console.log('Detected Quill format, converting to plain text for editing')
+          // Extract plain text from Quill ops
+          let plainText = content.ops.map(op => {
+            if (typeof op.insert === 'string') {
+              return op.insert
+            }
+            return ''
+          }).join('')
+
+          // Set as plain text in TipTap
+          this.editor.commands.setContent(`<p>${plainText.replace(/\n/g, '</p><p>')}</p>`)
+          console.log('Converted Quill to plain text')
+        } else {
+          // This is TipTap format
+          this.editor.commands.setContent(content)
+          console.log('Content set successfully (TipTap format)')
+        }
       } catch (e) {
         console.error('Failed to parse initial content:', e)
       }
+    } else {
+      console.log('No content to load (empty or missing)')
     }
   },
 
@@ -247,7 +274,8 @@ export const TipTapEditor = {
   },
 
   updated() {
-    // Don't reload content on LiveView updates
+    // Don't reload content on updates - this prevents cursor jumping
+    // The editor maintains its own state via the hidden input
   },
 
   destroyed() {

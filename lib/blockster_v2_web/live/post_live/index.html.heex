@@ -382,33 +382,17 @@
               <!-- Filter Buttons Row -->
               <div class="overflow-x-auto w-full no-scrollbar scroll-smooth snap-x snap-mandatory walker" id="">
                 <ul class="flex gap-2 items-center mt-5 flex-nowrap whitespace-nowrap button-group-slider">
-                  <li>
-                    <button class="px-4 py-2 bg-[#E5E7EB] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-[#141414] transition-colors">Blockchain</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Market Analysis</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Investment</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Events</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Crypto Trading</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">People</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">DeFi</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Announcements</button>
-                  </li>
-                  <li>
-                    <button class="px-4 py-2 bg-[#2C2C2C] font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm text-white hover:bg-[#3C3C3C] transition-colors">Gaming</button>
-                  </li>
+                  <%= for category <- ["Blockchain", "Market Analysis", "Investment", "Events", "Crypto Trading", "People", "DeFi", "Announcements", "Gaming"] do %>
+                    <li>
+                      <button
+                        phx-click="filter_interview_category"
+                        phx-value-category={category}
+                        class={"px-4 py-2 font-haas_roman_55 border-transparent border-[1px] rounded-[100px] text-sm transition-colors cursor-pointer #{if @selected_interview_category == category, do: "bg-[#E5E7EB] text-[#141414]", else: "bg-[#2C2C2C] text-white hover:bg-[#3C3C3C]"}"}
+                      >
+                        <%= category %>
+                      </button>
+                    </li>
+                  <% end %>
                 </ul>
               </div>
 
@@ -440,14 +424,9 @@
               </div>
 
               <%
-                # Filter posts by the specified images
-                interview_posts = Enum.filter(@posts, fn p ->
-                  p.featured_image in ["/images/smile.png", "/images/idris.png", "/images/ecstatic.png", "/images/sam.png", "/images/vitaly.png"]
-                end)
-
-                # Take 5 posts for the cards
-                top_row_posts = Enum.take(interview_posts, 3)
-                bottom_row_posts = Enum.slice(interview_posts, 3, 2)
+                # Use interview posts from LiveView (posts with Interview tag)
+                top_row_posts = Enum.take(@interview_posts, 3)
+                bottom_row_posts = Enum.slice(@interview_posts, 3, 2)
               %>
 
               <!-- Latest News Blog Cards -->
@@ -616,29 +595,33 @@
 
             <!-- Desktop "Most Viewed" Sidebar -->
             <div class="right-content xl:w-1/3 w-1/2 md:block hidden">
-              <a href="" class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 block">
-                <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-10 relative">
-                  <span>
-                    <.lightning_icon id="bux_icon_14" size="34" />
-                  </span>
-                  <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
-                </div>
-                <div class="top-structure absolute top-0 left-1/2 -translate-x-1/2 z-0 w-[288px]">
-                  <img src="/images/bg-top.png" alt="" srcset="" />
-                </div>
-                <img src="/images/bitcoin-guru.png" alt="" class="z-10 relative" />
-                <div class="bottom-fixed p-6 rounded-[18px] z-10">
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
-                      <.lightning_icon id="bux_icon_15" size="20" />
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
+              <%= if large_interview_post = Enum.at(@interview_posts, 5) do %>
+                <.link navigate={~p"/#{large_interview_post.slug}"} class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 block">
+                  <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-10 relative">
+                    <span>
+                      <.lightning_icon id="bux_icon_14" size="34" />
+                    </span>
+                    <button class="p-4 py-1 bg-white small-buttons-shadow border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#000000] border-solid">Most Viewed</button>
                   </div>
-                  <h4 class="text-[32px] relative text-[#ffffff] font-haas_medium_65 line-clamp-2 leading-[1.2] mt-2">
-                    "Bitcoin Is Just Getting Started" – Michael Saylor on the Future of Digital Gold
-                  </h4>
-                </div>
-              </a>
+                  <div class="top-structure absolute top-0 left-1/2 -translate-x-1/2 z-0 w-[288px]">
+                    <img src="/images/bg-top.png" alt="" srcset="" />
+                  </div>
+                  <div class="z-10 relative w-full h-[400px] overflow-hidden">
+                    <img src={large_interview_post.featured_image} alt="" class="w-full h-full object-cover" />
+                  </div>
+                  <div class="bottom-fixed p-6 rounded-[18px] z-10">
+                    <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] relative">
+                        <.lightning_icon id="bux_icon_15" size="20" />
+                        <span class="text-xs font-haas_medium_65">1,264</span>
+                      </button>
+                    </div>
+                    <h4 class="text-[32px] relative text-[#ffffff] font-haas_medium_65 line-clamp-2 leading-[1.2] mt-2">
+                      <%= large_interview_post.title %>
+                    </h4>
+                  </div>
+                </.link>
+              <% end %>
             </div>
           </div>
         </div>
