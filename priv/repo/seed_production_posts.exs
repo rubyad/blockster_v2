@@ -55,9 +55,7 @@ Enum.each(categories, fn cat ->
       category_id: cat.id
     }) |> Repo.insert()
 
-    Enum.each(tags, fn tag ->
-      Ecto.build_assoc(post, :post_tags, %{tag_id: tag.id}) |> Repo.insert()
-    end)
+    BlocksterV2.Blog.update_post_tags(post, Enum.map(tags, & &1.name))
   end)
 end)
 
