@@ -86,6 +86,16 @@
                       do: Calendar.strftime(@post.published_at, "%b %d, %Y"),
                       else: "Draft"}
                   </span>
+                  <%= if @post.hub do %>
+                    <div class="flex gap-2 items-center mt-[6px]">
+                      <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">
+                        Hub:
+                      </span>
+                      <.link navigate={~p"/hub/#{@post.hub.slug}"} class="text-sm font-haas_medium_65 text-[#141414] hover:text-[#8AE388] transition-colors">
+                        {@post.hub.name}
+                      </.link>
+                    </div>
+                  <% end %>
                 </div>
 
                 <div class="flex items-end gap-4">
@@ -192,6 +202,16 @@
                 do: Calendar.strftime(@post.published_at, "%b %d, %Y"),
                 else: "Draft"}
             </span>
+            <%= if @post.hub do %>
+              <div class="flex gap-2 items-center mt-[6px]">
+                <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">
+                  Hub:
+                </span>
+                <.link navigate={~p"/hub/#{@post.hub.slug}"} class="text-sm font-haas_medium_65 text-[#141414] hover:text-[#8AE388] transition-colors">
+                  {@post.hub.name}
+                </.link>
+              </div>
+            <% end %>
           </div>
 
           <div class="flex items-end gap-4">

@@ -58,7 +58,7 @@ defmodule BlocksterV2.Blog.Post do
   def compute_author_name(%__MODULE__{author: %Ecto.Association.NotLoaded{}}), do: "Unknown"
   def compute_author_name(%__MODULE__{author: nil}), do: "Unknown"
   def compute_author_name(%__MODULE__{author: author}) when is_map(author) do
-    author.email || "Unknown"
+    author.username || author.email || "Unknown"
   end
 
   @doc """
