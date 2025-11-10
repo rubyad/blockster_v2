@@ -14,6 +14,9 @@ defmodule BlocksterV2.Blog.Hub do
     field :color_secondary, :string
     field :is_active, :boolean, default: true
 
+    # Associations
+    has_many :posts, BlocksterV2.Blog.Post
+
     timestamps()
   end
 

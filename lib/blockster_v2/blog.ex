@@ -15,7 +15,7 @@ defmodule BlocksterV2.Blog do
   @doc false
   defp posts_base_query do
     from p in Post,
-      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)],
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)],
       order_by: [desc: p.published_at]
   end
 
@@ -131,6 +131,20 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Returns the list of published posts filtered by hub_id.
+  """
+  def list_published_posts_by_hub(hub_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+
+    from(p in published_posts_query(),
+      where: p.hub_id == ^hub_id,
+      limit: ^limit
+    )
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
   Returns the list of all posts (including unpublished) with all associations loaded.
   """
   def list_posts do
@@ -173,7 +187,7 @@ defmodule BlocksterV2.Blog do
   def get_post_by_slug!(slug) do
     from(p in Post,
       where: p.slug == ^slug,
-      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)]
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
     )
     |> Repo.one!()
     |> populate_author_names()
@@ -186,7 +200,7 @@ defmodule BlocksterV2.Blog do
   def get_post!(id) do
     from(p in Post,
       where: p.id == ^id,
-      preload: [:author, :category, tags: ^from(t in Tag, order_by: t.name)]
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
     )
     |> Repo.one!()
     |> populate_author_names()
@@ -395,6 +409,13 @@ defmodule BlocksterV2.Blog do
   end
 
   # Hub functions
+
+  @doc """
+  Gets a single hub by ID.
+  """
+  def get_hub(id) do
+    Repo.get(Hub, id)
+  end
 
   @doc """
   Gets a hub by slug.

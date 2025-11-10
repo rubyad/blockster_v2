@@ -31,6 +31,31 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     categories = Blog.list_categories()
     category_options = [{"Select a category", ""}] ++ Enum.map(categories, &{&1.name, &1.id})
 
+    # Load all hubs from database
+    hubs = Blog.list_hubs()
+    hub_options = [{"No Hub", ""}] ++ Enum.map(hubs, &{&1.name, &1.id})
+
+    # Initialize hub autocomplete state
+    filtered_hubs = hubs
+    show_hub_dropdown = false
+
+    # Get hub name for display if post has a hub
+    hub_name = case post do
+      %{hub: %Ecto.Association.NotLoaded{}} ->
+        # Hub not loaded, try to load it if hub_id exists
+        if post.hub_id do
+          case Blog.get_hub(post.hub_id) do
+            nil -> ""
+            hub -> hub.name
+          end
+        else
+          ""
+        end
+      %{hub: nil} -> ""
+      %{hub: hub} when is_map(hub) -> hub.name
+      _ -> ""
+    end
+
     # Initialize author autocomplete state
     authors = Map.get(assigns, :authors, [])
     filtered_authors = authors
@@ -44,6 +69,11 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
      |> assign(:filtered_tags, available_tags)
      |> assign(:tag_search, "")
      |> assign(:category_options, category_options)
+     |> assign(:hub_options, hub_options)
+     |> assign(:hubs, hubs)
+     |> assign(:filtered_hubs, filtered_hubs)
+     |> assign(:show_hub_dropdown, show_hub_dropdown)
+     |> assign(:hub_name, hub_name)
      |> assign(:filtered_authors, filtered_authors)
      |> assign(:show_author_dropdown, show_author_dropdown)
      |> assign_form(changeset)}
@@ -207,6 +237,53 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   def handle_event("remove_tag", %{"tag" => tag}, socket) do
     selected_tags = Enum.reject(socket.assigns.selected_tags, &(&1 == tag))
     {:noreply, assign(socket, :selected_tags, selected_tags)}
+  end
+
+  @impl true
+  def handle_event("search_hubs", %{"value" => search_term}, socket) do
+    hubs = socket.assigns[:hubs] || []
+
+    filtered_hubs = if String.trim(search_term) == "" do
+      hubs
+    else
+      Enum.filter(hubs, fn hub ->
+        String.contains?(String.downcase(hub.name), String.downcase(search_term))
+      end)
+    end
+
+    show_dropdown = String.trim(search_term) != "" && length(filtered_hubs) > 0
+
+    {:noreply, assign(socket, filtered_hubs: filtered_hubs, show_hub_dropdown: show_dropdown, hub_name: search_term)}
+  end
+
+  @impl true
+  def handle_event("select_hub", %{"hub_id" => hub_id, "hub_name" => hub_name}, socket) do
+    # Update the form with the selected hub_id
+    changeset =
+      socket.assigns.form.source
+      |> Ecto.Changeset.put_change(:hub_id, String.to_integer(hub_id))
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(:show_hub_dropdown, false)
+     |> assign(:hub_name, hub_name)
+     |> assign_form(changeset)}
+  end
+
+  @impl true
+  def handle_event("clear_hub", _params, socket) do
+    # Clear the hub selection
+    changeset =
+      socket.assigns.form.source
+      |> Ecto.Changeset.put_change(:hub_id, nil)
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(:show_hub_dropdown, false)
+     |> assign(:hub_name, "")
+     |> assign_form(changeset)}
   end
 
   @impl true

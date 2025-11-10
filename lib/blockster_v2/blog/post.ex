@@ -18,6 +18,7 @@ defmodule BlocksterV2.Blog.Post do
     # Associations
     belongs_to :author, BlocksterV2.Accounts.User
     belongs_to :category, BlocksterV2.Blog.Category
+    belongs_to :hub, BlocksterV2.Blog.Hub
     many_to_many :tags, BlocksterV2.Blog.Tag,
       join_through: "post_tags",
       on_replace: :delete,
@@ -39,7 +40,8 @@ defmodule BlocksterV2.Blog.Post do
       :view_count,
       :featured_image,
       :author_id,
-      :category_id
+      :category_id,
+      :hub_id
     ])
     |> validate_required([:title])
     |> generate_slug()

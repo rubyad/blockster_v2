@@ -293,6 +293,56 @@
               />
             </div>
 
+<!-- Hub Autocomplete -->
+            <div>
+              <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                Hub (Optional)
+              </label>
+              <div class="relative">
+                <input
+                  type="text"
+                  name="hub_name"
+                  value={@hub_name}
+                  placeholder="Start typing hub name..."
+                  phx-keyup="search_hubs"
+                  phx-target={@myself}
+                  phx-debounce="300"
+                  autocomplete="off"
+                  class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 text-sm"
+                />
+                <%= if @hub_name != "" do %>
+                  <button
+                    type="button"
+                    phx-click="clear_hub"
+                    phx-target={@myself}
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-[#141414A3] hover:text-[#141414] transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <%= if assigns[:filtered_hubs] && length(@filtered_hubs) > 0 && assigns[:show_hub_dropdown] do %>
+                  <div class="absolute z-10 w-full mt-1 bg-white border border-[#E7E8F1] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <%= for hub <- @filtered_hubs do %>
+                      <button
+                        type="button"
+                        phx-click="select_hub"
+                        phx-value-hub_id={hub.id}
+                        phx-value-hub_name={hub.name}
+                        phx-target={@myself}
+                        class="w-full text-left px-4 py-2 hover:bg-[#F3F5FF] text-sm text-[#141414] transition-colors"
+                      >
+                        {hub.name}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+              <input type="hidden" name="post[hub_id]" value={@form[:hub_id].value} />
+              <p class="text-xs text-[#141414A3] mt-1">Start typing to search and select a hub, or leave blank for no hub.</p>
+            </div>
+
 <!-- Custom Published Date (Admin Only) -->
             <%= if @current_user && @current_user.is_admin do %>
               <div>

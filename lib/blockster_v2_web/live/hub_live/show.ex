@@ -16,8 +16,8 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> redirect(to: "/")}
 
       hub ->
-        # Get posts for this hub's tag
-        posts = Blog.list_published_posts_by_tag(hub.tag_name)
+        # Get posts for this hub by hub_id
+        posts = Blog.list_published_posts_by_hub(hub.id)
 
         {:ok,
          socket
