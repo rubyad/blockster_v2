@@ -12,11 +12,14 @@ defmodule BlocksterV2Web.PostLive.Index do
     interview_posts =
       Blog.list_published_posts_by_tag("interview", limit: 10)
       |> Enum.shuffle()
+    categories = Blog.list_categories()
 
     {:ok,
      socket
      |> assign(:posts, posts)
      |> assign(:interview_posts, interview_posts)
+     |> assign(:categories, categories)
+     |> assign(:selected_category, nil)
      |> assign(:selected_interview_category, nil)
      |> assign(:page_title, "Latest Posts")}
   end
@@ -56,6 +59,20 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   @impl true
+  def handle_event("filter_category", %{"category" => category}, socket) do
+    filtered_posts = if category == "" do
+      Blog.list_published_posts()
+    else
+      Blog.list_published_posts_by_category(category)
+    end
+
+    {:noreply,
+     socket
+     |> assign(:posts, filtered_posts)
+     |> assign(:selected_category, if(category == "", do: nil, else: category))}
+  end
+
+  @impl true
   def handle_event("filter_interview_category", %{"category" => category}, socket) do
     all_interview_posts = Blog.list_published_posts_by_tag("interview", limit: 10)
 
@@ -75,6 +92,9 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def handle_info({BlocksterV2Web.PostLive.FormComponent, {:saved, _post}}, socket) do
-    {:noreply, assign(socket, :posts, Blog.list_published_posts())}
+    {:noreply,
+     socket
+     |> assign(:posts, Blog.list_published_posts())
+     |> assign(:selected_category, nil)}
   end
 end

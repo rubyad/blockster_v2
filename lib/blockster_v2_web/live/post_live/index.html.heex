@@ -60,15 +60,14 @@
 
               <!-- Category Pills -->
               <div class="flex flex-wrap gap-2 mb-5">
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Blockchain</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Market Analysis</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Investment</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Events</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Crypto Trading</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">People</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">DeFi</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Announcements</button>
-                <button class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all">Gaming</button>
+                <%= for category <- @categories do %>
+                  <button
+                    phx-click="filter_category"
+                    phx-value-category={category.slug}
+                    class={"px-3 py-1.5 border rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] transition-all cursor-pointer #{if @selected_category == category.slug, do: "bg-[#8AE388] border-[#8AE388] text-[#141414]", else: "bg-white border-[#E7E8F1] text-[#141414]"}"}>
+                    {category.name}
+                  </button>
+                <% end %>
               </div>
 
               <%= if @posts == [] do %>
@@ -119,13 +118,6 @@
                             </div>
                           </.link>
                       <% end %>
-
-                      <!-- View More Button -->
-                      <div class="flex justify-center mt-3 w-full">
-                        <button class="w-[90%] py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm">
-                          View More
-                        </button>
-                      </div>
                     </div>
 
                     <!-- Middle Column - 1 tall card -->
@@ -216,102 +208,25 @@
                     </div>
                   <% end %>
                 </div>
-              <% end %>
 
-              <!-- MoonPay Ad Banner -->
-              <a href="https://www.moonpay.com" target="_blank" rel="noopener noreferrer" class="ad-banner-space mt-6 rounded-[18px] overflow-hidden border-[#1414141A] border-[1px] bg-gradient-to-br from-[#7B3FE4] to-[#5B2FC1] block hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-                <div class="p-6 flex items-center justify-between min-h-[250px] relative">
-                  <!-- Background Pattern -->
-                  <div class="absolute inset-0 opacity-10">
-                    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <pattern id="moonpay-pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-                          <circle cx="20" cy="20" r="1.5" fill="white"/>
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#moonpay-pattern)"/>
-                    </svg>
-                  </div>
-
-                  <!-- Content -->
-                  <div class="flex-1 relative z-10">
-                    <!-- MoonPay Logo & Brand -->
-                    <div class="mb-3 flex items-center gap-3">
-                      <img src="/images/moonpay.png" alt="MoonPay" class="h-12 w-auto" />
-                      <span class="font-haas_medium_65 text-white text-3xl">MoonPay</span>
-                    </div>
-
-                    <h3 class="font-haas_medium_65 text-white text-xl mb-2">Buy Crypto Instantly</h3>
-                    <p class="font-haas_roman_55 text-white/90 text-sm mb-4 max-w-xs">
-                      The easiest way to buy and sell cryptocurrency with your credit card, bank transfer, or Apple Pay.
-                    </p>
-
-                    <div class="inline-flex items-center gap-2 bg-white text-[#7B3FE4] px-5 py-2.5 rounded-[100px] font-haas_medium_65 text-sm hover:bg-white/95 transition-colors">
-                      <span>Get Started</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                    </div>
-                  </div>
-
-                  <!-- Graphic Element -->
-                  <div class="hidden md:block relative z-10">
-                    <div class="relative w-32 h-32">
-                      <!-- Floating Crypto Icons -->
-                      <div class="absolute top-0 left-0 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-float">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="white"/>
-                          <path d="M12.5 7.75H11V11H9V12.5H11V16.25H12.5V12.5H14.5V11H12.5V7.75Z" fill="white"/>
-                        </svg>
-                      </div>
-                      <div class="absolute bottom-0 right-0 w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-float-delayed">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none">
-                          <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white"/>
-                          <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                      </div>
-                      <div class="absolute top-8 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
-                          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
+                <!-- View More Button -->
+                <div class="flex justify-center mt-6 w-full">
+                  <button class="w-full max-w-xs py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm">
+                    View More
+                  </button>
                 </div>
-              </a>
-
-              <style>
-                @keyframes float {
-                  0%, 100% { transform: translateY(0px); }
-                  50% { transform: translateY(-10px); }
-                }
-                @keyframes float-delayed {
-                  0%, 100% { transform: translateY(0px); }
-                  50% { transform: translateY(-15px); }
-                }
-                .animate-float {
-                  animation: float 3s ease-in-out infinite;
-                }
-                .animate-float-delayed {
-                  animation: float-delayed 3s ease-in-out infinite 1s;
-                }
-              </style>
+              <% end %>
             </div>
 
             <!-- Recommended Sidebar -->
-            <div class="right-content xl:w-1/3 w-full">
-              <div class="right-innner border-[#1414141A] border-[#1px] rounded-[12px] md:p-6 p-3 pb-0 lg:mt-0 mt-5 bg-white">
-                <button class="p-4 bg-[#000000] text-[#ffffff] small-buttons-shadow py-1 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">
-                  Recommended
-                </button>
-
+            <div class="right-content xl:w-1/3 w-full xl:self-start">
+              <div class="right-innner border-[#1414141A] border-[#1px] rounded-[12px] md:p-6 p-3 pb-0 lg:mt-0 mt-5 bg-white h-full flex flex-col">
                 <%
                   # Filter posts by the specified images for Recommended section
                   recommended_posts = Enum.filter(@posts, fn p ->
                     p.featured_image in ["/images/group-shot.png", "/images/crypto-bull.png"]
                   end)
-                  |> Enum.take(5)
+                  |> Enum.take(4)
                 %>
 
                 <%= for {post, idx} <- Enum.with_index(recommended_posts, 4) do %>
