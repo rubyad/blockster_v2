@@ -111,6 +111,8 @@
                   class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-2 text-sm"
                   error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
                 />
+                <!-- Hidden field to submit author_id -->
+                <input type="hidden" name="post[author_id]" value={@form[:author_id].value} />
                 <%= if assigns[:filtered_authors] && length(@filtered_authors) > 0 && assigns[:show_author_dropdown] do %>
                   <div class="absolute z-10 w-full mt-1 bg-white border border-[#E7E8F1] rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     <%= for author <- @filtered_authors do %>
