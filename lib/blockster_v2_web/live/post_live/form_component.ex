@@ -304,11 +304,12 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   @impl true
-  def handle_event("select_author", %{"username" => username}, socket) do
-    # Update the form with the selected username
+  def handle_event("select_author", %{"username" => username, "user_id" => user_id}, socket) do
+    # Update the form with the selected username and author_id
     changeset =
       socket.assigns.form.source
       |> Ecto.Changeset.put_change(:author_name, username)
+      |> Ecto.Changeset.put_change(:author_id, String.to_integer(user_id))
       |> Map.put(:action, :validate)
 
     {:noreply,
