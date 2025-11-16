@@ -125,13 +125,13 @@ defmodule BlocksterV2Web.CoreComponents do
               phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
               phx-key="escape"
               phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
-              class="hidden relative rounded-2xl bg-gradient-to-br from-purple-900/95 to-blue-900/95 p-8 shadow-lg shadow-purple-500/50 ring-1 ring-white/10 transition"
+              class="hidden relative rounded-2xl bg-white p-8 shadow-lg shadow-gray-500/50 ring-1 ring-gray-200 transition"
             >
               <div class="absolute top-6 right-6">
                 <button
                   phx-click={JS.exec("data-cancel", to: "##{@id}")}
                   type="button"
-                  class="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white transition-colors"
+                  class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors"
                   aria-label="close"
                 >
                   <.icon name="hero-x-mark" class="w-5 h-5" />

@@ -1,6 +1,7 @@
 import { createThirdwebClient } from "thirdweb";
-import { inAppWallet, createWallet } from "thirdweb/wallets";
+import { inAppWallet, createWallet, smartWallet } from "thirdweb/wallets";
 import { preAuthenticate } from "thirdweb/wallets/in-app";
+import { defineChain } from "thirdweb/chains";
 
 // Initialize Thirdweb client - client ID is loaded from environment variable
 // Set THIRDWEB_CLIENT_ID in your .env file
@@ -15,6 +16,43 @@ const getClient = () => {
 };
 
 let client = null;
+let rpc
+let id
+let blockExplorer
+let factoryAddress
+let paymasterAddress
+let entryPoint
+if (window.location.origin != "http://localhost:4000") {
+    // Mainnet (Production) - Chain ID: 560013
+    id = 560013
+    blockExplorer = "https://roguescan.io"
+    rpc = "https://rpc.roguechain.io/rpc"
+    factoryAddress = "0xFDFfFD00f97D3d9E9D94085d0ad51F423A2CAB32" // ✅ Correct EntryPoint
+    paymasterAddress = "0x95fDbCD54D81bDf703A0C6b3329233EB41bbA6c9" // ✅ EIP7702Paymaster
+    entryPoint = "0xc4ffe6E2222a6f58ac82C94D2e2b44a3CdbD5928" // ✅ Correct EntryPoint
+} else {
+    // Testnet (Sepolia) - Chain ID: 71499284269
+    id = 71499284269
+    blockExplorer = "https://testnet-explorer.roguechain.io/"
+    rpc = "https://testnet-rpc.roguechain.io" // Rogue Chain testnet RPC
+    // ManagedAccountFactory (Thirdweb Advanced) - DEPLOYED & STAKED
+    factoryAddress = "0x39CeCF786830d1E073e737870E2A6e66fE92FDE9" // ManagedAccountFactory (staked)
+    paymasterAddress = "0xd4ECb9C22e0c7495e167698cb8D0D9c84F65c02a" // EIP7702Paymaster (properly staked)
+    entryPoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" // Standard EntryPoint v0.6.0
+} 
+
+// Define Rogue Chain with custom RPC
+const rogueChain = defineChain({
+  id: id,
+  name: "Rogue Chain",
+  nativeCurrency: {
+    name: "Rogue",
+    symbol: "ROGUE",
+    decimals: 18,
+  },
+  rpc: rpc,
+  blockExplorers: [blockExplorer],
+});
 
 export const HomeHooks = {
   mounted() {
@@ -147,9 +185,90 @@ export const ThirdwebLogin = {
       console.error('Failed to initialize Thirdweb client. Email authentication will not work.');
     }
 
-    // Initialize the in-app wallet
-    this.wallet = inAppWallet();
+    // Initialize the in-app wallet (will be used as personal account for smart wallet)
+    this.personalWallet = inAppWallet();
+    // Store in window for global access
+    window.personalWallet = this.personalWallet;
+
+    // Initialize smart wallet that wraps the in-app wallet
+    // Bundler service deployed on Fly.io (Rundler v0.9.2)
+    const walletConfig = {
+      chain: rogueChain,
+      factoryAddress: factoryAddress,
+      gasless: true, // Enable gasless mode (uses paymaster)
+      overrides: {
+        entryPoint: entryPoint,
+        // Rundler bundler deployed on Fly.io
+        bundlerUrl: "https://rogue-bundler.fly.dev",
+
+        // Paymaster configuration with gas sponsorship
+        paymaster: async (userOp) => {
+          console.log('💰 Paymaster function called');
+
+          // Convert BigInt to string for logging
+          const userOpForLog = {};
+          for (const key in userOp) {
+            userOpForLog[key] = typeof userOp[key] === 'bigint' ? userOp[key].toString() : userOp[key];
+          }
+          console.log('   UserOp received:', userOpForLog);
+
+          // Fill in any missing gas values with fixed amounts
+          // We use fixed values because Rogue Chain RPC can't simulate gas estimation reliably
+          if (!userOp.preVerificationGas || userOp.preVerificationGas === '0x0' || userOp.preVerificationGas === 0n) {
+            userOp.preVerificationGas = '0xb708'; // 46856
+          }
+
+          // Check if initCode is present (account deployment)
+          const hasInitCode = userOp.initCode && userOp.initCode !== '0x' && userOp.initCode.length > 2;
+
+          if (!userOp.verificationGasLimit || userOp.verificationGasLimit === '0x0' || userOp.verificationGasLimit === 0n) {
+            // Account deployment needs much more gas than just verification
+            // Factory createAccount() requires ~338k gas on Rogue Chain
+            userOp.verificationGasLimit = hasInitCode ? '0x061a80' : '0x0186a0'; // 400000 for deployment, 100000 for verification
+          }
+          if (!userOp.callGasLimit || userOp.callGasLimit === '0x0' || userOp.callGasLimit === 0n) {
+            userOp.callGasLimit = '0x1d4c0'; // 120000
+          }
+
+          if (hasInitCode) {
+            console.log('   🏭 Account deployment detected, using higher verificationGasLimit');
+          }
+
+          console.log('✅ Paymaster returning paymasterAndData');
+
+          // SimplePaymaster (EIP7702) only needs address - no signature validation
+          // Rundler configured with --unsafe flag to bypass strict paymaster checks
+          console.log('📝 PaymasterAndData (SimplePaymaster):', paymasterAddress);
+
+          return {
+            paymasterAndData: paymasterAddress,
+            // Return dummy gas values to skip bundler's gas estimation
+            // Rogue Chain RPC throws Router errors during simulation
+            callGasLimit: userOp.callGasLimit,
+            verificationGasLimit: userOp.verificationGasLimit,
+            preVerificationGas: userOp.preVerificationGas,
+          };
+        },
+      },
+      sponsorGas: true, // Enable paymaster gas sponsorship
+    };
+
+    console.log(`✅ Smart wallet configuration for Rogue Chain:`);
+    console.log(`   Chain: ${rogueChain.name} (${rogueChain.id})`);
+    console.log(`   Factory: ${factoryAddress}`);
+    console.log(`   EntryPoint: ${entryPoint}`);
+    console.log(`   Bundler: https://rogue-bundler.fly.dev`);
+    console.log(`   Paymaster: ${paymasterAddress}`);
+    console.log(`   Gas Sponsorship: ENABLED ✅`);
+
+    this.wallet = smartWallet(walletConfig);
+    // Store in window for global access
+    window.smartWalletInstance = this.wallet;
+
     this.activeWallet = null;
+
+    // Try to auto-connect the wallet if user is already logged in
+    this.autoConnectWallet();
 
     // Check if user is already authenticated (redirect if so)
     this.checkCurrentUser();
@@ -243,6 +362,16 @@ export const ThirdwebLogin = {
       resendCodeBtn.dataset.listenerAttached = 'true';
     }
 
+    // Test paymaster button
+    const testPaymasterBtn = document.getElementById('test-paymaster-btn');
+    if (testPaymasterBtn && !testPaymasterBtn.dataset.listenerAttached) {
+      testPaymasterBtn.addEventListener('click', () => {
+        console.log('Test paymaster button clicked');
+        this.testPaymaster();
+      });
+      testPaymasterBtn.dataset.listenerAttached = 'true';
+    }
+
     // Enter key support
     const emailInput = document.getElementById('email-input');
     const codeInput = document.getElementById('code-input');
@@ -297,15 +426,21 @@ export const ThirdwebLogin = {
   async connectMetaMask() {
     try {
       this.pushEvent("show_loading", {});
-      if (typeof window.ethereum !== 'undefined') {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const walletAddress = accounts[0];
-        console.log('Connected to MetaMask:', walletAddress);
-        await this.authenticateWallet(walletAddress);
-      } else {
-        alert('Please install MetaMask to connect with this wallet');
-        this.pushEvent("back_to_wallets", {});
-      }
+
+      // Step 1: Create and connect MetaMask wallet
+      const metamaskWallet = createWallet("io.metamask");
+      const personalAccount = await metamaskWallet.connect({ client });
+
+      console.log('Connected to MetaMask:', personalAccount.address);
+
+      // Step 2: Wrap in smart wallet
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('Smart wallet created:', smartAccount.address);
+      await this.authenticateWallet(smartAccount.address);
     } catch (error) {
       console.error('MetaMask connection error:', error);
       alert('Failed to connect to MetaMask. Please try again.');
@@ -317,27 +452,20 @@ export const ThirdwebLogin = {
     try {
       this.pushEvent("show_loading", {});
 
-      // Trust Wallet uses the injected provider like MetaMask
-      if (typeof window.ethereum !== 'undefined') {
-        // Check if Trust Wallet is available
-        const isTrust = window.ethereum.isTrust;
+      // Step 1: Create and connect Trust Wallet
+      const trustWallet = createWallet("com.trustwallet.app");
+      const personalAccount = await trustWallet.connect({ client });
 
-        if (isTrust) {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const walletAddress = accounts[0];
-          console.log('Connected to Trust Wallet:', walletAddress);
-          await this.authenticateWallet(walletAddress);
-        } else {
-          // If not Trust Wallet specifically, try connecting anyway (might be Trust Wallet without the flag)
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const walletAddress = accounts[0];
-          console.log('Connected to wallet (possibly Trust):', walletAddress);
-          await this.authenticateWallet(walletAddress);
-        }
-      } else {
-        alert('Please install Trust Wallet to connect. Download it from trustwallet.com');
-        this.pushEvent("back_to_wallets", {});
-      }
+      console.log('Connected to Trust Wallet:', personalAccount.address);
+
+      // Step 2: Wrap in smart wallet
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('Smart wallet created:', smartAccount.address);
+      await this.authenticateWallet(smartAccount.address);
     } catch (error) {
       console.error('Trust Wallet connection error:', error);
       alert('Failed to connect to Trust Wallet. Please try again.');
@@ -348,10 +476,25 @@ export const ThirdwebLogin = {
   async connectWalletConnect() {
     try {
       this.pushEvent("show_loading", {});
-      const wallet = createWallet("walletConnect");
-      const account = await wallet.connect({ client });
-      console.log('Connected via WalletConnect:', account.address);
-      await this.authenticateWallet(account.address);
+
+      // Step 1: Create and connect WalletConnect wallet
+      const wcWallet = createWallet("walletConnect");
+      const personalAccount = await wcWallet.connect({ client });
+
+      console.log('Connected via WalletConnect:', personalAccount.address);
+
+      // Store the WalletConnect wallet for signing UserOps
+      window.thirdwebActiveWallet = wcWallet;
+      console.log('✅ Stored WalletConnect wallet for UserOp signing');
+
+      // Step 2: Wrap in smart wallet
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('Smart wallet created:', smartAccount.address);
+      await this.authenticateWallet(smartAccount.address);
     } catch (error) {
       console.error('WalletConnect connection error:', error);
       alert('Failed to connect via WalletConnect. Please try again.');
@@ -446,18 +589,46 @@ export const ThirdwebLogin = {
       this.pushEvent("show_loading", {});
       console.log('Verifying code...');
 
-      const account = await this.wallet.connect({
+      // Step 1: Connect the personal wallet (inAppWallet)
+      console.log('Step 1: Connecting personal wallet...');
+      const personalAccount = await this.personalWallet.connect({
         client: client,
         strategy: "email",
         email: this.pendingEmail,
         verificationCode: code,
       });
 
-      console.log('Email verified! Wallet address:', account.address);
-      await this.authenticateEmail(this.pendingEmail, account.address);
+      console.log('Email verified! Personal account:', personalAccount.address);
+
+      // Store the personal wallet for signing UserOps
+      window.thirdwebActiveWallet = this.personalWallet;
+      console.log('✅ Stored personal wallet for UserOp signing');
+
+      // Step 2: Wrap personal wallet in smart wallet
+      console.log('Step 2: Creating smart wallet...');
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('Smart wallet created:', smartAccount.address);
+
+      // Store the smart account for later use (in multiple places for persistence)
+      this.smartAccount = smartAccount;
+      window.smartAccount = smartAccount;
+      // Store address in localStorage so we can verify it's the same user
+      localStorage.setItem('smartAccountAddress', smartAccount.address);
+
+      await this.authenticateEmail(this.pendingEmail, smartAccount.address);
     } catch (error) {
       console.error('Verification error:', error);
-      alert('Invalid verification code. Please try again.');
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      // Show detailed error to user
+      const errorMsg = error.message || 'Unknown error occurred';
+      alert(`Verification failed: ${errorMsg}\n\nPlease check the console for details.`);
+
       this.pushEvent("show_code_input", { email: this.pendingEmail });
       if (codeInput) {
         codeInput.value = '';
@@ -536,6 +707,45 @@ export const ThirdwebLogin = {
 
   async handleDisconnect() {
     try {
+      // First, disconnect Thirdweb wallets and clear all cached data
+      console.log('Clearing Thirdweb wallet cache...');
+
+      // Disconnect personal wallet if connected
+      if (this.personalWallet) {
+        try {
+          await this.personalWallet.disconnect();
+        } catch (e) {
+          console.log('Personal wallet disconnect error:', e);
+        }
+      }
+
+      // Disconnect smart wallet if connected
+      if (this.wallet) {
+        try {
+          await this.wallet.disconnect();
+        } catch (e) {
+          console.log('Smart wallet disconnect error:', e);
+        }
+      }
+
+      // Clear all localStorage keys related to Thirdweb
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('thirdweb') || key.includes('walletconnect') || key.includes('smartAccount'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log('Cleared Thirdweb localStorage keys:', keysToRemove);
+
+      // Clear window references
+      delete window.personalWallet;
+      delete window.smartWalletInstance;
+      delete window.smartAccount;
+      delete window.thirdwebActiveWallet;
+
+      // Then call backend logout
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
@@ -566,6 +776,391 @@ export const ThirdwebLogin = {
     if (connectButton) {
       const shortAddress = `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`;
       connectButton.textContent = user.username || shortAddress;
+    }
+  },
+
+  async autoConnectWallet() {
+    try {
+      console.log('🔄 Auto-connect: Checking if user is already authenticated...');
+
+      // Check if there's a stored smart account address (indicates previous login)
+      const storedAddress = localStorage.getItem('smartAccountAddress');
+      if (!storedAddress) {
+        console.log('No stored wallet address found, skipping auto-connect');
+        return;
+      }
+
+      console.log('Found stored wallet address:', storedAddress);
+
+      // First, try to auto-connect the personal wallet (in-app wallet)
+      // The in-app wallet has its own autoConnect method
+      console.log('Step 1: Auto-connecting personal wallet...');
+
+      const personalAccount = await this.personalWallet.autoConnect({
+        client: client,
+      });
+
+      if (!personalAccount) {
+        console.log('Personal wallet auto-connect returned null, no active session');
+        // Clear stale data
+        localStorage.removeItem('smartAccountAddress');
+        delete window.smartAccount;
+        delete this.smartAccount;
+        return;
+      }
+
+      console.log('✅ Personal wallet auto-connected:', personalAccount.address);
+
+      // Now connect the smart wallet using the personal account
+      console.log('Step 2: Connecting smart wallet...');
+
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('✅ Smart wallet connected:', smartAccount.address);
+
+      // Verify it's the same account
+      if (smartAccount.address.toLowerCase() !== storedAddress.toLowerCase()) {
+        console.warn('⚠️ Connected wallet address does not match stored address');
+        console.log('Expected:', storedAddress);
+        console.log('Got:', smartAccount.address);
+        // Clear stored data and require re-login
+        localStorage.removeItem('smartAccountAddress');
+        return;
+      }
+
+      // Store in multiple places for persistence
+      this.smartAccount = smartAccount;
+      window.smartAccount = smartAccount;
+
+      console.log('✅ Auto-connect successful! Wallet is ready.');
+    } catch (error) {
+      console.log('Auto-connect failed (this is normal if user is not logged in):', error.message);
+      // Clear any stale data
+      localStorage.removeItem('smartAccountAddress');
+      delete window.smartAccount;
+      delete this.smartAccount;
+    }
+  },
+
+  async testPaymaster() {
+    // Set up network request interceptor to log all RPC calls
+    const originalFetch = window.fetch;
+    const rpcCalls = [];
+
+    window.fetch = async (...args) => {
+      const [url, options] = args;
+
+      // Log all requests to Rogue Chain RPC or bundler
+      if (url && (url.includes('roguechain.io') || url.includes('rogue-bundler'))) {
+        const timestamp = new Date().toISOString();
+        let body = null;
+
+        if (options?.body) {
+          try {
+            body = JSON.parse(options.body);
+          } catch (e) {
+            body = options.body;
+          }
+        }
+
+        const callInfo = {
+          timestamp,
+          url,
+          method: body?.method || 'unknown',
+          params: body?.params || [],
+          id: body?.id
+        };
+
+        console.log('🌐 RPC Call:', callInfo);
+
+        // Log UserOperation details if this is eth_estimateUserOperationGas
+        if (body?.method === 'eth_estimateUserOperationGas' && body?.params?.[0]) {
+          console.log('📦 FULL UserOperation being sent to bundler:');
+          console.log(JSON.stringify(body.params[0], null, 2));
+        }
+
+        rpcCalls.push(callInfo);
+      }
+
+      // FIX: Remove paymaster during gas estimation to avoid Router errors
+      // Then restore it for eth_sendUserOperation
+      if (url && url.includes('rogue-bundler') && options?.body) {
+        try {
+          const body = JSON.parse(options.body);
+
+          // Handle gas estimation - Rogue Chain RPC workarounds
+          if (body?.method === 'eth_estimateUserOperationGas' && body?.params?.[0]) {
+            const userOp = body.params[0];
+
+            // Check if this is account deployment (initCode present)
+            const hasInitCode = userOp.initCode && userOp.initCode !== '0x' && userOp.initCode.length > 2;
+
+            // DEBUG AA14: Check address mismatch during gas estimation too
+            if (hasInitCode) {
+              console.log('🔍 DEBUG AA14 (gas estimation) - Checking factory address...');
+              try {
+                const factoryAddr = '0x' + userOp.initCode.slice(2, 42);
+                const factoryCalldata = '0x' + userOp.initCode.slice(42);
+
+                const rpcResponse = await originalFetch('https://testnet-rpc.roguechain.io', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_call',
+                    params: [{
+                      to: factoryAddr,
+                      data: factoryCalldata
+                    }, 'latest'],
+                    id: 1
+                  })
+                });
+
+                const rpcData = await rpcResponse.json();
+                if (rpcData.result && rpcData.result !== '0x') {
+                  const factoryAddress = '0x' + rpcData.result.slice(-40);
+                  console.log('   ❌ MISMATCH:');
+                  console.log('   Thirdweb sender:', userOp.sender);
+                  console.log('   Factory returns:', factoryAddress);
+                }
+              } catch (e) {
+                console.error('Failed to query factory:', e);
+              }
+            }
+
+            // Workaround 1: Remove callData during account deployment
+            if (hasInitCode && userOp.callData && userOp.callData !== '0x' && userOp.callData.length > 2) {
+              console.log('🔧 Clearing callData during account deployment (Router workaround)');
+              console.log('   Account deployment cannot include function calls - deploy first, call later');
+              userOp.callData = '0x';
+              options.body = JSON.stringify(body);
+            }
+
+            // Workaround 2: Remove paymaster during gas estimation to avoid Router errors
+            // Rogue Chain RPC doesn't like simulating paymaster calls
+            if (userOp.paymasterAndData && userOp.paymasterAndData !== '0x') {
+              console.log('🔧 Removing paymaster for gas estimation (Rogue Chain RPC workaround)');
+              window.tempPaymasterData = userOp.paymasterAndData;
+              userOp.paymasterAndData = '0x';
+              options.body = JSON.stringify(body);
+            }
+
+            console.log('📊 UserOp for gas estimation:');
+            console.log(JSON.stringify(userOp, null, 2));
+          }
+
+          // Handle sendUserOperation - restore paymaster and handle deployment
+          if (body?.method === 'eth_sendUserOperation' && body?.params?.[0]) {
+            const userOp = body.params[0];
+
+            // Check if this is account deployment
+            const hasInitCode = userOp.initCode && userOp.initCode !== '0x' && userOp.initCode.length > 2;
+
+            // DEBUG AA14: Log what address the factory will actually return
+            if (hasInitCode) {
+              console.log('🔍 DEBUG AA14 - Checking factory address calculation...');
+              try {
+                const factoryAddr = '0x' + userOp.initCode.slice(2, 42);
+                const factoryCalldata = '0x' + userOp.initCode.slice(42);
+
+                const rpcResponse = await originalFetch('https://testnet-rpc.roguechain.io', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_call',
+                    params: [{
+                      to: factoryAddr,
+                      data: factoryCalldata
+                    }, 'latest'],
+                    id: 1
+                  })
+                });
+
+                const rpcData = await rpcResponse.json();
+                if (rpcData.result && rpcData.result !== '0x') {
+                  const factoryAddress = '0x' + rpcData.result.slice(-40);
+                  console.log('   ❌ MISMATCH DETECTED:');
+                  console.log('   Thirdweb SDK sender:', userOp.sender);
+                  console.log('   Factory will return:', factoryAddress);
+                  console.log('   This is why we get AA14 error!');
+                }
+              } catch (e) {
+                console.error('Failed to query factory:', e);
+              }
+            }
+
+            // Restore paymaster if we stripped it during gas estimation
+            if (window.tempPaymasterData && (!userOp.paymasterAndData || userOp.paymasterAndData === '0x')) {
+              console.log('🔧 Restoring paymaster for sendUserOperation');
+              userOp.paymasterAndData = window.tempPaymasterData;
+              delete window.tempPaymasterData;
+              options.body = JSON.stringify(body);
+            }
+
+            console.log('📤 UserOp being sent to bundler:');
+            console.log(JSON.stringify(userOp, null, 2));
+          }
+        } catch (e) {
+          console.error('Error in fetch interceptor:', e);
+        }
+      }
+
+      // Make the actual request
+      const response = await originalFetch(...args);
+
+      // Log responses for RPC calls
+      if (url && (url.includes('roguechain.io') || url.includes('rogue-bundler'))) {
+        const clonedResponse = response.clone();
+        try {
+          const responseData = await clonedResponse.json();
+          console.log('📥 RPC Response:', {
+            url,
+            status: response.status,
+            data: responseData
+          });
+
+          // Check for Router error
+          if (responseData?.error?.message?.includes('Router')) {
+            console.error('🚨 ROUTER ERROR DETECTED:', {
+              url,
+              request: rpcCalls[rpcCalls.length - 1],
+              error: responseData.error
+            });
+          }
+        } catch (e) {
+          // Not JSON response
+        }
+      }
+
+      return response;
+    };
+
+    try {
+      console.log('🧪 Testing paymaster gas sponsorship...');
+      console.log('🔍 Network request logging enabled - all RPC calls will be logged');
+
+      if (!this.wallet) {
+        alert('Wallet not initialized. Please connect first.');
+        return;
+      }
+
+      // Get personal wallet from window or this
+      const personalWallet = window.personalWallet || this.personalWallet;
+
+      if (!personalWallet) {
+        alert('Personal wallet not initialized. Please log in first.');
+        return;
+      }
+
+      // IMPORTANT: Always force a fresh connection to use the latest wallet configuration
+      // This ensures we're not using a cached account with old paymaster settings
+      console.log('Forcing fresh smart account connection with updated config...');
+
+      // Clear any cached accounts
+      delete window.smartAccount;
+      delete this.smartAccount;
+
+      // Try to get existing account first
+      let personalAccount = personalWallet.getAccount();
+
+      // If no account, try to auto-connect
+      if (!personalAccount) {
+        console.log('No personal account, trying auto-connect...');
+        try {
+          personalAccount = await personalWallet.autoConnect({
+            client: client,
+          });
+        } catch (autoConnectError) {
+          console.log('Auto-connect failed:', autoConnectError.message);
+        }
+      }
+
+      // If still no account, session expired
+      if (!personalAccount) {
+        alert('Session expired. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
+
+      console.log('Personal account:', personalAccount.address);
+
+      // Store the personal wallet for UserOp signing
+      window.thirdwebActiveWallet = personalWallet;
+      console.log('✅ Stored personal wallet for UserOp signing');
+
+      // Connect smart wallet with latest configuration
+      // Now using Rogue Chain RPC instead of bundler URL
+      console.log('🔗 Connecting smart wallet...');
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      // Store for future use in multiple places
+      this.smartAccount = smartAccount;
+      window.smartAccount = smartAccount;
+      localStorage.setItem('smartAccountAddress', smartAccount.address);
+      console.log('Smart account connected with updated configuration');
+
+      console.log('Smart account:', smartAccount.address);
+      console.log('📦 Preparing transaction to send 0 ROGUE to self via smart wallet...');
+      console.log('✅ Testing bundler WITH paymaster gas sponsorship');
+      console.log(`EntryPoint: ${entryPoint}`);
+      console.log(`Factory: ${factoryAddress}`);
+      console.log(`Paymaster: ${paymasterAddress}`);
+      console.log(`Bundler: https://rogue-bundler.fly.dev`);
+
+      // Use Thirdweb's sendTransaction which should work with bundlerUrl in smart account config
+      const { sendTransaction, prepareTransaction } = await import('thirdweb');
+
+      // Prepare a simple transaction to send 0 ROGUE to self
+      const transaction = prepareTransaction({
+        to: smartAccount.address,
+        value: 0n,
+        chain: rogueChain,
+        client: client,
+        gas: 100000n,
+      });
+
+      console.log('📤 Sending transaction via smart account (which will create UserOperation)...');
+      console.log('The smart account is configured with bundlerUrl: https://rogue-bundler.fly.dev');
+
+      // Send the transaction using SMART ACCOUNT
+      // This should use the bundlerUrl configured in the smart account
+      const result = await sendTransaction({
+        transaction,
+        account: smartAccount,
+      });
+
+      console.log('✅ Transaction submitted!');
+      console.log('Transaction hash:', result.transactionHash);
+
+      alert(`✅ Bundler test successful!\n\nTransaction Hash: ${result.transactionHash}\n\nThe bundler processed the UserOperation with paymaster gas sponsorship! Check the transaction on the explorer:\n${blockExplorer}/tx/${result.transactionHash}`);
+    } catch (error) {
+      console.error('❌ Paymaster test failed:', error);
+      console.error('Error details:', error.message);
+      console.error('Stack:', error.stack);
+
+      // Log all RPC calls that were made
+      console.log('📋 All RPC calls made during this test:', rpcCalls);
+
+      // Check if it's the nonce/EntryPoint error
+      if (error.message && (error.message.includes('AbiDecodingZeroDataError') || error.message.includes('Cannot decode zero data'))) {
+        const helpMessage = `❌ Smart Wallet Setup Issue\n\nThe smart wallet cannot retrieve its nonce from the EntryPoint contract. This usually means:\n\n1. The EntryPoint contract is not deployed on Rogue Chain testnet\n2. The bundler doesn't support Rogue Chain\n3. The factory address may be incorrect\n\nFactory: ${factoryAddress}\nPaymaster: ${paymasterAddress}\nEntryPoint: ${entryPoint}\n\nPlease verify the EntryPoint contract is deployed on Rogue Chain testnet.`;
+        alert(helpMessage);
+      } else if (error.message && error.message.includes('Router')) {
+        alert(`❌ Router Error Detected!\n\n${error.message}\n\nThis is a Rogue Chain RPC error. Check the console for the exact RPC call that failed.`);
+      } else {
+        alert(`❌ Paymaster test failed:\n\n${error.message}\n\nCheck console for full details including all RPC calls.`);
+      }
+    } finally {
+      // Restore original fetch
+      window.fetch = originalFetch;
+      console.log('🔍 Network request logging disabled');
     }
   }
 };

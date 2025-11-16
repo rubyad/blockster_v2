@@ -12,6 +12,13 @@ defmodule BlocksterV2.Blog.Post do
     field :view_count, :integer, default: 0
     field :featured_image, :string
 
+    # BUX fields
+    field :bux_total, :integer, default: 0
+    field :bux_earned, :integer, default: 0
+    field :value, :decimal
+    field :tx_id, :string
+    field :contact, :string
+
     # Virtual field - computed from author association
     field :author_name, :string, virtual: true
 
@@ -41,7 +48,12 @@ defmodule BlocksterV2.Blog.Post do
       :featured_image,
       :author_id,
       :category_id,
-      :hub_id
+      :hub_id,
+      :bux_total,
+      :bux_earned,
+      :value,
+      :tx_id,
+      :contact
     ])
     |> validate_required([:title])
     |> generate_slug()

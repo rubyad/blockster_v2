@@ -1,0 +1,41 @@
+<.header>
+  <%= @page_title %>
+  <:actions>
+    <.link patch={~p"/hubs/admin/new"}>
+      <.button>New Hub</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<.table
+  id="hubs"
+  rows={@streams.hubs}
+  row_click={fn {_id, hub} -> JS.navigate(~p"/hub/#{hub.slug}/admin") end}
+>
+  <:col :let={{_id, hub}} label="Name"><%= hub.name %></:col>
+  <:col :let={{_id, hub}} label="Slug"><%= hub.slug %></:col>
+  <:col :let={{_id, hub}} label="Tag Name"><%= hub.tag_name %></:col>
+  <:col :let={{_id, hub}} label="Active"><%= if hub.is_active, do: "Yes", else: "No" %></:col>
+  <:action :let={{_id, hub}}>
+    <.link patch={~p"/hubs/admin/#{hub.id}/edit"}>Edit</.link>
+  </:action>
+  <:action :let={{id, hub}}>
+    <.link
+      phx-click={JS.push("delete", value: %{id: hub.id}) |> hide("##{id}")}
+      data-confirm="Are you sure?"
+    >
+      Delete
+    </.link>
+  </:action>
+</.table>
+
+<.modal :if={@live_action in [:new, :edit]} id="hub-modal" show on_cancel={JS.patch(~p"/hubs/admin")}>
+  <.live_component
+    module={BlocksterV2Web.HubLive.FormComponent}
+    id={@hub.id || :new}
+    title={@page_title}
+    action={@live_action}
+    hub={@hub}
+    patch={~p"/hubs/admin"}
+  />
+</.modal>

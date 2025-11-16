@@ -24,6 +24,7 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.UserAuth, BlocksterV2Web.AdminAuth],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/admin", AdminLive, :index
+      live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
     live_session :authenticated,
@@ -50,6 +51,9 @@ defmodule BlocksterV2Web.Router do
       live "/login", LoginLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/hubs", HubLive.Index, :index
+      live "/hubs/admin", HubLive.Admin, :index
+      live "/hubs/admin/new", HubLive.Admin, :new
+      live "/hubs/admin/:id/edit", HubLive.Admin, :edit
       live "/hub/:slug", HubLive.Show, :show
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show

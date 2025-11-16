@@ -1,0 +1,51 @@
+# Rundler configuration for Rogue Chain Testnet
+# Chain ID: 71499284269
+
+# Entry points configuration
+entry_points = [
+    "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+]
+
+# Node HTTP configuration
+[node_http]
+url = "https://testnet-rpc.roguechain.io"
+poll_interval = "100ms"
+
+# RPC configuration
+[rpc]
+host = "0.0.0.0"
+port = 3000
+api_namespaces = ["eth", "debug"]
+max_connections = 100
+timeout_seconds = 30
+
+# Pool configuration
+[pool]
+chain_id = 71499284269
+entry_point = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+chain_poll_interval = "1s"
+max_size_in_bytes = 10000000  # 10MB mempool
+same_sender_limit = 10
+throttle_interval = "100ms"
+ban_slack = 10
+
+# Builder configuration
+[builder]
+entry_point = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+chain_id = 71499284269
+# Private key will be provided via environment variable BUILDER_PRIVATE_KEY
+# private_key = "..." # DO NOT commit this
+max_bundle_size = 10
+max_bundle_gas = 5000000
+beneficiary = ""  # Will use builder's address
+submit_url = "https://testnet-rpc.roguechain.io"
+eth_poll_interval = "100ms"
+bundle_priority_fee_overhead_percent = 0
+priority_fee_mode_kind = "base_fee_percent"
+priority_fee_mode_value = 0
+
+# Metrics configuration (optional)
+[metrics]
+host = "0.0.0.0"
+port = 8080
+sample_interval_millis = 1000

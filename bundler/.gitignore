@@ -1,0 +1,17 @@
+# Secrets - NEVER commit these!
+*.key
+*.pem
+*private*
+.env
+.env.*
+
+# Fly.io
+.fly/
+
+# Build artifacts
+target/
+Cargo.lock
+
+# Logs
+*.log
+logs/

@@ -38,6 +38,25 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
+  Gets a user by ID with followed hubs preloaded.
+  """
+  def get_user_with_followed_hubs(id) do
+    User
+    |> where([u], u.id == ^id)
+    |> preload(:followed_hubs)
+    |> Repo.one()
+  end
+
+  @doc """
+  Lists all users with followed hubs preloaded.
+  """
+  def list_users_with_followed_hubs do
+    from(u in User, order_by: [desc: u.inserted_at])
+    |> preload(:followed_hubs)
+    |> Repo.all()
+  end
+
+  @doc """
   Lists all authors (users with is_author = true) with their usernames.
   """
   def list_authors do
@@ -257,5 +276,32 @@ defmodule BlocksterV2.Accounts do
       experience_points: new_xp,
       level: max(new_level, user.level)
     })
+  end
+
+  ## Hub following functions
+
+  @doc """
+  Gets the count of hubs a user follows.
+  """
+  def get_user_followed_hubs_count(user_id) do
+    from(hf in "hub_followers",
+      where: hf.user_id == ^user_id,
+      select: count(hf.hub_id)
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets followed hub counts for multiple users.
+  Returns a map of user_id => followed_hubs_count.
+  """
+  def get_user_followed_hubs_counts(user_ids) when is_list(user_ids) do
+    from(hf in "hub_followers",
+      where: hf.user_id in ^user_ids,
+      group_by: hf.user_id,
+      select: {hf.user_id, count(hf.hub_id)}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 end

@@ -11,9 +11,9 @@
     <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
       <!-- Header -->
       <div class="p-8 border-b border-gray-200">
-        <h1 class="text-3xl font-haas_bold_75 text-[#141414] text-center">Connect Wallet</h1>
+        <h1 class="text-3xl font-haas_bold_75 text-[#141414] text-center">Sign Up / Sign In</h1>
         <p class="text-center text-gray-600 font-haas_roman_55 mt-2">
-          Choose your preferred method to connect
+          Create your account with email
         </p>
       </div>
 
@@ -29,69 +29,7 @@
         <% end %>
 
         <%= if @ui_state == :wallet_selection do %>
-          <!-- Wallet Options -->
-          <!-- MetaMask -->
-          <button id="connect-metamask" class="wallet-option w-full flex items-center justify-between p-5 rounded-xl border-2 border-gray-200 hover:border-[#BAF55F] hover:bg-[#F5F6FB] transition-all group">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-full bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xl">
-                M
-              </div>
-              <div class="text-left">
-                <span class="font-haas_bold_75 text-[#141414] block">MetaMask</span>
-                <span class="text-sm text-gray-500 font-haas_roman_55">Connect using MetaMask</span>
-              </div>
-            </div>
-            <svg class="w-6 h-6 text-gray-400 group-hover:text-[#141414] transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-
-          <!-- Trust Wallet -->
-          <button id="connect-trust" class="wallet-option w-full flex items-center justify-between p-5 rounded-xl border-2 border-gray-200 hover:border-[#BAF55F] hover:bg-[#F5F6FB] transition-all group">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#3375BB] to-[#4A9EFF] flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 32 32" fill="none">
-                  <path d="M16 3L7 8.5V16C7 22 11 26.5 16 29C21 26.5 25 22 25 16V8.5L16 3Z" fill="white" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-                  <path d="M16 10L12 13L14 15L16 13L18 15L20 13L16 10Z" fill="#3375BB"/>
-                </svg>
-              </div>
-              <div class="text-left">
-                <span class="font-haas_bold_75 text-[#141414] block">Trust Wallet</span>
-                <span class="text-sm text-gray-500 font-haas_roman_55">Connect using Trust Wallet</span>
-              </div>
-            </div>
-            <svg class="w-6 h-6 text-gray-400 group-hover:text-[#141414] transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-
-          <!-- WalletConnect -->
-          <button id="connect-walletconnect" class="wallet-option w-full flex items-center justify-between p-5 rounded-xl border-2 border-gray-200 hover:border-[#BAF55F] hover:bg-[#F5F6FB] transition-all group">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xl">
-                W
-              </div>
-              <div class="text-left">
-                <span class="font-haas_bold_75 text-[#141414] block">WalletConnect</span>
-                <span class="text-sm text-gray-500 font-haas_roman_55">Scan with WalletConnect</span>
-              </div>
-            </div>
-            <svg class="w-6 h-6 text-gray-400 group-hover:text-[#141414] transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-
-          <!-- Divider -->
-          <div class="relative my-6">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-300"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-4 bg-white text-gray-500 font-haas_medium_65">or</span>
-            </div>
-          </div>
-
-          <!-- Email Option -->
+          <!-- Email Option (Only) -->
           <button id="connect-email" class="wallet-option w-full flex items-center justify-between p-5 rounded-xl border-2 border-gray-200 hover:border-[#BAF55F] hover:bg-[#F5F6FB] transition-all group">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-full bg-gradient-to-r from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
@@ -101,7 +39,7 @@
               </div>
               <div class="text-left">
                 <span class="font-haas_bold_75 text-[#141414] block">Continue with Email</span>
-                <span class="text-sm text-gray-500 font-haas_roman_55">No wallet required</span>
+                <span class="text-sm text-gray-500 font-haas_roman_55">Create your smart wallet</span>
               </div>
             </div>
             <svg class="w-6 h-6 text-gray-400 group-hover:text-[#141414] transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

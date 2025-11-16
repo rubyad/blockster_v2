@@ -449,6 +449,26 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets a hub by slug with followers preloaded.
+  """
+  def get_hub_by_slug_with_followers(slug) do
+    Hub
+    |> where([h], h.slug == ^slug and h.is_active == true)
+    |> preload(:followers)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a hub by slug with followers preloaded, raises if not found.
+  """
+  def get_hub_by_slug_with_followers!(slug) do
+    Hub
+    |> where([h], h.slug == ^slug and h.is_active == true)
+    |> preload(:followers)
+    |> Repo.one!()
+  end
+
+  @doc """
   Lists all active hubs.
   """
   def list_hubs do
@@ -459,11 +479,70 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Lists all active hubs with followers preloaded.
+  """
+  def list_hubs_with_followers do
+    Hub
+    |> where([h], h.is_active == true)
+    |> order_by([h], asc: h.name)
+    |> preload(:followers)
+    |> Repo.all()
+  end
+
+  @doc """
   Creates a hub.
   """
   def create_hub(attrs \\ %{}) do
     %Hub{}
     |> Hub.changeset(attrs)
     |> Repo.insert()
+  end
+
+  @doc """
+  Updates a hub.
+  """
+  def update_hub(%Hub{} = hub, attrs) do
+    hub
+    |> Hub.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a hub.
+  """
+  def delete_hub(%Hub{} = hub) do
+    Repo.delete(hub)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking hub changes.
+  """
+  def change_hub(%Hub{} = hub, attrs \\ %{}) do
+    Hub.changeset(hub, attrs)
+  end
+
+  @doc """
+  Gets the follower count for a hub.
+  """
+  def get_hub_follower_count(hub_id) do
+    from(hf in "hub_followers",
+      where: hf.hub_id == ^hub_id,
+      select: count(hf.user_id)
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets follower counts for multiple hubs.
+  Returns a map of hub_id => follower_count.
+  """
+  def get_hub_follower_counts(hub_ids) when is_list(hub_ids) do
+    from(hf in "hub_followers",
+      where: hf.hub_id in ^hub_ids,
+      group_by: hf.hub_id,
+      select: {hf.hub_id, count(hf.user_id)}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 end

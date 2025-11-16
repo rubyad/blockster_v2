@@ -18,6 +18,9 @@ defmodule BlocksterV2.Accounts.User do
 
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
+    many_to_many :followed_hubs, BlocksterV2.Blog.Hub,
+      join_through: "hub_followers",
+      on_replace: :delete
 
     timestamps()
   end

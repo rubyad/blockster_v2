@@ -1,0 +1,31 @@
+# Fly.io configuration for Rundler bundler
+app = "rogue-bundler"
+primary_region = "ord"  # Chicago (same region as blockster-v2)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RUST_LOG = "rundler_pool=trace,rundler_sim=trace,rundler_builder=trace,debug"
+  RUST_BACKTRACE = "1"
+
+# HTTP service configuration (Fly.io v2 Machines format)
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # HTTP health check - DISABLED - Rundler v0.9.2 may not have a /health endpoint
+  # [[http_service.checks]]
+  #   interval = "30s"
+  #   timeout = "5s"
+  #   grace_period = "10s"
+  #   method = "get"
+  #   path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 2048

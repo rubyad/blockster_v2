@@ -29,6 +29,25 @@ defmodule BlocksterV2Web.AdminLive do
   end
 
   @impl true
+  def handle_event("toggle_admin_status", %{"user-id" => user_id}, socket) do
+    user = Accounts.get_user(user_id)
+
+    if user do
+      case Accounts.update_user(user, %{is_admin: !user.is_admin}) do
+        {:ok, _updated_user} ->
+          # Reload users list
+          users = Accounts.list_users()
+          {:noreply, assign(socket, users: users)}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-gray-50 py-8">
@@ -63,6 +82,9 @@ defmodule BlocksterV2Web.AdminLive do
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Admin Status
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Author Status
@@ -109,6 +131,18 @@ defmodule BlocksterV2Web.AdminLive do
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <%= Calendar.strftime(user.inserted_at, "%b %d, %Y") %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        phx-click="toggle_admin_status"
+                        phx-value-user-id={user.id}
+                        class={[
+                          "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                          if(user.is_admin, do: "bg-red-100 text-red-800 hover:bg-red-200", else: "bg-gray-100 text-gray-600 hover:bg-gray-200")
+                        ]}
+                      >
+                        <%= if user.is_admin, do: "Admin ✓", else: "Make Admin" %>
+                      </button>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                       <button
