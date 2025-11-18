@@ -365,16 +365,6 @@ export const ThirdwebLogin = {
       resendCodeBtn.dataset.listenerAttached = 'true';
     }
 
-    // Test paymaster button
-    const testPaymasterBtn = document.getElementById('test-paymaster-btn');
-    if (testPaymasterBtn && !testPaymasterBtn.dataset.listenerAttached) {
-      testPaymasterBtn.addEventListener('click', () => {
-        console.log('Test paymaster button clicked');
-        this.testPaymaster();
-      });
-      testPaymasterBtn.dataset.listenerAttached = 'true';
-    }
-
     // Enter key support
     const emailInput = document.getElementById('email-input');
     const codeInput = document.getElementById('code-input');

@@ -236,25 +236,9 @@ export const TipTapEditor = {
         const content = JSON.parse(initialContent)
         console.log('Parsed content:', content)
 
-        // Check if this is Quill format (has "ops" key)
-        if (content.ops) {
-          console.log('Detected Quill format, converting to plain text for editing')
-          // Extract plain text from Quill ops
-          let plainText = content.ops.map(op => {
-            if (typeof op.insert === 'string') {
-              return op.insert
-            }
-            return ''
-          }).join('')
-
-          // Set as plain text in TipTap
-          this.editor.commands.setContent(`<p>${plainText.replace(/\n/g, '</p><p>')}</p>`)
-          console.log('Converted Quill to plain text')
-        } else {
-          // This is TipTap format
-          this.editor.commands.setContent(content)
-          console.log('Content set successfully (TipTap format)')
-        }
+        // Load TipTap format content
+        this.editor.commands.setContent(content)
+        console.log('Content set successfully')
       } catch (e) {
         console.error('Failed to parse initial content:', e)
       }

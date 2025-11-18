@@ -373,7 +373,7 @@
                 phx-hook="TwitterWidgets"
                 phx-no-format
               >
-                <%= raw(render_quill_content(@post.content)) %>
+                <%= raw(render_content(@post.content)) %>
               </div>
             <% else %>
               <p class="text-gray-400 italic">No content available</p>

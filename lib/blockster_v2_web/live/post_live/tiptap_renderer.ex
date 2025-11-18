@@ -71,12 +71,14 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
 
   # Tweet Embed
   defp render_node(%{"type" => "tweet", "attrs" => %{"url" => url, "id" => tweet_id}}) do
+    # Normalize URL to use twitter.com instead of x.com for better compatibility
+    normalized_url = String.replace(url, "x.com", "twitter.com")
+
     """
-    <div class="tweet-embed my-6">
-      <blockquote class="twitter-tweet" data-theme="light" data-dnt="true">
-        <a href="#{escape_html(url)}"></a>
-      </blockquote>
-    </div>
+    <blockquote class="twitter-tweet" data-tweet-id="#{escape_html(tweet_id)}" data-theme="light" data-dnt="true">
+      <p lang="en" dir="ltr">Loading tweet...</p>
+      <a href="#{escape_html(normalized_url)}">View Tweet</a>
+    </blockquote>
     """
   end
 

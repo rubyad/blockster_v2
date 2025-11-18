@@ -50,12 +50,16 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   # Handle TipTap format
-  defp render_quill_content(%{"type" => "doc"} = content) do
+  defp render_content(%{"type" => "doc"} = content) do
     TipTapRenderer.render_content(content)
   end
 
-  # Handle old Quill format (for backward compatibility during migration)
-  defp render_quill_content(%{"ops" => ops}) when is_list(ops) do
+  # Fallback for empty or invalid content
+  defp render_content(_), do: ""
+
+  # Legacy Quill format handler (deprecated - kept for reference only)
+  # All content should now be in TipTap format
+  defp _render_legacy_quill_content(%{"ops" => ops}) when is_list(ops) do
     IO.puts("=== LEGACY QUILL FORMAT DETECTED ===")
     IO.inspect(ops, label: "OPS", limit: :infinity)
 
@@ -201,7 +205,6 @@ defmodule BlocksterV2Web.PostLive.Show do
     Enum.join(final_result, "\n")
   end
 
-  defp render_quill_content(_), do: ""
 
   # Handle text that will be followed by a header newline
   defp render_single_op(
