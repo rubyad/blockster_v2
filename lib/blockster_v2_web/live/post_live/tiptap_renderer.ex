@@ -70,21 +70,14 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
   end
 
   # Tweet Embed
-  defp render_node(%{"type" => "tweet", "attrs" => %{"url" => url, "id" => _id}}) do
-    case fetch_tweet_html(url) do
-      {:ok, html} ->
-        html
-
-      {:error, _} ->
-        """
-        <div class="border border-gray-300 rounded p-4 my-4 bg-gray-50">
-          <p class="text-sm text-gray-600 mb-2">Tweet</p>
-          <a href="#{escape_html(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
-            View on Twitter/X
-          </a>
-        </div>
-        """
-    end
+  defp render_node(%{"type" => "tweet", "attrs" => %{"url" => url, "id" => tweet_id}}) do
+    """
+    <div class="tweet-embed my-6">
+      <blockquote class="twitter-tweet" data-theme="light" data-dnt="true">
+        <a href="#{escape_html(url)}"></a>
+      </blockquote>
+    </div>
+    """
   end
 
   # Spacer
