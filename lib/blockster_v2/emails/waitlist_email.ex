@@ -25,34 +25,62 @@ defmodule BlocksterV2.Emails.WaitlistEmail do
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Verify Your Email</title>
       </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-          <img src="https://ik.imagekit.io/blockster/logo.png" alt="Blockster Logo" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block;" />
-          <h1 style="color: white; margin: 0; font-size: 28px;">Blockster V2 Coming Soon</h1>
-        </div>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 20px 0;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <!-- Header with solid background -->
+                <tr>
+                  <td style="background-color: #CAFC00; padding: 40px 20px; text-align: center;">
+                    <img src="https://ik.imagekit.io/blockster/logo.png" alt="Blockster Logo" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block;" />
+                    <h1 style="color: #000000; margin: 0; font-size: 28px; font-weight: bold;">Blockster V2 Coming Soon</h1>
+                  </td>
+                </tr>
 
-        <div style="background: #ffffff; padding: 40px 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-          <p style="font-size: 16px; margin-bottom: 20px;">Thank you for joining the Blockster waitlist!</p>
+                <!-- Content -->
+                <tr>
+                  <td style="background-color: #ffffff; padding: 40px 30px;">
+                    <p style="font-size: 16px; color: #333333; margin: 0 0 20px 0; line-height: 1.6;">Thank you for joining the Blockster waitlist!</p>
 
-          <p style="font-size: 16px; margin-bottom: 30px;">Please verify your email address by clicking the button below:</p>
+                    <p style="font-size: 16px; color: #333333; margin: 0 0 30px 0; line-height: 1.6;">Please verify your email address by clicking the button below:</p>
 
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="#{verification_url}" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">Verify Email</a>
-          </div>
+                    <!-- Button -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="padding: 30px 0;">
+                          <table cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="background-color: #CAFC00; border-radius: 8px;">
+                                <a href="#{verification_url}" style="background-color: #CAFC00; color: #000000; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">Verify Email</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
 
-          <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">Or copy and paste this link into your browser:</p>
-          <p style="font-size: 12px; color: #9ca3af; word-break: break-all; background: #f9fafb; padding: 10px; border-radius: 5px;">#{verification_url}</p>
+                    <p style="font-size: 14px; color: #6b7280; margin: 30px 0 10px 0; line-height: 1.6;">Or copy and paste this link into your browser:</p>
+                    <p style="font-size: 12px; color: #4b5563; word-break: break-all; background-color: #f9fafb; padding: 12px; border-radius: 5px; margin: 0 0 30px 0; border: 1px solid #e5e7eb;">#{verification_url}</p>
 
-          <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">This link will expire in 24 hours.</p>
+                    <p style="font-size: 14px; color: #6b7280; margin: 0 0 20px 0; line-height: 1.6;">This link will expire in 24 hours.</p>
 
-          <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">If you didn't sign up for the Blockster waitlist, you can safely ignore this email.</p>
-        </div>
+                    <p style="font-size: 14px; color: #6b7280; margin: 0; line-height: 1.6;">If you didn't sign up for the Blockster waitlist, you can safely ignore this email.</p>
+                  </td>
+                </tr>
 
-        <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
-          <p>&copy; 2025 Blockster. All rights reserved.</p>
-          <p style="margin-top: 10px;">Blockster Media & Technology, LLC</p>
-          <p>1111 Lincoln Road, Suite 500, Miami Beach, FL 33139</p>
-        </div>
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="font-size: 12px; color: #9ca3af; margin: 0 0 10px 0;">&copy; 2025 Blockster. All rights reserved.</p>
+                    <p style="font-size: 12px; color: #9ca3af; margin: 0 0 5px 0;">Blockster Media & Technology, LLC</p>
+                    <p style="font-size: 12px; color: #9ca3af; margin: 0;">1111 Lincoln Road, Suite 500, Miami Beach, FL 33139</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
     </html>
     """)
