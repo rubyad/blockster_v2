@@ -144,12 +144,10 @@ if config_env() == :prod do
 
   # ## Configuring the mailer
   #
-  # In production, configure the mailer to use AWS SES
+  # In production, configure the mailer to use SendGrid
   config :blockster_v2, BlocksterV2.Mailer,
-    adapter: Swoosh.Adapters.AmazonSES,
-    region: System.get_env("AWS_REGION") || "us-east-1",
-    access_key: System.get_env("AWS_ACCESS_KEY_ID"),
-    secret: System.get_env("AWS_SECRET_ACCESS_KEY")
+    adapter: Swoosh.Adapters.Sendgrid,
+    api_key: System.get_env("SENDGRID_API_KEY")
 
   # Override app_url with PHX_HOST if set
   app_host = System.get_env("PHX_HOST") || "v2.blockster.com"

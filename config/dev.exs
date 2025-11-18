@@ -83,5 +83,10 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
-# Disable swoosh api client as it is only required for production adapters.
-config :swoosh, :api_client, false
+# Configure SendGrid for development emails
+config :blockster_v2, BlocksterV2.Mailer,
+  adapter: Swoosh.Adapters.Sendgrid,
+  api_key: System.get_env("SENDGRID_API_KEY")
+
+# Enable swoosh api client for SendGrid
+config :swoosh, :api_client, Swoosh.ApiClient.Hackney
