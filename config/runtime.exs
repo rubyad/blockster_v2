@@ -31,7 +31,13 @@ config :blockster_v2,
   s3_region: System.get_env("AWS_REGION") || "us-east-1",
   thirdweb_client_id: System.get_env("THIRDWEB_CLIENT_ID"),
   aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
-  aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
+  aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
+  app_url:
+    System.get_env("APP_URL") ||
+      if(config_env() == :prod,
+        do: "https://blockster-v2.fly.dev",
+        else: "http://localhost:4000"
+      )
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
@@ -98,6 +104,10 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
+    check_origin: [
+      "https://blockster-v2.fly.dev",
+      "https://v2.blockster.com"
+    ],
     secret_key_base: secret_key_base
 
   # ## SSL Support
@@ -134,19 +144,14 @@ if config_env() == :prod do
 
   # ## Configuring the mailer
   #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :blockster_v2, BlocksterV2.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+  # In production, configure the mailer to use AWS SES
+  config :blockster_v2, BlocksterV2.Mailer,
+    adapter: Swoosh.Adapters.AmazonSES,
+    region: System.get_env("AWS_REGION") || "us-east-1",
+    access_key: System.get_env("AWS_ACCESS_KEY_ID"),
+    secret: System.get_env("AWS_SECRET_ACCESS_KEY")
+
+  # Override app_url with PHX_HOST if set
+  app_host = System.get_env("PHX_HOST") || "v2.blockster.com"
+  config :blockster_v2, app_url: "https://#{app_host}"
 end

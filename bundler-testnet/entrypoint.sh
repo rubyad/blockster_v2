@@ -19,13 +19,13 @@ if [ -z "$BUILDER_PRIVATE_KEY" ]; then
   exit 1
 fi
 
-# MAINNET BUNDLER CONFIGURATION
-# This bundler is for Rogue mainnet (Chain ID: 560013)
-echo "=== ROGUE MAINNET BUNDLER ==="
-NODE_RPC="https://rpc.roguechain.io/rpc"
-CHAIN_SPEC="/app/chain-spec-mainnet.json"
+# TESTNET BUNDLER CONFIGURATION
+# This bundler is for Rogue testnet (Chain ID: 71499284269)
+echo "=== ROGUE TESTNET BUNDLER ==="
+NODE_RPC="https://testnet-rpc.roguechain.io"
+CHAIN_SPEC="/app/chain-spec.json"
 
-echo "Chain: Rogue Mainnet (560013)"
+echo "Chain: Rogue Testnet (71499284269)"
 echo "Node RPC: $NODE_RPC"
 echo "Chain Spec: $CHAIN_SPEC"
 

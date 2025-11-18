@@ -1,0 +1,18 @@
+:3000 {
+    # CORS headers for all requests
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Max-Age "86400"
+    }
+
+    # Handle preflight requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+
+    # Reverse proxy to Rundler on port 3001
+    reverse_proxy localhost:3001
+}

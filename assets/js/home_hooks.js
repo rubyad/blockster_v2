@@ -22,23 +22,26 @@ let blockExplorer
 let factoryAddress
 let paymasterAddress
 let entryPoint
+let bundlerUrl
 if (window.location.origin != "http://localhost:4000") {
     // Mainnet (Production) - Chain ID: 560013
     id = 560013
     blockExplorer = "https://roguescan.io"
     rpc = "https://rpc.roguechain.io/rpc"
-    factoryAddress = "0xFDFfFD00f97D3d9E9D94085d0ad51F423A2CAB32" // ✅ Correct EntryPoint
-    paymasterAddress = "0x95fDbCD54D81bDf703A0C6b3329233EB41bbA6c9" // ✅ EIP7702Paymaster
-    entryPoint = "0xc4ffe6E2222a6f58ac82C94D2e2b44a3CdbD5928" // ✅ Correct EntryPoint
+    factoryAddress = "0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3" // ManagedAccountFactory (mainnet)
+    paymasterAddress = "0x804cA06a85083eF01C9aE94bAE771446c25269a6" // EIP7702Paymaster (mainnet)
+    entryPoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" // EntryPoint v0.6.0 (canonical)
+    bundlerUrl = "https://rogue-bundler-mainnet.fly.dev" // Mainnet bundler on Fly.io
 } else {
-    // Testnet (Sepolia) - Chain ID: 71499284269
+    // Testnet (Localhost) - Chain ID: 71499284269
     id = 71499284269
     blockExplorer = "https://testnet-explorer.roguechain.io/"
     rpc = "https://testnet-rpc.roguechain.io" // Rogue Chain testnet RPC
     // ManagedAccountFactory (Thirdweb Advanced) - DEPLOYED & STAKED
-    factoryAddress = "0x39CeCF786830d1E073e737870E2A6e66fE92FDE9" // ManagedAccountFactory (staked)
-    paymasterAddress = "0xd4ECb9C22e0c7495e167698cb8D0D9c84F65c02a" // EIP7702Paymaster (properly staked)
-    entryPoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" // Standard EntryPoint v0.6.0
+    factoryAddress = "0x39CeCF786830d1E073e737870E2A6e66fE92FDE9" // ManagedAccountFactory (testnet)
+    paymasterAddress = "0xd4ECb9C22e0c7495e167698cb8D0D9c84F65c02a" // EIP7702Paymaster (testnet)
+    entryPoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" // EntryPoint v0.6.0 (canonical)
+    bundlerUrl = "https://rogue-bundler-testnet.fly.dev" // Testnet bundler on Fly.io
 } 
 
 // Define Rogue Chain with custom RPC
@@ -198,8 +201,8 @@ export const ThirdwebLogin = {
       gasless: true, // Enable gasless mode (uses paymaster)
       overrides: {
         entryPoint: entryPoint,
-        // Rundler bundler deployed on Fly.io
-        bundlerUrl: "https://rogue-bundler.fly.dev",
+        // Rundler bundler deployed on Fly.io (separate apps for testnet/mainnet)
+        bundlerUrl: bundlerUrl,
 
         // Paymaster configuration with gas sponsorship
         paymaster: async (userOp) => {
@@ -257,7 +260,7 @@ export const ThirdwebLogin = {
     console.log(`   Chain: ${rogueChain.name} (${rogueChain.id})`);
     console.log(`   Factory: ${factoryAddress}`);
     console.log(`   EntryPoint: ${entryPoint}`);
-    console.log(`   Bundler: https://rogue-bundler.fly.dev`);
+    console.log(`   Bundler: ${bundlerUrl}`);
     console.log(`   Paymaster: ${paymasterAddress}`);
     console.log(`   Gas Sponsorship: ENABLED ✅`);
 
@@ -707,45 +710,126 @@ export const ThirdwebLogin = {
 
   async handleDisconnect() {
     try {
-      // First, disconnect Thirdweb wallets and clear all cached data
-      console.log('Clearing Thirdweb wallet cache...');
+      console.log('🔓 Starting complete wallet disconnect...');
 
-      // Disconnect personal wallet if connected
+      // Step 1: Disconnect wallets
       if (this.personalWallet) {
         try {
           await this.personalWallet.disconnect();
+          console.log('✅ Personal wallet disconnected');
         } catch (e) {
           console.log('Personal wallet disconnect error:', e);
         }
       }
 
-      // Disconnect smart wallet if connected
       if (this.wallet) {
         try {
           await this.wallet.disconnect();
+          console.log('✅ Smart wallet disconnected');
         } catch (e) {
           console.log('Smart wallet disconnect error:', e);
         }
       }
 
-      // Clear all localStorage keys related to Thirdweb
+      // Step 3: Clear wallet-related storage only
+      console.log('🧹 Clearing wallet-related storage...');
+
+      // Get all localStorage keys
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('thirdweb') || key.includes('walletconnect') || key.includes('smartAccount'))) {
+        // Remove Thirdweb, WalletConnect, and other wallet-related keys
+        if (key && (
+          key.toLowerCase().includes('thirdweb') ||
+          key.toLowerCase().includes('walletconnect') ||
+          key.toLowerCase().includes('wallet') ||
+          key.includes('TW_') ||
+          key.toLowerCase().includes('ews') ||
+          key === 'smartAccountAddress'
+        )) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      console.log('Cleared Thirdweb localStorage keys:', keysToRemove);
 
-      // Clear window references
+      // Remove wallet-related keys
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('Removed localStorage key:', key);
+      });
+      console.log(`✅ Cleared ${keysToRemove.length} wallet-related localStorage items`);
+
+      // Clear wallet-related sessionStorage
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (
+          key.toLowerCase().includes('thirdweb') ||
+          key.toLowerCase().includes('walletconnect') ||
+          key.toLowerCase().includes('wallet') ||
+          key.includes('TW_') ||
+          key.toLowerCase().includes('ews')
+        )) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+
+      sessionKeysToRemove.forEach(key => {
+        sessionStorage.removeItem(key);
+        console.log('Removed sessionStorage key:', key);
+      });
+      console.log(`✅ Cleared ${sessionKeysToRemove.length} wallet-related sessionStorage items`);
+
+      // Clear wallet-related IndexedDB databases only
+      try {
+        const databases = await indexedDB.databases();
+        console.log('🧹 Checking IndexedDB databases:', databases.length);
+        for (const db of databases) {
+          if (db.name && (
+            db.name.toLowerCase().includes('thirdweb') ||
+            db.name.toLowerCase().includes('walletconnect') ||
+            db.name.toLowerCase().includes('wallet')
+          )) {
+            indexedDB.deleteDatabase(db.name);
+            console.log('Deleted IndexedDB:', db.name);
+          }
+        }
+      } catch (e) {
+        console.log('IndexedDB cleanup error (may not be supported):', e);
+      }
+
+      // Step 4: Clear Thirdweb-related cookies
+      console.log('🧹 Clearing Thirdweb cookies...');
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const eqPos = cookie.indexOf('=');
+        const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+        // Only clear cookies that contain thirdweb, walletconnect, or TW_
+        if (name.toLowerCase().includes('thirdweb') ||
+            name.toLowerCase().includes('walletconnect') ||
+            name.includes('TW_') ||
+            name.toLowerCase().includes('ews')) { // Embedded Wallet Service
+          // Delete cookie for all possible paths and domains
+          document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+          document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=' + window.location.hostname;
+          document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.' + window.location.hostname;
+          console.log('Cleared cookie:', name);
+        }
+      }
+      console.log('✅ Thirdweb cookies cleared');
+
+      // Step 5: Clear all references
       delete window.personalWallet;
       delete window.smartWalletInstance;
       delete window.smartAccount;
       delete window.thirdwebActiveWallet;
+      delete window.ThirdwebLoginHook;
 
-      // Then call backend logout
+      this.personalWallet = null;
+      this.wallet = null;
+      this.smartAccount = null;
+      this.activeWallet = null;
+
+      // Step 5: Call backend logout
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
@@ -757,9 +841,20 @@ export const ThirdwebLogin = {
       const data = await response.json();
 
       if (data.success) {
-        console.log('Logged out successfully');
+        console.log('✅ Backend logout successful');
         this.currentUser = null;
-        window.location.reload(); // Reload to show connect button again
+
+        // Double-check storage is cleared before reload
+        localStorage.removeItem('smartAccountAddress');
+        console.log('Final check - smartAccountAddress cleared:', localStorage.getItem('smartAccountAddress') === null);
+
+        // Small delay to ensure storage operations complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        console.log('🔄 Reloading page...');
+
+        // Force a full page reload
+        window.location.reload();
       } else {
         console.error('Logout failed:', data);
         alert('Failed to logout. Please try again.');
@@ -781,6 +876,29 @@ export const ThirdwebLogin = {
 
   async autoConnectWallet() {
     try {
+      console.log('🚀 autoConnectWallet called');
+
+      // Check URL hash for logout signal
+      const hash = window.location.hash;
+      const justLoggedOut = hash === '#logout';
+
+      console.log('📊 URL hash:', hash);
+      console.log('�� Just logged out:', justLoggedOut);
+      console.log('📊 localStorage.smartAccountAddress:', localStorage.getItem('smartAccountAddress'));
+
+      // CRITICAL: Check if user just logged out FIRST - prevent auto-reconnection
+      if (justLoggedOut) {
+        console.log('⛔ User just logged out - skipping auto-connect');
+
+        // Clear the logout hash from URL
+        window.history.replaceState({}, '', window.location.pathname);
+
+        // Clear any remaining wallet data
+        localStorage.removeItem('smartAccountAddress');
+        console.log('✅ Logout flag detected and cleared - auto-connect prevented');
+        return;
+      }
+
       console.log('🔄 Auto-connect: Checking if user is already authenticated...');
 
       // Check if there's a stored smart account address (indicates previous login)

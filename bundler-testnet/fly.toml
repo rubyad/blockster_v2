@@ -1,5 +1,5 @@
-# Fly.io configuration for Rogue MAINNET Bundler
-app = "rogue-bundler-mainnet"
+# Fly.io configuration for Rogue TESTNET Bundler
+app = "rogue-bundler-testnet"
 primary_region = "ord"  # Chicago (same region as blockster-v2)
 
 [build]

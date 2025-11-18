@@ -1,5 +1,5 @@
+# Testnet Bundler Dockerfile
 # Simplified Dockerfile that uses pre-compiled Rundler binary
-# This avoids the ~30min build time of compiling from source
 
 FROM debian:bookworm-slim
 
@@ -29,10 +29,9 @@ RUN wget https://github.com/alchemyplatform/rundler/releases/download/v0.9.2/run
     chmod +x /usr/local/bin/rundler && \
     rm rundler-v0.9.2-x86_64-unknown-linux-gnu.tar.gz
 
-# Copy chain specs (testnet and mainnet), Caddyfile, and entrypoint script
-# Cache bust: 2025-11-16-mainnet-support
+# Copy testnet chain spec, Caddyfile, and entrypoint script
+# Cache bust: 2025-11-16-testnet-bundler
 COPY chain-spec.json /app/chain-spec.json
-COPY chain-spec-mainnet.json /app/chain-spec-mainnet.json
 COPY Caddyfile /app/Caddyfile
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

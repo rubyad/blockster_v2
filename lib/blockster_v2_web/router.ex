@@ -8,6 +8,7 @@ defmodule BlocksterV2Web.Router do
     plug :put_root_layout, html: {BlocksterV2Web.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug BlocksterV2Web.Plugs.V2RedirectPlug
     plug BlocksterV2Web.Plugs.AuthPlug
   end
 
@@ -24,6 +25,7 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.UserAuth, BlocksterV2Web.AdminAuth],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/admin", AdminLive, :index
+      live "/admin/waitlist", WaitlistAdminLive, :index
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
@@ -44,6 +46,15 @@ defmodule BlocksterV2Web.Router do
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/:slug/edit", PostLive.Form, :edit
     end
+
+    # Waitlist routes (minimal root layout only) - must come before catch-all /:slug route
+    live_session :waitlist,
+      layout: {BlocksterV2Web.Layouts, :root} do
+      live "/waitlist", WaitlistLive, :index
+    end
+
+    # Waitlist verification (controller route)
+    get "/waitlist/verify", WaitlistController, :verify
 
     live_session :default,
       layout: {BlocksterV2Web.Layouts, :app} do
