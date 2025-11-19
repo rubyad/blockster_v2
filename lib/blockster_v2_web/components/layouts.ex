@@ -60,6 +60,13 @@ defmodule BlocksterV2Web.Layouts do
   attr :current_user, :any, default: nil, doc: "the current logged in user"
 
   def site_header(assigns) do
+    # Provide default values for search assigns if not present
+    assigns =
+      assigns
+      |> Map.put_new(:search_query, "")
+      |> Map.put_new(:search_results, [])
+      |> Map.put_new(:show_search_results, false)
+
     ~H"""
     <!-- Fixed Header Container -->
     <div class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300">
@@ -74,9 +81,9 @@ defmodule BlocksterV2Web.Layouts do
         <div class="flex gap-2 bg-white p-2 rounded-[85px] justify-between w-full border border-[#E8EAEC]">
           <div class="flex gap-2 items-center">
             <!-- Search Bar -->
-            <div class="right-section-left">
+            <div class="right-section-left" id="search-container" phx-click-away="close_search">
               <div class="input-wrapper relative max-w-[247px] w-[100%]">
-                <span class="absolute left-2.5 top-1/2 -translate-y-1/2">
+                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
                           stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -85,8 +92,40 @@ defmodule BlocksterV2Web.Layouts do
                 <input
                   type="text"
                   placeholder="Search"
+                  value={@search_query}
+                  phx-keyup="search_posts"
+                  phx-debounce="300"
                   class="text-left text-grey-30 h-12 px-5 pl-[29px] bg-bg-input text-sm font-[400] font-haas_roman_55 w-full rounded-[85px]"
                 />
+
+                <!-- Search Results Dropdown -->
+                <%= if @show_search_results && length(@search_results) > 0 do %>
+                  <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-[#E7E8F1] shadow-xl z-50 max-h-[500px] overflow-y-auto">
+                    <div class="py-2">
+                      <%= for post <- @search_results do %>
+                        <.link
+                          navigate={~p"/#{post.slug}"}
+                          class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
+                          phx-click="close_search"
+                        >
+                          <div class="img-wrapper rounded-lg overflow-hidden flex-shrink-0" style="width: 60px; height: 60px;">
+                            <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
+                              <%= post.title %>
+                            </h4>
+                            <%= if post.category do %>
+                              <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
+                                <%= post.category.name %>
+                              </span>
+                            <% end %>
+                          </div>
+                        </.link>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             </div>
             <!-- Navigation Links -->
@@ -144,7 +183,7 @@ defmodule BlocksterV2Web.Layouts do
                 </li>
                 <li>
                   <.link navigate={~p"/hubs"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
-                    Hub
+                    Hubs
                   </.link>
                 </li>
                 <li>

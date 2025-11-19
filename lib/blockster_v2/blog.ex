@@ -198,6 +198,38 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Searches published posts using PostgreSQL full-text search.
+  Returns posts ranked by relevance to the search query.
+
+  ## Examples
+      iex> search_posts_fulltext("blockchain technology")
+      [%Post{}, ...]
+
+      iex> search_posts_fulltext("bitcoin", limit: 10)
+      [%Post{}, ...]
+  """
+  def search_posts_fulltext(query_string, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+
+    from(p in published_posts_query(),
+      where: fragment(
+        "searchable @@ websearch_to_tsquery(?)",
+        ^query_string
+      ),
+      order_by: {
+        :desc,
+        fragment(
+          "ts_rank_cd(searchable, websearch_to_tsquery(?), 4)",
+          ^query_string
+        )
+      },
+      limit: ^limit
+    )
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
   Gets a single post by slug with all associations loaded.
   Raises `Ecto.NoResultsError` if the Post does not exist.
   """
@@ -337,6 +369,19 @@ defmodule BlocksterV2.Blog do
     post
     |> Ecto.Changeset.change()
     |> Ecto.Changeset.put_assoc(:tags, all_tags)
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates post tags by tag IDs (replaces existing tags).
+  """
+  def update_post_tags_by_ids(%Post{} = post, tag_ids) when is_list(tag_ids) do
+    tags = Repo.all(from t in Tag, where: t.id in ^tag_ids)
+
+    post
+    |> Repo.preload(:tags)
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.put_assoc(:tags, tags)
     |> Repo.update()
   end
 
