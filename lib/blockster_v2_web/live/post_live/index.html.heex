@@ -301,11 +301,13 @@
                         <div class="px-2 py-2">
                           <div class="flex justify-between items-center">
                             <ul class="gap-3 flex items-center">
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  <%= post.category.name %>
-                                </span>
-                              </li>
+                              <%= if post.category do %>
+                                <li>
+                                  <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                    <%= post.category.name %>
+                                  </span>
+                                </li>
+                              <% end %>
                               <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
@@ -332,11 +334,13 @@
                         <div class="px-2 py-2">
                           <div class="flex justify-between items-center">
                             <ul class="gap-3 flex items-center">
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  <%= post.category.name %>
-                                </span>
-                              </li>
+                              <%= if post.category do %>
+                                <li>
+                                  <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                    <%= post.category.name %>
+                                  </span>
+                                </li>
+                              <% end %>
                               <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
@@ -363,11 +367,13 @@
                         <div class="px-2 py-2">
                           <div class="flex justify-between items-center">
                             <ul class="gap-3 flex items-center">
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  <%= post.category.name %>
-                                </span>
-                              </li>
+                              <%= if post.category do %>
+                                <li>
+                                  <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                    <%= post.category.name %>
+                                  </span>
+                                </li>
+                              <% end %>
                               <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                             </ul>
                             <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
@@ -395,11 +401,13 @@
                       <div class="flex-1">
                         <div class="flex justify-between md:items-center items-start sm:flex-row md:gap-0 gap-2 flex-col-reverse">
                           <ul class="gap-3 flex items-center">
-                            <li>
-                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                              <%= post.category.name %>
-                            </span>
-                          </li>
+                            <%= if post.category do %>
+                              <li>
+                              <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                <%= post.category.name %>
+                              </span>
+                            </li>
+                            <% end %>
                             <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                           </ul>
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
@@ -423,11 +431,13 @@
                       <div class="flex-1">
                         <div class="flex justify-between items-center">
                           <ul class="gap-3 flex">
-                            <li>
-                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                              <%= post.category.name %>
-                            </span>
-                          </li>
+                            <%= if post.category do %>
+                              <li>
+                              <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                                <%= post.category.name %>
+                              </span>
+                            </li>
+                            <% end %>
                             <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                           </ul>
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
