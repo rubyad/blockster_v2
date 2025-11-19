@@ -1,0 +1,620 @@
+<div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="sm:flex sm:items-center sm:justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Manage Posts</h1>
+      <p class="mt-2 text-sm text-gray-700">View and manage all posts in the system</p>
+    </div>
+    <div class="mt-4 sm:mt-0">
+      <.link
+        navigate={~p"/new"}
+        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <svg
+          class="-ml-1 mr-2 h-5 w-5"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        New Post
+      </.link>
+    </div>
+  </div>
+  <%!-- Filter Section --%>
+  <div class="bg-white shadow rounded-lg p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <%!-- Hub Filter with Autocomplete --%>
+      <div class="relative" phx-hook="Autocomplete" id="hub-filter">
+        <label for="hub-input" class="block text-sm font-medium text-gray-700 mb-1">Hub</label>
+        <input
+          type="text"
+          id="hub-input"
+          placeholder="Type to search hubs..."
+          value={get_hub_name(@hubs, @filter_hub)}
+          phx-keyup="search_hub"
+          phx-debounce="300"
+          class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          autocomplete="off"
+        />
+        <input type="hidden" id="hub-value" name="hub" value={@filter_hub || ""} />
+        <%= if @hub_search_results && length(@hub_search_results) > 0 do %>
+          <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            <button
+              type="button"
+              phx-click="select_hub"
+              phx-value-id=""
+              phx-value-name=""
+              class="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm text-gray-700 border-b border-gray-200"
+            >
+              All Hubs
+            </button>
+            <%= for hub <- @hub_search_results do %>
+              <button
+                type="button"
+                phx-click="select_hub"
+                phx-value-id={hub.id}
+                phx-value-name={hub.name}
+                class="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm text-gray-900"
+              >
+                <%= hub.name %>
+              </button>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+      <%!-- Author Filter with Autocomplete --%>
+      <div class="relative" phx-hook="Autocomplete" id="author-filter">
+        <label for="author-input" class="block text-sm font-medium text-gray-700 mb-1">
+          Author
+        </label>
+        <input
+          type="text"
+          id="author-input"
+          placeholder="Type to search authors..."
+          value={get_author_name(@authors, @filter_author)}
+          phx-keyup="search_author"
+          phx-debounce="300"
+          class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          autocomplete="off"
+        />
+        <input type="hidden" id="author-value" name="author" value={@filter_author || ""} />
+        <%= if @author_search_results && length(@author_search_results) > 0 do %>
+          <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            <button
+              type="button"
+              phx-click="select_author"
+              phx-value-id=""
+              phx-value-name=""
+              class="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm text-gray-700 border-b border-gray-200"
+            >
+              All Authors
+            </button>
+            <%= for author <- @author_search_results do %>
+              <button
+                type="button"
+                phx-click="select_author"
+                phx-value-id={author.id}
+                phx-value-name={author.name || author.email}
+                class="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm text-gray-900"
+              >
+                <%= author.name || author.email %>
+              </button>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+      <%!-- Category Filter (keep as dropdown) --%>
+      <div>
+        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+        <form phx-change="filter_category">
+          <select
+            id="category"
+            name="category"
+            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">All Categories</option>
+            <%= for category <- @categories do %>
+              <option value={category.id} selected={@filter_category == to_string(category.id)}>
+                <%= category.name %>
+              </option>
+            <% end %>
+          </select>
+        </form>
+      </div>
+      <%!-- Status Filter (keep as dropdown) --%>
+      <div>
+        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+        <form phx-change="filter_status">
+          <select
+            id="status"
+            name="status"
+            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="all" selected={@filter_status == "all"}>All</option>
+            <option value="published" selected={@filter_status == "published"}>Published</option>
+            <option value="draft" selected={@filter_status == "draft"}>Draft</option>
+          </select>
+        </form>
+      </div>
+    </div>
+
+    <div class="mt-3 flex items-center justify-between">
+      <div class="text-sm text-gray-600">
+        Showing <%= length(@posts) %> of <%= length(@all_posts) %> posts
+      </div>
+      <%= if @filter_hub || @filter_author || @filter_category || @filter_status != "all" do %>
+        <button
+          phx-click="clear_filters"
+          class="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
+        >
+          Clear Filters
+        </button>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+            >
+              Image
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28"
+            >
+              Date
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Title
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+            >
+              Author
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28"
+            >
+              Hub
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40"
+            >
+              Category
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-52"
+            >
+              Tags
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+            >
+              Status
+            </th>
+            <th
+              scope="col"
+              class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+            >
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <%= for post <- @posts do %>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-4 whitespace-nowrap">
+                <%= if post.featured_image do %>
+                  <img
+                    src={post.featured_image}
+                    alt={post.title}
+                    class="h-12 w-12 rounded object-cover"
+                  />
+                <% else %>
+                  <div class="h-12 w-12 rounded bg-gray-200 flex items-center justify-center">
+                    <svg
+                      class="h-6 w-6 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                <% end %>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= format_date(post.published_at || post.inserted_at) %>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-900">
+                <.link
+                  navigate={~p"/#{post.slug}"}
+                  class="font-medium text-indigo-600 hover:text-indigo-900"
+                >
+                  <%= truncate(post.title, 60) %>
+                </.link>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-500">
+                <%= if @editing_post_id == post.id && @editing_field == "author" do %>
+                  <form phx-submit="update_author" phx-value-id={post.id} class="flex gap-1">
+                    <select
+                      name="author_id"
+                      class="text-xs border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <%= for author <- @authors do %>
+                        <option
+                          value={author.id}
+                          selected={post.author_id == author.id}
+                        >
+                          <%= author.name || author.email %>
+                        </option>
+                      <% end %>
+                    </select>
+                    <button
+                      type="submit"
+                      class="text-green-600 hover:text-green-900"
+                      title="Save"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="text-red-600 hover:text-red-900"
+                      title="Cancel"
+                    >
+                      ✗
+                    </button>
+                  </form>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <span><%= post.author_name %></span>
+                    <button
+                      phx-click="start_edit"
+                      phx-value-id={post.id}
+                      phx-value-field="author"
+                      class="text-gray-400 hover:text-gray-600"
+                      title="Edit"
+                    >
+                      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-500">
+                <%= if @editing_post_id == post.id && @editing_field == "hub" do %>
+                  <form phx-submit="update_hub" phx-value-id={post.id} class="flex gap-1">
+                    <select
+                      name="hub_id"
+                      class="text-xs border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">None</option>
+                      <%= for hub <- @hubs do %>
+                        <option
+                          value={hub.id}
+                          selected={post.hub && post.hub.id == hub.id}
+                        >
+                          <%= hub.name %>
+                        </option>
+                      <% end %>
+                    </select>
+                    <button
+                      type="submit"
+                      class="text-green-600 hover:text-green-900"
+                      title="Save"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="text-red-600 hover:text-red-900"
+                      title="Cancel"
+                    >
+                      ✗
+                    </button>
+                  </form>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <span><%= if post.hub, do: post.hub.name, else: "—" %></span>
+                    <button
+                      phx-click="start_edit"
+                      phx-value-id={post.id}
+                      phx-value-field="hub"
+                      class="text-gray-400 hover:text-gray-600"
+                      title="Edit"
+                    >
+                      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-500">
+                <%= if @editing_post_id == post.id && @editing_field == "category" do %>
+                  <form phx-submit="update_category" phx-value-id={post.id} class="flex gap-1">
+                    <select
+                      name="category_id"
+                      class="text-xs border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">None</option>
+                      <%= for category <- @categories do %>
+                        <option
+                          value={category.id}
+                          selected={post.category && post.category.id == category.id}
+                        >
+                          <%= category.name %>
+                        </option>
+                      <% end %>
+                    </select>
+                    <button
+                      type="submit"
+                      class="text-green-600 hover:text-green-900"
+                      title="Save"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="text-red-600 hover:text-red-900"
+                      title="Cancel"
+                    >
+                      ✗
+                    </button>
+                  </form>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <span><%= if post.category, do: post.category.name, else: "—" %></span>
+                    <button
+                      phx-click="start_edit"
+                      phx-value-id={post.id}
+                      phx-value-field="category"
+                      class="text-gray-400 hover:text-gray-600"
+                      title="Edit"
+                    >
+                      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-500">
+                <%= if @editing_post_id == post.id && @editing_field == "tags" do %>
+                  <form phx-submit="update_tags" phx-value-id={post.id} class="space-y-1">
+                    <div class="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2 bg-white">
+                      <%= for tag <- @tags do %>
+                        <label class="flex items-center space-x-2 text-xs hover:bg-gray-50 px-1 py-0.5 rounded">
+                          <input
+                            type="checkbox"
+                            name={"tag_ids[#{tag.id}]"}
+                            value={tag.id}
+                            checked={Enum.any?(post.tags, &(&1.id == tag.id))}
+                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span><%= tag.name %></span>
+                        </label>
+                      <% end %>
+                    </div>
+                    <div class="flex gap-1">
+                      <button
+                        type="submit"
+                        class="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="cancel_edit"
+                        class="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap gap-1">
+                      <%= if Enum.empty?(post.tags) do %>
+                        <span class="text-gray-400">—</span>
+                      <% else %>
+                        <%= for tag <- Enum.take(post.tags, 2) do %>
+                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            <%= tag.name %>
+                          </span>
+                        <% end %>
+                        <%= if length(post.tags) > 2 do %>
+                          <span class="text-xs text-gray-500">+<%= length(post.tags) - 2 %></span>
+                        <% end %>
+                      <% end %>
+                    </div>
+                    <button
+                      phx-click="start_edit"
+                      phx-value-id={post.id}
+                      phx-value-field="tags"
+                      class="text-gray-400 hover:text-gray-600"
+                      title="Edit"
+                    >
+                      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                <%= status_badge(post) %>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex justify-end gap-2">
+                  <.link
+                    navigate={~p"/#{post.slug}/edit"}
+                    class="text-indigo-600 hover:text-indigo-900"
+                    title="Edit"
+                  >
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </.link>
+
+                  <button
+                    phx-click="toggle_publish"
+                    phx-value-id={post.id}
+                    class={
+                      if BlocksterV2.Blog.Post.published?(post),
+                        do: "text-orange-600 hover:text-orange-900",
+                        else: "text-green-600 hover:text-green-900"
+                    }
+                    title={
+                      if BlocksterV2.Blog.Post.published?(post), do: "Unpublish", else: "Publish"
+                    }
+                  >
+                    <%= if BlocksterV2.Blog.Post.published?(post) do %>
+                      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                        />
+                      </svg>
+                    <% else %>
+                      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    <% end %>
+                  </button>
+
+                  <button
+                    phx-click="delete"
+                    phx-value-id={post.id}
+                    data-confirm="Are you sure you want to delete this post?"
+                    class="text-red-600 hover:text-red-900"
+                    title="Delete"
+                  >
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+
+      <%= if Enum.empty?(@posts) do %>
+        <div class="text-center py-12">
+          <svg
+            class="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">No posts</h3>
+          <p class="mt-1 text-sm text-gray-500">Get started by creating a new post.</p>
+          <div class="mt-6">
+            <.link
+              navigate={~p"/new"}
+              class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              <svg
+                class="-ml-1 mr-2 h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              New Post
+            </.link>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="mt-4 text-sm text-gray-500">
+    Total posts: <%= length(@posts) %>
+  </div>
+</div>

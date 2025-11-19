@@ -21,7 +21,10 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:categories, categories)
      |> assign(:selected_category, nil)
      |> assign(:selected_interview_category, nil)
-     |> assign(:page_title, "Latest Posts")}
+     |> assign(:page_title, "Latest Posts")
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:show_search_results, false)}
   end
 
   @impl true
@@ -88,6 +91,35 @@ defmodule BlocksterV2Web.PostLive.Index do
      socket
      |> assign(:interview_posts, filtered_posts)
      |> assign(:selected_interview_category, if(category == "", do: nil, else: category))}
+  end
+
+  @impl true
+  def handle_event("search_posts", %{"value" => query}, socket) do
+    results = if String.length(query) >= 2 do
+      Blog.search_posts_fulltext(query, limit: 20)
+    else
+      []
+    end
+
+    IO.puts("🔍 SEARCH DEBUG")
+    IO.inspect(query, label: "Query")
+    IO.inspect(length(results), label: "Results count")
+    IO.inspect(String.length(query) >= 2, label: "Show dropdown")
+
+    {:noreply,
+     socket
+     |> assign(:search_query, query)
+     |> assign(:search_results, results)
+     |> assign(:show_search_results, String.length(query) >= 2)}
+  end
+
+  @impl true
+  def handle_event("close_search", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:show_search_results, false)}
   end
 
   @impl true

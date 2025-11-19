@@ -211,20 +211,34 @@ defmodule BlocksterV2.Blog do
   def search_posts_fulltext(query_string, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
 
-    from(p in published_posts_query(),
-      where: fragment(
-        "searchable @@ websearch_to_tsquery(?)",
-        ^query_string
-      ),
-      order_by: {
-        :desc,
-        fragment(
-          "ts_rank_cd(searchable, websearch_to_tsquery(?), 4)",
-          ^query_string
-        )
-      },
-      limit: ^limit
-    )
+    # Convert query to support prefix matching
+    # Split on spaces, add :* to each word for prefix matching, join with &
+    tsquery = query_string
+      |> String.split(~r/\s+/, trim: true)
+      |> Enum.map(&"#{&1}:*")
+      |> Enum.join(" & ")
+
+    published_posts_query()
+    |> exclude(:order_by)
+    |> where([p], fragment(
+        "searchable @@ to_tsquery('english', ?)",
+        ^tsquery
+      ))
+    |> order_by([p], [
+        desc: fragment(
+          """
+          CASE
+            WHEN to_tsvector('english', COALESCE(?, '')) @@ to_tsquery('english', ?) THEN 100
+            ELSE 0
+          END + ts_rank_cd(searchable, to_tsquery('english', ?), 1)
+          """,
+          p.title,
+          ^tsquery,
+          ^tsquery
+        ),
+        desc: p.published_at
+      ])
+    |> limit(^limit)
     |> Repo.all()
     |> populate_author_names()
   end

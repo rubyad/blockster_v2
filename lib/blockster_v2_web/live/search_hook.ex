@@ -7,37 +7,46 @@ defmodule BlocksterV2Web.SearchHook do
   alias BlocksterV2.Blog
 
   def on_mount(:default, _params, _session, socket) do
-    {:cont,
-     socket
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:show_search_results, false)
-     |> attach_hook(:handle_search_events, :handle_event, &handle_search_event/3)}
-  end
+    IO.puts("🔍 SearchHook on_mount called!")
 
-  defp handle_search_event("search_posts", %{"value" => query}, socket) do
-    results = if String.length(query) >= 2 do
-      Blog.search_posts_fulltext(query, limit: 20)
-    else
-      []
-    end
+    socket =
+      socket
+      |> assign(:search_query, "")
+      |> assign(:search_results, [])
+      |> assign(:show_search_results, false)
+      |> attach_hook(:search_events, :handle_event, fn
+        "search_posts", %{"value" => query}, socket ->
+          IO.puts("🔍 SearchHook handling search_posts event")
+          IO.inspect(query, label: "Query")
 
-    {:halt,
-     socket
-     |> assign(:search_query, query)
-     |> assign(:search_results, results)
-     |> assign(:show_search_results, String.length(query) >= 2)}
-  end
+          results = if String.length(query) >= 2 do
+            Blog.search_posts_fulltext(query, limit: 20)
+          else
+            []
+          end
 
-  defp handle_search_event("close_search", _params, socket) do
-    {:halt,
-     socket
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:show_search_results, false)}
-  end
+          IO.inspect(length(results), label: "Results count")
+          IO.inspect(String.length(query) >= 2, label: "Show dropdown")
 
-  defp handle_search_event(_event, _params, socket) do
+          {:halt,
+           socket
+           |> assign(:search_query, query)
+           |> assign(:search_results, results)
+           |> assign(:show_search_results, String.length(query) >= 2)}
+
+        "close_search", _params, socket ->
+          IO.puts("🔍 SearchHook handling close_search event")
+          {:halt,
+           socket
+           |> assign(:search_query, "")
+           |> assign(:search_results, [])
+           |> assign(:show_search_results, false)}
+
+        _event, _params, socket ->
+          {:cont, socket}
+      end)
+
+    IO.puts("🔍 SearchHook attach_hook completed")
     {:cont, socket}
   end
 end

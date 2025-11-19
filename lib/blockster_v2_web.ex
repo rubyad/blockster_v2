@@ -53,6 +53,35 @@ defmodule BlocksterV2Web do
       on_mount BlocksterV2Web.UserAuth
 
       unquote(html_helpers())
+      unquote(search_handlers())
+    end
+  end
+
+  defp search_handlers do
+    quote do
+      def handle_event("search_posts", %{"value" => query}, socket) do
+        results = if String.length(query) >= 2 do
+          BlocksterV2.Blog.search_posts_fulltext(query, limit: 20)
+        else
+          []
+        end
+
+        {:noreply,
+         socket
+         |> assign(:search_query, query)
+         |> assign(:search_results, results)
+         |> assign(:show_search_results, String.length(query) >= 2)}
+      end
+
+      def handle_event("close_search", _params, socket) do
+        {:noreply,
+         socket
+         |> assign(:search_query, "")
+         |> assign(:search_results, [])
+         |> assign(:show_search_results, false)}
+      end
+
+      defoverridable handle_event: 3
     end
   end
 

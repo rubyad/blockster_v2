@@ -46,10 +46,34 @@ let TagInput = {
   }
 };
 
+// Autocomplete Hook for closing dropdowns when clicking outside
+let Autocomplete = {
+  mounted() {
+    this.handleClickOutside = (e) => {
+      if (!this.el.contains(e.target)) {
+        const dropdown = this.el.querySelector('.absolute');
+        if (dropdown) {
+          // Clear search results by triggering a blur event
+          const input = this.el.querySelector('input[type="text"]');
+          if (input) {
+            input.value = input.value; // Keep the selected value
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', this.handleClickOutside);
+  },
+
+  destroyed() {
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+};
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput },
+  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput, Autocomplete },
 });
 
 // Show progress bar on live navigation and form submits

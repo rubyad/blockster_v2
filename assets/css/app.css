@@ -266,6 +266,7 @@ html {
     font-display: swap;
 }
 
+/* Commented out missing Haas Grotesk fonts - files don't exist
 @font-face {
     font-family: 'haas_medium_65';
     src: url('fonts/neuehaasdisplaymediu-webfont.woff2') format('woff2'),
@@ -296,6 +297,40 @@ html {
         url('fonts/neuehaasgrotdispround-45light-trial-webfont.woff') format('woff');
     font-weight: normal;
     font-style: normal;
+}
+*/
+
+/* Fallback font definitions using system fonts */
+@font-face {
+    font-family: 'haas_medium_65';
+    src: local('Inter Medium'), local('Helvetica Neue Medium'), local('Arial');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'haas_roman_55';
+    src: local('Inter'), local('Helvetica Neue'), local('Arial');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'haas_bold_75';
+    src: local('Inter Bold'), local('Helvetica Neue Bold'), local('Arial Bold');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'haas_thin_45';
+    src: local('Inter Light'), local('Helvetica Neue Light'), local('Arial');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');

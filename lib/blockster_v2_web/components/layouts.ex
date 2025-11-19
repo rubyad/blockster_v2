@@ -58,14 +58,11 @@ defmodule BlocksterV2Web.Layouts do
   Renders the site header with navigation.
   """
   attr :current_user, :any, default: nil, doc: "the current logged in user"
+  attr :search_query, :string, default: "", doc: "the current search query"
+  attr :search_results, :list, default: [], doc: "the search results"
+  attr :show_search_results, :boolean, default: false, doc: "whether to show the search dropdown"
 
   def site_header(assigns) do
-    # Provide default values for search assigns if not present
-    assigns =
-      assigns
-      |> Map.put_new(:search_query, "")
-      |> Map.put_new(:search_results, [])
-      |> Map.put_new(:show_search_results, false)
 
     ~H"""
     <!-- Fixed Header Container -->
