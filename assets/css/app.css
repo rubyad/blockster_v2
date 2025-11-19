@@ -232,8 +232,8 @@ html {
 /* Custom Font-Face Declarations */
 @font-face {
     font-family: 'segoe_italic';
-    src: url('fonts/SegoeUIThis-Italic.woff2') format('woff2'),
-        url('fonts/SegoeUIThis-Italic.woff') format('woff');
+    src: url('/fonts/SegoeUIThis-Italic.woff2') format('woff2'),
+        url('/fonts/SegoeUIThis-Italic.woff') format('woff');
     font-weight: normal;
     font-style: italic;
     font-display: swap;
@@ -241,8 +241,8 @@ html {
 
 @font-face {
     font-family: 'segoe_regular';
-    src: url('fonts/SegoeUIThis.woff2') format('woff2'),
-        url('fonts/SegoeUIThis.woff') format('woff');
+    src: url('/fonts/SegoeUIThis.woff2') format('woff2'),
+        url('/fonts/SegoeUIThis.woff') format('woff');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -250,8 +250,8 @@ html {
 
 @font-face {
     font-family: 'segoe_bold_it';
-    src: url('SegoeUIThis-BoldItalic.woff2') format('woff2'),
-        url('SegoeUIThis-BoldItalic.woff') format('woff');
+    src: url('/fonts/SegoeUIThis-BoldItalic.woff2') format('woff2'),
+        url('/fonts/SegoeUIThis-BoldItalic.woff') format('woff');
     font-weight: bold;
     font-style: italic;
     font-display: swap;
@@ -259,47 +259,14 @@ html {
 
 @font-face {
     font-family: 'segoe_bold';
-    src: url('fonts/SegoeUIThis-Bold.woff2') format('woff2'),
-        url('fonts/SegoeUIThis-Bold.woff') format('woff');
+    src: url('/fonts/SegoeUIThis-Bold.woff2') format('woff2'),
+        url('/fonts/SegoeUIThis-Bold.woff') format('woff');
     font-weight: bold;
     font-style: normal;
     font-display: swap;
 }
 
-/* Commented out missing Haas Grotesk fonts - files don't exist
-@font-face {
-    font-family: 'haas_medium_65';
-    src: url('fonts/neuehaasdisplaymediu-webfont.woff2') format('woff2'),
-        url('fonts/neuehaasdisplaymediu-webfont.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: 'haas_roman_55';
-    src: url('fonts/neuehaasgrotdispround-55roman-trial-webfont.woff2') format('woff2'),
-         url('fonts/neuehaasgrotdispround-55roman-trial-webfont.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: 'haas_bold_75';
-    src: url('fonts/neuehaasgrotdisp-75bold-trial-webfont.woff2') format('woff2'),
-        url('fonts/neuehaasgrotdisp-75bold-trial-webfont.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: 'haas_thin_45';
-    src: url('fonts/neuehaasgrotdispround-45light-trial-webfont.woff2') format('woff2'),
-        url('fonts/neuehaasgrotdispround-45light-trial-webfont.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-}
-*/
-
+/* Haas Grotesk fonts - Using system font fallbacks since original files don't exist */
 /* Fallback font definitions using system fonts */
 @font-face {
     font-family: 'haas_medium_65';
