@@ -8,23 +8,30 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    posts = Blog.list_published_posts()
-    interview_posts =
-      Blog.list_published_posts_by_tag("interview", limit: 10)
-      |> Enum.shuffle()
+    # Get curated posts for Latest News section (10 positions)
+    latest_news_posts = Blog.get_curated_posts_for_section("latest_news")
+
+    # Get curated posts for Conversations section (6 positions)
+    conversations_posts = Blog.get_curated_posts_for_section("conversations")
+
     categories = Blog.list_categories()
 
     {:ok,
      socket
-     |> assign(:posts, posts)
-     |> assign(:interview_posts, interview_posts)
+     |> assign(:latest_news_posts, latest_news_posts)
+     |> assign(:conversations_posts, conversations_posts)
      |> assign(:categories, categories)
      |> assign(:selected_category, nil)
      |> assign(:selected_interview_category, nil)
      |> assign(:page_title, "Latest Posts")
      |> assign(:search_query, "")
      |> assign(:search_results, [])
-     |> assign(:show_search_results, false)}
+     |> assign(:show_search_results, false)
+     |> assign(:show_post_selector, false)
+     |> assign(:selector_section, nil)
+     |> assign(:selector_position, nil)
+     |> assign(:selector_query, "")
+     |> assign(:selector_results, [])}
   end
 
   @impl true
@@ -128,5 +135,69 @@ defmodule BlocksterV2Web.PostLive.Index do
      socket
      |> assign(:posts, Blog.list_published_posts())
      |> assign(:selected_category, nil)}
+  end
+
+  @impl true
+  def handle_event("open_post_selector", %{"section" => section, "position" => position}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_post_selector, true)
+     |> assign(:selector_section, section)
+     |> assign(:selector_position, String.to_integer(position))
+     |> assign(:selector_query, "")
+     |> assign(:selector_results, [])}
+  end
+
+  @impl true
+  def handle_event("close_post_selector", _, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_post_selector, false)
+     |> assign(:selector_section, nil)
+     |> assign(:selector_position, nil)
+     |> assign(:selector_query, "")
+     |> assign(:selector_results, [])}
+  end
+
+  @impl true
+  def handle_event("search_selector_posts", %{"value" => query}, socket) do
+    results = if String.length(query) >= 2 do
+      Blog.search_posts_fulltext(query, limit: 20)
+    else
+      []
+    end
+
+    {:noreply,
+     socket
+     |> assign(:selector_query, query)
+     |> assign(:selector_results, results)}
+  end
+
+  @impl true
+  def handle_event("select_post", %{"post_id" => post_id}, socket) do
+    section = socket.assigns.selector_section
+    position = socket.assigns.selector_position
+    post_id = String.to_integer(post_id)
+
+    case Blog.update_curated_post_position(section, position, post_id) do
+      {:ok, _} ->
+        # Reload the curated posts
+        latest_news_posts = Blog.get_curated_posts_for_section("latest_news")
+        conversations_posts = Blog.get_curated_posts_for_section("conversations")
+
+        {:noreply,
+         socket
+         |> assign(:latest_news_posts, latest_news_posts)
+         |> assign(:conversations_posts, conversations_posts)
+         |> assign(:show_post_selector, false)
+         |> assign(:selector_section, nil)
+         |> assign(:selector_position, nil)
+         |> assign(:selector_query, "")
+         |> assign(:selector_results, [])
+         |> put_flash(:info, "Post updated successfully")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update post")}
+    end
   end
 end

@@ -9,6 +9,7 @@ defmodule BlocksterV2.Blog do
   alias BlocksterV2.Blog.Tag
   alias BlocksterV2.Blog.Category
   alias BlocksterV2.Blog.Hub
+  alias BlocksterV2.Blog.CuratedPost
 
   # Base queries with proper preloading
 
@@ -603,5 +604,46 @@ defmodule BlocksterV2.Blog do
     )
     |> Repo.all()
     |> Map.new()
+  end
+
+  @doc """
+  Returns curated posts for a given section, ordered by position.
+  Returns the actual Post records, not CuratedPost records.
+
+  ## Examples
+
+      iex> get_curated_posts_for_section("latest_news")
+      [%Post{}, %Post{}, ...]
+
+      iex> get_curated_posts_for_section("conversations")
+      [%Post{}, %Post{}, ...]
+  """
+  def get_curated_posts_for_section(section) do
+    from(cp in CuratedPost,
+      where: cp.section == ^section,
+      order_by: cp.position,
+      join: p in assoc(cp, :post),
+      where: not is_nil(p.published_at),
+      preload: [post: {p, [:author, :category, :hub, :tags]}]
+    )
+    |> Repo.all()
+    |> Enum.map(& &1.post)
+    |> populate_author_names()
+  end
+
+  @doc """
+  Updates the post_id for a specific curated post position.
+  Returns {:ok, curated_post} or {:error, changeset}.
+  """
+  def update_curated_post_position(section, position, post_id) do
+    case Repo.get_by(CuratedPost, section: section, position: position) do
+      nil ->
+        {:error, :not_found}
+
+      curated_post ->
+        curated_post
+        |> CuratedPost.changeset(%{post_id: post_id})
+        |> Repo.update()
+    end
   end
 end

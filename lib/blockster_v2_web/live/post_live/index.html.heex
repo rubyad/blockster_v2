@@ -56,17 +56,29 @@
         <div class="container mx-auto">
           <div class="inner xl:flex gap-6 xl:items-stretch">
             <div class="left-content xl:w-2/3 w-full flex flex-col">
-              <%= if @posts == [] do %>
+              <%= if @latest_news_posts == [] do %>
                 <div class="text-center py-20">
                   <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
                 </div>
               <% else %>
                 <div class="latest-news-blog_cards flex md:flex-row flex-col md:gap-3 md:items-stretch flex-1">
-                  <%= for chunk <- Enum.chunk_every(Enum.take(@posts, 5), 5, 5, []) do %>
-                    <!-- Left Column - 2 small cards -->
+                    <!-- Left Column - 2 small cards (Positions 1-2) -->
                     <div class="md:w-1/3 flex flex-col gap-3 flex-1">
-                      <%= for post <- Enum.slice(chunk, 0..1) do %>
-                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col">
+                      <%= for {post, idx} <- Enum.with_index(Enum.slice(@latest_news_posts, 0, 2), 1) do %>
+                        <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                          <%= if assigns[:current_user] && @current_user.is_admin do %>
+                            <button
+                              phx-click="open_post_selector"
+                              phx-value-section="latest_news"
+                              phx-value-position={idx}
+                              class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                              </svg>
+                            </button>
+                          <% end %>
+                          <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                             <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
                               <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                                 <%= if post.featured_image do %>
@@ -105,14 +117,28 @@
                               <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
                             </div>
                           </.link>
+                        </div>
                       <% end %>
                     </div>
 
-                    <!-- Middle Column - 1 tall card -->
-                    <%= if Enum.at(chunk, 2) do %>
-                      <% post = Enum.at(chunk, 2) %>
+                    <!-- Middle Column - 1 tall card (Position 3) -->
+                    <%= if Enum.at(@latest_news_posts, 2) do %>
+                      <% post = Enum.at(@latest_news_posts, 2) %>
                       <div class="md:w-1/3 md:mt-0 mt-3 flex flex-1">
-                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col">
+                        <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                          <%= if assigns[:current_user] && @current_user.is_admin do %>
+                            <button
+                              phx-click="open_post_selector"
+                              phx-value-section="latest_news"
+                              phx-value-position="3"
+                              class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                              </svg>
+                            </button>
+                          <% end %>
+                          <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                           <div class="img-wrapper md:h-[537px] h-[330px]">
                             <%= if post.featured_image do %>
                               <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -148,14 +174,28 @@
                             </div>
                             <h3 class="font-haas_medium_65 text-[#141414] mt-2">{post.title}</h3>
                           </div>
-                        </.link>
+                          </.link>
+                        </div>
                       </div>
                     <% end %>
 
-                    <!-- Right Column - 2 small cards -->
+                    <!-- Right Column - 2 small cards (Positions 4-5) -->
                     <div class="md:w-1/3 flex flex-col gap-3 flex-1">
-                      <%= for post <- Enum.slice(chunk, 3..4) do %>
-                        <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col">
+                      <%= for {post, idx} <- Enum.with_index(Enum.slice(@latest_news_posts, 3, 2), 4) do %>
+                        <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                          <%= if assigns[:current_user] && @current_user.is_admin do %>
+                            <button
+                              phx-click="open_post_selector"
+                              phx-value-section="latest_news"
+                              phx-value-position={idx}
+                              class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                              </svg>
+                            </button>
+                          <% end %>
+                          <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                           <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
                             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                               <%= if post.featured_image do %>
@@ -193,10 +233,10 @@
                             </div>
                             <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
                           </div>
-                        </.link>
+                          </.link>
+                        </div>
                       <% end %>
                     </div>
-                  <% end %>
                 </div>
               <% end %>
             </div>
@@ -205,12 +245,25 @@
             <div class="right-content xl:w-1/3 w-full flex flex-col">
               <div class="right-innner border-[#1414141A] border-[#1px] rounded-[12px] md:p-6 p-3 pb-0 lg:mt-0 mt-5 bg-white flex-1 flex flex-col">
                 <%
-                  # Take the next 5 posts after the main 5 for Recommended section
-                  recommended_posts = Enum.slice(@posts, 5, 5)
+                  # Recommended sidebar (Positions 6-10)
+                  recommended_posts = Enum.slice(@latest_news_posts, 5, 5)
                 %>
 
-                <%= for {post, idx} <- Enum.with_index(recommended_posts, 4) do %>
-                  <.link navigate={~p"/#{post.slug}"} class="card-horizontal-variant flex md:gap-4 px-2 py-2 gap-3 md:mb-4 mb-1 md:pb-4 pb-3 border-b border-[#E8EAEC] justify-between xl:items-center">
+                <%= for {post, idx} <- Enum.with_index(recommended_posts, 6) do %>
+                  <div class="card-horizontal-variant flex md:gap-4 px-2 py-2 gap-3 md:mb-4 mb-1 md:pb-4 pb-3 border-b border-[#E8EAEC] justify-between xl:items-center relative">
+                    <%= if assigns[:current_user] && @current_user.is_admin do %>
+                      <button
+                        phx-click="open_post_selector"
+                        phx-value-section="latest_news"
+                        phx-value-position={idx}
+                        class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    <% end %>
+                    <.link navigate={~p"/#{post.slug}"} class="flex-1 flex md:gap-4 gap-3">
                     <div>
                       <div class="flex justify-between items-center">
                         <ul class="gap-3 flex">
@@ -235,7 +288,8 @@
                     <div class="img-wrapper">
                       <img src={post.featured_image} class="object-cover rounded-[12px] h-[115px] min-w-[115px] max-md:min-w-20 max-md:h-20" alt="" />
                     </div>
-                  </.link>
+                    </.link>
+                  </div>
                 <% end %>
               </div>
             </div>
@@ -281,9 +335,9 @@
               </div>
 
               <%
-                # Use interview posts from LiveView (posts with Interview tag)
-                top_row_posts = Enum.take(@interview_posts, 3)
-                bottom_row_posts = Enum.slice(@interview_posts, 3, 2)
+                # Conversations section curated posts (Positions 1-6)
+                top_row_posts = Enum.take(@conversations_posts, 3)
+                bottom_row_posts = Enum.slice(@conversations_posts, 3, 2)
               %>
 
               <!-- Latest News Blog Cards -->
@@ -294,7 +348,20 @@
                   <div class="md:w-1/3 w-full flex flex-col">
                     <%= if Enum.at(top_row_posts, 0) do %>
                       <% post = Enum.at(top_row_posts, 0) %>
-                      <.link navigate={~p"/#{post.slug}"} class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                      <div class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white relative">
+                        <%= if assigns[:current_user] && @current_user.is_admin do %>
+                          <button
+                            phx-click="open_post_selector"
+                            phx-value-section="conversations"
+                            phx-value-position="1"
+                            class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                            </svg>
+                          </button>
+                        <% end %>
+                        <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col">
                         <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
                           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                             <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -321,7 +388,8 @@
                           </div>
                           <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-sm:text-lg max-sm:leading-[1.4]"><%= post.title %></h4>
                         </div>
-                      </.link>
+                        </.link>
+                      </div>
                     <% end %>
                   </div>
 
@@ -329,7 +397,20 @@
                   <div class="md:w-1/3 w-full flex flex-col">
                     <%= if Enum.at(top_row_posts, 1) do %>
                       <% post = Enum.at(top_row_posts, 1) %>
-                      <.link navigate={~p"/#{post.slug}"} class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                      <div class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white relative">
+                        <%= if assigns[:current_user] && @current_user.is_admin do %>
+                          <button
+                            phx-click="open_post_selector"
+                            phx-value-section="conversations"
+                            phx-value-position="2"
+                            class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                            </svg>
+                          </button>
+                        <% end %>
+                        <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col">
                         <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
                           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                             <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -356,7 +437,8 @@
                           </div>
                           <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-sm:text-lg max-sm:leading-[1.4]"><%= post.title %></h4>
                         </div>
-                      </.link>
+                        </.link>
+                      </div>
                     <% end %>
                   </div>
 
@@ -364,7 +446,20 @@
                   <div class="md:w-1/3 w-full flex flex-col">
                     <%= if Enum.at(top_row_posts, 2) do %>
                       <% post = Enum.at(top_row_posts, 2) %>
-                      <.link navigate={~p"/#{post.slug}"} class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white">
+                      <div class="flex flex-col h-full rounded-lg p-2 border-[#1414141A] border-[1px] bg-white relative">
+                        <%= if assigns[:current_user] && @current_user.is_admin do %>
+                          <button
+                            phx-click="open_post_selector"
+                            phx-value-section="conversations"
+                            phx-value-position="3"
+                            class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                            </svg>
+                          </button>
+                        <% end %>
+                        <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col">
                         <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
                           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                             <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -391,7 +486,8 @@
                           </div>
                           <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-sm:text-lg max-sm:leading-[1.4]"><%= post.title %></h4>
                         </div>
-                      </.link>
+                        </.link>
+                      </div>
                     <% end %>
                   </div>
                 </div>
@@ -400,7 +496,20 @@
                 <div class="row-bottom flex md:flex-row flex-col gap-3 m mt-3 max-md:hidden">
                   <%= if Enum.at(bottom_row_posts, 0) do %>
                     <% post = Enum.at(bottom_row_posts, 0) %>
-                    <.link navigate={~p"/#{post.slug}"} class="card-horizontal-variant flex gap-4 items-center p-2 bg-white rounded-[12px] block">
+                    <div class="card-horizontal-variant flex gap-4 items-center p-2 bg-white rounded-[12px] relative">
+                      <%= if assigns[:current_user] && @current_user.is_admin do %>
+                        <button
+                          phx-click="open_post_selector"
+                          phx-value-section="conversations"
+                          phx-value-position="4"
+                          class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                          </svg>
+                        </button>
+                      <% end %>
+                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex gap-4 items-center">
                       <div class="img-wrapper rounded-[12px] overflow-hidden" style="width: 173px; height: 173px; flex-shrink: 0;">
                         <img src={post.featured_image} class="object-cover w-full h-full rounded-[12px]" alt="" />
                       </div>
@@ -425,12 +534,26 @@
                         </div>
                         <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-xs:text-lg max-xs:leading-[1.4]"><%= post.title %></h4>
                       </div>
-                    </.link>
+                      </.link>
+                    </div>
                   <% end %>
 
                   <%= if Enum.at(bottom_row_posts, 1) do %>
                     <% post = Enum.at(bottom_row_posts, 1) %>
-                    <.link navigate={~p"/#{post.slug}"} class="card-horizontal-variant md:flex gap-4 items-center p-2 bg-white rounded-[12px] hidden">
+                    <div class="card-horizontal-variant md:flex gap-4 items-center p-2 bg-white rounded-[12px] hidden relative">
+                      <%= if assigns[:current_user] && @current_user.is_admin do %>
+                        <button
+                          phx-click="open_post_selector"
+                          phx-value-section="conversations"
+                          phx-value-position="5"
+                          class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                          </svg>
+                        </button>
+                      <% end %>
+                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex gap-4 items-center">
                       <div class="img-wrapper rounded-[12px] overflow-hidden" style="width: 173px; height: 173px; flex-shrink: 0;">
                         <img src={post.featured_image} class="object-cover w-full h-full rounded-[12px]" alt="" />
                       </div>
@@ -455,17 +578,31 @@
                         </div>
                         <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-xs:text-lg max-xs:leading-[1.4]"><%= post.title %></h4>
                       </div>
-                    </.link>
+                      </.link>
+                    </div>
                   <% end %>
                 </div>
               </div>
 
             </div>
 
-            <!-- Desktop "Most Viewed" Sidebar -->
+            <!-- Desktop "Most Viewed" Sidebar (Position 6) -->
             <div class="right-content xl:w-1/3 w-1/2 md:flex hidden flex-col">
-              <%= if large_interview_post = Enum.at(@interview_posts, 5) do %>
-                <.link navigate={~p"/#{large_interview_post.slug}"} class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 flex flex-col flex-1">
+              <%= if large_interview_post = Enum.at(@conversations_posts, 5) do %>
+                <div class="inner-wrapper p-6 card-info-bitcoin rounded-[18px] pb-16 flex flex-col flex-1 relative">
+                  <%= if assigns[:current_user] && @current_user.is_admin do %>
+                    <button
+                      phx-click="open_post_selector"
+                      phx-value-section="conversations"
+                      phx-value-position="6"
+                      class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  <% end %>
+                  <.link navigate={~p"/#{large_interview_post.slug}"} class="flex-1 flex flex-col">
                   <div class="rounded-[100px] button-group p-2 inline-flex gap-2 z-10 relative">
                     <span>
                       <.lightning_icon id="bux_icon_14" size="34" />
@@ -489,7 +626,8 @@
                       <%= large_interview_post.title %>
                     </h4>
                   </div>
-                </.link>
+                  </.link>
+                </div>
               <% end %>
             </div>
           </div>
@@ -1016,3 +1154,59 @@
         </div>
       </section>
 </div>
+
+<!-- Post Selector Modal -->
+<%= if @show_post_selector do %>
+  <div class="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" phx-click-away="close_post_selector">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-haas_medium_65 text-[#141414]">Select Post for Position <%= @selector_position %></h3>
+        <button phx-click="close_post_selector" class="text-[#515B70] hover:text-[#141414]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form phx-change="search_selector_posts">
+        <input
+          type="text"
+          name="value"
+          placeholder="Search posts..."
+          value={@selector_query}
+          class="w-full px-4 py-2 border border-[#E7E8F1] rounded-lg mb-4 font-haas_roman_55 focus:outline-none focus:border-[#8AE388]"
+        />
+      </form>
+
+      <%= if @selector_query != "" and length(@selector_results) > 0 do %>
+        <div class="space-y-2">
+          <%= for post <- @selector_results do %>
+            <button
+              phx-click="select_post"
+              phx-value-post_id={post.id}
+              class="w-full p-3 border border-[#E7E8F1] rounded-lg hover:border-[#8AE388] hover:bg-gray-50 transition-colors text-left cursor-pointer"
+            >
+              <div class="flex gap-3">
+                <%= if post.featured_image do %>
+                  <img src={post.featured_image} alt="" class="w-16 h-16 rounded object-cover flex-shrink-0" />
+                <% end %>
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-haas_medium_65 text-[#141414] text-sm truncate"><%= post.title %></h4>
+                  <%= if post.category do %>
+                    <span class="text-xs text-[#515B70] font-haas_roman_55"><%= post.category.name %></span>
+                  <% end %>
+                </div>
+              </div>
+            </button>
+          <% end %>
+        </div>
+      <% else %>
+        <%= if @selector_query != "" do %>
+          <p class="text-center text-[#515B70] py-8 font-haas_roman_55">No posts found</p>
+        <% else %>
+          <p class="text-center text-[#515B70] py-8 font-haas_roman_55">Start typing to search for posts...</p>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
