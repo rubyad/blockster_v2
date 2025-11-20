@@ -14,12 +14,28 @@ defmodule BlocksterV2Web.PostLive.Index do
     # Get curated posts for Conversations section (6 positions)
     conversations_posts = Blog.get_curated_posts_for_section("conversations")
 
+    # Get 5 most recent Business category posts
+    business_posts = Blog.list_published_posts_by_category("business", limit: 5)
+
+    # Get 3 most recent People category posts
+    people_posts = Blog.list_published_posts_by_category("people", limit: 3)
+
+    # Get 6 most recent Tech category posts
+    tech_posts = Blog.list_published_posts_by_category("tech", limit: 6)
+
+    # Get 5 most recent DeFi category posts (4 small cards + 1 large sidebar)
+    defi_posts = Blog.list_published_posts_by_category("defi", limit: 5)
+
     categories = Blog.list_categories()
 
     {:ok,
      socket
      |> assign(:latest_news_posts, latest_news_posts)
      |> assign(:conversations_posts, conversations_posts)
+     |> assign(:business_posts, business_posts)
+     |> assign(:people_posts, people_posts)
+     |> assign(:tech_posts, tech_posts)
+     |> assign(:defi_posts, defi_posts)
      |> assign(:categories, categories)
      |> assign(:selected_category, nil)
      |> assign(:selected_interview_category, nil)
