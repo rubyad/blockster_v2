@@ -229,43 +229,6 @@ html {
   display: contents;
 }
 
-/* Custom Font-Face Declarations */
-@font-face {
-    font-family: 'segoe_italic';
-    src: url('/fonts/SegoeUIThis-Italic.woff2') format('woff2'),
-        url('/fonts/SegoeUIThis-Italic.woff') format('woff');
-    font-weight: normal;
-    font-style: italic;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'segoe_regular';
-    src: url('/fonts/SegoeUIThis.woff2') format('woff2'),
-        url('/fonts/SegoeUIThis.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'segoe_bold_it';
-    src: url('/fonts/SegoeUIThis-BoldItalic.woff2') format('woff2'),
-        url('/fonts/SegoeUIThis-BoldItalic.woff') format('woff');
-    font-weight: bold;
-    font-style: italic;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'segoe_bold';
-    src: url('/fonts/SegoeUIThis-Bold.woff2') format('woff2'),
-        url('/fonts/SegoeUIThis-Bold.woff') format('woff');
-    font-weight: bold;
-    font-style: normal;
-    font-display: swap;
-}
-
 /* Haas Grotesk fonts - Using system font fallbacks since original files don't exist */
 /* Fallback font definitions using system fonts */
 @font-face {

@@ -106,10 +106,13 @@ defmodule BlocksterV2.Blog do
   def list_published_posts_by_tag(tag_slug, opts \\ []) do
     limit = Keyword.get(opts, :limit)
 
-    from(p in published_posts_query(),
+    from(p in Post,
       join: t in assoc(p, :tags),
+      where: not is_nil(p.published_at),
       where: t.slug == ^tag_slug,
-      limit: ^limit
+      order_by: [desc: p.published_at],
+      limit: ^limit,
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
     )
     |> Repo.all()
     |> populate_author_names()
@@ -122,10 +125,13 @@ defmodule BlocksterV2.Blog do
   def list_published_posts_by_category(category_slug, opts \\ []) do
     limit = Keyword.get(opts, :limit)
 
-    from(p in published_posts_query(),
+    from(p in Post,
       join: c in assoc(p, :category),
+      where: not is_nil(p.published_at),
       where: c.slug == ^category_slug,
-      limit: ^limit
+      order_by: [desc: p.published_at],
+      limit: ^limit,
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
     )
     |> Repo.all()
     |> populate_author_names()
@@ -142,18 +148,24 @@ defmodule BlocksterV2.Blog do
 
     query = if hub && hub.tag_name do
       # Find posts that either have this hub_id OR have a tag matching the hub's tag_name
-      from(p in published_posts_query(),
+      from(p in Post,
         left_join: pt in "post_tags", on: pt.post_id == p.id,
         left_join: t in Tag, on: t.id == pt.tag_id,
+        where: not is_nil(p.published_at),
         where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
         distinct: p.id,
-        limit: ^limit
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
       )
     else
       # Fallback to just hub_id if hub doesn't have a tag_name
-      from(p in published_posts_query(),
+      from(p in Post,
+        where: not is_nil(p.published_at),
         where: p.hub_id == ^hub_id,
-        limit: ^limit
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
       )
     end
 

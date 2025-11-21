@@ -1,0 +1,55 @@
+<section class="blog-section md:py-20 py-6">
+  <div class="container mx-auto">
+    <div class="inner gap-6">
+      <div class="left-content">
+        <div class="search-wrapper flex justify-between items-center">
+          <h2 class="font-haas_medium_65">People & Profiles</h2>
+        </div>
+
+        <%= if @people_posts == [] do %>
+          <div class="text-center py-20">
+            <p class="text-[#515B70] font-haas_roman_55">No people posts available yet.</p>
+          </div>
+        <% else %>
+          <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col gap-3">
+            <%= for {post, idx} <- Enum.with_index(@people_posts) do %>
+              <div class="md:w-1/3 gap-3">
+                <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
+                  <!-- Content area that starts at 50% height -->
+                  <div class="absolute bottom-0 left-0 right-0 h-1/2 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
+                    <div class="absolute bottom-0 left-0 right-0 p-8 max-md:px-[22px] pb-[12px] pt-[22px] translate-y-0 transition-transform duration-500 ease-in-out group-hover:-translate-y-[50%]">
+                      <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
+                        <ul class="gap-3 flex">
+                          <%= if post.category do %>
+                            <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span>{post.category.name}</span></li>
+                          <% end %>
+                          <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
+                            <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                          </li>
+                        </ul>
+                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                            <.lightning_icon id={"bux_people_#{post.id}_#{idx}"} size="20" />
+                            <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[28px] leading-[1.2] max-md:text-[20px]">{post.title}</h4>
+                      <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.</p>
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="flex items-center justify-center mt-6">
+            <button class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y text-[#000000] md:w-auto w-full rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
+              Read more news
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</section>

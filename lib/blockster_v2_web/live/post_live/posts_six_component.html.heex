@@ -1,0 +1,188 @@
+<section class="grid-section-reverse md:py-20 pt-0 pb-10">
+  <div class="container mx-auto">
+    <nav aria-label="Breadcrumb">
+      <ol class="flex items-center gap-1.5">
+        <li>
+          <a href="#" class="font-haas_medium_65 text-[#515B70] text-xs">News</a>
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
+            <path d="M7 3.375L10.125 6.49999L7 9.625M9.75 6.49999H1.875" stroke="black" stroke-width="1.5" stroke-linecap="square"></path>
+          </svg>
+        </li>
+        <li>
+          <a href="#" class="font-haas_roman_55 text-[#515B70] text-xs font-[400]">DeFi</a>
+        </li>
+      </ol>
+    </nav>
+
+    <h2 class="font-haas_medium_65 mb-6">DeFi Innovations & Trends</h2>
+
+    <%= if assigns[:defi_posts] && length(@defi_posts) >= 4 do %>
+      <div class="flex gap-3 md:flex-row flex-col-reverse">
+        <!-- Left side: 2/3 width - 4 small cards in 2 rows -->
+        <div class="md:w-2/3 w-full">
+          <!-- First row: 2 small cards -->
+          <div class="flex lg:flex-row flex-col gap-3 wide-card">
+            <div class="w-full flex md:flex-row flex-col gap-3">
+              <%= if Enum.at(@defi_posts, 0) do %>
+                <% post = Enum.at(@defi_posts, 0) %>
+                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
+                  <div class="img-wrapper h-[163px]">
+                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                  </div>
+                  <div class="px-2 py-2">
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <%= if post.category do %>
+                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
+                        <% end %>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                        </li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <.lightning_icon id={"bux_defi_1_#{post.id}"} size="20" />
+                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
+                  </div>
+                </.link>
+              <% end %>
+
+              <%= if Enum.at(@defi_posts, 1) do %>
+                <% post = Enum.at(@defi_posts, 1) %>
+                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
+                  <div class="img-wrapper h-[163px]">
+                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                  </div>
+                  <div class="px-2 py-2">
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <%= if post.category do %>
+                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
+                        <% end %>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                        </li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <.lightning_icon id={"bux_defi_2_#{post.id}"} size="20" />
+                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
+                  </div>
+                </.link>
+              <% end %>
+            </div>
+          </div>
+
+          <!-- Second row: 2 small cards -->
+          <div class="flex lg:flex-row flex-col gap-3 wide-card mt-3">
+            <div class="w-full flex md:flex-row flex-col gap-3">
+              <%= if Enum.at(@defi_posts, 2) do %>
+                <% post = Enum.at(@defi_posts, 2) %>
+                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
+                  <div class="img-wrapper h-[163px]">
+                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                  </div>
+                  <div class="px-2 py-2">
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <%= if post.category do %>
+                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
+                        <% end %>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                        </li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <.lightning_icon id={"bux_defi_3_#{post.id}"} size="20" />
+                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
+                  </div>
+                </.link>
+              <% end %>
+
+              <%= if Enum.at(@defi_posts, 3) do %>
+                <% post = Enum.at(@defi_posts, 3) %>
+                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
+                  <div class="img-wrapper h-[163px]">
+                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                  </div>
+                  <div class="px-2 py-2">
+                    <div class="flex justify-between items-center">
+                      <ul class="gap-3 flex">
+                        <%= if post.category do %>
+                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
+                        <% end %>
+                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                        </li>
+                      </ul>
+                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                          <.lightning_icon id={"bux_defi_4_#{post.id}"} size="20" />
+                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
+                  </div>
+                </.link>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right side: 1/3 width - Large sidebar card -->
+        <%= if length(@defi_posts) >= 5 && Enum.at(@defi_posts, 4) do %>
+          <% post = Enum.at(@defi_posts, 4) %>
+          <.link navigate={~p"/#{post.slug}"} class="group md:w-1/3 w-full rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
+            <!-- Content area that starts at bottom third height -->
+            <div class="absolute bottom-0 left-0 right-0 h-1/3 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
+              <div class="absolute top-0 left-0 right-0 p-6 max-md:px-[22px] pb-[12px] pt-[22px] transition-all duration-500 ease-in-out">
+                <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
+                  <ul class="gap-3 flex">
+                    <%= if post.category do %>
+                      <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span>{post.category.name}</span></li>
+                    <% end %>
+                    <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
+                      <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                    </li>
+                  </ul>
+                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                      <.lightning_icon id={"bux_defi_5_#{post.id}"} size="20" />
+                      <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                    </button>
+                  </div>
+                </div>
+                <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[28px] leading-[1.2] max-md:text-[20px]">{post.title}</h4>
+                <%= if post.excerpt do %>
+                  <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">{post.excerpt}</p>
+                <% end %>
+              </div>
+            </div>
+          </.link>
+        <% end %>
+      </div>
+
+      <div class="btn-wrapper text-center mt-6">
+        <button class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y md:w-auto w-full text-[#000000] rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
+          Read more news
+        </button>
+      </div>
+    <% end %>
+  </div>
+</section>
