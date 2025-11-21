@@ -142,6 +142,33 @@ window.toggleDropdown = function(dropdownId) {
   }
 };
 
+// Global function to handle wallet disconnect
+window.handleWalletDisconnect = async function() {
+  try {
+    // Call backend logout endpoint
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    // Clear localStorage wallet data
+    localStorage.removeItem('walletAddress');
+    localStorage.removeItem('smartAccountAddress');
+
+    // Try to disconnect wallets if ThirdwebLogin hook is available
+    if (window.ThirdwebLoginHook && typeof window.ThirdwebLoginHook.handleDisconnect === 'function') {
+      await window.ThirdwebLoginHook.handleDisconnect();
+    }
+
+    // Redirect to homepage
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Disconnect error:', error);
+    // Still redirect to homepage even if there's an error
+    window.location.href = '/';
+  }
+};
+
 // Event listener to clear tag input
 window.addEventListener("phx:clear-tag-input", () => {
   const tagInput = document.getElementById("tag-input");
