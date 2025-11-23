@@ -1,29 +1,14 @@
-<section class="grid-section-reverse md:py-20 py-10">
+<section id={"component-#{@id}"} class="grid-section-reverse md:py-20 py-10">
   <div class="container mx-auto">
-    <nav aria-label="Breadcrumb">
-      <ol class="flex items-center gap-1.5">
-        <li>
-          <a href="#" class="font-haas_medium_65 text-[#515B70] text-xs">News</a>
-        </li>
-        <li>
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
-            <path d="M7 3.375L10.125 6.49999L7 9.625M9.75 6.49999H1.875" stroke="black" stroke-width="1.5" stroke-linecap="square"></path>
-          </svg>
-        </li>
-        <li>
-          <a href="#" class="font-haas_roman_55 text-[#515B70] text-xs font-[400]">NFT Trends</a>
-        </li>
-      </ol>
-    </nav>
 
     <h2 class="font-haas_medium_65 mb-6">Crypto Lifestyle & Web3 Culture Trends</h2>
 
-    <%= if assigns[:tech_posts] && length(@tech_posts) >= 5 do %>
+    <%= if length(@posts) >= 5 do %>
       <!-- First Row: Large card left, 2 small cards right -->
       <div class="flex lg:flex-row flex-col gap-4 wide-card">
         <!-- Large card (50%) -->
-        <%= if Enum.at(@tech_posts, 0) do %>
-          <% post = Enum.at(@tech_posts, 0) %>
+        <%= if Enum.at(@posts, 0) do %>
+          <% post = Enum.at(@posts, 0) %>
           <.link navigate={~p"/#{post.slug}"} class="lg:w-1/2 w-full !rounded-[16px] bg-[#ffffff] bg-card !min-h-[276px] flex flex-col justify-end overflow-hidden" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center;"}>
             <div class="p-4 bg-blur backdrop-blur-md bg-black/30 h-[130px]">
               <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
@@ -49,8 +34,8 @@
 
         <!-- Two small cards (50% total, 25% each) -->
         <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-4 md:items-stretch">
-          <%= if Enum.at(@tech_posts, 1) do %>
-            <% post = Enum.at(@tech_posts, 1) %>
+          <%= if Enum.at(@posts, 1) do %>
+            <% post = Enum.at(@posts, 1) %>
             <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] border-[1px] bg-white">
               <div class="img-wrapper h-[163px]">
                 <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -77,8 +62,8 @@
             </.link>
           <% end %>
 
-          <%= if Enum.at(@tech_posts, 2) do %>
-            <% post = Enum.at(@tech_posts, 2) %>
+          <%= if Enum.at(@posts, 2) do %>
+            <% post = Enum.at(@posts, 2) %>
             <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] border-[1px] bg-white">
               <div class="img-wrapper h-[163px]">
                 <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -110,8 +95,8 @@
       <!-- Second Row: Reversed layout - 2 small cards left, large card right -->
       <div class="flex lg:flex-row-reverse flex-col gap-4 mt-3 wide-card">
         <!-- Large card (50%) -->
-        <%= if Enum.at(@tech_posts, 3) do %>
-          <% post = Enum.at(@tech_posts, 3) %>
+        <%= if Enum.at(@posts, 3) do %>
+          <% post = Enum.at(@posts, 3) %>
           <.link navigate={~p"/#{post.slug}"} class="lg:w-1/2 w-full !rounded-[16px] bg-[#ffffff] bg-card reverse-card !min-h-[276px] flex flex-col justify-end overflow-hidden" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center;"}>
             <div class="p-4 bg-blur backdrop-blur-md bg-black/30 h-[130px]">
               <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
@@ -137,8 +122,8 @@
 
         <!-- Two small cards (50% total, 25% each) -->
         <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-4 md:items-stretch">
-          <%= if Enum.at(@tech_posts, 4) do %>
-            <% post = Enum.at(@tech_posts, 4) %>
+          <%= if Enum.at(@posts, 4) do %>
+            <% post = Enum.at(@posts, 4) %>
             <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] border-[1px] bg-white">
               <div class="img-wrapper h-[163px]">
                 <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -165,8 +150,8 @@
             </.link>
           <% end %>
 
-          <%= if length(@tech_posts) >= 6 && Enum.at(@tech_posts, 5) do %>
-            <% post = Enum.at(@tech_posts, 5) %>
+          <%= if length(@posts) >= 6 && Enum.at(@posts, 5) do %>
+            <% post = Enum.at(@posts, 5) %>
             <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] border-[1px] bg-white">
               <div class="img-wrapper h-[163px]">
                 <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />

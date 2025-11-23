@@ -1,4 +1,4 @@
-<section class="blog-section md:py-20 py-6">
+<section id={"component-#{@id}"} class="blog-section md:py-20 py-6">
   <div class="container mx-auto">
     <div class="inner gap-6">
       <div class="left-content">
@@ -6,13 +6,13 @@
           <h2 class="font-haas_medium_65">People & Profiles</h2>
         </div>
 
-        <%= if @people_posts == [] do %>
+        <%= if @posts == [] do %>
           <div class="text-center py-20">
             <p class="text-[#515B70] font-haas_roman_55">No people posts available yet.</p>
           </div>
         <% else %>
           <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col gap-3">
-            <%= for {post, idx} <- Enum.with_index(@people_posts) do %>
+            <%= for {post, idx} <- Enum.with_index(@posts) do %>
               <div class="md:w-1/3 gap-3">
                 <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
                   <!-- Content area that starts at 50% height -->

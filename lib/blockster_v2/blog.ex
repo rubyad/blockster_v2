@@ -124,15 +124,26 @@ defmodule BlocksterV2.Blog do
   """
   def list_published_posts_by_category(category_slug, opts \\ []) do
     limit = Keyword.get(opts, :limit)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
 
-    from(p in Post,
-      join: c in assoc(p, :category),
-      where: not is_nil(p.published_at),
-      where: c.slug == ^category_slug,
-      order_by: [desc: p.published_at],
-      limit: ^limit,
-      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
-    )
+    query =
+      from(p in Post,
+        join: c in assoc(p, :category),
+        where: not is_nil(p.published_at),
+        where: c.slug == ^category_slug,
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+      )
+
+    query =
+      if exclude_ids != [] do
+        from(p in query, where: p.id not in ^exclude_ids)
+      else
+        query
+      end
+
+    query
     |> Repo.all()
     |> populate_author_names()
   end

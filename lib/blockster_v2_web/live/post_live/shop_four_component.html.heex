@@ -1,0 +1,85 @@
+<section id={"component-#{@id}"} class="md:py-[60px] pt-7">
+  <div class="container">
+    <div class="hot-deals flex justify-between items-center flex-wrap gap-3">
+      <h2 class="font-haas_bold_75">Hot Deals</h2>
+      <ul class="gap-2 items-center mt- inline-flex whitespace-nowrap">
+        <li>
+          <button class="px-4 active-dark bg-[#EEF0F4] py-3 font-inter border-border-grey_12 rounded-[12px] block text-sm text-[#515B70] border-solid">All</button>
+        </li>
+        <li>
+          <button class="px-4 bg-[#EEF0F4] py-3 font-inter font-border-border-grey_12 rounded-[12px] block text-sm border-solid text-[#515B70]">T-shirts</button>
+        </li>
+        <li>
+          <button class="px-4 bg-[#EEF0F4] py-3 font-medium font-inter border-border-grey_12 rounded-[12px] block text-sm text-[#515B70] border-solid">Shoes</button>
+        </li>
+        <li>
+          <button class="px-4 font-medium bg-[#EEF0F4] font-medium py-3 font-inter border-border-grey_12 rounded-[12px] block text-sm text-[#515B70] border-solid">Wearables</button>
+        </li>
+      </ul>
+    </div>
+    <div class="categories cards-main grid md:grid-cols-3 gap-3 md:mt-8 mt-7">
+      <div class="card-category">
+        <a href="" class="block main h-[418px] rounded-[12px] overflow-hidden">
+          <img src="https://ik.imagekit.io/blockster/bg-shoes.png?tr=w-500" class="h-full object-cover w-full" alt="" />
+        </a>
+        <div class="py-4 flex flex-col items-center">
+          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Unofficial Standard Tee</h4>
+          <div class="gap-1 flex items-center">
+            <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
+            <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
+          </div>
+
+          <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block mt-2.5">
+            <button class="flex items-center whitespace-nowrap gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
+              <.lightning_icon size="20" />
+              <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-category">
+        <a href="" class="block main h-[418px] rounded-[12px] overflow-hidden coming-sooon-card relative">
+          <img src="https://ik.imagekit.io/blockster/girl-logo-back.png?tr=w-500" class="h-full object-contain w-full" alt="" />
+          <button class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex justify-center text-center justify-self-center items-center gap-1.5 rounded-[100px] px-6 md:py-3 min-w-[73px] bg-[#ffffff] px-3 py-2">
+            <span class="!md:text-[16px] !text-sm font-haas_medium_65 text-black">Coming Soon</span>
+          </button>
+        </a>
+        <div class="py-4 flex flex-col items-center">
+          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Unofficial Standard Tee</h4>
+          <div class="gap-1 flex items-center">
+            <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
+            <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
+          </div>
+
+          <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block mt-2.5">
+            <button class="flex items-center gap-1.5 bg-white whitespace-nowrap rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
+              <.lightning_icon size="20" />
+              <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-category">
+        <a href="" class="block main h-[418px] rounded-[12px] overflow-hidden">
+          <img src="https://ik.imagekit.io/blockster/beast-mode.png?tr=w-500" class="h-full object-cover w-full" alt="" />
+        </a>
+        <div class="py-4 flex flex-col items-center">
+          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Unofficial Standard Tee</h4>
+          <div class="gap-1 flex items-center">
+            <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
+            <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
+          </div>
+
+          <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block mt-2.5">
+            <button class="flex items-center whitespace-nowrap gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
+              <.lightning_icon size="20" />
+              <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

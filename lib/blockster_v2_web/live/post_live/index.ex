@@ -15,39 +15,70 @@ defmodule BlocksterV2Web.PostLive.Index do
     conversations_posts = Blog.get_curated_posts_for_section("conversations")
 
     # Get 5 most recent Business category posts
-    business_posts = Blog.list_published_posts_by_category("business", limit: 5)
+    # business_posts = Blog.list_published_posts_by_category("business", limit: 5)
 
     # Get 3 most recent People category posts
-    people_posts = Blog.list_published_posts_by_category("people", limit: 3)
+    # people_posts = Blog.list_published_posts_by_category("people", limit: 3)
 
     # Get 6 most recent Tech category posts
-    tech_posts = Blog.list_published_posts_by_category("tech", limit: 6)
+    # tech_posts = Blog.list_published_posts_by_category("tech", limit: 6)
 
     # Get 5 most recent DeFi category posts (4 small cards + 1 large sidebar)
-    defi_posts = Blog.list_published_posts_by_category("defi", limit: 5)
+    # defi_posts = Blog.list_published_posts_by_category("defi", limit: 5)
 
-    categories = Blog.list_categories()
+    # Create a single list of all displayed post IDs for tracking
+    displayed_post_ids =
+      (Enum.map(latest_news_posts, & &1.id) ++ Enum.map(conversations_posts, & &1.id))
+      |> Enum.uniq()
+    IO.inspect(displayed_post_ids, label: "Displayed Post IDs")
+    displayed_categories = []
+    displayed_tags = []
+    displayed_hubs = []
+    displayed_banners = ["how-it-works"]
+
+    components = [
+      %{module: BlocksterV2Web.PostLive.HowItWorksComponent, id: "how-it-works", type: "banner", content: "how-it-works"},
+      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: nil, type: "curated-posts", content: "curated"},
+      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: nil, type: "curated-posts", content: "curated"},
+      # %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
+      # %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
+      # %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"},
+      # %{module: BlocksterV2Web.PostLive.ShopTwoComponent, id: "shop-two", type: "shop", content: "general"},
+      # %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: people_posts, type: "category-posts", content: "people"},
+      # %{module: BlocksterV2Web.PostLive.FullWidthBannerComponent, id: "crypto-streetwear-hero", type: "banner", content: "streetwear"},
+      # %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: tech_posts, type: "category-posts", content: "tech"},
+      # %{module: BlocksterV2Web.PostLive.ShopThreeComponent, id: "shop-three", type: "shop", content: "general"},
+      # %{module: BlocksterV2Web.PostLive.PostsSixComponent, id: "posts-six", posts: defi_posts, type: "category-posts", content: "defi"},
+      # %{module: BlocksterV2Web.PostLive.ShopFourComponent, id: "shop-four", type: "shops", content: "general"}
+    ]
 
     {:ok,
-     socket
-     |> assign(:latest_news_posts, latest_news_posts)
-     |> assign(:conversations_posts, conversations_posts)
-     |> assign(:business_posts, business_posts)
-     |> assign(:people_posts, people_posts)
-     |> assign(:tech_posts, tech_posts)
-     |> assign(:defi_posts, defi_posts)
-     |> assign(:categories, categories)
-     |> assign(:selected_category, nil)
-     |> assign(:selected_interview_category, nil)
-     |> assign(:page_title, "Latest Posts")
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:show_search_results, false)
-     |> assign(:show_post_selector, false)
-     |> assign(:selector_section, nil)
-     |> assign(:selector_position, nil)
-     |> assign(:selector_query, "")
-     |> assign(:selector_results, [])}
+        socket
+          # |> assign(:latest_news_posts, latest_news_posts)
+          # |> assign(:conversations_posts, conversations_posts)
+          # |> assign(:business_posts, business_posts)
+          # |> assign(:people_posts, people_posts)
+          # |> assign(:tech_posts, tech_posts)
+          # |> assign(:defi_posts, defi_posts)
+          # |> assign(:categories, categories)
+          # |> assign(:selected_category, nil)
+          # |> assign(:selected_interview_category, nil)
+          |> assign(:page_title, "Latest Posts")
+          |> assign(:search_query, "")
+          |> assign(:search_results, [])
+          |> assign(:show_search_results, false)
+          |> assign(:show_post_selector, false)
+          |> assign(:selector_section, nil)
+          |> assign(:selector_position, nil)
+          |> assign(:selector_query, "")
+          |> assign(:selector_results, [])
+          |> assign(:components, components)
+          |> assign(:displayed_post_ids, displayed_post_ids)
+          |> assign(:displayed_categories, displayed_categories)
+          |> assign(:displayed_tags, displayed_tags)
+          |> assign(:displayed_hubs, displayed_hubs)
+          |> assign(:displayed_banners, displayed_banners)
+      }
   end
 
   @impl true
@@ -215,5 +246,74 @@ defmodule BlocksterV2Web.PostLive.Index do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to update post")}
     end
+  end
+
+  # edit this to load 3 more components when scrolling to bottom using algo that reads readers category, tag and hub preferences and history
+  # if not logged in use general popular categories and tags and hubs
+  # check last 3 components loaded to see if should load more posts or shop or banner
+  # check displayed_post_ids to avoid loading duplicate posts
+  # keep list of categories, tags and hubs already loaded to diversify content
+  @impl true
+  def handle_event("load-more", _, socket) do
+    IO.puts("📜 Loading 3 more components...")
+    displayed_post_ids = socket.assigns.displayed_post_ids
+    displayed_categories = socket.assigns.displayed_categories
+    displayed_tags = socket.assigns.displayed_tags
+    displayed_hubs = socket.assigns.displayed_hubs
+    displayed_banners = socket.assigns.displayed_banners
+    # how many components are already loaded
+    component_count = length(socket.assigns.components)
+    # what is the id of last component loaded
+    last_module_name = List.last(socket.assigns.components).module
+    last_component_id = List.last(socket.assigns.components).id
+    # loaded 3 at a time, based on last component loaded
+    {new_components, new_displayed_post_ids, new_displayed_categories, new_displayed_tags, new_displayed_hubs, new_displayed_banners} =
+      cond do
+        last_module_name == BlocksterV2Web.PostLive.PostsTwoComponent ->
+          # load shop, Business posts and rewards banner component
+          business_posts = Blog.list_published_posts_by_category("business", limit: 5, exclude_ids: displayed_post_ids)
+          new_displayed_post_ids = displayed_post_ids ++ Enum.map(business_posts, & &1.id)
+          new_displayed_categories = displayed_categories ++ ["business"]
+          {[
+            %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
+            %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
+            %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"}
+          ], new_displayed_post_ids, new_displayed_categories, displayed_tags, displayed_hubs, displayed_banners}
+
+        last_module_name == BlocksterV2Web.PostLive.RewardsBannerComponent ->
+          # load shop, People posts and full width banner and posts component
+          people_posts = Blog.list_published_posts_by_category("people", limit: 3, exclude_ids: displayed_post_ids)
+          tech_posts = Blog.list_published_posts_by_category("tech", limit: 6, exclude_ids: displayed_post_ids)
+          new_displayed_post_ids = displayed_post_ids ++ Enum.map(people_posts, & &1.id) ++ Enum.map(tech_posts, & &1.id)
+          new_displayed_categories = displayed_categories ++ ["people"] ++ ["tech"]
+          {[
+            %{module: BlocksterV2Web.PostLive.ShopTwoComponent, id: "shop-two", type: "shop", content: "general"},
+            %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: people_posts, type: "category-posts", content: "people"},
+            %{module: BlocksterV2Web.PostLive.FullWidthBannerComponent, id: "crypto-streetwear-hero", type: "banner", content: "streetwear"},
+            %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: tech_posts, type: "category-posts", content: "tech"}
+          ], new_displayed_post_ids, new_displayed_categories, displayed_tags, displayed_hubs, displayed_banners}
+
+        component_count == 9 ->
+          # load People posts component
+          people_posts = Blog.list_published_posts_by_category("people", limit: 3, exclude_ids: displayed_post_ids)
+          displayed_post_ids = displayed_post_ids ++ Enum.map(people_posts, & &1.id)
+          displayed_categories = displayed_categories ++ ["people"]
+          [%{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four-#{System.unique_integer([:positive])}", posts: people_posts, type: "category-posts", content: "people"}]
+
+        true ->
+          []
+      end
+
+    updated_components = socket.assigns.components ++ new_components
+
+    {:noreply,
+      socket
+        |> assign(:components, updated_components)
+        |> assign(:displayed_post_ids, new_displayed_post_ids)
+        |> assign(:displayed_categories, new_displayed_categories)
+        |> assign(:displayed_tags, new_displayed_tags)
+        |> assign(:displayed_hubs, new_displayed_hubs)
+        |> assign(:displayed_banners, new_displayed_banners)
+    }
   end
 end

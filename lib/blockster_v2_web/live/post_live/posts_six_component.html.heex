@@ -1,32 +1,17 @@
-<section class="grid-section-reverse md:py-20 pt-0 pb-10">
+<section id={"component-#{@id}"} class="grid-section-reverse md:py-20 pt-0 pb-10">
   <div class="container mx-auto">
-    <nav aria-label="Breadcrumb">
-      <ol class="flex items-center gap-1.5">
-        <li>
-          <a href="#" class="font-haas_medium_65 text-[#515B70] text-xs">News</a>
-        </li>
-        <li>
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
-            <path d="M7 3.375L10.125 6.49999L7 9.625M9.75 6.49999H1.875" stroke="black" stroke-width="1.5" stroke-linecap="square"></path>
-          </svg>
-        </li>
-        <li>
-          <a href="#" class="font-haas_roman_55 text-[#515B70] text-xs font-[400]">DeFi</a>
-        </li>
-      </ol>
-    </nav>
-
+    
     <h2 class="font-haas_medium_65 mb-6">DeFi Innovations & Trends</h2>
 
-    <%= if assigns[:defi_posts] && length(@defi_posts) >= 4 do %>
+    <%= if length(@posts) >= 4 do %>
       <div class="flex gap-3 md:flex-row flex-col-reverse">
         <!-- Left side: 2/3 width - 4 small cards in 2 rows -->
         <div class="md:w-2/3 w-full">
           <!-- First row: 2 small cards -->
           <div class="flex lg:flex-row flex-col gap-3 wide-card">
             <div class="w-full flex md:flex-row flex-col gap-3">
-              <%= if Enum.at(@defi_posts, 0) do %>
-                <% post = Enum.at(@defi_posts, 0) %>
+              <%= if Enum.at(@posts, 0) do %>
+                <% post = Enum.at(@posts, 0) %>
                 <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
                   <div class="img-wrapper h-[163px]">
                     <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -53,8 +38,8 @@
                 </.link>
               <% end %>
 
-              <%= if Enum.at(@defi_posts, 1) do %>
-                <% post = Enum.at(@defi_posts, 1) %>
+              <%= if Enum.at(@posts, 1) do %>
+                <% post = Enum.at(@posts, 1) %>
                 <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
                   <div class="img-wrapper h-[163px]">
                     <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -86,8 +71,8 @@
           <!-- Second row: 2 small cards -->
           <div class="flex lg:flex-row flex-col gap-3 wide-card mt-3">
             <div class="w-full flex md:flex-row flex-col gap-3">
-              <%= if Enum.at(@defi_posts, 2) do %>
-                <% post = Enum.at(@defi_posts, 2) %>
+              <%= if Enum.at(@posts, 2) do %>
+                <% post = Enum.at(@posts, 2) %>
                 <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
                   <div class="img-wrapper h-[163px]">
                     <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -114,8 +99,8 @@
                 </.link>
               <% end %>
 
-              <%= if Enum.at(@defi_posts, 3) do %>
-                <% post = Enum.at(@defi_posts, 3) %>
+              <%= if Enum.at(@posts, 3) do %>
+                <% post = Enum.at(@posts, 3) %>
                 <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
                   <div class="img-wrapper h-[163px]">
                     <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
@@ -146,8 +131,8 @@
         </div>
 
         <!-- Right side: 1/3 width - Large sidebar card -->
-        <%= if length(@defi_posts) >= 5 && Enum.at(@defi_posts, 4) do %>
-          <% post = Enum.at(@defi_posts, 4) %>
+        <%= if length(@posts) >= 5 && Enum.at(@posts, 4) do %>
+          <% post = Enum.at(@posts, 4) %>
           <.link navigate={~p"/#{post.slug}"} class="group md:w-1/3 w-full rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
             <!-- Content area that starts at bottom third height -->
             <div class="absolute bottom-0 left-0 right-0 h-1/3 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
