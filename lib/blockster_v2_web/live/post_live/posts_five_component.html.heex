@@ -1,7 +1,7 @@
 <section id={"component-#{@id}"} class="grid-section-reverse md:py-20 py-10">
   <div class="container mx-auto">
 
-    <h2 class="font-haas_medium_65 mb-6">Crypto Lifestyle & Web3 Culture Trends</h2>
+    <h2 class="font-haas_medium_65 mb-6 capitalize"><%= @content %></h2>
 
     <%= if length(@posts) >= 5 do %>
       <!-- First Row: Large card left, 2 small cards right -->

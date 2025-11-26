@@ -269,36 +269,156 @@ defmodule BlocksterV2Web.PostLive.Index do
     # loaded 3 at a time, based on last component loaded
     {new_components, new_displayed_post_ids, new_displayed_categories, new_displayed_tags, new_displayed_hubs, new_displayed_banners} =
       cond do
-        last_module_name == BlocksterV2Web.PostLive.PostsTwoComponent ->
-          # load shop, Business posts and rewards banner component
-          business_posts = Blog.list_published_posts_by_category("business", limit: 5, exclude_ids: displayed_post_ids)
-          new_displayed_post_ids = displayed_post_ids ++ Enum.map(business_posts, & &1.id)
-          new_displayed_categories = displayed_categories ++ ["business"]
+        last_module_name == BlocksterV2Web.PostLive.PostsTwoComponent or last_module_name == BlocksterV2Web.PostLive.ShopFourComponent ->
+          # select category randomly from all categories not yet displayed
+          category =
+            case Blog.list_categories() |> Enum.map(& &1.slug) |> Enum.filter(fn cat -> not Enum.member?(displayed_categories, cat) end) do
+              [] -> nil
+              available_categories -> Enum.random(available_categories)
+            end
+          # use category if not nil, otherwise filter is a random tag not yet displayed
+          filter =
+            if category == nil do
+              # load posts by tag
+              case Blog.list_tags() |> Enum.map(& &1.slug) |> Enum.filter(fn tag -> not Enum.member?(displayed_tags, tag) end) do
+                [] -> nil
+                available_tags -> Enum.random(available_tags)
+              end
+            else
+              # load posts by category
+              category
+            end
+          posts =
+            if category != nil do
+              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids)
+            else
+              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids)
+            end
+          new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts, & &1.id)
+          new_displayed_categories =
+            if category != nil do
+              displayed_categories ++ [category]
+            else
+              displayed_categories
+            end
+          new_displayed_tags =
+            if category == nil do
+              displayed_tags ++ [filter]
+            else
+              displayed_tags
+            end
+          type = if category != nil, do: "category-posts", else: "tag-posts"
+
           {[
-            %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
-            %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
-            %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"}
-          ], new_displayed_post_ids, new_displayed_categories, displayed_tags, displayed_hubs, displayed_banners}
+            %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one-#{System.unique_integer([:positive])}", type: "shop", content: "general"},
+            %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three-#{System.unique_integer([:positive])}", posts: posts, type: type, content: filter},
+            %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner-#{System.unique_integer([:positive])}", type: "banner", content: "rewards"}
+          ], new_displayed_post_ids, new_displayed_categories, new_displayed_tags, displayed_hubs, displayed_banners}
 
         last_module_name == BlocksterV2Web.PostLive.RewardsBannerComponent ->
           # load shop, People posts and full width banner and posts component
-          people_posts = Blog.list_published_posts_by_category("people", limit: 3, exclude_ids: displayed_post_ids)
-          tech_posts = Blog.list_published_posts_by_category("tech", limit: 6, exclude_ids: displayed_post_ids)
-          new_displayed_post_ids = displayed_post_ids ++ Enum.map(people_posts, & &1.id) ++ Enum.map(tech_posts, & &1.id)
-          new_displayed_categories = displayed_categories ++ ["people"] ++ ["tech"]
-          {[
-            %{module: BlocksterV2Web.PostLive.ShopTwoComponent, id: "shop-two", type: "shop", content: "general"},
-            %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: people_posts, type: "category-posts", content: "people"},
-            %{module: BlocksterV2Web.PostLive.FullWidthBannerComponent, id: "crypto-streetwear-hero", type: "banner", content: "streetwear"},
-            %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: tech_posts, type: "category-posts", content: "tech"}
-          ], new_displayed_post_ids, new_displayed_categories, displayed_tags, displayed_hubs, displayed_banners}
+          # First posts section - select category or tag
+          category1 =
+            case Blog.list_categories() |> Enum.map(& &1.slug) |> Enum.filter(fn cat -> not Enum.member?(displayed_categories, cat) end) do
+              [] -> nil
+              available_categories -> Enum.random(available_categories)
+            end
+          filter1 =
+            if category1 == nil do
+              case Blog.list_tags() |> Enum.map(& &1.slug) |> Enum.filter(fn tag -> not Enum.member?(displayed_tags, tag) end) do
+                [] -> nil
+                available_tags -> Enum.random(available_tags)
+              end
+            else
+              category1
+            end
+          posts1 =
+            if category1 != nil do
+              Blog.list_published_posts_by_category(filter1, limit: 3, exclude_ids: displayed_post_ids)
+            else
+              Blog.list_published_posts_by_tag(filter1, limit: 3, exclude_ids: displayed_post_ids)
+            end
 
-        component_count == 9 ->
-          # load People posts component
-          people_posts = Blog.list_published_posts_by_category("people", limit: 3, exclude_ids: displayed_post_ids)
-          displayed_post_ids = displayed_post_ids ++ Enum.map(people_posts, & &1.id)
-          displayed_categories = displayed_categories ++ ["people"]
-          [%{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four-#{System.unique_integer([:positive])}", posts: people_posts, type: "category-posts", content: "people"}]
+          # Second posts section - select category or tag
+          category2 =
+            case Blog.list_categories() |> Enum.map(& &1.slug) |> Enum.filter(fn cat -> not Enum.member?(displayed_categories ++ (if category1, do: [category1], else: []), cat) end) do
+              [] -> nil
+              available_categories -> Enum.random(available_categories)
+            end
+          filter2 =
+            if category2 == nil do
+              case Blog.list_tags() |> Enum.map(& &1.slug) |> Enum.filter(fn tag -> not Enum.member?(displayed_tags ++ (if category1 == nil, do: [filter1], else: []), tag) end) do
+                [] -> nil
+                available_tags -> Enum.random(available_tags)
+              end
+            else
+              category2
+            end
+          posts2 =
+            if category2 != nil do
+              Blog.list_published_posts_by_category(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id))
+            else
+              Blog.list_published_posts_by_tag(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id))
+            end
+
+          new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts1, & &1.id) ++ Enum.map(posts2, & &1.id)
+          new_displayed_categories = displayed_categories ++ (if category1, do: [category1], else: []) ++ (if category2, do: [category2], else: [])
+          new_displayed_tags = displayed_tags ++ (if category1 == nil, do: [filter1], else: []) ++ (if category2 == nil, do: [filter2], else: [])
+          type1 = if category1 != nil, do: "category-posts", else: "tag-posts"
+          type2 = if category2 != nil, do: "category-posts", else: "tag-posts"
+
+          {[
+            %{module: BlocksterV2Web.PostLive.ShopTwoComponent, id: "shop-two-#{System.unique_integer([:positive])}", type: "shop", content: "general"},
+            %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four-#{System.unique_integer([:positive])}", posts: posts1, type: type1, content: filter1},
+            %{module: BlocksterV2Web.PostLive.FullWidthBannerComponent, id: "crypto-streetwear-hero-#{System.unique_integer([:positive])}", type: "banner", content: "streetwear"},
+            %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five-#{System.unique_integer([:positive])}", posts: posts2, type: type2, content: filter2}
+          ], new_displayed_post_ids, new_displayed_categories, new_displayed_tags, displayed_hubs, displayed_banners}
+
+        last_module_name == BlocksterV2Web.PostLive.PostsFiveComponent ->
+          # load shop, posts component and shop
+          # select category or tag
+          category =
+            case Blog.list_categories() |> Enum.map(& &1.slug) |> Enum.filter(fn cat -> not Enum.member?(displayed_categories, cat) end) do
+              [] -> nil
+              available_categories -> Enum.random(available_categories)
+            end
+          filter =
+            if category == nil do
+              case Blog.list_tags() |> Enum.map(& &1.slug) |> Enum.filter(fn tag -> not Enum.member?(displayed_tags, tag) end) do
+                [] -> nil
+                available_tags -> Enum.random(available_tags)
+              end
+            else
+              category
+            end
+          posts =
+            if category != nil do
+              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids)
+            else
+              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids)
+            end
+
+          new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts, & &1.id)
+          new_displayed_categories =
+            if category != nil do
+              displayed_categories ++ [category]
+            else
+              displayed_categories
+            end
+          new_displayed_tags =
+            if category == nil do
+              displayed_tags ++ [filter]
+            else
+              displayed_tags
+            end
+          type = if category != nil, do: "category-posts", else: "tag-posts"
+
+          {[
+            %{module: BlocksterV2Web.PostLive.ShopThreeComponent, id: "shop-three-#{System.unique_integer([:positive])}", type: "shop", content: "general"},
+            %{module: BlocksterV2Web.PostLive.PostsSixComponent, id: "posts-six-#{System.unique_integer([:positive])}", posts: posts, type: type, content: filter},
+            %{module: BlocksterV2Web.PostLive.ShopFourComponent, id: "shop-four-#{System.unique_integer([:positive])}", type: "shop", content: "general"}
+          ], new_displayed_post_ids, new_displayed_categories, new_displayed_tags, displayed_hubs, displayed_banners}
+
 
         true ->
           []
