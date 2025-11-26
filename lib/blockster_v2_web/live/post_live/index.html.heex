@@ -1,22 +1,23 @@
 <div class=" bg-[#F5F6FB]"
-      id="homepage"
-      phx-update="append"
-      phx-viewport-bottom="load-more">
-  
+      id="homepage">
 
-  <%= for comp <- @components do %>
-    <.live_component
-      module={comp.module}
-      id={comp.id}
-      posts={Map.get(comp, :posts)}
-      current_user={Map.get(comp, :current_user)}
-      message={Map.get(comp, :message)} 
-      active={Map.get(comp, :active)}
-      any_variable={Map.get(comp, :any_variable)}
-      content={Map.get(comp, :content)}
-      type={Map.get(comp, :type)}
-    />
-  <% end %>
+  <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
+    <%= for {dom_id, comp} <- @streams.components do %>
+      <div id={dom_id}>
+        <.live_component
+          module={comp.module}
+          id={comp.id}
+          posts={Map.get(comp, :posts)}
+          current_user={Map.get(comp, :current_user)}
+          message={Map.get(comp, :message)}
+          active={Map.get(comp, :active)}
+          any_variable={Map.get(comp, :any_variable)}
+          content={Map.get(comp, :content)}
+          type={Map.get(comp, :type)}
+        />
+      </div>
+    <% end %>
+  </div>
 
 <!-- Post Selector Modal -->
 <%= if @show_post_selector do %>

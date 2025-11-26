@@ -70,10 +70,53 @@ let Autocomplete = {
   }
 };
 
+let InfiniteScroll = {
+  mounted() {
+    this.pending = false;
+
+    // Create a sentinel element at the bottom
+    this.sentinel = document.createElement('div');
+    this.sentinel.style.height = '1px';
+    this.el.appendChild(this.sentinel);
+
+    // Create intersection observer
+    this.observer = new IntersectionObserver(
+      entries => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !this.pending) {
+          this.pending = true;
+          this.pushEvent("load-more", {});
+
+          // Reset pending after a delay
+          setTimeout(() => {
+            this.pending = false;
+          }, 1000);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0
+      }
+    );
+
+    this.observer.observe(this.sentinel);
+  },
+
+  destroyed() {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+    if (this.sentinel && this.sentinel.parentNode) {
+      this.sentinel.parentNode.removeChild(this.sentinel);
+    }
+  }
+};
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput, Autocomplete },
+  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput, Autocomplete, InfiniteScroll },
 });
 
 // Show progress bar on live navigation and form submits

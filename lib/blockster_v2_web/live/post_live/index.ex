@@ -72,12 +72,13 @@ defmodule BlocksterV2Web.PostLive.Index do
           |> assign(:selector_position, nil)
           |> assign(:selector_query, "")
           |> assign(:selector_results, [])
-          |> assign(:components, components)
           |> assign(:displayed_post_ids, displayed_post_ids)
           |> assign(:displayed_categories, displayed_categories)
           |> assign(:displayed_tags, displayed_tags)
           |> assign(:displayed_hubs, displayed_hubs)
           |> assign(:displayed_banners, displayed_banners)
+          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsTwoComponent)
+          |> stream(:components, components)
       }
   end
 
@@ -256,17 +257,15 @@ defmodule BlocksterV2Web.PostLive.Index do
   @impl true
   def handle_event("load-more", _, socket) do
     IO.puts("📜 Loading 3 more components...")
+
     displayed_post_ids = socket.assigns.displayed_post_ids
-    displayed_categories = socket.assigns.displayed_categories
-    displayed_tags = socket.assigns.displayed_tags
-    displayed_hubs = socket.assigns.displayed_hubs
-    displayed_banners = socket.assigns.displayed_banners
-    # how many components are already loaded
-    component_count = length(socket.assigns.components)
-    # what is the id of last component loaded
-    last_module_name = List.last(socket.assigns.components).module
-    last_component_id = List.last(socket.assigns.components).id
-    # loaded 3 at a time, based on last component loaded
+      displayed_categories = socket.assigns.displayed_categories
+      displayed_tags = socket.assigns.displayed_tags
+      displayed_hubs = socket.assigns.displayed_hubs
+      displayed_banners = socket.assigns.displayed_banners
+      # Get last component module from assigns (can't enumerate stream)
+      last_module_name = socket.assigns.last_component_module
+      # loaded 3 at a time, based on last component loaded
     {new_components, new_displayed_post_ids, new_displayed_categories, new_displayed_tags, new_displayed_hubs, new_displayed_banners} =
       cond do
         last_module_name == BlocksterV2Web.PostLive.PostsTwoComponent or last_module_name == BlocksterV2Web.PostLive.ShopFourComponent ->
@@ -421,19 +420,26 @@ defmodule BlocksterV2Web.PostLive.Index do
 
 
         true ->
-          []
+          {[], displayed_post_ids, displayed_categories, displayed_tags, displayed_hubs, displayed_banners}
       end
 
-    updated_components = socket.assigns.components ++ new_components
+    # Insert new components into stream
+    socket =
+      Enum.reduce(new_components, socket, fn component, acc_socket ->
+        stream_insert(acc_socket, :components, component, at: -1)
+      end)
+
+    # Track the last component module for next load
+    last_module = if new_components != [], do: List.last(new_components).module, else: last_module_name
 
     {:noreply,
       socket
-        |> assign(:components, updated_components)
         |> assign(:displayed_post_ids, new_displayed_post_ids)
         |> assign(:displayed_categories, new_displayed_categories)
         |> assign(:displayed_tags, new_displayed_tags)
         |> assign(:displayed_hubs, new_displayed_hubs)
         |> assign(:displayed_banners, new_displayed_banners)
+        |> assign(:last_component_module, last_module)
     }
   end
 end
