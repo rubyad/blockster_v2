@@ -180,11 +180,14 @@
         </div>
       </div>
 
-      <div class="btn-wrapper text-center mt-6">
-        <button class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y md:w-auto w-full text-[#000000] rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
-          Read more news
-        </button>
-      </div>
+      <%= if Map.get(assigns, :show_read_more, false) && Map.get(assigns, :type) in ["category-posts", "tag-posts"] do %>
+        <% path = if Map.get(assigns, :type) == "category-posts", do: "/category/#{@content}", else: "/tag/#{@content}" %>
+        <div class="btn-wrapper text-center mt-6">
+          <.link navigate={path} class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y md:w-auto w-full text-[#000000] rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
+            Read more <%= @content %> news
+          </.link>
+        </div>
+      <% end %>
     <% end %>
   </div>
 </section>
