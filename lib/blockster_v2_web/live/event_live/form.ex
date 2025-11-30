@@ -23,6 +23,7 @@ defmodule BlocksterV2Web.EventLive.Form do
         end
 
       changeset = Events.change_event(event)
+      form = to_form(changeset)
       hubs = Blog.list_hubs()
       tags = Blog.list_tags()
       authors = get_all_authors()
@@ -30,7 +31,7 @@ defmodule BlocksterV2Web.EventLive.Form do
       {:ok,
        socket
        |> assign(:event, event)
-       |> assign(:changeset, changeset)
+       |> assign(:form, form)
        |> assign(:hubs, hubs)
        |> assign(:tags, tags)
        |> assign(:authors, authors)
@@ -71,7 +72,7 @@ defmodule BlocksterV2Web.EventLive.Form do
       |> Events.change_event(event_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign(socket, :form, to_form(changeset))}
   end
 
   @impl true
@@ -131,7 +132,7 @@ defmodule BlocksterV2Web.EventLive.Form do
          |> push_navigate(to: ~p"/admin/events")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
 
@@ -161,7 +162,7 @@ defmodule BlocksterV2Web.EventLive.Form do
          |> push_navigate(to: ~p"/admin/events")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
 

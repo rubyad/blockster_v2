@@ -7,7 +7,7 @@
   </div>
 
   <.form
-    for={@changeset}
+    for={@form}
     id="event-form"
     phx-change="validate"
     phx-submit="save"
@@ -27,7 +27,7 @@
               type="text"
               name="event[title]"
               id="event_title"
-              value={Phoenix.HTML.Form.input_value(@changeset, :title)}
+              value={@form[:title].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               required
             />
@@ -42,7 +42,7 @@
               type="text"
               name="event[slug]"
               id="event_slug"
-              value={Phoenix.HTML.Form.input_value(@changeset, :slug)}
+              value={@form[:slug].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               required
             />
@@ -59,7 +59,7 @@
               id="event_description"
               rows="4"
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            ><%= Phoenix.HTML.Form.input_value(@changeset, :description) %></textarea>
+            ><%= @form[:description].value %></textarea>
           </div>
 
           <%!-- Featured Image URL --%>
@@ -71,7 +71,7 @@
               type="text"
               name="event[featured_image]"
               id="event_featured_image"
-              value={Phoenix.HTML.Form.input_value(@changeset, :featured_image)}
+              value={@form[:featured_image].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="https://example.com/image.jpg"
             />
@@ -93,7 +93,7 @@
               type="text"
               name="event[address]"
               id="event_address"
-              value={Phoenix.HTML.Form.input_value(@changeset, :address)}
+              value={@form[:address].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -105,7 +105,7 @@
               type="text"
               name="event[city]"
               id="event_city"
-              value={Phoenix.HTML.Form.input_value(@changeset, :city)}
+              value={@form[:city].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -119,7 +119,7 @@
               type="text"
               name="event[country]"
               id="event_country"
-              value={Phoenix.HTML.Form.input_value(@changeset, :country)}
+              value={@form[:country].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -137,7 +137,7 @@
               type="date"
               name="event[date]"
               id="event_date"
-              value={Phoenix.HTML.Form.input_value(@changeset, :date)}
+              value={@form[:date].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -149,7 +149,7 @@
               type="time"
               name="event[time]"
               id="event_time"
-              value={Phoenix.HTML.Form.input_value(@changeset, :time)}
+              value={@form[:time].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -171,7 +171,7 @@
               id="event_price"
               step="0.01"
               min="0"
-              value={Phoenix.HTML.Form.input_value(@changeset, :price)}
+              value={@form[:price].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="0.00"
             />
@@ -188,7 +188,7 @@
               name="event[ticket_supply]"
               id="event_ticket_supply"
               min="0"
-              value={Phoenix.HTML.Form.input_value(@changeset, :ticket_supply)}
+              value={@form[:ticket_supply].value}
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="100"
             />
@@ -216,7 +216,7 @@
                 <option
                   value={author.id}
                   selected={
-                    Phoenix.HTML.Form.input_value(@changeset, :organizer_id) == author.id
+                    @form[:organizer_id].value == author.id
                   }
                 >
                   <%= author.name || author.email %>
@@ -237,7 +237,7 @@
               <%= for hub <- @hubs do %>
                 <option
                   value={hub.id}
-                  selected={Phoenix.HTML.Form.input_value(@changeset, :hub_id) == hub.id}
+                  selected={@form[:hub_id].value == hub.id}
                 >
                   <%= hub.name %>
                 </option>
@@ -258,19 +258,19 @@
             >
               <option
                 value="draft"
-                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "draft"}
+                selected={@form[:status].value == "draft"}
               >
                 Draft
               </option>
               <option
                 value="published"
-                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "published"}
+                selected={@form[:status].value == "published"}
               >
                 Published
               </option>
               <option
                 value="cancelled"
-                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "cancelled"}
+                selected={@form[:status].value == "cancelled"}
               >
                 Cancelled
               </option>
