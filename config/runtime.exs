@@ -32,6 +32,7 @@ config :blockster_v2,
   thirdweb_client_id: System.get_env("THIRDWEB_CLIENT_ID"),
   aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
+  google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY"),
   app_url:
     System.get_env("APP_URL") ||
       if(config_env() == :prod,

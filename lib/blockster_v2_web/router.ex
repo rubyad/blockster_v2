@@ -27,6 +27,9 @@ defmodule BlocksterV2Web.Router do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
       live "/admin/waitlist", WaitlistAdminLive, :index
+      live "/admin/events", EventsAdminLive, :index
+      live "/admin/events/new", EventLive.Form, :new
+      live "/admin/events/:id/edit", EventLive.Form, :edit
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
@@ -64,6 +67,7 @@ defmodule BlocksterV2Web.Router do
       live "/login", LoginLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/events", EventLive.Index, :index
+      live "/event/:slug", EventLive.Show, :show
       live "/hubs", HubLive.Index, :index
       live "/hubs/admin", HubLive.Admin, :index
       live "/hubs/admin/new", HubLive.Admin, :new

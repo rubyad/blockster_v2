@@ -20,7 +20,17 @@ defmodule BlocksterV2.Events do
   """
   def list_events do
     Repo.all(Event)
-    |> Repo.preload([:organizer, :hub, :attendees])
+    |> Repo.preload([:organizer, :hub, :attendees, :tags])
+  end
+
+  @doc """
+  Returns all events (including drafts, published, and cancelled).
+  """
+  def list_all_events do
+    from(e in Event,
+      order_by: [desc: e.inserted_at]
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -30,7 +40,7 @@ defmodule BlocksterV2.Events do
     from(e in Event,
       where: e.status == "published",
       order_by: [desc: e.date],
-      preload: [:organizer, :hub, :attendees]
+      preload: [:organizer, :hub, :attendees, :tags]
     )
     |> Repo.all()
   end
@@ -42,9 +52,27 @@ defmodule BlocksterV2.Events do
     from(e in Event,
       where: e.hub_id == ^hub_id and e.status == "published",
       order_by: [desc: e.date],
-      preload: [:organizer, :hub, :attendees]
+      preload: [:organizer, :hub, :attendees, :tags]
     )
     |> Repo.all()
+  end
+
+  @doc """
+  Gets a single event by slug.
+
+  Returns nil if the Event does not exist.
+
+  ## Examples
+
+      iex> get_event_by_slug("my-event")
+      %Event{}
+
+      iex> get_event_by_slug("non-existent")
+      nil
+
+  """
+  def get_event_by_slug(slug) do
+    Repo.get_by(Event, slug: slug)
   end
 
   @doc """
@@ -54,7 +82,7 @@ defmodule BlocksterV2.Events do
     from(e in Event,
       where: e.organizer_id == ^organizer_id,
       order_by: [desc: e.date],
-      preload: [:organizer, :hub, :attendees]
+      preload: [:organizer, :hub, :attendees, :tags]
     )
     |> Repo.all()
   end
@@ -75,7 +103,7 @@ defmodule BlocksterV2.Events do
   """
   def get_event!(id) do
     Repo.get!(Event, id)
-    |> Repo.preload([:organizer, :hub, :attendees])
+    |> Repo.preload([:organizer, :hub, :attendees, :tags])
   end
 
   @doc """
@@ -84,7 +112,7 @@ defmodule BlocksterV2.Events do
   def get_event_by_slug(slug) do
     from(e in Event,
       where: e.slug == ^slug,
-      preload: [:organizer, :hub, :attendees]
+      preload: [:organizer, :hub, :attendees, :tags]
     )
     |> Repo.one()
   end

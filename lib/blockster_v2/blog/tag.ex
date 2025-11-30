@@ -7,6 +7,7 @@ defmodule BlocksterV2.Blog.Tag do
     field :slug, :string
 
     many_to_many :posts, BlocksterV2.Blog.Post, join_through: "post_tags"
+    many_to_many :events, BlocksterV2.Events.Event, join_through: "event_tags"
 
     timestamps()
   end

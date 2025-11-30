@@ -15,12 +15,17 @@ defmodule BlocksterV2.Events.Event do
     field :ticket_supply, :integer
     field :status, :string, default: "draft"
     field :description, :string
+    field :featured_image, :string
 
     belongs_to :organizer, BlocksterV2.Accounts.User
     belongs_to :hub, BlocksterV2.Blog.Hub
 
     many_to_many :attendees, BlocksterV2.Accounts.User,
       join_through: "event_attendees",
+      on_replace: :delete
+
+    many_to_many :tags, BlocksterV2.Blog.Tag,
+      join_through: "event_tags",
       on_replace: :delete
 
     timestamps()
@@ -42,6 +47,7 @@ defmodule BlocksterV2.Events.Event do
       :ticket_supply,
       :status,
       :description,
+      :featured_image,
       :organizer_id,
       :hub_id
     ])

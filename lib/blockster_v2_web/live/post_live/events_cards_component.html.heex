@@ -9,11 +9,11 @@
         <%= for {event, idx} <- Enum.with_index(@events) do %>
           <% {day, month} = format_date(event.date) %>
           <% attendee_count = get_attendee_count(event) %>
-          <% category = get_category_tag(idx) %>
           <% image = get_event_image(idx) %>
+          <% tags = event.tags || [] %>
 
           <!-- Event Card -->
-          <div class="bg-white rounded-2xl border border-[#E7E8F1] overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+          <.link navigate={~p"/event/#{event.slug}"} class="block bg-white rounded-2xl border border-[#E7E8F1] overflow-hidden hover:shadow-lg transition-all">
             <!-- Event Image -->
             <div class="h-48 bg-cover bg-center relative" style={"background-image: url('#{image}');"}>
               <div class="absolute top-4 left-4">
@@ -22,11 +22,15 @@
                   <p class="text-xs font-haas_roman_55 text-[#515B70] mt-1"><%= month %></p>
                 </div>
               </div>
-              <div class="absolute top-4 right-4 flex gap-2">
-                <span class="px-3 py-1 bg-white/90 backdrop-blur-sm text-[#141414] rounded-full text-xs font-haas_medium_65">
-                  <%= category %>
-                </span>
-              </div>
+              <%= if length(tags) > 0 do %>
+                <div class="absolute top-4 right-4 flex gap-2 flex-wrap max-w-[200px] justify-end">
+                  <%= for tag <- Enum.take(tags, 3) do %>
+                    <span class="px-3 py-1 bg-white/90 backdrop-blur-sm text-[#141414] rounded-full text-xs font-haas_medium_65">
+                      <%= tag.name %>
+                    </span>
+                  <% end %>
+                </div>
+              <% end %>
             </div>
 
             <!-- Event Details -->
@@ -65,7 +69,7 @@
                 <span class="text-sm font-haas_medium_65 text-[#141414]"><%= format_price(event.price) %></span>
               </div>
             </div>
-          </div>
+          </.link>
         <% end %>
       </div>
     <% end %>

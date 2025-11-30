@@ -1,0 +1,320 @@
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900"><%= @page_title %></h1>
+    <p class="mt-2 text-sm text-gray-700">
+      <%= if @live_action == :new, do: "Create a new event", else: "Edit event details" %>
+    </p>
+  </div>
+
+  <.form
+    for={@changeset}
+    id="event-form"
+    phx-change="validate"
+    phx-submit="save"
+    class="space-y-6"
+  >
+    <div class="bg-white shadow rounded-lg p-6 space-y-6">
+      <%!-- Basic Information --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h2>
+        <div class="grid grid-cols-1 gap-6">
+          <%!-- Title --%>
+          <div>
+            <label for="event_title" class="block text-sm font-medium text-gray-700">
+              Title <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="event[title]"
+              id="event_title"
+              value={Phoenix.HTML.Form.input_value(@changeset, :title)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          <%!-- Slug --%>
+          <div>
+            <label for="event_slug" class="block text-sm font-medium text-gray-700">
+              Slug <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="event[slug]"
+              id="event_slug"
+              value={Phoenix.HTML.Form.input_value(@changeset, :slug)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+            <p class="mt-1 text-sm text-gray-500">URL-friendly version of the title</p>
+          </div>
+
+          <%!-- Description --%>
+          <div>
+            <label for="event_description" class="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              name="event[description]"
+              id="event_description"
+              rows="4"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            ><%= Phoenix.HTML.Form.input_value(@changeset, :description) %></textarea>
+          </div>
+
+          <%!-- Featured Image URL --%>
+          <div>
+            <label for="event_featured_image" class="block text-sm font-medium text-gray-700">
+              Featured Image URL
+            </label>
+            <input
+              type="text"
+              name="event[featured_image]"
+              id="event_featured_image"
+              value={Phoenix.HTML.Form.input_value(@changeset, :featured_image)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="https://example.com/image.jpg"
+            />
+            <p class="mt-1 text-sm text-gray-500">URL of the event's featured image</p>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Location Information --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Location</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- Address --%>
+          <div class="md:col-span-2">
+            <label for="event_address" class="block text-sm font-medium text-gray-700">
+              Address
+            </label>
+            <input
+              type="text"
+              name="event[address]"
+              id="event_address"
+              value={Phoenix.HTML.Form.input_value(@changeset, :address)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          <%!-- City --%>
+          <div>
+            <label for="event_city" class="block text-sm font-medium text-gray-700">City</label>
+            <input
+              type="text"
+              name="event[city]"
+              id="event_city"
+              value={Phoenix.HTML.Form.input_value(@changeset, :city)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          <%!-- Country --%>
+          <div>
+            <label for="event_country" class="block text-sm font-medium text-gray-700">
+              Country
+            </label>
+            <input
+              type="text"
+              name="event[country]"
+              id="event_country"
+              value={Phoenix.HTML.Form.input_value(@changeset, :country)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
+      <%!-- Date & Time --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Date & Time</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- Date --%>
+          <div>
+            <label for="event_date" class="block text-sm font-medium text-gray-700">Date</label>
+            <input
+              type="date"
+              name="event[date]"
+              id="event_date"
+              value={Phoenix.HTML.Form.input_value(@changeset, :date)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          <%!-- Time --%>
+          <div>
+            <label for="event_time" class="block text-sm font-medium text-gray-700">Time</label>
+            <input
+              type="time"
+              name="event[time]"
+              id="event_time"
+              value={Phoenix.HTML.Form.input_value(@changeset, :time)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
+      <%!-- Ticket Information --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Ticket Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- Price --%>
+          <div>
+            <label for="event_price" class="block text-sm font-medium text-gray-700">
+              Price (USD)
+            </label>
+            <input
+              type="number"
+              name="event[price]"
+              id="event_price"
+              step="0.01"
+              min="0"
+              value={Phoenix.HTML.Form.input_value(@changeset, :price)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="0.00"
+            />
+            <p class="mt-1 text-sm text-gray-500">Enter 0 for free events</p>
+          </div>
+
+          <%!-- Ticket Supply --%>
+          <div>
+            <label for="event_ticket_supply" class="block text-sm font-medium text-gray-700">
+              Ticket Supply
+            </label>
+            <input
+              type="number"
+              name="event[ticket_supply]"
+              id="event_ticket_supply"
+              min="0"
+              value={Phoenix.HTML.Form.input_value(@changeset, :ticket_supply)}
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="100"
+            />
+          </div>
+        </div>
+      </div>
+
+      <%!-- Associations --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Associations</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- Organizer --%>
+          <div>
+            <label for="event_organizer_id" class="block text-sm font-medium text-gray-700">
+              Organizer <span class="text-red-500">*</span>
+            </label>
+            <select
+              name="event[organizer_id]"
+              id="event_organizer_id"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            >
+              <option value="">Select organizer</option>
+              <%= for author <- @authors do %>
+                <option
+                  value={author.id}
+                  selected={
+                    Phoenix.HTML.Form.input_value(@changeset, :organizer_id) == author.id
+                  }
+                >
+                  <%= author.name || author.email %>
+                </option>
+              <% end %>
+            </select>
+          </div>
+
+          <%!-- Hub --%>
+          <div>
+            <label for="event_hub_id" class="block text-sm font-medium text-gray-700">Hub</label>
+            <select
+              name="event[hub_id]"
+              id="event_hub_id"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="">No hub</option>
+              <%= for hub <- @hubs do %>
+                <option
+                  value={hub.id}
+                  selected={Phoenix.HTML.Form.input_value(@changeset, :hub_id) == hub.id}
+                >
+                  <%= hub.name %>
+                </option>
+              <% end %>
+            </select>
+          </div>
+
+          <%!-- Status --%>
+          <div>
+            <label for="event_status" class="block text-sm font-medium text-gray-700">
+              Status <span class="text-red-500">*</span>
+            </label>
+            <select
+              name="event[status]"
+              id="event_status"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            >
+              <option
+                value="draft"
+                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "draft"}
+              >
+                Draft
+              </option>
+              <option
+                value="published"
+                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "published"}
+              >
+                Published
+              </option>
+              <option
+                value="cancelled"
+                selected={Phoenix.HTML.Form.input_value(@changeset, :status) == "cancelled"}
+              >
+                Cancelled
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Tags --%>
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Tags</h2>
+        <div class="flex flex-wrap gap-2">
+          <%= for tag <- @tags do %>
+            <label class="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="event[tag_ids][]"
+                value={tag.id}
+                checked={tag.id in @selected_tag_ids}
+                phx-click="toggle_tag"
+                phx-value-tag-id={tag.id}
+                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              />
+              <span class="ml-2 text-sm text-gray-700"><%= tag.name %></span>
+            </label>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Form Actions --%>
+    <div class="flex items-center justify-end gap-4">
+      <.link
+        navigate={~p"/admin/events"}
+        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        Cancel
+      </.link>
+      <button
+        type="submit"
+        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <%= if @live_action == :new, do: "Create Event", else: "Update Event" %>
+      </button>
+    </div>
+  </.form>
+</div>
