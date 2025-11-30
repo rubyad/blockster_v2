@@ -16,6 +16,7 @@ defmodule BlocksterV2.Blog.Hub do
 
     # Associations
     has_many :posts, BlocksterV2.Blog.Post
+    has_many :events, BlocksterV2.Events.Event
     many_to_many :followers, BlocksterV2.Accounts.User,
       join_through: "hub_followers",
       on_replace: :delete

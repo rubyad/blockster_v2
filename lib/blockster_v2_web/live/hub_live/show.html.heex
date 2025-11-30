@@ -1,241 +1,228 @@
-<div class="unregistered-page bg-[#F5F6FB]">
-  <!-- Back Button -->
-  <section class="pt-6 pb-0">
-    <div class="container mx-auto px-4">
-      <.link
-        navigate={~p"/hubs"}
-        class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-sm font-haas_medium_65 hover:bg-[#F5F6FB] hover:shadow-md transition-all group"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
-        </svg>
-        <span>Back to All Hubs</span>
-      </.link>
-    </div>
-  </section>
-
-  <!-- Hub Header Section -->
-  <section class="section">
-    <div class="container">
-      <div class="md:py-12 md:mt-12 mt-6 py-6 fixed-w-container rounded-[24px] relative overflow-hidden" style={"background: linear-gradient(360deg, #{@hub.color_secondary || "#B0B6FE"} 0%, #{@hub.color_primary || "#E1E3FD"} 100%)"}>
-        <div class="inner-container max-w-[1040px] mx-auto flex px-10 md:flex-row flex-col items-center">
-          <div class="left-se md:w-1/2 w-full max-md:text-center">
-            <div class="md:max-w-[461px] max-md:text-center">
-              <%= if @hub.logo_url do %>
-                <div class="flex max-md:justify-center mb-4">
-                  <img src={@hub.logo_url} alt={@hub.name} class="h-16 w-auto" />
-                </div>
-              <% end %>
-              <h1 class="sm:mt-6 mt-0 text-4xl font-haas_medium_65">{@hub.name}</h1>
-              <%= if @hub.description do %>
-                <p class="font-haas_roman_55 text-[#343434] md:text-lg text-sm leading-[1.4] sm:mt-4 mt-3 tracking-[0.04em]">
-                  {@hub.description}
-                </p>
-              <% end %>
-              <%= if @hub.website_url do %>
-                <div class="flex max-md:justify-center">
-                  <a href={@hub.website_url} target="_blank" rel="noopener noreferrer" class="p-4 relative z-20 bg-[#000000] max-md:justify-self-center sm:mt-6 mt-4 text-[#ffffff] small-buttons-shadow sm:py-3.5 py-3 px-6 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
-                    Visit Website
-                  </a>
-                </div>
-              <% end %>
-            </div>
-          </div>
-          <div class="md:w-1/2 flex justify-center items-center relative">
-            <%= if @hub.banner_url do %>
-              <img src={@hub.banner_url} alt={@hub.name} class="w-full h-auto rounded-lg" />
-            <% else %>
-              <div class="w-full h-48 bg-white/20 rounded-lg flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                  <polyline points="21 15 16 10 5 21"></polyline>
-                </svg>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Posts Section -->
-  <section class="blog-section md:py-20 py-6 relative">
+<div class="bg-[#F5F6FB]">
+  <!-- Hub Content -->
+  <section class="md:py-10 py-6">
     <div class="container mx-auto">
-      <div class="inner xl:flex gap-6">
-        <div class="left-content xl:w-2/3 w-full">
-          <h2 class="font-haas_medium_65 text-2xl mb-5">Latest from {@hub.name}</h2>
-
-          <%= if @posts == [] do %>
-            <div class="text-center py-20">
-              <p class="text-[#515B70] font-haas_roman_55">No posts available yet for {@hub.name}.</p>
-            </div>
-          <% else %>
-            <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col md:gap-3">
-              <%= for chunk <- Enum.chunk_every(Enum.take(@posts, 5), 5, 5, []) do %>
-                <!-- Left Column - 2 small cards -->
-                <div class="md:w-1/3 flex flex-col gap-3">
-                  <%= for post <- Enum.slice(chunk, 0..1) do %>
-                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
-                      <div class="img-wrapper md:h-[128px] h-[163px]">
-                        <%= if post.featured_image do %>
-                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                        <% else %>
-                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
-                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
-                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
-                            </svg>
-                          </div>
-                        <% end %>
-                      </div>
-                      <div class="px-2 py-2">
-                        <div class="flex justify-between items-center">
-                          <ul class="gap-3 flex items-center">
-                            <%= if post.category do %>
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  {post.category.name}
-                                </span>
-                              </li>
-                            <% end %>
-                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                            </li>
-                          </ul>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id={"bux_left_#{post.id}"} size="20" />
-                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                            </button>
-                          </div>
-                        </div>
-                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
-                      </div>
-                    </.link>
-                  <% end %>
-                </div>
-
-                <!-- Middle Column - 1 tall card -->
-                <%= if Enum.at(chunk, 2) do %>
-                  <% post = Enum.at(chunk, 2) %>
-                  <div class="md:w-1/3 md:mt-0 mt-3">
-                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all max-md:p-2">
-                      <div class="img-wrapper md:h-[358px] h-[220px]">
-                        <%= if post.featured_image do %>
-                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                        <% else %>
-                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
-                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
-                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
-                            </svg>
-                          </div>
-                        <% end %>
-                      </div>
-                      <div class="px-4 md:py-6 py-2">
-                        <div class="flex justify-between items-center">
-                          <ul class="gap-3 flex items-center">
-                            <%= if post.category do %>
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  {post.category.name}
-                                </span>
-                              </li>
-                            <% end %>
-                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                            </li>
-                          </ul>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id="bux_icon_2" size="20" />
-                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                            </button>
-                          </div>
-                        </div>
-                        <h3 class="font-haas_medium_65 text-[#141414] mt-2 line-clamp-2">{post.title}</h3>
-                      </div>
-                    </.link>
-                  </div>
-                <% end %>
-
-                <!-- Right Column - 2 small cards -->
-                <div class="md:w-1/3 flex flex-col gap-3">
-                  <%= for post <- Enum.slice(chunk, 3..4) do %>
-                    <.link navigate={~p"/#{post.slug}"} class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all">
-                      <div class="img-wrapper md:h-[128px] h-[163px]">
-                        <%= if post.featured_image do %>
-                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                        <% else %>
-                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
-                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
-                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
-                            </svg>
-                          </div>
-                        <% end %>
-                      </div>
-                      <div class="px-2 py-2">
-                        <div class="flex justify-between items-center">
-                          <ul class="gap-3 flex items-center">
-                            <%= if post.category do %>
-                              <li>
-                                <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                  {post.category.name}
-                                </span>
-                              </li>
-                            <% end %>
-                            <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                              <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                            </li>
-                          </ul>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id={"bux_right_#{post.id}"} size="20" />
-                              <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                            </button>
-                          </div>
-                        </div>
-                        <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md line-clamp-2">{post.title}</h4>
-                      </div>
-                    </.link>
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
-          <% end %>
+      <div class="hero-admin bg-white rounded-2xl md:p-6 p-3 mt-6">
+    <div class="w-full flex flex-wrap md:flex-nowrap items-start justify-between gap-4 relative">
+      <!-- Profile Left -->
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="img-rounded md:h-[120px] md:min-w-[120px] h-[64px] w-[64px] rounded-full bg-[#AFB5FF] cursor-pointer relative overflow-hidden">
+          <input type="file" name="" id="uploadImage" accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer">
+          <img src="/images/moonpay.png" id="imagePreview" alt="Freddie" class="h-full w-full min-w-auto object-cover">
         </div>
 
-        <!-- Right Sidebar -->
-        <div class="right-content xl:w-1/3 w-full max-xl:mt-6">
-          <!-- About Section -->
-          <div class="bg-white rounded-lg p-6 border border-[#E7E8F1] mb-4">
-            <h3 class="font-haas_medium_65 text-xl mb-3">About {@hub.name}</h3>
-            <%= if @hub.description do %>
-              <p class="text-[#515B70] font-haas_roman_55 text-sm leading-relaxed">
-                {@hub.description}
-              </p>
-            <% end %>
-            <%= if @hub.website_url do %>
-              <a href={@hub.website_url} target="_blank" rel="noopener noreferrer" class="inline-block mt-4 text-sm font-haas_medium_65 text-[#6366F1] hover:underline">
-                Visit Official Website →
-              </a>
-            <% end %>
+        <!-- Info -->
+        <div class="max-md:w-full">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">Moonpay</h3>
+            <span class="p-2 text-xs leading-[1.4] rounded-full bg-[#EEF0F4] text-[#141414] flex gap-1 flex-row-reverse items-center">
+              <span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8.00065 14.6666C11.6673 14.6666 14.6673 11.6666 14.6673 7.99998C14.6673 4.33331 11.6673 1.33331 8.00065 1.33331C4.33398 1.33331 1.33398 4.33331 1.33398 7.99998C1.33398 11.6666 4.33398 14.6666 8.00065 14.6666Z" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  <path d="M8 5.33331V8.66665" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  <path d="M7.99609 10.6667H8.00208" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </span>
+              Business page
+            </span>
           </div>
 
-          <!-- Stats -->
-          <div class="bg-white rounded-lg p-6 border border-[#E7E8F1]">
-            <h3 class="font-haas_medium_65 text-xl mb-3">Stats</h3>
-            <div class="space-y-3">
-              <div class="flex justify-between items-center">
-                <span class="text-[#515B70] font-haas_roman_55 text-sm">Total Articles</span>
-                <span class="font-haas_medium_65 text-lg">{length(@posts)}</span>
-              </div>
+          <div>
+            <a href="" class="!text-[14px] flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[24px] border-[#141414]">@moonpayofficial</a>
+          </div>
+
+          <div class="flex flex-wrap items-center mt-6 text-sm text-gray-800 max-md:justify-between">
+            <div class="wraper text-center pr-6 border-[#14141414] border-r">
+              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Stories</p>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">1,294</span>
+            </div>
+            <div class="wraper text-center px-6 border-[#14141414] border-r">
+              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Events</p>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">100</span>
+            </div>
+            <div class="wraper text-center px-6">
+              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Followers</p>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">5,000</span>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Follow Button -->
+      <button class="bg-black text-white text-sm px-5 py-2 max-sm:absolute rounded-full font-inter leading-[1.4] transition gap-2 flex items-center max-sm:right-3 max-sm:top-3" onclick="toggleModal('shareModal')">
+        <span class="text-[20px] flex items-center leading-[0] max-sm:hidden">+</span>
+        <span class="text-xs flex items-center leading-[1.4] max-sm:hidden">Follow</span>
+        <span class="text-xs flex items-center leading-[1.4] sm:hidden">Share</span>
+        <span class="sm:hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M7.70833 3.125H3.125V16.875H16.875V12.2917M11.4583 3.125H16.875V8.54167M9.16667 10.8333L16.4542 3.54576" stroke="white" stroke-width="1.5" stroke-linecap="square"></path>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <h4 class="!text-[14px] flex gap-2 items-center font-haas_medium_65 text-[#343434] leading-[24px] border-[#141414] disabled:opacity-[0.6] mt-6">About us</h4>
+    <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-1 border-[#141414] disabled:opacity-[0.6]">As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market's evolution and future potential.</p>
+
+
+    <div class="flex gap-2 items-center mt-4">
+      <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+        <button class="flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect width="20" height="20" rx="10" fill="url(#hub_bux_gradient_1)"></rect>
+            <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414"></path>
+            <defs>
+              <linearGradient id="hub_bux_gradient_1" x1="10" y1="-8.75008e-09" x2="9.8532" y2="12.1405" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#8AE388"></stop>
+                <stop offset="1" stop-color="#BAF55F"></stop>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="text-xs font-haas_medium_65">42,257 $BUX available</span>
+        </button>
+      </div>
+
+      
+    </div>
+      </div>
+
+      <div id="hub-page-menu" class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden mt-6 relative z-20">
+        <div class="inline-flex w-full gap-1">
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="all"
+            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_all, do: "bg-white", else: ""}"}
+          >
+            All
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="news"
+            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_news, do: "bg-white", else: ""}"}
+          >
+            News
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="videos"
+            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_videos, do: "bg-white", else: ""}"}
+          >
+            Videos
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="shop"
+            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_shop, do: "bg-white", else: ""}"}
+          >
+            Shop
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="events"
+            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_events, do: "bg-white", else: ""}"}
+          >
+            Events
+          </button>
+        </div>
+      </div>
     </div>
   </section>
+
+  <!-- All Tab Content -->
+  <%= if @show_all do %>
+    <!-- Hub Posts -->
+    <div class="md:-mt-20 -mt-8">
+      <.live_component
+        module={BlocksterV2Web.PostLive.PostsThreeComponent}
+        id="hub-posts-three"
+        posts={@posts_three}
+        content={@hub.name}
+        type="hub-posts"
+        show_read_more={false}
+        hide_title={true}
+      />
+    </div>
+
+    <!-- Shop Two Component -->
+    <.live_component
+      module={BlocksterV2Web.PostLive.ShopTwoComponent}
+      id="hub-shop-two"
+    />
+
+    <!-- Posts Four Component -->
+    <.live_component
+      module={BlocksterV2Web.PostLive.PostsFourComponent}
+      id="hub-posts-four"
+      posts={@posts_four}
+      content={@hub.name}
+      type="hub-posts"
+      show_read_more={false}
+    />
+
+    <!-- Events Cards Component -->
+    <.live_component
+      module={BlocksterV2Web.PostLive.EventsCardsComponent}
+      id="hub-events-cards"
+    />
+  <% end %>
+
+  <!-- News Tab Content -->
+  <%= if @show_news do %>
+    <div class="md:-mt-20 -mt-8" id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
+      <%= for {id, component} <- @streams.news_components do %>
+        <div id={id}>
+          <.live_component
+            module={component.module}
+            id={component.id}
+            posts={component.posts}
+            content={component.content}
+            type={component.type}
+            show_read_more={false}
+            hide_title={true}
+          />
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <!-- Videos Tab Content -->
+  <%= if @show_videos do %>
+    <div class="md:-mt-20 -mt-8">
+      <.live_component
+        module={BlocksterV2Web.PostLive.VideosComponent}
+        id="hub-videos"
+        posts={@videos_posts}
+      />
+    </div>
+  <% end %>
+
+  <!-- Shop Tab Content -->
+  <%= if @show_shop do %>
+    <div class="md:-mt-20 -mt-8 relative">
+      <.live_component
+        module={BlocksterV2Web.PostLive.ShopOneComponent}
+        id="hub-shop-one"
+      />
+
+      <.live_component
+        module={BlocksterV2Web.PostLive.ShopTwoComponent}
+        id="hub-shop-two-tab"
+      />
+
+      <.live_component
+        module={BlocksterV2Web.PostLive.ShopFourComponent}
+        id="hub-shop-four"
+      />
+    </div>
+  <% end %>
+
+  <!-- Events Tab Content -->
+  <%= if @show_events do %>
+    <div class="md:-mt-20 -mt-8">
+      <.live_component
+        module={BlocksterV2Web.PostLive.EventsComponent}
+        id="hub-events"
+      />
+    </div>
+  <% end %>
 </div>

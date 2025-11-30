@@ -17,18 +17,172 @@ defmodule BlocksterV2Web.HubLive.Show do
 
       hub ->
         # Get posts for this hub by hub_id
-        posts = Blog.list_published_posts_by_hub(hub.id)
+        # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
+        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5)
+        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id))
 
         {:ok,
          socket
-         |> assign(:posts, posts)
+         |> assign(:posts_three, posts_three)
+         |> assign(:posts_four, posts_four)
          |> assign(:hub, hub)
-         |> assign(:page_title, "#{hub.name} Hub")}
+         |> assign(:page_title, "#{hub.name} Hub")
+         |> assign(:show_all, true)
+         |> assign(:show_news, false)
+         |> assign(:show_videos, false)
+         |> assign(:show_shop, false)
+         |> assign(:show_events, false)
+         |> assign(:news_loaded, false)
+         |> assign(:videos_loaded, false)
+         |> assign(:shop_loaded, false)
+         |> assign(:videos_posts, [])
+         |> assign(:displayed_post_ids, [])
+         |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
+         |> stream(:news_components, [])}
     end
   end
 
   @impl true
   def handle_params(_params, _url, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    socket =
+      socket
+      |> assign(:show_all, tab == "all")
+      |> assign(:show_news, tab == "news")
+      |> assign(:show_videos, tab == "videos")
+      |> assign(:show_shop, tab == "shop")
+      |> assign(:show_events, tab == "events")
+
+    # Load news components when switching to news tab for the first time
+    socket =
+      if tab == "news" && !socket.assigns.news_loaded do
+        {news_components, displayed_post_ids} = build_initial_news_components(socket.assigns.hub.id)
+
+        socket
+        |> assign(:news_loaded, true)
+        |> assign(:displayed_post_ids, displayed_post_ids)
+        |> stream(:news_components, news_components)
+      else
+        socket
+      end
+
+    # Load videos when switching to videos tab for the first time
+    socket =
+      if tab == "videos" && !socket.assigns.videos_loaded do
+        videos_posts = Blog.list_published_posts_by_hub(socket.assigns.hub.id, limit: 3)
+
+        socket
+        |> assign(:videos_loaded, true)
+        |> assign(:videos_posts, videos_posts)
+      else
+        socket
+      end
+
+    # Load shop when switching to shop tab for the first time
+    socket =
+      if tab == "shop" && !socket.assigns.shop_loaded do
+        socket
+        |> assign(:shop_loaded, true)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("load-more-news", _, socket) do
+    hub_id = socket.assigns.hub.id
+    displayed_post_ids = socket.assigns.displayed_post_ids
+    last_module = socket.assigns.last_component_module
+
+    # Build next batch of 4 components (Three, Four, Five, Six)
+    {new_components, new_displayed_post_ids} =
+      build_news_components_batch(hub_id, displayed_post_ids, last_module)
+
+    if new_components == [] do
+      {:noreply, socket}
+    else
+      # Insert new components into stream
+      socket =
+        Enum.reduce(new_components, socket, fn component, acc_socket ->
+          stream_insert(acc_socket, :news_components, component, at: -1)
+        end)
+
+      # Track the last component module for next load
+      last_module = if new_components != [], do: List.last(new_components).module, else: last_module
+
+      {:noreply,
+       socket
+       |> assign(:displayed_post_ids, new_displayed_post_ids)
+       |> assign(:last_component_module, last_module)}
+    end
+  end
+
+  # Component modules for cycling through layouts
+  @component_modules [
+    BlocksterV2Web.PostLive.PostsThreeComponent,
+    BlocksterV2Web.PostLive.PostsFourComponent,
+    BlocksterV2Web.PostLive.PostsFiveComponent,
+    BlocksterV2Web.PostLive.PostsSixComponent
+  ]
+
+  # Posts per component
+  @posts_per_component %{
+    BlocksterV2Web.PostLive.PostsThreeComponent => 5,
+    BlocksterV2Web.PostLive.PostsFourComponent => 3,
+    BlocksterV2Web.PostLive.PostsFiveComponent => 6,
+    BlocksterV2Web.PostLive.PostsSixComponent => 5
+  }
+
+  # Build initial batch of 4 components (Three, Four, Five, Six)
+  defp build_initial_news_components(hub_id) do
+    build_news_components_batch(hub_id, [], BlocksterV2Web.PostLive.PostsSixComponent)
+  end
+
+  # Build a batch of 4 components cycling through the component modules
+  defp build_news_components_batch(hub_id, displayed_post_ids, last_module) do
+    # Start from the component after last_module
+    start_index = Enum.find_index(@component_modules, &(&1 == last_module))
+    start_index = if start_index, do: rem(start_index + 1, 4), else: 0
+
+    # Build 4 components in order
+    {components, final_displayed_ids} =
+      Enum.reduce(0..3, {[], displayed_post_ids}, fn idx, {acc_components, acc_ids} ->
+        module_index = rem(start_index + idx, 4)
+        module = Enum.at(@component_modules, module_index)
+        posts_needed = Map.get(@posts_per_component, module)
+
+        # Fetch posts for this component
+        posts = Blog.list_published_posts_by_hub(
+          hub_id,
+          limit: posts_needed,
+          exclude_ids: acc_ids
+        )
+
+        if posts == [] do
+          # No more posts available
+          {acc_components, acc_ids}
+        else
+          post_ids = Enum.map(posts, & &1.id)
+          # Use unique integer to avoid ID conflicts across batches
+          unique_id = System.unique_integer([:positive])
+          component = %{
+            id: "hub-news-#{hub_id}-#{module}-#{unique_id}",
+            module: module,
+            posts: posts,
+            content: "News",
+            type: "hub-news"
+          }
+
+          {acc_components ++ [component], acc_ids ++ post_ids}
+        end
+      end)
+
+    {components, final_displayed_ids}
   end
 end

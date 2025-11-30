@@ -1,0 +1,350 @@
+<section id={"component-#{@id}"} class="events-section md:py-20 py-6">
+  <div class="container mx-auto">
+    <!-- Full Width Header Image -->
+    <div class="w-full mb-6">
+      <div class="w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden relative bg-[#ffffff] flex flex-col justify-end" style="background-image: url('/images/nendorring.png'); background-size: cover; background-position: center;">
+        <div class="p-6 md:p-8 bg-blur backdrop-blur-md bg-black/30">
+          <div class="flex justify-between items-start max-md:flex-col max-md:gap-4 mb-4">
+            <div class="flex gap-3 flex-wrap">
+              <span class="px-3 py-1 bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-full text-xs font-haas_medium_65">
+                NFT's
+              </span>
+              <span class="px-3 py-1 bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-full text-xs font-haas_medium_65">
+                Trading
+              </span>
+              <span class="text-xs font-haas_roman_55 text-white flex items-center">
+                Dec 12, 2025
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex -space-x-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 border-2 border-white"></div>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 border-2 border-white"></div>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 border-2 border-white"></div>
+              </div>
+              <span class="text-xs font-haas_medium_65 text-white">+200</span>
+            </div>
+          </div>
+          <h2 class="font-haas_medium_65 text-white text-2xl md:text-3xl leading-[1.2] mb-3">
+            Blockster Meet-Up: Web3 Creators Unite
+          </h2>
+          <p class="text-sm font-haas_roman_55 text-white/90 max-w-3xl">
+            A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar with Location Pills and Navigation -->
+    <div class="w-full mb-6">
+      <div class="flex items-center justify-between gap-4 max-md:flex-col max-md:items-start">
+        <!-- Left: Location Pills -->
+        <div class="flex gap-2 flex-wrap">
+          <button class="px-4 py-2 bg-[#141414] text-white rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#2a2a2a] cursor-pointer">
+            All
+          </button>
+          <button class="px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#F5F6FB] cursor-pointer">
+            New York
+          </button>
+          <button class="px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#F5F6FB] cursor-pointer">
+            Miami
+          </button>
+          <button class="px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#F5F6FB] cursor-pointer">
+            San Francisco
+          </button>
+          <button class="px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#F5F6FB] cursor-pointer">
+            Munich
+          </button>
+          <button class="px-4 py-2 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 transition-all hover:bg-[#F5F6FB] cursor-pointer">
+            London
+          </button>
+        </div>
+
+        <!-- Right: Event Counter and Navigation Arrows -->
+        <div class="flex items-center gap-3 max-md:self-end">
+          <span class="text-sm font-haas_medium_65 text-[#141414]">1 / 12</span>
+          <div class="flex gap-2">
+            <button class="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-[#E7E8F1] hover:bg-[#F5F6FB] transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-[#E7E8F1] hover:bg-[#F5F6FB] transition-all cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 15L12.5 10L7.5 5" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex lg:flex-row flex-col gap-6">
+      <!-- Left Column: Calendar (2/3 width) -->
+      <div class="lg:w-2/3 w-full">
+        <div class="calendar-wrapper bg-white rounded-2xl border border-[#E7E8F1] p-6">
+          <!-- Calendar Header -->
+          <div class="calendar-header flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-haas_medium_65 text-[#141414]">
+              <%= month_name(@current_month) %> <%= @current_year %>
+            </h3>
+            <div class="flex gap-2">
+              <button
+                phx-click="prev_month"
+                phx-target={@myself}
+                class="w-10 h-10 flex items-center justify-center rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M12.5 15L7.5 10L12.5 5" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button
+                phx-click="next_month"
+                phx-target={@myself}
+                class="w-10 h-10 flex items-center justify-center rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M7.5 15L12.5 10L7.5 5" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Day Labels -->
+          <div class="grid grid-cols-7 gap-2 mb-3">
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Mon</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Tue</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Wed</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Thu</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Fri</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Sat</span>
+            </div>
+            <div class="text-center py-2">
+              <span class="text-xs font-haas_medium_55 text-[#515B70]">Sun</span>
+            </div>
+          </div>
+
+          <!-- Calendar Grid -->
+          <div class="grid grid-cols-7 gap-2">
+            <!-- Padding before first day -->
+            <%= for _i <- 1..@calendar_data.padding_before do %>
+              <div class="aspect-square"></div>
+            <% end %>
+
+            <!-- Days of the month -->
+            <%= for day <- 1..@calendar_data.days_in_month do %>
+              <% date = Date.new!(@current_year, @current_month, day) %>
+              <% is_today = Date.compare(date, @today) == :eq %>
+              <% is_past = Date.compare(date, @today) == :lt %>
+
+              <div class={[
+                "aspect-square flex items-center justify-center rounded-lg cursor-pointer transition-all",
+                if(is_today, do: "bg-gradient-to-b from-[#8AE388] to-[#BAF55F]", else: ""),
+                if(!is_today && !is_past, do: "hover:bg-[#F5F6FB]", else: ""),
+                if(is_past && !is_today, do: "opacity-40", else: "")
+              ]}>
+                <span class={[
+                  "text-sm font-haas_medium_65",
+                  if(is_today, do: "text-[#141414]", else: "text-[#343434]")
+                ]}>
+                  <%= day %>
+                </span>
+              </div>
+            <% end %>
+
+            <!-- Padding after last day -->
+            <%= for _i <- 1..@calendar_data.padding_after do %>
+              <div class="aspect-square"></div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Event Details (1/3 width) -->
+      <div class="lg:w-1/3 w-full">
+        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+          <!-- Event Details -->
+          <h3 class="text-xl font-haas_medium_65 text-[#141414] mb-6">Event Details</h3>
+
+          <!-- Date & Time -->
+          <div class="mb-6">
+            <div class="flex items-start gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-[#F5F6FB] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M6.66667 1.66669V4.16669M13.3333 1.66669V4.16669M2.91667 7.57502H17.0833M17.9167 7.08335V14.1667C17.9167 16.6667 16.6667 18.3334 13.75 18.3334H6.25C3.33333 18.3334 2.08333 16.6667 2.08333 14.1667V7.08335C2.08333 4.58335 3.33333 2.91669 6.25 2.91669H13.75C16.6667 2.91669 17.9167 4.58335 17.9167 7.08335Z" stroke="#141414" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.0787 11.4167H13.0862M13.0787 13.9167H13.0862M9.99623 11.4167H10.0037M9.99623 13.9167H10.0037M6.91209 11.4167H6.91957M6.91209 13.9167H6.91957" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mb-1">Date</p>
+                <p class="text-sm font-haas_medium_65 text-[#141414]">December 12, 2025</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-full bg-[#F5F6FB] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 18.3334C14.6024 18.3334 18.3333 14.6024 18.3333 10C18.3333 5.39765 14.6024 1.66669 10 1.66669C5.39763 1.66669 1.66667 5.39765 1.66667 10C1.66667 14.6024 5.39763 18.3334 10 18.3334Z" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.0917 12.65L10.5084 11.1083C10.0584 10.8416 9.69171 10.2 9.69171 9.67498V6.25831" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mb-1">Time</p>
+                <p class="text-sm font-haas_medium_65 text-[#141414]">6:00 PM - 9:00 PM EST</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="mb-6">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-full bg-[#F5F6FB] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 11.1917C11.4359 11.1917 12.6 10.0276 12.6 8.59169C12.6 7.15576 11.4359 5.99169 10 5.99169C8.56409 5.99169 7.40002 7.15576 7.40002 8.59169C7.40002 10.0276 8.56409 11.1917 10 11.1917Z" stroke="#141414" stroke-width="1.5"/>
+                  <path d="M3.01667 7.07502C4.65834 -0.141644 15.35 -0.133311 16.9833 7.08335C17.9417 11.3167 15.3083 14.9 13.0083 17.1167C11.325 18.7334 8.675 18.7334 6.98334 17.1167C4.69167 14.9 2.05834 11.3084 3.01667 7.07502Z" stroke="#141414" stroke-width="1.5"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mb-1">Location</p>
+                <p class="text-sm font-haas_medium_65 text-[#141414]">Brooklyn, New York</p>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mt-1">The Greenpoint Loft</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Price -->
+          <div class="mb-6 pb-6 border-b border-[#E7E8F1]">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-full bg-[#F5F6FB] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M7.22498 11.8667L11.8583 7.23334" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M11.8583 11.8667L7.22498 7.23334" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7.50002 18.3333H12.5C16.6667 18.3333 18.3334 16.6667 18.3334 12.5V7.49999C18.3334 3.33332 16.6667 1.66666 12.5 1.66666H7.50002C3.33335 1.66666 1.66669 3.33332 1.66669 7.49999V12.5C1.66669 16.6667 3.33335 18.3333 7.50002 18.3333Z" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mb-1">Price</p>
+                <p class="text-sm font-haas_medium_65 text-[#141414]">Free Entry</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attendees -->
+          <div class="mb-6">
+            <p class="text-xs font-haas_roman_55 text-[#515B70] mb-3">Attendees</p>
+            <div class="flex items-center gap-2 cursor-pointer" phx-click="show_attendees" phx-target={@myself}>
+              <div class="flex -space-x-2">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 border-2 border-white"></div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 border-2 border-white"></div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 border-2 border-white"></div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-400 border-2 border-white"></div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 border-2 border-white"></div>
+              </div>
+              <span class="text-sm font-haas_medium_65 text-[#141414]"><%= length(@attendees) %> going</span>
+            </div>
+          </div>
+
+          <!-- Attendees Popup Modal Overlay -->
+          <%= if @show_attendees_popup do %>
+            <div
+              class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+              phx-click="hide_attendees"
+              phx-target={@myself}
+            >
+              <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 shadow-2xl max-w-md w-full mx-4 max-h-[600px] flex flex-col" phx-click="stop_propagation">
+                <div class="flex items-center justify-between mb-4">
+                  <h4 class="text-lg font-haas_medium_65 text-[#141414]">Attendees (<%= length(@attendees) %>)</h4>
+                  <button
+                    phx-click="hide_attendees"
+                    phx-target={@myself}
+                    class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F6FB] transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M15 5L5 15M5 5L15 15" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="overflow-y-auto flex-1">
+                  <%= for attendee <- @attendees do %>
+                    <div class="flex items-center gap-3 p-3 hover:bg-[#F5F6FB] rounded-lg cursor-pointer transition-all">
+                      <div class={"w-10 h-10 rounded-full bg-gradient-to-br #{get_avatar_color(attendee.id)} flex items-center justify-center flex-shrink-0"}>
+                        <span class="text-white text-sm font-haas_medium_65"><%= get_initials(attendee) %></span>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-haas_medium_65 text-[#141414] truncate">
+                          <%= attendee.username || attendee.email %>
+                        </p>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <!-- Buy Ticket Button -->
+          <button class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-sm py-3 px-6 rounded-full hover:shadow-lg transition-all">
+            Buy Ticket
+          </button>
+
+          <!-- Share Event -->
+          <button class="w-full mt-3 bg-white border border-[#E7E8F1] text-[#141414] font-haas_medium_65 text-sm py-3 px-6 rounded-full hover:bg-[#F5F6FB] transition-all flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M5.98666 8.66668L10.02 11.2667M10.0133 4.73335L5.98666 7.33335M13.3333 3.33335C13.3333 4.43792 12.4379 5.33335 11.3333 5.33335C10.2288 5.33335 9.33333 4.43792 9.33333 3.33335C9.33333 2.22878 10.2288 1.33335 11.3333 1.33335C12.4379 1.33335 13.3333 2.22878 13.3333 3.33335ZM6.66666 8.00002C6.66666 9.10459 5.77123 10 4.66666 10C3.56209 10 2.66666 9.10459 2.66666 8.00002C2.66666 6.89545 3.56209 6.00002 4.66666 6.00002C5.77123 6.00002 6.66666 6.89545 6.66666 8.00002ZM13.3333 12.6667C13.3333 13.7712 12.4379 14.6667 11.3333 14.6667C10.2288 14.6667 9.33333 13.7712 9.33333 12.6667C9.33333 11.5621 10.2288 10.6667 11.3333 10.6667C12.4379 10.6667 13.3333 11.5621 13.3333 12.6667Z" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Share Event
+          </button>
+        </div>
+
+        <!-- Map Section -->
+        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 mt-6">
+          <h3 class="text-xl font-haas_medium_65 text-[#141414] mb-4">Location</h3>
+
+          <!-- Google Map Container -->
+          <div class="w-full h-[300px] rounded-xl overflow-hidden relative">
+            <iframe
+              width="100%"
+              height="100%"
+              style="border:0;"
+              loading="lazy"
+              allowfullscreen
+              referrerpolicy="no-referrer-when-downgrade"
+              src="https://www.google.com/maps/embed/v1/place?key=AIzaSyCGIfXEgneQvhM6qFupLAzaHAuh13NClhk&q=The+Greenpoint+Loft,Brooklyn+New+York&zoom=15">
+            </iframe>
+
+            <!-- Map Overlay with Address -->
+            <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+              <div class="bg-white rounded-lg p-3 shadow-lg pointer-events-auto">
+                <p class="text-sm font-haas_medium_65 text-[#141414]">The Greenpoint Loft</p>
+                <p class="text-xs font-haas_roman_55 text-[#515B70] mt-1">Brooklyn, New York</p>
+                <a
+                  href="https://maps.google.com/?q=The+Greenpoint+Loft,Brooklyn,New+York"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-xs font-haas_medium_65 text-[#141414] mt-2 inline-flex items-center gap-1 hover:underline"
+                >
+                  Get Directions
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M4.5 1.5H10.5V7.5M10.5 1.5L1.5 10.5M10.5 1.5L5.5 1.5" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

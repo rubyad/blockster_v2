@@ -18,8 +18,12 @@ defmodule BlocksterV2.Accounts.User do
 
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
+    has_many :organized_events, BlocksterV2.Events.Event, foreign_key: :organizer_id
     many_to_many :followed_hubs, BlocksterV2.Blog.Hub,
       join_through: "hub_followers",
+      on_replace: :delete
+    many_to_many :attending_events, BlocksterV2.Events.Event,
+      join_through: "event_attendees",
       on_replace: :delete
 
     timestamps()

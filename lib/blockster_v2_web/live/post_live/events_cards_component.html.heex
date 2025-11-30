@@ -1,0 +1,73 @@
+<section id={"component-#{@id}"} class="events-cards-section py-6">
+  <div class="container mx-auto">
+    <%= if @events == [] do %>
+      <div class="text-center py-20">
+        <p class="text-[#515B70] font-haas_roman_55">No upcoming events yet.</p>
+      </div>
+    <% else %>
+      <div class="grid md:grid-cols-3 grid-cols-1 gap-6">
+        <%= for {event, idx} <- Enum.with_index(@events) do %>
+          <% {day, month} = format_date(event.date) %>
+          <% attendee_count = get_attendee_count(event) %>
+          <% category = get_category_tag(idx) %>
+          <% image = get_event_image(idx) %>
+
+          <!-- Event Card -->
+          <div class="bg-white rounded-2xl border border-[#E7E8F1] overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+            <!-- Event Image -->
+            <div class="h-48 bg-cover bg-center relative" style={"background-image: url('#{image}');"}>
+              <div class="absolute top-4 left-4">
+                <div class="bg-white rounded-lg p-2 text-center min-w-[60px]">
+                  <p class="text-2xl font-haas_medium_65 text-[#141414] leading-none"><%= day %></p>
+                  <p class="text-xs font-haas_roman_55 text-[#515B70] mt-1"><%= month %></p>
+                </div>
+              </div>
+              <div class="absolute top-4 right-4 flex gap-2">
+                <span class="px-3 py-1 bg-white/90 backdrop-blur-sm text-[#141414] rounded-full text-xs font-haas_medium_65">
+                  <%= category %>
+                </span>
+              </div>
+            </div>
+
+            <!-- Event Details -->
+            <div class="p-6">
+              <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3 line-clamp-2">
+                <%= event.title %>
+              </h3>
+
+              <!-- Date & Time -->
+              <div class="flex items-center gap-2 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M14 6.66667H2M10.6667 1.33334V4.00001M5.33333 1.33334V4.00001M5.2 14.6667H10.8C11.9201 14.6667 12.4802 14.6667 12.908 14.4487C13.2843 14.2569 13.5903 13.951 13.782 13.5746C14 13.1468 14 12.5868 14 11.4667V5.86667C14 4.74656 14 4.18651 13.782 3.75868C13.5903 3.38236 13.2843 3.07644 12.908 2.88466C12.4802 2.66667 11.9201 2.66667 10.8 2.66667H5.2C4.0799 2.66667 3.51984 2.66667 3.09202 2.88466C2.71569 3.07644 2.40973 3.38236 2.21799 3.75868C2 4.18651 2 4.74656 2 5.86667V11.4667C2 12.5868 2 13.1468 2.21799 13.5746C2.40973 13.951 2.71569 14.2569 3.09202 14.4487C3.51984 14.6667 4.0799 14.6667 5.2 14.6667Z" stroke="#515B70" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="text-sm font-haas_roman_55 text-[#515B70]"><%= format_datetime(event.date, event.time) %></span>
+              </div>
+
+              <!-- Location -->
+              <div class="flex items-center gap-2 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 8.95335C9.14867 8.95335 10.08 8.02201 10.08 6.87335C10.08 5.72468 9.14867 4.79335 8 4.79335C6.85133 4.79335 5.92 5.72468 5.92 6.87335C5.92 8.02201 6.85133 8.95335 8 8.95335Z" stroke="#515B70" stroke-width="1.5"/>
+                  <path d="M2.41333 5.66001C3.72667 -0.113321 12.28 -0.106655 13.5867 5.66668C14.3467 9.05335 12.2467 11.92 10.4067 13.6933C9.06 14.9867 6.94 14.9867 5.58667 13.6933C3.75333 11.92 1.65333 9.04668 2.41333 5.66001Z" stroke="#515B70" stroke-width="1.5"/>
+                </svg>
+                <span class="text-sm font-haas_roman_55 text-[#515B70]"><%= event.city %>, <%= event.country %></span>
+              </div>
+
+              <!-- Attendees -->
+              <div class="flex items-center justify-between pt-4 border-t border-[#E7E8F1]">
+                <div class="flex items-center gap-2">
+                  <div class="flex -space-x-2">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 border-2 border-white"></div>
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 border-2 border-white"></div>
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 border-2 border-white"></div>
+                  </div>
+                  <span class="text-xs font-haas_medium_65 text-[#515B70]">+<%= attendee_count %> going</span>
+                </div>
+                <span class="text-sm font-haas_medium_65 text-[#141414]"><%= format_price(event.price) %></span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</section>

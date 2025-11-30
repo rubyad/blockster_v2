@@ -1,10 +1,12 @@
-<section id={"component-#{@id}"} class="blog-section md:py-20 py-6">
+<section id={"component-#{@id}"} class="blog-section md:py-6 py-6">
   <div class="container mx-auto">
     <div class="inner gap-6">
       <div class="left-content">
-        <div class="search-wrapper flex justify-between items-center">
-          <h2 class="font-haas_medium_65 capitalize"><%= @content %></h2>
-        </div>
+        <%= unless Map.get(assigns, :hide_title, false) do %>
+          <div class="search-wrapper flex justify-between items-center">
+            <h2 class="font-haas_medium_65 font-semibold text-4xl capitalize"><%= @content %></h2>
+          </div>
+        <% end %>
 
         <%= if @posts == [] do %>
           <div class="text-center py-20">

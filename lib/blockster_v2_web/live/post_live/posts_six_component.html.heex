@@ -1,7 +1,9 @@
 <section id={"component-#{@id}"} class="grid-section-reverse md:py-20 pt-0 pb-10">
   <div class="container mx-auto">
 
-    <h2 class="font-haas_medium_65 mb-6 capitalize"><%= @content %></h2>
+    <%= unless Map.get(assigns, :hide_title, false) do %>
+      <h2 class="font-haas_medium_65 mb-6 capitalize"><%= @content %></h2>
+    <% end %>
 
     <%= if length(@posts) >= 4 do %>
       <div class="flex gap-3 md:flex-row flex-col-reverse">

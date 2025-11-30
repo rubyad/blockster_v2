@@ -164,6 +164,7 @@ defmodule BlocksterV2.Blog do
   """
   def list_published_posts_by_hub(hub_id, opts \\ []) do
     limit = Keyword.get(opts, :limit)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
 
     # Get the hub to access its tag_name
     hub = get_hub(hub_id)
@@ -190,6 +191,13 @@ defmodule BlocksterV2.Blog do
         preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
       )
     end
+
+    query =
+      if exclude_ids != [] do
+        from(p in query, where: p.id not in ^exclude_ids)
+      else
+        query
+      end
 
     query
     |> Repo.all()

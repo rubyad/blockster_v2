@@ -73,34 +73,60 @@ let Autocomplete = {
 let InfiniteScroll = {
   mounted() {
     this.pending = false;
+    this.scrollCheckInterval = null;
 
     // Create a sentinel element at the bottom
     this.sentinel = document.createElement('div');
     this.sentinel.style.height = '1px';
     this.el.appendChild(this.sentinel);
 
-    // Create intersection observer
+    // Create intersection observer with larger margin
     this.observer = new IntersectionObserver(
       entries => {
         const entry = entries[0];
         if (entry.isIntersecting && !this.pending) {
-          this.pending = true;
-          this.pushEvent("load-more", {});
-
-          // Reset pending after a delay
-          setTimeout(() => {
-            this.pending = false;
-          }, 1000);
+          this.loadMore();
         }
       },
       {
         root: null,
-        rootMargin: '200px',
+        rootMargin: '500px', // Increased from 200px for faster scrolling
         threshold: 0
       }
     );
 
     this.observer.observe(this.sentinel);
+
+    // Backup scroll event handler for very fast scrolling
+    this.handleScroll = () => {
+      if (this.pending) return;
+
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight;
+
+      // Trigger when within 800px of bottom
+      if (scrollHeight - scrollTop - clientHeight < 800) {
+        this.loadMore();
+      }
+    };
+
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
+  },
+
+  loadMore() {
+    if (this.pending) return;
+
+    this.pending = true;
+
+    // Determine which event to push based on element ID
+    const eventName = this.el.id === 'hub-news-stream' ? 'load-more-news' : 'load-more';
+    this.pushEvent(eventName, {});
+
+    // Reset pending after a short delay
+    setTimeout(() => {
+      this.pending = false;
+    }, 100);
   },
 
   destroyed() {
@@ -109,6 +135,12 @@ let InfiniteScroll = {
     }
     if (this.sentinel && this.sentinel.parentNode) {
       this.sentinel.parentNode.removeChild(this.sentinel);
+    }
+    if (this.handleScroll) {
+      window.removeEventListener('scroll', this.handleScroll);
+    }
+    if (this.scrollCheckInterval) {
+      clearInterval(this.scrollCheckInterval);
     }
   }
 };

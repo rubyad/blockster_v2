@@ -2,9 +2,11 @@
   <div class="container mx-auto">
     <div class="flex flex-col">
       <!-- Section Title -->
-      <div class="mb-6">
-        <h2 class="text-3xl font-haas_medium_65 text-[#141414] capitalize"><%= @content %></h2>
-      </div>
+      <%= unless Map.get(assigns, :hide_title, false) do %>
+        <div class="mb-6">
+          <h2 class="text-3xl font-haas_medium_65 text-[#141414] capitalize"><%= @content %></h2>
+        </div>
+      <% end %>
 
       <%= if @posts == [] do %>
         <div class="text-center py-20">
