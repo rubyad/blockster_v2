@@ -189,9 +189,9 @@ defmodule BlocksterV2Web.Layouts do
                   </a>
                 </li>
                 <li>
-                  <a href="/#upcoming-events" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors smooth-scroll">
+                  <.link navigate={~p"/events"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
                     Events
-                  </a>
+                  </.link>
                 </li>
                 <li>
                   <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid hover:bg-[#F5F6FB] transition-colors">
