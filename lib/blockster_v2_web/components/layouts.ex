@@ -184,9 +184,9 @@ defmodule BlocksterV2Web.Layouts do
                   </.link>
                 </li>
                 <li>
-                  <a href="/#shop-section" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors smooth-scroll">
+                  <.link navigate={~p"/shop-landing"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
                     Shop
-                  </a>
+                  </.link>
                 </li>
                 <li>
                   <.link navigate={~p"/events"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
