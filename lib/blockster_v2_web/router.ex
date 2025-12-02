@@ -75,6 +75,9 @@ defmodule BlocksterV2Web.Router do
       live "/hub/:slug", HubLive.Show, :show
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show
+      live "/shop-landing", ShopLive.Landing, :index
+      live "/shop", ShopLive.Index, :index
+      live "/shop/:slug", ShopLive.Show, :show
       live "/:slug", PostLive.Show, :show
     end
   end

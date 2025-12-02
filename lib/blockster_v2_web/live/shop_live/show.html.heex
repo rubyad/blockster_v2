@@ -1,0 +1,199 @@
+<div class="shop-show">
+  <div class="container mx-auto px-4 py-8">
+    <%!-- Back Button --%>
+    <div class="mb-6">
+      <.link
+        navigate={~p"/shop"}
+        class="inline-flex items-center gap-2 text-[#141414] font-haas_medium_65 hover:opacity-70"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+        >
+          <path
+            d="M12.5 15L7.5 10L12.5 5"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Back to Shop
+      </.link>
+    </div>
+
+    <%!-- Product Details --%>
+    <div class="grid md:grid-cols-2 gap-8">
+      <%!-- Product Image --%>
+      <div class="bg-[#E8EAEC] rounded-2xl p-8 flex items-center justify-center">
+        <img
+          src={@product.image}
+          alt={@product.name}
+          class="max-h-[600px] object-contain rounded-xl"
+        />
+      </div>
+
+      <%!-- Product Info --%>
+      <div class="flex flex-col">
+        <h1 class="text-4xl font-haas_medium_65 text-[#141414] mb-4">
+          <%= @product.name %>
+        </h1>
+
+        <%!-- Price --%>
+        <div class="flex items-center gap-3 mb-6">
+          <span class="text-3xl font-haas_medium_65 text-[#141414]">
+            $<%= :erlang.float_to_binary(@product.price, decimals: 2) %>
+          </span>
+          <span class="text-xl font-haas_roman_55 text-[#141414] line-through">
+            $<%= :erlang.float_to_binary(@product.original_price, decimals: 2) %>
+          </span>
+          <span class="bg-[#8AE388] text-[#141414] px-3 py-1 rounded-full text-sm font-haas_medium_65">
+            <%= @product.discount_percent %>% OFF
+          </span>
+        </div>
+
+        <%!-- BUX Discount Badge --%>
+        <div class="p-4 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-xl mb-6">
+          <div class="flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle cx="12" cy="12" r="12" fill="#141414" />
+              <path
+                d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z"
+                fill="#8AE388"
+              />
+            </svg>
+            <span class="font-haas_medium_65 text-[#141414]">
+              Use <%= @product.bux_discount %> BUX for <%= @product.discount_percent %>% discount
+            </span>
+          </div>
+        </div>
+
+        <%!-- Description --%>
+        <div class="mb-6">
+          <h3 class="text-xl font-haas_medium_65 text-[#141414] mb-2">Description</h3>
+          <p class="text-[#515B70] font-haas_roman_55 leading-relaxed">
+            <%= @product.description %>
+          </p>
+        </div>
+
+        <%!-- Features --%>
+        <div class="mb-6">
+          <h3 class="text-xl font-haas_medium_65 text-[#141414] mb-3">Features</h3>
+          <ul class="space-y-2">
+            <%= for feature <- @product.features do %>
+              <li class="flex items-start gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  class="mt-0.5 shrink-0"
+                >
+                  <circle cx="10" cy="10" r="10" fill="#8AE388" />
+                  <path
+                    d="M6 10L8.5 12.5L14 7"
+                    stroke="#141414"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span class="text-[#515B70] font-haas_roman_55"><%= feature %></span>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+
+        <%!-- Size Selection --%>
+        <div class="mb-6">
+          <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+          <div class="flex flex-wrap gap-2">
+            <%= for size <- @product.sizes do %>
+              <button
+                phx-click="select_size"
+                phx-value-size={size}
+                class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+              >
+                <%= size %>
+              </button>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Quantity Selector --%>
+        <div class="mb-6">
+          <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Quantity</h3>
+          <div class="flex items-center gap-3">
+            <button
+              phx-click="decrement_quantity"
+              class="w-12 h-12 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={@quantity <= 1}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M5 10H15"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <span class="text-2xl font-haas_medium_65 text-[#141414] min-w-[40px] text-center">
+              <%= @quantity %>
+            </span>
+
+            <button
+              phx-click="increment_quantity"
+              class="w-12 h-12 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M10 5V15M5 10H15"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <%!-- Add to Cart Button --%>
+        <button
+          phx-click="add_to_cart"
+          class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={is_nil(@selected_size)}
+        >
+          <%= if is_nil(@selected_size) do %>
+            Select a size to continue
+          <% else %>
+            Add to Cart - Coming Soon
+          <% end %>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
