@@ -15,6 +15,7 @@ defmodule BlocksterV2.Accounts.User do
     field :experience_points, :integer, default: 0
     field :avatar_url, :string
     field :chain_id, :integer, default: 560013
+    field :slug, :string
 
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
@@ -42,10 +43,13 @@ defmodule BlocksterV2.Accounts.User do
     |> validate_number(:bux_balance, greater_than_or_equal_to: 0)
     |> validate_number(:level, greater_than_or_equal_to: 1)
     |> validate_number(:experience_points, greater_than_or_equal_to: 0)
-    |> unique_constraint(:wallet_address)
-    |> unique_constraint(:email)
     |> downcase_email()
     |> downcase_wallet_address()
+    |> generate_slug()
+    |> unique_constraint(:wallet_address)
+    |> unique_constraint(:email)
+    |> unique_constraint(:username)
+    |> unique_constraint(:slug)
   end
 
   @doc """
@@ -105,6 +109,22 @@ defmodule BlocksterV2.Accounts.User do
         else
           changeset
         end
+    end
+  end
+
+  defp generate_slug(changeset) do
+    case get_change(changeset, :username) do
+      nil -> changeset
+      username ->
+        slug =
+          username
+          |> String.downcase()
+          |> String.replace(~r/[^a-z0-9\s-]/, "")
+          |> String.replace(~r/\s+/, "-")
+          |> String.replace(~r/-+/, "-")
+          |> String.trim("-")
+
+        put_change(changeset, :slug, slug)
     end
   end
 end

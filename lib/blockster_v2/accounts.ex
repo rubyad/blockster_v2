@@ -30,6 +30,13 @@ defmodule BlocksterV2.Accounts do
   def get_user(id), do: Repo.get(User, id)
 
   @doc """
+  Gets a user by slug.
+  """
+  def get_user_by_slug(slug) when is_binary(slug) do
+    Repo.get_by(User, slug: slug)
+  end
+
+  @doc """
   Lists all users ordered by most recent first.
   """
   def list_users do
