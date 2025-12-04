@@ -34,12 +34,13 @@ defmodule BlocksterV2Web.PostLive.Index do
     displayed_categories = []
     displayed_tags = []
     displayed_hubs = []
-    displayed_banners = ["how-it-works"]
+    displayed_banners = ["master-crypto"]
+
+    current_user = socket.assigns[:current_user]
 
     components = [
-      %{module: BlocksterV2Web.PostLive.HowItWorksComponent, id: "how-it-works", type: "banner", content: "how-it-works"},
-      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: nil, type: "curated-posts", content: "curated"},
-      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: nil, type: "curated-posts", content: "curated"},
+      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated"},
+      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated"},
       # %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
       # %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
       # %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"},
@@ -232,11 +233,17 @@ defmodule BlocksterV2Web.PostLive.Index do
         # Reload the curated posts
         latest_news_posts = Blog.get_curated_posts_for_section("latest_news")
         conversations_posts = Blog.get_curated_posts_for_section("conversations")
+        current_user = socket.assigns[:current_user]
+
+        # Update the stream with new component data
+        # Use stream_insert with :at to replace existing items
+        socket =
+          socket
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated"}, at: 0)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated"}, at: 1)
 
         {:noreply,
          socket
-         |> assign(:latest_news_posts, latest_news_posts)
-         |> assign(:conversations_posts, conversations_posts)
          |> assign(:show_post_selector, false)
          |> assign(:selector_section, nil)
          |> assign(:selector_position, nil)

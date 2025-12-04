@@ -23,7 +23,7 @@ let factoryAddress
 let paymasterAddress
 let entryPoint
 let bundlerUrl
-if (window.location.origin != "http://localhost:4000") {
+if (window.location.origin != "http://localhost:40001111111") { // changed from 4000 to use mainnet all the time, testnet down
     // Mainnet (Production) - Chain ID: 560013
     id = 560013
     blockExplorer = "https://roguescan.io"
@@ -612,7 +612,8 @@ export const ThirdwebLogin = {
       // Store address in localStorage so we can verify it's the same user
       localStorage.setItem('smartAccountAddress', smartAccount.address);
 
-      await this.authenticateEmail(this.pendingEmail, smartAccount.address);
+      // Pass both personal wallet (EOA) and smart wallet addresses
+      await this.authenticateEmail(this.pendingEmail, personalAccount.address, smartAccount.address);
     } catch (error) {
       console.error('Verification error:', error);
       console.error('Error message:', error.message);
@@ -666,7 +667,7 @@ export const ThirdwebLogin = {
     }
   },
 
-  async authenticateEmail(email, walletAddress) {
+  async authenticateEmail(email, personalWalletAddress, smartWalletAddress) {
     try {
       const response = await fetch('/api/auth/email/verify', {
         method: 'POST',
@@ -677,7 +678,8 @@ export const ThirdwebLogin = {
         },
         body: JSON.stringify({
           email: email,
-          wallet_address: walletAddress
+          wallet_address: personalWalletAddress,
+          smart_wallet_address: smartWalletAddress
         })
       });
 
@@ -1269,6 +1271,169 @@ export const ThirdwebLogin = {
       // Restore original fetch
       window.fetch = originalFetch;
       console.log('🔍 Network request logging disabled');
+    }
+  }
+};
+
+// ThirdwebWallet - Lightweight hook for wallet initialization on all pages
+// This hook silently initializes the wallet without rendering any UI
+// Use this on the site header so users can perform blockchain transactions
+export const ThirdwebWallet = {
+  mounted() {
+    console.log('ThirdwebWallet hook mounted - silent wallet initialization');
+
+    // Expose this hook instance globally for disconnect and transactions
+    window.ThirdwebWalletHook = this;
+
+    // Initialize the Thirdweb client
+    client = getClient();
+    if (!client) {
+      console.error('Failed to initialize Thirdweb client');
+      return;
+    }
+
+    // Initialize the in-app wallet (will be used as personal account for smart wallet)
+    this.personalWallet = inAppWallet();
+    window.personalWallet = this.personalWallet;
+
+    // Initialize smart wallet configuration (same as ThirdwebLogin)
+    const walletConfig = {
+      chain: rogueChain,
+      factoryAddress: factoryAddress,
+      gasless: true,
+      overrides: {
+        entryPoint: entryPoint,
+        bundlerUrl: bundlerUrl,
+        paymaster: async (userOp) => {
+          console.log('💰 Paymaster function called');
+
+          const userOpForLog = {};
+          for (const key in userOp) {
+            userOpForLog[key] = typeof userOp[key] === 'bigint' ? userOp[key].toString() : userOp[key];
+          }
+          console.log('   UserOp received:', userOpForLog);
+
+          if (!userOp.preVerificationGas || userOp.preVerificationGas === '0x0' || userOp.preVerificationGas === 0n) {
+            userOp.preVerificationGas = '0xb708';
+          }
+
+          const hasInitCode = userOp.initCode && userOp.initCode !== '0x' && userOp.initCode.length > 2;
+
+          if (!userOp.verificationGasLimit || userOp.verificationGasLimit === '0x0' || userOp.verificationGasLimit === 0n) {
+            userOp.verificationGasLimit = hasInitCode ? '0x061a80' : '0x0186a0';
+          }
+          if (!userOp.callGasLimit || userOp.callGasLimit === '0x0' || userOp.callGasLimit === 0n) {
+            userOp.callGasLimit = '0x1d4c0';
+          }
+
+          if (hasInitCode) {
+            console.log('   🏭 Account deployment detected, using higher verificationGasLimit');
+          }
+
+          console.log('✅ Paymaster returning paymasterAndData');
+          console.log('📝 PaymasterAndData (SimplePaymaster):', paymasterAddress);
+
+          return {
+            paymasterAndData: paymasterAddress,
+            callGasLimit: userOp.callGasLimit,
+            verificationGasLimit: userOp.verificationGasLimit,
+            preVerificationGas: userOp.preVerificationGas,
+          };
+        },
+      },
+      sponsorGas: true,
+    };
+
+    this.wallet = smartWallet(walletConfig);
+    window.smartWalletInstance = this.wallet;
+
+    // Try to auto-connect silently
+    this.autoConnectWallet();
+  },
+
+  destroyed() {
+    console.log('ThirdwebWallet hook destroyed');
+    delete window.ThirdwebWalletHook;
+  },
+
+  async autoConnectWallet() {
+    try {
+      console.log('🔄 ThirdwebWallet: Auto-connecting...');
+
+      // Check URL hash for logout signal
+      const hash = window.location.hash;
+      if (hash === '#logout') {
+        console.log('⛔ Logout detected - skipping auto-connect');
+        window.history.replaceState({}, '', window.location.pathname);
+        localStorage.removeItem('smartAccountAddress');
+        return;
+      }
+
+      // Check if there's a stored smart account address
+      const storedAddress = localStorage.getItem('smartAccountAddress');
+      if (!storedAddress) {
+        console.log('No stored wallet address, skipping auto-connect');
+        return;
+      }
+
+      console.log('Found stored wallet address:', storedAddress);
+
+      // Auto-connect the personal wallet
+      const personalAccount = await this.personalWallet.autoConnect({
+        client: client,
+      });
+
+      if (!personalAccount) {
+        console.log('Personal wallet auto-connect returned null');
+        localStorage.removeItem('smartAccountAddress');
+        return;
+      }
+
+      console.log('✅ Personal wallet auto-connected:', personalAccount.address);
+
+      // Connect the smart wallet
+      const smartAccount = await this.wallet.connect({
+        client: client,
+        personalAccount: personalAccount,
+      });
+
+      console.log('✅ Smart wallet connected:', smartAccount.address);
+
+      // Verify it's the same account
+      if (smartAccount.address.toLowerCase() !== storedAddress.toLowerCase()) {
+        console.warn('⚠️ Wallet address mismatch, clearing stored data');
+        localStorage.removeItem('smartAccountAddress');
+        return;
+      }
+
+      // Store for global access
+      this.smartAccount = smartAccount;
+      window.smartAccount = smartAccount;
+
+      console.log('✅ ThirdwebWallet: Auto-connect successful! Wallet ready for transactions.');
+    } catch (error) {
+      console.log('ThirdwebWallet auto-connect failed:', error.message);
+      localStorage.removeItem('smartAccountAddress');
+      delete window.smartAccount;
+    }
+  },
+
+  // Expose disconnect method for logout
+  async handleDisconnect() {
+    console.log('ThirdwebWallet: Disconnecting...');
+    try {
+      if (this.wallet) {
+        await this.wallet.disconnect();
+      }
+      if (this.personalWallet) {
+        await this.personalWallet.disconnect();
+      }
+      localStorage.removeItem('smartAccountAddress');
+      delete window.smartAccount;
+      delete this.smartAccount;
+      console.log('✅ ThirdwebWallet: Disconnected');
+    } catch (error) {
+      console.error('Disconnect error:', error);
     }
   }
 };

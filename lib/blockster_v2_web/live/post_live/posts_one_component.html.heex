@@ -1,153 +1,57 @@
 <section id={"component-#{@id}"} class="blog-section md:py-20 py-6 relative">
   <div class="container mx-auto">
-    <div class="inner xl:flex gap-6 xl:items-stretch">
+    <!-- Breadcrumb and Title Row -->
+    <div class="xl:flex gap-6 mb-3">
+      <div class="xl:w-2/3 w-full">
+        <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+          <span>News</span>
+          <span class="mx-2">›</span>
+          <span>Top Stories</span>
+        </p>
+        <h2 class="text-2xl md:text-4xl font-haas_bold_75 text-[#141414]">Top Stories</h2>
+      </div>
+      <div class="xl:w-1/3 w-full hidden xl:block">
+        <span class="inline-block bg-black text-white font-haas_medium_65 text-sm px-4 py-1.5 rounded-full w-fit mt-6">Recommended</span>
+      </div>
+    </div>
+    <div class="inner xl:flex xl:gap-6 gap-3 xl:items-start">
       <div class="left-content xl:w-2/3 w-full flex flex-col">
         <%= if @posts == [] do %>
           <div class="text-center py-20">
             <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
           </div>
         <% else %>
-          <div class="latest-news-blog_cards flex md:flex-row flex-col md:gap-3 md:items-stretch flex-1">
-            <!-- Left Column - 2 small cards (Positions 1-2) -->
-            <div class="md:w-1/3 flex flex-col gap-3 flex-1">
-              <%= for {post, idx} <- Enum.with_index(Enum.slice(@posts, 0, 2), 1) do %>
-                <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
-                  <%= if assigns[:current_user] && @current_user.is_admin do %>
-                    <button
-                      phx-click="open_post_selector"
-                      phx-value-section="latest_news"
-                      phx-value-position={idx}
-                      class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
-                  <% end %>
-                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                    <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
-                      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                        <%= if post.featured_image do %>
-                          <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                        <% else %>
-                          <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
-                              <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
-                              <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
-                            </svg>
-                          </div>
-                        <% end %>
-                      </div>
-                    </div>
-                    <div class="px-2 py-2">
-                      <div class="flex justify-between items-center">
-                        <ul class="gap-3 flex items-center">
-                          <%= if post.category do %>
-                            <li>
-                              <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                                {post.category.name}
-                              </span>
-                            </li>
-                          <% end %>
-                          <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                            <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                          </li>
-                        </ul>
-                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                            <.lightning_icon id={"bux_left_#{post.id}"} size="20" />
-                            <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                          </button>
-                        </div>
-                      </div>
-                      <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
-                    </div>
-                  </.link>
-                </div>
-              <% end %>
-            </div>
+          <div class="latest-news-blog_cards md:grid md:grid-cols-[27%_42%_27%] md:grid-rows-2 md:gap-3 flex flex-col gap-3 flex-1">
+            <%
+              left_posts = Enum.slice(@posts, 0, 2)
+              middle_post = Enum.at(@posts, 2)
+              right_posts = Enum.slice(@posts, 3, 2)
+            %>
 
-            <!-- Middle Column - 1 tall card (Position 3) -->
-            <%= if Enum.at(@posts, 2) do %>
-              <% post = Enum.at(@posts, 2) %>
-              <div class="md:w-1/3 md:mt-0 mt-3 flex flex-1">
-                <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
-                  <%= if assigns[:current_user] && @current_user.is_admin do %>
-                    <button
-                      phx-click="open_post_selector"
-                      phx-value-section="latest_news"
-                      phx-value-position="3"
-                      class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
-                  <% end %>
-                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                  <div class="img-wrapper md:h-[537px] h-[330px]">
-                    <%= if post.featured_image do %>
-                      <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                    <% else %>
-                      <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
-                          <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
-                          <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
-                        </svg>
-                      </div>
-                    <% end %>
-                  </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
-                      <ul class="gap-3 flex items-center">
-                        <%= if post.category do %>
-                          <li>
-                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
-                              {post.category.name}
-                            </span>
-                          </li>
-                        <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
-                      </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id="bux_icon_2" size="20" />
-                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                        </button>
-                      </div>
-                    </div>
-                    <h3 class="font-haas_medium_65 text-[#141414] mt-2">{post.title}</h3>
-                  </div>
-                  </.link>
-                </div>
-              </div>
-            <% end %>
-
-            <!-- Right Column - 2 small cards (Positions 4-5) -->
-            <div class="md:w-1/3 flex flex-col gap-3 flex-1">
-              <%= for {post, idx} <- Enum.with_index(Enum.slice(@posts, 3, 2), 4) do %>
-                <div class="block rounded-lg p-2 border-[#1414141A] border-[1px] bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
-                  <%= if assigns[:current_user] && @current_user.is_admin do %>
-                    <button
-                      phx-click="open_post_selector"
-                      phx-value-section="latest_news"
-                      phx-value-position={idx}
-                      class="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
-                  <% end %>
-                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                  <div class="img-wrapper w-full overflow-hidden" style="padding-bottom: 100%; position: relative;">
+            <!-- Row 1: Left Card 1, Middle Card (spans 2 rows), Right Card 1 -->
+            <!-- Left Column Card 1 (Position 1) -->
+            <%= if Enum.at(left_posts, 0) do %>
+              <% post = Enum.at(left_posts, 0) %>
+              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-1 md:col-start-1">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="latest_news"
+                    phx-value-position="1"
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                  <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 100%; position: relative;">
                     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                       <%= if post.featured_image do %>
-                        <img alt={post.title} src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
+                        <img alt={post.title} src={post.featured_image} class="w-full h-full object-cover" />
                       <% else %>
-                        <div class="w-full h-full rounded-[12px] bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
                           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
                             <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
                             <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
@@ -156,8 +60,8 @@
                       <% end %>
                     </div>
                   </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
+                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
+                    <div class="flex justify-center items-center">
                       <ul class="gap-3 flex items-center">
                         <%= if post.category do %>
                           <li>
@@ -166,30 +70,259 @@
                             </span>
                           </li>
                         <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
                       </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_middle_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{post.view_count}</span>
-                        </button>
-                      </div>
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-3">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                        <.lightning_icon id={"bux_left_#{post.id}"} size="20" />
+                        <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                      </button>
+                    </div>
                   </div>
-                  </.link>
+                </.link>
+              </div>
+            <% end %>
+
+            <!-- Middle Column - 1 tall card (Position 3) - spans 2 rows -->
+            <%= if middle_post do %>
+              <% post = middle_post %>
+              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-span-2 md:col-start-2">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="latest_news"
+                    phx-value-position="3"
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 133%; position: relative;">
+                  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                    <%= if post.featured_image do %>
+                      <img alt={post.title} src={post.featured_image} class="w-full h-full object-cover" />
+                    <% else %>
+                      <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                          <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                          <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                        </svg>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
-              <% end %>
-            </div>
+                <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
+                  <div class="flex justify-center items-center">
+                    <ul class="gap-3 flex items-center">
+                      <%= if post.category do %>
+                        <li>
+                          <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                            {post.category.name}
+                          </span>
+                        </li>
+                      <% end %>
+                      <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                        <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <h3 class="font-haas_roman_55 text-[#141414] mt-2 mb-4 text-2xl uppercase">{post.title}</h3>
+                  <%= if post.excerpt do %>
+                    <p class="text-[#515B70] font-haas_roman_55 text-sm mt-2">{String.slice(post.excerpt, 0, 200)}<%= if String.length(post.excerpt) > 200, do: "..." %></p>
+                  <% end %>
+                  <div class="flex-1"></div>
+                  <div class="flex justify-center mt-3">
+                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                      <.lightning_icon id="bux_icon_2" size="20" />
+                      <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                    </button>
+                  </div>
+                </div>
+                </.link>
+              </div>
+            <% end %>
+
+            <!-- Right Column Card 1 (Position 4) -->
+            <%= if Enum.at(right_posts, 0) do %>
+              <% post = Enum.at(right_posts, 0) %>
+              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-1 md:col-start-3">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="latest_news"
+                    phx-value-position="4"
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                  <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 100%; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                      <%= if post.featured_image do %>
+                        <img alt={post.title} src={post.featured_image} class="w-full h-full object-cover" />
+                      <% else %>
+                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                            <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                            <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                          </svg>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
+                    <div class="flex justify-center items-center">
+                      <ul class="gap-3 flex items-center">
+                        <%= if post.category do %>
+                          <li>
+                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                              {post.category.name}
+                            </span>
+                          </li>
+                        <% end %>
+                      </ul>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-3">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                        <.lightning_icon id={"bux_right_#{post.id}"} size="20" />
+                        <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                      </button>
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
+
+            <!-- Row 2: Left Card 2, Right Card 2 -->
+            <!-- Left Column Card 2 (Position 2) -->
+            <%= if Enum.at(left_posts, 1) do %>
+              <% post = Enum.at(left_posts, 1) %>
+              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-2 md:col-start-1">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="latest_news"
+                    phx-value-position="2"
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                  <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 100%; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                      <%= if post.featured_image do %>
+                        <img alt={post.title} src={post.featured_image} class="w-full h-full object-cover" />
+                      <% else %>
+                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                            <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                            <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                          </svg>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
+                    <div class="flex justify-center items-center">
+                      <ul class="gap-3 flex items-center">
+                        <%= if post.category do %>
+                          <li>
+                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                              {post.category.name}
+                            </span>
+                          </li>
+                        <% end %>
+                      </ul>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-3">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                        <.lightning_icon id={"bux_left2_#{post.id}"} size="20" />
+                        <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                      </button>
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
+
+            <!-- Right Column Card 2 (Position 5) -->
+            <%= if Enum.at(right_posts, 1) do %>
+              <% post = Enum.at(right_posts, 1) %>
+              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-2 md:col-start-3">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="latest_news"
+                    phx-value-position="5"
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                  <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 100%; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                      <%= if post.featured_image do %>
+                        <img alt={post.title} src={post.featured_image} class="w-full h-full object-cover" />
+                      <% else %>
+                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
+                            <path d="M15.8 2.21048C15.39 1.80048 14.68 2.08048 14.68 2.65048V6.14048C14.68 7.60048 15.92 8.81048 17.43 8.81048C18.38 8.82048 19.7 8.82048 20.83 8.82048C21.4 8.82048 21.7 8.15048 21.3 7.75048C19.86 6.30048 17.28 3.69048 15.8 2.21048Z" fill="#141414" />
+                            <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
+                          </svg>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
+                    <div class="flex justify-center items-center">
+                      <ul class="gap-3 flex items-center">
+                        <%= if post.category do %>
+                          <li>
+                            <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+                              {post.category.name}
+                            </span>
+                          </li>
+                        <% end %>
+                      </ul>
+                    </div>
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-3">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                        <.lightning_icon id={"bux_right2_#{post.id}"} size="20" />
+                        <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                      </button>
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
         </div>
         <% end %>
       </div>
 
       <!-- Recommended Sidebar -->
       <div class="right-content xl:w-1/3 w-full flex flex-col">
-        <div class="right-innner border-[#1414141A] border-[#1px] rounded-[12px] md:p-6 p-3 pb-0 lg:mt-0 mt-5 bg-white flex-1 flex flex-col">
+        <span class="xl:hidden inline-block bg-black text-white font-haas_medium_65 text-sm px-4 py-1.5 rounded-full mb-6 mt-5 w-fit">Recommended</span>
+        <div class="right-innner border-[#1414141A] border-[#1px] rounded-[12px] md:p-6 p-3 pb-0 bg-white flex-1 flex flex-col">
           <%
             # Recommended sidebar (Positions 6-10)
             recommended_posts = Enum.slice(@posts, 5, 5)
@@ -220,12 +353,10 @@
                     </li>
                     <li class="text-xs font-haas_roman_55 dot text-[#141414] relative"><span>4h ago</span></li>
                   </ul>
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                      <.lightning_icon id={"bux_icon_#{idx}"} size="20" />
-                      <span class="text-xs font-haas_medium_65">1,264</span>
-                    </button>
-                  </div>
+                  <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                    <.lightning_icon id={"bux_icon_#{idx}"} size="20" />
+                    <span class="text-xs font-haas_medium_65">1,264</span>
+                  </button>
                 </div>
                 <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md max-xs:text-lg max-xs:leading-[1.4]">
                   <%= post.title %>

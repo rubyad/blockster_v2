@@ -65,8 +65,8 @@ defmodule BlocksterV2Web.Layouts do
   def site_header(assigns) do
 
     ~H"""
-    <!-- Fixed Header Container -->
-    <div class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300">
+    <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
+    <div id="site-header" phx-hook="ThirdwebWallet" class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300">
       <!-- Desktop Header -->
       <header class="pt-6 pb-4 hidden lg:flex items-center justify-between gap-4 px-6 lg:pl-11 lg:pr-7">
         <div class="left-header-inner flex items-center gap-9 w-full">
@@ -78,7 +78,7 @@ defmodule BlocksterV2Web.Layouts do
         <div class="flex gap-2 bg-white p-2 rounded-[85px] justify-between w-full border border-[#E8EAEC]">
           <div class="flex gap-2 items-center">
             <!-- Search Bar -->
-            <div class="right-section-left" id="search-container" phx-click-away="close_search">
+            <div class="right-section-left" id="search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
               <div class="input-wrapper relative max-w-[247px] w-[100%]">
                 <span class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -220,7 +220,7 @@ defmodule BlocksterV2Web.Layouts do
                         {@current_user.level}
                       </span>
                       <h4 class="text-sm font-haas_medium_65 text-[#000000] truncate max-w-[120px]">
-                        {@current_user.username || String.slice(@current_user.wallet_address, 0..5) <> "..." <> String.slice(@current_user.wallet_address, -4..-1//1)}
+                        {@current_user.username || String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, 0..5) <> "..." <> String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, -4..-1//1)}
                       </h4>
                     </div>
                     <span class="relative h-1.5 w-full rounded-full bg-white border-[#0000001F] border-[0.5px] overflow-hidden flex">
@@ -309,7 +309,7 @@ defmodule BlocksterV2Web.Layouts do
               <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                 <div class="py-1">
                   <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                    <div class="font-semibold">{@current_user.username || String.slice(@current_user.wallet_address, 0..5) <> "..."}</div>
+                    <div class="font-semibold">{@current_user.username || String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, 0..5) <> "..."}</div>
                     <div class="text-xs text-gray-500">{@current_user.bux_balance} BUX</div>
                   </div>
                   <.link

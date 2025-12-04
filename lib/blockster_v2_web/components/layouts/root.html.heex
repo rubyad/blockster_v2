@@ -23,7 +23,7 @@
     </script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
+    <%!-- <script>
       (() => {
         const setTheme = (theme) => {
           if (theme === "system") {
@@ -40,7 +40,7 @@
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "light"));
         window.addEventListener("phx:set-theme", ({ detail: { theme } }) => setTheme(theme));
       })();
-    </script>
+    </script> --%>
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8">
     </script>
   </head>

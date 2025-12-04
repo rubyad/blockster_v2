@@ -41,10 +41,12 @@ defmodule BlocksterV2Web.AuthController do
   @doc """
   POST /api/auth/email/verify
   Verifies email signup and creates/authenticates user.
-  Expects: %{email: "...", wallet_address: "0x..."}
+  Expects: %{email: "...", wallet_address: "0x...", smart_wallet_address: "0x..."}
+  wallet_address = personal wallet (EOA) from Thirdweb in-app wallet
+  smart_wallet_address = ERC-4337 smart wallet address (displayed to user)
   """
-  def verify_email(conn, %{"email" => email, "wallet_address" => wallet_address}) do
-    case Accounts.authenticate_email(email, wallet_address) do
+  def verify_email(conn, %{"email" => email, "wallet_address" => wallet_address, "smart_wallet_address" => smart_wallet_address}) do
+    case Accounts.authenticate_email(email, wallet_address, smart_wallet_address) do
       {:ok, user, session} ->
         conn
         |> put_session(:user_token, session.token)
@@ -55,6 +57,7 @@ defmodule BlocksterV2Web.AuthController do
             id: user.id,
             email: user.email,
             wallet_address: user.wallet_address,
+            smart_wallet_address: user.smart_wallet_address,
             username: user.username,
             avatar_url: user.avatar_url,
             bux_balance: user.bux_balance,
@@ -113,6 +116,7 @@ defmodule BlocksterV2Web.AuthController do
             id: user.id,
             email: user.email,
             wallet_address: user.wallet_address,
+            smart_wallet_address: user.smart_wallet_address,
             username: user.username,
             avatar_url: user.avatar_url,
             bux_balance: user.bux_balance,

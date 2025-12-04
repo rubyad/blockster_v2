@@ -3,12 +3,10 @@ defmodule BlocksterV2Web.SearchHook do
   LiveView on_mount hook to add search functionality to all LiveView pages.
   """
   import Phoenix.LiveView
-  import Phoenix.Component
+  import Phoenix.Component, only: [assign: 3]
   alias BlocksterV2.Blog
 
   def on_mount(:default, _params, _session, socket) do
-    IO.puts("🔍 SearchHook on_mount called!")
-
     socket =
       socket
       |> assign(:search_query, "")
@@ -16,17 +14,11 @@ defmodule BlocksterV2Web.SearchHook do
       |> assign(:show_search_results, false)
       |> attach_hook(:search_events, :handle_event, fn
         "search_posts", %{"value" => query}, socket ->
-          IO.puts("🔍 SearchHook handling search_posts event")
-          IO.inspect(query, label: "Query")
-
           results = if String.length(query) >= 2 do
             Blog.search_posts_fulltext(query, limit: 20)
           else
             []
           end
-
-          IO.inspect(length(results), label: "Results count")
-          IO.inspect(String.length(query) >= 2, label: "Show dropdown")
 
           {:halt,
            socket
@@ -35,18 +27,21 @@ defmodule BlocksterV2Web.SearchHook do
            |> assign(:show_search_results, String.length(query) >= 2)}
 
         "close_search", _params, socket ->
-          IO.puts("🔍 SearchHook handling close_search event")
-          {:halt,
-           socket
-           |> assign(:search_query, "")
-           |> assign(:search_results, [])
-           |> assign(:show_search_results, false)}
+          # Only update if search is currently shown to avoid unnecessary assigns
+          if socket.assigns[:show_search_results] do
+            {:halt,
+             socket
+             |> assign(:search_query, "")
+             |> assign(:search_results, [])
+             |> assign(:show_search_results, false)}
+          else
+            {:halt, socket}
+          end
 
         _event, _params, socket ->
           {:cont, socket}
       end)
 
-    IO.puts("🔍 SearchHook attach_hook completed")
     {:cont, socket}
   end
 end

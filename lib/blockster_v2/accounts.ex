@@ -221,16 +221,23 @@ defmodule BlocksterV2.Accounts do
   @doc """
   Authenticates a user by email (Thirdweb embedded wallet) and creates a session.
   If user doesn't exist, creates a new user.
+  wallet_address = personal wallet (EOA) from Thirdweb in-app wallet
+  smart_wallet_address = ERC-4337 smart wallet address (displayed to user)
   Returns {:ok, user, session} or {:error, reason}
   """
-  def authenticate_email(email, wallet_address) do
+  def authenticate_email(email, wallet_address, smart_wallet_address) do
     email = String.downcase(email)
     wallet_address = String.downcase(wallet_address)
+    smart_wallet_address = String.downcase(smart_wallet_address)
 
     case get_user_by_email(email) do
       nil ->
         # Create new user
-        case create_user_from_email(%{email: email, wallet_address: wallet_address}) do
+        case create_user_from_email(%{
+          email: email,
+          wallet_address: wallet_address,
+          smart_wallet_address: smart_wallet_address
+        }) do
           {:ok, user} ->
             case create_session(user.id) do
               {:ok, session} -> {:ok, user, session}
@@ -240,7 +247,15 @@ defmodule BlocksterV2.Accounts do
         end
 
       user ->
-        # Existing user, create session
+        # Existing user - update smart_wallet_address if changed, create session
+        user =
+          if user.smart_wallet_address != smart_wallet_address do
+            {:ok, updated_user} = update_user(user, %{smart_wallet_address: smart_wallet_address})
+            updated_user
+          else
+            user
+          end
+
         case create_session(user.id) do
           {:ok, session} -> {:ok, user, session}
           error -> error

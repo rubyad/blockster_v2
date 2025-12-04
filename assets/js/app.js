@@ -25,7 +25,7 @@ import { LiveSocket } from "phoenix_live_view";
 import { TipTapEditor } from "./tiptap_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
-import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin } from "./home_hooks.js";
+import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet } from "./home_hooks.js";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document
@@ -148,7 +148,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, TagInput, Autocomplete, InfiniteScroll },
+  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll },
 });
 
 // Show progress bar on live navigation and form submits
@@ -230,8 +230,10 @@ window.handleWalletDisconnect = async function() {
     localStorage.removeItem('walletAddress');
     localStorage.removeItem('smartAccountAddress');
 
-    // Try to disconnect wallets if ThirdwebLogin hook is available
-    if (window.ThirdwebLoginHook && typeof window.ThirdwebLoginHook.handleDisconnect === 'function') {
+    // Try to disconnect wallets - check both hooks
+    if (window.ThirdwebWalletHook && typeof window.ThirdwebWalletHook.handleDisconnect === 'function') {
+      await window.ThirdwebWalletHook.handleDisconnect();
+    } else if (window.ThirdwebLoginHook && typeof window.ThirdwebLoginHook.handleDisconnect === 'function') {
       await window.ThirdwebLoginHook.handleDisconnect();
     }
 
