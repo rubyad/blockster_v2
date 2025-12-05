@@ -252,6 +252,40 @@ defmodule BlocksterV2Web.Layouts do
                         Create Article
                       </.link>
                     <% end %>
+                    <%= if @current_user.is_admin do %>
+                      <div class="border-t border-gray-100 my-1"></div>
+                      <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
+                      <.link
+                        navigate={~p"/admin"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Dashboard
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/posts"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Posts
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/events"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Events
+                      </.link>
+                      <.link
+                        navigate={~p"/hubs/admin"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Hubs
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/waitlist"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Waitlist
+                      </.link>
+                    <% end %>
                     <button
                       onclick="window.handleWalletDisconnect()"
                       class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -324,6 +358,40 @@ defmodule BlocksterV2Web.Layouts do
                       class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Create Article
+                    </.link>
+                  <% end %>
+                  <%= if @current_user.is_admin do %>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
+                    <.link
+                      navigate={~p"/admin"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Dashboard
+                    </.link>
+                    <.link
+                      navigate={~p"/admin/posts"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Posts
+                    </.link>
+                    <.link
+                      navigate={~p"/admin/events"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Events
+                    </.link>
+                    <.link
+                      navigate={~p"/hubs/admin"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Hubs
+                    </.link>
+                    <.link
+                      navigate={~p"/admin/waitlist"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Waitlist
                     </.link>
                   <% end %>
                   <button
