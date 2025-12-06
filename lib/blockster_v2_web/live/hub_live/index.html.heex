@@ -1,12 +1,82 @@
 <div class="unregistered-page bg-[#F5F6FB]">
   <!-- Hero Section -->
-  <section class="section pt-8 pb-6">
+  <section class="section pt-24 pb-6">
     <div class="container mx-auto px-4">
       <div class="text-center max-w-3xl mx-auto">
         <h1 class="text-4xl md:text-5xl font-haas_bold_75 text-[#141414] mb-4">Community Hubs</h1>
         <p class="text-lg font-haas_roman_55 text-[#515B70] leading-relaxed">
           Explore dedicated pages for leading blockchain businesses, exchanges, and protocols. Each hub features curated content and latest updates.
         </p>
+        <div class="mt-10 mb-10 max-w-md mx-auto">
+          <input
+            type="text"
+            placeholder="Search hubs..."
+            phx-keyup="search"
+            phx-debounce="300"
+            value={@search_query}
+            class="w-full px-6 py-3 rounded-full border border-[#E7E8F1] bg-white text-[#141414] font-haas_roman_55 placeholder-[#515B70] focus:outline-none focus:ring-2 focus:ring-[#141414] focus:border-transparent"
+          />
+        </div>
+      </div>
+      <div id="hub-index-menu" class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden mt-16 mb-4 relative z-20 w-full">
+        <div class="inline-flex w-full gap-1">
+          <button
+            phx-click="filter_category"
+            phx-value-category="all"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "all", do: "bg-white", else: ""}"}
+          >
+            All
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="blockchains"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "blockchains", do: "bg-white", else: ""}"}
+          >
+            Blockchains
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="cryptocurrencies"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "cryptocurrencies", do: "bg-white", else: ""}"}
+          >
+            Cryptocurrencies
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="exchanges"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "exchanges", do: "bg-white", else: ""}"}
+          >
+            Exchanges
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="defi"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "defi", do: "bg-white", else: ""}"}
+          >
+            DeFi
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="dex"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "dex", do: "bg-white", else: ""}"}
+          >
+            DEX
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="wallets"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "wallets", do: "bg-white", else: ""}"}
+          >
+            Wallets
+          </button>
+          <button
+            phx-click="filter_category"
+            phx-value-category="gaming"
+            class={"flex-1 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_category == "gaming", do: "bg-white", else: ""}"}
+          >
+            Gaming
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -23,47 +93,83 @@
           <%= for hub <- @hubs do %>
             <.link
               navigate={~p"/hub/#{hub.slug}"}
-              class="group block bg-white rounded-2xl border border-[#E7E8F1] hover:shadow-xl transition-all duration-300 overflow-hidden"
+              class="group bg-white rounded-2xl border border-[#E7E8F1] hover:shadow-xl transition-all duration-300 overflow-hidden p-5 flex flex-col"
             >
-              <!-- Hub Header with Brand Color -->
-              <div
-                class="h-32 flex items-center justify-center relative overflow-hidden"
-                style={"background: linear-gradient(135deg, #{hub.color_primary || "#6366F1"} 0%, #{hub.color_secondary || "#4F46E5"} 100%)"}
-              >
-                <%= if hub.logo_url do %>
-                  <img
-                    src={hub.logo_url}
-                    alt={hub.name}
-                    class="h-16 w-auto object-contain relative z-10 filter brightness-0 invert"
-                  />
-                <% else %>
-                  <div class="text-white text-3xl font-haas_bold_75 relative z-10">
-                    {String.first(hub.name)}
-                  </div>
-                <% end %>
+              <!-- Hub Header with Logo and Name Centered -->
+              <div class="flex flex-col items-center mb-3">
+                <!-- Logo -->
+                <div
+                  class="h-16 w-16 rounded-full flex items-center justify-center overflow-hidden"
+                  style={"background: linear-gradient(135deg, #{hub.color_primary || "#6366F1"} 0%, #{hub.color_secondary || "#4F46E5"} 100%)"}
+                >
+                  <%= if hub.logo_url do %>
+                    <img
+                      src={hub.logo_url}
+                      alt={hub.name}
+                      class="h-10 w-auto object-contain filter brightness-0 invert"
+                    />
+                  <% else %>
+                    <div class="text-white text-2xl font-haas_bold_75">
+                      {String.first(hub.name)}
+                    </div>
+                  <% end %>
+                </div>
 
-                <!-- Decorative overlay -->
-                <div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-all"></div>
-              </div>
-
-              <!-- Hub Info -->
-              <div class="p-5">
-                <h3 class="font-haas_bold_75 text-xl text-[#141414] mb-2 group-hover:text-[#6366F1] transition-colors">
+                <!-- Name -->
+                <h3 class="font-haas_bold_75 text-lg text-[#141414] group-hover:text-[#6366F1] transition-colors text-center mt-2">
                   {hub.name}
                 </h3>
+              </div>
 
-                <%= if hub.description do %>
-                  <p class="text-sm font-haas_roman_55 text-[#515B70] line-clamp-2 leading-relaxed">
-                    {hub.description}
-                  </p>
-                <% end %>
+              <!-- Description -->
+              <p class="text-sm font-haas_roman_55 text-[#515B70] leading-relaxed text-center mb-auto">
+                {hub.description || "Discover the latest news, updates, and insights from #{hub.name}. Join our community to stay informed about developments, events, and opportunities in the blockchain ecosystem."}
+              </p>
 
-                <!-- View Hub Link -->
-                <div class="mt-4 flex items-center text-sm font-haas_medium_65 text-[#6366F1] group-hover:translate-x-1 transition-transform">
-                  <span>View Hub</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+              <!-- BUX Graphic Centered -->
+              <div class="flex justify-center mt-4">
+                <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                  <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+                    <.lightning_icon id={"hub_bux_#{hub.id}"} size="20" />
+                    <span class="text-xs font-haas_medium_65">{:rand.uniform(50000)} $BUX</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats Footer -->
+              <div class="flex items-center justify-between pt-4 border-t border-[#E7E8F1] mt-4">
+                <!-- Followers -->
+                <div class="flex items-center gap-1.5 text-[#515B70]" title="Followers">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                   </svg>
+                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.followers), do: length(hub.followers), else: 0}</span>
+                </div>
+
+                <!-- Posts -->
+                <div class="flex items-center gap-1.5 text-[#515B70]" title="Posts">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <line x1="10" y1="9" x2="8" y2="9"></line>
+                  </svg>
+                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.posts), do: length(hub.posts), else: 0}</span>
+                </div>
+
+                <!-- Events -->
+                <div class="flex items-center gap-1.5 text-[#515B70]" title="Events">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.events), do: length(hub.events), else: 0}</span>
                 </div>
               </div>
             </.link>

@@ -7,8 +7,8 @@ defmodule BlocksterV2Web.HubLive.Show do
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    # Get hub from database by slug
-    case Blog.get_hub_by_slug(slug) do
+    # Get hub from database by slug with associations preloaded
+    case Blog.get_hub_by_slug_with_associations(slug) do
       nil ->
         {:ok,
          socket

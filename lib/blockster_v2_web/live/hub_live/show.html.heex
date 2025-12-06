@@ -14,35 +14,21 @@
         <!-- Info -->
         <div class="max-md:w-full">
           <div class="flex flex-wrap items-center gap-2">
-            <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">Moonpay</h3>
-            <span class="p-2 text-xs leading-[1.4] rounded-full bg-[#EEF0F4] text-[#141414] flex gap-1 flex-row-reverse items-center">
-              <span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8.00065 14.6666C11.6673 14.6666 14.6673 11.6666 14.6673 7.99998C14.6673 4.33331 11.6673 1.33331 8.00065 1.33331C4.33398 1.33331 1.33398 4.33331 1.33398 7.99998C1.33398 11.6666 4.33398 14.6666 8.00065 14.6666Z" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M8 5.33331V8.66665" stroke="#141414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M7.99609 10.6667H8.00208" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              </span>
-              Business page
-            </span>
-          </div>
-
-          <div>
-            <a href="" class="!text-[14px] flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[24px] border-[#141414]">@moonpayofficial</a>
+            <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">{@hub.name}</h3>
           </div>
 
           <div class="flex flex-wrap items-center mt-6 text-sm text-gray-800 max-md:justify-between">
             <div class="wraper text-center pr-6 border-[#14141414] border-r">
               <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Stories</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">1,294</span>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.posts), do: length(@hub.posts), else: 0}</span>
             </div>
             <div class="wraper text-center px-6 border-[#14141414] border-r">
               <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Events</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">100</span>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.events), do: length(@hub.events), else: 0}</span>
             </div>
             <div class="wraper text-center px-6">
               <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Followers</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">5,000</span>
+              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.followers), do: length(@hub.followers), else: 0}</span>
             </div>
           </div>
         </div>
@@ -65,7 +51,7 @@
     <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-1 border-[#141414] disabled:opacity-[0.6]">As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market's evolution and future potential.</p>
 
 
-    <div class="flex gap-2 items-center mt-4">
+    <div class="flex flex-wrap gap-4 items-center justify-between mt-4">
       <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
         <button class="flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -82,7 +68,76 @@
         </button>
       </div>
 
-      
+      <!-- Social Media Icons -->
+      <div class="flex items-center gap-3">
+        <%= if @hub.website_url do %>
+          <a href={@hub.website_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Website">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.twitter_url do %>
+          <a href={@hub.twitter_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="X (Twitter)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.telegram_url do %>
+          <a href={@hub.telegram_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Telegram">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.504-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.instagram_url do %>
+          <a href={@hub.instagram_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Instagram">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.linkedin_url do %>
+          <a href={@hub.linkedin_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="LinkedIn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.tiktok_url do %>
+          <a href={@hub.tiktok_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="TikTok">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.discord_url do %>
+          <a href={@hub.discord_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Discord">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.reddit_url do %>
+          <a href={@hub.reddit_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Reddit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+            </svg>
+          </a>
+        <% end %>
+        <%= if @hub.youtube_url do %>
+          <a href={@hub.youtube_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="YouTube">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+          </a>
+        <% end %>
+      </div>
     </div>
       </div>
 

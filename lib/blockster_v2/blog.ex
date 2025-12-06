@@ -571,6 +571,16 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets a hub by slug with followers, posts, and events preloaded.
+  """
+  def get_hub_by_slug_with_associations(slug) do
+    Hub
+    |> where([h], h.slug == ^slug and h.is_active == true)
+    |> preload([:followers, :posts, :events])
+    |> Repo.one()
+  end
+
+  @doc """
   Lists all active hubs.
   """
   def list_hubs do
@@ -587,7 +597,7 @@ defmodule BlocksterV2.Blog do
     Hub
     |> where([h], h.is_active == true)
     |> order_by([h], asc: h.name)
-    |> preload(:followers)
+    |> preload([:followers, :posts, :events])
     |> Repo.all()
   end
 

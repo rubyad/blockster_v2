@@ -10,6 +10,14 @@ defmodule BlocksterV2.Blog.Hub do
     field :logo_url, :string
     field :banner_url, :string
     field :website_url, :string
+    field :twitter_url, :string
+    field :telegram_url, :string
+    field :instagram_url, :string
+    field :linkedin_url, :string
+    field :tiktok_url, :string
+    field :discord_url, :string
+    field :reddit_url, :string
+    field :youtube_url, :string
     field :color_primary, :string
     field :color_secondary, :string
     field :is_active, :boolean, default: true
@@ -35,6 +43,14 @@ defmodule BlocksterV2.Blog.Hub do
       :logo_url,
       :banner_url,
       :website_url,
+      :twitter_url,
+      :telegram_url,
+      :instagram_url,
+      :linkedin_url,
+      :tiktok_url,
+      :discord_url,
+      :reddit_url,
+      :youtube_url,
       :color_primary,
       :color_secondary,
       :is_active
