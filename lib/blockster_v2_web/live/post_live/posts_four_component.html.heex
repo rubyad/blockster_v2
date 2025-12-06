@@ -3,6 +3,11 @@
     <div class="inner gap-6">
       <div class="left-content">
         <%= unless Map.get(assigns, :hide_title, false) do %>
+          <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+            <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
+            <span class="mx-2">›</span>
+            <span class="capitalize"><%= @content %></span>
+          </p>
           <div class="search-wrapper flex justify-between items-center">
             <h2 class="font-haas_medium_65 font-semibold text-4xl capitalize"><%= @content %></h2>
           </div>
@@ -19,25 +24,27 @@
                 <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
                   <!-- Content area that starts at 50% height -->
                   <div class="absolute bottom-0 left-0 right-0 h-1/2 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
-                    <div class="absolute bottom-0 left-0 right-0 p-8 max-md:px-[22px] pb-[12px] pt-[22px] translate-y-0 transition-transform duration-500 ease-in-out group-hover:-translate-y-[50%]">
-                      <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
-                        <ul class="gap-3 flex">
-                          <%= if post.category do %>
-                            <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span>{post.category.name}</span></li>
-                          <% end %>
-                          <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
-                            <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                          </li>
-                        </ul>
+                    <div class="h-full flex flex-col p-8 max-md:px-[22px] pb-3 pt-[22px]">
+                      <!-- Top content: category, title, date -->
+                      <div>
+                        <%= if post.category do %>
+                          <span class="text-xs font-haas_medium_65 text-[#ffffff]">{post.category.name}</span>
+                        <% end %>
+                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2] max-md:text-base">{post.title}</h4>
+                        <p class="text-xs font-haas_roman_55 text-[#ffffff] mt-2">
+                          {if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}
+                        </p>
+                      </div>
+                      <!-- Bottom content: BUX button (and description on hover) -->
+                      <div class="mt-auto">
                         <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                           <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                             <.lightning_icon id={"bux_people_#{post.id}_#{idx}"} size="20" />
                             <span class="text-xs font-haas_medium_65">{post.view_count}</span>
                           </button>
                         </div>
+                        <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.</p>
                       </div>
-                      <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[28px] leading-[1.2] max-md:text-[20px]">{post.title}</h4>
-                      <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.</p>
                     </div>
                   </div>
                 </.link>
