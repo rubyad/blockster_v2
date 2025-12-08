@@ -12,8 +12,8 @@ defmodule BlocksterV2.Application do
       BlocksterV2.Repo,
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: BlocksterV2.PubSub},
-      # Start a worker by calling: BlocksterV2.Worker.start_link(arg)
-      # {BlocksterV2.Worker, arg},
+      # Time tracking GenServer
+      {BlocksterV2.TimeTracker, %{}},
       # Start to serve requests, typically the last entry
       BlocksterV2Web.Endpoint
     ]

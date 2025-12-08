@@ -2,6 +2,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Blog
+  alias BlocksterV2.TimeTracker
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
@@ -10,16 +11,48 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
-  def handle_params(%{"slug" => slug} = params, _url, socket) do
+  def handle_params(%{"slug" => slug} = _params, _url, socket) do
     post = Blog.get_post_by_slug!(slug)
 
     # Increment view count
     {:ok, updated_post} = Blog.increment_view_count(post)
 
+    # Get existing time spent for this user on this post
+    user_id = get_user_id(socket)
+    time_spent = safe_get_time(user_id, post.id)
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
-     |> assign(:post, updated_post)}
+     |> assign(:post, updated_post)
+     |> assign(:time_spent, time_spent)}
+  end
+
+  @impl true
+  def handle_event("time_update", %{"seconds" => seconds}, socket) do
+    user_id = get_user_id(socket)
+    post_id = socket.assigns.post.id
+
+    # Update the TimeTracker GenServer (fire and forget)
+    TimeTracker.update_time(user_id, post_id, seconds)
+
+    # Get the new total time and push to client without re-rendering
+    new_total = safe_get_time(user_id, post_id)
+
+    {:noreply, push_event(socket, "update_display_time", %{seconds: new_total})}
+  end
+
+  defp get_user_id(socket) do
+    case socket.assigns[:current_user] do
+      nil -> "anonymous"
+      user -> user.id
+    end
+  end
+
+  defp safe_get_time(user_id, post_id) do
+    TimeTracker.get_time(user_id, post_id)
+  catch
+    :exit, _ -> 0
   end
 
   @impl true
