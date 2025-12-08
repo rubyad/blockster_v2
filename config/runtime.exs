@@ -33,12 +33,26 @@ config :blockster_v2,
   aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
   google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY"),
+  env: config_env(),
   app_url:
     System.get_env("APP_URL") ||
       if(config_env() == :prod,
         do: "https://blockster-v2.fly.dev",
         else: "http://localhost:4000"
       )
+
+# Mnesia configuration
+# In production, Mnesia data is stored in /data/mnesia (Fly.io persistent volume)
+# In development, it's stored in priv/mnesia/{node_name}
+mnesia_dir =
+  if config_env() == :prod do
+    "/data/mnesia/#{node()}"
+  else
+    # For dev, use project directory
+    Path.join(["priv", "mnesia", "dev"])
+  end
+
+config :mnesia, dir: String.to_charlist(mnesia_dir)
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the

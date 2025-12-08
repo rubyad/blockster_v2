@@ -9,7 +9,16 @@ defmodule BlocksterV2.TimeTracker do
   # Client API
 
   def start_link(default) do
-    GenServer.start_link(__MODULE__, default, name: {:global, __MODULE__})
+    # Use global registration so there's only one TimeTracker across the cluster
+    case GenServer.start_link(__MODULE__, default, name: {:global, __MODULE__}) do
+      {:ok, pid} ->
+        {:ok, pid}
+
+      {:error, {:already_started, _pid}} ->
+        # Another node already has the global TimeTracker running
+        # Return :ignore so supervisor doesn't fail
+        :ignore
+    end
   end
 
   @doc """

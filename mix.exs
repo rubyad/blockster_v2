@@ -21,7 +21,7 @@ defmodule BlocksterV2.MixProject do
   def application do
     [
       mod: {BlocksterV2.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :mnesia]
     ]
   end
 

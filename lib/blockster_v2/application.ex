@@ -12,6 +12,8 @@ defmodule BlocksterV2.Application do
       BlocksterV2.Repo,
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: BlocksterV2.PubSub},
+      # Mnesia initialization (after DNSCluster so nodes are connected)
+      {BlocksterV2.MnesiaInitializer, []},
       # Time tracking GenServer
       {BlocksterV2.TimeTracker, %{}},
       # Start to serve requests, typically the last entry

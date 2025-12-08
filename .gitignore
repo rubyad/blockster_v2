@@ -37,3 +37,6 @@ npm-debug.log
 
 .env
 node_modules
+
+# Mnesia database files (local development)
+/priv/mnesia/
