@@ -66,7 +66,13 @@ defmodule BlocksterV2Web.Layouts do
 
     ~H"""
     <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
-    <div id="site-header" phx-hook="ThirdwebWallet" class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300">
+    <div
+      id="site-header"
+      phx-hook="ThirdwebWallet"
+      data-user-wallet={if @current_user, do: @current_user.wallet_address}
+      data-smart-wallet={if @current_user, do: @current_user.smart_wallet_address}
+      class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300"
+    >
       <!-- Desktop Header -->
       <header class="pt-6 pb-4 hidden lg:flex items-center justify-between gap-4 px-6 lg:pl-11 lg:pr-7">
         <div class="left-header-inner flex items-center gap-9 w-full">

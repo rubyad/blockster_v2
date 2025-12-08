@@ -1369,14 +1369,18 @@ export const ThirdwebWallet = {
         return;
       }
 
-      // Check if there's a stored smart account address
-      const storedAddress = localStorage.getItem('smartAccountAddress');
-      if (!storedAddress) {
-        console.log('No stored wallet address, skipping auto-connect');
+      // Only auto-connect if user has an active server session
+      const serverSmartWallet = this.el.dataset.smartWallet;
+      if (!serverSmartWallet) {
+        console.log('No server session, skipping auto-connect');
+        localStorage.removeItem('smartAccountAddress');
         return;
       }
 
-      console.log('Found stored wallet address:', storedAddress);
+      // Sync localStorage with server session
+      localStorage.setItem('smartAccountAddress', serverSmartWallet);
+
+      console.log('Found wallet address from server session:', serverSmartWallet);
 
       // Auto-connect the personal wallet
       const personalAccount = await this.personalWallet.autoConnect({
@@ -1399,9 +1403,9 @@ export const ThirdwebWallet = {
 
       console.log('✅ Smart wallet connected:', smartAccount.address);
 
-      // Verify it's the same account
-      if (smartAccount.address.toLowerCase() !== storedAddress.toLowerCase()) {
-        console.warn('⚠️ Wallet address mismatch, clearing stored data');
+      // Verify it's the same account as server session
+      if (smartAccount.address.toLowerCase() !== serverSmartWallet.toLowerCase()) {
+        console.warn('⚠️ Wallet address mismatch with server session, clearing stored data');
         localStorage.removeItem('smartAccountAddress');
         return;
       }

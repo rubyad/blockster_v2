@@ -1,6 +1,8 @@
 defmodule BlocksterV2Web.MemberLive.Show do
   use BlocksterV2Web, :live_view
 
+  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
+
   alias BlocksterV2.Accounts
 
   @impl true
