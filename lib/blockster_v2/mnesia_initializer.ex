@@ -163,13 +163,19 @@ defmodule BlocksterV2.MnesiaInitializer do
     # Wait for tables if they exist, or create them
     :mnesia.wait_for_tables([:schema], 5000)
 
-    # In production, try to connect to other nodes
-    if Application.get_env(:blockster_v2, :env) == :prod do
-      connect_to_cluster()
-    end
+    # In production, try to connect to other nodes and determine our role
+    cluster_result =
+      if Application.get_env(:blockster_v2, :env) == :prod do
+        connect_to_cluster()
+      else
+        :create_tables
+      end
 
-    # Create tables
-    create_tables()
+    # Only create tables if we're the primary node or no cluster exists
+    # If we joined a cluster, tables were already copied
+    if cluster_result != :joined_cluster do
+      create_tables()
+    end
 
     # Wait for all tables to be ready
     wait_for_tables()
@@ -186,18 +192,61 @@ defmodule BlocksterV2.MnesiaInitializer do
 
       # Add this node to the Mnesia cluster
       case :mnesia.change_config(:extra_db_nodes, other_nodes) do
-        {:ok, nodes} ->
+        {:ok, nodes} when nodes != [] ->
           Logger.info("[MnesiaInitializer] Connected to Mnesia cluster: #{inspect(nodes)}")
 
           # Copy schema to this node if needed
           :mnesia.add_table_copy(:schema, node(), :disc_copies)
 
+          # This is a joining node - copy tables from cluster instead of creating
+          copy_tables_from_cluster()
+          :joined_cluster
+
+        {:ok, []} ->
+          Logger.info("[MnesiaInitializer] No Mnesia nodes found in cluster, will create tables")
+          :create_tables
+
         {:error, reason} ->
-          Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)}")
+          Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)}, will create tables locally")
+          :create_tables
       end
     else
       Logger.info("[MnesiaInitializer] No other nodes found, running as single node")
+      :create_tables
     end
+  end
+
+  defp copy_tables_from_cluster do
+    # For each table, try to add a copy to this node from the cluster
+    Enum.each(@tables, fn %{name: table_name} ->
+      case table_exists_in_cluster?(table_name) do
+        true ->
+          Logger.info("[MnesiaInitializer] Copying table #{table_name} from cluster")
+          case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+            {:atomic, :ok} ->
+              Logger.info("[MnesiaInitializer] Successfully copied #{table_name} to this node")
+
+            {:aborted, {:already_exists, _, _}} ->
+              Logger.info("[MnesiaInitializer] Table #{table_name} already exists on this node")
+
+            {:aborted, reason} ->
+              Logger.warning("[MnesiaInitializer] Could not copy #{table_name}: #{inspect(reason)}")
+          end
+
+        false ->
+          Logger.warning("[MnesiaInitializer] Table #{table_name} not found in cluster, will be created when primary node starts")
+      end
+    end)
+  end
+
+  defp table_exists_in_cluster?(table_name) do
+    # Check if table exists anywhere in the cluster
+    case :mnesia.table_info(table_name, :where_to_read) do
+      :nowhere -> false
+      _ -> true
+    end
+  catch
+    :exit, _ -> false
   end
 
   defp create_tables do
