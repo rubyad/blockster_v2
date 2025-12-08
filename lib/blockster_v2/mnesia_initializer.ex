@@ -138,7 +138,22 @@ defmodule BlocksterV2.MnesiaInitializer do
     # Stop Mnesia if running (for clean restart)
     :mnesia.stop()
 
-    # Create schema if it doesn't exist
+    # Check for cluster BEFORE creating schema
+    # This is critical - if we create a schema first, we can't join an existing cluster
+    other_nodes = Node.list()
+
+    if other_nodes != [] do
+      # Other nodes exist - try to join the cluster
+      Logger.info("[MnesiaInitializer] Found cluster nodes: #{inspect(other_nodes)}")
+      join_existing_cluster(other_nodes)
+    else
+      # No other nodes - we're the first node, create schema and tables
+      Logger.info("[MnesiaInitializer] No other nodes found, initializing as primary node")
+      initialize_as_primary_node()
+    end
+  end
+
+  defp initialize_as_primary_node do
     case :mnesia.create_schema([node()]) do
       :ok ->
         Logger.info("[MnesiaInitializer] Created new Mnesia schema")
@@ -150,6 +165,62 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.warning("[MnesiaInitializer] Schema creation issue: #{inspect(reason)}")
     end
 
+    start_mnesia_and_create_tables()
+  end
+
+  defp join_existing_cluster(other_nodes) do
+    # Delete any existing local schema - we'll get it from the cluster
+    Logger.info("[MnesiaInitializer] Deleting local schema to join cluster")
+    :mnesia.delete_schema([node()])
+
+    # Start Mnesia without a schema (will get it from cluster)
+    case :mnesia.start() do
+      :ok ->
+        Logger.info("[MnesiaInitializer] Mnesia started (without local schema)")
+
+      {:error, reason} ->
+        Logger.error("[MnesiaInitializer] Failed to start Mnesia: #{inspect(reason)}")
+        raise "Failed to start Mnesia: #{inspect(reason)}"
+    end
+
+    # Connect to the cluster - this will sync the schema
+    case :mnesia.change_config(:extra_db_nodes, other_nodes) do
+      {:ok, connected_nodes} when connected_nodes != [] ->
+        Logger.info("[MnesiaInitializer] Connected to Mnesia cluster: #{inspect(connected_nodes)}")
+
+        # Add schema copy to this node
+        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Schema stored as disc_copies on this node")
+
+          {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
+            Logger.info("[MnesiaInitializer] Schema already disc_copies on this node")
+
+          {:aborted, reason} ->
+            Logger.warning("[MnesiaInitializer] Could not change schema to disc_copies: #{inspect(reason)}")
+        end
+
+        # Copy tables from cluster
+        copy_tables_from_cluster()
+
+        # Wait for all tables to be ready
+        wait_for_tables()
+
+        Logger.info("[MnesiaInitializer] Mnesia initialization complete (joined cluster)")
+
+      {:ok, []} ->
+        Logger.warning("[MnesiaInitializer] No Mnesia nodes in cluster, falling back to primary init")
+        :mnesia.stop()
+        initialize_as_primary_node()
+
+      {:error, reason} ->
+        Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)}, falling back to primary init")
+        :mnesia.stop()
+        initialize_as_primary_node()
+    end
+  end
+
+  defp start_mnesia_and_create_tables do
     # Start Mnesia
     case :mnesia.start() do
       :ok ->
@@ -160,60 +231,16 @@ defmodule BlocksterV2.MnesiaInitializer do
         raise "Failed to start Mnesia: #{inspect(reason)}"
     end
 
-    # Wait for tables if they exist, or create them
+    # Wait for schema
     :mnesia.wait_for_tables([:schema], 5000)
 
-    # In production, try to connect to other nodes and determine our role
-    cluster_result =
-      if Application.get_env(:blockster_v2, :env) == :prod do
-        connect_to_cluster()
-      else
-        :create_tables
-      end
-
-    # Only create tables if we're the primary node or no cluster exists
-    # If we joined a cluster, tables were already copied
-    if cluster_result != :joined_cluster do
-      create_tables()
-    end
+    # Create tables
+    create_tables()
 
     # Wait for all tables to be ready
     wait_for_tables()
 
     Logger.info("[MnesiaInitializer] Mnesia initialization complete")
-  end
-
-  defp connect_to_cluster do
-    # Get other nodes from the cluster (libcluster should have connected them)
-    other_nodes = Node.list()
-
-    if other_nodes != [] do
-      Logger.info("[MnesiaInitializer] Found cluster nodes: #{inspect(other_nodes)}")
-
-      # Add this node to the Mnesia cluster
-      case :mnesia.change_config(:extra_db_nodes, other_nodes) do
-        {:ok, nodes} when nodes != [] ->
-          Logger.info("[MnesiaInitializer] Connected to Mnesia cluster: #{inspect(nodes)}")
-
-          # Copy schema to this node if needed
-          :mnesia.add_table_copy(:schema, node(), :disc_copies)
-
-          # This is a joining node - copy tables from cluster instead of creating
-          copy_tables_from_cluster()
-          :joined_cluster
-
-        {:ok, []} ->
-          Logger.info("[MnesiaInitializer] No Mnesia nodes found in cluster, will create tables")
-          :create_tables
-
-        {:error, reason} ->
-          Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)}, will create tables locally")
-          :create_tables
-      end
-    else
-      Logger.info("[MnesiaInitializer] No other nodes found, running as single node")
-      :create_tables
-    end
   end
 
   defp copy_tables_from_cluster do
