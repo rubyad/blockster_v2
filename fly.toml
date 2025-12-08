@@ -15,6 +15,11 @@ kill_signal = 'SIGTERM'
 [env]
   PHX_HOST = 'blockster-v2.fly.dev'
   PORT = '8080'
+  DNS_CLUSTER_QUERY = 'blockster-v2.internal'
+
+[mounts]
+  source = 'mnesia_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
