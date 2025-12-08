@@ -43,13 +43,14 @@ config :blockster_v2,
 
 # Mnesia configuration
 # In production, Mnesia data is stored in /data/mnesia (Fly.io persistent volume)
-# In development, it's stored in priv/mnesia/{node_name}
+# In development, it's stored in priv/mnesia/{node_name} for each node
 mnesia_dir =
   if config_env() == :prod do
     "/data/mnesia/#{node()}"
   else
-    # For dev, use project directory
-    Path.join(["priv", "mnesia", "dev"])
+    # For dev, use separate directory per node to allow multi-node testing
+    node_name = node() |> Atom.to_string() |> String.split("@") |> List.first()
+    Path.join(["priv", "mnesia", node_name])
   end
 
 config :mnesia, dir: String.to_charlist(mnesia_dir)

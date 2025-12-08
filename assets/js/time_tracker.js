@@ -12,6 +12,9 @@ export const TimeTracker = {
     this.updateInterval = 5000; // Send updates every 5 seconds
     this.tickInterval = 100; // Check every 100ms for smooth counting
 
+    // Initialize with server-provided time from data attribute
+    this.serverSeconds = parseInt(this.el.dataset.initialTime, 10) || 0;
+
     // Start tracking
     this.startTracking();
 
@@ -37,11 +40,6 @@ export const TimeTracker = {
     this.serverUpdateTimer = setInterval(() => {
       this.sendTimeUpdate();
     }, this.updateInterval);
-
-    // Listen for server-side time updates to display
-    this.handleEvent("update_display_time", ({ seconds }) => {
-      this.updateDisplayedTime(seconds);
-    });
   },
 
   startTracking() {
@@ -88,7 +86,9 @@ export const TimeTracker = {
   sendTimeUpdate() {
     if (this.totalSeconds > 0) {
       const secondsToSend = this.totalSeconds;
-      this.totalSeconds = 0; // Reset after sending
+      // Move sent time to serverSeconds (already persisted), reset local counter
+      this.serverSeconds += secondsToSend;
+      this.totalSeconds = 0;
 
       this.pushEvent("time_update", { seconds: secondsToSend });
     }
@@ -120,17 +120,9 @@ export const TimeTracker = {
   updateLocalDisplay() {
     const displayEl = document.getElementById("time-spent-display");
     if (displayEl) {
-      displayEl.textContent = this.formatTime(this.totalSeconds + this.getServerTime());
+      // Total = server time (initial + already sent) + local unsent time
+      displayEl.textContent = this.formatTime(this.serverSeconds + this.totalSeconds);
     }
-  },
-
-  updateDisplayedTime(serverSeconds) {
-    this.serverSeconds = serverSeconds;
-    this.updateLocalDisplay();
-  },
-
-  getServerTime() {
-    return this.serverSeconds || 0;
   },
 
   formatTime(seconds) {

@@ -34,12 +34,11 @@ defmodule BlocksterV2Web.PostLive.Show do
     post_id = socket.assigns.post.id
 
     # Update the TimeTracker GenServer (fire and forget)
+    # Client manages its own display incrementally - no need to push back
+    # The initial time is loaded on page mount, JS adds to it locally
     TimeTracker.update_time(user_id, post_id, seconds)
 
-    # Get the new total time and push to client without re-rendering
-    new_total = safe_get_time(user_id, post_id)
-
-    {:noreply, push_event(socket, "update_display_time", %{seconds: new_total})}
+    {:noreply, socket}
   end
 
   defp get_user_id(socket) do

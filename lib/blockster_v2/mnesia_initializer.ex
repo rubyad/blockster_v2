@@ -51,6 +51,18 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:bux_balance, :updated_at]
+    },
+    %{
+      name: :user_post_time,
+      type: :set,
+      attributes: [
+        :key,         # {user_id, post_id} tuple as primary key
+        :user_id,
+        :post_id,
+        :seconds,
+        :updated_at
+      ],
+      index: [:user_id, :post_id]
     }
   ]
 
