@@ -95,25 +95,9 @@ export const TimeTracker = {
   },
 
   sendFinalTime() {
-    // Use sendBeacon for reliable delivery on page unload
+    // Try to send any remaining time via LiveView (may not complete on unload)
     if (this.totalSeconds > 0) {
-      const userId = this.el.dataset.userId;
-      const postId = this.el.dataset.postId;
-
-      if (userId && postId) {
-        // Try pushEvent first (may not work on unload)
-        this.pushEvent("time_update", { seconds: this.totalSeconds });
-
-        // Also use navigator.sendBeacon as backup
-        const data = JSON.stringify({
-          user_id: userId,
-          post_id: postId,
-          seconds: this.totalSeconds,
-          _csrf_token: document.querySelector("meta[name='csrf-token']")?.content
-        });
-
-        navigator.sendBeacon("/api/time-tracker", data);
-      }
+      this.pushEvent("time_update", { seconds: this.totalSeconds });
     }
   },
 
