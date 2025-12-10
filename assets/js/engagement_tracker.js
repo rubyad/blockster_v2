@@ -8,7 +8,8 @@
  * - Whether user reached end of article
  * - Natural vs bot-like scrolling behavior
  *
- * Sends "article-visited" on mount and "article-read" when user scrolls to end.
+ * Sends "engagement-update" events periodically to let the server calculate
+ * the engagement score. Server-side calculation is the single source of truth.
  */
 export const EngagementTracker = {
   mounted() {
@@ -55,10 +56,6 @@ export const EngagementTracker = {
     this.reachedEnd = false;
     this.hasRecordedRead = false;
 
-    // BUX reward data from server
-    this.baseBuxReward = parseInt(this.el.dataset.baseBuxReward, 10) || 1;
-    this.userMultiplier = parseInt(this.el.dataset.userMultiplier, 10) || 1;
-
     // Get article content element for calculating scroll depth
     this.articleEl = document.getElementById("post-content");
 
@@ -68,7 +65,7 @@ export const EngagementTracker = {
       word_count: this.wordCount
     });
 
-    console.log(`EngagementTracker: Started tracking post ${this.postId} (${this.wordCount} words, ${this.minReadTime}s min read, base reward: ${this.baseBuxReward}, multiplier: ${this.userMultiplier})`);
+    console.log(`EngagementTracker: Started tracking post ${this.postId} (${this.wordCount} words, ${this.minReadTime}s min read)`);
 
     // Start time tracking
     this.startTimeTracking();
@@ -78,11 +75,20 @@ export const EngagementTracker = {
       if (document.visibilityState === "hidden") {
         this.pause();
         this.focusChanges++;
+        // Send update when user leaves tab (persist progress)
+        this.sendEngagementUpdate();
       } else {
         this.resume();
       }
     };
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
+
+    // Send updates periodically (every 2 seconds) - server calculates the score
+    this.updateInterval = setInterval(() => {
+      if (!this.isPaused && !this.hasRecordedRead) {
+        this.sendEngagementUpdate();
+      }
+    }, 2000);
 
     // Delay scroll tracking setup to let page scroll position settle after navigation
     // This prevents false "end reached" triggers when navigating from a scrolled page
@@ -94,6 +100,30 @@ export const EngagementTracker = {
       // Initial scroll depth check (in case article is short)
       setTimeout(() => this.trackScroll(), 500);
     }, 500);
+  },
+
+  // Send engagement update to server - server calculates the score
+  sendEngagementUpdate() {
+    const metrics = {
+      time_spent: this.timeSpent,
+      min_read_time: this.minReadTime,
+      scroll_depth: Math.round(this.scrollDepth),
+      reached_end: this.reachedEnd,
+      scroll_events: this.scrollEvents,
+      avg_scroll_speed: Math.round(this.avgScrollSpeed),
+      max_scroll_speed: Math.round(this.maxScrollSpeed),
+      scroll_reversals: this.scrollReversals,
+      focus_changes: this.focusChanges
+    };
+
+    console.log(`EngagementTracker: Sending update - time: ${this.timeSpent}s, depth: ${Math.round(this.scrollDepth)}%, events: ${this.scrollEvents}`);
+
+    try {
+      this.pushEvent("engagement-update", metrics);
+    } catch (e) {
+      // LiveView may be disconnected during page navigation, this is expected
+      console.debug("EngagementTracker: Could not send engagement-update (LiveView disconnected)");
+    }
   },
 
   startTimeTracking() {
@@ -247,8 +277,31 @@ export const EngagementTracker = {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
     }
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
     window.removeEventListener("scroll", this.handleScroll);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+
+    // Send final engagement update to persist progress before leaving
+    if (!this.hasRecordedRead) {
+      try {
+        this.pushEvent("engagement-update", {
+          time_spent: this.timeSpent,
+          min_read_time: this.minReadTime,
+          scroll_depth: Math.round(this.scrollDepth),
+          reached_end: this.reachedEnd,
+          scroll_events: this.scrollEvents,
+          avg_scroll_speed: Math.round(this.avgScrollSpeed),
+          max_scroll_speed: Math.round(this.maxScrollSpeed),
+          scroll_reversals: this.scrollReversals,
+          focus_changes: this.focusChanges
+        });
+      } catch (e) {
+        // LiveView may be disconnected during page navigation, this is expected
+        console.debug("EngagementTracker: Could not send final engagement-update (LiveView disconnected)");
+      }
+    }
 
     // Send final read event if user reached end but we haven't sent it yet
     if (this.reachedEnd && !this.hasRecordedRead) {

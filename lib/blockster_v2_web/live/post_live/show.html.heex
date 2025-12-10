@@ -1,59 +1,84 @@
-<!-- BUX Earned Notification - Separate from main content to avoid re-renders -->
-<div id="bux-notification-container">
-  <%= if @bux_earned do %>
-    <div class="fixed bottom-4 right-4 z-50 animate-fade-in">
-      <%= if @already_rewarded do %>
-        <!-- Already received reward notification -->
-        <div class="bg-gradient-to-r from-[#6B7280] to-[#4B5563] text-white rounded-2xl shadow-2xl p-6 max-w-sm">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+<!-- Fixed Bottom-Right BUX Panel - Always visible for logged-in users -->
+<%= if @current_user do %>
+  <div id="bux-panel" class="fixed bottom-4 right-4 z-50">
+    <%= if @already_rewarded do %>
+      <!-- Already received reward from previous session - gray panel -->
+      <div class="bg-gradient-to-r from-[#6B7280] to-[#4B5563] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs opacity-90">Already Earned</div>
+            <div class="text-xl font-bold">{@bux_earned || 0} BUX</div>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <%= if @article_completed do %>
+        <!-- Just completed - green panel with checkmark -->
+        <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
               </svg>
             </div>
             <div>
-              <div class="text-sm opacity-90">Already Read!</div>
-              <div class="text-2xl font-bold">{@bux_earned} BUX</div>
+              <div class="text-xs opacity-90">Earned!</div>
+              <div class="text-xl font-bold">+{@current_bux} BUX</div>
             </div>
           </div>
-          <div class="text-sm opacity-90">
-            You've already earned BUX for reading this article.
-          </div>
-        </div>
-      <% else %>
-        <!-- New reward notification -->
-        <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-6 max-w-sm">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/>
-                <path d="M10 4a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 9V5a1 1 0 011-1z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-sm opacity-90">Article Completed!</div>
-              <div class="text-2xl font-bold">+{@bux_earned} BUX</div>
-            </div>
-          </div>
-          <div class="text-sm opacity-90 space-y-1">
+          <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
             <div class="flex justify-between">
-              <span>Engagement Score:</span>
-              <span class="font-semibold">{@engagement && @engagement.engagement_score}/10</span>
+              <span>Score:</span>
+              <span class="font-semibold">{@current_score}/10</span>
             </div>
             <div class="flex justify-between">
               <span>Base Reward:</span>
-              <span class="font-semibold">{@post.base_bux_reward || 1} BUX</span>
+              <span class="font-semibold">{@base_bux_reward} BUX</span>
             </div>
             <div class="flex justify-between">
-              <span>Your Multiplier:</span>
-              <span class="font-semibold">{@user_multiplier || 1}x</span>
+              <span>Multiplier:</span>
+              <span class="font-semibold">{@user_multiplier}x</span>
+            </div>
+          </div>
+        </div>
+      <% else %>
+        <!-- Active earning panel - green gradient -->
+        <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs opacity-90">Earning BUX</div>
+              <div class="text-xl font-bold">+{@current_bux} BUX</div>
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
+            <div class="flex justify-between">
+              <span>Score:</span>
+              <span class="font-semibold">{@current_score}/10</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Base Reward:</span>
+              <span class="font-semibold">{@base_bux_reward} BUX</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Multiplier:</span>
+              <span class="font-semibold">{@user_multiplier}x</span>
             </div>
           </div>
         </div>
       <% end %>
-    </div>
-  <% end %>
-</div>
+    <% end %>
+  </div>
+<% end %>
 
 <div
   class="article-page bg-[#F7F8FA] min-h-screen"

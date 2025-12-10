@@ -43,6 +43,20 @@ defmodule BlocksterV2Web.PostLive.Show do
           {nil, false}
       end
 
+    # Get base BUX reward for panel display
+    base_bux_reward = updated_post.base_bux_reward || 1
+
+    # Initial score/BUX always starts at 1 for fresh sessions (unless already rewarded)
+    # Score builds up as user engages with the article
+    {current_score, current_bux} =
+      if already_rewarded do
+        # Already rewarded - show final earned values
+        {engagement && engagement.engagement_score || 10, bux_earned}
+      else
+        # Fresh session - always start at 1
+        {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier)}
+      end
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
@@ -51,9 +65,13 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:word_count, word_count)
      |> assign(:engagement, engagement)
      |> assign(:user_multiplier, user_multiplier)
+     |> assign(:base_bux_reward, base_bux_reward)
      |> assign(:rewards, rewards)
      |> assign(:bux_earned, bux_earned)
-     |> assign(:already_rewarded, already_rewarded)}
+     |> assign(:already_rewarded, already_rewarded)
+     |> assign(:article_completed, already_rewarded)
+     |> assign(:current_score, current_score)
+     |> assign(:current_bux, current_bux)}
   end
 
   @impl true
@@ -119,6 +137,42 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
+  def handle_event("engagement-update", params, socket) do
+    user_id = get_user_id(socket)
+    post_id = socket.assigns.post.id
+
+    # Only track for logged-in users who haven't already been rewarded
+    if user_id != "anonymous" and not socket.assigns.already_rewarded do
+      case EngagementTracker.update_engagement(user_id, post_id, params) do
+        {:ok, score} ->
+          # Only update socket if score actually changed
+          if score != socket.assigns.current_score do
+            # Calculate current BUX value
+            base_bux_reward = socket.assigns.post.base_bux_reward || 1
+            user_multiplier = socket.assigns.user_multiplier || 1
+            current_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
+
+            # Refresh engagement data
+            engagement = safe_get_engagement(user_id, post_id)
+
+            {:noreply,
+             socket
+             |> assign(:engagement, engagement)
+             |> assign(:current_score, score)
+             |> assign(:current_bux, current_bux)}
+          else
+            {:noreply, socket}
+          end
+
+        {:error, _} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event("article-read", params, socket) do
     user_id = get_user_id(socket)
     post_id = socket.assigns.post.id
@@ -136,7 +190,7 @@ defmodule BlocksterV2Web.PostLive.Show do
           # Try to record the read reward
           case EngagementTracker.record_read_reward(user_id, post_id, bux_earned) do
             {:ok, recorded_bux} ->
-              # New reward recorded
+              # New reward recorded - mark article as completed
               engagement = safe_get_engagement(user_id, post_id)
               rewards = safe_get_rewards(user_id, post_id)
               {:noreply,
@@ -144,7 +198,10 @@ defmodule BlocksterV2Web.PostLive.Show do
                |> assign(:engagement, engagement)
                |> assign(:rewards, rewards)
                |> assign(:bux_earned, recorded_bux)
-               |> assign(:already_rewarded, false)}
+               |> assign(:already_rewarded, false)
+               |> assign(:article_completed, true)
+               |> assign(:current_score, score)
+               |> assign(:current_bux, recorded_bux)}
 
             {:already_rewarded, existing_bux} ->
               # User already received reward for this article
@@ -155,7 +212,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                |> assign(:engagement, engagement)
                |> assign(:rewards, rewards)
                |> assign(:bux_earned, existing_bux)
-               |> assign(:already_rewarded, true)}
+               |> assign(:already_rewarded, true)
+               |> assign(:article_completed, true)}
 
             {:error, _} ->
               {:noreply, socket}

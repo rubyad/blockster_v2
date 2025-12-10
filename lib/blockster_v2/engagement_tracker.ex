@@ -16,6 +16,7 @@ defmodule BlocksterV2.EngagementTracker do
   @doc """
   Records an article visit with initial engagement score of 1.
   Called when user lands on a post page.
+  Resets engagement metrics for a fresh session (but preserves created_at).
   """
   def record_visit(user_id, post_id, min_read_time) when is_integer(min_read_time) do
     key = {user_id, post_id}
@@ -47,9 +48,30 @@ defmodule BlocksterV2.EngagementTracker do
         :mnesia.dirty_write(record)
         {:ok, :created}
 
-      _existing ->
-        # Record exists, just return
-        {:ok, :exists}
+      existing ->
+        # Record exists - reset for fresh session but preserve created_at
+        created_at = elem(existing, 15)
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          0,              # time_spent - reset
+          min_read_time,  # min_read_time - update
+          0,              # scroll_depth - reset
+          false,          # reached_end - reset
+          0,              # scroll_events - reset
+          0.0,            # avg_scroll_speed - reset
+          0.0,            # max_scroll_speed - reset
+          0,              # scroll_reversals - reset
+          0,              # focus_changes - reset
+          1,              # engagement_score - reset to minimum
+          false,          # is_read - reset
+          created_at,     # created_at - preserve
+          now             # updated_at
+        }
+        :mnesia.dirty_write(record)
+        {:ok, :reset}
     end
   rescue
     e ->
@@ -58,6 +80,98 @@ defmodule BlocksterV2.EngagementTracker do
   catch
     :exit, e ->
       Logger.error("[EngagementTracker] Exit recording visit: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Updates engagement metrics in real-time and returns the new score.
+  Called periodically as user reads the article (before reaching end).
+  Only updates if the new score is higher than the existing score.
+  """
+  def update_engagement(user_id, post_id, metrics) when is_map(metrics) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    time_spent = Map.get(metrics, "time_spent", 0)
+    scroll_depth = Map.get(metrics, "scroll_depth", 0)
+    reached_end = Map.get(metrics, "reached_end", false)
+    scroll_events = Map.get(metrics, "scroll_events", 0)
+    avg_scroll_speed = Map.get(metrics, "avg_scroll_speed", 0.0)
+    max_scroll_speed = Map.get(metrics, "max_scroll_speed", 0.0)
+    scroll_reversals = Map.get(metrics, "scroll_reversals", 0)
+    focus_changes = Map.get(metrics, "focus_changes", 0)
+
+    case get_engagement(user_id, post_id) do
+      nil ->
+        # No existing record, create one with defaults
+        min_read_time = Map.get(metrics, "min_read_time", 60)
+        score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
+                                           scroll_events, avg_scroll_speed, max_scroll_speed,
+                                           scroll_reversals, focus_changes)
+
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          time_spent,
+          min_read_time,
+          scroll_depth,
+          reached_end,
+          scroll_events,
+          avg_scroll_speed,
+          max_scroll_speed,
+          scroll_reversals,
+          focus_changes,
+          score,
+          reached_end,  # is_read = reached_end
+          now,
+          now
+        }
+        :mnesia.dirty_write(record)
+        {:ok, score}
+
+      existing ->
+        # Update existing record
+        min_read_time = elem(existing, 5)
+        created_at = elem(existing, 15)
+
+        # Calculate score based on current session metrics
+        new_score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
+                                           scroll_events, avg_scroll_speed, max_scroll_speed,
+                                           scroll_reversals, focus_changes)
+
+        # Store the current session's score in Mnesia (replaces previous)
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          time_spent,
+          min_read_time,
+          scroll_depth,
+          reached_end,
+          scroll_events,
+          avg_scroll_speed,
+          max_scroll_speed,
+          scroll_reversals,
+          focus_changes,
+          new_score,
+          reached_end,  # is_read = reached_end
+          created_at,
+          now
+        }
+        :mnesia.dirty_write(record)
+        # Return current session score for UI display
+        {:ok, new_score}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating engagement: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating engagement: #{inspect(e)}")
       {:error, e}
   end
 
@@ -206,54 +320,39 @@ defmodule BlocksterV2.EngagementTracker do
   Lower scores indicate bot-like or skimming behavior.
   """
   def calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
-                                  scroll_events, avg_scroll_speed, max_scroll_speed,
-                                  scroll_reversals, focus_changes) do
+                                  _scroll_events, _avg_scroll_speed, _max_scroll_speed,
+                                  _scroll_reversals, _focus_changes) do
     # Base score starts at 1
     score = 1.0
 
-    Logger.info("[EngagementTracker] Calculating score - time_spent: #{time_spent}, min_read_time: #{min_read_time}, scroll_depth: #{scroll_depth}, reached_end: #{reached_end}, scroll_events: #{scroll_events}, avg_scroll_speed: #{avg_scroll_speed}, max_scroll_speed: #{max_scroll_speed}, scroll_reversals: #{scroll_reversals}, focus_changes: #{focus_changes}")
+    Logger.info("[EngagementTracker] Calculating score - time_spent: #{time_spent}, min_read_time: #{min_read_time}, scroll_depth: #{scroll_depth}, reached_end: #{reached_end}")
 
-    # Time ratio score (0-3 points)
-    # Ideal: spent at least 90% of minimum read time
+    # Time ratio score (0-6 points) - incremental thresholds
+    # min_read_time is based on word count at 5 words/second
     time_ratio = if min_read_time > 0, do: time_spent / min_read_time, else: 0
     time_score = cond do
-      time_ratio >= 0.9 -> 3.0  # 90%+ of read time (full points)
-      time_ratio >= 0.7 -> 2.0  # 70%+ of read time
-      time_ratio >= 0.5 -> 1.0  # 50%+ of read time
-      true -> 0.0               # Too fast
+      time_ratio >= 1.0 -> 6.0   # 100%+ of read time (full points)
+      time_ratio >= 0.9 -> 5.0   # 90%+ of read time
+      time_ratio >= 0.8 -> 4.0   # 80%+ of read time
+      time_ratio >= 0.7 -> 3.0   # 70%+ of read time
+      time_ratio >= 0.5 -> 2.0   # 50%+ of read time
+      time_ratio >= 0.3 -> 1.0   # 30%+ of read time
+      true -> 0.0                # Too fast
     end
 
-    # Scroll depth score (0-2 points)
+    # Scroll depth score (0-3 points)
     # 100% depth means user reached end of article
     depth_score = cond do
-      scroll_depth >= 100 -> 2.0  # Reached the very end
-      scroll_depth >= 70 -> 1.5
-      scroll_depth >= 50 -> 1.0
-      scroll_depth >= 30 -> 0.5
-      true -> 0.0
-    end
-
-    # Scroll naturalness score (0-4 points)
-    # Natural reading involves multiple scroll events at reasonable speeds
-    # Focus on average speed, not max speed (momentary fast scrolls are normal)
-    scroll_score = cond do
-      # Bot-like: very few scroll events
-      scroll_events < 3 -> 0.0
-      # Bot-like: extremely fast AVERAGE scrolling (automated scrolling)
-      avg_scroll_speed > 5000 -> 0.0
-      # Natural: many scroll events with reasonable average speed
-      scroll_events >= 50 and avg_scroll_speed < 1000 -> 4.0
-      scroll_events >= 50 and avg_scroll_speed < 2000 -> 3.0
-      scroll_events >= 25 and avg_scroll_speed < 2000 -> 2.0
-      scroll_events >= 10 -> 1.0
-      scroll_events >= 3 -> 0.5
+      scroll_depth >= 100 or reached_end -> 3.0  # Reached the very end
+      scroll_depth >= 80 -> 2.0
+      scroll_depth >= 60 -> 1.0
       true -> 0.0
     end
 
     # Calculate final score
-    raw_score = score + time_score + depth_score + scroll_score
+    raw_score = score + time_score + depth_score
 
-    Logger.info("[EngagementTracker] Score breakdown - base: #{score}, time: #{time_score}, depth: #{depth_score}, scroll: #{scroll_score}, raw_total: #{raw_score}")
+    Logger.info("[EngagementTracker] Score breakdown - base: #{score}, time: #{time_score}, depth: #{depth_score}, raw_total: #{raw_score}")
 
     # Clamp to 1-10 range
     raw_score
