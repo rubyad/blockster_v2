@@ -66,15 +66,15 @@
   data-user-multiplier={@user_multiplier || 1}
   data-already-rewarded={to_string(@already_rewarded)}
 >
-  <!-- Hidden TimeTracker for backwards compatibility -->
-  <div
+  <!-- TimeTracker disabled for now - keeping code in place -->
+  <!-- <div
     id="post-time-tracker"
     phx-hook="TimeTracker"
     data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
     data-post-id={@post.id}
     data-initial-time={@time_spent}
     class="hidden"
-  ></div>
+  ></div> -->
     <!-- Full Height Hero Section -->
     <section class="full-height-section md:h-screen flex md:flex-row flex-col bg-[#F7F8FA] max-md:items-center max-md:px-0">
       <!-- Left Section: Content -->
@@ -175,22 +175,6 @@
                 </div>
 
                 <div class="flex items-end gap-4">
-                  <!-- Time Spent -->
-                  <div>
-                    <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                      Time Spent
-                    </span>
-                    <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                      <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[60px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span id="time-spent-display" class="text-xs font-haas_medium_65">{@time_spent}s</span>
-                      </div>
-                    </div>
-                  </div>
-
                   <div>
                     <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
                       Views
@@ -307,18 +291,6 @@
           </div>
 
           <div class="flex items-end gap-4">
-            <!-- Time Spent (Mobile) -->
-            <div>
-              <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                Time
-              </span>
-              <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                <div class="flex items-center gap-1 bg-white rounded-[100px] px-2 py-1">
-                  <span class="text-xs font-haas_medium_65">{@time_spent}s</span>
-                </div>
-              </div>
-            </div>
-
             <div>
               <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
                 Views
