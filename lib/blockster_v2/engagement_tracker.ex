@@ -344,8 +344,8 @@ defmodule BlocksterV2.EngagementTracker do
     # 100% depth means user reached end of article
     depth_score = cond do
       scroll_depth >= 100 or reached_end -> 3.0  # Reached the very end
-      scroll_depth >= 80 -> 2.0
-      scroll_depth >= 60 -> 1.0
+      scroll_depth >= 66 -> 2.0   # Two-thirds of article
+      scroll_depth >= 33 -> 1.0   # One-third of article
       true -> 0.0
     end
 
