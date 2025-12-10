@@ -438,8 +438,8 @@ defmodule BlocksterV2.MnesiaInitializer do
     end)
   end
 
-  # Safe version that never deletes tables
-  defp safe_add_table_copy(table_name, _table_def) do
+  # Safe version that never deletes tables - but will create if no other option
+  defp safe_add_table_copy(table_name, table_def) do
     case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
       {:atomic, :ok} ->
         Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies to this node")
@@ -448,12 +448,20 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
 
       {:aborted, {:system_limit, _, {_node, :none_active}}} ->
-        # No active copies - the table may still have data on disk
-        # Log warning but do NOT delete
-        Logger.warning("[MnesiaInitializer] Table #{table_name} has no active copies - data may be recoverable from disk after full restart")
+        # No active copies anywhere - we need to create a fresh table
+        # This happens when previous deploy wiped data and there's nothing to copy
+        Logger.warning("[MnesiaInitializer] Table #{table_name} has no active copies - creating fresh table")
+        create_table(table_def, :disc_copies)
+
+      {:aborted, {:no_exists, _}} ->
+        # Table doesn't exist in schema - create it fresh
+        Logger.info("[MnesiaInitializer] Table #{table_name} doesn't exist, creating fresh")
+        create_table(table_def, :disc_copies)
 
       {:aborted, reason} ->
-        Logger.warning("[MnesiaInitializer] Could not add #{table_name} copy: #{inspect(reason)} - will try again on next restart")
+        # Try to create the table if we can't add copy for other reasons
+        Logger.warning("[MnesiaInitializer] Could not add #{table_name} copy: #{inspect(reason)} - attempting to create fresh")
+        create_table(table_def, :disc_copies)
     end
   end
 
