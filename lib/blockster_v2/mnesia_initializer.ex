@@ -339,30 +339,90 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   defp copy_tables_from_cluster do
-    # For each table, try to add a copy to this node from the cluster
-    # If table doesn't exist in cluster, CREATE IT (we may be the first node with tables)
+    # For each table, ensure it exists with disc_copies on this node
+    # Handle multiple scenarios:
+    # 1. Table exists with copies elsewhere -> add copy to this node
+    # 2. Table exists in schema but no copies anywhere -> add copy to this node
+    # 3. Table doesn't exist at all -> create it
     Enum.each(@tables, fn table_def = %{name: table_name} ->
-      case table_exists_in_cluster?(table_name) do
-        true ->
+      case get_table_status(table_name) do
+        :has_remote_copies ->
+          # Table exists with copies on other nodes - copy to this node
           Logger.info("[MnesiaInitializer] Copying table #{table_name} from cluster")
-          case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
-            {:atomic, :ok} ->
-              Logger.info("[MnesiaInitializer] Successfully copied #{table_name} to this node")
+          add_table_copy_to_node(table_name)
 
-            {:aborted, {:already_exists, _, _}} ->
-              Logger.info("[MnesiaInitializer] Table #{table_name} already exists on this node")
+        :exists_no_copies ->
+          # Table exists in schema but NO node has copies (orphaned table)
+          # This happens after rolling deploys where both nodes lose their copies
+          Logger.info("[MnesiaInitializer] Table #{table_name} exists but has no copies, adding disc_copies")
+          add_table_copy_to_node(table_name)
 
-            {:aborted, reason} ->
-              Logger.warning("[MnesiaInitializer] Could not copy #{table_name}: #{inspect(reason)}")
-          end
-
-        false ->
-          # Table doesn't exist in cluster - CREATE IT on this node
-          # This handles the case where cluster nodes exist but tables were lost
+        :not_exists ->
+          # Table doesn't exist at all - create it
           Logger.info("[MnesiaInitializer] Table #{table_name} not found in cluster, creating it")
           create_table(table_def, :disc_copies)
       end
     end)
+  end
+
+  defp get_table_status(table_name) do
+    # Check if table exists and its copy status
+    case :mnesia.table_info(table_name, :all) do
+      info when is_list(info) ->
+        disc_copies = Keyword.get(info, :disc_copies, [])
+        ram_copies = Keyword.get(info, :ram_copies, [])
+        disc_only = Keyword.get(info, :disc_only_copies, [])
+        all_copies = disc_copies ++ ram_copies ++ disc_only
+
+        if all_copies == [] do
+          :exists_no_copies
+        else
+          :has_remote_copies
+        end
+
+      _ ->
+        :not_exists
+    end
+  catch
+    :exit, _ -> :not_exists
+  end
+
+  defp add_table_copy_to_node(table_name) do
+    case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies to this node")
+
+      {:aborted, {:already_exists, _, _}} ->
+        Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
+
+      {:aborted, reason} ->
+        Logger.warning("[MnesiaInitializer] Could not add #{table_name} to this node: #{inspect(reason)}")
+        # If add_table_copy fails, the table may be in a broken state
+        # Try to recreate it by deleting and creating fresh
+        Logger.info("[MnesiaInitializer] Attempting to recover #{table_name} by recreating")
+        recreate_broken_table(table_name)
+    end
+  end
+
+  defp recreate_broken_table(table_name) do
+    # Find the table definition
+    case Enum.find(@tables, fn %{name: name} -> name == table_name end) do
+      nil ->
+        Logger.error("[MnesiaInitializer] Cannot find definition for #{table_name}")
+
+      table_def ->
+        # Delete the broken table from schema
+        case :mnesia.delete_table(table_name) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Deleted broken table #{table_name}")
+
+          {:aborted, reason} ->
+            Logger.warning("[MnesiaInitializer] Could not delete #{table_name}: #{inspect(reason)}")
+        end
+
+        # Create fresh
+        create_table(table_def, :disc_copies)
+    end
   end
 
   defp table_exists_in_cluster?(table_name) do
