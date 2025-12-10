@@ -424,7 +424,8 @@ defmodule BlocksterV2.MnesiaInitializer do
           # Table is orphaned - delete from all nodes and recreate
           Logger.info("[MnesiaInitializer] Deleting orphaned table #{table_name} from schema")
           delete_orphaned_table(table_name)
-          create_table(table_def, :disc_copies)
+          # Use force_create since we just deleted the table
+          force_create_table(table_def)
 
         :not_exists ->
           create_table(table_def, :disc_copies)
@@ -433,29 +434,70 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   defp delete_orphaned_table(table_name) do
-    # When a table exists in schema but has no copies, delete_table won't work
-    # We need to use del_table_copy to remove it from schema, or clear schema
-    # Try multiple approaches
+    # When a table exists in schema but has no active copies, it's a "zombie" table
+    # This can happen during rolling deploys when one node dies before the other starts
+    # The table exists in the global schema but has no disc_copies/ram_copies anywhere
+    #
+    # delete_table fails with {:no_exists, _} in this state because there are no
+    # copies to delete, even though the schema entry exists.
+    #
+    # The fix is to use the internal schema functions to forcefully remove the table
+    # from the schema on all nodes.
+
+    Logger.info("[MnesiaInitializer] Force-deleting orphaned table #{table_name} from schema")
+
+    # First try the normal delete_table
     case :mnesia.delete_table(table_name) do
       {:atomic, :ok} ->
-        Logger.info("[MnesiaInitializer] Deleted orphaned table #{table_name}")
+        Logger.info("[MnesiaInitializer] Successfully deleted table #{table_name}")
         :ok
 
-      {:aborted, {:no_exists, _}} ->
-        # Table doesn't really exist - that's fine, we can create it
-        Logger.info("[MnesiaInitializer] Table #{table_name} already cleaned up")
-        :ok
-
-      {:aborted, reason} ->
-        # Try to clear any stale references
-        Logger.warning("[MnesiaInitializer] Could not delete #{table_name}: #{inspect(reason)}")
-        # Clear the table from schema on all nodes
-        clear_table_from_schema(table_name)
+      _ ->
+        # delete_table didn't work - force remove from schema
+        # We do this by deleting the schema record for this table directly
+        force_delete_table_from_schema(table_name)
     end
   end
 
-  defp clear_table_from_schema(table_name) do
-    # Try to remove table copy from each node in the cluster
+  defp force_delete_table_from_schema(table_name) do
+    # Delete the schema entry for this table directly
+    # This is a low-level operation that removes the table definition from schema
+    Logger.info("[MnesiaInitializer] Force removing #{table_name} from schema")
+
+    # Write a transaction that removes the schema record for this table
+    result = :mnesia.transaction(fn ->
+      # Delete the {schema, table_name, _} record from the schema table
+      case :mnesia.read(:schema, table_name) do
+        [_record] ->
+          :mnesia.delete({:schema, table_name})
+          :ok
+        [] ->
+          :already_gone
+      end
+    end)
+
+    case result do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Removed #{table_name} from schema")
+        :ok
+
+      {:atomic, :already_gone} ->
+        Logger.info("[MnesiaInitializer] Table #{table_name} already gone from schema")
+        :ok
+
+      {:aborted, reason} ->
+        Logger.warning("[MnesiaInitializer] Could not remove #{table_name} from schema: #{inspect(reason)}")
+        # As a last resort, try clearing from local node schema cache
+        clear_local_schema_cache(table_name)
+    end
+  end
+
+  defp clear_local_schema_cache(table_name) do
+    # Try to clear any local cached references to this table
+    # This shouldn't normally be needed, but handles edge cases
+    Logger.info("[MnesiaInitializer] Clearing local schema cache for #{table_name}")
+
+    # Delete any local schema references
     all_nodes = [node() | Node.list()]
 
     Enum.each(all_nodes, fn n ->
@@ -468,6 +510,8 @@ defmodule BlocksterV2.MnesiaInitializer do
           :ok
       end
     end)
+
+    :ok
   end
 
   defp get_table_status(table_name) do
@@ -504,13 +548,14 @@ defmodule BlocksterV2.MnesiaInitializer do
         # Source table has no active replicas - cluster is actually degraded
         Logger.warning("[MnesiaInitializer] Source for #{table_name} has no active copies, recreating")
         delete_orphaned_table(table_name)
-        create_table(table_def, :disc_copies)
+        # Force create the table (bypassing exists check since we just deleted it)
+        force_create_table(table_def)
 
       {:aborted, reason} ->
         Logger.warning("[MnesiaInitializer] Could not add #{table_name} to this node: #{inspect(reason)}")
         # Try to delete and recreate
         delete_orphaned_table(table_name)
-        create_table(table_def, :disc_copies)
+        force_create_table(table_def)
     end
   end
 
@@ -522,6 +567,38 @@ defmodule BlocksterV2.MnesiaInitializer do
     end
   catch
     :exit, _ -> false
+  end
+
+  # Force create a table without checking if it exists
+  # Used after deleting orphaned tables from schema
+  defp force_create_table(%{name: table_name, type: type, attributes: attributes, index: index}) do
+    Logger.info("[MnesiaInitializer] Force creating table #{table_name}")
+
+    result = :mnesia.create_table(
+      table_name,
+      [type: type, attributes: attributes, index: index, disc_copies: [node()]]
+    )
+
+    case result do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Successfully created table #{table_name}")
+        :ok
+
+      {:aborted, {:already_exists, ^table_name}} ->
+        # Table somehow still exists - try to add disc_copies
+        Logger.warning("[MnesiaInitializer] Table #{table_name} still exists after deletion, trying to add disc_copies")
+        case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Added disc_copies to existing #{table_name}")
+          {:aborted, {:already_exists, _, _}} ->
+            Logger.info("[MnesiaInitializer] disc_copies already exist for #{table_name}")
+          {:aborted, reason} ->
+            Logger.error("[MnesiaInitializer] Failed to add disc_copies for #{table_name}: #{inspect(reason)}")
+        end
+
+      {:aborted, reason} ->
+        Logger.error("[MnesiaInitializer] Failed to force create table #{table_name}: #{inspect(reason)}")
+    end
   end
 
   defp create_tables do
