@@ -340,7 +340,8 @@ defmodule BlocksterV2.MnesiaInitializer do
 
   defp copy_tables_from_cluster do
     # For each table, try to add a copy to this node from the cluster
-    Enum.each(@tables, fn %{name: table_name} ->
+    # If table doesn't exist in cluster, CREATE IT (we may be the first node with tables)
+    Enum.each(@tables, fn table_def = %{name: table_name} ->
       case table_exists_in_cluster?(table_name) do
         true ->
           Logger.info("[MnesiaInitializer] Copying table #{table_name} from cluster")
@@ -356,7 +357,10 @@ defmodule BlocksterV2.MnesiaInitializer do
           end
 
         false ->
-          Logger.warning("[MnesiaInitializer] Table #{table_name} not found in cluster, will be created when primary node starts")
+          # Table doesn't exist in cluster - CREATE IT on this node
+          # This handles the case where cluster nodes exist but tables were lost
+          Logger.info("[MnesiaInitializer] Table #{table_name} not found in cluster, creating it")
+          create_table(table_def, :disc_copies)
       end
     end)
   end
