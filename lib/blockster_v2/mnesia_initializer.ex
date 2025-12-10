@@ -349,9 +349,12 @@ defmodule BlocksterV2.MnesiaInitializer do
         copy_tables_normally()
 
       :degraded ->
-        # Cluster exists but tables are broken - need to clean up and recreate
-        Logger.warning("[MnesiaInitializer] Cluster tables are degraded, cleaning up and recreating")
-        cleanup_and_recreate_tables()
+        # Cluster exists but tables appear broken
+        # IMPORTANT: Do NOT delete tables during rolling deploys - this causes data loss!
+        # Instead, try to add copies to this node. If that fails, the table may still
+        # be accessible from disk on restart.
+        Logger.warning("[MnesiaInitializer] Cluster tables appear degraded, attempting safe recovery")
+        safe_recover_tables()
 
       :empty ->
         Logger.info("[MnesiaInitializer] No tables in cluster, creating fresh")
@@ -409,28 +412,57 @@ defmodule BlocksterV2.MnesiaInitializer do
     end)
   end
 
-  defp cleanup_and_recreate_tables do
-    # Tables exist in schema but have no active copies (orphaned)
-    # We need to delete them from schema and recreate fresh
-    Logger.info("[MnesiaInitializer] Cleaning up orphaned tables from schema")
+  defp safe_recover_tables do
+    # Tables appear degraded but we must NOT delete them - they may have data on disk.
+    # Instead, try to add copies to this node, and if that fails, log a warning
+    # and hope the table data can be recovered from disk on restart.
+    Logger.info("[MnesiaInitializer] Attempting safe table recovery (no deletions)")
 
     Enum.each(@tables, fn table_def = %{name: table_name} ->
       case get_table_status(table_name) do
         {:has_copies, _} ->
           # Table has copies - try to add copy to this node
-          add_table_copy_to_node(table_name, table_def)
+          safe_add_table_copy(table_name, table_def)
 
         :exists_no_copies ->
-          # Table is orphaned - delete from all nodes and recreate
-          Logger.info("[MnesiaInitializer] Deleting orphaned table #{table_name} from schema")
-          delete_orphaned_table(table_name)
-          # Use force_create since we just deleted the table
-          force_create_table(table_def)
+          # Table exists in schema but has no copies.
+          # This could be a timing issue during rolling deploy.
+          # DO NOT DELETE - try to add a copy, the data may be on disk.
+          Logger.warning("[MnesiaInitializer] Table #{table_name} has no copies but exists in schema - attempting safe add")
+          safe_add_table_copy(table_name, table_def)
 
         :not_exists ->
+          # Table genuinely doesn't exist - safe to create
           create_table(table_def, :disc_copies)
       end
     end)
+  end
+
+  # Safe version that never deletes tables
+  defp safe_add_table_copy(table_name, _table_def) do
+    case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies to this node")
+
+      {:aborted, {:already_exists, _, _}} ->
+        Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
+
+      {:aborted, {:system_limit, _, {_node, :none_active}}} ->
+        # No active copies - the table may still have data on disk
+        # Log warning but do NOT delete
+        Logger.warning("[MnesiaInitializer] Table #{table_name} has no active copies - data may be recoverable from disk after full restart")
+
+      {:aborted, reason} ->
+        Logger.warning("[MnesiaInitializer] Could not add #{table_name} copy: #{inspect(reason)} - will try again on next restart")
+    end
+  end
+
+  # DEPRECATED - kept for reference but should not be called
+  # This function was deleting tables that had data during rolling deploys
+  defp cleanup_and_recreate_tables do
+    Logger.error("[MnesiaInitializer] cleanup_and_recreate_tables called - this should not happen!")
+    Logger.error("[MnesiaInitializer] Using safe_recover_tables instead to prevent data loss")
+    safe_recover_tables()
   end
 
   defp delete_orphaned_table(table_name) do
@@ -536,7 +568,7 @@ defmodule BlocksterV2.MnesiaInitializer do
     :exit, _ -> :not_exists
   end
 
-  defp add_table_copy_to_node(table_name, table_def) do
+  defp add_table_copy_to_node(table_name, _table_def) do
     case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
       {:atomic, :ok} ->
         Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies to this node")
@@ -545,17 +577,13 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
 
       {:aborted, {:system_limit, _, {_node, :none_active}}} ->
-        # Source table has no active replicas - cluster is actually degraded
-        Logger.warning("[MnesiaInitializer] Source for #{table_name} has no active copies, recreating")
-        delete_orphaned_table(table_name)
-        # Force create the table (bypassing exists check since we just deleted it)
-        force_create_table(table_def)
+        # Source table has no active replicas
+        # IMPORTANT: Do NOT delete - data may be recoverable from disk
+        Logger.warning("[MnesiaInitializer] Table #{table_name} has no active copies - data may be recoverable on restart")
 
       {:aborted, reason} ->
-        Logger.warning("[MnesiaInitializer] Could not add #{table_name} to this node: #{inspect(reason)}")
-        # Try to delete and recreate
-        delete_orphaned_table(table_name)
-        force_create_table(table_def)
+        # Log warning but do NOT delete tables - this causes data loss during rolling deploys
+        Logger.warning("[MnesiaInitializer] Could not add #{table_name} copy: #{inspect(reason)} - will retry on restart")
     end
   end
 
