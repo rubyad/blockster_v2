@@ -222,7 +222,12 @@ export const EngagementTracker = {
     };
 
     console.log("EngagementTracker: Sending article-read event", metrics);
-    this.pushEvent("article-read", metrics);
+    try {
+      this.pushEvent("article-read", metrics);
+    } catch (e) {
+      // LiveView may be disconnected during page navigation, this is expected
+      console.debug("EngagementTracker: Could not send article-read event (LiveView disconnected)");
+    }
   },
 
   // Utility: throttle function to limit scroll event frequency

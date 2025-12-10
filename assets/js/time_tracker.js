@@ -90,14 +90,24 @@ export const TimeTracker = {
       this.serverSeconds += secondsToSend;
       this.totalSeconds = 0;
 
-      this.pushEvent("time_update", { seconds: secondsToSend });
+      try {
+        this.pushEvent("time_update", { seconds: secondsToSend });
+      } catch (e) {
+        // LiveView may be disconnected, ignore the error
+        console.debug("TimeTracker: Could not send time update (LiveView disconnected)");
+      }
     }
   },
 
   sendFinalTime() {
     // Try to send any remaining time via LiveView (may not complete on unload)
     if (this.totalSeconds > 0) {
-      this.pushEvent("time_update", { seconds: this.totalSeconds });
+      try {
+        this.pushEvent("time_update", { seconds: this.totalSeconds });
+      } catch (e) {
+        // LiveView may be disconnected during page navigation, this is expected
+        console.debug("TimeTracker: Could not send final time (LiveView disconnected)");
+      }
     }
   },
 

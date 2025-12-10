@@ -216,18 +216,32 @@ defmodule BlocksterV2.MnesiaInitializer do
     # Stop Mnesia if running (for clean restart)
     :mnesia.stop()
 
-    # Check for cluster BEFORE creating schema
-    # This is critical - if we create a schema first, we can't join an existing cluster
-    other_nodes = Node.list()
+    # Wait for cluster discovery before deciding if we're the primary node
+    # libcluster may not have connected nodes yet
+    other_nodes = wait_for_cluster_discovery()
 
     if other_nodes != [] do
       # Other nodes exist - try to join the cluster
       Logger.info("[MnesiaInitializer] Found cluster nodes: #{inspect(other_nodes)}")
       join_existing_cluster(other_nodes)
     else
-      # No other nodes - we're the first node, create schema and tables
-      Logger.info("[MnesiaInitializer] No other nodes found, initializing as primary node")
+      # No other nodes after waiting - we're the first node, create schema and tables
+      Logger.info("[MnesiaInitializer] No other nodes found after waiting, initializing as primary node")
       initialize_as_primary_node()
+    end
+  end
+
+  # Wait for libcluster to discover other nodes
+  # Retries up to 5 times with 1 second between attempts
+  defp wait_for_cluster_discovery(attempts \\ 5) do
+    case Node.list() do
+      [] when attempts > 0 ->
+        Logger.info("[MnesiaInitializer] No nodes found yet, waiting for cluster discovery (#{attempts} attempts remaining)")
+        Process.sleep(1000)
+        wait_for_cluster_discovery(attempts - 1)
+
+      nodes ->
+        nodes
     end
   end
 
