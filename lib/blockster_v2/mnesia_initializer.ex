@@ -249,18 +249,212 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   defp initialize_as_primary_node do
+    # First, check if we have existing Mnesia data on disk that belongs to a different node name
+    # This happens on Fly.io deploys where node names include deployment IDs that change each deploy
+    case check_for_node_name_mismatch() do
+      {:mismatch, old_node} ->
+        Logger.info("[MnesiaInitializer] Detected node name change: #{old_node} -> #{node()}")
+        migrate_from_old_node(old_node)
+
+      :ok ->
+        # No mismatch, proceed normally
+        case :mnesia.create_schema([node()]) do
+          :ok ->
+            Logger.info("[MnesiaInitializer] Created new Mnesia schema")
+
+          {:error, {_, {:already_exists, _}}} ->
+            Logger.info("[MnesiaInitializer] Using existing Mnesia schema")
+
+          {:error, reason} ->
+            Logger.warning("[MnesiaInitializer] Schema creation issue: #{inspect(reason)}")
+        end
+
+        start_mnesia_and_create_tables()
+    end
+  end
+
+  # Check if Mnesia data on disk belongs to a different node name
+  # This detects the Fly.io node name change issue
+  defp check_for_node_name_mismatch do
+    dir = mnesia_dir()
+    schema_file = Path.join(dir, "schema.DAT")
+
+    if File.exists?(schema_file) do
+      # Read the schema file to find what node it was created for
+      # The schema.DAT file is a DETS file with records like {:schema, table_name, properties}
+      # We need to find the node that owns the schema copy
+      case :dets.open_file(:schema_check, [{:file, String.to_charlist(schema_file)}, {:repair, false}]) do
+        {:ok, ref} ->
+          result = find_schema_owner(ref)
+          :dets.close(ref)
+          result
+
+        {:error, _reason} ->
+          # Can't read schema file, assume no mismatch
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  defp find_schema_owner(dets_ref) do
+    # Look for the schema table entry which has disc_copies info
+    case :dets.lookup(dets_ref, :schema) do
+      [{:schema, :schema, props}] ->
+        disc_copies = Keyword.get(props, :disc_copies, [])
+        current_node = node()
+
+        cond do
+          current_node in disc_copies ->
+            # Current node is in the schema, no mismatch
+            :ok
+
+          disc_copies == [] ->
+            # No disc copies registered, no mismatch
+            :ok
+
+          true ->
+            # Schema has disc_copies on a different node - this is the mismatch!
+            old_node = hd(disc_copies)
+            Logger.info("[MnesiaInitializer] Schema file shows disc_copies on #{old_node}, but we are #{current_node}")
+            {:mismatch, old_node}
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  # Migrate Mnesia data from an old node name to the current node
+  # This handles the Fly.io deploy node name change issue
+  defp migrate_from_old_node(old_node) do
+    Logger.info("[MnesiaInitializer] Starting migration from #{old_node} to #{node()}")
+
+    dir = mnesia_dir()
+
+    # Step 1: Extract all data from the old .DCD files BEFORE touching the schema
+    # .DCD files are DETS files that we can read directly
+    table_data = extract_data_from_dcd_files(dir)
+    Logger.info("[MnesiaInitializer] Extracted data from #{map_size(table_data)} tables")
+
+    # Step 2: Stop Mnesia and clean up old schema
+    :mnesia.stop()
+
+    # Delete all files in the Mnesia directory - we're starting fresh with correct node
+    cleanup_mnesia_directory(dir)
+
+    # Step 3: Create new schema with current node
     case :mnesia.create_schema([node()]) do
       :ok ->
-        Logger.info("[MnesiaInitializer] Created new Mnesia schema")
-
-      {:error, {_, {:already_exists, _}}} ->
-        Logger.info("[MnesiaInitializer] Using existing Mnesia schema")
+        Logger.info("[MnesiaInitializer] Created new schema for #{node()}")
 
       {:error, reason} ->
-        Logger.warning("[MnesiaInitializer] Schema creation issue: #{inspect(reason)}")
+        Logger.error("[MnesiaInitializer] Failed to create schema: #{inspect(reason)}")
     end
 
-    start_mnesia_and_create_tables()
+    # Step 4: Start Mnesia
+    :mnesia.start()
+
+    # Step 5: Create tables
+    create_tables()
+
+    # Step 6: Wait for tables to be ready
+    wait_for_tables()
+
+    # Step 7: Restore the extracted data
+    restore_table_data(table_data)
+
+    Logger.info("[MnesiaInitializer] Migration complete")
+  end
+
+  # Extract data from .DCD files before migration
+  # .DCD files are DETS files containing the table records
+  defp extract_data_from_dcd_files(dir) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".DCD"))
+        |> Enum.reduce(%{}, fn file, acc ->
+          table_name = file |> String.replace(".DCD", "") |> String.to_atom()
+          file_path = Path.join(dir, file)
+
+          case extract_dcd_records(table_name, file_path) do
+            {:ok, records} when records != [] ->
+              Logger.info("[MnesiaInitializer] Extracted #{length(records)} records from #{table_name}")
+              Map.put(acc, table_name, records)
+
+            {:ok, []} ->
+              Logger.info("[MnesiaInitializer] Table #{table_name} was empty")
+              acc
+
+            {:error, reason} ->
+              Logger.warning("[MnesiaInitializer] Could not extract #{table_name}: #{inspect(reason)}")
+              acc
+          end
+        end)
+
+      {:error, _} ->
+        %{}
+    end
+  end
+
+  # Extract records from a .DCD file (DETS format)
+  defp extract_dcd_records(table_name, file_path) do
+    # Generate a unique reference name to avoid conflicts
+    ref_name = :"dcd_extract_#{table_name}_#{System.unique_integer([:positive])}"
+
+    case :dets.open_file(ref_name, [{:file, String.to_charlist(file_path)}, {:repair, false}]) do
+      {:ok, ref} ->
+        # Read all records from the DETS file
+        records = :dets.foldl(fn record, acc -> [record | acc] end, [], ref)
+        :dets.close(ref)
+        {:ok, records}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Clean up the Mnesia directory to start fresh
+  defp cleanup_mnesia_directory(dir) do
+    Logger.info("[MnesiaInitializer] Cleaning up Mnesia directory: #{dir}")
+
+    case File.ls(dir) do
+      {:ok, files} ->
+        Enum.each(files, fn file ->
+          path = Path.join(dir, file)
+          File.rm(path)
+        end)
+
+      {:error, _} ->
+        :ok
+    end
+  end
+
+  # Restore extracted data to the new tables
+  defp restore_table_data(table_data) when table_data == %{} do
+    Logger.info("[MnesiaInitializer] No data to restore")
+    :ok
+  end
+
+  defp restore_table_data(table_data) do
+    Logger.info("[MnesiaInitializer] Restoring data to #{map_size(table_data)} tables")
+
+    Enum.each(table_data, fn {table_name, records} ->
+      restored_count = Enum.reduce(records, 0, fn record, count ->
+        case :mnesia.transaction(fn -> :mnesia.write(table_name, record, :write) end) do
+          {:atomic, :ok} ->
+            count + 1
+
+          {:aborted, reason} ->
+            Logger.warning("[MnesiaInitializer] Failed to restore record to #{table_name}: #{inspect(reason)}")
+            count
+        end
+      end)
+
+      Logger.info("[MnesiaInitializer] Restored #{restored_count}/#{length(records)} records to #{table_name}")
+    end)
   end
 
   defp join_existing_cluster(other_nodes) do
