@@ -795,3 +795,23 @@ html {
 .ProseMirror .spacer-embed {
   user-select: none;
 }
+
+/* BUX Panel Animation - scale up and glow when earned */
+@keyframes bux-earned {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 25px 50px -12px rgba(245, 166, 35, 0.5), 0 0 30px rgba(247, 147, 26, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+}
+
+.animate-pulse-once {
+  animation: bux-earned 0.6s ease-out;
+}
