@@ -280,32 +280,16 @@ export const EngagementTracker = {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }
-    window.removeEventListener("scroll", this.handleScroll);
-    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-
-    // Send final engagement update to persist progress before leaving
-    if (!this.hasRecordedRead) {
-      try {
-        this.pushEvent("engagement-update", {
-          time_spent: this.timeSpent,
-          min_read_time: this.minReadTime,
-          scroll_depth: Math.round(this.scrollDepth),
-          reached_end: this.reachedEnd,
-          scroll_events: this.scrollEvents,
-          avg_scroll_speed: Math.round(this.avgScrollSpeed),
-          max_scroll_speed: Math.round(this.maxScrollSpeed),
-          scroll_reversals: this.scrollReversals,
-          focus_changes: this.focusChanges
-        });
-      } catch (e) {
-        // LiveView may be disconnected during page navigation, this is expected
-        console.debug("EngagementTracker: Could not send final engagement-update (LiveView disconnected)");
-      }
+    if (this.handleScroll) {
+      window.removeEventListener("scroll", this.handleScroll);
+    }
+    if (this.handleVisibilityChange) {
+      document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     }
 
-    // Send final read event if user reached end but we haven't sent it yet
-    if (this.reachedEnd && !this.hasRecordedRead) {
-      this.sendReadEvent();
-    }
+    // Don't try to push events in destroyed() - LiveView is already disconnecting
+    // The periodic updates and visibility change handler already save progress
+    // Trying to push here causes "unable to push hook event" errors
+    console.debug("EngagementTracker: Hook destroyed, cleanup complete");
   }
 };
