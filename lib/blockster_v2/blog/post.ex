@@ -15,6 +15,7 @@ defmodule BlocksterV2.Blog.Post do
     # BUX fields
     field :bux_total, :integer, default: 0
     field :bux_earned, :integer, default: 0
+    field :base_bux_reward, :integer, default: 1
     field :value, :decimal
     field :tx_id, :string
     field :contact, :string
@@ -51,6 +52,7 @@ defmodule BlocksterV2.Blog.Post do
       :hub_id,
       :bux_total,
       :bux_earned,
+      :base_bux_reward,
       :value,
       :tx_id,
       :contact

@@ -27,6 +27,7 @@ import { FeaturedImageUpload } from "./featured_image_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
 import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet } from "./home_hooks.js";
 import { TimeTracker } from "./time_tracker.js";
+import { EngagementTracker } from "./engagement_tracker.js";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document
@@ -149,7 +150,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker },
+  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker, EngagementTracker },
 });
 
 // Show progress bar on live navigation and form submits

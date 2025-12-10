@@ -360,6 +360,21 @@
                 />
                 <p class="text-xs text-[#141414A3] mt-1">Leave empty to use current date when publishing. Set a date in the past to backdate the article.</p>
               </div>
+
+              <div>
+                <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                  Base BUX Reward <span class="text-[#8AE388]">(Admin Only)</span>
+                </label>
+                <.input
+                  field={@form[:base_bux_reward]}
+                  type="number"
+                  min="1"
+                  placeholder="1"
+                  class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                  error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                />
+                <p class="text-xs text-[#141414A3] mt-1">Base BUX reward for reading this article. Default is 1.</p>
+              </div>
             <% end %>
 
 <!-- TipTap Editor -->

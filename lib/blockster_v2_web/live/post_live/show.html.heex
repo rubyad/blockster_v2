@@ -1,11 +1,80 @@
+<!-- BUX Earned Notification - Separate from main content to avoid re-renders -->
+<div id="bux-notification-container">
+  <%= if @bux_earned do %>
+    <div class="fixed bottom-4 right-4 z-50 animate-fade-in">
+      <%= if @already_rewarded do %>
+        <!-- Already received reward notification -->
+        <div class="bg-gradient-to-r from-[#6B7280] to-[#4B5563] text-white rounded-2xl shadow-2xl p-6 max-w-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm opacity-90">Already Read!</div>
+              <div class="text-2xl font-bold">{@bux_earned} BUX</div>
+            </div>
+          </div>
+          <div class="text-sm opacity-90">
+            You've already earned BUX for reading this article.
+          </div>
+        </div>
+      <% else %>
+        <!-- New reward notification -->
+        <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-6 max-w-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/>
+                <path d="M10 4a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 9V5a1 1 0 011-1z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm opacity-90">Article Completed!</div>
+              <div class="text-2xl font-bold">+{@bux_earned} BUX</div>
+            </div>
+          </div>
+          <div class="text-sm opacity-90 space-y-1">
+            <div class="flex justify-between">
+              <span>Engagement Score:</span>
+              <span class="font-semibold">{@engagement && @engagement.engagement_score}/10</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Base Reward:</span>
+              <span class="font-semibold">{@post.base_bux_reward || 1} BUX</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Your Multiplier:</span>
+              <span class="font-semibold">{@user_multiplier || 1}x</span>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
 <div
   class="article-page bg-[#F7F8FA] min-h-screen"
-  id="post-time-tracker"
-  phx-hook="TimeTracker"
+  id="post-engagement-tracker"
+  phx-hook="EngagementTracker"
   data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
   data-post-id={@post.id}
-  data-initial-time={@time_spent}
+  data-word-count={@word_count}
+  data-base-bux-reward={@post.base_bux_reward || 1}
+  data-user-multiplier={@user_multiplier || 1}
+  data-already-rewarded={to_string(@already_rewarded)}
 >
+  <!-- Hidden TimeTracker for backwards compatibility -->
+  <div
+    id="post-time-tracker"
+    phx-hook="TimeTracker"
+    data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
+    data-post-id={@post.id}
+    data-initial-time={@time_spent}
+    class="hidden"
+  ></div>
     <!-- Full Height Hero Section -->
     <section class="full-height-section md:h-screen flex md:flex-row flex-col bg-[#F7F8FA] max-md:items-center max-md:px-0">
       <!-- Left Section: Content -->
@@ -406,6 +475,7 @@
                 id="post-content"
                 class="text-[#343434] leading-[1.4] space-y-6 font-segoe_regular"
                 phx-hook="TwitterWidgets"
+                phx-update="ignore"
                 phx-no-format
               >
                 <%= raw(render_content(@post.content)) %>
@@ -448,6 +518,63 @@
               >
                 Delete
               </button>
+            </div>
+          <% end %>
+
+          <!-- Engagement Metrics Display (for logged-in users) -->
+          <%= if @current_user && @engagement do %>
+            <div class="mt-8 p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px]">
+              <div class="bg-white rounded-[16px] p-6">
+                <h3 class="text-lg font-haas_medium_65 mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                  </svg>
+                  Your Reading Engagement
+                </h3>
+
+                <!-- Engagement Score -->
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="flex-shrink-0">
+                    <div class={"w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold #{engagement_score_color(@engagement.engagement_score)}"}>
+                      {@engagement.engagement_score}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-sm text-[#141414A3] font-haas_roman_55">Engagement Score</div>
+                    <div class="font-haas_medium_65">{engagement_score_label(@engagement.engagement_score)}</div>
+                  </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div class="bg-[#F7F8FA] rounded-lg p-3">
+                    <div class="text-[#141414A3] font-haas_roman_55">Time Spent</div>
+                    <div class="font-haas_medium_65">{format_time(@engagement.time_spent)}</div>
+                  </div>
+                  <div class="bg-[#F7F8FA] rounded-lg p-3">
+                    <div class="text-[#141414A3] font-haas_roman_55">Min Read Time</div>
+                    <div class="font-haas_medium_65">{format_time(@engagement.min_read_time)}</div>
+                  </div>
+                  <div class="bg-[#F7F8FA] rounded-lg p-3">
+                    <div class="text-[#141414A3] font-haas_roman_55">Scroll Depth</div>
+                    <div class="font-haas_medium_65">{@engagement.scroll_depth}%</div>
+                  </div>
+                  <div class="bg-[#F7F8FA] rounded-lg p-3">
+                    <div class="text-[#141414A3] font-haas_roman_55">Reached End</div>
+                    <div class="font-haas_medium_65">{if @engagement.reached_end, do: "Yes ✓", else: "No"}</div>
+                  </div>
+                </div>
+
+                <%= if @engagement.is_read do %>
+                  <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-haas_medium_65 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    Article marked as read!
+                  </div>
+                <% end %>
+              </div>
             </div>
           <% end %>
         </div>

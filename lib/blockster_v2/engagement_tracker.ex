@@ -1,0 +1,653 @@
+defmodule BlocksterV2.EngagementTracker do
+  @moduledoc """
+  Tracks user engagement metrics for articles.
+
+  Monitors reading behavior including:
+  - Time spent on page
+  - Scroll depth and patterns
+  - Whether user reached the end of article
+  - Natural vs bot-like behavior
+
+  Calculates an engagement quality score (1-10) based on these metrics.
+  """
+
+  require Logger
+
+  @doc """
+  Records an article visit with initial engagement score of 1.
+  Called when user lands on a post page.
+  """
+  def record_visit(user_id, post_id, min_read_time) when is_integer(min_read_time) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    # Check if engagement record already exists
+    case get_engagement(user_id, post_id) do
+      nil ->
+        # Create new record with minimum engagement score
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          0,              # time_spent
+          min_read_time,  # min_read_time
+          0,              # scroll_depth
+          false,          # reached_end
+          0,              # scroll_events
+          0.0,            # avg_scroll_speed
+          0.0,            # max_scroll_speed
+          0,              # scroll_reversals
+          0,              # focus_changes
+          1,              # engagement_score (minimum)
+          false,          # is_read
+          now,            # created_at
+          now             # updated_at
+        }
+        :mnesia.dirty_write(record)
+        {:ok, :created}
+
+      _existing ->
+        # Record exists, just return
+        {:ok, :exists}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording visit: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording visit: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Updates engagement metrics and calculates quality score.
+  Called when user scrolls to end of article.
+  """
+  def record_read(user_id, post_id, metrics) when is_map(metrics) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    time_spent = Map.get(metrics, "time_spent", 0)
+    scroll_depth = Map.get(metrics, "scroll_depth", 0)
+    reached_end = Map.get(metrics, "reached_end", false)
+    scroll_events = Map.get(metrics, "scroll_events", 0)
+    avg_scroll_speed = Map.get(metrics, "avg_scroll_speed", 0.0)
+    max_scroll_speed = Map.get(metrics, "max_scroll_speed", 0.0)
+    scroll_reversals = Map.get(metrics, "scroll_reversals", 0)
+    focus_changes = Map.get(metrics, "focus_changes", 0)
+
+    # Get existing record to preserve min_read_time and created_at
+    case get_engagement(user_id, post_id) do
+      nil ->
+        # No existing record, create one with defaults
+        min_read_time = Map.get(metrics, "min_read_time", 60)
+        score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
+                                           scroll_events, avg_scroll_speed, max_scroll_speed,
+                                           scroll_reversals, focus_changes)
+
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          time_spent,
+          min_read_time,
+          scroll_depth,
+          reached_end,
+          scroll_events,
+          avg_scroll_speed,
+          max_scroll_speed,
+          scroll_reversals,
+          focus_changes,
+          score,
+          reached_end,  # is_read = reached_end
+          now,
+          now
+        }
+        :mnesia.dirty_write(record)
+        {:ok, score}
+
+      existing ->
+        # Update existing record
+        min_read_time = elem(existing, 5)
+        created_at = elem(existing, 15)
+
+        score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
+                                           scroll_events, avg_scroll_speed, max_scroll_speed,
+                                           scroll_reversals, focus_changes)
+
+        record = {
+          :user_post_engagement,
+          key,
+          user_id,
+          post_id,
+          time_spent,
+          min_read_time,
+          scroll_depth,
+          reached_end,
+          scroll_events,
+          avg_scroll_speed,
+          max_scroll_speed,
+          scroll_reversals,
+          focus_changes,
+          score,
+          reached_end,  # is_read = reached_end
+          created_at,
+          now
+        }
+        :mnesia.dirty_write(record)
+        {:ok, score}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording read: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording read: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets engagement data for a user on a specific post.
+  Returns a map with engagement metrics or nil if not found.
+  """
+  def get_engagement(user_id, post_id) do
+    key = {user_id, post_id}
+
+    case :mnesia.dirty_read({:user_post_engagement, key}) do
+      [] -> nil
+      [record] -> record
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Gets engagement data as a map for display.
+  """
+  def get_engagement_map(user_id, post_id) do
+    case get_engagement(user_id, post_id) do
+      nil -> nil
+      record ->
+        %{
+          time_spent: elem(record, 4),
+          min_read_time: elem(record, 5),
+          scroll_depth: elem(record, 6),
+          reached_end: elem(record, 7),
+          scroll_events: elem(record, 8),
+          avg_scroll_speed: elem(record, 9),
+          max_scroll_speed: elem(record, 10),
+          scroll_reversals: elem(record, 11),
+          focus_changes: elem(record, 12),
+          engagement_score: elem(record, 13),
+          is_read: elem(record, 14),
+          created_at: elem(record, 15),
+          updated_at: elem(record, 16)
+        }
+    end
+  end
+
+  @doc """
+  Calculates engagement quality score (1-10) based on reading behavior.
+
+  Factors considered:
+  - Time spent vs minimum read time (reading speed)
+  - Scroll depth (how much of article was seen)
+  - Whether end was reached
+  - Scroll pattern naturalness (events, speed, reversals)
+  - Focus changes (tab switching)
+
+  Higher scores indicate more likely genuine reading.
+  Lower scores indicate bot-like or skimming behavior.
+  """
+  def calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
+                                  scroll_events, avg_scroll_speed, max_scroll_speed,
+                                  scroll_reversals, focus_changes) do
+    # Base score starts at 1
+    score = 1.0
+
+    Logger.info("[EngagementTracker] Calculating score - time_spent: #{time_spent}, min_read_time: #{min_read_time}, scroll_depth: #{scroll_depth}, reached_end: #{reached_end}, scroll_events: #{scroll_events}, avg_scroll_speed: #{avg_scroll_speed}, max_scroll_speed: #{max_scroll_speed}, scroll_reversals: #{scroll_reversals}, focus_changes: #{focus_changes}")
+
+    # Time ratio score (0-3 points)
+    # Ideal: spent at least 90% of minimum read time
+    time_ratio = if min_read_time > 0, do: time_spent / min_read_time, else: 0
+    time_score = cond do
+      time_ratio >= 0.9 -> 3.0  # 90%+ of read time (full points)
+      time_ratio >= 0.7 -> 2.0  # 70%+ of read time
+      time_ratio >= 0.5 -> 1.0  # 50%+ of read time
+      true -> 0.0               # Too fast
+    end
+
+    # Scroll depth score (0-2 points)
+    # 100% depth means user reached end of article
+    depth_score = cond do
+      scroll_depth >= 100 -> 2.0  # Reached the very end
+      scroll_depth >= 70 -> 1.5
+      scroll_depth >= 50 -> 1.0
+      scroll_depth >= 30 -> 0.5
+      true -> 0.0
+    end
+
+    # Scroll naturalness score (0-4 points)
+    # Natural reading involves multiple scroll events at reasonable speeds
+    # Focus on average speed, not max speed (momentary fast scrolls are normal)
+    scroll_score = cond do
+      # Bot-like: very few scroll events
+      scroll_events < 3 -> 0.0
+      # Bot-like: extremely fast AVERAGE scrolling (automated scrolling)
+      avg_scroll_speed > 5000 -> 0.0
+      # Natural: many scroll events with reasonable average speed
+      scroll_events >= 50 and avg_scroll_speed < 1000 -> 4.0
+      scroll_events >= 50 and avg_scroll_speed < 2000 -> 3.0
+      scroll_events >= 25 and avg_scroll_speed < 2000 -> 2.0
+      scroll_events >= 10 -> 1.0
+      scroll_events >= 3 -> 0.5
+      true -> 0.0
+    end
+
+    # Calculate final score
+    raw_score = score + time_score + depth_score + scroll_score
+
+    Logger.info("[EngagementTracker] Score breakdown - base: #{score}, time: #{time_score}, depth: #{depth_score}, scroll: #{scroll_score}, raw_total: #{raw_score}")
+
+    # Clamp to 1-10 range
+    raw_score
+    |> max(1.0)
+    |> min(10.0)
+    |> round()
+  end
+
+  @doc """
+  Calculates minimum read time for an article based on word count.
+  Assumes average reading speed of 5 words per second (300 wpm).
+  """
+  def calculate_min_read_time(word_count) when is_integer(word_count) do
+    # 5 words per second = 300 words per minute
+    max(div(word_count, 5), 10)  # Minimum 10 seconds
+  end
+
+  def calculate_min_read_time(_), do: 60  # Default 60 seconds
+
+  @doc """
+  Counts words in article content (TipTap JSON format).
+  """
+  def count_words(nil), do: 0
+  def count_words(%{"type" => "doc", "content" => content}) when is_list(content) do
+    content
+    |> Enum.map(&count_node_words/1)
+    |> Enum.sum()
+  end
+  def count_words(_), do: 0
+
+  defp count_node_words(%{"type" => "text", "text" => text}) when is_binary(text) do
+    text
+    |> String.split(~r/\s+/, trim: true)
+    |> length()
+  end
+  defp count_node_words(%{"content" => content}) when is_list(content) do
+    content
+    |> Enum.map(&count_node_words/1)
+    |> Enum.sum()
+  end
+  defp count_node_words(_), do: 0
+
+  @doc """
+  Gets user multiplier data from the :user_multipliers Mnesia table.
+  Returns the overall_multiplier value, defaulting to 1 if not found.
+  """
+  def get_user_multiplier(user_id) do
+    case :mnesia.dirty_read({:user_multipliers, user_id}) do
+      [] -> 1
+      [record] ->
+        # overall_multiplier is at index 7 in the record tuple
+        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, ...]
+        elem(record, 7) || 1
+    end
+  rescue
+    _ -> 1
+  catch
+    :exit, _ -> 1
+  end
+
+  @doc """
+  Calculates the BUX earned for reading an article.
+  Formula: (engagement_score / 10) * base_bux_reward * user_multiplier
+  """
+  def calculate_bux_earned(engagement_score, base_bux_reward, user_multiplier) do
+    score_factor = engagement_score / 10.0
+    base_reward = base_bux_reward || 1
+    multiplier = user_multiplier || 1
+
+    (score_factor * base_reward * multiplier)
+    |> Float.round(2)
+  end
+
+  # =============================================================================
+  # User Post Rewards Functions
+  # =============================================================================
+
+  @doc """
+  Gets the rewards record for a user on a specific post.
+  Returns nil if not found.
+  """
+  def get_rewards(user_id, post_id) do
+    key = {user_id, post_id}
+
+    case :mnesia.dirty_read({:user_post_rewards, key}) do
+      [] -> nil
+      [record] -> record
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Gets the rewards as a map for display.
+
+  Mnesia tuple structure (0-indexed):
+  0: :user_post_rewards (table name)
+  1: key ({user_id, post_id})
+  2: user_id
+  3: post_id
+  4: read_bux
+  5: read_paid
+  6: read_tx_id
+  7: x_share_bux
+  8: x_share_paid
+  9: x_share_tx_id
+  10: linkedin_share_bux
+  11: linkedin_share_paid
+  12: linkedin_share_tx_id
+  13: total_bux
+  14: total_paid_bux
+  15: created_at
+  16: updated_at
+  """
+  def get_rewards_map(user_id, post_id) do
+    case get_rewards(user_id, post_id) do
+      nil -> nil
+      record ->
+        %{
+          read_bux: elem(record, 4),
+          read_paid: elem(record, 5),
+          read_tx_id: elem(record, 6),
+          x_share_bux: elem(record, 7),
+          x_share_paid: elem(record, 8),
+          x_share_tx_id: elem(record, 9),
+          linkedin_share_bux: elem(record, 10),
+          linkedin_share_paid: elem(record, 11),
+          linkedin_share_tx_id: elem(record, 12),
+          total_bux: elem(record, 13),
+          total_paid_bux: elem(record, 14),
+          created_at: elem(record, 15),
+          updated_at: elem(record, 16)
+        }
+    end
+  end
+
+  @doc """
+  Records BUX reward for reading an article.
+  Returns {:ok, bux_earned} if new reward recorded, {:already_rewarded, existing_bux} if already exists.
+  """
+  def record_read_reward(user_id, post_id, bux_earned) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case get_rewards(user_id, post_id) do
+      nil ->
+        # No existing reward - create new record
+        record = {
+          :user_post_rewards,
+          key,
+          user_id,
+          post_id,
+          bux_earned,        # read_bux
+          false,             # read_paid
+          nil,               # read_tx_id
+          nil,               # x_share_bux
+          false,             # x_share_paid
+          nil,               # x_share_tx_id
+          nil,               # linkedin_share_bux
+          false,             # linkedin_share_paid
+          nil,               # linkedin_share_tx_id
+          bux_earned,        # total_bux
+          0,                 # total_paid_bux
+          now,               # created_at
+          now                # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Recorded read reward for user #{user_id} on post #{post_id}: #{bux_earned} BUX")
+        {:ok, bux_earned}
+
+      existing ->
+        # Check if already has read reward (read_bux is at index 4)
+        existing_read_bux = elem(existing, 4)
+
+        if existing_read_bux && existing_read_bux > 0 do
+          # Already received read reward
+          Logger.info("[EngagementTracker] User #{user_id} already received #{existing_read_bux} BUX for reading post #{post_id}")
+          {:already_rewarded, existing_read_bux}
+        else
+          # Has record but no read reward yet (maybe shared first) - update with read reward
+          # total_bux is at index 13
+          total_bux = (elem(existing, 13) || 0) + bux_earned
+          # created_at is at index 15
+          created_at = elem(existing, 15)
+
+          record = {
+            :user_post_rewards,
+            key,
+            user_id,
+            post_id,
+            bux_earned,                # read_bux (index 4)
+            false,                     # read_paid (index 5)
+            nil,                       # read_tx_id (index 6)
+            elem(existing, 7),         # x_share_bux (preserve)
+            elem(existing, 8),         # x_share_paid (preserve)
+            elem(existing, 9),         # x_share_tx_id (preserve)
+            elem(existing, 10),        # linkedin_share_bux (preserve)
+            elem(existing, 11),        # linkedin_share_paid (preserve)
+            elem(existing, 12),        # linkedin_share_tx_id (preserve)
+            total_bux,                 # total_bux (index 13)
+            elem(existing, 14),        # total_paid_bux (preserve, index 14)
+            created_at,                # created_at (preserve, index 15)
+            now                        # updated_at (index 16)
+          }
+          :mnesia.dirty_write(record)
+          Logger.info("[EngagementTracker] Updated read reward for user #{user_id} on post #{post_id}: #{bux_earned} BUX")
+          {:ok, bux_earned}
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording read reward: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording read reward: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Records BUX reward for sharing on X (Twitter).
+  """
+  def record_x_share_reward(user_id, post_id, bux_earned) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case get_rewards(user_id, post_id) do
+      nil ->
+        # No existing record - create new with this share reward
+        record = {
+          :user_post_rewards,
+          key,
+          user_id,
+          post_id,
+          nil,               # read_bux
+          false,             # read_paid
+          nil,               # read_tx_id
+          bux_earned,        # x_share_bux
+          false,             # x_share_paid
+          nil,               # x_share_tx_id
+          nil,               # linkedin_share_bux
+          false,             # linkedin_share_paid
+          nil,               # linkedin_share_tx_id
+          bux_earned,        # total_bux
+          0,                 # total_paid_bux
+          now,               # created_at
+          now                # updated_at
+        }
+        :mnesia.dirty_write(record)
+        {:ok, bux_earned}
+
+      existing ->
+        # Check if already has X share reward (x_share_bux is at index 7)
+        existing_x_bux = elem(existing, 7)
+
+        if existing_x_bux && existing_x_bux > 0 do
+          {:already_rewarded, existing_x_bux}
+        else
+          # Update with X share reward
+          # total_bux is at index 13, created_at is at index 15
+          total_bux = (elem(existing, 13) || 0) + bux_earned
+          created_at = elem(existing, 15)
+
+          record = {
+            :user_post_rewards,
+            key,
+            user_id,
+            post_id,
+            elem(existing, 4),         # read_bux (preserve, index 4)
+            elem(existing, 5),         # read_paid (preserve, index 5)
+            elem(existing, 6),         # read_tx_id (preserve, index 6)
+            bux_earned,                # x_share_bux (index 7)
+            false,                     # x_share_paid (index 8)
+            nil,                       # x_share_tx_id (index 9)
+            elem(existing, 10),        # linkedin_share_bux (preserve, index 10)
+            elem(existing, 11),        # linkedin_share_paid (preserve, index 11)
+            elem(existing, 12),        # linkedin_share_tx_id (preserve, index 12)
+            total_bux,                 # total_bux (index 13)
+            elem(existing, 14),        # total_paid_bux (preserve, index 14)
+            created_at,                # created_at (preserve, index 15)
+            now                        # updated_at (index 16)
+          }
+          :mnesia.dirty_write(record)
+          {:ok, bux_earned}
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording X share reward: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording X share reward: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Deletes a rewards record for a user on a specific post.
+  Use this to clean up bad/corrupt records.
+  """
+  def delete_rewards(user_id, post_id) do
+    key = {user_id, post_id}
+
+    case :mnesia.dirty_delete(:user_post_rewards, key) do
+      :ok ->
+        Logger.info("[EngagementTracker] Deleted rewards record for user #{user_id} on post #{post_id}")
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error deleting rewards: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit deleting rewards: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Records BUX reward for sharing on LinkedIn.
+  """
+  def record_linkedin_share_reward(user_id, post_id, bux_earned) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case get_rewards(user_id, post_id) do
+      nil ->
+        # No existing record - create new with this share reward
+        record = {
+          :user_post_rewards,
+          key,
+          user_id,
+          post_id,
+          nil,               # read_bux (index 4)
+          false,             # read_paid (index 5)
+          nil,               # read_tx_id (index 6)
+          nil,               # x_share_bux (index 7)
+          false,             # x_share_paid (index 8)
+          nil,               # x_share_tx_id (index 9)
+          bux_earned,        # linkedin_share_bux (index 10)
+          false,             # linkedin_share_paid (index 11)
+          nil,               # linkedin_share_tx_id (index 12)
+          bux_earned,        # total_bux (index 13)
+          0,                 # total_paid_bux (index 14)
+          now,               # created_at (index 15)
+          now                # updated_at (index 16)
+        }
+        :mnesia.dirty_write(record)
+        {:ok, bux_earned}
+
+      existing ->
+        # Check if already has LinkedIn share reward (linkedin_share_bux is at index 10)
+        existing_linkedin_bux = elem(existing, 10)
+
+        if existing_linkedin_bux && existing_linkedin_bux > 0 do
+          {:already_rewarded, existing_linkedin_bux}
+        else
+          # Update with LinkedIn share reward
+          # total_bux is at index 13, created_at is at index 15
+          total_bux = (elem(existing, 13) || 0) + bux_earned
+          created_at = elem(existing, 15)
+
+          record = {
+            :user_post_rewards,
+            key,
+            user_id,
+            post_id,
+            elem(existing, 4),         # read_bux (preserve, index 4)
+            elem(existing, 5),         # read_paid (preserve, index 5)
+            elem(existing, 6),         # read_tx_id (preserve, index 6)
+            elem(existing, 7),         # x_share_bux (preserve, index 7)
+            elem(existing, 8),         # x_share_paid (preserve, index 8)
+            elem(existing, 9),         # x_share_tx_id (preserve, index 9)
+            bux_earned,                # linkedin_share_bux (index 10)
+            false,                     # linkedin_share_paid (index 11)
+            nil,                       # linkedin_share_tx_id (index 12)
+            total_bux,                 # total_bux (index 13)
+            elem(existing, 14),        # total_paid_bux (preserve, index 14)
+            created_at,                # created_at (preserve, index 15)
+            now                        # updated_at (index 16)
+          }
+          :mnesia.dirty_write(record)
+          {:ok, bux_earned}
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording LinkedIn share reward: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording LinkedIn share reward: #{inspect(e)}")
+      {:error, e}
+  end
+end

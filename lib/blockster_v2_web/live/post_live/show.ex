@@ -3,6 +3,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   alias BlocksterV2.Blog
   alias BlocksterV2.TimeTracker
+  alias BlocksterV2.EngagementTracker
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
@@ -21,11 +22,38 @@ defmodule BlocksterV2Web.PostLive.Show do
     user_id = get_user_id(socket)
     time_spent = safe_get_time(user_id, post.id)
 
+    # Calculate word count for engagement tracking
+    word_count = EngagementTracker.count_words(post.content)
+
+    # Get existing engagement data if any
+    engagement = safe_get_engagement(user_id, post.id)
+
+    # Get user multiplier for BUX calculation
+    user_multiplier = safe_get_user_multiplier(user_id)
+
+    # Get existing rewards for this post
+    rewards = safe_get_rewards(user_id, post.id)
+
+    # Check if user already received read reward for this post
+    {bux_earned, already_rewarded} =
+      case rewards do
+        %{read_bux: read_bux} when is_number(read_bux) and read_bux > 0 ->
+          {read_bux, true}
+        _ ->
+          {nil, false}
+      end
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
      |> assign(:post, updated_post)
-     |> assign(:time_spent, time_spent)}
+     |> assign(:time_spent, time_spent)
+     |> assign(:word_count, word_count)
+     |> assign(:engagement, engagement)
+     |> assign(:user_multiplier, user_multiplier)
+     |> assign(:rewards, rewards)
+     |> assign(:bux_earned, bux_earned)
+     |> assign(:already_rewarded, already_rewarded)}
   end
 
   @impl true
@@ -52,6 +80,93 @@ defmodule BlocksterV2Web.PostLive.Show do
     TimeTracker.get_time(user_id, post_id)
   catch
     :exit, _ -> 0
+  end
+
+  defp safe_get_engagement(user_id, post_id) do
+    EngagementTracker.get_engagement_map(user_id, post_id)
+  catch
+    :exit, _ -> nil
+  end
+
+  defp safe_get_user_multiplier("anonymous"), do: 1
+  defp safe_get_user_multiplier(user_id) do
+    EngagementTracker.get_user_multiplier(user_id)
+  catch
+    :exit, _ -> 1
+  end
+
+  defp safe_get_rewards("anonymous", _post_id), do: nil
+  defp safe_get_rewards(user_id, post_id) do
+    EngagementTracker.get_rewards_map(user_id, post_id)
+  catch
+    :exit, _ -> nil
+  end
+
+  @impl true
+  def handle_event("article-visited", %{"min_read_time" => min_read_time} = _params, socket) do
+    user_id = get_user_id(socket)
+    post_id = socket.assigns.post.id
+
+    # Only track for logged-in users
+    if user_id != "anonymous" do
+      EngagementTracker.record_visit(user_id, post_id, min_read_time)
+      # Refresh engagement data
+      engagement = safe_get_engagement(user_id, post_id)
+      {:noreply, assign(socket, :engagement, engagement)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("article-read", params, socket) do
+    user_id = get_user_id(socket)
+    post_id = socket.assigns.post.id
+
+    # Only track for logged-in users
+    if user_id != "anonymous" do
+      # First record the engagement data
+      case EngagementTracker.record_read(user_id, post_id, params) do
+        {:ok, score} ->
+          # Calculate BUX earned
+          base_bux_reward = socket.assigns.post.base_bux_reward || 1
+          user_multiplier = socket.assigns.user_multiplier || 1
+          bux_earned = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
+
+          # Try to record the read reward
+          case EngagementTracker.record_read_reward(user_id, post_id, bux_earned) do
+            {:ok, recorded_bux} ->
+              # New reward recorded
+              engagement = safe_get_engagement(user_id, post_id)
+              rewards = safe_get_rewards(user_id, post_id)
+              {:noreply,
+               socket
+               |> assign(:engagement, engagement)
+               |> assign(:rewards, rewards)
+               |> assign(:bux_earned, recorded_bux)
+               |> assign(:already_rewarded, false)}
+
+            {:already_rewarded, existing_bux} ->
+              # User already received reward for this article
+              engagement = safe_get_engagement(user_id, post_id)
+              rewards = safe_get_rewards(user_id, post_id)
+              {:noreply,
+               socket
+               |> assign(:engagement, engagement)
+               |> assign(:rewards, rewards)
+               |> assign(:bux_earned, existing_bux)
+               |> assign(:already_rewarded, true)}
+
+            {:error, _} ->
+              {:noreply, socket}
+          end
+
+        {:error, _} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -559,4 +674,42 @@ defmodule BlocksterV2Web.PostLive.Show do
     error ->
       {:error, error}
   end
+
+  # Helper functions for engagement display
+
+  defp format_time(seconds) when is_integer(seconds) do
+    cond do
+      seconds < 60 -> "#{seconds}s"
+      seconds < 3600 ->
+        mins = div(seconds, 60)
+        secs = rem(seconds, 60)
+        "#{mins}m #{secs}s"
+      true ->
+        hours = div(seconds, 3600)
+        mins = div(rem(seconds, 3600), 60)
+        "#{hours}h #{mins}m"
+    end
+  end
+  defp format_time(_), do: "0s"
+
+  defp engagement_score_color(score) when is_integer(score) do
+    cond do
+      score >= 8 -> "bg-green-100 text-green-800 border-2 border-green-300"
+      score >= 6 -> "bg-blue-100 text-blue-800 border-2 border-blue-300"
+      score >= 4 -> "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
+      true -> "bg-red-100 text-red-800 border-2 border-red-300"
+    end
+  end
+  defp engagement_score_color(_), do: "bg-gray-100 text-gray-800 border-2 border-gray-300"
+
+  defp engagement_score_label(score) when is_integer(score) do
+    cond do
+      score >= 9 -> "Excellent Reader"
+      score >= 7 -> "Good Reader"
+      score >= 5 -> "Moderate Engagement"
+      score >= 3 -> "Light Skimmer"
+      true -> "Quick Glance"
+    end
+  end
+  defp engagement_score_label(_), do: "Not Rated"
 end

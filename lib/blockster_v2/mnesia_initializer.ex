@@ -63,6 +63,72 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:user_id, :post_id]
+    },
+    %{
+      name: :user_post_engagement,
+      type: :set,
+      attributes: [
+        :key,                    # {user_id, post_id} tuple as primary key
+        :user_id,
+        :post_id,
+        :time_spent,             # Total seconds spent on page
+        :min_read_time,          # Calculated minimum read time for article
+        :scroll_depth,           # 0-100 percentage of article scrolled
+        :reached_end,            # Boolean - did they scroll to end of article body
+        :scroll_events,          # Number of scroll events
+        :avg_scroll_speed,       # Average scroll speed (pixels/second)
+        :max_scroll_speed,       # Maximum scroll speed detected
+        :scroll_reversals,       # Number of times scrolled back up
+        :focus_changes,          # Number of tab visibility changes
+        :engagement_score,       # 1-10 quality score
+        :is_read,                # Boolean - article considered read
+        :created_at,
+        :updated_at
+      ],
+      index: [:user_id, :post_id, :engagement_score, :is_read]
+    },
+    %{
+      name: :user_multipliers,
+      type: :set,
+      attributes: [
+        :user_id,                # Primary key
+        :smart_wallet,           # User's smart wallet address
+        :x_multiplier,           # X (Twitter) multiplier
+        :linkedin_multiplier,    # LinkedIn multiplier
+        :personal_multiplier,    # Personal website/portfolio multiplier
+        :rogue_multiplier,       # Rogue-specific multiplier
+        :overall_multiplier,     # Computed overall multiplier
+        :extra_field1,           # Reserved for future use
+        :extra_field2,           # Reserved for future use
+        :extra_field3,           # Reserved for future use
+        :extra_field4,           # Reserved for future use
+        :created_at,
+        :updated_at
+      ],
+      index: [:smart_wallet, :overall_multiplier]
+    },
+    %{
+      name: :user_post_rewards,
+      type: :set,
+      attributes: [
+        :key,                    # {user_id, post_id} tuple as primary key
+        :user_id,
+        :post_id,
+        :read_bux,               # BUX earned for reading the article
+        :read_paid,              # Boolean - has read reward been paid out
+        :read_tx_id,             # Transaction ID of read reward payout
+        :x_share_bux,            # BUX earned for sharing on X (Twitter)
+        :x_share_paid,           # Boolean - has X share reward been paid out
+        :x_share_tx_id,          # Transaction ID of X share payout
+        :linkedin_share_bux,     # BUX earned for sharing on LinkedIn
+        :linkedin_share_paid,    # Boolean - has LinkedIn share reward been paid out
+        :linkedin_share_tx_id,   # Transaction ID of LinkedIn share payout
+        :total_bux,              # Total BUX earned for this post
+        :total_paid_bux,         # Total BUX that has been paid out
+        :created_at,
+        :updated_at
+      ],
+      index: [:user_id, :post_id, :total_bux, :read_paid, :x_share_paid, :linkedin_share_paid]
     }
   ]
 
