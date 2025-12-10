@@ -75,8 +75,6 @@ export const EngagementTracker = {
       if (document.visibilityState === "hidden") {
         this.pause();
         this.focusChanges++;
-        // Send update when user leaves tab (persist progress)
-        this.sendEngagementUpdate();
       } else {
         this.resume();
       }
@@ -288,7 +286,6 @@ export const EngagementTracker = {
     }
 
     // Don't try to push events in destroyed() - LiveView is already disconnecting
-    // The periodic updates and visibility change handler already save progress
     // Trying to push here causes "unable to push hook event" errors
     console.debug("EngagementTracker: Hook destroyed, cleanup complete");
   }
