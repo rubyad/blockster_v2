@@ -264,25 +264,28 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   defp join_existing_cluster(other_nodes) do
-    # Delete any existing local schema - we'll get it from the cluster
-    Logger.info("[MnesiaInitializer] Deleting local schema to join cluster")
-    :mnesia.delete_schema([node()])
+    # IMPORTANT: Do NOT delete local schema yet!
+    # First, check if any of the cluster nodes actually have Mnesia running.
+    # If we delete our schema and then can't connect, we lose all data.
 
-    # Start Mnesia without a schema (will get it from cluster)
+    # First try: Start Mnesia with our existing schema and try to connect
+    # This preserves data if the cluster isn't ready yet
     case :mnesia.start() do
       :ok ->
-        Logger.info("[MnesiaInitializer] Mnesia started (without local schema)")
+        Logger.info("[MnesiaInitializer] Mnesia started with existing schema")
 
       {:error, reason} ->
-        Logger.error("[MnesiaInitializer] Failed to start Mnesia: #{inspect(reason)}")
-        raise "Failed to start Mnesia: #{inspect(reason)}"
+        Logger.warning("[MnesiaInitializer] Could not start Mnesia with existing schema: #{inspect(reason)}")
+        # Try without schema - but we'll be careful about creating new tables
+        :ok
     end
 
-    # Connect to the cluster - this will sync the schema
+    # Try to connect to cluster nodes
     case :mnesia.change_config(:extra_db_nodes, other_nodes) do
       {:ok, connected_nodes} when connected_nodes != [] ->
         Logger.info("[MnesiaInitializer] Connected to Mnesia cluster: #{inspect(connected_nodes)}")
 
+        # Successfully connected - now we can safely update our schema
         # Add schema copy to this node
         case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
           {:atomic, :ok} ->
@@ -304,14 +307,85 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.info("[MnesiaInitializer] Mnesia initialization complete (joined cluster)")
 
       {:ok, []} ->
-        Logger.warning("[MnesiaInitializer] No Mnesia nodes in cluster, falling back to primary init")
-        :mnesia.stop()
-        initialize_as_primary_node()
+        # Cluster nodes exist but their Mnesia isn't running yet
+        # DO NOT create fresh tables - this would wipe existing data!
+        Logger.warning("[MnesiaInitializer] No Mnesia on cluster nodes yet - using local data and waiting")
+
+        # If Mnesia isn't running, try starting with existing schema
+        if :mnesia.system_info(:is_running) != :yes do
+          :mnesia.start()
+        end
+
+        # Try to load tables from disk if they exist
+        load_tables_from_disk_or_wait(other_nodes)
 
       {:error, reason} ->
-        Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)}, falling back to primary init")
-        :mnesia.stop()
-        initialize_as_primary_node()
+        # Connection error - use local data, don't wipe anything
+        Logger.warning("[MnesiaInitializer] Failed to join cluster: #{inspect(reason)} - using local data")
+
+        if :mnesia.system_info(:is_running) != :yes do
+          :mnesia.start()
+        end
+
+        load_tables_from_disk_or_wait(other_nodes)
+    end
+  end
+
+  # Load tables from local disk if available, otherwise wait for cluster
+  # NEVER creates fresh tables if we expected to join a cluster
+  defp load_tables_from_disk_or_wait(cluster_nodes, attempts \\ 5) do
+    # Check if we have local tables on disk
+    local_tables = :mnesia.system_info(:local_tables) -- [:schema]
+
+    if local_tables != [] do
+      Logger.info("[MnesiaInitializer] Found local tables on disk: #{inspect(local_tables)}")
+      # Wait for local tables to load
+      case :mnesia.wait_for_tables(local_tables, 10_000) do
+        :ok ->
+          Logger.info("[MnesiaInitializer] Local tables loaded successfully")
+          # Try to reconnect to cluster in background for replication
+          spawn(fn -> retry_cluster_connection(cluster_nodes) end)
+        {:timeout, still_waiting} ->
+          Logger.warning("[MnesiaInitializer] Timeout waiting for tables: #{inspect(still_waiting)}")
+        {:error, reason} ->
+          Logger.warning("[MnesiaInitializer] Error loading tables: #{inspect(reason)}")
+      end
+    else
+      # No local tables - either first run or data was lost
+      if attempts > 0 do
+        Logger.info("[MnesiaInitializer] No local tables, waiting for cluster (#{attempts} attempts remaining)")
+        Process.sleep(2000)
+
+        # Try to reconnect
+        case :mnesia.change_config(:extra_db_nodes, cluster_nodes) do
+          {:ok, connected} when connected != [] ->
+            Logger.info("[MnesiaInitializer] Connected to cluster on retry")
+            copy_tables_from_cluster()
+            wait_for_tables()
+          _ ->
+            load_tables_from_disk_or_wait(cluster_nodes, attempts - 1)
+        end
+      else
+        # After all retries, we have no choice but to create fresh tables
+        # This should only happen on a brand new deployment
+        Logger.warning("[MnesiaInitializer] No local data and cannot reach cluster - creating fresh tables (this should only happen on first deploy)")
+        create_tables()
+        wait_for_tables()
+      end
+    end
+  end
+
+  # Background task to reconnect to cluster for replication
+  defp retry_cluster_connection(cluster_nodes, attempts \\ 10) do
+    if attempts > 0 do
+      Process.sleep(5000)
+      case :mnesia.change_config(:extra_db_nodes, cluster_nodes) do
+        {:ok, connected} when connected != [] ->
+          Logger.info("[MnesiaInitializer] Background: Connected to cluster #{inspect(connected)}")
+          # Tables should auto-replicate now
+        _ ->
+          retry_cluster_connection(cluster_nodes, attempts - 1)
+      end
     end
   end
 
