@@ -155,12 +155,15 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   @doc """
-  Get the Mnesia directory path
+  Get the Mnesia directory path.
+  Uses the path configured in :mnesia, :dir (set in runtime.exs).
+  In production: /data/mnesia/blockster (static path that persists across deploys)
+  In development: priv/mnesia/{node_name} (separate per node for multi-node testing)
   """
   def mnesia_dir do
     case Application.get_env(:mnesia, :dir) do
       nil ->
-        # Default to priv/mnesia/{node_name}
+        # Fallback: use priv/mnesia/{node_name} if not configured
         node_name = node() |> Atom.to_string() |> String.split("@") |> List.first()
         Path.join([Application.app_dir(:blockster_v2), "priv", "mnesia", node_name])
 

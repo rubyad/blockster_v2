@@ -147,11 +147,14 @@ children = [
 # Mnesia directory configuration
 mnesia_dir =
   if config_env() == :prod do
-    # Production: Use Fly.io persistent volume
-    "/data/mnesia/#{node()}"
+    # Production: Use Fly.io persistent volume with STATIC path
+    # IMPORTANT: Use "blockster" not node() to persist data across deployments
+    # (node() includes machine ID which changes on each deploy)
+    "/data/mnesia/blockster"
   else
-    # Development: Use project directory
-    Path.join(["priv", "mnesia", "dev"])
+    # Development: Use project directory per node for multi-node testing
+    node_name = node() |> Atom.to_string() |> String.split("@") |> List.first()
+    Path.join(["priv", "mnesia", node_name])
   end
 
 config :mnesia, dir: String.to_charlist(mnesia_dir)

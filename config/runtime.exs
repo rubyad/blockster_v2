@@ -42,11 +42,13 @@ config :blockster_v2,
       )
 
 # Mnesia configuration
-# In production, Mnesia data is stored in /data/mnesia (Fly.io persistent volume)
+# In production, Mnesia data is stored in /data/mnesia/blockster (Fly.io persistent volume)
+# IMPORTANT: Use static path "blockster" (not node name) so data persists across deployments
+# Each Fly.io machine has its own volume, so each gets its own copy of the Mnesia data
 # In development, it's stored in priv/mnesia/{node_name} for each node
 mnesia_dir =
   if config_env() == :prod do
-    "/data/mnesia/#{node()}"
+    "/data/mnesia/blockster"
   else
     # For dev, use separate directory per node to allow multi-node testing
     node_name = node() |> Atom.to_string() |> String.split("@") |> List.first()
