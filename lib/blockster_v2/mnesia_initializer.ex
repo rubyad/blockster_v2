@@ -475,9 +475,10 @@ defmodule BlocksterV2.MnesiaInitializer do
     end
   end
 
-  # Check if any cluster node has Mnesia running with our tables
+  # Check if any cluster node has Mnesia running with our tables AND actual data
   defp check_if_cluster_has_mnesia_data(other_nodes) do
-    # Try to query a cluster node to see if it has our tables
+    # Try to query a cluster node to see if it has our tables WITH DATA
+    # We must verify there's actual data before wiping our local copy
     Enum.any?(other_nodes, fn node ->
       try do
         # RPC call to check if node has Mnesia running with tables
@@ -490,8 +491,19 @@ defmodule BlocksterV2.MnesiaInitializer do
                 has_data_tables = Enum.any?(tables, fn t -> t != :schema end)
                 if has_data_tables do
                   Logger.info("[MnesiaInitializer] Node #{node} has Mnesia with tables: #{inspect(tables)}")
+                  # CRITICAL: Also verify at least one table has actual records
+                  # This prevents data loss when cluster node has empty tables
+                  has_actual_data = check_cluster_has_actual_data(node, tables)
+                  if has_actual_data do
+                    Logger.info("[MnesiaInitializer] Node #{node} confirmed to have actual data")
+                    true
+                  else
+                    Logger.warning("[MnesiaInitializer] Node #{node} has tables but they appear empty - treating as no data")
+                    false
+                  end
+                else
+                  false
                 end
-                has_data_tables
               _ -> false
             end
           _ -> false
@@ -502,20 +514,104 @@ defmodule BlocksterV2.MnesiaInitializer do
     end)
   end
 
-  # Join as a secondary node - delete local schema and copy from cluster
-  defp join_as_secondary_node(other_nodes) do
-    Logger.info("[MnesiaInitializer] Joining cluster as secondary node - will copy tables from cluster")
+  # Check if cluster node has actual data in tables (not just empty tables)
+  defp check_cluster_has_actual_data(node, tables) do
+    # Check the tables we care about for actual records
+    data_tables = tables -- [:schema]
 
+    Enum.any?(data_tables, fn table ->
+      try do
+        case :rpc.call(node, :mnesia, :table_info, [table, :size], 5000) do
+          size when is_integer(size) and size > 0 ->
+            Logger.info("[MnesiaInitializer] Table #{table} on #{node} has #{size} records")
+            true
+          _ ->
+            false
+        end
+      catch
+        :exit, _ -> false
+      end
+    end)
+  end
+
+  # Join as a secondary node - safely sync with cluster WITHOUT deleting local data first
+  defp join_as_secondary_node(other_nodes) do
+    Logger.info("[MnesiaInitializer] Joining cluster as secondary node - will sync tables from cluster")
+
+    # IMPORTANT: Check if we have local data BEFORE doing anything destructive
+    dir = mnesia_dir()
+    has_local_data = has_local_mnesia_data?(dir)
+
+    if has_local_data do
+      Logger.info("[MnesiaInitializer] Local Mnesia data exists - attempting safe sync without deletion")
+      safe_join_preserving_local_data(other_nodes)
+    else
+      Logger.info("[MnesiaInitializer] No local Mnesia data - safe to join cluster fresh")
+      join_cluster_fresh(other_nodes)
+    end
+  end
+
+  # Check if we have local Mnesia data files
+  defp has_local_mnesia_data?(dir) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        # Check for .DCD files (data) or schema.DAT
+        Enum.any?(files, fn f ->
+          String.ends_with?(f, ".DCD") or String.ends_with?(f, ".DAT")
+        end)
+      {:error, _} ->
+        false
+    end
+  end
+
+  # Join cluster while preserving our local data - try to add copies
+  defp safe_join_preserving_local_data(other_nodes) do
+    # Start Mnesia with existing schema
+    case :mnesia.start() do
+      :ok ->
+        Logger.info("[MnesiaInitializer] Mnesia started with existing local data")
+      {:error, reason} ->
+        Logger.warning("[MnesiaInitializer] Error starting Mnesia: #{inspect(reason)}")
+    end
+
+    # Try to connect to cluster
+    case :mnesia.change_config(:extra_db_nodes, other_nodes) do
+      {:ok, connected_nodes} when connected_nodes != [] ->
+        Logger.info("[MnesiaInitializer] Connected to cluster: #{inspect(connected_nodes)}")
+
+        # Add schema disc_copies to this node
+        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Schema stored as disc_copies")
+          {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
+            Logger.info("[MnesiaInitializer] Schema already disc_copies")
+          {:aborted, reason} ->
+            Logger.warning("[MnesiaInitializer] Schema issue: #{inspect(reason)}")
+        end
+
+        # Copy tables from cluster (this adds copies, doesn't wipe local)
+        copy_tables_from_cluster()
+        wait_for_tables()
+
+        Logger.info("[MnesiaInitializer] Successfully joined cluster and synced tables")
+
+      {:ok, []} ->
+        Logger.warning("[MnesiaInitializer] No cluster nodes available - using local data")
+        # We have local data, so just use it
+        wait_for_tables()
+
+      {:error, reason} ->
+        Logger.warning("[MnesiaInitializer] Cluster connection error: #{inspect(reason)} - using local data")
+        wait_for_tables()
+    end
+  end
+
+  # Join cluster fresh when we have no local data
+  defp join_cluster_fresh(other_nodes) do
     # Stop Mnesia if running
     :mnesia.stop()
 
-    # Delete local schema to join fresh
-    # This is safe because we know the cluster has the data
-    dir = mnesia_dir()
-    Logger.info("[MnesiaInitializer] Clearing local Mnesia directory to join cluster cleanly")
-    cleanup_mnesia_directory(dir)
-
-    # Start Mnesia without schema (will join cluster)
+    # No local data, safe to start fresh
     :mnesia.start()
 
     # Connect to cluster
@@ -540,16 +636,16 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.info("[MnesiaInitializer] Successfully joined cluster and copied tables")
 
       {:ok, []} ->
-        Logger.error("[MnesiaInitializer] Failed to connect to cluster after clearing local data!")
-        # This is bad - we cleared local data but couldn't connect
-        # Try to create fresh tables as fallback
+        Logger.warning("[MnesiaInitializer] No cluster nodes available - creating fresh schema")
+        :mnesia.stop()
         :mnesia.create_schema([node()])
         :mnesia.start()
         create_tables()
         wait_for_tables()
 
       {:error, reason} ->
-        Logger.error("[MnesiaInitializer] Connection error: #{inspect(reason)}")
+        Logger.warning("[MnesiaInitializer] Connection error: #{inspect(reason)} - creating fresh schema")
+        :mnesia.stop()
         :mnesia.create_schema([node()])
         :mnesia.start()
         create_tables()
