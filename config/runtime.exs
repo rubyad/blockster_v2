@@ -33,6 +33,8 @@ config :blockster_v2,
   aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
   google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY"),
+  bux_minter_url: System.get_env("BUX_MINTER_URL"),
+  bux_minter_secret: System.get_env("BUX_MINTER_SECRET"),
   env: config_env(),
   app_url:
     System.get_env("APP_URL") ||

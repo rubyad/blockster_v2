@@ -1,0 +1,16 @@
+{
+  "name": "bux-minter",
+  "version": "1.0.0",
+  "description": "BUX token minting service for Blockster",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1"
+  }
+}

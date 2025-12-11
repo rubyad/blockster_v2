@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Blog
   alias BlocksterV2.TimeTracker
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.BuxMinter
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
@@ -35,12 +36,14 @@ defmodule BlocksterV2Web.PostLive.Show do
     rewards = safe_get_rewards(user_id, post.id)
 
     # Check if user already received read reward for this post
-    {bux_earned, already_rewarded} =
+    {bux_earned, already_rewarded, read_tx_id} =
       case rewards do
+        %{read_bux: read_bux, read_tx_id: tx_id} when is_number(read_bux) and read_bux > 0 ->
+          {read_bux, true, tx_id}
         %{read_bux: read_bux} when is_number(read_bux) and read_bux > 0 ->
-          {read_bux, true}
+          {read_bux, true, nil}
         _ ->
-          {nil, false}
+          {nil, false, nil}
       end
 
     # Get base BUX reward for panel display
@@ -71,7 +74,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:already_rewarded, already_rewarded)
      |> assign(:article_completed, already_rewarded)
      |> assign(:current_score, current_score)
-     |> assign(:current_bux, current_bux)}
+     |> assign(:current_bux, current_bux)
+     |> assign(:read_tx_id, read_tx_id)}
   end
 
   @impl true
@@ -193,6 +197,23 @@ defmodule BlocksterV2Web.PostLive.Show do
               # New reward recorded - mark article as completed
               engagement = safe_get_engagement(user_id, post_id)
               rewards = safe_get_rewards(user_id, post_id)
+
+              # Mint BUX tokens to user's smart wallet (async with callback to update tx_id)
+              if socket.assigns[:current_user] do
+                wallet = socket.assigns.current_user.smart_wallet_address
+                if wallet && wallet != "" do
+                  lv_pid = self()
+                  Task.start(fn ->
+                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id) do
+                      {:ok, %{"transactionHash" => tx_hash}} ->
+                        send(lv_pid, {:mint_completed, tx_hash})
+                      _ ->
+                        :ok
+                    end
+                  end)
+                end
+              end
+
               {:noreply,
                socket
                |> assign(:engagement, engagement)
@@ -201,19 +222,22 @@ defmodule BlocksterV2Web.PostLive.Show do
                |> assign(:already_rewarded, false)
                |> assign(:article_completed, true)
                |> assign(:current_score, score)
-               |> assign(:current_bux, recorded_bux)}
+               |> assign(:current_bux, recorded_bux)
+               |> assign(:read_tx_id, nil)}
 
             {:already_rewarded, existing_bux} ->
               # User already received reward for this article
               engagement = safe_get_engagement(user_id, post_id)
               rewards = safe_get_rewards(user_id, post_id)
+              tx_id = rewards && Map.get(rewards, :read_tx_id)
               {:noreply,
                socket
                |> assign(:engagement, engagement)
                |> assign(:rewards, rewards)
                |> assign(:bux_earned, existing_bux)
                |> assign(:already_rewarded, true)
-               |> assign(:article_completed, true)}
+               |> assign(:article_completed, true)
+               |> assign(:read_tx_id, tx_id)}
 
             {:error, _} ->
               {:noreply, socket}
@@ -225,6 +249,11 @@ defmodule BlocksterV2Web.PostLive.Show do
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info({:mint_completed, tx_hash}, socket) do
+    {:noreply, assign(socket, :read_tx_id, tx_hash)}
   end
 
   @impl true
