@@ -674,6 +674,42 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Marks read reward as paid and stores the transaction ID.
+  Called after successful BUX minting.
+  """
+  def mark_read_reward_paid(user_id, post_id, tx_id) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case get_rewards(user_id, post_id) do
+      nil ->
+        Logger.warning("[EngagementTracker] No rewards record found to mark as paid for user #{user_id} on post #{post_id}")
+        {:error, :not_found}
+
+      existing ->
+        # Update read_paid (index 5) and read_tx_id (index 6) and updated_at (index 15)
+        read_bux = elem(existing, 4)
+        updated = existing
+          |> put_elem(5, true)          # read_paid
+          |> put_elem(6, tx_id)         # read_tx_id
+          |> put_elem(14, (elem(existing, 13) || 0) + (read_bux || 0))  # total_paid_bux
+          |> put_elem(15, now)          # updated_at
+
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Marked read reward paid for user #{user_id} on post #{post_id}: tx=#{tx_id}")
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error marking read reward paid: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit marking read reward paid: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
   Records BUX reward for sharing on LinkedIn.
   """
   def record_linkedin_share_reward(user_id, post_id, bux_earned) do
@@ -747,6 +783,132 @@ defmodule BlocksterV2.EngagementTracker do
   catch
     :exit, e ->
       Logger.error("[EngagementTracker] Exit recording LinkedIn share reward: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # =============================================================================
+  # User and Post BUX Balance Functions
+  # =============================================================================
+
+  @doc """
+  Updates the user's BUX balance in the user_bux_points table.
+  Uses the on-chain balance fetched from the blockchain.
+
+  Table structure: user_id, user_smart_wallet, bux_balance, extra_field1-4, created_at, updated_at
+  """
+  def update_user_bux_balance(user_id, wallet_address, on_chain_balance) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:user_bux_points, user_id}) do
+      [] ->
+        # No existing record - create new
+        record = {
+          :user_bux_points,
+          user_id,
+          wallet_address,
+          on_chain_balance,
+          nil,  # extra_field1
+          nil,  # extra_field2
+          nil,  # extra_field3
+          nil,  # extra_field4
+          now,  # created_at
+          now   # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created user_bux_points for user #{user_id}: balance=#{on_chain_balance}")
+
+        # Broadcast balance update to all subscribed LiveViews
+        BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, on_chain_balance)
+
+        {:ok, on_chain_balance}
+
+      [existing] ->
+        # Update existing record with new balance
+        updated = existing
+          |> put_elem(2, wallet_address)      # user_smart_wallet
+          |> put_elem(3, on_chain_balance)    # bux_balance
+          |> put_elem(9, now)                 # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Updated user_bux_points for user #{user_id}: balance=#{on_chain_balance}")
+
+        # Broadcast balance update to all subscribed LiveViews
+        BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, on_chain_balance)
+
+        {:ok, on_chain_balance}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating user bux balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating user bux balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets the user's BUX balance from the user_bux_points Mnesia table.
+  Returns the on-chain balance that was last synced after a mint.
+  Returns 0 if no record exists.
+  """
+  def get_user_bux_balance(user_id) do
+    case :mnesia.dirty_read({:user_bux_points, user_id}) do
+      [] -> 0
+      [record] -> elem(record, 3) || 0  # bux_balance is at index 3
+    end
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  @doc """
+  Adds earned BUX to a post's bux_balance in the post_bux_points table.
+
+  Table structure: post_id, reward, read_time, bux_balance, bux_deposited, extra_field1-4, created_at, updated_at
+  """
+  def add_post_bux_earned(post_id, amount) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] ->
+        # No existing record - create new with this amount as balance
+        record = {
+          :post_bux_points,
+          post_id,
+          nil,     # reward
+          nil,     # read_time
+          amount,  # bux_balance
+          nil,     # bux_deposited
+          nil,     # extra_field1
+          nil,     # extra_field2
+          nil,     # extra_field3
+          nil,     # extra_field4
+          now,     # created_at
+          now      # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created post_bux_points for post #{post_id}: balance=#{amount}")
+        {:ok, amount}
+
+      [existing] ->
+        # Add to existing balance
+        current_balance = elem(existing, 4) || 0
+        new_balance = current_balance + amount
+        updated = existing
+          |> put_elem(4, new_balance)  # bux_balance
+          |> put_elem(11, now)         # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Updated post_bux_points for post #{post_id}: balance=#{new_balance} (+#{amount})")
+        {:ok, new_balance}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error adding post bux earned: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit adding post bux earned: #{inspect(e)}")
       {:error, e}
   end
 end

@@ -61,8 +61,12 @@ defmodule BlocksterV2Web.Layouts do
   attr :search_query, :string, default: "", doc: "the current search query"
   attr :search_results, :list, default: [], doc: "the search results"
   attr :show_search_results, :boolean, default: false, doc: "whether to show the search dropdown"
+  attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
 
   def site_header(assigns) do
+    # Format BUX balance with thousand separators and no decimals
+    formatted_balance = Number.Currency.number_to_currency(assigns.bux_balance || 0, unit: "", precision: 0)
+    assigns = assign(assigns, :formatted_bux_balance, formatted_balance)
 
     ~H"""
     <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
@@ -220,19 +224,9 @@ defmodule BlocksterV2Web.Layouts do
                       <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
                     <% end %>
                   </div>
-                  <div class="flex flex-col justify-center gap-0.5">
-                    <div class="flex items-center gap-0.5">
-                      <span class="flex h-4 items-center justify-center rounded-[4px] bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black w-[20px] text-xs font-work_sans font-bold">
-                        {@current_user.level}
-                      </span>
-                      <h4 class="text-sm font-haas_medium_65 text-[#000000] truncate max-w-[120px]">
-                        {@current_user.username || String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, 0..5) <> "..." <> String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, -4..-1//1)}
-                      </h4>
-                    </div>
-                    <span class="relative h-1.5 w-full rounded-full bg-white border-[#0000001F] border-[0.5px] overflow-hidden flex">
-                      <span class="h-1 bg-[#223436] rounded-full absolute top-0 left-0" style={"width: #{min(rem(@current_user.experience_points, 1000) / 10, 100)}%"}></span>
-                    </span>
-                  </div>
+                  <h4 class="text-base font-haas_medium_65 text-[#000000]">
+                    {@formatted_bux_balance} <span class="text-sm text-gray-500">BUX</span>
+                  </h4>
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="ml-1">
                     <path d="M8 10L12 14L16 10" stroke="#101C36" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
@@ -241,8 +235,8 @@ defmodule BlocksterV2Web.Layouts do
                 <div id="desktop-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                   <div class="py-1">
                     <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                      <div class="font-semibold">BUX Balance</div>
-                      <div class="text-xs text-gray-500">{@current_user.bux_balance} BUX</div>
+                      <div class="font-semibold">{@current_user.username || "User"}</div>
+                      <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
                     </div>
                     <.link
                       navigate={~p"/profile"}
@@ -328,19 +322,17 @@ defmodule BlocksterV2Web.Layouts do
           <%= if @current_user do %>
             <!-- Mobile logged in user with dropdown -->
             <div class="relative" id="mobile-user-dropdown">
-              <button id="mobile-user-button" onclick="var dropdown = document.getElementById('mobile-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-1 shadow-sm">
-                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF] relative">
+              <button id="mobile-user-button" onclick="var dropdown = document.getElementById('mobile-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-2 shadow-sm">
+                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
                   <%= if @current_user.avatar_url do %>
                     <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
                   <% else %>
                     <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
                   <% end %>
-                  <div class="absolute flex h-3 items-center justify-center rounded-[4px] bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-2 text-black w-3 text-xs font-work_sans font-bold -right-2 -top-1">
-                    {@current_user.level}
-                  </div>
                 </div>
+                <span class="text-sm font-haas_medium_65 text-[#000000]">{@formatted_bux_balance} <span class="text-gray-500">BUX</span></span>
                 <span class="flex items-center transition-all ease-linear duration-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M8 10L12 14L16 10" stroke="#101D36" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
                 </span>
@@ -349,8 +341,8 @@ defmodule BlocksterV2Web.Layouts do
               <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                 <div class="py-1">
                   <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                    <div class="font-semibold">{@current_user.username || String.slice(@current_user.smart_wallet_address || @current_user.wallet_address, 0..5) <> "..."}</div>
-                    <div class="text-xs text-gray-500">{@current_user.bux_balance} BUX</div>
+                    <div class="font-semibold">{@current_user.username || "User"}</div>
+                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
                   </div>
                   <.link
                     navigate={~p"/profile"}

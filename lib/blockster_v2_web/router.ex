@@ -22,7 +22,7 @@ defmodule BlocksterV2Web.Router do
     pipe_through :browser
 
     live_session :admin,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.AdminAuth],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.AdminAuth],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
@@ -34,19 +34,19 @@ defmodule BlocksterV2Web.Router do
     end
 
     live_session :authenticated,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/profile", UserProfileLive, :index
     end
 
     live_session :author_new,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, {BlocksterV2Web.AuthorAuth, :require_author}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, {BlocksterV2Web.AuthorAuth, :require_author}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/new", PostLive.Form, :new
     end
 
     live_session :author_edit,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/:slug/edit", PostLive.Form, :edit
     end
@@ -61,7 +61,7 @@ defmodule BlocksterV2Web.Router do
     get "/waitlist/verify", WaitlistController, :verify
 
     live_session :default,
-      on_mount: [BlocksterV2Web.SearchHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/", PostLive.Index, :index
       live "/login", LoginLive, :index
