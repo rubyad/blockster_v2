@@ -40,7 +40,7 @@
                         <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                           <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                             <.lightning_icon id={"bux_people_#{post.id}_#{idx}"} size="20" />
-                            <span class="text-xs font-haas_medium_65">{post.view_count}</span>
+                            <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1)}</span>
                           </button>
                         </div>
                         <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.</p>

@@ -60,7 +60,7 @@
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                           <.lightning_icon id={"bux_business_left_#{post.id}_#{idx}"} size="20" />
-                          <span class="text-xs font-haas_medium_65"><%= post.view_count %></span>
+                          <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
                         </button>
                       </div>
                     </div>
@@ -106,7 +106,7 @@
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                           <.lightning_icon id={"bux_business_middle_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65"><%= post.view_count %></span>
+                          <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
                         </button>
                       </div>
                     </div>
@@ -153,7 +153,7 @@
                       <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                         <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                           <.lightning_icon id={"bux_business_right_#{post.id}_#{idx}"} size="20" />
-                          <span class="text-xs font-haas_medium_65"><%= post.view_count %></span>
+                          <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
                         </button>
                       </div>
                     </div>

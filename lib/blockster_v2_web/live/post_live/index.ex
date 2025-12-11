@@ -9,10 +9,10 @@ defmodule BlocksterV2Web.PostLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     # Get curated posts for Latest News section (10 positions)
-    latest_news_posts = Blog.get_curated_posts_for_section("latest_news")
+    latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
 
     # Get curated posts for Conversations section (6 positions)
-    conversations_posts = Blog.get_curated_posts_for_section("conversations")
+    conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
 
     # Get 5 most recent Business category posts
     # business_posts = Blog.list_published_posts_by_category("business", limit: 5)
@@ -231,8 +231,8 @@ defmodule BlocksterV2Web.PostLive.Index do
     case Blog.update_curated_post_position(section, position, post_id) do
       {:ok, _} ->
         # Reload the curated posts
-        latest_news_posts = Blog.get_curated_posts_for_section("latest_news")
-        conversations_posts = Blog.get_curated_posts_for_section("conversations")
+        latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
+        conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
         current_user = socket.assigns[:current_user]
 
         # Update the stream with new component data
@@ -296,9 +296,9 @@ defmodule BlocksterV2Web.PostLive.Index do
             end
           posts =
             if category != nil do
-              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             else
-              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             end
           new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts, & &1.id)
           new_displayed_categories =
@@ -340,9 +340,9 @@ defmodule BlocksterV2Web.PostLive.Index do
             end
           posts1 =
             if category1 != nil do
-              Blog.list_published_posts_by_category(filter1, limit: 3, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_category(filter1, limit: 3, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             else
-              Blog.list_published_posts_by_tag(filter1, limit: 3, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_tag(filter1, limit: 3, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             end
 
           # Second posts section - select category or tag
@@ -362,9 +362,9 @@ defmodule BlocksterV2Web.PostLive.Index do
             end
           posts2 =
             if category2 != nil do
-              Blog.list_published_posts_by_category(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id))
+              Blog.list_published_posts_by_category(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id)) |> Blog.with_bux_balances()
             else
-              Blog.list_published_posts_by_tag(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id))
+              Blog.list_published_posts_by_tag(filter2, limit: 6, exclude_ids: displayed_post_ids ++ Enum.map(posts1, & &1.id)) |> Blog.with_bux_balances()
             end
 
           new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts1, & &1.id) ++ Enum.map(posts2, & &1.id)
@@ -399,9 +399,9 @@ defmodule BlocksterV2Web.PostLive.Index do
             end
           posts =
             if category != nil do
-              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_category(filter, limit: 5, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             else
-              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids)
+              Blog.list_published_posts_by_tag(filter, limit: 5, exclude_ids: displayed_post_ids) |> Blog.with_bux_balances()
             end
 
           new_displayed_post_ids = displayed_post_ids ++ Enum.map(posts, & &1.id)

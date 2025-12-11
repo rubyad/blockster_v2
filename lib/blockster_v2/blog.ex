@@ -659,6 +659,28 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Adds bux_balance from Mnesia to posts.
+  Returns posts with :bux_balance virtual field set.
+  """
+  def with_bux_balances(posts) when is_list(posts) do
+    alias BlocksterV2.EngagementTracker
+
+    post_ids = Enum.map(posts, & &1.id)
+    balances = EngagementTracker.get_post_bux_balances(post_ids)
+
+    Enum.map(posts, fn post ->
+      Map.put(post, :bux_balance, Map.get(balances, post.id, 0))
+    end)
+  end
+
+  def with_bux_balances(%Post{} = post) do
+    alias BlocksterV2.EngagementTracker
+
+    balance = EngagementTracker.get_post_bux_balance(post.id)
+    Map.put(post, :bux_balance, balance)
+  end
+
+  @doc """
   Returns curated posts for a given section, ordered by position.
   Returns the actual Post records, not CuratedPost records.
 

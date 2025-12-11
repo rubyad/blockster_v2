@@ -19,6 +19,9 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Increment view count
     {:ok, updated_post} = Blog.increment_view_count(post)
 
+    # Add bux_balance from Mnesia
+    updated_post = Blog.with_bux_balances(updated_post)
+
     # Get existing time spent for this user on this post
     user_id = get_user_id(socket)
     time_spent = safe_get_time(user_id, post.id)

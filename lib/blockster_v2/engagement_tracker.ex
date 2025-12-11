@@ -863,6 +863,33 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets the BUX balance for a post from the post_bux_points table.
+  Returns 0 if no record exists.
+  """
+  def get_post_bux_balance(post_id) do
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] -> 0
+      [record] -> elem(record, 4) || 0
+    end
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  @doc """
+  Gets BUX balances for multiple posts at once.
+  Returns a map of post_id => bux_balance.
+  """
+  def get_post_bux_balances(post_ids) when is_list(post_ids) do
+    post_ids
+    |> Enum.map(fn post_id ->
+      {post_id, get_post_bux_balance(post_id)}
+    end)
+    |> Map.new()
+  end
+
+  @doc """
   Adds earned BUX to a post's bux_balance in the post_bux_points table.
 
   Table structure: post_id, reward, read_time, bux_balance, bux_deposited, extra_field1-4, created_at, updated_at

@@ -226,7 +226,7 @@
                 <div class="flex items-end gap-4">
                   <div>
                     <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                      Views
+                      BUX
                     </span>
                     <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                       <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
@@ -263,7 +263,7 @@
                             </clipPath>
                           </defs>
                         </svg>
-                        <span class="text-xs font-haas_medium_65">{@post.view_count}</span>
+                        <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 1)}</span>
                       </button>
                     </div>
                   </div>
@@ -342,11 +342,11 @@
           <div class="flex items-end gap-4">
             <div>
               <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                Views
+                BUX
               </span>
               <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                  <span class="text-xs font-haas_medium_65">{@post.view_count}</span>
+                  <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 1)}</span>
                 </button>
               </div>
             </div>
