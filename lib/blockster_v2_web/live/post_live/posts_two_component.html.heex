@@ -93,7 +93,7 @@
                               <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                                   <.lightning_icon id={"bux_conv_1_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
+                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                                 </button>
                               </div>
                             </div>
@@ -144,7 +144,7 @@
                               <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                                   <.lightning_icon id={"bux_conv_2_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
+                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                                 </button>
                               </div>
                             </div>
@@ -195,7 +195,7 @@
                               <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                                 <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                                   <.lightning_icon id={"bux_conv_3_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
+                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                                 </button>
                               </div>
                             </div>
@@ -244,7 +244,7 @@
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] w-fit shrink-0">
                             <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                               <.lightning_icon id={"bux_conv_4_#{post.id}"} size="16" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
+                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                             </button>
                           </div>
                         </div>
@@ -288,7 +288,7 @@
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] w-fit shrink-0">
                             <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                               <.lightning_icon id={"bux_conv_5_#{post.id}"} size="16" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(post, :bux_balance, 0), precision: 1) %></span>
+                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                             </button>
                           </div>
                         </div>
@@ -334,7 +334,7 @@
                           <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block mt-3">
                             <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
                               <.lightning_icon id="bux_icon_15" size="20" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(Map.get(large_interview_post, :bux_balance, 0), precision: 1) %></span>
+                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, large_interview_post), precision: 1) %></span>
                             </button>
                           </div>
                         </div>

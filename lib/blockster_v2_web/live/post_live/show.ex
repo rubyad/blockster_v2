@@ -16,11 +16,19 @@ defmodule BlocksterV2Web.PostLive.Show do
   def handle_params(%{"slug" => slug} = _params, _url, socket) do
     post = Blog.get_post_by_slug!(slug)
 
+    # Unsubscribe from previous post if navigating between posts
+    if socket.assigns[:post] do
+      EngagementTracker.unsubscribe_from_post_bux(socket.assigns.post.id)
+    end
+
+    # Subscribe to BUX updates for this post
+    EngagementTracker.subscribe_to_post_bux(post.id)
+
     # Increment view count
-    {:ok, updated_post} = Blog.increment_view_count(post)
+    # {:ok, updated_post} = Blog.increment_view_count(post)
 
     # Add bux_balance from Mnesia
-    updated_post = Blog.with_bux_balances(updated_post)
+    updated_post = Blog.with_bux_balances(post)
 
     # Get existing time spent for this user on this post
     user_id = get_user_id(socket)
@@ -257,6 +265,17 @@ defmodule BlocksterV2Web.PostLive.Show do
   @impl true
   def handle_info({:mint_completed, tx_hash}, socket) do
     {:noreply, assign(socket, :read_tx_id, tx_hash)}
+  end
+
+  @impl true
+  def handle_info({:bux_update, post_id, new_balance}, socket) do
+    # Only update if this is for the current post
+    if socket.assigns.post.id == post_id do
+      updated_post = Map.put(socket.assigns.post, :bux_balance, new_balance)
+      {:noreply, assign(socket, :post, updated_post)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true

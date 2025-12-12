@@ -5,9 +5,14 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Blog.Post
+  alias BlocksterV2.EngagementTracker
 
   @impl true
   def mount(_params, _session, socket) do
+    # Subscribe to all BUX updates for real-time post card updates
+    if connected?(socket) do
+      EngagementTracker.subscribe_to_all_bux_updates()
+    end
     # Get curated posts for Latest News section (10 positions)
     latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
 
@@ -31,6 +36,15 @@ defmodule BlocksterV2Web.PostLive.Index do
       (Enum.map(latest_news_posts, & &1.id) ++ Enum.map(conversations_posts, & &1.id))
       |> Enum.uniq()
     IO.inspect(displayed_post_ids, label: "Displayed Post IDs")
+
+    # Build initial bux_balances map from posts
+    all_posts = latest_news_posts ++ conversations_posts
+    bux_balances = all_posts
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.reduce(%{}, fn post, acc ->
+        Map.put(acc, post.id, Map.get(post, :bux_balance, 0))
+      end)
+
     displayed_categories = []
     displayed_tags = []
     displayed_hubs = []
@@ -39,8 +53,8 @@ defmodule BlocksterV2Web.PostLive.Index do
     current_user = socket.assigns[:current_user]
 
     components = [
-      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated"},
-      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated"},
+      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated", bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated", bux_balances: bux_balances},
       # %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
       # %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
       # %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"},
@@ -78,6 +92,7 @@ defmodule BlocksterV2Web.PostLive.Index do
           |> assign(:displayed_tags, displayed_tags)
           |> assign(:displayed_hubs, displayed_hubs)
           |> assign(:displayed_banners, displayed_banners)
+          |> assign(:bux_balances, bux_balances)
           |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsTwoComponent)
           |> stream(:components, components)
       }
@@ -448,5 +463,17 @@ defmodule BlocksterV2Web.PostLive.Index do
         |> assign(:displayed_banners, new_displayed_banners)
         |> assign(:last_component_module, last_module)
     }
+  end
+
+  @impl true
+  def handle_info({:bux_update, post_id, new_balance}, socket) do
+    # Check if this post is displayed on the page
+    if post_id in socket.assigns.displayed_post_ids do
+      # Update the bux_balances map for real-time display
+      bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+      {:noreply, assign(socket, :bux_balances, bux_balances)}
+    else
+      {:noreply, socket}
+    end
   end
 end

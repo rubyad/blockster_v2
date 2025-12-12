@@ -897,7 +897,7 @@ defmodule BlocksterV2.EngagementTracker do
   def add_post_bux_earned(post_id, amount) do
     now = System.system_time(:second)
 
-    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+    result = case :mnesia.dirty_read({:post_bux_points, post_id}) do
       [] ->
         # No existing record - create new with this amount as balance
         record = {
@@ -929,6 +929,15 @@ defmodule BlocksterV2.EngagementTracker do
         Logger.info("[EngagementTracker] Updated post_bux_points for post #{post_id}: balance=#{new_balance} (+#{amount})")
         {:ok, new_balance}
     end
+
+    # Broadcast the BUX balance update
+    case result do
+      {:ok, new_balance} ->
+        broadcast_bux_update(post_id, new_balance)
+        result
+      _ ->
+        result
+    end
   rescue
     e ->
       Logger.error("[EngagementTracker] Error adding post bux earned: #{inspect(e)}")
@@ -937,5 +946,51 @@ defmodule BlocksterV2.EngagementTracker do
     :exit, e ->
       Logger.error("[EngagementTracker] Exit adding post bux earned: #{inspect(e)}")
       {:error, e}
+  end
+
+  # PubSub functions for real-time BUX balance updates
+  @doc """
+  Broadcasts a BUX balance update for a specific post.
+  """
+  def broadcast_bux_update(post_id, new_balance) do
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "post_bux:#{post_id}",
+      {:bux_update, post_id, new_balance}
+    )
+    # Also broadcast to a global topic for index pages showing multiple posts
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "post_bux:all",
+      {:bux_update, post_id, new_balance}
+    )
+  end
+
+  @doc """
+  Subscribe to BUX balance updates for a specific post.
+  """
+  def subscribe_to_post_bux(post_id) do
+    Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:#{post_id}")
+  end
+
+  @doc """
+  Subscribe to all BUX balance updates (for index pages).
+  """
+  def subscribe_to_all_bux_updates() do
+    Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:all")
+  end
+
+  @doc """
+  Unsubscribe from BUX balance updates for a specific post.
+  """
+  def unsubscribe_from_post_bux(post_id) do
+    Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post_bux:#{post_id}")
+  end
+
+  @doc """
+  Unsubscribe from all BUX balance updates.
+  """
+  def unsubscribe_from_all_bux_updates() do
+    Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post_bux:all")
   end
 end
