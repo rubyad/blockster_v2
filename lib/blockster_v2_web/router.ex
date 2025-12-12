@@ -30,6 +30,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/events", EventsAdminLive, :index
       live "/admin/events/new", EventLive.Form, :new
       live "/admin/events/:id/edit", EventLive.Form, :edit
+      live "/admin/campaigns", CampaignsAdminLive, :index
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
@@ -59,6 +60,11 @@ defmodule BlocksterV2Web.Router do
 
     # Waitlist verification (controller route)
     get "/waitlist/verify", WaitlistController, :verify
+
+    # X (Twitter) OAuth routes
+    get "/auth/x", XAuthController, :authorize
+    get "/auth/x/callback", XAuthController, :callback
+    delete "/auth/x/disconnect", XAuthController, :disconnect
 
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],

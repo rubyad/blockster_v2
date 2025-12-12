@@ -11,8 +11,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   @impl true
-  def handle_params(%{"slug" => slug}, _url, socket) do
-    case Accounts.get_user_by_slug(slug) do
+  def handle_params(%{"slug" => slug_or_address}, _url, socket) do
+    case Accounts.get_user_by_slug_or_address(slug_or_address) do
       nil ->
         {:noreply,
          socket

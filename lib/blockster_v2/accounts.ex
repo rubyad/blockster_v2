@@ -37,6 +37,24 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
+  Gets a user by smart wallet address.
+  """
+  def get_user_by_smart_wallet_address(address) when is_binary(address) do
+    Repo.get_by(User, smart_wallet_address: String.downcase(address))
+  end
+
+  @doc """
+  Gets a user by slug or smart wallet address.
+  Tries slug first, then falls back to smart wallet address lookup.
+  """
+  def get_user_by_slug_or_address(identifier) when is_binary(identifier) do
+    case get_user_by_slug(identifier) do
+      nil -> get_user_by_smart_wallet_address(identifier)
+      user -> user
+    end
+  end
+
+  @doc """
   Lists all users ordered by most recent first.
   """
   def list_users do

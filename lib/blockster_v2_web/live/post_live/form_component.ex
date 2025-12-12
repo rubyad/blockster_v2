@@ -2,6 +2,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   use BlocksterV2Web, :live_component
 
   alias BlocksterV2.Blog
+  alias BlocksterV2.Social
 
   @impl true
   def update(assigns, socket) do
@@ -123,7 +124,10 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("save", %{"post" => post_params}, socket) do
+  def handle_event("save", params, socket) do
+    post_params = params["post"]
+    campaign_tweet_url = params["campaign_tweet_url"]
+
     # Parse content and custom published date
     post_params =
       post_params
@@ -146,7 +150,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         post_params
       end
 
-    save_post(socket, socket.assigns.action, post_params)
+    save_post(socket, socket.assigns.action, post_params, campaign_tweet_url)
   end
 
   def handle_event("remove_featured_image", _params, socket) do
@@ -318,7 +322,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
      |> assign_form(changeset)}
   end
 
-  defp save_post(socket, :edit, post_params) do
+  defp save_post(socket, :edit, post_params, campaign_tweet_url) do
     IO.inspect(post_params, label: "Updating post with params")
 
     # Extract and decode tags if present
@@ -345,6 +349,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Update tags after updating post
         Blog.update_post_tags(post, tags)
 
+        # Create campaign if tweet URL is provided
+        maybe_create_campaign(post, campaign_tweet_url)
+
         notify_parent({:saved, post})
 
         {:noreply,
@@ -358,7 +365,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     end
   end
 
-  defp save_post(socket, :new, post_params) do
+  defp save_post(socket, :new, post_params, campaign_tweet_url) do
     IO.inspect(post_params, label: "Creating new post with params")
 
     # Extract and decode tags if present
@@ -385,6 +392,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Update tags after creating post
         Blog.update_post_tags(post, tags)
 
+        # Create campaign if tweet URL is provided
+        maybe_create_campaign(post, campaign_tweet_url)
+
         notify_parent({:saved, post})
 
         {:noreply,
@@ -395,6 +405,39 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
       {:error, %Ecto.Changeset{} = changeset} ->
         IO.inspect(changeset.errors, label: "Post creation validation errors")
         {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  defp maybe_create_campaign(_post, nil), do: :ok
+  defp maybe_create_campaign(_post, ""), do: :ok
+
+  defp maybe_create_campaign(post, tweet_url) when is_binary(tweet_url) do
+    # Extract tweet ID from URL (handles twitter.com and x.com)
+    # e.g., https://twitter.com/blockster/status/1234567890123456789
+    # or https://x.com/blockster/status/1234567890123456789
+    case Regex.run(~r/(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/, tweet_url) do
+      [_, tweet_id] ->
+        attrs = %{
+          post_id: post.id,
+          tweet_id: tweet_id,
+          tweet_url: tweet_url,
+          bux_reward: 50,
+          is_active: true
+        }
+
+        case Social.create_share_campaign(attrs) do
+          {:ok, _campaign} ->
+            IO.puts("Created share campaign for post #{post.id}")
+            :ok
+
+          {:error, changeset} ->
+            IO.inspect(changeset.errors, label: "Failed to create campaign")
+            :error
+        end
+
+      _ ->
+        IO.puts("Could not extract tweet ID from URL: #{tweet_url}")
+        :error
     end
   end
 

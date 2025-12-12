@@ -1,27 +1,38 @@
 export const TwitterWidgets = {
   mounted() {
-    console.log("TwitterWidgets hook mounted");
+    this.loaded = false;
     this.loadWidgets();
   },
 
   updated() {
-    console.log("TwitterWidgets hook updated");
-    this.loadWidgets();
+    // Only reload if we haven't loaded yet or if the content actually changed
+    // Check if there's still an unprocessed blockquote (twitter hasn't rendered it yet)
+    const hasUnprocessedTweet = this.el.querySelector('blockquote.twitter-tweet');
+    if (hasUnprocessedTweet && !this.loaded) {
+      this.loadWidgets();
+    }
   },
 
   loadWidgets() {
+    // Prevent multiple loads
+    if (this.loaded) return;
+
     // Wait for Twitter widgets library to load, then process tweet embeds
     if (typeof window.twttr !== "undefined" && window.twttr.widgets) {
-      console.log("Loading Twitter widgets in content...", this.el);
+      // Check if there's actually a tweet to embed
+      const blockquote = this.el.querySelector('blockquote.twitter-tweet');
+      if (!blockquote) return;
 
-      // Load widgets and log the result
+      this.loaded = true;
+
+      // Load widgets
       window.twttr.widgets.load(this.el).then(() => {
-        console.log("Twitter widgets loaded successfully");
+        // Widget loaded successfully
       }).catch((error) => {
         console.error("Error loading Twitter widgets:", error);
+        this.loaded = false; // Allow retry on error
       });
     } else {
-      console.log("Twitter widgets not ready, retrying in 100ms...");
       setTimeout(() => this.loadWidgets(), 100);
     }
   }

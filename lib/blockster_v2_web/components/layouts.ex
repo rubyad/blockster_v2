@@ -239,7 +239,7 @@ defmodule BlocksterV2Web.Layouts do
                       <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
                     </div>
                     <.link
-                      navigate={~p"/profile"}
+                      navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
                       class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       View Profile
@@ -272,6 +272,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Events
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/campaigns"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Campaigns
                       </.link>
                       <.link
                         navigate={~p"/hubs/admin"}
@@ -345,7 +351,7 @@ defmodule BlocksterV2Web.Layouts do
                     <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
                   </div>
                   <.link
-                    navigate={~p"/profile"}
+                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     View Profile
@@ -378,6 +384,12 @@ defmodule BlocksterV2Web.Layouts do
                       class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Events
+                    </.link>
+                    <.link
+                      navigate={~p"/admin/campaigns"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Campaigns
                     </.link>
                     <.link
                       navigate={~p"/hubs/admin"}

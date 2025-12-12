@@ -36,6 +36,11 @@ config :blockster_v2,
   bux_minter_url: System.get_env("BUX_MINTER_URL"),
   bux_minter_secret: System.get_env("BUX_MINTER_SECRET"),
   env: config_env(),
+  x_api: [
+    client_id: System.get_env("X_CLIENT_ID"),
+    client_secret: System.get_env("X_CLIENT_SECRET"),
+    callback_url: System.get_env("X_CALLBACK_URL")
+  ],
   app_url:
     System.get_env("APP_URL") ||
       if(config_env() == :prod,

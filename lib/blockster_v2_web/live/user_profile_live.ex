@@ -3,10 +3,18 @@ defmodule BlocksterV2Web.UserProfileLive do
 
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
+  alias BlocksterV2.Social
+
   @impl true
   def mount(_params, _session, socket) do
     if socket.assigns.current_user do
-      {:ok, assign(socket, editing_username: false, username_form: %{"username" => socket.assigns.current_user.username})}
+      x_connection = Social.get_x_connection_for_user(socket.assigns.current_user.id)
+
+      {:ok, assign(socket,
+        editing_username: false,
+        username_form: %{"username" => socket.assigns.current_user.username},
+        x_connection: x_connection
+      )}
     else
       {:ok, socket |> put_flash(:error, "You must be logged in to view your profile") |> redirect(to: "/")}
     end
@@ -242,6 +250,62 @@ defmodule BlocksterV2Web.UserProfileLive do
               <div class="text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
                 <%= Calendar.strftime(@current_user.inserted_at, "%B %d, %Y") %>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connected Accounts Card -->
+        <div class="bg-white rounded-lg shadow mt-6">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-haas_bold_75 text-gray-900">Connected Accounts</h2>
+            <p class="text-sm text-gray-500 mt-1">Connect your social accounts to earn BUX rewards for sharing</p>
+          </div>
+
+          <div class="px-6 py-4 space-y-4">
+            <!-- X (Twitter) Connection -->
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div class="flex items-center gap-3">
+                <!-- X Logo -->
+                <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </div>
+                <div>
+                  <%= if @x_connection do %>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-haas_medium_65 text-gray-900">@{@x_connection.x_username}</span>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Connected
+                      </span>
+                    </div>
+                    <p class="text-xs text-gray-500">
+                      Connected <%= Calendar.strftime(@x_connection.connected_at, "%b %d, %Y") %>
+                    </p>
+                  <% else %>
+                    <span class="text-sm font-haas_medium_65 text-gray-900">X (Twitter)</span>
+                    <p class="text-xs text-gray-500">Connect to earn BUX for retweets</p>
+                  <% end %>
+                </div>
+              </div>
+
+              <%= if @x_connection do %>
+                <.link
+                  href={~p"/auth/x/disconnect"}
+                  method="delete"
+                  data-confirm="Are you sure you want to disconnect your X account?"
+                  class="px-4 py-2 text-sm font-haas_medium_65 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  Disconnect
+                </.link>
+              <% else %>
+                <.link
+                  href={~p"/auth/x?redirect=/profile"}
+                  class="px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Connect X
+                </.link>
+              <% end %>
             </div>
           </div>
         </div>

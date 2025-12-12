@@ -5,6 +5,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.TimeTracker
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.BuxMinter
+  alias BlocksterV2.Social
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
@@ -71,6 +72,23 @@ defmodule BlocksterV2Web.PostLive.Show do
         {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier)}
       end
 
+    # Load X connection and share campaign for logged-in users
+    {x_connection, share_campaign, share_reward} =
+      case socket.assigns[:current_user] do
+        nil ->
+          {nil, nil, nil}
+
+        current_user ->
+          x_conn = Social.get_x_connection_for_user(current_user.id)
+          campaign = Social.get_campaign_for_post(post.id)
+          reward =
+            if campaign do
+              Social.get_share_reward(current_user.id, campaign.id)
+            end
+
+          {x_conn, campaign, reward}
+      end
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
@@ -86,7 +104,12 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:article_completed, already_rewarded)
      |> assign(:current_score, current_score)
      |> assign(:current_bux, current_bux)
-     |> assign(:read_tx_id, read_tx_id)}
+     |> assign(:read_tx_id, read_tx_id)
+     |> assign(:x_connection, x_connection)
+     |> assign(:share_campaign, share_campaign)
+     |> assign(:share_reward, share_reward)
+     |> assign(:show_share_modal, false)
+     |> assign(:share_status, nil)}
   end
 
   @impl true
@@ -303,6 +326,128 @@ defmodule BlocksterV2Web.PostLive.Show do
     {:ok, _} = Blog.delete_post(socket.assigns.post)
 
     {:noreply, push_navigate(socket, to: ~p"/")}
+  end
+
+  @impl true
+  def handle_event("open_share_modal", _params, socket) do
+    {:noreply, assign(socket, :show_share_modal, true)}
+  end
+
+  @impl true
+  def handle_event("close_share_modal", _params, socket) do
+    {:noreply, assign(socket, :show_share_modal, false)}
+  end
+
+  @impl true
+  def handle_event("share_to_x", _params, socket) do
+    user = socket.assigns.current_user
+    x_connection = socket.assigns.x_connection
+    share_campaign = socket.assigns.share_campaign
+
+    cond do
+      is_nil(user) ->
+        {:noreply,
+         socket
+         |> assign(:share_status, {:error, "Please log in to share"})}
+
+      is_nil(x_connection) ->
+        {:noreply,
+         socket
+         |> assign(:share_status, {:error, "Please connect your X account first"})}
+
+      is_nil(share_campaign) || !share_campaign.is_active ->
+        # No active campaign, just open regular X share intent
+        post = socket.assigns.post
+        share_url = BlocksterV2Web.Endpoint.url() <> "/posts/#{post.slug}"
+        share_text = URI.encode_www_form("#{post.title}")
+
+        {:noreply,
+         socket
+         |> push_event("open_external_url", %{
+           url: "https://twitter.com/intent/tweet?url=#{URI.encode_www_form(share_url)}&text=#{share_text}"
+         })}
+
+      socket.assigns.share_reward != nil ->
+        # User already shared
+        {:noreply,
+         socket
+         |> assign(:share_status, {:info, "You've already shared this article!"})}
+
+      true ->
+        # Active campaign - initiate tracked retweet
+        initiate_tracked_share(socket, user, x_connection, share_campaign)
+    end
+  end
+
+  defp initiate_tracked_share(socket, user, x_connection, share_campaign) do
+    post = socket.assigns.post
+
+    # Create pending reward
+    case Social.create_pending_reward(user.id, share_campaign.id, x_connection.id) do
+      {:ok, reward} ->
+        # Get decrypted access token
+        access_token = Social.XConnection.decrypt_access_token(x_connection)
+
+        if access_token do
+          # Retweet the campaign's specified tweet
+          campaign_tweet_id = share_campaign.tweet_id
+          x_user_id = x_connection.x_user_id
+
+          # Retweet the campaign tweet via API
+          case Social.XApiClient.create_retweet(access_token, x_user_id, campaign_tweet_id) do
+            {:ok, _retweet_data} ->
+              # Verify and record the tweet
+              case Social.verify_share_reward(reward, campaign_tweet_id) do
+                {:ok, verified_reward} ->
+                  # Award BUX
+                  bux_amount = share_campaign.bux_reward
+
+                  # Update campaign share count
+                  Social.increment_campaign_shares(share_campaign)
+
+                  # Mint BUX to user's wallet
+                  wallet = user.smart_wallet_address
+                  if wallet && wallet != "" do
+                    Task.start(fn ->
+                      BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
+                    end)
+                  end
+
+                  {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
+
+                  {:noreply,
+                   socket
+                   |> assign(:share_reward, final_reward)
+                   |> assign(:share_status, {:success, "Shared! You earned #{bux_amount} BUX!"})
+                   |> assign(:show_share_modal, false)}
+
+                {:error, _} ->
+                  {:noreply,
+                   socket
+                   |> assign(:share_status, {:error, "Failed to verify share"})}
+              end
+
+            {:error, reason} ->
+              # Mark reward as failed
+              Social.mark_failed(reward, "Tweet failed: #{reason}")
+
+              {:noreply,
+               socket
+               |> assign(:share_status, {:error, "Failed to post tweet: #{reason}"})}
+          end
+        else
+          Social.mark_failed(reward, "Token decryption failed")
+
+          {:noreply,
+           socket
+           |> assign(:share_status, {:error, "Failed to authenticate with X. Please reconnect your account."})}
+        end
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> assign(:share_status, {:error, "Failed to initiate share"})}
+    end
   end
 
   # Handle TipTap format

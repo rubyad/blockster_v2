@@ -375,6 +375,20 @@
                 />
                 <p class="text-xs text-[#141414A3] mt-1">Base BUX reward for reading this article. Default is 1.</p>
               </div>
+
+              <div>
+                <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                  Share Campaign Tweet URL <span class="text-[#8AE388]">(Admin Only)</span>
+                </label>
+                <input
+                  type="url"
+                  name="campaign_tweet_url"
+                  value={assigns[:campaign_tweet_url] || ""}
+                  placeholder="https://twitter.com/blockster/status/1234567890123456789"
+                  class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                />
+                <p class="text-xs text-[#141414A3] mt-1">Enter a tweet URL to automatically create a share campaign for this article with 50 BUX reward.</p>
+              </div>
             <% end %>
 
 <!-- TipTap Editor -->
