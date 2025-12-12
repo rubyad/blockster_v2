@@ -66,23 +66,18 @@ defmodule BlocksterV2.Social.XApiClient do
         code_verifier: code_verifier
       })
 
-    headers = [
-      {~c"Content-Type", ~c"application/x-www-form-urlencoded"},
-      {~c"Authorization", String.to_charlist(basic_auth_header())}
-    ]
-
-    case :httpc.request(
-           :post,
-           {String.to_charlist(@token_url), headers, ~c"application/x-www-form-urlencoded",
-            String.to_charlist(body)},
-           [],
-           []
+    case Req.post(@token_url,
+           body: body,
+           headers: [
+             {"content-type", "application/x-www-form-urlencoded"},
+             {"authorization", basic_auth_header()}
+           ]
          ) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        parse_token_response(List.to_string(response_body))
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        parse_token_response(body)
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X OAuth token exchange failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X OAuth token exchange failed: #{status} - #{inspect(body)}")
         {:error, "Token exchange failed: #{status}"}
 
       {:error, reason} ->
@@ -102,23 +97,18 @@ defmodule BlocksterV2.Social.XApiClient do
         client_id: client_id()
       })
 
-    headers = [
-      {~c"Content-Type", ~c"application/x-www-form-urlencoded"},
-      {~c"Authorization", String.to_charlist(basic_auth_header())}
-    ]
-
-    case :httpc.request(
-           :post,
-           {String.to_charlist(@token_url), headers, ~c"application/x-www-form-urlencoded",
-            String.to_charlist(body)},
-           [],
-           []
+    case Req.post(@token_url,
+           body: body,
+           headers: [
+             {"content-type", "application/x-www-form-urlencoded"},
+             {"authorization", basic_auth_header()}
+           ]
          ) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        parse_token_response(List.to_string(response_body))
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        parse_token_response(body)
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X OAuth token refresh failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X OAuth token refresh failed: #{status} - #{inspect(body)}")
         {:error, "Token refresh failed: #{status}"}
 
       {:error, reason} ->
@@ -131,22 +121,17 @@ defmodule BlocksterV2.Social.XApiClient do
   Gets the authenticated user's profile.
   """
   def get_me(access_token) do
-    headers = [
-      {~c"Authorization", String.to_charlist("Bearer #{access_token}")}
-    ]
-
     url = "#{@api_base}/users/me?user.fields=profile_image_url,name,username"
 
-    case :httpc.request(:get, {String.to_charlist(url), headers}, [], []) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"data" => data}} -> {:ok, data}
-          {:ok, resp} -> {:error, "Unexpected response: #{inspect(resp)}"}
-          {:error, _} -> {:error, "Failed to parse response"}
-        end
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => data}}} ->
+        {:ok, data}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X API get_me failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        {:error, "Unexpected response: #{inspect(resp)}"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API get_me failed: #{status} - #{inspect(body)}")
         {:error, "API request failed: #{status}"}
 
       {:error, reason} ->
@@ -160,53 +145,27 @@ defmodule BlocksterV2.Social.XApiClient do
   Returns {:ok, tweet_data} or {:error, reason}.
   """
   def create_tweet(access_token, text) do
-    headers = [
-      {~c"Authorization", String.to_charlist("Bearer #{access_token}")},
-      {~c"Content-Type", ~c"application/json"}
-    ]
-
     url = "#{@api_base}/tweets"
-    body = Jason.encode!(%{text: text})
 
-    case :httpc.request(
-           :post,
-           {String.to_charlist(url), headers, ~c"application/json", String.to_charlist(body)},
-           [],
-           []
+    case Req.post(url,
+           json: %{text: text},
+           headers: [{"authorization", "Bearer #{access_token}"}]
          ) do
-      {:ok, {{_, 201, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, data} ->
-            {:ok, data}
+      {:ok, %Req.Response{status: status, body: body}} when status in [200, 201] ->
+        {:ok, body}
 
-          {:error, _} ->
-            {:error, "Failed to parse response"}
-        end
+      {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
+        error_msg = Enum.map_join(errors, ", ", & &1["message"])
+        {:error, error_msg}
 
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, data} ->
-            {:ok, data}
+      {:ok, %Req.Response{status: 403}} ->
+        {:error, "Forbidden - may be rate limited"}
 
-          {:error, _} ->
-            {:error, "Failed to parse response"}
-        end
-
-      {:ok, {{_, 403, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"errors" => errors}} ->
-            error_msg = Enum.map_join(errors, ", ", & &1["message"])
-            {:error, error_msg}
-
-          _ ->
-            {:error, "Forbidden - may be rate limited"}
-        end
-
-      {:ok, {{_, 429, _}, _, _response_body}} ->
+      {:ok, %Req.Response{status: 429}} ->
         {:error, "Rate limited - please try again later"}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X API create_tweet failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API create_tweet failed: #{status} - #{inspect(body)}")
         {:error, "Tweet failed: #{status}"}
 
       {:error, reason} ->
@@ -220,49 +179,31 @@ defmodule BlocksterV2.Social.XApiClient do
   Returns {:ok, retweet_data} or {:error, reason}.
   """
   def create_retweet(access_token, user_id, tweet_id) do
-    headers = [
-      {~c"Authorization", String.to_charlist("Bearer #{access_token}")},
-      {~c"Content-Type", ~c"application/json"}
-    ]
-
     url = "#{@api_base}/users/#{user_id}/retweets"
-    body = Jason.encode!(%{tweet_id: tweet_id})
 
-    case :httpc.request(
-           :post,
-           {String.to_charlist(url), headers, ~c"application/json", String.to_charlist(body)},
-           [],
-           []
+    case Req.post(url,
+           json: %{tweet_id: tweet_id},
+           headers: [{"authorization", "Bearer #{access_token}"}]
          ) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"data" => %{"retweeted" => true}}} ->
-            {:ok, %{retweeted: true}}
+      {:ok, %Req.Response{status: 200, body: %{"data" => %{"retweeted" => true}}}} ->
+        {:ok, %{retweeted: true}}
 
-          {:ok, resp} ->
-            Logger.warning("Unexpected retweet response: #{inspect(resp)}")
-            {:ok, resp}
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        Logger.warning("Unexpected retweet response: #{inspect(resp)}")
+        {:ok, resp}
 
-          {:error, _} ->
-            {:error, "Failed to parse response"}
-        end
+      {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
+        error_msg = Enum.map_join(errors, ", ", & &1["message"])
+        {:error, error_msg}
 
-      {:ok, {{_, 403, _}, _, response_body}} ->
-        # Could be rate limited or already retweeted
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"errors" => errors}} ->
-            error_msg = Enum.map_join(errors, ", ", & &1["message"])
-            {:error, error_msg}
+      {:ok, %Req.Response{status: 403}} ->
+        {:error, "Forbidden - may be rate limited or already retweeted"}
 
-          _ ->
-            {:error, "Forbidden - may be rate limited or already retweeted"}
-        end
-
-      {:ok, {{_, 429, _}, _, _response_body}} ->
+      {:ok, %Req.Response{status: 429}} ->
         {:error, "Rate limited - please try again later"}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X API retweet failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API retweet failed: #{status} - #{inspect(body)}")
         {:error, "Retweet failed: #{status}"}
 
       {:error, reason} ->
@@ -276,48 +217,38 @@ defmodule BlocksterV2.Social.XApiClient do
   This uses the timeline lookup - be aware of rate limits.
   """
   def check_retweet(access_token, user_id, tweet_id) do
-    headers = [
-      {~c"Authorization", String.to_charlist("Bearer #{access_token}")}
-    ]
-
     # Get user's recent retweets - this is limited by API
     url = "#{@api_base}/users/#{user_id}/tweets?max_results=100&tweet.fields=referenced_tweets"
 
-    case :httpc.request(:get, {String.to_charlist(url), headers}, [], []) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"data" => tweets}} ->
-            retweeted =
-              Enum.any?(tweets, fn tweet ->
-                case tweet["referenced_tweets"] do
-                  nil ->
-                    false
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => tweets}}} ->
+        retweeted =
+          Enum.any?(tweets, fn tweet ->
+            case tweet["referenced_tweets"] do
+              nil ->
+                false
 
-                  refs ->
-                    Enum.any?(refs, fn ref ->
-                      ref["type"] == "retweeted" && ref["id"] == tweet_id
-                    end)
-                end
-              end)
+              refs ->
+                Enum.any?(refs, fn ref ->
+                  ref["type"] == "retweeted" && ref["id"] == tweet_id
+                end)
+            end
+          end)
 
-            {:ok, retweeted}
+        {:ok, retweeted}
 
-          {:ok, %{"meta" => %{"result_count" => 0}}} ->
-            {:ok, false}
+      {:ok, %Req.Response{status: 200, body: %{"meta" => %{"result_count" => 0}}}} ->
+        {:ok, false}
 
-          {:ok, resp} ->
-            Logger.warning("Unexpected timeline response: #{inspect(resp)}")
-            {:ok, false}
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        Logger.warning("Unexpected timeline response: #{inspect(resp)}")
+        {:ok, false}
 
-          {:error, _} ->
-            {:error, "Failed to parse response"}
-        end
-
-      {:ok, {{_, 429, _}, _, _response_body}} ->
+      {:ok, %Req.Response{status: 429}} ->
         {:error, "Rate limited - please try again later"}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X API check_retweet failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API check_retweet failed: #{status} - #{inspect(body)}")
         {:error, "Check failed: #{status}"}
 
       {:error, reason} ->
@@ -330,22 +261,17 @@ defmodule BlocksterV2.Social.XApiClient do
   Gets information about a specific tweet.
   """
   def get_tweet(access_token, tweet_id) do
-    headers = [
-      {~c"Authorization", String.to_charlist("Bearer #{access_token}")}
-    ]
-
     url = "#{@api_base}/tweets/#{tweet_id}?tweet.fields=public_metrics,author_id"
 
-    case :httpc.request(:get, {String.to_charlist(url), headers}, [], []) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(List.to_string(response_body)) do
-          {:ok, %{"data" => data}} -> {:ok, data}
-          {:ok, resp} -> {:error, "Unexpected response: #{inspect(resp)}"}
-          {:error, _} -> {:error, "Failed to parse response"}
-        end
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => data}}} ->
+        {:ok, data}
 
-      {:ok, {{_, status, _}, _, response_body}} ->
-        Logger.error("X API get_tweet failed: #{status} - #{response_body}")
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        {:error, "Unexpected response: #{inspect(resp)}"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API get_tweet failed: #{status} - #{inspect(body)}")
         {:error, "API request failed: #{status}"}
 
       {:error, reason} ->
@@ -362,19 +288,20 @@ defmodule BlocksterV2.Social.XApiClient do
     "Basic #{encoded}"
   end
 
-  defp parse_token_response(body) do
-    case Jason.decode(body) do
-      {:ok, data} ->
-        {:ok,
-         %{
-           access_token: data["access_token"],
-           refresh_token: data["refresh_token"],
-           expires_in: data["expires_in"],
-           scope: String.split(data["scope"] || "", " ")
-         }}
+  defp parse_token_response(body) when is_map(body) do
+    {:ok,
+     %{
+       access_token: body["access_token"],
+       refresh_token: body["refresh_token"],
+       expires_in: body["expires_in"],
+       scope: String.split(body["scope"] || "", " ")
+     }}
+  end
 
-      {:error, _} ->
-        {:error, "Failed to parse token response"}
+  defp parse_token_response(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, data} -> parse_token_response(data)
+      {:error, _} -> {:error, "Failed to parse token response"}
     end
   end
 end
