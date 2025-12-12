@@ -67,6 +67,11 @@ defmodule BlocksterV2Web.PostLive.Index do
       # %{module: BlocksterV2Web.PostLive.ShopFourComponent, id: "shop-four", type: "shops", content: "general"}
     ]
 
+    # Track component ID -> module mapping for real-time BUX updates via send_update
+    initial_component_map = components
+      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "videos-") end)
+      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
+
     {:ok,
         socket
           # |> assign(:latest_news_posts, latest_news_posts)
@@ -93,6 +98,7 @@ defmodule BlocksterV2Web.PostLive.Index do
           |> assign(:displayed_hubs, displayed_hubs)
           |> assign(:displayed_banners, displayed_banners)
           |> assign(:bux_balances, bux_balances)
+          |> assign(:component_module_map, initial_component_map)
           |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsTwoComponent)
           |> stream(:components, components)
       }
@@ -454,6 +460,12 @@ defmodule BlocksterV2Web.PostLive.Index do
     # Track the last component module for next load
     last_module = if new_components != [], do: List.last(new_components).module, else: last_module_name
 
+    # Track new post component ID -> module mapping for real-time BUX updates
+    new_component_map = new_components
+      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "videos-") end)
+      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
+    updated_component_map = Map.merge(socket.assigns.component_module_map, new_component_map)
+
     {:noreply,
       socket
         |> assign(:displayed_post_ids, new_displayed_post_ids)
@@ -461,6 +473,7 @@ defmodule BlocksterV2Web.PostLive.Index do
         |> assign(:displayed_tags, new_displayed_tags)
         |> assign(:displayed_hubs, new_displayed_hubs)
         |> assign(:displayed_banners, new_displayed_banners)
+        |> assign(:component_module_map, updated_component_map)
         |> assign(:last_component_module, last_module)
     }
   end
@@ -471,6 +484,13 @@ defmodule BlocksterV2Web.PostLive.Index do
     if post_id in socket.assigns.displayed_post_ids do
       # Update the bux_balances map for real-time display
       bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+
+      # Send update to all displayed post components so they re-render with new bux_balances
+      # This is needed because components are in a stream and won't re-render from parent assigns
+      for {component_id, module} <- socket.assigns.component_module_map do
+        send_update(self(), module, id: component_id, bux_balances: bux_balances)
+      end
+
       {:noreply, assign(socket, :bux_balances, bux_balances)}
     else
       {:noreply, socket}
