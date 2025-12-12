@@ -501,6 +501,8 @@
               >
                 <%= raw(render_content(@post.content)) %>
               </div>
+              <!-- End marker positioned lower to ensure user has fully scrolled through content -->
+              <div id="article-end-marker" class="h-px"></div>
             <% else %>
               <p class="text-gray-400 italic">No content available</p>
             <% end %>

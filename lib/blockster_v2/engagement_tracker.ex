@@ -363,11 +363,11 @@ defmodule BlocksterV2.EngagementTracker do
 
   @doc """
   Calculates minimum read time for an article based on word count.
-  Assumes average reading speed of 5 words per second (300 wpm).
+  Assumes average reading speed of 10 words per second (600 wpm).
   """
   def calculate_min_read_time(word_count) when is_integer(word_count) do
-    # 5 words per second = 300 words per minute
-    max(div(word_count, 5), 10)  # Minimum 10 seconds
+    # 10 words per second = 600 words per minute
+    max(div(word_count, 10), 5)  # Minimum 5 seconds
   end
 
   def calculate_min_read_time(_), do: 60  # Default 60 seconds

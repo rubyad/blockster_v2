@@ -30,7 +30,7 @@ export const EngagementTracker = {
     // Initialize tracking state
     this.postId = this.el.dataset.postId;
     this.wordCount = parseInt(this.el.dataset.wordCount, 10) || 0;
-    this.minReadTime = Math.max(Math.floor(this.wordCount / 5), 10); // 5 words/sec, min 10s
+    this.minReadTime = Math.max(Math.floor(this.wordCount / 10), 5); // 10 words/sec, min 5s
 
     // Time tracking
     this.timeSpent = 0;
@@ -58,6 +58,8 @@ export const EngagementTracker = {
 
     // Get article content element for calculating scroll depth
     this.articleEl = document.getElementById("post-content");
+    // Get the end marker element for detecting when user reaches the end
+    this.endMarkerEl = document.getElementById("article-end-marker");
 
     // Send initial visit event
     this.pushEvent("article-visited", {
@@ -219,14 +221,25 @@ export const EngagementTracker = {
       }
     }
 
-    // Check if the actual bottom of the article is visible in the viewport
-    // articleRect.bottom is relative to viewport, so if it's <= window.innerHeight, it's visible
-    const isBottomVisible = articleRect.bottom <= window.innerHeight;
+    // Check if the end marker is visible in the viewport
+    // Use the dedicated end marker if available, otherwise fall back to article bottom
+    // Require the marker to be at least 200px above the bottom of the viewport
+    // This ensures user has scrolled well past the content, not just reached it
+    let isEndReached = false;
 
-    if (isBottomVisible && !this.reachedEnd) {
+    if (this.endMarkerEl) {
+      const markerRect = this.endMarkerEl.getBoundingClientRect();
+      // Marker must be visible and at least 200px from bottom of viewport
+      isEndReached = markerRect.top <= (window.innerHeight - 200);
+    } else {
+      // Fallback: article bottom must be at least 200px from bottom of viewport
+      isEndReached = articleRect.bottom <= (window.innerHeight - 200);
+    }
+
+    if (isEndReached && !this.reachedEnd) {
       this.reachedEnd = true;
       this.scrollDepth = 100; // Set to 100% since we've actually seen the end
-      console.log("EngagementTracker: User reached end of article (bottom visible)");
+      console.log("EngagementTracker: User reached end of article (marker/bottom visible with 100px buffer)");
 
       // Send the article-read event
       this.sendReadEvent();
