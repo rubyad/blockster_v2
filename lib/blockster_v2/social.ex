@@ -5,7 +5,7 @@ defmodule BlocksterV2.Social do
 
   import Ecto.Query
   alias BlocksterV2.Repo
-  alias BlocksterV2.Social.{XConnection, XOauthState, ShareCampaign, ShareReward}
+  alias BlocksterV2.Social.{XConnection, XOauthState, ShareCampaign, ShareReward, XApiClient}
 
   # =============================================================================
   # X OAuth State Management
@@ -112,9 +112,47 @@ defmodule BlocksterV2.Social do
   end
 
   defp refresh_x_token(connection) do
-    # This will be implemented with the X API client
-    # For now, return the connection as-is
-    {:ok, connection}
+    refresh_token = XConnection.decrypt_refresh_token(connection)
+
+    if is_nil(refresh_token) do
+      {:error, "No refresh token available"}
+    else
+      case XApiClient.refresh_token(refresh_token) do
+        {:ok, token_data} ->
+          expires_at =
+            if token_data.expires_in do
+              DateTime.utc_now()
+              |> DateTime.add(token_data.expires_in, :second)
+              |> DateTime.truncate(:second)
+            end
+
+          attrs = %{
+            access_token: token_data.access_token,
+            refresh_token: token_data.refresh_token,
+            token_expires_at: expires_at
+          }
+
+          case update_x_connection(connection, attrs) do
+            {:ok, updated_connection} ->
+              {:ok, updated_connection}
+
+            {:error, changeset} ->
+              {:error, "Failed to save refreshed token: #{inspect(changeset.errors)}"}
+          end
+
+        {:error, reason} ->
+          {:error, "Token refresh failed: #{reason}"}
+      end
+    end
+  end
+
+  @doc """
+  Updates an X connection with new attributes.
+  """
+  def update_x_connection(%XConnection{} = connection, attrs) do
+    connection
+    |> XConnection.update_changeset(attrs)
+    |> Repo.update()
   end
 
   # =============================================================================
@@ -209,9 +247,29 @@ defmodule BlocksterV2.Social do
   end
 
   @doc """
+  Gets a successful share reward by user and campaign (verified or rewarded status only).
+  Returns nil for pending or failed rewards.
+  """
+  def get_successful_share_reward(user_id, campaign_id) do
+    from(r in ShareReward,
+      where: r.user_id == ^user_id and r.campaign_id == ^campaign_id,
+      where: r.status in ["verified", "rewarded"]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
   Creates a pending share reward when user initiates a retweet.
+  If a failed or pending reward already exists, it deletes it first to allow retry.
   """
   def create_pending_reward(user_id, campaign_id, x_connection_id \\ nil) do
+    # Delete any existing failed/pending rewards to allow retry
+    from(r in ShareReward,
+      where: r.user_id == ^user_id and r.campaign_id == ^campaign_id,
+      where: r.status in ["pending", "failed"]
+    )
+    |> Repo.delete_all()
+
     %ShareReward{}
     |> ShareReward.changeset(%{
       user_id: user_id,
@@ -247,6 +305,13 @@ defmodule BlocksterV2.Social do
     reward
     |> ShareReward.fail_changeset(reason)
     |> Repo.update()
+  end
+
+  @doc """
+  Deletes a share reward (used when share fails due to token issues so user can retry).
+  """
+  def delete_share_reward(%ShareReward{} = reward) do
+    Repo.delete(reward)
   end
 
   @doc """

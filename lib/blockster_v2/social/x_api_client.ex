@@ -175,6 +175,69 @@ defmodule BlocksterV2.Social.XApiClient do
   end
 
   @doc """
+  Likes a tweet.
+  Returns {:ok, %{liked: true}} or {:error, reason}.
+  """
+  def like_tweet(access_token, user_id, tweet_id) do
+    url = "#{@api_base}/users/#{user_id}/likes"
+
+    case Req.post(url,
+           json: %{tweet_id: tweet_id},
+           headers: [{"authorization", "Bearer #{access_token}"}]
+         ) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => %{"liked" => true}}}} ->
+        {:ok, %{liked: true}}
+
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        Logger.warning("Unexpected like response: #{inspect(resp)}")
+        {:ok, resp}
+
+      {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
+        error_msg = Enum.map_join(errors, ", ", & &1["message"])
+        {:error, error_msg}
+
+      {:ok, %Req.Response{status: 403}} ->
+        {:error, "Forbidden - may be rate limited or already liked"}
+
+      {:ok, %Req.Response{status: 429}} ->
+        {:error, "Rate limited - please try again later"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API like failed: #{status} - #{inspect(body)}")
+        {:error, "Like failed: #{status}"}
+
+      {:error, reason} ->
+        Logger.error("X API like error: #{inspect(reason)}")
+        {:error, "Like request error"}
+    end
+  end
+
+  @doc """
+  Retweets and likes a tweet in one operation.
+  Returns {:ok, %{retweeted: bool, liked: bool}} or {:error, reason}.
+  """
+  def retweet_and_like(access_token, user_id, tweet_id) do
+    retweet_result = create_retweet(access_token, user_id, tweet_id)
+    like_result = like_tweet(access_token, user_id, tweet_id)
+
+    case {retweet_result, like_result} do
+      {{:ok, _}, {:ok, _}} ->
+        {:ok, %{retweeted: true, liked: true}}
+
+      {{:ok, _}, {:error, like_error}} ->
+        Logger.warning("Retweet succeeded but like failed: #{like_error}")
+        {:ok, %{retweeted: true, liked: false, like_error: like_error}}
+
+      {{:error, retweet_error}, {:ok, _}} ->
+        Logger.warning("Retweet failed but like succeeded: #{retweet_error}")
+        {:ok, %{retweeted: false, liked: true, retweet_error: retweet_error}}
+
+      {{:error, retweet_error}, {:error, like_error}} ->
+        {:error, "Retweet: #{retweet_error}, Like: #{like_error}"}
+    end
+  end
+
+  @doc """
   Creates a retweet of the specified tweet.
   Returns {:ok, retweet_data} or {:error, reason}.
   """

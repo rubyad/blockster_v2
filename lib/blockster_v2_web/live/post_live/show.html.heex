@@ -722,6 +722,19 @@
                   </svg>
                   <span class="font-haas_medium_65">{message}</span>
                 </div>
+                <%= if @needs_x_reconnect do %>
+                  <div class="mt-3">
+                    <.link
+                      href={~p"/auth/x?redirect=#{@post.slug}"}
+                      class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                      <span class="font-haas_medium_65">Reconnect X Account</span>
+                    </.link>
+                  </div>
+                <% end %>
               </div>
             <% {:info, message} -> %>
               <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -752,6 +765,8 @@
             </svg>
           </div>
         <% else %>
+          <!-- Only show the "not connected" box if we're not already showing the reconnect error message -->
+          <%= if !@needs_x_reconnect do %>
           <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div class="flex items-center gap-2 text-yellow-700 mb-2">
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -770,6 +785,7 @@
               Connect X Account
             </.link>
           </div>
+          <% end %>
         <% end %>
 
         <!-- Tweet Preview -->

@@ -81,9 +81,10 @@ defmodule BlocksterV2Web.PostLive.Show do
         current_user ->
           x_conn = Social.get_x_connection_for_user(current_user.id)
           campaign = Social.get_campaign_for_post(post.id)
+          # Only consider successful (verified/rewarded) shares - failed shares can be retried
           reward =
             if campaign do
-              Social.get_share_reward(current_user.id, campaign.id)
+              Social.get_successful_share_reward(current_user.id, campaign.id)
             end
 
           {x_conn, campaign, reward}
@@ -109,7 +110,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:share_campaign, share_campaign)
      |> assign(:share_reward, share_reward)
      |> assign(:show_share_modal, false)
-     |> assign(:share_status, nil)}
+     |> assign(:share_status, nil)
+     |> assign(:needs_x_reconnect, false)}
   end
 
   @impl true
@@ -385,62 +387,84 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Create pending reward
     case Social.create_pending_reward(user.id, share_campaign.id, x_connection.id) do
       {:ok, reward} ->
-        # Get decrypted access token
-        access_token = Social.XConnection.decrypt_access_token(x_connection)
+        # Refresh token if needed before making API call
+        case Social.maybe_refresh_token(x_connection) do
+          {:ok, refreshed_connection} ->
+            # Get decrypted access token from potentially refreshed connection
+            access_token = Social.XConnection.decrypt_access_token(refreshed_connection)
 
-        if access_token do
-          # Retweet the campaign's specified tweet
-          campaign_tweet_id = share_campaign.tweet_id
-          x_user_id = x_connection.x_user_id
+            if access_token do
+              # Retweet and like the campaign's specified tweet
+              campaign_tweet_id = share_campaign.tweet_id
+              x_user_id = refreshed_connection.x_user_id
 
-          # Retweet the campaign tweet via API
-          case Social.XApiClient.create_retweet(access_token, x_user_id, campaign_tweet_id) do
-            {:ok, _retweet_data} ->
-              # Verify and record the tweet
-              case Social.verify_share_reward(reward, campaign_tweet_id) do
-                {:ok, verified_reward} ->
-                  # Award BUX
-                  bux_amount = share_campaign.bux_reward
+              # Retweet and like the campaign tweet via API
+              case Social.XApiClient.retweet_and_like(access_token, x_user_id, campaign_tweet_id) do
+                {:ok, _result} ->
+                  # Verify and record the tweet
+                  case Social.verify_share_reward(reward, campaign_tweet_id) do
+                    {:ok, verified_reward} ->
+                      # Award BUX
+                      bux_amount = share_campaign.bux_reward
 
-                  # Update campaign share count
-                  Social.increment_campaign_shares(share_campaign)
+                      # Update campaign share count
+                      Social.increment_campaign_shares(share_campaign)
 
-                  # Mint BUX to user's wallet
-                  wallet = user.smart_wallet_address
-                  if wallet && wallet != "" do
-                    Task.start(fn ->
-                      BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
-                    end)
+                      # Mint BUX to user's wallet
+                      wallet = user.smart_wallet_address
+                      if wallet && wallet != "" do
+                        Task.start(fn ->
+                          BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
+                        end)
+                      end
+
+                      {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
+
+                      {:noreply,
+                       socket
+                       |> assign(:share_reward, final_reward)
+                       |> assign(:share_status, {:success, "Shared! You earned #{bux_amount} BUX!"})
+                       |> assign(:show_share_modal, false)}
+
+                    {:error, _} ->
+                      {:noreply,
+                       socket
+                       |> assign(:share_status, {:error, "Failed to verify share"})}
                   end
 
-                  {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
+                {:error, reason} ->
+                  # Delete the pending reward so user can retry
+                  Social.delete_share_reward(reward)
 
                   {:noreply,
                    socket
-                   |> assign(:share_reward, final_reward)
-                   |> assign(:share_status, {:success, "Shared! You earned #{bux_amount} BUX!"})
-                   |> assign(:show_share_modal, false)}
-
-                {:error, _} ->
-                  {:noreply,
-                   socket
-                   |> assign(:share_status, {:error, "Failed to verify share"})}
+                   |> assign(:share_reward, nil)
+                   |> assign(:share_status, {:error, "Failed to post tweet: #{reason}"})}
               end
-
-            {:error, reason} ->
-              # Mark reward as failed
-              Social.mark_failed(reward, "Tweet failed: #{reason}")
+            else
+              # Delete reward so user can retry after reconnecting
+              Social.delete_share_reward(reward)
+              Social.disconnect_x_account(user.id)
 
               {:noreply,
                socket
-               |> assign(:share_status, {:error, "Failed to post tweet: #{reason}"})}
-          end
-        else
-          Social.mark_failed(reward, "Token decryption failed")
+               |> assign(:x_connection, nil)
+               |> assign(:share_reward, nil)
+               |> assign(:needs_x_reconnect, true)
+               |> assign(:share_status, {:error, "Failed to authenticate with X. Please reconnect your account."})}
+            end
 
-          {:noreply,
-           socket
-           |> assign(:share_status, {:error, "Failed to authenticate with X. Please reconnect your account."})}
+          {:error, reason} ->
+            # Token refresh failed - delete the pending reward so user can retry after reconnecting
+            Social.delete_share_reward(reward)
+            Social.disconnect_x_account(user.id)
+
+            {:noreply,
+             socket
+             |> assign(:x_connection, nil)
+             |> assign(:share_reward, nil)
+             |> assign(:needs_x_reconnect, true)
+             |> assign(:share_status, {:error, "X session expired. Please reconnect your account."})}
         end
 
       {:error, _changeset} ->
