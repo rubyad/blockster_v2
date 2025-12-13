@@ -6,6 +6,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.Social
+  alias BlocksterV2.Social.XConnection
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true
@@ -332,6 +333,29 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   @impl true
   def handle_event("open_share_modal", _params, socket) do
+    x_connection = socket.assigns.x_connection
+
+    # Check if X connection needs refresh when opening modal
+    socket =
+      if x_connection && XConnection.token_needs_refresh?(x_connection) do
+        # Try to refresh the token
+        case Social.maybe_refresh_token(x_connection) do
+          {:ok, refreshed_connection} ->
+            # Token refreshed successfully
+            assign(socket, :x_connection, refreshed_connection)
+
+          {:error, _reason} ->
+            # Refresh failed - mark as needing reconnect and clear connection
+            Social.disconnect_x_account(socket.assigns.current_user.id)
+
+            socket
+            |> assign(:x_connection, nil)
+            |> assign(:needs_x_reconnect, true)
+        end
+      else
+        socket
+      end
+
     {:noreply, assign(socket, :show_share_modal, true)}
   end
 
@@ -415,15 +439,19 @@ defmodule BlocksterV2Web.PostLive.Show do
                         # Update campaign share count
                         Social.increment_campaign_shares(share_campaign)
 
-                        # Mint BUX to user's wallet
+                        # Mint BUX to user's wallet (synchronous to capture tx_hash)
                         wallet = user.smart_wallet_address
-                        if wallet && wallet != "" do
-                          Task.start(fn ->
-                            BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
-                          end)
-                        end
+                        tx_hash =
+                          if wallet && wallet != "" do
+                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id) do
+                              {:ok, response} -> response["transactionHash"]
+                              {:error, _} -> nil
+                            end
+                          else
+                            nil
+                          end
 
-                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
+                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount, tx_hash)
 
                         # Build success message - mention if like failed
                         success_msg =

@@ -484,22 +484,36 @@
 
                 <%= if @share_reward do %>
                   <!-- Already completed -->
-                  <div class="flex items-center gap-2 text-sm bg-green-50 p-3 rounded-lg">
-                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    <span class="text-green-700 font-haas_medium_65">
-                      <%= case @share_reward.status do %>
-                        <% "rewarded" -> %>
-                          Retweeted & Liked! Earned {@share_reward.bux_rewarded} BUX
-                        <% "verified" -> %>
-                          Verified, reward pending
-                        <% "pending" -> %>
-                          Pending verification
-                        <% _ -> %>
-                          Recorded
-                      <% end %>
-                    </span>
+                  <div class="text-sm bg-green-50 p-3 rounded-lg">
+                    <div class="flex items-center gap-2">
+                      <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                      </svg>
+                      <span class="text-green-700 font-haas_medium_65">
+                        <%= case @share_reward.status do %>
+                          <% "rewarded" -> %>
+                            Retweeted & Liked! Earned {@share_reward.bux_rewarded} BUX
+                          <% "verified" -> %>
+                            Verified, reward pending
+                          <% "pending" -> %>
+                            Pending verification
+                          <% _ -> %>
+                            Recorded
+                        <% end %>
+                      </span>
+                    </div>
+                    <%= if @share_reward.status == "rewarded" && @share_reward.tx_hash do %>
+                      <div class="mt-2 pt-2 border-t border-green-200">
+                        <a href={"https://roguescan.io/tx/#{@share_reward.tx_hash}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-green-700 text-xs hover:underline">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                          <span>View Transaction</span>
+                        </a>
+                      </div>
+                    <% end %>
                   </div>
                 <% else %>
                   <%= if @current_user do %>

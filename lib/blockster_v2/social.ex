@@ -290,11 +290,11 @@ defmodule BlocksterV2.Social do
   end
 
   @doc """
-  Marks a share reward as rewarded and records the BUX amount.
+  Marks a share reward as rewarded and records the BUX amount and optional tx_hash.
   """
-  def mark_rewarded(%ShareReward{} = reward, bux_amount) do
+  def mark_rewarded(%ShareReward{} = reward, bux_amount, tx_hash \\ nil) do
     reward
-    |> ShareReward.reward_changeset(bux_amount)
+    |> ShareReward.reward_changeset(bux_amount, tx_hash)
     |> Repo.update()
   end
 

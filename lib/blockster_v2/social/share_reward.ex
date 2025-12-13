@@ -18,12 +18,13 @@ defmodule BlocksterV2.Social.ShareReward do
     field :verified_at, :utc_datetime
     field :rewarded_at, :utc_datetime
     field :failure_reason, :string
+    field :tx_hash, :string
 
     timestamps()
   end
 
   @required_fields [:user_id, :campaign_id]
-  @optional_fields [:x_connection_id, :retweet_id, :status, :bux_rewarded, :verified_at, :rewarded_at, :failure_reason]
+  @optional_fields [:x_connection_id, :retweet_id, :status, :bux_rewarded, :verified_at, :rewarded_at, :failure_reason, :tx_hash]
 
   def changeset(reward, attrs) do
     reward
@@ -44,13 +45,17 @@ defmodule BlocksterV2.Social.ShareReward do
     |> put_change(:verified_at, DateTime.utc_now() |> DateTime.truncate(:second))
   end
 
-  def reward_changeset(reward, bux_amount) do
-    reward
-    |> change(%{
+  def reward_changeset(reward, bux_amount, tx_hash \\ nil) do
+    changes = %{
       status: "rewarded",
       bux_rewarded: bux_amount,
       rewarded_at: DateTime.utc_now() |> DateTime.truncate(:second)
-    })
+    }
+
+    changes = if tx_hash, do: Map.put(changes, :tx_hash, tx_hash), else: changes
+
+    reward
+    |> change(changes)
   end
 
   def fail_changeset(reward, reason) do

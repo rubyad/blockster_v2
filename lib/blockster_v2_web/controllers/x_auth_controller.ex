@@ -17,7 +17,7 @@ defmodule BlocksterV2Web.XAuthController do
       |> put_flash(:error, "You must be logged in to connect your X account")
       |> redirect(to: ~p"/login")
     else
-      redirect_path = params["redirect"] || "/profile"
+      redirect_path = normalize_redirect_path(params["redirect"])
 
       case Social.create_oauth_state(%{user_id: user.id, redirect_path: redirect_path}) do
         {:ok, oauth_state} ->
@@ -93,7 +93,7 @@ defmodule BlocksterV2Web.XAuthController do
   # Private functions
 
   defp handle_token_exchange(conn, oauth_state, code) do
-    redirect_path = oauth_state.redirect_path || "/profile"
+    redirect_path = normalize_redirect_path(oauth_state.redirect_path)
 
     case XApiClient.exchange_code(code, oauth_state.code_verifier) do
       {:ok, token_data} ->
@@ -159,4 +159,10 @@ defmodule BlocksterV2Web.XAuthController do
         |> redirect(to: redirect_path)
     end
   end
+
+  # Normalizes the redirect path to ensure it starts with /
+  defp normalize_redirect_path(nil), do: "/profile"
+  defp normalize_redirect_path(""), do: "/profile"
+  defp normalize_redirect_path("/" <> _ = path), do: path
+  defp normalize_redirect_path(path), do: "/" <> path
 end
