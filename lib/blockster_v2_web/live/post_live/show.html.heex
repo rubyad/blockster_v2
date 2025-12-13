@@ -359,8 +359,9 @@
     <div class="section article-main-content md:py-[90px] pt-20">
       <div class="container mx-auto flex md:flex-row flex-col-reverse gap-[88px] max-lg:gap-[20px] max-w-[1300px]">
         <!-- Sidebar -->
-        <div class="max-w-[411px] max-lg:max-w-[350px] max-md:max-w-full w-full self-start md:sticky top-8">
-          <!-- Share to Earn Card -->
+        <div class="max-w-[411px] max-lg:max-w-[350px] max-md:max-w-full w-full self-start md:sticky top-32">
+          <!-- Share to Earn Card - Only show if no active share campaign -->
+          <%= if !(@share_campaign && @share_campaign.is_active) do %>
           <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px]">
             <div class="px-4 py-5 bg-white rounded-[16px] flex-col flex items-center justify-between">
               <div class="flex justify-between items-center w-full">
@@ -407,54 +408,27 @@
                 </div>
 
                 <ul class="flex gap-2">
-                  <!-- X Share Button - Enhanced with tracking -->
+                  <!-- X Share Link (regular share, not reward) -->
                   <li>
-                    <%= if @current_user && @share_campaign && @share_campaign.is_active do %>
-                      <!-- Tracked X share button -->
-                      <button
-                        phx-click="open_share_modal"
-                        class="h-8 w-8 arrow-animated bg-black flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block relative"
-                        title="Share on X to earn BUX"
+                    <a
+                      href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/posts/#{@post.slug}")}&text=#{URI.encode_www_form(@post.title)}"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-                            fill="white"
-                          />
-                        </svg>
-                        <!-- Reward badge -->
-                        <span class="absolute -top-1 -right-1 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black text-[8px] font-bold px-1 rounded-full">
-                          +{@share_campaign.bux_reward}
-                        </span>
-                      </button>
-                    <% else %>
-                      <!-- Regular X share link -->
-                      <a
-                        href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/posts/#{@post.slug}")}&text=#{URI.encode_www_form(@post.title)}"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-                            fill="#141414"
-                          />
-                        </svg>
-                      </a>
-                    <% end %>
+                        <path
+                          d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                          fill="#141414"
+                        />
+                      </svg>
+                    </a>
                   </li>
                   <li>
                     <a
@@ -484,31 +458,73 @@
                 </ul>
               </div>
 
-              <!-- Share reward status -->
-              <%= if @share_reward do %>
-                <div class="w-full mt-3 pt-3 border-t border-gray-100">
-                  <div class="flex items-center gap-2 text-sm">
-                    <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            </div>
+          </div>
+          <% end %>
+
+          <!-- Retweet & Like Campaign Box -->
+          <%= if @share_campaign && @share_campaign.is_active do %>
+            <div class="p-[1px] bg-gradient-to-b from-[#1DA1F2] via-[#1DA1F2] to-[#0d8ecf] rounded-[16px] mt-3">
+              <div class="bg-white rounded-[16px] p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-black">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="white"/>
+                      </svg>
+                    </span>
+                    <h4 class="text-[14px] font-haas_medium_65 leading-[21px]">
+                      RETWEET & LIKE ON X
+                    </h4>
+                  </div>
+                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-3 py-1 rounded-full text-sm font-bold">
+                    +{@share_campaign.bux_reward} BUX
+                  </span>
+                </div>
+
+                <%= if @share_reward do %>
+                  <!-- Already completed -->
+                  <div class="flex items-center gap-2 text-sm bg-green-50 p-3 rounded-lg">
+                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                     </svg>
                     <span class="text-green-700 font-haas_medium_65">
                       <%= case @share_reward.status do %>
                         <% "rewarded" -> %>
-                          Shared! Earned {@share_reward.bux_rewarded} BUX
+                          Retweeted & Liked! Earned {@share_reward.bux_rewarded} BUX
                         <% "verified" -> %>
-                          Share verified, reward pending
+                          Verified, reward pending
                         <% "pending" -> %>
-                          Share pending verification
+                          Pending verification
                         <% _ -> %>
-                          Share recorded
+                          Recorded
                       <% end %>
                     </span>
                   </div>
-                </div>
-              <% end %>
+                <% else %>
+                  <%= if @current_user do %>
+                    <button
+                      phx-click="open_share_modal"
+                      class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                      Retweet & Like
+                    </button>
+                  <% else %>
+                    <.link
+                      href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"}
+                      class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      Sign in to earn BUX
+                    </.link>
+                  <% end %>
+                <% end %>
+              </div>
             </div>
-          </div>
-          
+          <% end %>
+
 <!-- AI Chat Section -->
           <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px] mt-3">
             <div class="bg-white rounded-[16px] p-6">
@@ -790,10 +806,10 @@
 
         <!-- Tweet Preview -->
         <div class="mb-6">
-          <div class="text-xs text-gray-500 mb-2">Will retweet:</div>
+          <div class="text-xs text-gray-500 mb-2">Will retweet & like:</div>
           <%= if @share_campaign && @share_campaign.tweet_id do %>
             <div id="share-modal-tweet-embed" phx-hook="TwitterWidgets" phx-update="ignore" class="tweet-embed-container max-h-[400px] overflow-y-auto">
-              <blockquote class="twitter-tweet" data-conversation="none">
+              <blockquote class="twitter-tweet" data-cards="visible" data-media-max-width="500">
                 <a href={"https://twitter.com/x/status/#{@share_campaign.tweet_id}"}></a>
               </blockquote>
             </div>
@@ -809,12 +825,12 @@
         <%= if @x_connection && !@share_reward do %>
           <button
             phx-click="share_to_x"
-            class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+            class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
             </svg>
-            Share on X
+            Retweet & Like
             <%= if @share_campaign do %>
               <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2">
                 +{@share_campaign.bux_reward} BUX

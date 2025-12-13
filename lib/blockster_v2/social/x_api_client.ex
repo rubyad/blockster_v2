@@ -11,7 +11,18 @@ defmodule BlocksterV2.Social.XApiClient do
   @api_base "https://api.twitter.com/2"
 
   # Scopes needed for our use case
-  @scopes ["tweet.read", "tweet.write", "users.read", "offline.access"]
+  @scopes ["tweet.read", "tweet.write", "users.read", "like.write", "offline.access"]
+
+  # HTTP client options for resilience
+  defp req_options do
+    [
+      connect_options: [timeout: 30_000],
+      receive_timeout: 30_000,
+      retry: :transient,
+      retry_delay: fn attempt -> attempt * 500 end,
+      max_retries: 2
+    ]
+  end
 
   @doc """
   Returns the client ID from config.
@@ -82,7 +93,7 @@ defmodule BlocksterV2.Social.XApiClient do
 
       {:error, reason} ->
         Logger.error("X OAuth token exchange error: #{inspect(reason)}")
-        {:error, "Token exchange error"}
+        {:error, "Token exchange error: #{inspect(reason)}"}
     end
   end
 
@@ -181,16 +192,21 @@ defmodule BlocksterV2.Social.XApiClient do
   def like_tweet(access_token, user_id, tweet_id) do
     url = "#{@api_base}/users/#{user_id}/likes"
 
-    case Req.post(url,
-           json: %{tweet_id: tweet_id},
-           headers: [{"authorization", "Bearer #{access_token}"}]
-         ) do
+    opts =
+      req_options()
+      |> Keyword.merge(
+        json: %{tweet_id: tweet_id},
+        headers: [{"authorization", "Bearer #{access_token}"}]
+      )
+
+    case Req.post(url, opts) do
       {:ok, %Req.Response{status: 200, body: %{"data" => %{"liked" => true}}}} ->
         {:ok, %{liked: true}}
 
       {:ok, %Req.Response{status: 200, body: resp}} ->
-        Logger.warning("Unexpected like response: #{inspect(resp)}")
-        {:ok, resp}
+        # 200 means success, even if response format is unexpected
+        Logger.warning("Unexpected like response format: #{inspect(resp)}")
+        {:ok, %{liked: true}}
 
       {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
         error_msg = Enum.map_join(errors, ", ", & &1["message"])
@@ -206,9 +222,17 @@ defmodule BlocksterV2.Social.XApiClient do
         Logger.error("X API like failed: #{status} - #{inspect(body)}")
         {:error, "Like failed: #{status}"}
 
+      {:error, %Req.TransportError{reason: :closed}} ->
+        Logger.error("X API like connection closed - network issue")
+        {:error, "Connection lost - please try again"}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        Logger.error("X API like connection timeout")
+        {:error, "Request timed out - please try again"}
+
       {:error, reason} ->
-        Logger.error("X API like error: #{inspect(reason)}")
-        {:error, "Like request error"}
+        Logger.error("X API like network error: #{inspect(reason)}")
+        {:error, "Network error - please try again"}
     end
   end
 
@@ -244,16 +268,21 @@ defmodule BlocksterV2.Social.XApiClient do
   def create_retweet(access_token, user_id, tweet_id) do
     url = "#{@api_base}/users/#{user_id}/retweets"
 
-    case Req.post(url,
-           json: %{tweet_id: tweet_id},
-           headers: [{"authorization", "Bearer #{access_token}"}]
-         ) do
+    opts =
+      req_options()
+      |> Keyword.merge(
+        json: %{tweet_id: tweet_id},
+        headers: [{"authorization", "Bearer #{access_token}"}]
+      )
+
+    case Req.post(url, opts) do
       {:ok, %Req.Response{status: 200, body: %{"data" => %{"retweeted" => true}}}} ->
         {:ok, %{retweeted: true}}
 
       {:ok, %Req.Response{status: 200, body: resp}} ->
-        Logger.warning("Unexpected retweet response: #{inspect(resp)}")
-        {:ok, resp}
+        # 200 means success, even if response format is unexpected
+        Logger.warning("Unexpected retweet response format: #{inspect(resp)}")
+        {:ok, %{retweeted: true}}
 
       {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
         error_msg = Enum.map_join(errors, ", ", & &1["message"])
@@ -269,9 +298,17 @@ defmodule BlocksterV2.Social.XApiClient do
         Logger.error("X API retweet failed: #{status} - #{inspect(body)}")
         {:error, "Retweet failed: #{status}"}
 
+      {:error, %Req.TransportError{reason: :closed}} ->
+        Logger.error("X API retweet connection closed - network issue")
+        {:error, "Connection lost - please try again"}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        Logger.error("X API retweet connection timeout")
+        {:error, "Request timed out - please try again"}
+
       {:error, reason} ->
-        Logger.error("X API retweet error: #{inspect(reason)}")
-        {:error, "Retweet request error"}
+        Logger.error("X API retweet network error: #{inspect(reason)}")
+        {:error, "Network error - please try again"}
     end
   end
 

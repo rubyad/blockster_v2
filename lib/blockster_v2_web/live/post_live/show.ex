@@ -337,7 +337,10 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   @impl true
   def handle_event("close_share_modal", _params, socket) do
-    {:noreply, assign(socket, :show_share_modal, false)}
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, false)
+     |> assign(:share_status, nil)}
   end
 
   @impl true
@@ -400,36 +403,56 @@ defmodule BlocksterV2Web.PostLive.Show do
 
               # Retweet and like the campaign tweet via API
               case Social.XApiClient.retweet_and_like(access_token, x_user_id, campaign_tweet_id) do
-                {:ok, _result} ->
-                  # Verify and record the tweet
-                  case Social.verify_share_reward(reward, campaign_tweet_id) do
-                    {:ok, verified_reward} ->
-                      # Award BUX
-                      bux_amount = share_campaign.bux_reward
+                {:ok, result} ->
+                  # Check if at least the retweet succeeded
+                  if result[:retweeted] do
+                    # Verify and record the tweet
+                    case Social.verify_share_reward(reward, campaign_tweet_id) do
+                      {:ok, verified_reward} ->
+                        # Award BUX
+                        bux_amount = share_campaign.bux_reward
 
-                      # Update campaign share count
-                      Social.increment_campaign_shares(share_campaign)
+                        # Update campaign share count
+                        Social.increment_campaign_shares(share_campaign)
 
-                      # Mint BUX to user's wallet
-                      wallet = user.smart_wallet_address
-                      if wallet && wallet != "" do
-                        Task.start(fn ->
-                          BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
-                        end)
-                      end
+                        # Mint BUX to user's wallet
+                        wallet = user.smart_wallet_address
+                        if wallet && wallet != "" do
+                          Task.start(fn ->
+                            BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id)
+                          end)
+                        end
 
-                      {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
+                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount)
 
-                      {:noreply,
-                       socket
-                       |> assign(:share_reward, final_reward)
-                       |> assign(:share_status, {:success, "Shared! You earned #{bux_amount} BUX!"})
-                       |> assign(:show_share_modal, false)}
+                        # Build success message - mention if like failed
+                        success_msg =
+                          if result[:liked] do
+                            "Retweeted & Liked! You earned #{bux_amount} BUX!"
+                          else
+                            "Retweeted! You earned #{bux_amount} BUX!"
+                          end
+
+                        {:noreply,
+                         socket
+                         |> assign(:share_reward, final_reward)
+                         |> assign(:share_status, {:success, success_msg})
+                         |> assign(:show_share_modal, false)}
 
                     {:error, _} ->
                       {:noreply,
                        socket
                        |> assign(:share_status, {:error, "Failed to verify share"})}
+                  end
+                  else
+                    # Retweet failed even though API returned :ok
+                    retweet_error = result[:retweet_error] || "Unknown error"
+                    Social.delete_share_reward(reward)
+
+                    {:noreply,
+                     socket
+                     |> assign(:share_reward, nil)
+                     |> assign(:share_status, {:error, "Failed to retweet: #{retweet_error}"})}
                   end
 
                 {:error, reason} ->
