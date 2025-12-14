@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Accounts
+  alias BlocksterV2.BuxMinter
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
@@ -28,6 +29,9 @@ defmodule BlocksterV2Web.MemberLive.Show do
         filtered_activities = filter_activities_by_period(all_activities, time_period)
         total_bux = calculate_total_bux(filtered_activities)
         overall_multiplier = EngagementTracker.get_user_multiplier(member.id)
+
+        # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
+        maybe_refresh_bux_balance(member)
 
         {:noreply,
          socket
@@ -115,4 +119,20 @@ defmodule BlocksterV2Web.MemberLive.Show do
     |> Enum.filter(&is_number/1)
     |> Enum.sum()
   end
+
+  # Fetch on-chain BUX balance and update Mnesia (async)
+  defp maybe_refresh_bux_balance(%{id: user_id, smart_wallet_address: wallet})
+       when is_binary(wallet) and wallet != "" do
+    Task.start(fn ->
+      case BuxMinter.get_balance(wallet) do
+        {:ok, balance} ->
+          EngagementTracker.update_user_bux_balance(user_id, wallet, balance)
+
+        {:error, _reason} ->
+          :ok
+      end
+    end)
+  end
+
+  defp maybe_refresh_bux_balance(_member), do: :ok
 end
