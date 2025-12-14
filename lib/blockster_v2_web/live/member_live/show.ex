@@ -10,7 +10,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :active_tab, "activity")}
+    {:ok, assign(socket, active_tab: "activity", time_period: "24h")}
   end
 
   @impl true
@@ -23,21 +23,39 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> push_navigate(to: ~p"/")}
 
       member ->
-        activities = load_member_activities(member.id)
-        total_bux = calculate_total_bux(activities)
+        all_activities = load_member_activities(member.id)
+        time_period = socket.assigns[:time_period] || "24h"
+        filtered_activities = filter_activities_by_period(all_activities, time_period)
+        total_bux = calculate_total_bux(filtered_activities)
+        overall_multiplier = EngagementTracker.get_user_multiplier(member.id)
 
         {:noreply,
          socket
          |> assign(:page_title, member.username || "Member")
          |> assign(:member, member)
-         |> assign(:activities, activities)
-         |> assign(:total_bux, total_bux)}
+         |> assign(:all_activities, all_activities)
+         |> assign(:activities, filtered_activities)
+         |> assign(:total_bux, total_bux)
+         |> assign(:time_period, time_period)
+         |> assign(:overall_multiplier, overall_multiplier)}
     end
   end
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
+  def handle_event("set_time_period", %{"period" => period}, socket) do
+    filtered_activities = filter_activities_by_period(socket.assigns.all_activities, period)
+    total_bux = calculate_total_bux(filtered_activities)
+
+    {:noreply,
+     socket
+     |> assign(:time_period, period)
+     |> assign(:activities, filtered_activities)
+     |> assign(:total_bux, total_bux)}
   end
 
   # Load activities from both Mnesia tables (post reads and X shares)
@@ -76,6 +94,20 @@ defmodule BlocksterV2Web.MemberLive.Show do
       })
     end)
   end
+
+  defp filter_activities_by_period(activities, period) do
+    cutoff = get_cutoff_time(period)
+
+    case cutoff do
+      nil -> activities
+      time -> Enum.filter(activities, fn a -> DateTime.compare(a.timestamp, time) != :lt end)
+    end
+  end
+
+  defp get_cutoff_time("24h"), do: DateTime.add(DateTime.utc_now(), -24, :hour)
+  defp get_cutoff_time("7d"), do: DateTime.add(DateTime.utc_now(), -7, :day)
+  defp get_cutoff_time("30d"), do: DateTime.add(DateTime.utc_now(), -30, :day)
+  defp get_cutoff_time("all"), do: nil
 
   defp calculate_total_bux(activities) do
     activities

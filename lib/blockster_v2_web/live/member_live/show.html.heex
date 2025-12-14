@@ -1,143 +1,134 @@
 <div class="profile-main bg-bg-light">
   <section class="lg:mt-10 lg:mb-40">
-    <div class="container flex lg:flex-row flex-col mx-auto gap-3">
-      <div class="lg:w-2/3 w-full">
-        <div class="w-full bg-white rounded-2xl md:p-6 p-3 flex flex-wrap md:flex-nowrap items-start justify-between gap-4 relative">
-          <!-- Profile Left -->
-          <div class="flex items-center gap-4 flex-wrap">
-            <div class="img-rounded md:h-[120px] md:min-w-[120px] h-[64px] w-[64px] rounded-full bg-[#AFB5FF] cursor-pointer relative overflow-hidden">
-              <input accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer" id="uploadImage" name="" type="file"/>
-              <img alt="Freddie" class="h-full w-full min-w-auto object-cover" id="imagePreview" src="/images/freddy-120.png"/>
-            </div>
-            <!-- Info -->
-            <div class="max-md:w-full">
-              <div class="flex flex-wrap items-center gap-2">
-                <button class="flex items-center gap-1 px-3 bg-white relative rounded-[8px] px-1 py-1.5 bg-green_gradient_2">
-                  <span class="text-sm font-haas_medium_65 text-[#141414] leading-[1.4]">
-                    Tier 1
+    <div class="container mx-auto">
+      <div class="w-full max-w-4xl mx-auto">
+        <!-- Profile Header Card -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+          <!-- Cover Image/Gradient -->
+          <div class="h-32 bg-gradient-to-r from-[#8AE388] to-[#BAF55F]"></div>
+
+          <!-- Profile Info -->
+          <div class="px-6 pb-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-end -mt-16 mb-4">
+              <!-- Avatar -->
+              <div class="relative mb-4 sm:mb-0">
+                <div class="w-32 h-32 rounded-full border-4 border-white bg-[#AFB5FF] overflow-hidden shadow-lg">
+                  <%= if @member.avatar_url do %>
+                    <img src={@member.avatar_url} alt="Avatar" class="w-full h-full object-cover" />
+                  <% else %>
+                    <img src="/images/avatar.png" alt="Avatar" class="w-full h-full object-cover" />
+                  <% end %>
+                </div>
+                <!-- Level Badge -->
+                <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                  <span class="flex h-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#8AE388] to-[#BAF55F] px-3 text-black text-sm font-work_sans font-bold shadow-md">
+                    Level {@member.level}
                   </span>
-                  <span>
-                    <svg fill="none" height="16" viewbox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M8.00065 14.6666C11.6673 14.6666 14.6673 11.6666 14.6673 7.99998C14.6673 4.33331 11.6673 1.33331 8.00065 1.33331C4.33398 1.33331 1.33398 4.33331 1.33398 7.99998C1.33398 11.6666 4.33398 14.6666 8.00065 14.6666Z" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
-                      </path>
-                      <path d="M8 5.33331V8.66665" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
-                      </path>
-                      <path d="M7.99609 10.6667H8.00208" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                      </path>
-                    </svg>
-                  </span>
-                </button>
-                <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">
-                  Freddie Ljungberg
-                </h3>
+                </div>
               </div>
-              <div class="flex flex-wrap items-center gap-2 mt-3 text-sm text-gray-600">
-                <span class="p-2 text-xs leading-[1.4] rounded-full bg-[#EEF0F4] text-[#141414] flex gap-1 items-center">
-                  <svg fill="none" height="16" viewbox="0 0 16 17" width="16" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14.0607 5.15333C13.494 4.52666 12.5473 4.21333 11.174 4.21333H11.014V4.18666C11.014 3.06666 11.014 1.67999 8.50734 1.67999H7.49401C4.98734 1.67999 4.98734 3.07333 4.98734 4.18666V4.21999H4.82734C3.44734 4.21999 2.50734 4.53333 1.94068 5.15999C1.28068 5.89333 1.30068 6.87999 1.36734 7.55333L1.37401 7.59999L1.41813 8.06327C1.4324 8.21305 1.51314 8.34849 1.6393 8.43047C1.79966 8.53467 2.02088 8.67566 2.16068 8.75333C2.25401 8.81333 2.35401 8.86666 2.45401 8.91999C3.59401 9.54666 4.84734 9.96666 6.12068 10.1733C6.18068 10.8 6.45401 11.5333 7.91401 11.5333C9.37401 11.5333 9.66068 10.8067 9.70734 10.16C11.0673 9.93999 12.3807 9.46666 13.5673 8.77333C13.6073 8.75333 13.634 8.73333 13.6673 8.71333C13.9111 8.57555 14.1633 8.40829 14.3971 8.24168C14.5106 8.16081 14.5828 8.03458 14.5981 7.89607L14.6007 7.87333L14.634 7.55999C14.6407 7.51999 14.6407 7.48666 14.6473 7.43999C14.7007 6.76666 14.6873 5.84666 14.0607 5.15333ZM8.72734 9.71999C8.72734 10.4267 8.72734 10.5333 7.90734 10.5333C7.08734 10.5333 7.08734 10.4067 7.08734 9.72666V8.88666H8.72734V9.71999ZM5.94068 4.21333V4.18666C5.94068 3.05333 5.94068 2.63333 7.49401 2.63333H8.50734C10.0607 2.63333 10.0607 3.05999 10.0607 4.18666V4.21999H5.94068V4.21333Z" fill="#141414">
-                    </path>
-                    <path d="M13.6461 9.78356C14.0008 9.61764 14.4082 9.89853 14.3728 10.2885L14.1605 12.6267C14.0205 13.96 13.4739 15.32 10.5405 15.32H5.46055C2.52721 15.32 1.98055 13.96 1.84055 12.6334L1.63983 10.4255C1.60479 10.0401 2.00272 9.75952 2.35635 9.91685C3.11607 10.2549 4.25657 10.7378 5.03025 10.954C5.19384 10.9997 5.32638 11.1181 5.40447 11.2689C5.82533 12.0817 6.687 12.5134 7.91388 12.5134C9.12873 12.5134 10.0004 12.0651 10.4231 11.2492C10.5013 11.0982 10.6343 10.9798 10.798 10.9337C11.6228 10.7013 12.8456 10.158 13.6461 9.78356Z" fill="#141414">
-                    </path>
-                  </svg>
-                  Network Engineer
-                </span>
-                <span class="p-2 text-xs leading-[1.4] rounded-full bg-[#EEF0F4] text-[#141414] flex gap-1 items-center">
-                  <svg fill="none" height="17" viewbox="0 0 16 17" width="16" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M13.9806 11.22C13.8207 13 12.534 14.1666 10.6673 14.1666H4.66732C2.82732 14.1666 1.33398 12.6733 1.33398 10.8333V6.16665C1.33398 4.35331 2.42732 3.08665 4.12732 2.87331C4.30065 2.84665 4.48065 2.83331 4.66732 2.83331H10.6673C10.8407 2.83331 11.0073 2.83998 11.1673 2.86665C12.7607 3.05331 13.8406 4.16665 13.9806 5.77998C14.0006 5.97331 13.8406 6.13331 13.6473 6.13331H12.614C11.974 6.13331 11.3807 6.37998 10.954 6.81998C10.4473 7.31331 10.194 8.00665 10.254 8.69998C10.3607 9.91331 11.4273 10.8666 12.694 10.8666H13.6473C13.8406 10.8666 14.0006 11.0266 13.9806 11.22Z" fill="#141414">
-                    </path>
-                    <path d="M14.6675 7.8133V9.18663C14.6675 9.5533 14.3741 9.8533 14.0008 9.86663H12.6941C11.9741 9.86663 11.3141 9.33997 11.2541 8.61997C11.2141 8.19997 11.3741 7.80663 11.6541 7.5333C11.9008 7.27997 12.2408 7.1333 12.6141 7.1333H14.0008C14.3741 7.14663 14.6675 7.44663 14.6675 7.8133Z" fill="#141414">
-                    </path>
-                  </svg>
-                  0x62656176657
-                </span>
-                <ul class="flex gap-2">
-                  <li>
-                    <a class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-full block" href="">
-                      <svg fill="none" height="14" viewbox="0 0 15 14" width="15" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14.4999 6.95697C14.4835 5.62299 14.0862 4.32147 13.3549 3.20569C12.6236 2.08991 11.5887 1.20633 10.372 0.659033C9.15531 0.111731 7.80759 -0.0765048 6.48753 0.116482C5.16749 0.309478 3.93007 0.875654 2.92101 1.74836C1.91195 2.62106 1.17328 3.76393 0.791989 5.04237C0.410705 6.32082 0.402672 7.68157 0.768853 8.96445C1.13503 10.2473 1.86017 11.3988 2.85886 12.2833C3.85754 13.1679 5.08821 13.7486 6.40589 13.9572V8.99578H4.65585V6.95697H6.40589V5.40817C6.36538 5.04806 6.4044 4.68343 6.52025 4.34004C6.63611 3.99664 6.8259 3.68286 7.07625 3.42083C7.32659 3.1588 7.63136 2.95491 7.96912 2.82356C8.30688 2.6922 8.6694 2.63657 9.03096 2.66062C9.55581 2.6678 10.0794 2.71461 10.5973 2.80062V4.55067H9.72223C9.57138 4.53164 9.41808 4.54676 9.27387 4.59491C9.12958 4.64307 8.99798 4.72302 8.88877 4.82886C8.77957 4.9347 8.69557 5.06374 8.64298 5.20639C8.5903 5.34911 8.57044 5.5018 8.5847 5.65318V6.97447H10.5273L10.2122 9.01328H8.59345V13.9134C10.2472 13.6519 11.7524 12.8062 12.836 11.5299C13.9196 10.2536 14.5099 8.63124 14.4999 6.95697Z" fill="#141414">
-                        </path>
-                      </svg>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="h-8 w-8 arrow-animated bg-bg-light rounded-full flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block" href="">
-                      <svg fill="none" height="14" viewbox="0 0 15 14" width="15" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M0.533672 0.349976L5.93888 7.68561L0.5 13.65H1.72443L6.48663 8.42834L10.334 13.65H14.5L8.79094 5.90171L13.8537 0.349976H12.6293L8.24401 5.15898L4.7005 0.349976H0.533672ZM2.33376 1.26526H4.24719L12.6983 12.7347H10.7848L2.33376 1.26526Z" fill="#141414">
-                        </path>
-                      </svg>
-                    </a>
-                  </li>
-                </ul>
-              </div>
-              <div class="flex flex-wrap items-center gap-4 mt-6 text-sm text-gray-800 max-md:justify-between">
-                <span class="gap-2 flex items-center">
-                  <span class="leaading-[24px] text-md font-haas_medium_65">
-                    3,419 $BUX
-                  </span>
-                  <span class="text-gray-400 text-xs">
-                    Total Earned
-                  </span>
-                </span>
-                <span class="hidden sm:inline text-gray-300">
-                  |
-                </span>
-                <span class="gap-2 flex items-center">
-                  <span class="leaading-[24px] text-md font-haas_medium_65">
-                    100
-                  </span>
-                  <span class="text-gray-400 text-xs">
-                    Articles Read
-                  </span>
-                </span>
-                <span class="hidden sm:inline text-gray-300">
-                  |
-                </span>
-                <span class="gap-2 flex items-center">
-                  <span class="leaading-[24px] text-md font-haas_medium_65">
-                    5
-                  </span>
-                  <span class="text-gray-400 text-xs">
-                    Events
-                  </span>
-                </span>
+
+              <!-- Name and Username -->
+              <div class="sm:ml-6 flex-1">
+                <h1 class="text-3xl font-haas_bold_75 text-gray-900">
+                  <%= @member.username || "User" %>
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                  Member since <%= Calendar.strftime(@member.inserted_at, "%B %Y") %>
+                </p>
               </div>
             </div>
           </div>
-          <!-- Follow Button -->
-          <button class="bg-black text-white text-sm px-5 py-2 max-sm:absolute rounded-full font-inter leading-[1.4] transition gap-2 flex items-center max-sm:right-3 max-sm:top-3" onclick="toggleModal('shareModal')">
-            <span class="text-[20px] flex items-center leading-[0] max-sm:hidden">
-              +
-            </span>
-            <span class="text-xs flex items-center leading-[1.4] max-sm:hidden">
-              Follow
-            </span>
-            <span class="text-xs flex items-center leading-[1.4] sm:hidden">
-              Share
-            </span>
-            <span class="sm:hidden">
-              <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.70833 3.125H3.125V16.875H16.875V12.2917M11.4583 3.125H16.875V8.54167M9.16667 10.8333L16.4542 3.54576" stroke="white" stroke-linecap="square" stroke-width="1.5">
-                </path>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <!-- BUX Balance Card -->
+          <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balance</h3>
+              <.lightning_icon id="member_bux" size="24" />
+            </div>
+            <p class="text-3xl font-haas_bold_75 text-gray-900">
+              <%= @member.bux_balance %>
+            </p>
+            <p class="text-xs text-gray-500 mt-1">Earn more by reading & sharing articles</p>
+          </div>
+
+          <!-- Level Card -->
+          <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">Level</h3>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#8AE388]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-            </span>
-          </button>
+            </div>
+            <p class="text-3xl font-haas_bold_75 text-gray-900">
+              <%= @overall_multiplier %>
+            </p>
+            <!-- Progress Bar -->
+            <div class="mt-3">
+              <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-gradient-to-r from-[#8AE388] to-[#BAF55F]"
+                  style={"width: #{min(100, @overall_multiplier)}%"}
+                >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ROGUE Staked Card -->
+          <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">ROGUE Staked</h3>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#8AE388]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+            </div>
+            <p class="text-3xl font-haas_bold_75 text-gray-900">
+              <%= @member.experience_points %>
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+              1,000 ROGUE to next level · <a href="https://app.uniswap.org/swap?outputCurrency=0x7D07645B9dDc0A7f6a18E67B9AA08A3b7cD6d49F" target="_blank" class="text-blue-500 hover:underline">Buy ROGUE</a>
+            </p>
+          </div>
         </div>
         <div class="w-full md:bg-white rounded-2xl md:p-6 md:p-3 mt-3">
-          <div class="p-2 bg-gray-50 rounded-full max-md:hidden">
-            <div class="inline-flex w-full">
-              <button class={"w-1/5 border border-gray-200 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] tab #{if @active_tab == "activity", do: "active-tab bg-white", else: ""}"} phx-click="switch_tab" phx-value-tab="activity">
+          <div class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden">
+            <div class="inline-flex w-full gap-1">
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="activity"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "activity", do: "bg-white", else: ""}"}
+              >
                 Activity
               </button>
-              <button class={"w-1/5 border border-gray-200 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] tab #{if @active_tab == "following", do: "active-tab bg-white", else: ""}"} phx-click="switch_tab" phx-value-tab="following">
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="following"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "following", do: "bg-white", else: ""}"}
+              >
                 Following
               </button>
-              <button class={"w-1/5 border border-gray-200 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] tab #{if @active_tab == "event", do: "active-tab bg-white", else: ""}"} phx-click="switch_tab" phx-value-tab="event">
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="event"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "event", do: "bg-white", else: ""}"}
+              >
                 Events
               </button>
-              <button class={"w-1/5 border border-gray-200 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] tab #{if @active_tab == "airdrop", do: "active-tab bg-white", else: ""}"} phx-click="switch_tab" phx-value-tab="airdrop">
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="airdrop"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "airdrop", do: "bg-white", else: ""}"}
+              >
                 Airdrop
               </button>
-              <button class={"w-1/5 border border-gray-200 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] tab #{if @active_tab == "settings", do: "active-tab bg-white", else: ""}"} phx-click="switch_tab" phx-value-tab="settings">
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="settings"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "settings", do: "bg-white", else: ""}"}
+              >
                 Settings
               </button>
             </div>
@@ -682,12 +673,46 @@
           </div>
           <div class={"table-main mt-3 tab-wrapper #{if @active_tab != "activity", do: "hidden", else: ""}"} id="activity">
             <div class="jumbptron md:p-8 p-4 rounded-t-[16px] bg-[url('/images/jumotron-bg.png')] bg-repeat bg-cover">
-              <span class="text-sm text-[#141414] font-haas_medium_65 leading-[1.4]">
-                TOTAL EARNED
-              </span>
-              <h2 class="md:text-[32px] text-[24px] md:mt-2 !leading-[1.2] tracking-[0.02em]">
-                <%= :erlang.float_to_binary((is_struct(@total_bux, Decimal) && Decimal.to_float(@total_bux)) || (is_number(@total_bux) && @total_bux * 1.0) || 0.0, [decimals: 2]) %> $BUX
-              </h2>
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-sm text-[#141414] font-haas_medium_65 leading-[1.4]">
+                    TOTAL EARNED
+                  </span>
+                  <h2 class="md:text-[32px] text-[24px] md:mt-2 !leading-[1.2] tracking-[0.02em]">
+                    <%= :erlang.float_to_binary((is_struct(@total_bux, Decimal) && Decimal.to_float(@total_bux)) || (is_number(@total_bux) && @total_bux * 1.0) || 0.0, [decimals: 2]) %> $BUX
+                  </h2>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    phx-click="set_time_period"
+                    phx-value-period="24h"
+                    class={"cursor-pointer px-3 py-1.5 rounded-full text-xs font-haas_medium_65 transition-colors #{if @time_period == "24h", do: "bg-[#141414] text-white", else: "bg-white/50 text-[#141414] hover:bg-white/80"}"}
+                  >
+                    24H
+                  </button>
+                  <button
+                    phx-click="set_time_period"
+                    phx-value-period="7d"
+                    class={"cursor-pointer px-3 py-1.5 rounded-full text-xs font-haas_medium_65 transition-colors #{if @time_period == "7d", do: "bg-[#141414] text-white", else: "bg-white/50 text-[#141414] hover:bg-white/80"}"}
+                  >
+                    7D
+                  </button>
+                  <button
+                    phx-click="set_time_period"
+                    phx-value-period="30d"
+                    class={"cursor-pointer px-3 py-1.5 rounded-full text-xs font-haas_medium_65 transition-colors #{if @time_period == "30d", do: "bg-[#141414] text-white", else: "bg-white/50 text-[#141414] hover:bg-white/80"}"}
+                  >
+                    30D
+                  </button>
+                  <button
+                    phx-click="set_time_period"
+                    phx-value-period="all"
+                    class={"cursor-pointer px-3 py-1.5 rounded-full text-xs font-haas_medium_65 transition-colors #{if @time_period == "all", do: "bg-[#141414] text-white", else: "bg-white/50 text-[#141414] hover:bg-white/80"}"}
+                  >
+                    ALL
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="overflow-x-auto table-main-inner border border-[#14141414] rounded-b-[16px] pb-6 max-sm:bg-white">
               <table class="table-auto divide-y divide-[rgba(20, 20, 20, 0.08)] w-full">
@@ -734,10 +759,10 @@
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap font-haas_medium_65 text-sm w-1/3 text-right">
                           <%= if activity[:tx_id] do %>
                             <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="text-[#4E84DA] underline hover:text-[#3a6ab8]">
-                              +<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> $BUX
+                              +<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> BUX
                             </a>
                           <% else %>
-                            <span class="text-[#4EDA55]">+<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> $BUX</span>
+                            <span class="text-[#4EDA55]">+<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> BUX</span>
                           <% end %>
                         </td>
                       </tr>
@@ -745,11 +770,6 @@
                   <% end %>
                 </tbody>
               </table>
-              <div :if={length(@activities) > 10} class="flex items-center justify-center mt-6">
-                <button class="primary-btn-shadow bg-bg-btn_primary px-6 py-3 text-[#000000] max-md:w-auto w-full rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
-                  Show more
-                </button>
-              </div>
             </div>
           </div>
           <div class={"tabs-main tab-wrapper #{if @active_tab != "settings", do: "hidden", else: ""}"} id="settings">
@@ -2218,80 +2238,6 @@
                 Show more
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="lg:w-1/3 w-full">
-        <div class="bg-white rounded-2xl shadow-sm md:p-6 p-3 text-center w-full mx-auto">
-          <!-- Header -->
-          <div class="flex l items-center gap-3 mb-6">
-            <h2 class="text-lg font-haas_bold text-[#141414]">
-              Weekly Prize Pool
-            </h2>
-            <button class="flex items-center gap-1 px-3 bg-white relative rounded-full px-1 py-1.5 bg-green_gradient_2">
-              <span class="text-sm font-haas_medium_65 text-[#343434] leading-[1.4]">
-                Coming Soon
-              </span>
-            </button>
-          </div>
-          <!-- Countdown -->
-          <div class="bg-[#F5F7FF] rounded-2xl py-4 px-4 flex items-center justify-center xl:gap-[30px] gap-[10px]">
-            <!-- Days -->
-            <div class="flex flex-col items-center counter relative">
-              <div class="leading-[24px] border-2 border-lime-400 rounded-2xl xl:px-5 xl:py-4 px-4 py-3 flex items-center justify-center text-md font-bold text-[#343434]">
-                60
-              </div>
-              <span class="mt-2 text-sm font-bold text-[#343434]">
-                DAYS
-              </span>
-            </div>
-            <!-- Hours -->
-            <div class="flex flex-col items-center counter relative">
-              <div class="leading-[24px] border-2 border-lime-400 rounded-2xl xl:px-5 xl:py-4 px-4 py-3 flex items-center justify-center text-md font-bold text-[#343434]">
-                60
-              </div>
-              <span class="mt-2 text-sm font-bold text-[#343434]">
-                HOURS
-              </span>
-            </div>
-            <!-- Minutes -->
-            <div class="flex flex-col items-center counter relative">
-              <div class="leading-[24px] border-2 border-lime-400 rounded-2xl xl:px-5 xl:py-4 px-4 py-3 flex items-center justify-center text-md font-bold text-[#343434]">
-                60
-              </div>
-              <span class="mt-2 text-sm font-bold text-[#343434]">
-                MIN
-              </span>
-            </div>
-            <!-- Seconds -->
-            <div class="flex flex-col items-center">
-              <div class="leading-[24px] border-2 border-lime-400 rounded-2xl xl:px-5 xl:py-4 px-4 py-3 flex items-center justify-center text-md font-bold text-[#343434]">
-                60
-              </div>
-              <span class="mt-2 text-sm font-bold text-[#343434]">
-                SEC
-              </span>
-            </div>
-          </div>
-          <!-- Note -->
-          <p class="mt-1.5 text-sm text-[#343434] font-haas_roman_55">
-            <span class="text-red-500">
-              *
-            </span>
-            Will become available in January 2026
-          </p>
-        </div>
-        <div class="banner-main mt-3 max-lg:min-h-[480px] max-lg:max-w-[480px] mb-5 w-full mx-auto">
-          <div class="banner-add">
-            <img alt="" class="h-full w-full" src="/images/coming-soon-ad.png" srcset=""/>
-          </div>
-          <div class="wrapper py-4 px-6 bg-[#E7E8F1] block rounded-b-[12px] flex gap-3 items-center">
-            <span class="text-[#141414] font-inter font-[800]">
-              ad
-            </span>
-            <button class="p-4 bg-white py-1 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#343434] border-solid">
-              Sponsored by Tether
-            </button>
           </div>
         </div>
       </div>
