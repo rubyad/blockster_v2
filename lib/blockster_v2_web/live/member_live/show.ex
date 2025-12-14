@@ -29,6 +29,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
         filtered_activities = filter_activities_by_period(all_activities, time_period)
         total_bux = calculate_total_bux(filtered_activities)
         overall_multiplier = EngagementTracker.get_user_multiplier(member.id)
+        bux_balance = EngagementTracker.get_user_bux_balance(member.id)
 
         # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
         maybe_refresh_bux_balance(member)
@@ -41,7 +42,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:activities, filtered_activities)
          |> assign(:total_bux, total_bux)
          |> assign(:time_period, time_period)
-         |> assign(:overall_multiplier, overall_multiplier)}
+         |> assign(:overall_multiplier, overall_multiplier)
+         |> assign(:bux_balance, bux_balance)}
     end
   end
 
