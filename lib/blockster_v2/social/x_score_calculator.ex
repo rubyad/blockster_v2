@@ -84,11 +84,11 @@ defmodule BlocksterV2.Social.XScoreCalculator do
     end
 
     # Calculate engagement rate from original tweets only
-    {avg_engagement_rate, original_tweets_count} = calculate_engagement_rate(tweets, followers)
+    {avg_engagement_rate, avg_engagement_per_tweet, original_tweets_count} = calculate_engagement_rate(tweets, followers)
 
     # Score components (total = 100)
     follower_quality_score = calculate_follower_quality(followers, following)        # 25 points max
-    engagement_score = calculate_engagement_score(avg_engagement_rate)               # 35 points max
+    engagement_score = calculate_engagement_score(avg_engagement_rate, avg_engagement_per_tweet, followers)  # 35 points max
     age_score = calculate_age_score(account_age_days)                                # 10 points max
     activity_score = calculate_activity_score(tweet_count, account_age_days)         # 15 points max
     list_score = calculate_list_score(listed_count)                                  # 5 points max
@@ -141,12 +141,29 @@ defmodule BlocksterV2.Social.XScoreCalculator do
   defp calculate_follower_quality(_, _), do: 0.0
 
   # Engagement rate score (35 points max)
-  # Engagement rate = (likes + retweets + replies) / followers
-  # Good engagement rate is 1-5%, excellent is >5%
-  defp calculate_engagement_score(engagement_rate) do
-    # Engagement rate of 5% or more = max score
-    # Normalize: rate of 0.05 (5%) = 1.0
-    min(engagement_rate / 0.05, 1.0) * 35
+  # Split into rate component (17.5) and volume component (17.5)
+  # Rate threshold scales down as followers increase (large accounts naturally have lower rates)
+  # Volume requires 200+ avg engagements per tweet for max score
+  defp calculate_engagement_score(engagement_rate, avg_engagement_per_tweet, followers) do
+    # Rate component: 17.5 points max
+    # Target rate scales with follower count:
+    # - 0-1k followers: need 10% for max
+    # - 1k-10k followers: need 5% for max
+    # - 10k-100k followers: need 2% for max
+    # - 100k+ followers: need 1% for max
+    target_rate = cond do
+      followers < 1_000 -> 0.10
+      followers < 10_000 -> 0.05
+      followers < 100_000 -> 0.02
+      true -> 0.01
+    end
+    rate_score = min(engagement_rate / target_rate, 1.0) * 17.5
+
+    # Volume component: 17.5 points max
+    # Need 200+ average engagements per tweet for max score
+    volume_score = min(avg_engagement_per_tweet / 200, 1.0) * 17.5
+
+    rate_score + volume_score
   end
 
   # Account age score (10 points max)
@@ -180,7 +197,8 @@ defmodule BlocksterV2.Social.XScoreCalculator do
   defp calculate_follower_scale(_), do: 0.0
 
   # Calculate engagement rate from original tweets
-  defp calculate_engagement_rate([], _followers), do: {0.0, 0}
+  # Returns {engagement_rate, avg_engagement_per_tweet, tweet_count}
+  defp calculate_engagement_rate([], _followers), do: {0.0, 0.0, 0}
   defp calculate_engagement_rate(tweets, followers) when followers > 0 do
     tweet_count = length(tweets)
 
@@ -194,12 +212,12 @@ defmodule BlocksterV2.Social.XScoreCalculator do
     end)
 
     # Average engagement per tweet, normalized by followers
-    avg_engagement_per_tweet = if tweet_count > 0, do: total_engagement / tweet_count, else: 0
+    avg_engagement_per_tweet = if tweet_count > 0, do: total_engagement / tweet_count, else: 0.0
     engagement_rate = avg_engagement_per_tweet / followers
 
-    {engagement_rate, tweet_count}
+    {engagement_rate, avg_engagement_per_tweet, tweet_count}
   end
-  defp calculate_engagement_rate(tweets, _), do: {0.0, length(tweets)}
+  defp calculate_engagement_rate(tweets, _), do: {0.0, 0.0, length(tweets)}
 
   defp parse_created_at(nil), do: nil
   defp parse_created_at(date_string) do
