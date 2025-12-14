@@ -189,10 +189,17 @@ defmodule BlocksterV2.Social.XScoreCalculator do
   end
 
   # Follower scale (10 points max)
-  # Uses logarithmic scale: 1M followers (10^6) = max
+  # Uses logarithmic scale: 10M followers (10^7) = max
+  # Under 1k followers gets almost nothing, scales up from there
+  defp calculate_follower_scale(followers) when followers >= 1000 do
+    # log10(10,000,000) = 7, log10(1000) = 3
+    # So we map 1k-10M (3-7 in log scale) to 0-10 points
+    score = ((:math.log10(followers) - 3) / 4) * 10
+    min(max(score, 0.0), 10.0)
+  end
   defp calculate_follower_scale(followers) when followers > 0 do
-    # log10(1,000,000) = 6
-    min(:math.log10(followers) / 6, 1.0) * 10
+    # Under 1k followers: tiny score (max ~1 point at 999)
+    followers / 1000
   end
   defp calculate_follower_scale(_), do: 0.0
 

@@ -743,6 +743,16 @@ defmodule BlocksterV2.MnesiaInitializer do
           spawn(fn -> retry_cluster_connection(cluster_nodes) end)
         {:timeout, still_waiting} ->
           Logger.warning("[MnesiaInitializer] Timeout waiting for tables: #{inspect(still_waiting)}")
+          # Force load tables that timed out (single node scenario)
+          Logger.info("[MnesiaInitializer] Force loading timed out tables...")
+          for table <- still_waiting do
+            case :mnesia.force_load_table(table) do
+              :yes -> Logger.info("[MnesiaInitializer] Force loaded #{table}")
+              other -> Logger.warning("[MnesiaInitializer] Force load #{table} returned: #{inspect(other)}")
+            end
+          end
+          # Try to reconnect to cluster in background for replication
+          spawn(fn -> retry_cluster_connection(cluster_nodes) end)
         {:error, reason} ->
           Logger.warning("[MnesiaInitializer] Error loading tables: #{inspect(reason)}")
       end
@@ -1194,6 +1204,14 @@ defmodule BlocksterV2.MnesiaInitializer do
 
       {:timeout, remaining} ->
         Logger.warning("[MnesiaInitializer] Timeout waiting for tables: #{inspect(remaining)}")
+        # Force load tables that timed out (single node scenario)
+        Logger.info("[MnesiaInitializer] Force loading timed out tables...")
+        for table <- remaining do
+          case :mnesia.force_load_table(table) do
+            :yes -> Logger.info("[MnesiaInitializer] Force loaded #{table}")
+            other -> Logger.warning("[MnesiaInitializer] Force load #{table} returned: #{inspect(other)}")
+          end
+        end
 
       {:error, reason} ->
         Logger.error("[MnesiaInitializer] Error waiting for tables: #{inspect(reason)}")
