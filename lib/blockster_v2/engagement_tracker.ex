@@ -414,6 +414,67 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets user X (Twitter) multiplier from the :user_multipliers Mnesia table.
+  Returns the x_multiplier value, defaulting to 1 if not found or nil.
+  Creates record with default values if user doesn't exist in the table.
+  """
+  def get_user_x_multiplier(user_id) do
+    case :mnesia.dirty_read({:user_multipliers, user_id}) do
+      [] ->
+        # Create record with default values
+        now = DateTime.utc_now()
+        record = {:user_multipliers, user_id, nil, 1, 1, 1, 1, 1, nil, nil, nil, nil, now, now}
+        :mnesia.dirty_write(record)
+        1
+
+      [record] ->
+        # x_multiplier is at index 3 in the record tuple
+        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, ...]
+        elem(record, 3) || 1
+    end
+  rescue
+    _ -> 1
+  catch
+    :exit, _ -> 1
+  end
+
+  @doc """
+  Sets user X (Twitter) multiplier in the :user_multipliers Mnesia table.
+  Creates record with default values if user doesn't exist in the table.
+  Returns :ok on success.
+  """
+  def set_user_x_multiplier(user_id, x_multiplier) do
+    now = DateTime.utc_now()
+
+    case :mnesia.dirty_read({:user_multipliers, user_id}) do
+      [] ->
+        # Create new record with the x_multiplier
+        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, extra1, extra2, extra3, extra4, created_at, updated_at}
+        record = {:user_multipliers, user_id, nil, x_multiplier, 1, 1, 1, 1, nil, nil, nil, nil, now, now}
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created user_multipliers for user #{user_id} with x_multiplier=#{x_multiplier}")
+        :ok
+
+      [existing_record] ->
+        # Update existing record - only change x_multiplier (index 3) and updated_at (index 13)
+        updated_record = existing_record
+          |> put_elem(3, x_multiplier)
+          |> put_elem(13, now)
+        :mnesia.dirty_write(updated_record)
+        Logger.info("[EngagementTracker] Updated x_multiplier=#{x_multiplier} for user #{user_id}")
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error setting x_multiplier: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit setting x_multiplier: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
   Calculates the BUX earned for reading an article.
   Formula: (engagement_score / 10) * base_bux_reward * user_multiplier
   """

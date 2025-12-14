@@ -74,10 +74,10 @@ defmodule BlocksterV2Web.PostLive.Show do
       end
 
     # Load X connection and share campaign for logged-in users
-    {x_connection, share_campaign, share_reward} =
+    {x_connection, share_campaign, share_reward, x_share_reward} =
       case socket.assigns[:current_user] do
         nil ->
-          {nil, nil, nil}
+          {nil, nil, nil, nil}
 
         current_user ->
           x_conn = Social.get_x_connection_for_user(current_user.id)
@@ -88,7 +88,11 @@ defmodule BlocksterV2Web.PostLive.Show do
               Social.get_successful_share_reward(current_user.id, campaign.id)
             end
 
-          {x_conn, campaign, reward}
+          # Calculate personalized X share reward: x_multiplier * base_bux_reward
+          x_multiplier = EngagementTracker.get_user_x_multiplier(current_user.id)
+          calculated_reward = round(x_multiplier * base_bux_reward)
+
+          {x_conn, campaign, reward, calculated_reward}
       end
 
     {:noreply,
@@ -110,6 +114,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:x_connection, x_connection)
      |> assign(:share_campaign, share_campaign)
      |> assign(:share_reward, share_reward)
+     |> assign(:x_share_reward, x_share_reward)
      |> assign(:show_share_modal, false)
      |> assign(:share_status, nil)
      |> assign(:needs_x_reconnect, false)}
@@ -433,8 +438,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                     # Verify and record the tweet
                     case Social.verify_share_reward(reward, campaign_tweet_id) do
                       {:ok, verified_reward} ->
-                        # Award BUX
-                        bux_amount = share_campaign.bux_reward
+                        # Award BUX (use personalized x_share_reward from socket)
+                        bux_amount = socket.assigns.x_share_reward
 
                         # Update campaign share count
                         Social.increment_campaign_shares(share_campaign)

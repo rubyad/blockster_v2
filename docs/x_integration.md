@@ -9,12 +9,14 @@ This document provides a comprehensive guide to the X (Twitter) integration in B
 3. [Database Schema](#database-schema)
 4. [Mnesia Integration](#mnesia-integration)
 5. [OAuth 2.0 Flow](#oauth-20-flow)
-6. [X API Client](#x-api-client)
-7. [Share Campaigns](#share-campaigns)
-8. [Retweet & Like Flow](#retweet--like-flow)
-9. [Error Handling](#error-handling)
-10. [Configuration](#configuration)
-11. [Troubleshooting](#troubleshooting)
+6. [X Account Locking](#x-account-locking)
+7. [X Account Quality Score](#x-account-quality-score)
+8. [X API Client](#x-api-client)
+9. [Share Campaigns](#share-campaigns)
+10. [Retweet & Like Flow](#retweet--like-flow)
+11. [Error Handling](#error-handling)
+12. [Configuration](#configuration)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -30,6 +32,7 @@ The X integration allows users to:
 - **Token Refresh**: Automatic token refresh when tokens expire
 - **Retry Logic**: Automatic retries for transient network errors
 - **Campaign Management**: Admin can create campaigns linked to posts
+- **X Account Quality Score**: Automatic scoring (1-100) based on account metrics, used as `x_multiplier` for personalized BUX rewards
 
 ---
 
@@ -43,6 +46,7 @@ lib/blockster_v2/
 │   ├── x_api_client.ex      # X API v2 HTTP client
 │   ├── x_connection.ex      # User's X account connection schema
 │   ├── x_oauth_state.ex     # OAuth state management schema
+│   ├── x_score_calculator.ex # X account quality score calculator
 │   ├── share_campaign.ex    # Share campaign schema
 │   └── share_reward.ex      # User rewards schema
 ├── social.ex                # Social context (business logic)
@@ -62,11 +66,12 @@ lib/blockster_v2_web/
 |--------|---------|
 | `BlocksterV2.Social` | Business logic for X integration |
 | `BlocksterV2.Social.XApiClient` | HTTP client for X API v2 |
-| `BlocksterV2.Social.XConnection` | Stores user's X credentials |
+| `BlocksterV2.Social.XConnection` | Stores user's X credentials and score |
+| `BlocksterV2.Social.XScoreCalculator` | Calculates X account quality score (1-100) |
 | `BlocksterV2.Social.ShareCampaign` | Defines share-to-earn campaigns |
 | `BlocksterV2.Social.ShareReward` | Tracks user participation (PostgreSQL) |
 | `BlocksterV2.MnesiaInitializer` | Manages Mnesia `share_rewards` table |
-| `BlocksterV2.EngagementTracker` | Reads from `user_post_rewards` Mnesia table |
+| `BlocksterV2.EngagementTracker` | Manages `user_multipliers` Mnesia table (includes x_multiplier) |
 
 ---
 
@@ -88,8 +93,19 @@ Stores user's X account connection and tokens.
 | `refresh_token_encrypted` | binary | Encrypted OAuth refresh token |
 | `token_expires_at` | utc_datetime | When access token expires |
 | `scopes` | array | Granted OAuth scopes |
+| `x_score` | integer | Account quality score (1-100) |
+| `followers_count` | integer | Number of followers |
+| `following_count` | integer | Number following |
+| `tweet_count` | integer | Total tweet count |
+| `listed_count` | integer | Number of lists user is on |
+| `avg_engagement_rate` | float | Average engagement rate on original tweets |
+| `original_tweets_analyzed` | integer | Number of tweets analyzed for score |
+| `account_created_at` | utc_datetime | When X account was created |
+| `score_calculated_at` | utc_datetime | When score was last calculated |
 
 **Security**: Tokens are encrypted at rest using `Cloak.Ecto.Binary`.
+
+**Score Refresh**: The `x_score` is recalculated every 7 days or on first connect.
 
 ### x_oauth_states
 
@@ -297,6 +313,9 @@ def callback(conn, %{"code" => code, "state" => state}) do
 
   # Clean up OAuth state
   Social.consume_oauth_state(oauth_state)
+
+  # Calculate X score asynchronously (doesn't block redirect)
+  maybe_calculate_x_score_async(connection, token_data.access_token)
 end
 ```
 
@@ -328,6 +347,162 @@ defp refresh_x_token(connection) do
       {:error, reason}
   end
 end
+```
+
+---
+
+## X Account Locking
+
+Users are permanently locked to the first X account they connect. This prevents users from switching to higher-score X accounts to game the `x_multiplier` reward system.
+
+### How It Works
+
+1. **First connection**: When a user connects their X account for the first time, the `x_user_id` is stored in `users.locked_x_user_id`
+2. **Subsequent connections**: Any reconnection must use the same X account
+3. **Disconnect**: Users can disconnect their X account, but the lock persists
+4. **Lock check**: On OAuth callback, the system verifies the X account matches the locked ID
+
+### Database Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `users.locked_x_user_id` | string | X account ID user is locked to |
+
+The column has a unique partial index (`WHERE locked_x_user_id IS NOT NULL`) to prevent the same X account from being locked to multiple users.
+
+### Implementation
+
+```elixir
+# In Social.upsert_x_connection/2
+def upsert_x_connection(user_id, attrs) do
+  x_user_id = attrs[:x_user_id] || attrs["x_user_id"]
+  user = Repo.get!(User, user_id)
+
+  case check_x_account_lock(user, x_user_id) do
+    {:ok, :first_connection} ->
+      # First X connection - lock the user to this X account
+      create_x_connection_and_lock(user, attrs)
+
+    {:ok, :same_account} ->
+      # Reconnecting same X account - allow
+      upsert_existing_x_connection(user_id, attrs)
+
+    {:error, :x_account_locked} ->
+      # Trying to connect a different X account
+      {:error, :x_account_locked}
+  end
+end
+```
+
+### Error Message
+
+When a user tries to connect a different X account:
+
+> "Your account is locked to a different X account. You can only connect the X account you originally linked."
+
+---
+
+## X Account Quality Score
+
+When a user connects their X account, the system calculates a quality score (1-100) based on their account metrics. This score becomes their `x_multiplier` which determines personalized BUX rewards for X share campaigns.
+
+### Score Components
+
+The score is calculated from 6 weighted components totaling 100 points:
+
+| Component | Max Points | Criteria |
+|-----------|------------|----------|
+| **Follower Quality** | 25 | Followers/following ratio (10:1+ = max) |
+| **Engagement Rate** | 35 | Average engagement on original tweets (5%+ = max) |
+| **Account Age** | 10 | Years since account created (5+ years = max) |
+| **Activity Level** | 15 | Tweets per month (30+ tweets/month = max) |
+| **List Presence** | 5 | Number of public lists (50+ = max) |
+| **Follower Scale** | 10 | Total followers (1M+ = max, logarithmic) |
+
+### Calculation Trigger
+
+Score is calculated:
+1. **First connect**: When user first connects their X account
+2. **Every 7 days**: If `score_calculated_at` is older than 7 days
+
+```elixir
+# In XScoreCalculator
+def needs_score_calculation?(%XConnection{score_calculated_at: nil}), do: true
+def needs_score_calculation?(%XConnection{score_calculated_at: calculated_at}) do
+  days_since = DateTime.diff(DateTime.utc_now(), calculated_at, :day)
+  days_since >= 7
+end
+```
+
+### Async Calculation
+
+Score calculation runs asynchronously after OAuth callback to avoid blocking the redirect:
+
+```elixir
+# In XAuthController
+defp maybe_calculate_x_score_async(connection, access_token) do
+  if XScoreCalculator.needs_score_calculation?(connection) do
+    Task.start(fn ->
+      XScoreCalculator.calculate_and_save_score(connection, access_token)
+    end)
+  end
+end
+```
+
+### API Calls for Score Data
+
+The score calculation fetches:
+1. **User metrics**: `GET /users/{id}?user.fields=public_metrics,created_at`
+2. **Recent tweets**: `GET /users/{id}/tweets?exclude=retweets&tweet.fields=public_metrics`
+
+Only **original tweets** are analyzed (retweets are excluded) to ensure engagement metrics reflect the user's own content.
+
+### Engagement Rate Calculation
+
+```elixir
+# For each original tweet:
+engagement = likes + retweets + replies + quotes
+avg_engagement_per_tweet = total_engagement / tweet_count
+engagement_rate = avg_engagement_per_tweet / followers_count
+```
+
+### Score Storage
+
+The score is saved to two locations:
+1. **PostgreSQL**: `x_connections.x_score` (persistent)
+2. **Mnesia**: `user_multipliers` table as `x_multiplier` (fast distributed reads)
+
+```elixir
+# Update x_multiplier in Mnesia
+EngagementTracker.set_user_x_multiplier(user_id, score)
+```
+
+### Personalized Rewards
+
+The `x_multiplier` (score 1-100) is used to calculate personalized BUX rewards:
+
+```elixir
+# In PostLive.Show
+x_multiplier = EngagementTracker.get_user_x_multiplier(user_id)
+x_share_reward = round(x_multiplier * base_bux_reward)
+```
+
+For example:
+- Base BUX reward: 1 BUX
+- User's X score: 33
+- Personalized reward: 33 BUX
+
+### Example Score Breakdown
+
+```
+[info] [XScoreCalculator] Score breakdown:
+  follower_quality=25,
+  engagement=0,
+  age=3,
+  activity=1,
+  list=0,
+  scale=5,
+  total=33
 ```
 
 ---
@@ -399,6 +574,39 @@ def retweet_and_like(access_token, user_id, tweet_id) do
     {{:ok, _}, {:error, like_error}} ->
       {:ok, %{retweeted: true, liked: false, like_error: like_error}}
     # ... other combinations
+  end
+end
+```
+
+#### `get_user_with_metrics/2`
+Gets user profile with public metrics for score calculation.
+
+```elixir
+def get_user_with_metrics(access_token, user_id) do
+  url = "#{@api_base}/users/#{user_id}?user.fields=public_metrics,created_at,profile_image_url,name,username"
+  # Returns: {:ok, %{"id" => ..., "public_metrics" => %{"followers_count" => ..., ...}}}
+end
+```
+
+#### `get_user_tweets_with_metrics/3`
+Gets user's recent original tweets (excludes retweets) with engagement metrics.
+
+```elixir
+def get_user_tweets_with_metrics(access_token, user_id, max_results \\ 50) do
+  url = "#{@api_base}/users/#{user_id}/tweets?max_results=#{max_results}&tweet.fields=public_metrics,referenced_tweets,created_at&exclude=retweets"
+  # Filters out any tweets with referenced_tweets type "retweeted"
+  # Returns: {:ok, [%{"id" => ..., "public_metrics" => %{"like_count" => ..., ...}}]}
+end
+```
+
+#### `fetch_score_data/2`
+Convenience function that fetches all data needed for score calculation.
+
+```elixir
+def fetch_score_data(access_token, user_id) do
+  with {:ok, user_data} <- get_user_with_metrics(access_token, user_id),
+       {:ok, tweets} <- get_user_tweets_with_metrics(access_token, user_id, 100) do
+    {:ok, %{user: user_data, tweets: tweets}}
   end
 end
 ```

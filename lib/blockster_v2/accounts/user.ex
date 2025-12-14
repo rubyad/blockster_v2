@@ -17,6 +17,7 @@ defmodule BlocksterV2.Accounts.User do
     field :chain_id, :integer, default: 560013
     field :slug, :string
     field :smart_wallet_address, :string
+    field :locked_x_user_id, :string
 
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id

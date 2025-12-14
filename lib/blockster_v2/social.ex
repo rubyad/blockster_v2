@@ -7,6 +7,7 @@ defmodule BlocksterV2.Social do
   import Ecto.Query
   alias BlocksterV2.Repo
   alias BlocksterV2.Social.{XConnection, XOauthState, ShareCampaign, ShareReward, XApiClient}
+  alias BlocksterV2.Accounts.User
   alias BlocksterV2.EngagementTracker
 
   # =============================================================================
@@ -77,8 +78,59 @@ defmodule BlocksterV2.Social do
   @doc """
   Creates or updates an X connection for a user.
   If the user already has a connection, it updates the tokens.
+
+  Users are locked to the first X account they connect. If they try to connect
+  a different X account, returns {:error, :x_account_locked}.
   """
   def upsert_x_connection(user_id, attrs) do
+    x_user_id = attrs[:x_user_id] || attrs["x_user_id"]
+    user = Repo.get!(User, user_id)
+
+    case check_x_account_lock(user, x_user_id) do
+      {:ok, :first_connection} ->
+        # First X connection - lock the user to this X account
+        create_x_connection_and_lock(user, attrs)
+
+      {:ok, :same_account} ->
+        # Reconnecting same X account - allow
+        upsert_existing_x_connection(user_id, attrs)
+
+      {:error, :x_account_locked} = error ->
+        # Trying to connect a different X account
+        error
+    end
+  end
+
+  defp check_x_account_lock(%User{locked_x_user_id: nil}, _x_user_id) do
+    {:ok, :first_connection}
+  end
+
+  defp check_x_account_lock(%User{locked_x_user_id: locked_id}, x_user_id)
+       when locked_id == x_user_id do
+    {:ok, :same_account}
+  end
+
+  defp check_x_account_lock(%User{locked_x_user_id: _locked_id}, _x_user_id) do
+    {:error, :x_account_locked}
+  end
+
+  defp create_x_connection_and_lock(user, attrs) do
+    x_user_id = attrs[:x_user_id] || attrs["x_user_id"]
+
+    Repo.transaction(fn ->
+      # Set the locked_x_user_id on the user
+      user
+      |> Ecto.Changeset.change(%{locked_x_user_id: x_user_id})
+      |> Repo.update!()
+
+      # Create the X connection
+      %XConnection{}
+      |> XConnection.changeset(Map.put(attrs, :user_id, user.id))
+      |> Repo.insert!()
+    end)
+  end
+
+  defp upsert_existing_x_connection(user_id, attrs) do
     case get_x_connection_for_user(user_id) do
       nil ->
         %XConnection{}

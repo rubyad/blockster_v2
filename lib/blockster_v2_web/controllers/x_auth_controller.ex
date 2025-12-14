@@ -4,7 +4,7 @@ defmodule BlocksterV2Web.XAuthController do
   require Logger
 
   alias BlocksterV2.Social
-  alias BlocksterV2.Social.{XApiClient, XOauthState}
+  alias BlocksterV2.Social.{XApiClient, XOauthState, XScoreCalculator}
 
   @doc """
   Initiates the X OAuth flow by redirecting to X's authorization page.
@@ -146,9 +146,20 @@ defmodule BlocksterV2Web.XAuthController do
     }
 
     case Social.upsert_x_connection(user_id, attrs) do
-      {:ok, _connection} ->
+      {:ok, connection} ->
+        # Calculate X score asynchronously if needed (first connect or 7+ days old)
+        # This runs in the background so it doesn't slow down the redirect
+        maybe_calculate_x_score_async(connection, token_data.access_token)
+
         conn
         |> put_flash(:info, "X account @#{x_user["username"]} connected successfully!")
+        |> redirect(to: redirect_path)
+
+      {:error, :x_account_locked} ->
+        Logger.warning("User #{user_id} attempted to connect X account @#{x_user["username"]} but is locked to a different account")
+
+        conn
+        |> put_flash(:error, "Your account is locked to a different X account. You can only connect the X account you originally linked.")
         |> redirect(to: redirect_path)
 
       {:error, changeset} ->
@@ -157,6 +168,21 @@ defmodule BlocksterV2Web.XAuthController do
         conn
         |> put_flash(:error, "Failed to save X connection")
         |> redirect(to: redirect_path)
+    end
+  end
+
+  # Calculates X score asynchronously if score_calculated_at is nil or > 7 days old
+  defp maybe_calculate_x_score_async(connection, access_token) do
+    if XScoreCalculator.needs_score_calculation?(connection) do
+      Task.start(fn ->
+        case XScoreCalculator.calculate_and_save_score(connection, access_token) do
+          {:ok, _updated} ->
+            Logger.info("[XAuthController] X score calculated for user #{connection.user_id}")
+
+          {:error, reason} ->
+            Logger.error("[XAuthController] Failed to calculate X score: #{inspect(reason)}")
+        end
+      end)
     end
   end
 

@@ -380,6 +380,83 @@ defmodule BlocksterV2.Social.XApiClient do
     end
   end
 
+  @doc """
+  Gets user profile with public metrics (followers, following, tweet count, listed count).
+  Returns {:ok, user_data} or {:error, reason}.
+  """
+  def get_user_with_metrics(access_token, user_id) do
+    url = "#{@api_base}/users/#{user_id}?user.fields=public_metrics,created_at,profile_image_url,name,username"
+
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => data}}} ->
+        {:ok, data}
+
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        {:error, "Unexpected response: #{inspect(resp)}"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API get_user_with_metrics failed: #{status} - #{inspect(body)}")
+        {:error, "API request failed: #{status}"}
+
+      {:error, reason} ->
+        Logger.error("X API get_user_with_metrics error: #{inspect(reason)}")
+        {:error, "API request error"}
+    end
+  end
+
+  @doc """
+  Gets user's recent tweets with public metrics (likes, retweets, replies, quotes).
+  Excludes retweets to only get original content.
+  Returns {:ok, tweets} or {:error, reason}.
+
+  max_results: 10-100 (default 50)
+  """
+  def get_user_tweets_with_metrics(access_token, user_id, max_results \\ 50) do
+    # exclude:retweets filters out retweets, so we only get original tweets
+    url = "#{@api_base}/users/#{user_id}/tweets?max_results=#{max_results}&tweet.fields=public_metrics,referenced_tweets,created_at&exclude=retweets"
+
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => tweets}}} ->
+        # Double-check: filter out any tweets that reference other tweets (retweets/quotes)
+        original_tweets = Enum.filter(tweets, fn tweet ->
+          case tweet["referenced_tweets"] do
+            nil -> true
+            [] -> true
+            refs ->
+              # Keep only if no "retweeted" reference type
+              not Enum.any?(refs, fn ref -> ref["type"] == "retweeted" end)
+          end
+        end)
+        {:ok, original_tweets}
+
+      {:ok, %Req.Response{status: 200, body: %{"meta" => %{"result_count" => 0}}}} ->
+        {:ok, []}
+
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        Logger.warning("Unexpected tweets response: #{inspect(resp)}")
+        {:ok, []}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API get_user_tweets_with_metrics failed: #{status} - #{inspect(body)}")
+        {:error, "API request failed: #{status}"}
+
+      {:error, reason} ->
+        Logger.error("X API get_user_tweets_with_metrics error: #{inspect(reason)}")
+        {:error, "API request error"}
+    end
+  end
+
+  @doc """
+  Fetches all data needed for X score calculation: user metrics + recent original tweets.
+  Returns {:ok, %{user: user_data, tweets: [tweet_data]}} or {:error, reason}.
+  """
+  def fetch_score_data(access_token, user_id) do
+    with {:ok, user_data} <- get_user_with_metrics(access_token, user_id),
+         {:ok, tweets} <- get_user_tweets_with_metrics(access_token, user_id, 100) do
+      {:ok, %{user: user_data, tweets: tweets}}
+    end
+  end
+
   # Private functions
 
   defp basic_auth_header do

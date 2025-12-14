@@ -1,0 +1,228 @@
+defmodule BlocksterV2.Social.XScoreCalculator do
+  @moduledoc """
+  Calculates X account quality score (1-100) based on:
+  - Follower quality (followers/following ratio)
+  - Engagement rate on original tweets (excludes retweets)
+  - Account age
+  - Activity level
+  - List presence
+  - Follower scale
+
+  The score is used as the x_multiplier for BUX rewards.
+  Score is recalculated every 7 days.
+  """
+
+  require Logger
+
+  alias BlocksterV2.Social.{XApiClient, XConnection}
+  alias BlocksterV2.{Repo, EngagementTracker}
+
+  @score_refresh_days 7
+
+  @doc """
+  Checks if a score needs to be calculated for the connection.
+  Returns true if:
+  - score_calculated_at is nil (never calculated)
+  - More than 7 days have passed since last calculation
+  """
+  def needs_score_calculation?(%XConnection{score_calculated_at: nil}), do: true
+  def needs_score_calculation?(%XConnection{score_calculated_at: calculated_at}) do
+    days_since = DateTime.diff(DateTime.utc_now(), calculated_at, :day)
+    days_since >= @score_refresh_days
+  end
+
+  @doc """
+  Calculates and saves the X score for a connection if needed.
+  Also updates the x_multiplier in Mnesia user_multipliers table.
+
+  Returns {:ok, updated_connection} or {:error, reason}.
+  """
+  def maybe_calculate_and_save_score(connection, access_token) do
+    if needs_score_calculation?(connection) do
+      calculate_and_save_score(connection, access_token)
+    else
+      {:ok, connection}
+    end
+  end
+
+  @doc """
+  Forces calculation and saves the X score for a connection.
+  Also updates the x_multiplier in Mnesia user_multipliers table.
+
+  Returns {:ok, updated_connection} or {:error, reason}.
+  """
+  def calculate_and_save_score(connection, access_token) do
+    Logger.info("[XScoreCalculator] Calculating X score for user #{connection.user_id}")
+
+    case XApiClient.fetch_score_data(access_token, connection.x_user_id) do
+      {:ok, %{user: user_data, tweets: tweets}} ->
+        score_data = calculate_score(user_data, tweets)
+        save_score(connection, score_data)
+
+      {:error, reason} ->
+        Logger.error("[XScoreCalculator] Failed to fetch score data: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Calculates the X score from user data and tweets.
+  Returns a map with all score components and the final score.
+  """
+  def calculate_score(user_data, tweets) do
+    public_metrics = user_data["public_metrics"] || %{}
+    followers = public_metrics["followers_count"] || 0
+    following = public_metrics["following_count"] || 0
+    tweet_count = public_metrics["tweet_count"] || 0
+    listed_count = public_metrics["listed_count"] || 0
+
+    account_created_at = parse_created_at(user_data["created_at"])
+    account_age_days = if account_created_at do
+      DateTime.diff(DateTime.utc_now(), account_created_at, :day)
+    else
+      0
+    end
+
+    # Calculate engagement rate from original tweets only
+    {avg_engagement_rate, original_tweets_count} = calculate_engagement_rate(tweets, followers)
+
+    # Score components (total = 100)
+    follower_quality_score = calculate_follower_quality(followers, following)        # 25 points max
+    engagement_score = calculate_engagement_score(avg_engagement_rate)               # 35 points max
+    age_score = calculate_age_score(account_age_days)                                # 10 points max
+    activity_score = calculate_activity_score(tweet_count, account_age_days)         # 15 points max
+    list_score = calculate_list_score(listed_count)                                  # 5 points max
+    follower_scale_score = calculate_follower_scale(followers)                       # 10 points max
+
+    total_score = round(
+      follower_quality_score +
+      engagement_score +
+      age_score +
+      activity_score +
+      list_score +
+      follower_scale_score
+    )
+
+    # Clamp to 1-100
+    final_score = max(1, min(100, total_score))
+
+    Logger.info("[XScoreCalculator] Score breakdown: " <>
+      "follower_quality=#{round(follower_quality_score)}, " <>
+      "engagement=#{round(engagement_score)}, " <>
+      "age=#{round(age_score)}, " <>
+      "activity=#{round(activity_score)}, " <>
+      "list=#{round(list_score)}, " <>
+      "scale=#{round(follower_scale_score)}, " <>
+      "total=#{final_score}")
+
+    %{
+      x_score: final_score,
+      followers_count: followers,
+      following_count: following,
+      tweet_count: tweet_count,
+      listed_count: listed_count,
+      avg_engagement_rate: avg_engagement_rate,
+      original_tweets_analyzed: original_tweets_count,
+      account_created_at: account_created_at,
+      score_calculated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  # Score component calculations
+
+  # Follower quality: followers/following ratio (25 points max)
+  # Ratio > 10 = max score, ratio < 0.1 = very low score
+  defp calculate_follower_quality(followers, following) when following > 0 do
+    ratio = followers / following
+    # Cap at 10, normalize to 0-1, multiply by 25
+    min(ratio / 10, 1.0) * 25
+  end
+  defp calculate_follower_quality(followers, _following) when followers > 0, do: 25.0
+  defp calculate_follower_quality(_, _), do: 0.0
+
+  # Engagement rate score (35 points max)
+  # Engagement rate = (likes + retweets + replies) / followers
+  # Good engagement rate is 1-5%, excellent is >5%
+  defp calculate_engagement_score(engagement_rate) do
+    # Engagement rate of 5% or more = max score
+    # Normalize: rate of 0.05 (5%) = 1.0
+    min(engagement_rate / 0.05, 1.0) * 35
+  end
+
+  # Account age score (10 points max)
+  # 5+ years = max score
+  defp calculate_age_score(days) do
+    years = days / 365
+    min(years / 5, 1.0) * 10
+  end
+
+  # Activity score (15 points max)
+  # Based on tweets per month - 30 tweets/month = max
+  defp calculate_activity_score(tweet_count, account_age_days) when account_age_days > 0 do
+    months = max(account_age_days / 30, 1)
+    tweets_per_month = tweet_count / months
+    min(tweets_per_month / 30, 1.0) * 15
+  end
+  defp calculate_activity_score(_, _), do: 0.0
+
+  # List score (5 points max)
+  # Being on 50+ lists = max score
+  defp calculate_list_score(listed_count) do
+    min(listed_count / 50, 1.0) * 5
+  end
+
+  # Follower scale (10 points max)
+  # Uses logarithmic scale: 1M followers (10^6) = max
+  defp calculate_follower_scale(followers) when followers > 0 do
+    # log10(1,000,000) = 6
+    min(:math.log10(followers) / 6, 1.0) * 10
+  end
+  defp calculate_follower_scale(_), do: 0.0
+
+  # Calculate engagement rate from original tweets
+  defp calculate_engagement_rate([], _followers), do: {0.0, 0}
+  defp calculate_engagement_rate(tweets, followers) when followers > 0 do
+    tweet_count = length(tweets)
+
+    total_engagement = Enum.reduce(tweets, 0, fn tweet, acc ->
+      metrics = tweet["public_metrics"] || %{}
+      likes = metrics["like_count"] || 0
+      retweets = metrics["retweet_count"] || 0
+      replies = metrics["reply_count"] || 0
+      quotes = metrics["quote_count"] || 0
+      acc + likes + retweets + replies + quotes
+    end)
+
+    # Average engagement per tweet, normalized by followers
+    avg_engagement_per_tweet = if tweet_count > 0, do: total_engagement / tweet_count, else: 0
+    engagement_rate = avg_engagement_per_tweet / followers
+
+    {engagement_rate, tweet_count}
+  end
+  defp calculate_engagement_rate(tweets, _), do: {0.0, length(tweets)}
+
+  defp parse_created_at(nil), do: nil
+  defp parse_created_at(date_string) do
+    case DateTime.from_iso8601(date_string) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil
+    end
+  end
+
+  # Save score to database and Mnesia
+  defp save_score(connection, score_data) do
+    changeset = XConnection.changeset(connection, score_data)
+
+    case Repo.update(changeset) do
+      {:ok, updated_connection} ->
+        # Update x_multiplier in Mnesia
+        EngagementTracker.set_user_x_multiplier(connection.user_id, score_data.x_score)
+        Logger.info("[XScoreCalculator] Saved X score #{score_data.x_score} for user #{connection.user_id}")
+        {:ok, updated_connection}
+
+      {:error, changeset} ->
+        Logger.error("[XScoreCalculator] Failed to save score: #{inspect(changeset.errors)}")
+        {:error, changeset}
+    end
+  end
+end

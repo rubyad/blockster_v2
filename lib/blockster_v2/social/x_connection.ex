@@ -17,6 +17,17 @@ defmodule BlocksterV2.Social.XConnection do
     field :scopes, {:array, :string}, default: []
     field :connected_at, :utc_datetime
 
+    # X account quality score fields
+    field :x_score, :integer
+    field :followers_count, :integer
+    field :following_count, :integer
+    field :tweet_count, :integer
+    field :listed_count, :integer
+    field :avg_engagement_rate, :float
+    field :original_tweets_analyzed, :integer
+    field :account_created_at, :utc_datetime
+    field :score_calculated_at, :utc_datetime
+
     # Virtual fields for unencrypted tokens
     field :access_token, :string, virtual: true
     field :refresh_token, :string, virtual: true
@@ -25,7 +36,11 @@ defmodule BlocksterV2.Social.XConnection do
   end
 
   @required_fields [:user_id, :x_user_id, :access_token, :connected_at]
-  @optional_fields [:x_username, :x_name, :x_profile_image_url, :refresh_token, :token_expires_at, :scopes]
+  @optional_fields [
+    :x_username, :x_name, :x_profile_image_url, :refresh_token, :token_expires_at, :scopes,
+    :x_score, :followers_count, :following_count, :tweet_count, :listed_count,
+    :avg_engagement_rate, :original_tweets_analyzed, :account_created_at, :score_calculated_at
+  ]
 
   def changeset(x_connection, attrs) do
     x_connection

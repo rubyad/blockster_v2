@@ -478,7 +478,7 @@
                     </h4>
                   </div>
                   <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-3 py-1 rounded-full text-sm font-bold">
-                    +{@share_campaign.bux_reward} BUX
+                    +{@x_share_reward} BUX
                   </span>
                 </div>
 
@@ -725,7 +725,7 @@
         </div>
         <%= if @share_campaign do %>
           <p class="text-black/70 text-sm mt-2">
-            Share this article on X and earn <span class="font-bold">{@share_campaign.bux_reward} BUX</span>!
+            Share this article on X and earn <span class="font-bold">{@x_share_reward} BUX</span>!
           </p>
         <% end %>
       </div>
@@ -843,8 +843,9 @@
           <div class="text-xs text-gray-500 mb-2">Will retweet & like:</div>
           <%= if @share_campaign && @share_campaign.tweet_id do %>
             <div id="share-modal-tweet-embed" phx-hook="TwitterWidgets" phx-update="ignore" class="tweet-embed-container max-h-[400px] overflow-y-auto">
-              <blockquote class="twitter-tweet" data-cards="visible" data-media-max-width="500">
-                <a href={"https://twitter.com/x/status/#{@share_campaign.tweet_id}"}></a>
+              <blockquote class="twitter-tweet" data-theme="light" data-dnt="true">
+                <p lang="en" dir="ltr">Loading tweet...</p>
+                <a href={"https://twitter.com/i/status/#{@share_campaign.tweet_id}"}>View Tweet</a>
               </blockquote>
             </div>
           <% else %>
@@ -867,7 +868,7 @@
             Retweet & Like
             <%= if @share_campaign do %>
               <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2">
-                +{@share_campaign.bux_reward} BUX
+                +{@x_share_reward} BUX
               </span>
             <% end %>
           </button>
