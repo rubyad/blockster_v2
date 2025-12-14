@@ -3,9 +3,11 @@ defmodule BlocksterV2.Social do
   The Social context handles X (Twitter) integration for share campaigns.
   """
 
+  require Logger
   import Ecto.Query
   alias BlocksterV2.Repo
   alias BlocksterV2.Social.{XConnection, XOauthState, ShareCampaign, ShareReward, XApiClient}
+  alias BlocksterV2.EngagementTracker
 
   # =============================================================================
   # X OAuth State Management
@@ -270,48 +272,131 @@ defmodule BlocksterV2.Social do
     )
     |> Repo.delete_all()
 
-    %ShareReward{}
-    |> ShareReward.changeset(%{
-      user_id: user_id,
-      campaign_id: campaign_id,
-      x_connection_id: x_connection_id,
-      status: "pending"
-    })
-    |> Repo.insert()
+    # Also delete from Mnesia
+    delete_share_reward_from_mnesia(user_id, campaign_id)
+
+    result =
+      %ShareReward{}
+      |> ShareReward.changeset(%{
+        user_id: user_id,
+        campaign_id: campaign_id,
+        x_connection_id: x_connection_id,
+        status: "pending"
+      })
+      |> Repo.insert()
+
+    # Sync to Mnesia on success
+    case result do
+      {:ok, reward} ->
+        sync_share_reward_to_mnesia(reward)
+        {:ok, reward}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Marks a share reward as verified after confirming the retweet.
   """
   def verify_share_reward(%ShareReward{} = reward, retweet_id) do
-    reward
-    |> ShareReward.verify_changeset(%{retweet_id: retweet_id})
-    |> Repo.update()
+    result =
+      reward
+      |> ShareReward.verify_changeset(%{retweet_id: retweet_id})
+      |> Repo.update()
+
+    # Sync to Mnesia on success
+    case result do
+      {:ok, updated_reward} ->
+        sync_share_reward_to_mnesia(updated_reward)
+        {:ok, updated_reward}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Marks a share reward as rewarded and records the BUX amount and optional tx_hash.
+  Also updates the user_post_rewards Mnesia table with the X share reward when post_id is provided.
+
+  Options:
+  - tx_hash: blockchain transaction hash (optional)
+  - post_id: the post ID for updating user_post_rewards Mnesia table (optional)
   """
-  def mark_rewarded(%ShareReward{} = reward, bux_amount, tx_hash \\ nil) do
-    reward
-    |> ShareReward.reward_changeset(bux_amount, tx_hash)
-    |> Repo.update()
+  def mark_rewarded(%ShareReward{} = reward, bux_amount, opts \\ []) do
+    tx_hash = opts[:tx_hash]
+    post_id = opts[:post_id]
+
+    result =
+      reward
+      |> ShareReward.reward_changeset(bux_amount, tx_hash)
+      |> Repo.update()
+
+    # Sync to Mnesia on success
+    case result do
+      {:ok, updated_reward} ->
+        sync_share_reward_to_mnesia(updated_reward)
+
+        # Also update user_post_rewards Mnesia table with the X share reward
+        if post_id do
+          # Convert Decimal bux_amount to float for Mnesia storage
+          bux_float = case bux_amount do
+            %Decimal{} = d -> Decimal.to_float(d)
+            n when is_number(n) -> n * 1.0
+            _ -> 0.0
+          end
+
+          EngagementTracker.record_x_share_reward_paid(
+            updated_reward.user_id,
+            post_id,
+            bux_float,
+            tx_hash
+          )
+        end
+
+        {:ok, updated_reward}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Marks a share reward as failed with a reason.
   """
   def mark_failed(%ShareReward{} = reward, reason) do
-    reward
-    |> ShareReward.fail_changeset(reason)
-    |> Repo.update()
+    result =
+      reward
+      |> ShareReward.fail_changeset(reason)
+      |> Repo.update()
+
+    # Sync to Mnesia on success
+    case result do
+      {:ok, updated_reward} ->
+        sync_share_reward_to_mnesia(updated_reward)
+        {:ok, updated_reward}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Deletes a share reward (used when share fails due to token issues so user can retry).
   """
   def delete_share_reward(%ShareReward{} = reward) do
-    Repo.delete(reward)
+    result = Repo.delete(reward)
+
+    # Also delete from Mnesia
+    case result do
+      {:ok, deleted_reward} ->
+        delete_share_reward_from_mnesia(deleted_reward.user_id, deleted_reward.campaign_id)
+        {:ok, deleted_reward}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -348,6 +433,57 @@ defmodule BlocksterV2.Social do
   end
 
   @doc """
+  Gets all share rewards for a user (rewarded status only) from Mnesia.
+  Returns a list of activity maps sorted by rewarded_at (most recent first).
+
+  Each activity includes:
+  - type: :x_share
+  - label: "X Share"
+  - amount: BUX earned
+  - retweet_id: the X post/retweet ID (for linking to tweet)
+  - timestamp: DateTime when the reward was given
+  """
+  def list_user_share_rewards(user_id) do
+    # Read from Mnesia share_rewards table
+    # Pattern matches on user_id at index 3 (after key, id)
+    pattern = {:share_rewards, :_, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    records = :mnesia.dirty_match_object(pattern)
+
+    # Filter to only rewarded status and convert to activity maps
+    records
+    |> Enum.filter(fn record -> elem(record, 7) == "rewarded" end)
+    |> Enum.map(&share_reward_record_to_activity/1)
+    |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  defp share_reward_record_to_activity(record) do
+    # Mnesia record structure:
+    # {:share_rewards, key, id, user_id, campaign_id, x_connection_id, retweet_id, status,
+    #  bux_rewarded, verified_at, rewarded_at, failure_reason, tx_hash, created_at, updated_at}
+    retweet_id = elem(record, 6)
+    bux_rewarded = elem(record, 8)
+    rewarded_at = elem(record, 10)
+    tx_hash = elem(record, 12)
+
+    # Convert unix timestamp to DateTime
+    timestamp = if rewarded_at, do: DateTime.from_unix!(rewarded_at), else: DateTime.utc_now()
+
+    %{
+      type: :x_share,
+      label: "X Share",
+      amount: bux_rewarded,
+      retweet_id: retweet_id,
+      tx_id: tx_hash,
+      timestamp: timestamp
+    }
+  end
+
+  @doc """
   Gets campaign stats.
   """
   def get_campaign_stats(campaign_id) do
@@ -363,5 +499,105 @@ defmodule BlocksterV2.Social do
       }
     )
     |> Repo.one()
+  end
+
+  # =============================================================================
+  # Mnesia Share Rewards Sync
+  # =============================================================================
+
+  @doc """
+  Syncs all share_rewards from PostgreSQL to Mnesia.
+  Use this to backfill existing records or recover from data loss.
+  Returns {:ok, count} on success.
+  """
+  def sync_all_share_rewards_to_mnesia do
+    rewards = Repo.all(ShareReward)
+    count = length(rewards)
+
+    Logger.info("[Social] Starting sync of #{count} share_rewards from PostgreSQL to Mnesia")
+
+    results =
+      Enum.map(rewards, fn reward ->
+        sync_share_reward_to_mnesia(reward)
+      end)
+
+    success_count = Enum.count(results, &(&1 == :ok))
+    error_count = count - success_count
+
+    Logger.info("[Social] Sync complete: #{success_count} succeeded, #{error_count} failed")
+
+    {:ok, %{total: count, success: success_count, errors: error_count}}
+  end
+
+  @doc """
+  Syncs a ShareReward record to Mnesia.
+  Called automatically when a reward is created or updated in PostgreSQL.
+  """
+  defp sync_share_reward_to_mnesia(%ShareReward{} = reward) do
+    key = {reward.user_id, reward.campaign_id}
+    now = System.system_time(:second)
+
+    # Convert DateTime fields to unix timestamps
+    verified_at = datetime_to_unix(reward.verified_at)
+    rewarded_at = datetime_to_unix(reward.rewarded_at)
+    created_at = datetime_to_unix(reward.inserted_at)
+
+    # Convert Decimal to float for storage
+    bux_rewarded =
+      case reward.bux_rewarded do
+        nil -> nil
+        %Decimal{} = d -> Decimal.to_float(d)
+        n when is_number(n) -> n
+      end
+
+    record =
+      {:share_rewards, key, reward.id, reward.user_id, reward.campaign_id,
+       reward.x_connection_id, reward.retweet_id, reward.status, bux_rewarded,
+       verified_at, rewarded_at, reward.failure_reason, reward.tx_hash,
+       created_at, now}
+
+    case :mnesia.transaction(fn -> :mnesia.write(record) end) do
+      {:atomic, :ok} ->
+        Logger.debug("[Social] Synced share_reward to Mnesia: user_id=#{reward.user_id}, campaign_id=#{reward.campaign_id}, status=#{reward.status}")
+        :ok
+
+      {:aborted, reason} ->
+        Logger.error("[Social] Failed to sync share_reward to Mnesia: #{inspect(reason)}")
+        {:error, reason}
+    end
+  rescue
+    e ->
+      Logger.error("[Social] Exception syncing share_reward to Mnesia: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Deletes a share reward from Mnesia by user_id and campaign_id.
+  """
+  defp delete_share_reward_from_mnesia(user_id, campaign_id) do
+    key = {user_id, campaign_id}
+
+    case :mnesia.transaction(fn -> :mnesia.delete({:share_rewards, key}) end) do
+      {:atomic, :ok} ->
+        Logger.debug("[Social] Deleted share_reward from Mnesia: user_id=#{user_id}, campaign_id=#{campaign_id}")
+        :ok
+
+      {:aborted, reason} ->
+        Logger.error("[Social] Failed to delete share_reward from Mnesia: #{inspect(reason)}")
+        {:error, reason}
+    end
+  rescue
+    e ->
+      Logger.error("[Social] Exception deleting share_reward from Mnesia: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # Helper to convert DateTime to unix timestamp
+  defp datetime_to_unix(nil), do: nil
+  defp datetime_to_unix(%DateTime{} = dt), do: DateTime.to_unix(dt)
+  defp datetime_to_unix(%NaiveDateTime{} = ndt) do
+    ndt
+    |> DateTime.from_naive!("Etc/UTC")
+    |> DateTime.to_unix()
   end
 end

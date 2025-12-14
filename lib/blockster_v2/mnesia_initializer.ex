@@ -129,6 +129,27 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:user_id, :post_id, :total_bux, :read_paid, :x_share_paid, :linkedin_share_paid]
+    },
+    %{
+      name: :share_rewards,
+      type: :set,
+      attributes: [
+        :key,                    # {user_id, campaign_id} tuple as primary key
+        :id,                     # PostgreSQL id (for reference/sync)
+        :user_id,
+        :campaign_id,
+        :x_connection_id,        # Optional X connection reference
+        :retweet_id,             # X retweet/post ID
+        :status,                 # pending | verified | rewarded | failed
+        :bux_rewarded,           # Decimal amount of BUX rewarded
+        :verified_at,            # Unix timestamp when verified
+        :rewarded_at,            # Unix timestamp when rewarded
+        :failure_reason,         # Reason for failure (if status is failed)
+        :tx_hash,                # Blockchain transaction hash
+        :created_at,             # Unix timestamp
+        :updated_at              # Unix timestamp
+      ],
+      index: [:user_id, :campaign_id, :status, :rewarded_at]
     }
   ]
 

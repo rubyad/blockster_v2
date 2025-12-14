@@ -216,6 +216,19 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets posts by a list of IDs. Returns only id, title, and slug for efficiency.
+  """
+  def get_posts_by_ids([]), do: []
+
+  def get_posts_by_ids(post_ids) when is_list(post_ids) do
+    from(p in Post,
+      where: p.id in ^post_ids,
+      select: %{id: p.id, title: p.title, slug: p.slug}
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Searches published posts by title, excerpt, or author email.
 
   ## Examples

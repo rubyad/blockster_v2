@@ -15,12 +15,14 @@ defmodule BlocksterV2.BuxMinter do
     - amount: Number of BUX tokens to mint
     - user_id: The user's ID (for logging)
     - post_id: The post ID that earned the reward (for logging)
+    - reward_type: The type of reward - :read or :x_share
 
   ## Returns
     - {:ok, response} on success with transaction details
     - {:error, reason} on failure
   """
-  def mint_bux(wallet_address, amount, user_id, post_id) do
+  def mint_bux(wallet_address, amount, user_id, post_id, reward_type)
+      when reward_type in [:read, :x_share] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
@@ -48,8 +50,10 @@ defmodule BlocksterV2.BuxMinter do
           tx_hash = response["transactionHash"]
           Logger.info("[BuxMinter] Mint successful: tx=#{tx_hash}")
 
-          # Mark the read reward as paid in Mnesia
-          EngagementTracker.mark_read_reward_paid(user_id, post_id, tx_hash)
+          # Mark the read reward as paid in Mnesia (only for read rewards)
+          if reward_type == :read do
+            EngagementTracker.mark_read_reward_paid(user_id, post_id, tx_hash)
+          end
 
           # Fetch the on-chain balance and update user_bux_points
           case get_balance(wallet_address) do
@@ -81,9 +85,10 @@ defmodule BlocksterV2.BuxMinter do
   Mints BUX tokens asynchronously (fire and forget).
   Use this when you don't need to wait for the transaction to complete.
   """
-  def mint_bux_async(wallet_address, amount, user_id, post_id) do
+  def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type)
+      when reward_type in [:read, :x_share] do
     Task.start(fn ->
-      mint_bux(wallet_address, amount, user_id, post_id)
+      mint_bux(wallet_address, amount, user_id, post_id, reward_type)
     end)
   end
 

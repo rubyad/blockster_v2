@@ -183,14 +183,15 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
 
       wallet_address ->
         # Use campaign post_id for tracking
-        case BuxMinter.mint_bux(wallet_address, bux_amount, user.id, campaign.post_id) do
-          {:ok, _response} ->
-            Social.mark_rewarded(reward, bux_amount)
+        case BuxMinter.mint_bux(wallet_address, bux_amount, user.id, campaign.post_id, :x_share) do
+          {:ok, response} ->
+            tx_hash = response["transactionHash"]
+            Social.mark_rewarded(reward, bux_amount, tx_hash: tx_hash, post_id: campaign.post_id)
 
           {:error, :not_configured} ->
             # In development, mark as rewarded anyway
             Logger.warning("[ShareRewardProcessor] BuxMinter not configured, marking reward without actual mint")
-            Social.mark_rewarded(reward, bux_amount)
+            Social.mark_rewarded(reward, bux_amount, post_id: campaign.post_id)
 
           {:error, reason} ->
             Logger.error("[ShareRewardProcessor] Mint failed: #{inspect(reason)}")

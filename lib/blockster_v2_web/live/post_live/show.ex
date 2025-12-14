@@ -241,7 +241,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                 if wallet && wallet != "" do
                   lv_pid = self()
                   Task.start(fn ->
-                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id) do
+                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read) do
                       {:ok, %{"transactionHash" => tx_hash}} ->
                         send(lv_pid, {:mint_completed, tx_hash})
                       _ ->
@@ -443,7 +443,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                         wallet = user.smart_wallet_address
                         tx_hash =
                           if wallet && wallet != "" do
-                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id) do
+                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share) do
                               {:ok, response} -> response["transactionHash"]
                               {:error, _} -> nil
                             end
@@ -451,7 +451,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                             nil
                           end
 
-                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount, tx_hash)
+                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount, tx_hash: tx_hash, post_id: post.id)
 
                         # Build success message - mention if like failed
                         success_msg =

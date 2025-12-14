@@ -492,6 +492,57 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets all rewards for a user across all posts from the Mnesia table.
+  Returns a list of activity maps sorted by updated_at (most recent first).
+
+  Each activity includes:
+  - type: :read (for article reads)
+  - label: "Article Read"
+  - amount: BUX earned
+  - post_id: the post ID
+  - timestamp: DateTime when the reward was recorded
+  """
+  def get_all_user_post_rewards(user_id) do
+    # Use match_object to find all records for this user
+    # Pattern matches on user_id at index 2
+    pattern = {:user_post_rewards, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    records = :mnesia.dirty_match_object(pattern)
+
+    # Convert records to activity list (only read rewards from this table)
+    records
+    |> Enum.flat_map(&record_to_read_activities/1)
+    |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  defp record_to_read_activities(record) do
+    post_id = elem(record, 3)
+    read_bux = elem(record, 4)
+    read_tx_id = elem(record, 6)
+    updated_at = elem(record, 16)
+
+    # Convert unix timestamp to DateTime
+    timestamp = DateTime.from_unix!(updated_at)
+
+    if read_bux && read_bux > 0 do
+      [%{
+        type: :read,
+        label: "Article Read",
+        amount: read_bux,
+        post_id: post_id,
+        tx_id: read_tx_id,
+        timestamp: timestamp
+      }]
+    else
+      []
+    end
+  end
+
+  @doc """
   Records BUX reward for reading an article.
   Returns {:ok, bux_earned} if new reward recorded, {:already_rewarded, existing_bux} if already exists.
   """
@@ -687,13 +738,14 @@ defmodule BlocksterV2.EngagementTracker do
         {:error, :not_found}
 
       existing ->
-        # Update read_paid (index 5) and read_tx_id (index 6) and updated_at (index 15)
-        read_bux = elem(existing, 4)
+        # Update read_paid (index 5), read_tx_id (index 6), and updated_at (index 16)
+        read_bux = elem(existing, 4) || 0
+        current_paid = elem(existing, 14) || 0
         updated = existing
-          |> put_elem(5, true)          # read_paid
-          |> put_elem(6, tx_id)         # read_tx_id
-          |> put_elem(14, (elem(existing, 13) || 0) + (read_bux || 0))  # total_paid_bux
-          |> put_elem(15, now)          # updated_at
+          |> put_elem(5, true)                        # read_paid
+          |> put_elem(6, tx_id)                       # read_tx_id
+          |> put_elem(14, current_paid + read_bux)    # total_paid_bux += read_bux
+          |> put_elem(16, now)                        # updated_at
 
         :mnesia.dirty_write(updated)
         Logger.info("[EngagementTracker] Marked read reward paid for user #{user_id} on post #{post_id}: tx=#{tx_id}")
@@ -706,6 +758,109 @@ defmodule BlocksterV2.EngagementTracker do
   catch
     :exit, e ->
       Logger.error("[EngagementTracker] Exit marking read reward paid: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Records X share reward as earned AND paid in one operation.
+  Called when user successfully retweets and receives their BUX reward.
+
+  Updates user_post_rewards Mnesia table with:
+  - x_share_bux: the BUX amount earned
+  - x_share_paid: true
+  - x_share_tx_id: the blockchain transaction hash
+  - total_bux: incremented by bux_earned
+  - total_paid_bux: incremented by bux_earned
+  """
+  def record_x_share_reward_paid(user_id, post_id, bux_earned, tx_hash) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case get_rewards(user_id, post_id) do
+      nil ->
+        # No existing record - create new with X share reward already paid
+        record = {
+          :user_post_rewards,
+          key,
+          user_id,
+          post_id,
+          nil,               # read_bux (index 4)
+          false,             # read_paid (index 5)
+          nil,               # read_tx_id (index 6)
+          bux_earned,        # x_share_bux (index 7)
+          true,              # x_share_paid (index 8)
+          tx_hash,           # x_share_tx_id (index 9)
+          nil,               # linkedin_share_bux (index 10)
+          false,             # linkedin_share_paid (index 11)
+          nil,               # linkedin_share_tx_id (index 12)
+          bux_earned,        # total_bux (index 13)
+          bux_earned,        # total_paid_bux (index 14)
+          now,               # created_at (index 15)
+          now                # updated_at (index 16)
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Recorded X share reward paid for user #{user_id} on post #{post_id}: #{bux_earned} BUX, tx=#{tx_hash}")
+        {:ok, bux_earned}
+
+      existing ->
+        # Check if already has X share reward (x_share_bux is at index 7)
+        existing_x_bux = elem(existing, 7)
+
+        if existing_x_bux && existing_x_bux > 0 do
+          # Already received X share reward - just update tx if missing
+          if elem(existing, 8) do
+            Logger.info("[EngagementTracker] User #{user_id} already received #{existing_x_bux} BUX for X share on post #{post_id}")
+            {:already_rewarded, existing_x_bux}
+          else
+            # Update to mark as paid
+            total_paid = (elem(existing, 14) || 0) + existing_x_bux
+            updated = existing
+              |> put_elem(8, true)           # x_share_paid
+              |> put_elem(9, tx_hash)        # x_share_tx_id
+              |> put_elem(14, total_paid)    # total_paid_bux
+              |> put_elem(16, now)           # updated_at
+
+            :mnesia.dirty_write(updated)
+            Logger.info("[EngagementTracker] Marked X share reward paid for user #{user_id} on post #{post_id}: tx=#{tx_hash}")
+            {:ok, existing_x_bux}
+          end
+        else
+          # Update with X share reward as paid
+          total_bux = (elem(existing, 13) || 0) + bux_earned
+          total_paid = (elem(existing, 14) || 0) + bux_earned
+          created_at = elem(existing, 15)
+
+          record = {
+            :user_post_rewards,
+            key,
+            user_id,
+            post_id,
+            elem(existing, 4),         # read_bux (preserve)
+            elem(existing, 5),         # read_paid (preserve)
+            elem(existing, 6),         # read_tx_id (preserve)
+            bux_earned,                # x_share_bux (index 7)
+            true,                      # x_share_paid (index 8)
+            tx_hash,                   # x_share_tx_id (index 9)
+            elem(existing, 10),        # linkedin_share_bux (preserve)
+            elem(existing, 11),        # linkedin_share_paid (preserve)
+            elem(existing, 12),        # linkedin_share_tx_id (preserve)
+            total_bux,                 # total_bux (index 13)
+            total_paid,                # total_paid_bux (index 14)
+            created_at,                # created_at (preserve)
+            now                        # updated_at (index 16)
+          }
+          :mnesia.dirty_write(record)
+          Logger.info("[EngagementTracker] Recorded X share reward paid for user #{user_id} on post #{post_id}: #{bux_earned} BUX, tx=#{tx_hash}")
+          {:ok, bux_earned}
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording X share reward paid: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit recording X share reward paid: #{inspect(e)}")
       {:error, e}
   end
 

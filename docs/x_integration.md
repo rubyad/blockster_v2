@@ -7,13 +7,14 @@ This document provides a comprehensive guide to the X (Twitter) integration in B
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [Database Schema](#database-schema)
-4. [OAuth 2.0 Flow](#oauth-20-flow)
-5. [X API Client](#x-api-client)
-6. [Share Campaigns](#share-campaigns)
-7. [Retweet & Like Flow](#retweet--like-flow)
-8. [Error Handling](#error-handling)
-9. [Configuration](#configuration)
-10. [Troubleshooting](#troubleshooting)
+4. [Mnesia Integration](#mnesia-integration)
+5. [OAuth 2.0 Flow](#oauth-20-flow)
+6. [X API Client](#x-api-client)
+7. [Share Campaigns](#share-campaigns)
+8. [Retweet & Like Flow](#retweet--like-flow)
+9. [Error Handling](#error-handling)
+10. [Configuration](#configuration)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -63,7 +64,9 @@ lib/blockster_v2_web/
 | `BlocksterV2.Social.XApiClient` | HTTP client for X API v2 |
 | `BlocksterV2.Social.XConnection` | Stores user's X credentials |
 | `BlocksterV2.Social.ShareCampaign` | Defines share-to-earn campaigns |
-| `BlocksterV2.Social.ShareReward` | Tracks user participation |
+| `BlocksterV2.Social.ShareReward` | Tracks user participation (PostgreSQL) |
+| `BlocksterV2.MnesiaInitializer` | Manages Mnesia `share_rewards` table |
+| `BlocksterV2.EngagementTracker` | Reads from `user_post_rewards` Mnesia table |
 
 ---
 
@@ -133,6 +136,101 @@ Tracks individual user participation in campaigns.
 | `failure_reason` | string | Error message if failed |
 | `verified_at` | utc_datetime | When verified |
 | `rewarded_at` | utc_datetime | When reward was minted |
+| `tx_hash` | string | Blockchain transaction hash |
+
+---
+
+## Mnesia Integration
+
+Share rewards are mirrored to Mnesia for fast distributed reads. This allows the member profile page to display user activity without hitting PostgreSQL.
+
+### Mnesia Table: `share_rewards`
+
+The `share_rewards` Mnesia table mirrors the PostgreSQL `share_rewards` table.
+
+| Index | Attribute | Type | Description |
+|-------|-----------|------|-------------|
+| 0 | table_name | atom | `:share_rewards` |
+| 1 | key | tuple | `{user_id, campaign_id}` primary key |
+| 2 | id | integer | PostgreSQL id (for sync reference) |
+| 3 | user_id | integer | User ID |
+| 4 | campaign_id | integer | Campaign ID |
+| 5 | x_connection_id | integer | X connection reference |
+| 6 | retweet_id | string | X post/retweet ID |
+| 7 | status | string | `pending`, `verified`, `rewarded`, `failed` |
+| 8 | bux_rewarded | float | BUX amount (converted from Decimal) |
+| 9 | verified_at | integer | Unix timestamp |
+| 10 | rewarded_at | integer | Unix timestamp |
+| 11 | failure_reason | string | Error message if failed |
+| 12 | tx_hash | string | Blockchain transaction hash |
+| 13 | created_at | integer | Unix timestamp |
+| 14 | updated_at | integer | Unix timestamp |
+
+**Indexes**: `user_id`, `campaign_id`, `status`, `rewarded_at`
+
+### Automatic Sync
+
+All PostgreSQL operations automatically sync to Mnesia:
+
+```elixir
+# These functions sync to Mnesia after PostgreSQL write:
+Social.create_pending_reward(user_id, campaign_id, x_connection_id)
+Social.verify_share_reward(reward, retweet_id)
+Social.mark_rewarded(reward, bux_amount, tx_hash)
+Social.mark_failed(reward, reason)
+Social.delete_share_reward(reward)
+```
+
+### Manual Backfill
+
+To sync all existing PostgreSQL records to Mnesia (e.g., after data recovery):
+
+```elixir
+BlocksterV2.Social.sync_all_share_rewards_to_mnesia()
+# Returns: {:ok, %{total: 18, success: 18, errors: 0}}
+```
+
+### Reading from Mnesia
+
+The member profile page reads share rewards directly from Mnesia:
+
+```elixir
+# Get all rewarded X shares for a user (from Mnesia)
+Social.list_user_share_rewards(user_id)
+# Returns:
+# [
+#   %{
+#     type: :x_share,
+#     label: "X Share",
+#     amount: 50.0,
+#     retweet_id: "1234567890",
+#     timestamp: ~U[2025-12-13 20:00:00Z]
+#   },
+#   ...
+# ]
+```
+
+### Member Activity Display
+
+The member profile page combines data from two Mnesia tables:
+1. `user_post_rewards` - Article read rewards
+2. `share_rewards` - X share rewards
+
+```elixir
+# In MemberLive.Show
+defp load_member_activities(user_id) do
+  read_activities = EngagementTracker.get_all_user_post_rewards(user_id)
+  share_activities = Social.list_user_share_rewards(user_id)
+
+  (enrich_read_activities_with_post_info(read_activities) ++ share_activities)
+  |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
+end
+```
+
+### Activity Links
+
+- **Article Read** activities link to the post: `/post-slug`
+- **X Share** activities link to the tweet: `https://x.com/i/status/{retweet_id}`
 
 ---
 
