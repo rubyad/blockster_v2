@@ -413,11 +413,25 @@ The score is calculated from 6 weighted components totaling 100 points:
 | Component | Max Points | Criteria |
 |-----------|------------|----------|
 | **Follower Quality** | 25 | Followers/following ratio (10:1+ = max) |
-| **Engagement Rate** | 35 | Average engagement on original tweets (5%+ = max) |
+| **Engagement Rate** | 35 | Split: 17.5 for rate (scales by follower tier), 17.5 for volume (200+ avg engagements = max) |
 | **Account Age** | 10 | Years since account created (5+ years = max) |
 | **Activity Level** | 15 | Tweets per month (30+ tweets/month = max) |
 | **List Presence** | 5 | Number of public lists (50+ = max) |
-| **Follower Scale** | 10 | Total followers (1M+ = max, logarithmic) |
+| **Follower Scale** | 10 | Total followers (10M+ = max, logarithmic). Under 1k gets ~0-1 point. |
+
+### Follower Scale Scoring
+
+The follower scale uses a logarithmic curve with a 1k follower threshold:
+
+| Followers | Points |
+|-----------|--------|
+| 717 | 0.7 |
+| 1,000 | 0 |
+| 10,000 | 2.5 |
+| 83,000 | 4.8 |
+| 100,000 | 5 |
+| 1,000,000 | 7.5 |
+| 10,000,000 | 10 (max) |
 
 ### Calculation Trigger
 
