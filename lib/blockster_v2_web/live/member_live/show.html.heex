@@ -48,8 +48,8 @@
               <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balance</h3>
               <.lightning_icon id="member_bux" size="24" />
             </div>
-            <p class="text-3xl font-haas_bold_75 text-gray-900">
-              <%= @bux_balance %>
+            <p class="text-3xl font-haas_bold_75 text-gray-900 tracking-wide">
+              <%= Number.Currency.number_to_currency(@bux_balance || 0, unit: "", precision: 1) %>
             </p>
             <p class="text-xs text-gray-500 mt-1">Earn more by reading & sharing articles</p>
           </div>
