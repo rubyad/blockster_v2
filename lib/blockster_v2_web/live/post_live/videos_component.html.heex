@@ -1,6 +1,26 @@
-<section id={"component-#{@id}"} class="blog-section md:py-20 py-6 relative">
+<section id={"component-#{@id}"} class="blog-section md:py-4 py-2 relative">
   <div class="container mx-auto">
     <div class="flex flex-col">
+      <!-- Breadcrumb and Title -->
+      <%= if Map.get(assigns, :show_header, true) do %>
+        <div class="mb-6">
+          <%= if Map.get(assigns, :show_breadcrumb, true) do %>
+            <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+              <%= if Map.get(assigns, :type) == "hub-videos" do %>
+                <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Hubs</.link>
+                <span class="mx-2">›</span>
+                <span><%= Map.get(assigns, :content, "Hub") %></span>
+              <% else %>
+                <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
+                <span class="mx-2">›</span>
+                <span>Videos</span>
+              <% end %>
+            </p>
+          <% end %>
+          <h2 class="text-3xl font-haas_medium_65 text-[#141414]"><%= Map.get(assigns, :title, "Videos") %></h2>
+        </div>
+      <% end %>
+
       <%= if @posts == [] do %>
         <div class="text-center py-20">
           <p class="text-[#515B70] font-haas_roman_55">No videos available yet.</p>
@@ -30,6 +50,14 @@
                           </svg>
                         </div>
                       <% end %>
+                      <!-- Play Button Overlay -->
+                      <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="px-2 py-2">

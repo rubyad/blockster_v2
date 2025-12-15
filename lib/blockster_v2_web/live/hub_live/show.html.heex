@@ -33,17 +33,17 @@
               <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.events), do: length(@hub.events), else: 0}</span>
             </div>
             <div class="wraper text-center px-6">
-              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Followers</p>
+              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Subscribers</p>
               <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.followers), do: length(@hub.followers), else: 0}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Follow Button -->
+      <!-- Subscribe Button -->
       <button class="bg-black text-white text-sm px-5 py-2 max-sm:absolute rounded-full font-inter leading-[1.4] transition gap-2 flex items-center max-sm:right-3 max-sm:top-3" onclick="toggleModal('shareModal')">
         <span class="text-[20px] flex items-center leading-[0] max-sm:hidden">+</span>
-        <span class="text-xs flex items-center leading-[1.4] max-sm:hidden">Follow</span>
+        <span class="text-xs flex items-center leading-[1.4] max-sm:hidden">Subscribe</span>
         <span class="text-xs flex items-center leading-[1.4] sm:hidden">Share</span>
         <span class="sm:hidden">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -203,21 +203,29 @@
         hide_title={true}
       />
     </div>
+    <div class="container mx-auto flex justify-end md:-mt-14 -mt-2 relative z-10">
+      <button phx-click="switch_tab" phx-value-tab="news" class="text-sm font-haas_medium_65 text-gray-500 hover:underline cursor-pointer">
+        Read more stories from <%= @hub.name %> &gt;
+      </button>
+    </div>
+
+    <!-- Hub Videos -->
+    <div class="mt-8">
+      <.live_component
+        module={BlocksterV2Web.PostLive.VideosComponent}
+        id="hub-videos-all"
+        posts={@videos_posts}
+        content={@hub.name}
+        type="hub-videos"
+        title="Videos"
+        show_breadcrumb={false}
+      />
+    </div>
 
     <!-- Shop Two Component -->
     <.live_component
       module={BlocksterV2Web.PostLive.ShopTwoComponent}
       id="hub-shop-two"
-    />
-
-    <!-- Posts Four Component -->
-    <.live_component
-      module={BlocksterV2Web.PostLive.PostsFourComponent}
-      id="hub-posts-four"
-      posts={@posts_four}
-      content={@hub.name}
-      type="hub-posts"
-      show_read_more={false}
     />
 
     <!-- Events Cards Component -->

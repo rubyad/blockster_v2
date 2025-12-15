@@ -296,7 +296,9 @@
       <div class="right-section md:w-1/2 w-[320px] max-xs:w-full max-md:mt-5 bg-cover bg-center max-md:h-[353px] relative">
         <%= if @post.featured_image do %>
           <img
-            src={@post.featured_image}
+            src={ImageKit.w640_h800(@post.featured_image)}
+            srcset={"#{ImageKit.w640_h800(@post.featured_image)} 640w, #{ImageKit.w1200_h1600(@post.featured_image)} 1200w"}
+            sizes="(max-width: 768px) 640px, 1200px"
             alt={@post.title}
             class="w-full h-full object-cover"
           />

@@ -20,6 +20,8 @@ defmodule BlocksterV2Web.HubLive.Show do
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
         posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5)
         posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id))
+        # VideosComponent needs 3 posts for the All tab
+        videos_posts = Blog.list_published_posts_by_hub(hub.id, limit: 3)
 
         {:ok,
          socket
@@ -33,9 +35,9 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:show_shop, false)
          |> assign(:show_events, false)
          |> assign(:news_loaded, false)
-         |> assign(:videos_loaded, false)
+         |> assign(:videos_loaded, true)
          |> assign(:shop_loaded, false)
-         |> assign(:videos_posts, [])
+         |> assign(:videos_posts, videos_posts)
          |> assign(:displayed_post_ids, [])
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:news_components, [])}

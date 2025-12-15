@@ -46,7 +46,7 @@
                 </svg>
               </button>
             <% end %>
-            <.link navigate={~p"/#{post.slug}"} class="!rounded-[16px] bg-[#ffffff] bg-card h-full flex flex-col justify-end overflow-hidden" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center;"}>
+            <.link navigate={~p"/#{post.slug}"} class="!rounded-[16px] bg-[#ffffff] bg-card h-full flex flex-col justify-end overflow-hidden" style={"background-image: url('#{ImageKit.w800_h600(post.featured_image)}'); background-size: cover; background-position: center;"}>
               <div class="p-4 bg-blur backdrop-blur-md bg-black/30 h-[130px]">
                 <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
                   <ul class="gap-3 flex">
@@ -89,7 +89,7 @@
               <% end %>
               <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                 <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
-                  <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
+                  <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
                 </div>
                 <div class="px-3 py-3 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
@@ -131,7 +131,7 @@
               <% end %>
               <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                 <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
-                  <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
+                  <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
                 </div>
                 <div class="px-3 py-3 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
@@ -176,7 +176,7 @@
                 </svg>
               </button>
             <% end %>
-            <.link navigate={~p"/#{post.slug}"} class="!rounded-[16px] bg-[#ffffff] bg-card reverse-card h-full flex flex-col justify-end overflow-hidden" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center;"}>
+            <.link navigate={~p"/#{post.slug}"} class="!rounded-[16px] bg-[#ffffff] bg-card reverse-card h-full flex flex-col justify-end overflow-hidden" style={"background-image: url('#{ImageKit.w800_h600(post.featured_image)}'); background-size: cover; background-position: center;"}>
               <div class="p-4 bg-blur backdrop-blur-md bg-black/30 h-[130px]">
                 <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
                   <ul class="gap-3 flex">
@@ -219,7 +219,7 @@
               <% end %>
               <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                 <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
-                  <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
+                  <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
                 </div>
                 <div class="px-3 py-3 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
@@ -261,7 +261,7 @@
               <% end %>
               <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                 <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
-                  <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
+                  <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
                 </div>
                 <div class="px-3 py-3 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">

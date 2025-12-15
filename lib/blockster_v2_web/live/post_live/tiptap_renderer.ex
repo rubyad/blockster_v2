@@ -3,6 +3,8 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
   Renders TipTap JSON content to HTML for display
   """
 
+  alias BlocksterV2.ImageKit
+
   def render_content(%{"type" => "doc", "content" => content}) when is_list(content) do
     html =
       content
@@ -64,9 +66,19 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
     "<li>#{inner}</li>"
   end
 
-  # Image
+  # Image - responsive srcset for mobile/desktop
   defp render_node(%{"type" => "image", "attrs" => %{"src" => src}}) do
-    "<img src=\"#{escape_html(src)}\" class=\"max-w-full h-auto rounded-lg my-4\" alt=\"\" />"
+    mobile_src = ImageKit.w480(src) || src
+    desktop_src = ImageKit.w800(src) || src
+    """
+    <img
+      src="#{escape_html(mobile_src)}"
+      srcset="#{escape_html(mobile_src)} 480w, #{escape_html(desktop_src)} 800w"
+      sizes="(max-width: 768px) 480px, 800px"
+      class="max-w-full h-auto rounded-lg my-4"
+      alt=""
+    />
+    """
   end
 
   # Tweet Embed

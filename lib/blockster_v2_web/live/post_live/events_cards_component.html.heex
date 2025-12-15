@@ -1,5 +1,8 @@
-<section id={"component-#{@id}"} class="events-cards-section py-6">
+<section id={"component-#{@id}"} class="events-cards-section md:pt-16 pt-8 md:pb-16 pb-8">
   <div class="container mx-auto">
+    <div class="mb-6">
+      <h2 class="text-3xl font-haas_medium_65 text-[#141414]"><%= Map.get(assigns, :title, "Events") %></h2>
+    </div>
     <%= if @events == [] do %>
       <div class="text-center py-20">
         <p class="text-[#515B70] font-haas_roman_55">No upcoming events yet.</p>

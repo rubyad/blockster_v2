@@ -7,6 +7,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.Social
   alias BlocksterV2.Social.XConnection
+  alias BlocksterV2.ImageKit
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
   @impl true

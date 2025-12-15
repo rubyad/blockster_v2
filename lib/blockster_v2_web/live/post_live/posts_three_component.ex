@@ -1,6 +1,7 @@
 defmodule BlocksterV2Web.PostLive.PostsThreeComponent do
   use BlocksterV2Web, :live_component
 
+  alias BlocksterV2.ImageKit
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   # Get BUX balance from the real-time bux_balances map, falling back to post's value
