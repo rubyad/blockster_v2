@@ -2,25 +2,51 @@
   <div class="container mx-auto">
     <div class="inner gap-6">
       <div class="left-content">
-        <%= unless Map.get(assigns, :hide_title, false) do %>
-          <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
-            <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
-            <span class="mx-2">›</span>
-            <span class="capitalize"><%= @content %></span>
-          </p>
-          <div class="search-wrapper flex justify-between items-center">
-            <h2 class="font-haas_medium_65 font-semibold text-4xl capitalize"><%= @content %></h2>
-          </div>
-        <% end %>
+        <!-- Breadcrumb -->
+        <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+          <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
+          <span class="mx-2">›</span>
+          <span><%= Map.get(assigns, :title, "DeFi") %></span>
+        </p>
+
+        <!-- Section Title -->
+        <div class="search-wrapper flex justify-between items-center">
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <button
+              phx-click="edit_section_title"
+              phx-value-section="posts_four"
+              class="font-haas_medium_65 font-semibold text-4xl hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
+            >
+              <%= Map.get(assigns, :title, "DeFi") %>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </button>
+          <% else %>
+            <h2 class="font-haas_medium_65 font-semibold text-4xl"><%= Map.get(assigns, :title, "DeFi") %></h2>
+          <% end %>
+        </div>
 
         <%= if @posts == [] do %>
           <div class="text-center py-20">
-            <p class="text-[#515B70] font-haas_roman_55">No people posts available yet.</p>
+            <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
           </div>
         <% else %>
           <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col gap-3">
-            <%= for {post, idx} <- Enum.with_index(@posts) do %>
-              <div class="md:w-1/3 gap-3">
+            <%= for {post, idx} <- Enum.with_index(@posts, 1) do %>
+              <div class="md:w-1/3 gap-3 relative">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_post_selector"
+                    phx-value-section="posts_four"
+                    phx-value-position={idx}
+                    class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
                 <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
                   <!-- Content area that starts at 50% height -->
                   <div class="absolute bottom-0 left-0 right-0 h-1/2 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
@@ -28,22 +54,24 @@
                       <!-- Top content: category, title, date -->
                       <div>
                         <%= if post.category do %>
-                          <span class="text-xs font-haas_medium_65 text-[#ffffff]">{post.category.name}</span>
+                          <span class="text-xs font-haas_medium_65 text-[#ffffff]"><%= post.category.name %></span>
                         <% end %>
-                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2] max-md:text-base">{post.title}</h4>
+                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2] max-md:text-base"><%= post.title %></h4>
                         <p class="text-xs font-haas_roman_55 text-[#ffffff] mt-2">
-                          {if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}
+                          <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                         </p>
                       </div>
                       <!-- Bottom content: BUX button (and description on hover) -->
                       <div class="mt-auto">
                         <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
                           <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                            <.lightning_icon id={"bux_people_#{post.id}_#{idx}"} size="20" />
-                            <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
+                            <.lightning_icon id={"bux_posts_four_#{post.id}_#{idx}"} size="20" />
+                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
                           </button>
                         </div>
-                        <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">A casual yet powerful networking space where builders, investors, and curious minds meet to exchange ideas, share stories, and create collaborations that shape the future of decentralized culture.</p>
+                        <%= if post.excerpt do %>
+                          <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
+                        <% end %>
                       </div>
                     </div>
                   </div>
@@ -51,15 +79,6 @@
               </div>
             <% end %>
           </div>
-
-          <%= if Map.get(assigns, :show_read_more, false) && Map.get(assigns, :type) in ["category-posts", "tag-posts"] do %>
-            <% path = if Map.get(assigns, :type) == "category-posts", do: "/category/#{@content}", else: "/tag/#{@content}" %>
-            <div class="flex items-center justify-center mt-6">
-              <.link navigate={path} class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y text-[#000000] md:w-auto w-full rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
-                Read more <%= @content %> news
-              </.link>
-            </div>
-          <% end %>
         <% end %>
       </div>
     </div>

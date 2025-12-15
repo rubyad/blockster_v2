@@ -1,178 +1,261 @@
 <section id={"component-#{@id}"} class="grid-section-reverse md:py-20 pt-0 pb-10">
   <div class="container mx-auto">
+    <!-- Breadcrumb -->
+    <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+      <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
+      <span class="mx-2">›</span>
+      <span><%= Map.get(assigns, :title, "Business") %></span>
+    </p>
 
-    <%= unless Map.get(assigns, :hide_title, false) do %>
-      <h2 class="font-haas_medium_65 mb-6 capitalize"><%= @content %></h2>
+    <!-- Section Title -->
+    <%= if assigns[:current_user] && @current_user.is_admin do %>
+      <button
+        phx-click="edit_section_title"
+        phx-value-section="posts_six"
+        class="font-haas_medium_65 mb-6 font-semibold text-4xl hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
+      >
+        <%= Map.get(assigns, :title, "Business") %>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+        </svg>
+      </button>
+    <% else %>
+      <h2 class="font-haas_medium_65 mb-6 font-semibold text-4xl"><%= Map.get(assigns, :title, "Business") %></h2>
     <% end %>
 
-    <%= if length(@posts) >= 4 do %>
-      <div class="flex gap-3 md:flex-row flex-col-reverse">
-        <!-- Left side: 2/3 width - 4 small cards in 2 rows -->
-        <div class="md:w-2/3 w-full">
-          <!-- First row: 2 small cards -->
+    <%= if @posts == [] do %>
+      <div class="text-center py-20">
+        <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
+      </div>
+    <% else %>
+      <div class="flex gap-3 md:flex-row flex-col-reverse md:items-stretch">
+        <!-- Left side: 1/2 width - 4 small cards in 2x2 grid -->
+        <div class="md:w-1/2 w-full flex flex-col">
+          <!-- First row: 2 small cards (Positions 1 & 2) -->
           <div class="flex lg:flex-row flex-col gap-3 wide-card">
             <div class="w-full flex md:flex-row flex-col gap-3">
               <%= if Enum.at(@posts, 0) do %>
                 <% post = Enum.at(@posts, 0) %>
-                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
-                  <div class="img-wrapper h-[163px]">
-                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                  </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
-                      <ul class="gap-3 flex">
-                        <%= if post.category do %>
-                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
-                        <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
-                      </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_defi_1_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                        </button>
-                      </div>
+                <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
+                  <%= if assigns[:current_user] && @current_user.is_admin do %>
+                    <button
+                      phx-click="open_post_selector"
+                      phx-value-section="posts_six"
+                      phx-value-position="1"
+                      class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  <% end %>
+                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                      <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
-                  </div>
-                </.link>
+                    <div class="px-3 py-3 flex-1 flex flex-col">
+                      <div class="flex justify-between items-center">
+                        <ul class="gap-3 flex">
+                          <%= if post.category do %>
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                          <% end %>
+                          <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                          </li>
+                        </ul>
+                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                            <.lightning_icon id={"bux_posts_six_1_#{post.id}"} size="20" />
+                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                    </div>
+                  </.link>
+                </div>
               <% end %>
 
               <%= if Enum.at(@posts, 1) do %>
                 <% post = Enum.at(@posts, 1) %>
-                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
-                  <div class="img-wrapper h-[163px]">
-                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                  </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
-                      <ul class="gap-3 flex">
-                        <%= if post.category do %>
-                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
-                        <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
-                      </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_defi_2_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                        </button>
-                      </div>
+                <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
+                  <%= if assigns[:current_user] && @current_user.is_admin do %>
+                    <button
+                      phx-click="open_post_selector"
+                      phx-value-section="posts_six"
+                      phx-value-position="2"
+                      class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  <% end %>
+                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                      <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
-                  </div>
-                </.link>
+                    <div class="px-3 py-3 flex-1 flex flex-col">
+                      <div class="flex justify-between items-center">
+                        <ul class="gap-3 flex">
+                          <%= if post.category do %>
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                          <% end %>
+                          <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                          </li>
+                        </ul>
+                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                            <.lightning_icon id={"bux_posts_six_2_#{post.id}"} size="20" />
+                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                    </div>
+                  </.link>
+                </div>
               <% end %>
             </div>
           </div>
 
-          <!-- Second row: 2 small cards -->
-          <div class="flex lg:flex-row flex-col gap-3 wide-card mt-3">
-            <div class="w-full flex md:flex-row flex-col gap-3">
+          <!-- Second row: 2 small cards (Positions 3 & 4) -->
+          <div class="flex lg:flex-row flex-col gap-3 wide-card mt-3 flex-1">
+            <div class="w-full flex md:flex-row flex-col gap-3 md:items-stretch">
               <%= if Enum.at(@posts, 2) do %>
                 <% post = Enum.at(@posts, 2) %>
-                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 border-[#1414141A] bg-white border-[1px]">
-                  <div class="img-wrapper h-[163px]">
-                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                  </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
-                      <ul class="gap-3 flex">
-                        <%= if post.category do %>
-                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
-                        <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
-                      </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_defi_3_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                        </button>
-                      </div>
+                <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
+                  <%= if assigns[:current_user] && @current_user.is_admin do %>
+                    <button
+                      phx-click="open_post_selector"
+                      phx-value-section="posts_six"
+                      phx-value-position="3"
+                      class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  <% end %>
+                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                      <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
-                  </div>
-                </.link>
+                    <div class="px-3 py-3 flex-1 flex flex-col">
+                      <div class="flex justify-between items-center">
+                        <ul class="gap-3 flex">
+                          <%= if post.category do %>
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                          <% end %>
+                          <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                          </li>
+                        </ul>
+                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                            <.lightning_icon id={"bux_posts_six_3_#{post.id}"} size="20" />
+                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                    </div>
+                  </.link>
+                </div>
               <% end %>
 
               <%= if Enum.at(@posts, 3) do %>
                 <% post = Enum.at(@posts, 3) %>
-                <.link navigate={~p"/#{post.slug}"} class="md:w-1/2 w-full block !rounded-[16px] p-2 bg-white border-[#1414141A] border-[1px]">
-                  <div class="img-wrapper h-[163px]">
-                    <img alt="" src={post.featured_image} class="w-full h-full rounded-[12px] object-cover" />
-                  </div>
-                  <div class="px-2 py-2">
-                    <div class="flex justify-between items-center">
-                      <ul class="gap-3 flex">
-                        <%= if post.category do %>
-                          <li class="text-xs font-haas_medium_65 text-[#141414]"><span>{post.category.name}</span></li>
-                        <% end %>
-                        <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
-                          <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                        </li>
-                      </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_defi_4_#{post.id}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                        </button>
-                      </div>
+                <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
+                  <%= if assigns[:current_user] && @current_user.is_admin do %>
+                    <button
+                      phx-click="open_post_selector"
+                      phx-value-section="posts_six"
+                      phx-value-position="4"
+                      class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  <% end %>
+                  <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                      <img alt="" src={post.featured_image} class="w-full h-full object-cover" />
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
-                  </div>
-                </.link>
+                    <div class="px-3 py-3 flex-1 flex flex-col">
+                      <div class="flex justify-between items-center">
+                        <ul class="gap-3 flex">
+                          <%= if post.category do %>
+                            <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                          <% end %>
+                          <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                          </li>
+                        </ul>
+                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                            <.lightning_icon id={"bux_posts_six_4_#{post.id}"} size="20" />
+                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                    </div>
+                  </.link>
+                </div>
               <% end %>
             </div>
           </div>
         </div>
 
-        <!-- Right side: 1/3 width - Large sidebar card -->
-        <%= if length(@posts) >= 5 && Enum.at(@posts, 4) do %>
+        <!-- Right side: 1/2 width - Large sidebar card (Position 5) -->
+        <%= if Enum.at(@posts, 4) do %>
           <% post = Enum.at(@posts, 4) %>
-          <.link navigate={~p"/#{post.slug}"} class="group md:w-1/3 w-full rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
-            <!-- Content area that starts at bottom third height -->
-            <div class="absolute bottom-0 left-0 right-0 h-1/3 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
-              <div class="absolute top-0 left-0 right-0 p-6 max-md:px-[22px] pb-[12px] pt-[22px] transition-all duration-500 ease-in-out">
-                <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
-                  <ul class="gap-3 flex">
-                    <%= if post.category do %>
-                      <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span>{post.category.name}</span></li>
-                    <% end %>
-                    <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
-                      <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
-                    </li>
-                  </ul>
-                  <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                      <.lightning_icon id={"bux_defi_5_#{post.id}"} size="20" />
-                      <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                    </button>
+          <div class="md:w-1/2 w-full relative">
+            <%= if assigns[:current_user] && @current_user.is_admin do %>
+              <button
+                phx-click="open_post_selector"
+                phx-value-section="posts_six"
+                phx-value-position="5"
+                class="absolute top-4 right-4 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            <% end %>
+            <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden h-full" style={"background-image: url('#{post.featured_image}'); background-size: cover; background-position: center; min-height: 400px;"}>
+              <!-- Content area that starts at bottom third height -->
+              <div class="h-1/3 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden relative">
+                <div class="absolute top-0 left-0 right-0 p-6 max-md:px-[22px] pb-[12px] pt-[22px] transition-all duration-500 ease-in-out">
+                  <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
+                    <ul class="gap-3 flex">
+                      <%= if post.category do %>
+                        <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span><%= post.category.name %></span></li>
+                      <% end %>
+                      <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
+                        <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                      </li>
+                    </ul>
+                    <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
+                        <.lightning_icon id={"bux_posts_six_5_#{post.id}"} size="20" />
+                        <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
+                      </button>
+                    </div>
                   </div>
+                  <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[28px] leading-[1.2] max-md:text-[20px]"><%= post.title %></h4>
+                  <%= if post.excerpt do %>
+                    <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
+                  <% end %>
                 </div>
-                <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[28px] leading-[1.2] max-md:text-[20px]">{post.title}</h4>
-                <%= if post.excerpt do %>
-                  <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24">{post.excerpt}</p>
-                <% end %>
               </div>
-            </div>
-          </.link>
+            </.link>
+          </div>
         <% end %>
       </div>
-
-      <%= if Map.get(assigns, :show_read_more, false) && Map.get(assigns, :type) in ["category-posts", "tag-posts"] do %>
-        <% path = if Map.get(assigns, :type) == "category-posts", do: "/category/#{@content}", else: "/tag/#{@content}" %>
-        <div class="btn-wrapper text-center mt-6">
-          <.link navigate={path} class="primary-btn-shadow bg-bg-btn_primary px-btn-primary-x py-btn-primary-y md:w-auto w-full text-[#000000] rounded-[100px] leading-[1.4] border-[1] font-haas_medium_65 text-sm">
-            Read more <%= @content %> news
-          </.link>
-        </div>
-      <% end %>
     <% end %>
   </div>
 </section>

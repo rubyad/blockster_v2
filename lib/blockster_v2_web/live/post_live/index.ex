@@ -19,6 +19,18 @@ defmodule BlocksterV2Web.PostLive.Index do
     # Get curated posts for Conversations section (6 positions)
     conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
 
+    # Get curated posts for Posts Three section (5 positions)
+    posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
+
+    # Get curated posts for Posts Four section (3 positions)
+    posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
+
+    # Get curated posts for Posts Five section (6 positions)
+    posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
+
+    # Get curated posts for Posts Six section (5 positions)
+    posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
+
     # Get 5 most recent Business category posts
     # business_posts = Blog.list_published_posts_by_category("business", limit: 5)
 
@@ -33,12 +45,12 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     # Create a single list of all displayed post IDs for tracking
     displayed_post_ids =
-      (Enum.map(latest_news_posts, & &1.id) ++ Enum.map(conversations_posts, & &1.id))
+      (Enum.map(latest_news_posts, & &1.id) ++ Enum.map(conversations_posts, & &1.id) ++ Enum.map(posts_three_posts, & &1.id) ++ Enum.map(posts_four_posts, & &1.id) ++ Enum.map(posts_five_posts, & &1.id) ++ Enum.map(posts_six_posts, & &1.id))
       |> Enum.uniq()
     IO.inspect(displayed_post_ids, label: "Displayed Post IDs")
 
     # Build initial bux_balances map from posts
-    all_posts = latest_news_posts ++ conversations_posts
+    all_posts = latest_news_posts ++ conversations_posts ++ posts_three_posts ++ posts_four_posts ++ posts_five_posts ++ posts_six_posts
     bux_balances = all_posts
       |> Enum.uniq_by(& &1.id)
       |> Enum.reduce(%{}, fn post, acc ->
@@ -52,9 +64,22 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     current_user = socket.assigns[:current_user]
 
+    # Load section titles from DB (with defaults)
+    section_titles = Blog.get_all_section_titles()
+    latest_news_title = Map.get(section_titles, "latest_news", "Top Stories")
+    conversations_title = Map.get(section_titles, "conversations", "Conversations with industry leaders")
+    posts_three_title = Map.get(section_titles, "posts_three", "Real World Assets (RWA)")
+    posts_four_title = Map.get(section_titles, "posts_four", "DeFi")
+    posts_five_title = Map.get(section_titles, "posts_five", "Investment")
+    posts_six_title = Map.get(section_titles, "posts_six", "Business")
+
     components = [
-      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated", bux_balances: bux_balances},
-      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated", bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated", title: latest_news_title, bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated", title: conversations_title, bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: posts_three_posts, current_user: current_user, type: "curated-posts", title: posts_three_title, bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: posts_four_posts, current_user: current_user, type: "curated-posts", title: posts_four_title, bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: posts_five_posts, current_user: current_user, type: "curated-posts", title: posts_five_title, bux_balances: bux_balances},
+      %{module: BlocksterV2Web.PostLive.PostsSixComponent, id: "posts-six", posts: posts_six_posts, current_user: current_user, type: "curated-posts", title: posts_six_title, bux_balances: bux_balances},
       # %{module: BlocksterV2Web.PostLive.ShopOneComponent, id: "shop-one", type: "shop", content: "general"},
       # %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: business_posts, type: "category-posts", content: "business"},
       # %{module: BlocksterV2Web.PostLive.RewardsBannerComponent, id: "rewards-banner", type: "banner", content: "rewards"},
@@ -92,6 +117,9 @@ defmodule BlocksterV2Web.PostLive.Index do
           |> assign(:selector_position, nil)
           |> assign(:selector_query, "")
           |> assign(:selector_results, [])
+          |> assign(:section_titles, section_titles)
+          |> assign(:editing_title_section, nil)
+          |> assign(:editing_title_value, "")
           |> assign(:displayed_post_ids, displayed_post_ids)
           |> assign(:displayed_categories, displayed_categories)
           |> assign(:displayed_tags, displayed_tags)
@@ -209,13 +237,16 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def handle_event("open_post_selector", %{"section" => section, "position" => position}, socket) do
+    # Load 30 most recent posts by default
+    recent_posts = Blog.list_published_posts(limit: 30)
+
     {:noreply,
      socket
      |> assign(:show_post_selector, true)
      |> assign(:selector_section, section)
      |> assign(:selector_position, String.to_integer(position))
      |> assign(:selector_query, "")
-     |> assign(:selector_results, [])}
+     |> assign(:selector_results, recent_posts)}
   end
 
   @impl true
@@ -232,9 +263,10 @@ defmodule BlocksterV2Web.PostLive.Index do
   @impl true
   def handle_event("search_selector_posts", %{"value" => query}, socket) do
     results = if String.length(query) >= 2 do
-      Blog.search_posts_fulltext(query, limit: 20)
+      Blog.search_posts_fulltext(query, limit: 30)
     else
-      []
+      # Show 30 most recent posts when query is empty or too short
+      Blog.list_published_posts(limit: 30)
     end
 
     {:noreply,
@@ -254,14 +286,31 @@ defmodule BlocksterV2Web.PostLive.Index do
         # Reload the curated posts
         latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
         conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
+        posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
+        posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
+        posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
+        posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
         current_user = socket.assigns[:current_user]
+        bux_balances = socket.assigns.bux_balances
+        section_titles = socket.assigns.section_titles
+
+        latest_news_title = Map.get(section_titles, "latest_news", get_default_title("latest_news"))
+        conversations_title = Map.get(section_titles, "conversations", get_default_title("conversations"))
+        posts_three_title = Map.get(section_titles, "posts_three", get_default_title("posts_three"))
+        posts_four_title = Map.get(section_titles, "posts_four", get_default_title("posts_four"))
+        posts_five_title = Map.get(section_titles, "posts_five", get_default_title("posts_five"))
+        posts_six_title = Map.get(section_titles, "posts_six", get_default_title("posts_six"))
 
         # Update the stream with new component data
         # Use stream_insert with :at to replace existing items
         socket =
           socket
-          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated"}, at: 0)
-          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated"}, at: 1)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated", title: latest_news_title, bux_balances: bux_balances}, at: 0)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated", title: conversations_title, bux_balances: bux_balances}, at: 1)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: posts_three_posts, current_user: current_user, type: "curated-posts", title: posts_three_title, bux_balances: bux_balances}, at: 2)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: posts_four_posts, current_user: current_user, type: "curated-posts", title: posts_four_title, bux_balances: bux_balances}, at: 3)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: posts_five_posts, current_user: current_user, type: "curated-posts", title: posts_five_title, bux_balances: bux_balances}, at: 4)
+          |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsSixComponent, id: "posts-six", posts: posts_six_posts, current_user: current_user, type: "curated-posts", title: posts_six_title, bux_balances: bux_balances}, at: 5)
 
         {:noreply,
          socket
@@ -275,6 +324,87 @@ defmodule BlocksterV2Web.PostLive.Index do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to update post")}
     end
+  end
+
+  # Title editing event handlers
+  def handle_event("edit_section_title", %{"section" => section}, socket) do
+    section_titles = socket.assigns.section_titles
+    current_title = Map.get(section_titles, section, get_default_title(section))
+
+    {:noreply,
+     socket
+     |> assign(:editing_title_section, section)
+     |> assign(:editing_title_value, current_title)}
+  end
+
+  def handle_event("update_title_input", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :editing_title_value, value)}
+  end
+
+  def handle_event("save_section_title", _params, socket) do
+    section = socket.assigns.editing_title_section
+    new_title = socket.assigns.editing_title_value
+
+    case Blog.update_section_title(section, new_title) do
+      {:ok, _} ->
+        # Update section_titles map
+        section_titles = Map.put(socket.assigns.section_titles, section, new_title)
+
+        # Reload the components with new title
+        {:noreply, reload_components_with_titles(socket, section_titles)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update title")}
+    end
+  end
+
+  def handle_event("cancel_title_edit", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:editing_title_section, nil)
+     |> assign(:editing_title_value, "")}
+  end
+
+  defp get_default_title(section) do
+    case section do
+      "latest_news" -> "Top Stories"
+      "conversations" -> "Conversations with industry leaders"
+      "posts_three" -> "Real World Assets (RWA)"
+      "posts_four" -> "DeFi"
+      "posts_five" -> "Investment"
+      "posts_six" -> "Business"
+      _ -> "Untitled"
+    end
+  end
+
+  defp reload_components_with_titles(socket, section_titles) do
+    latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
+    conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
+    posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
+    posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
+    posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
+    posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
+    current_user = socket.assigns[:current_user]
+    bux_balances = socket.assigns.bux_balances
+
+    latest_news_title = Map.get(section_titles, "latest_news", get_default_title("latest_news"))
+    conversations_title = Map.get(section_titles, "conversations", get_default_title("conversations"))
+    posts_three_title = Map.get(section_titles, "posts_three", get_default_title("posts_three"))
+    posts_four_title = Map.get(section_titles, "posts_four", get_default_title("posts_four"))
+    posts_five_title = Map.get(section_titles, "posts_five", get_default_title("posts_five"))
+    posts_six_title = Map.get(section_titles, "posts_six", get_default_title("posts_six"))
+
+    socket
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsOneComponent, id: "posts-one", posts: latest_news_posts, current_user: current_user, type: "curated-posts", content: "curated", title: latest_news_title, bux_balances: bux_balances}, at: 0)
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsTwoComponent, id: "posts-two", posts: conversations_posts, current_user: current_user, type: "curated-posts", content: "curated", title: conversations_title, bux_balances: bux_balances}, at: 1)
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsThreeComponent, id: "posts-three", posts: posts_three_posts, current_user: current_user, type: "curated-posts", title: posts_three_title, bux_balances: bux_balances}, at: 2)
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsFourComponent, id: "posts-four", posts: posts_four_posts, current_user: current_user, type: "curated-posts", title: posts_four_title, bux_balances: bux_balances}, at: 3)
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsFiveComponent, id: "posts-five", posts: posts_five_posts, current_user: current_user, type: "curated-posts", title: posts_five_title, bux_balances: bux_balances}, at: 4)
+    |> stream_insert(:components, %{module: BlocksterV2Web.PostLive.PostsSixComponent, id: "posts-six", posts: posts_six_posts, current_user: current_user, type: "curated-posts", title: posts_six_title, bux_balances: bux_balances}, at: 5)
+    |> assign(:section_titles, section_titles)
+    |> assign(:editing_title_section, nil)
+    |> assign(:editing_title_value, "")
+    |> put_flash(:info, "Title updated successfully")
   end
 
   # edit this to load 3 more components when scrolling to bottom using algo that reads readers category, tag and hub preferences and history

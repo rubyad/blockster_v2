@@ -10,6 +10,7 @@ defmodule BlocksterV2.Blog do
   alias BlocksterV2.Blog.Category
   alias BlocksterV2.Blog.Hub
   alias BlocksterV2.Blog.CuratedPost
+  alias BlocksterV2.Blog.SectionSetting
 
   # Base queries with proper preloading
 
@@ -730,6 +731,46 @@ defmodule BlocksterV2.Blog do
       curated_post ->
         curated_post
         |> CuratedPost.changeset(%{post_id: post_id})
+        |> Repo.update()
+    end
+  end
+
+  # Section Settings functions
+
+  @doc """
+  Gets the title for a section. Returns the default title if no custom title is set.
+  """
+  def get_section_title(section, default \\ nil) do
+    case Repo.get_by(SectionSetting, section: section) do
+      nil -> default
+      setting -> setting.title
+    end
+  end
+
+  @doc """
+  Gets all section titles as a map.
+  """
+  def get_all_section_titles do
+    SectionSetting
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn setting, acc ->
+      Map.put(acc, setting.section, setting.title)
+    end)
+  end
+
+  @doc """
+  Updates or creates a section title.
+  """
+  def update_section_title(section, title) do
+    case Repo.get_by(SectionSetting, section: section) do
+      nil ->
+        %SectionSetting{}
+        |> SectionSetting.changeset(%{section: section, title: title})
+        |> Repo.insert()
+
+      setting ->
+        setting
+        |> SectionSetting.changeset(%{title: title})
         |> Repo.update()
     end
   end

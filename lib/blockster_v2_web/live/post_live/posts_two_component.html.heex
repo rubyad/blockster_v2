@@ -9,7 +9,20 @@
             <span class="mx-2">›</span>
             <span>Interviews</span>
           </p>
-          <h2 class="font-haas_medium_65 text-white text-3xl md:text-4xl lg:text-5xl leading-none">Conversations with industry leaders</h2>
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <button
+              phx-click="edit_section_title"
+              phx-value-section="conversations"
+              class="font-haas_medium_65 text-white text-3xl md:text-4xl lg:text-5xl leading-none hover:text-white/80 transition-colors cursor-pointer group flex items-center gap-2"
+            >
+              <%= Map.get(assigns, :title, "Conversations with industry leaders") %>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </button>
+          <% else %>
+            <h2 class="font-haas_medium_65 text-white text-3xl md:text-4xl lg:text-5xl leading-none"><%= Map.get(assigns, :title, "Conversations with industry leaders") %></h2>
+          <% end %>
         </div>
       </div>
 
