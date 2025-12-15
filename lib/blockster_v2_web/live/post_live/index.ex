@@ -13,35 +13,17 @@ defmodule BlocksterV2Web.PostLive.Index do
     if connected?(socket) do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
-    # Get curated posts for Latest News section (10 positions)
-    latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
 
-    # Get curated posts for Conversations section (6 positions)
-    conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
+    # Load ALL curated posts in a single DB query and group by section
+    all_curated = Blog.get_all_curated_posts()
 
-    # Get curated posts for Posts Three section (5 positions)
-    posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
-
-    # Get curated posts for Posts Four section (3 positions)
-    posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
-
-    # Get curated posts for Posts Five section (6 positions)
-    posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
-
-    # Get curated posts for Posts Six section (5 positions)
-    posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
-
-    # Get 5 most recent Business category posts
-    # business_posts = Blog.list_published_posts_by_category("business", limit: 5)
-
-    # Get 3 most recent People category posts
-    # people_posts = Blog.list_published_posts_by_category("people", limit: 3)
-
-    # Get 6 most recent Tech category posts
-    # tech_posts = Blog.list_published_posts_by_category("tech", limit: 6)
-
-    # Get 5 most recent DeFi category posts (4 small cards + 1 large sidebar)
-    # defi_posts = Blog.list_published_posts_by_category("defi", limit: 5)
+    # Extract posts for each section from the grouped result (with empty list fallback)
+    latest_news_posts = Map.get(all_curated, "latest_news", []) |> Blog.with_bux_balances()
+    conversations_posts = Map.get(all_curated, "conversations", []) |> Blog.with_bux_balances()
+    posts_three_posts = Map.get(all_curated, "posts_three", []) |> Blog.with_bux_balances()
+    posts_four_posts = Map.get(all_curated, "posts_four", []) |> Blog.with_bux_balances()
+    posts_five_posts = Map.get(all_curated, "posts_five", []) |> Blog.with_bux_balances()
+    posts_six_posts = Map.get(all_curated, "posts_six", []) |> Blog.with_bux_balances()
 
     # Create a single list of all displayed post IDs for tracking
     displayed_post_ids =
@@ -283,13 +265,15 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     case Blog.update_curated_post_position(section, position, post_id) do
       {:ok, _} ->
-        # Reload the curated posts
-        latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
-        conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
-        posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
-        posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
-        posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
-        posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
+        # Reload ALL curated posts in a single DB query
+        all_curated = Blog.get_all_curated_posts()
+
+        latest_news_posts = Map.get(all_curated, "latest_news", []) |> Blog.with_bux_balances()
+        conversations_posts = Map.get(all_curated, "conversations", []) |> Blog.with_bux_balances()
+        posts_three_posts = Map.get(all_curated, "posts_three", []) |> Blog.with_bux_balances()
+        posts_four_posts = Map.get(all_curated, "posts_four", []) |> Blog.with_bux_balances()
+        posts_five_posts = Map.get(all_curated, "posts_five", []) |> Blog.with_bux_balances()
+        posts_six_posts = Map.get(all_curated, "posts_six", []) |> Blog.with_bux_balances()
         current_user = socket.assigns[:current_user]
         bux_balances = socket.assigns.bux_balances
         section_titles = socket.assigns.section_titles
@@ -378,12 +362,15 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   defp reload_components_with_titles(socket, section_titles) do
-    latest_news_posts = Blog.get_curated_posts_for_section("latest_news") |> Blog.with_bux_balances()
-    conversations_posts = Blog.get_curated_posts_for_section("conversations") |> Blog.with_bux_balances()
-    posts_three_posts = Blog.get_curated_posts_for_section("posts_three") |> Blog.with_bux_balances()
-    posts_four_posts = Blog.get_curated_posts_for_section("posts_four") |> Blog.with_bux_balances()
-    posts_five_posts = Blog.get_curated_posts_for_section("posts_five") |> Blog.with_bux_balances()
-    posts_six_posts = Blog.get_curated_posts_for_section("posts_six") |> Blog.with_bux_balances()
+    # Reload ALL curated posts in a single DB query
+    all_curated = Blog.get_all_curated_posts()
+
+    latest_news_posts = Map.get(all_curated, "latest_news", []) |> Blog.with_bux_balances()
+    conversations_posts = Map.get(all_curated, "conversations", []) |> Blog.with_bux_balances()
+    posts_three_posts = Map.get(all_curated, "posts_three", []) |> Blog.with_bux_balances()
+    posts_four_posts = Map.get(all_curated, "posts_four", []) |> Blog.with_bux_balances()
+    posts_five_posts = Map.get(all_curated, "posts_five", []) |> Blog.with_bux_balances()
+    posts_six_posts = Map.get(all_curated, "posts_six", []) |> Blog.with_bux_balances()
     current_user = socket.assigns[:current_user]
     bux_balances = socket.assigns.bux_balances
 

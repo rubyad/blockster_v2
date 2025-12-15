@@ -720,6 +720,33 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets all curated posts for all sections in a single query.
+  Returns a map with section names as keys and lists of posts as values.
+
+  ## Examples
+
+      iex> get_all_curated_posts()
+      %{
+        "latest_news" => [%Post{}, ...],
+        "conversations" => [%Post{}, ...],
+        "posts_three" => [%Post{}, ...],
+        ...
+      }
+  """
+  def get_all_curated_posts do
+    from(cp in CuratedPost,
+      order_by: [cp.section, cp.position],
+      join: p in assoc(cp, :post),
+      where: not is_nil(p.published_at),
+      preload: [post: {p, [:author, :category, :hub, :tags]}]
+    )
+    |> Repo.all()
+    |> Enum.group_by(fn cp -> cp.section end, fn cp -> cp.post end)
+    |> Enum.map(fn {section, posts} -> {section, populate_author_names(posts)} end)
+    |> Map.new()
+  end
+
+  @doc """
   Updates the post_id for a specific curated post position.
   Returns {:ok, curated_post} or {:error, changeset}.
   """
