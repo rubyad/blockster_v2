@@ -29,7 +29,6 @@ import { TwitterWidgets } from "./twitter_widgets.js";
 import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet } from "./home_hooks.js";
 import { TimeTracker } from "./time_tracker.js";
 import { EngagementTracker } from "./engagement_tracker.js";
-import topbar from "../vendor/topbar";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -153,11 +152,6 @@ const liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker, EngagementTracker },
 });
-
-// Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
-window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
-window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
