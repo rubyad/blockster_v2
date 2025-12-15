@@ -95,6 +95,22 @@ defmodule BlocksterV2Web.HubLive.Show do
   end
 
   @impl true
+  def handle_event("update_hub_logo", %{"logo_url" => logo_url}, socket) do
+    hub = socket.assigns.hub
+
+    case Blog.update_hub(hub, %{logo_url: logo_url}) do
+      {:ok, updated_hub} ->
+        {:noreply,
+         socket
+         |> assign(:hub, updated_hub)
+         |> put_flash(:info, "Logo updated successfully")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update logo")}
+    end
+  end
+
+  @impl true
   def handle_event("load-more-news", _, socket) do
     hub_id = socket.assigns.hub.id
     displayed_post_ids = socket.assigns.displayed_post_ids

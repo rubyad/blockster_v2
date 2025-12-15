@@ -24,6 +24,7 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import { TipTapEditor } from "./tiptap_editor.js";
 import { FeaturedImageUpload } from "./featured_image_upload.js";
+import { HubLogoUpload, HubLogoFormUpload } from "./hub_logo_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
 import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet } from "./home_hooks.js";
 import { TimeTracker } from "./time_tracker.js";
@@ -150,7 +151,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker, EngagementTracker },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker, EngagementTracker },
 });
 
 // Show progress bar on live navigation and form submits

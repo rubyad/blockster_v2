@@ -7,8 +7,14 @@
       <!-- Profile Left -->
       <div class="flex items-center gap-4 flex-wrap">
         <div class="img-rounded md:h-[120px] md:min-w-[120px] h-[64px] w-[64px] rounded-full bg-[#AFB5FF] cursor-pointer relative overflow-hidden">
-          <input type="file" name="" id="uploadImage" accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer">
-          <img src="/images/moonpay.png" id="imagePreview" alt="Freddie" class="h-full w-full min-w-auto object-cover">
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <input type="file" id="uploadImage" accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer z-10" phx-hook="HubLogoUpload">
+          <% end %>
+          <%= if @hub.logo_url do %>
+            <img src={@hub.logo_url} id="imagePreview" alt={@hub.name} class="h-full w-full min-w-auto object-cover">
+          <% else %>
+            <img src="/images/moonpay.png" id="imagePreview" alt={@hub.name} class="h-full w-full min-w-auto object-cover">
+          <% end %>
         </div>
 
         <!-- Info -->
