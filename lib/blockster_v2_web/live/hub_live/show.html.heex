@@ -192,7 +192,7 @@
   <!-- All Tab Content -->
   <%= if @show_all do %>
     <!-- Hub Posts -->
-    <div class="md:-mt-20 -mt-8">
+    <div>
       <.live_component
         module={BlocksterV2Web.PostLive.PostsThreeComponent}
         id="hub-posts-three"
@@ -203,7 +203,7 @@
         hide_title={true}
       />
     </div>
-    <div class="container mx-auto flex justify-end md:-mt-14 -mt-2 relative z-10">
+    <div class="container mx-auto flex justify-end relative z-10">
       <button phx-click="switch_tab" phx-value-tab="news" class="text-sm font-haas_medium_65 text-gray-500 hover:underline cursor-pointer">
         Read more stories from <%= @hub.name %> &gt;
       </button>
@@ -237,7 +237,7 @@
 
   <!-- News Tab Content -->
   <%= if @show_news do %>
-    <div class="md:-mt-20 -mt-8" id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
+    <div id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
       <%= for {id, component} <- @streams.news_components do %>
         <div id={id}>
           <.live_component
@@ -256,7 +256,7 @@
 
   <!-- Videos Tab Content -->
   <%= if @show_videos do %>
-    <div class="md:-mt-20 -mt-8">
+    <div>
       <.live_component
         module={BlocksterV2Web.PostLive.VideosComponent}
         id="hub-videos"
@@ -267,7 +267,7 @@
 
   <!-- Shop Tab Content -->
   <%= if @show_shop do %>
-    <div class="md:-mt-20 -mt-8 relative">
+    <div class="relative">
       <.live_component
         module={BlocksterV2Web.PostLive.ShopOneComponent}
         id="hub-shop-one"
@@ -287,7 +287,7 @@
 
   <!-- Events Tab Content -->
   <%= if @show_events do %>
-    <div class="md:-mt-20 -mt-8">
+    <div>
       <.live_component
         module={BlocksterV2Web.PostLive.EventsComponent}
         id="hub-events"
