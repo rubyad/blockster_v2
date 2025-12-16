@@ -20,6 +20,7 @@ defmodule BlocksterV2.Blog.Hub do
     field :youtube_url, :string
     field :color_primary, :string
     field :color_secondary, :string
+    field :token, :string
     field :is_active, :boolean, default: true
 
     # Associations
@@ -53,6 +54,7 @@ defmodule BlocksterV2.Blog.Hub do
       :youtube_url,
       :color_primary,
       :color_secondary,
+      :token,
       :is_active
     ])
     |> validate_required([:name, :tag_name])

@@ -60,19 +60,16 @@
 
 
     <div class="flex flex-wrap gap-4 items-center justify-between mt-4">
-      <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-        <button class="flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect width="20" height="20" rx="10" fill="url(#hub_bux_gradient_1)"></rect>
-            <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414"></path>
-            <defs>
-              <linearGradient id="hub_bux_gradient_1" x1="10" y1="-8.75008e-09" x2="9.8532" y2="12.1405" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#8AE388"></stop>
-                <stop offset="1" stop-color="#BAF55F"></stop>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span class="text-xs font-haas_medium_65">42,257 $BUX available</span>
+      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
+        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]" onclick="toggleModal('buxModal', event)">
+          <%= if @hub.logo_url do %>
+            <img src={@hub.logo_url} alt={@hub.name} class="h-5 w-5 rounded-full object-cover" />
+          <% else %>
+            <div class="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-haas_bold_75 bg-[#141414]">
+              {String.first(@hub.name)}
+            </div>
+          <% end %>
+          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(42257, precision: 0)} {@hub.token || "BUX"}</span>
         </button>
       </div>
 

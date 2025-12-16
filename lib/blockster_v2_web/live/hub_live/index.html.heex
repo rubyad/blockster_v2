@@ -128,10 +128,16 @@
 
               <!-- BUX Graphic Centered -->
               <div class="flex justify-center mt-4">
-                <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
+                <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
                   <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-                    <.lightning_icon id={"hub_bux_#{hub.id}"} size="20" />
-                    <span class="text-xs font-haas_medium_65">{:rand.uniform(50000)} $BUX</span>
+                    <%= if hub.logo_url do %>
+                      <img src={hub.logo_url} alt={hub.name} class="h-5 w-5 rounded-full object-cover" />
+                    <% else %>
+                      <div class="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-haas_bold_75 bg-[#141414]">
+                        {String.first(hub.name)}
+                      </div>
+                    <% end %>
+                    <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(:rand.uniform(50000), precision: 0)} {hub.token || "BUX"}</span>
                   </div>
                 </div>
               </div>

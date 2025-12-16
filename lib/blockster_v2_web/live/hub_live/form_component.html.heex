@@ -118,22 +118,144 @@
       <% end %>
     </div>
 
-    <!-- Website URL Field -->
-    <div>
-      <label for="hub_website_url" class="block text-sm font-medium text-gray-700 mb-1">
-        Website URL
-      </label>
-      <input
-        type="url"
-        name="hub[website_url]"
-        id="hub_website_url"
-        value={@form[:website_url].value}
-        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
-        placeholder="https://example.com"
-      />
-      <%= if @form[:website_url].errors != [] do %>
-        <p class="mt-1 text-sm text-red-600"><%= Enum.map_join(@form[:website_url].errors, ", ", fn {msg, _} -> msg end) %></p>
-      <% end %>
+    <!-- Social Links Section -->
+    <div class="border-t border-gray-200 pt-4 mt-4">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Social Links</h3>
+
+      <!-- Website URL Field -->
+      <div class="mb-4">
+        <label for="hub_website_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Website URL
+        </label>
+        <input
+          type="url"
+          name="hub[website_url]"
+          id="hub_website_url"
+          value={@form[:website_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://example.com"
+        />
+      </div>
+
+      <!-- Twitter URL Field -->
+      <div class="mb-4">
+        <label for="hub_twitter_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Twitter/X URL
+        </label>
+        <input
+          type="url"
+          name="hub[twitter_url]"
+          id="hub_twitter_url"
+          value={@form[:twitter_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://twitter.com/username"
+        />
+      </div>
+
+      <!-- Discord URL Field -->
+      <div class="mb-4">
+        <label for="hub_discord_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Discord URL
+        </label>
+        <input
+          type="url"
+          name="hub[discord_url]"
+          id="hub_discord_url"
+          value={@form[:discord_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://discord.gg/invite"
+        />
+      </div>
+
+      <!-- Telegram URL Field -->
+      <div class="mb-4">
+        <label for="hub_telegram_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Telegram URL
+        </label>
+        <input
+          type="url"
+          name="hub[telegram_url]"
+          id="hub_telegram_url"
+          value={@form[:telegram_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://t.me/channel"
+        />
+      </div>
+
+      <!-- YouTube URL Field -->
+      <div class="mb-4">
+        <label for="hub_youtube_url" class="block text-sm font-medium text-gray-700 mb-1">
+          YouTube URL
+        </label>
+        <input
+          type="url"
+          name="hub[youtube_url]"
+          id="hub_youtube_url"
+          value={@form[:youtube_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://youtube.com/@channel"
+        />
+      </div>
+
+      <!-- Instagram URL Field -->
+      <div class="mb-4">
+        <label for="hub_instagram_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Instagram URL
+        </label>
+        <input
+          type="url"
+          name="hub[instagram_url]"
+          id="hub_instagram_url"
+          value={@form[:instagram_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://instagram.com/username"
+        />
+      </div>
+
+      <!-- LinkedIn URL Field -->
+      <div class="mb-4">
+        <label for="hub_linkedin_url" class="block text-sm font-medium text-gray-700 mb-1">
+          LinkedIn URL
+        </label>
+        <input
+          type="url"
+          name="hub[linkedin_url]"
+          id="hub_linkedin_url"
+          value={@form[:linkedin_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://linkedin.com/company/name"
+        />
+      </div>
+
+      <!-- TikTok URL Field -->
+      <div class="mb-4">
+        <label for="hub_tiktok_url" class="block text-sm font-medium text-gray-700 mb-1">
+          TikTok URL
+        </label>
+        <input
+          type="url"
+          name="hub[tiktok_url]"
+          id="hub_tiktok_url"
+          value={@form[:tiktok_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://tiktok.com/@username"
+        />
+      </div>
+
+      <!-- Reddit URL Field -->
+      <div class="mb-4">
+        <label for="hub_reddit_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Reddit URL
+        </label>
+        <input
+          type="url"
+          name="hub[reddit_url]"
+          id="hub_reddit_url"
+          value={@form[:reddit_url].value}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white"
+          placeholder="https://reddit.com/r/subreddit"
+        />
+      </div>
     </div>
 
     <!-- Primary Color Field -->
