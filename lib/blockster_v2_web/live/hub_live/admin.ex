@@ -9,7 +9,7 @@ defmodule BlocksterV2Web.HubLive.Admin do
     {:ok,
      socket
      |> assign(:page_title, "Manage Hubs")
-     |> stream(:hubs, Blog.list_hubs())}
+     |> stream(:hubs, Blog.list_all_hubs())}
   end
 
   @impl true

@@ -633,6 +633,16 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Lists all hubs (active and inactive) for admin purposes.
+  Active hubs are listed first, then inactive, both sorted by name.
+  """
+  def list_all_hubs do
+    Hub
+    |> order_by([h], [desc: h.is_active, asc: h.name])
+    |> Repo.all()
+  end
+
+  @doc """
   Lists all active hubs with followers preloaded.
   """
   def list_hubs_with_followers do
