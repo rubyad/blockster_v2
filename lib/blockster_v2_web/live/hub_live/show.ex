@@ -59,15 +59,17 @@ defmodule BlocksterV2Web.HubLive.Show do
       |> assign(:show_shop, tab == "shop")
       |> assign(:show_events, tab == "events")
 
-    # Load news components when switching to news tab for the first time
+    # Load/reload news components when switching to news tab
+    # Always reset the stream to ensure consistent display
     socket =
-      if tab == "news" && !socket.assigns.news_loaded do
+      if tab == "news" do
         {news_components, displayed_post_ids} = build_initial_news_components(socket.assigns.hub.id)
 
         socket
         |> assign(:news_loaded, true)
         |> assign(:displayed_post_ids, displayed_post_ids)
-        |> stream(:news_components, news_components)
+        |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
+        |> stream(:news_components, news_components, reset: true)
       else
         socket
       end

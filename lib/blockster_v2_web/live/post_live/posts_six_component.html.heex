@@ -1,6 +1,6 @@
 <section id={"component-#{@id}"} class="grid-section-reverse py-6">
   <div class="container mx-auto">
-    <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts"] do %>
+    <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts"] && !Map.get(assigns, :hide_title) do %>
       <!-- Breadcrumb -->
       <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
         <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>

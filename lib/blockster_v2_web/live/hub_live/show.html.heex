@@ -237,6 +237,9 @@
 
   <!-- News Tab Content -->
   <%= if @show_news do %>
+    <div class="container mx-auto pt-4 pb-2">
+      <h2 class="text-3xl font-haas_medium_65 text-[#141414]">Latest stories from <%= @hub.name %></h2>
+    </div>
     <div id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
       <%= for {id, component} <- @streams.news_components do %>
         <div id={id}>
