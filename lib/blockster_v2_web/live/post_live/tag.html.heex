@@ -1,4 +1,14 @@
 <div id={"tag-page-#{@tag_slug}"} class="tag-page bg-[#F5F6FB]">
+  <!-- Tag Header with Breadcrumb and Title -->
+  <div class="container mx-auto pt-8 md:pt-12">
+    <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+      <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Tags</.link>
+      <span class="mx-2">›</span>
+      <span><%= @tag_name %></span>
+    </p>
+    <h1 class="text-3xl font-haas_medium_65 text-[#141414]"><%= @tag_name %></h1>
+  </div>
+
   <div id="tag-components" phx-update="stream" phx-hook="InfiniteScroll">
     <%= for {dom_id, comp} <- @streams.components do %>
       <div id={dom_id}>

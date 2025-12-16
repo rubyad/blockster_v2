@@ -1,36 +1,38 @@
-<section id={"component-#{@id}"} class="blog-section md:py-20 py-6 relative">
+<section id={"component-#{@id}"} class="blog-section py-6 relative">
   <div class="container mx-auto">
     <div class="flex flex-col">
-      <!-- Breadcrumb -->
-      <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
-        <%= if Map.get(assigns, :type) == "hub-posts" do %>
-          <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Hubs</.link>
-          <span class="mx-2">›</span>
-          <span><%= Map.get(assigns, :content, "Hub") %></span>
-        <% else %>
-          <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
-          <span class="mx-2">›</span>
-          <span><%= Map.get(assigns, :title, "Real World Assets (RWA)") %></span>
-        <% end %>
-      </p>
+      <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts"] && !Map.get(assigns, :hide_title) do %>
+        <!-- Breadcrumb -->
+        <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+          <%= if Map.get(assigns, :type) == "hub-posts" do %>
+            <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Hubs</.link>
+            <span class="mx-2">›</span>
+            <span><%= Map.get(assigns, :content, "Hub") %></span>
+          <% else %>
+            <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
+            <span class="mx-2">›</span>
+            <span><%= Map.get(assigns, :title, "Real World Assets (RWA)") %></span>
+          <% end %>
+        </p>
 
-      <!-- Section Title -->
-      <div class="mb-6">
-        <%= if assigns[:current_user] && @current_user.is_admin do %>
-          <button
-            phx-click="edit_section_title"
-            phx-value-section="posts_three"
-            class="text-3xl font-haas_medium_65 text-[#141414] hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
-          >
-            <%= if Map.get(assigns, :type) == "hub-posts", do: "Latest Stories", else: Map.get(assigns, :title, "Real World Assets (RWA)") %>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-          </button>
-        <% else %>
-          <h2 class="text-3xl font-haas_medium_65 text-[#141414]"><%= if Map.get(assigns, :type) == "hub-posts", do: "Latest Stories", else: Map.get(assigns, :title, "Real World Assets (RWA)") %></h2>
-        <% end %>
-      </div>
+        <!-- Section Title -->
+        <div class="mb-6">
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <button
+              phx-click="edit_section_title"
+              phx-value-section="posts_three"
+              class="text-3xl font-haas_medium_65 text-[#141414] hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
+            >
+              <%= if Map.get(assigns, :type) == "hub-posts", do: "Latest Stories", else: Map.get(assigns, :title, "Real World Assets (RWA)") %>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </button>
+          <% else %>
+            <h2 class="text-3xl font-haas_medium_65 text-[#141414]"><%= if Map.get(assigns, :type) == "hub-posts", do: "Latest Stories", else: Map.get(assigns, :title, "Real World Assets (RWA)") %></h2>
+          <% end %>
+        </div>
+      <% end %>
 
       <%= if @posts == [] do %>
         <div class="text-center py-20">

@@ -1,4 +1,4 @@
-<section id={"component-#{@id}"} class="blog-section md:py-20 py-6 bg-bg-dark dark-variant">
+<section id={"component-#{@id}"} class="blog-section py-6 bg-bg-dark dark-variant">
   <div class="container mx-auto">
     <div class="inner flex flex-col gap-6">
       <!-- Search/Heading Wrapper -->
@@ -223,7 +223,7 @@
                 <div class="row-bottom flex md:flex-row flex-col gap-3 m mt-3 max-md:hidden">
                   <%= if Enum.at(bottom_row_posts, 0) do %>
                     <% post = Enum.at(bottom_row_posts, 0) %>
-                    <div class="card-horizontal-variant flex-1 flex gap-3 bg-white rounded-lg p-2 relative">
+                    <div class="card-horizontal-variant flex-1 flex bg-white rounded-lg border border-[#1414141A] overflow-hidden relative">
                       <%= if assigns[:current_user] && @current_user.is_admin do %>
                         <button
                           phx-click="open_post_selector"
@@ -236,11 +236,11 @@
                           </svg>
                         </button>
                       <% end %>
-                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex gap-3">
+                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex">
                         <div class="img-wrapper shrink-0">
-                          <img src={ImageKit.w230_h320(post.featured_image)} class="object-cover rounded-lg h-[140px] w-[100px] md:h-[160px] md:w-[115px]" alt="" />
+                          <img src={ImageKit.w230_h320(post.featured_image)} class="object-cover h-full w-[100px] md:w-[115px]" alt="" />
                         </div>
-                        <div class="min-w-0 flex flex-col justify-between h-[140px] md:h-[160px]">
+                        <div class="min-w-0 flex flex-col justify-between p-3 flex-1">
                           <div>
                             <div class="flex items-center gap-2 mb-2">
                               <%= if post.category do %>
@@ -267,7 +267,7 @@
 
                   <%= if Enum.at(bottom_row_posts, 1) do %>
                     <% post = Enum.at(bottom_row_posts, 1) %>
-                    <div class="card-horizontal-variant flex-1 flex gap-3 bg-white rounded-lg p-2 relative">
+                    <div class="card-horizontal-variant flex-1 flex bg-white rounded-lg border border-[#1414141A] overflow-hidden relative">
                       <%= if assigns[:current_user] && @current_user.is_admin do %>
                         <button
                           phx-click="open_post_selector"
@@ -280,11 +280,11 @@
                           </svg>
                         </button>
                       <% end %>
-                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex gap-3">
+                      <.link navigate={~p"/#{post.slug}"} class="flex-1 flex">
                         <div class="img-wrapper shrink-0">
-                          <img src={ImageKit.w230_h320(post.featured_image)} class="object-cover rounded-lg h-[140px] w-[100px] md:h-[160px] md:w-[115px]" alt="" />
+                          <img src={ImageKit.w230_h320(post.featured_image)} class="object-cover h-full w-[100px] md:w-[115px]" alt="" />
                         </div>
-                        <div class="min-w-0 flex flex-col justify-between h-[140px] md:h-[160px]">
+                        <div class="min-w-0 flex flex-col justify-between p-3 flex-1">
                           <div>
                             <div class="flex items-center gap-2 mb-2">
                               <%= if post.category do %>

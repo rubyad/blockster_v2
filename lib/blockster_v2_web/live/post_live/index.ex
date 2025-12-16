@@ -219,8 +219,8 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def handle_event("open_post_selector", %{"section" => section, "position" => position}, socket) do
-    # Load 30 most recent posts by default
-    recent_posts = Blog.list_published_posts(limit: 30)
+    # Load 100 most recent posts by default
+    recent_posts = Blog.list_published_posts(limit: 100)
 
     {:noreply,
      socket
@@ -245,10 +245,10 @@ defmodule BlocksterV2Web.PostLive.Index do
   @impl true
   def handle_event("search_selector_posts", %{"value" => query}, socket) do
     results = if String.length(query) >= 2 do
-      Blog.search_posts_fulltext(query, limit: 30)
+      Blog.search_posts_fulltext(query, limit: 100)
     else
-      # Show 30 most recent posts when query is empty or too short
-      Blog.list_published_posts(limit: 30)
+      # Show 100 most recent posts when query is empty or too short
+      Blog.list_published_posts(limit: 100)
     end
 
     {:noreply,
