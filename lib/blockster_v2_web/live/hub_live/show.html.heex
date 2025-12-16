@@ -53,8 +53,10 @@
       </button>
     </div>
 
-    <h4 class="!text-[14px] flex gap-2 items-center font-haas_medium_65 text-[#343434] leading-[24px] border-[#141414] disabled:opacity-[0.6] mt-6">About us</h4>
-    <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-1 border-[#141414] disabled:opacity-[0.6]">As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market's evolution and future potential.</p>
+    <%= if @hub.description do %>
+      <h4 class="!text-[14px] flex gap-2 items-center font-haas_medium_65 text-[#343434] leading-[24px] border-[#141414] disabled:opacity-[0.6] mt-6">About us</h4>
+      <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-1 border-[#141414] disabled:opacity-[0.6]"><%= @hub.description %></p>
+    <% end %>
 
 
     <div class="flex flex-wrap gap-4 items-center justify-between mt-4">
