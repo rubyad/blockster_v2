@@ -1209,4 +1209,189 @@ defmodule BlocksterV2.EngagementTracker do
   def unsubscribe_from_all_bux_updates() do
     Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post_bux:all")
   end
+
+  # =============================================================================
+  # Per-Token Balance Functions (user_bux_balances table)
+  # =============================================================================
+
+  # Maps token names to their corresponding balance field index in the Mnesia record
+  # Record structure: {:user_bux_balances, user_id, wallet, updated_at, aggregate, bux, moonbux, neobux, roguebux, flarebux, nftbux, nolchabux, solbux, spacebux, tronbux, tranbux}
+  @token_field_indices %{
+    "BUX" => 5,
+    "moonBUX" => 6,
+    "neoBUX" => 7,
+    "rogueBUX" => 8,
+    "flareBUX" => 9,
+    "nftBUX" => 10,
+    "nolchaBUX" => 11,
+    "solBUX" => 12,
+    "spaceBUX" => 13,
+    "tronBUX" => 14,
+    "tranBUX" => 15
+  }
+
+  @doc """
+  Updates a specific token balance for a user in the user_bux_balances table.
+  Also updates the aggregate_bux_balance with the sum of all token balances.
+
+  Table structure (0-indexed tuple positions):
+  0: :user_bux_balances (table name)
+  1: user_id
+  2: user_smart_wallet
+  3: updated_at
+  4: aggregate_bux_balance
+  5: bux_balance
+  6: moonbux_balance
+  7: neobux_balance
+  8: roguebux_balance
+  9: flarebux_balance
+  10: nftbux_balance
+  11: nolchabux_balance
+  12: solbux_balance
+  13: spacebux_balance
+  14: tronbux_balance
+  15: tranbux_balance
+  """
+  def update_user_token_balance(user_id, wallet_address, token, balance) do
+    now = System.system_time(:second)
+    field_index = Map.get(@token_field_indices, token)
+
+    if is_nil(field_index) do
+      Logger.warning("[EngagementTracker] Unknown token '#{token}' - skipping balance update")
+      {:error, :unknown_token}
+    else
+      # Parse balance to float for calculations
+      balance_float = parse_balance(balance)
+
+      case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+        [] ->
+          # No existing record - create new with all zeros except the specified token
+          record = create_new_balance_record(user_id, wallet_address, now, token, balance_float)
+          :mnesia.dirty_write(record)
+          Logger.info("[EngagementTracker] Created user_bux_balances for user #{user_id}: #{token}=#{balance_float}")
+          {:ok, balance_float}
+
+        [existing] ->
+          # Update existing record
+          updated = existing
+            |> put_elem(2, wallet_address)           # user_smart_wallet
+            |> put_elem(3, now)                      # updated_at
+            |> put_elem(field_index, balance_float)  # specific token balance
+
+          # Recalculate aggregate balance
+          aggregate = calculate_aggregate_balance(updated)
+          updated = put_elem(updated, 4, aggregate)
+
+          :mnesia.dirty_write(updated)
+          Logger.info("[EngagementTracker] Updated user_bux_balances for user #{user_id}: #{token}=#{balance_float}, aggregate=#{aggregate}")
+          {:ok, balance_float}
+      end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating user token balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating user token balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  defp parse_balance(balance) when is_float(balance), do: balance
+  defp parse_balance(balance) when is_integer(balance), do: balance * 1.0
+  defp parse_balance(balance) when is_binary(balance) do
+    case Float.parse(balance) do
+      {val, _} -> val
+      :error -> 0.0
+    end
+  end
+  defp parse_balance(_), do: 0.0
+
+  defp create_new_balance_record(user_id, wallet_address, now, token, balance) do
+    # Create a record with all zeros, then set the specific token
+    base_record = {
+      :user_bux_balances,
+      user_id,
+      wallet_address,
+      now,
+      balance,   # aggregate starts as this token's balance
+      0.0,       # bux_balance
+      0.0,       # moonbux_balance
+      0.0,       # neobux_balance
+      0.0,       # roguebux_balance
+      0.0,       # flarebux_balance
+      0.0,       # nftbux_balance
+      0.0,       # nolchabux_balance
+      0.0,       # solbux_balance
+      0.0,       # spacebux_balance
+      0.0,       # tronbux_balance
+      0.0        # tranbux_balance
+    }
+
+    # Set the specific token balance
+    field_index = Map.get(@token_field_indices, token)
+    put_elem(base_record, field_index, balance)
+  end
+
+  defp calculate_aggregate_balance(record) do
+    # Sum all token balances (indices 5-15)
+    Enum.reduce(5..15, 0.0, fn index, acc ->
+      acc + (elem(record, index) || 0.0)
+    end)
+  end
+
+  @doc """
+  Gets all token balances for a user from the user_bux_balances table.
+  Returns a map with token names as keys and balances as values.
+  """
+  def get_user_token_balances(user_id) do
+    case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+      [] ->
+        # Return empty balances
+        %{
+          "aggregate" => 0.0,
+          "BUX" => 0.0,
+          "moonBUX" => 0.0,
+          "neoBUX" => 0.0,
+          "rogueBUX" => 0.0,
+          "flareBUX" => 0.0,
+          "nftBUX" => 0.0,
+          "nolchaBUX" => 0.0,
+          "solBUX" => 0.0,
+          "spaceBUX" => 0.0,
+          "tronBUX" => 0.0,
+          "tranBUX" => 0.0
+        }
+
+      [record] ->
+        %{
+          "aggregate" => elem(record, 4) || 0.0,
+          "BUX" => elem(record, 5) || 0.0,
+          "moonBUX" => elem(record, 6) || 0.0,
+          "neoBUX" => elem(record, 7) || 0.0,
+          "rogueBUX" => elem(record, 8) || 0.0,
+          "flareBUX" => elem(record, 9) || 0.0,
+          "nftBUX" => elem(record, 10) || 0.0,
+          "nolchaBUX" => elem(record, 11) || 0.0,
+          "solBUX" => elem(record, 12) || 0.0,
+          "spaceBUX" => elem(record, 13) || 0.0,
+          "tronBUX" => elem(record, 14) || 0.0,
+          "tranBUX" => elem(record, 15) || 0.0
+        }
+    end
+  rescue
+    _ ->
+      %{"aggregate" => 0.0}
+  catch
+    :exit, _ ->
+      %{"aggregate" => 0.0}
+  end
+
+  @doc """
+  Gets a specific token balance for a user.
+  """
+  def get_user_token_balance(user_id, token) do
+    balances = get_user_token_balances(user_id)
+    Map.get(balances, token, 0.0)
+  end
 end

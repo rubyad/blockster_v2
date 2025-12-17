@@ -1,30 +1,42 @@
 defmodule BlocksterV2.BuxMinter do
   @moduledoc """
   Client module for calling the BUX minting service.
-  Mints BUX tokens to users' smart wallets when they earn rewards.
+  Mints BUX tokens (and hub-specific tokens) to users' smart wallets when they earn rewards.
   """
 
   alias BlocksterV2.EngagementTracker
   require Logger
 
+  # Valid token types that can be minted
+  @valid_tokens ~w(BUX moonBUX neoBUX rogueBUX flareBUX nftBUX nolchaBUX solBUX spaceBUX tronBUX tranBUX)
+
   @doc """
-  Mints BUX tokens to a user's smart wallet.
+  Returns the list of valid token types.
+  """
+  def valid_tokens, do: @valid_tokens
+
+  @doc """
+  Mints tokens to a user's smart wallet.
 
   ## Parameters
     - wallet_address: The user's smart wallet address (ERC-4337)
-    - amount: Number of BUX tokens to mint
+    - amount: Number of tokens to mint
     - user_id: The user's ID (for logging)
     - post_id: The post ID that earned the reward (for logging)
     - reward_type: The type of reward - :read or :x_share
+    - token: The token type to mint (default: "BUX")
 
   ## Returns
     - {:ok, response} on success with transaction details
     - {:error, reason} on failure
   """
-  def mint_bux(wallet_address, amount, user_id, post_id, reward_type)
+  def mint_bux(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX")
       when reward_type in [:read, :x_share] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
+
+    # Normalize token - default to BUX if nil or empty
+    token = normalize_token(token)
 
     if is_nil(api_secret) or api_secret == "" do
       Logger.warning("[BuxMinter] API_SECRET not configured, skipping mint")
@@ -34,7 +46,8 @@ defmodule BlocksterV2.BuxMinter do
         walletAddress: wallet_address,
         amount: amount,
         userId: user_id,
-        postId: post_id
+        postId: post_id,
+        token: token
       }
 
       headers = [
@@ -42,24 +55,29 @@ defmodule BlocksterV2.BuxMinter do
         {"Authorization", "Bearer #{api_secret}"}
       ]
 
-      Logger.info("[BuxMinter] Minting #{amount} BUX to #{wallet_address} (user: #{user_id}, post: #{post_id})")
+      Logger.info("[BuxMinter] Minting #{amount} #{token} to #{wallet_address} (user: #{user_id}, post: #{post_id})")
 
       case http_post("#{minter_url}/mint", Jason.encode!(payload), headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
           tx_hash = response["transactionHash"]
-          Logger.info("[BuxMinter] Mint successful: tx=#{tx_hash}")
+          actual_token = response["token"] || token
+          Logger.info("[BuxMinter] Mint successful: #{actual_token} tx=#{tx_hash}")
 
           # Mark the read reward as paid in Mnesia (only for read rewards)
           if reward_type == :read do
             EngagementTracker.mark_read_reward_paid(user_id, post_id, tx_hash)
           end
 
-          # Fetch the on-chain balance and update user_bux_points
-          case get_balance(wallet_address) do
+          # Update aggregate balance in user_bux_points (counts all tokens)
+          # Fetch the specific token balance and update user_bux_balances
+          case get_balance(wallet_address, actual_token) do
             {:ok, on_chain_balance} ->
-              Logger.info("[BuxMinter] On-chain balance for #{wallet_address}: #{on_chain_balance}")
+              Logger.info("[BuxMinter] On-chain #{actual_token} balance for #{wallet_address}: #{on_chain_balance}")
+              # Update aggregate balance (still stored in user_bux_points for backward compatibility)
               EngagementTracker.update_user_bux_balance(user_id, wallet_address, on_chain_balance)
+              # Update per-token balance in user_bux_balances
+              EngagementTracker.update_user_token_balance(user_id, wallet_address, actual_token, on_chain_balance)
             {:error, reason} ->
               Logger.warning("[BuxMinter] Could not fetch on-chain balance: #{inspect(reason)}")
           end
@@ -82,22 +100,24 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   @doc """
-  Mints BUX tokens asynchronously (fire and forget).
+  Mints tokens asynchronously (fire and forget).
   Use this when you don't need to wait for the transaction to complete.
   """
-  def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type)
+  def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX")
       when reward_type in [:read, :x_share] do
     Task.start(fn ->
-      mint_bux(wallet_address, amount, user_id, post_id, reward_type)
+      mint_bux(wallet_address, amount, user_id, post_id, reward_type, token)
     end)
   end
 
   @doc """
-  Gets the BUX balance for a wallet address.
+  Gets the token balance for a wallet address.
+  Defaults to BUX if no token specified.
   """
-  def get_balance(wallet_address) do
+  def get_balance(wallet_address, token \\ "BUX") do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
+    token = normalize_token(token)
 
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
@@ -106,7 +126,9 @@ defmodule BlocksterV2.BuxMinter do
         {"Authorization", "Bearer #{api_secret}"}
       ]
 
-      case http_get("#{minter_url}/balance/#{wallet_address}", headers) do
+      url = "#{minter_url}/balance/#{wallet_address}?token=#{token}"
+
+      case http_get(url, headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
           {:ok, response["balance"]}
@@ -119,6 +141,45 @@ defmodule BlocksterV2.BuxMinter do
           {:error, reason}
       end
     end
+  end
+
+  @doc """
+  Gets all token balances for a wallet address.
+  Returns a map of token => balance.
+  """
+  def get_all_balances(wallet_address) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_get("#{minter_url}/balances/#{wallet_address}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["balances"]}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  # Normalize token name - default to BUX if nil or empty
+  defp normalize_token(nil), do: "BUX"
+  defp normalize_token(""), do: "BUX"
+  defp normalize_token(token) when token in @valid_tokens, do: token
+  defp normalize_token(token) do
+    Logger.warning("[BuxMinter] Unknown token '#{token}', defaulting to BUX")
+    "BUX"
   end
 
   # Private helpers

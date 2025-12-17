@@ -150,6 +150,28 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at              # Unix timestamp
       ],
       index: [:user_id, :campaign_id, :status, :rewarded_at]
+    },
+    %{
+      name: :user_bux_balances,
+      type: :set,
+      attributes: [
+        :user_id,                   # Primary key
+        :user_smart_wallet,         # User's smart wallet address
+        :updated_at,                # Last update timestamp
+        :aggregate_bux_balance,     # Total of all token balances combined
+        :bux_balance,               # BUX token balance
+        :moonbux_balance,           # moonBUX token balance
+        :neobux_balance,            # neoBUX token balance
+        :roguebux_balance,          # rogueBUX token balance
+        :flarebux_balance,          # flareBUX token balance
+        :nftbux_balance,            # nftBUX token balance
+        :nolchabux_balance,         # nolchaBUX token balance
+        :solbux_balance,            # solBUX token balance
+        :spacebux_balance,          # spaceBUX token balance
+        :tronbux_balance,           # tronBUX token balance
+        :tranbux_balance            # tranBUX token balance
+      ],
+      index: [:user_smart_wallet, :aggregate_bux_balance]
     }
   ]
 

@@ -5,14 +5,18 @@
       <!-- Already received reward from previous session - amber panel -->
       <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
-          </div>
+          <%= if @hub_logo do %>
+            <img src={@hub_logo} alt={@hub_token} class="w-10 h-10 rounded-full object-cover" />
+          <% else %>
+            <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+          <% end %>
           <div>
             <div class="text-xs opacity-90">Already Earned</div>
-            <div class="text-xl font-bold">{@bux_earned || 0} BUX</div>
+            <div class="text-xl font-bold">{@bux_earned || 0} {@hub_token}</div>
           </div>
         </div>
         <%= if @read_tx_id do %>
@@ -33,14 +37,18 @@
         <!-- Just completed - gold/amber panel with checkmark -->
         <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px] animate-pulse-once">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-              </svg>
-            </div>
+            <%= if @hub_logo do %>
+              <img src={@hub_logo} alt={@hub_token} class="w-10 h-10 rounded-full object-cover" />
+            <% else %>
+              <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+            <% end %>
             <div>
               <div class="text-xs opacity-90">Earned!</div>
-              <div class="text-xl font-bold">+{@current_bux} BUX</div>
+              <div class="text-xl font-bold">+{@current_bux} {@hub_token}</div>
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
@@ -50,7 +58,7 @@
             </div>
             <div class="flex justify-between">
               <span>Base Reward:</span>
-              <span class="font-semibold">{@base_bux_reward} BUX</span>
+              <span class="font-semibold">{@base_bux_reward} {@hub_token}</span>
             </div>
             <div class="flex justify-between">
               <span>Multiplier:</span>
@@ -74,14 +82,18 @@
         <!-- Active earning panel - green gradient -->
         <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
-            </div>
+            <%= if @hub_logo do %>
+              <img src={@hub_logo} alt={@hub_token} class="w-10 h-10 rounded-full object-cover" />
+            <% else %>
+              <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+              </div>
+            <% end %>
             <div>
-              <div class="text-xs opacity-90">Earning BUX</div>
-              <div class="text-xl font-bold">+{@current_bux} BUX</div>
+              <div class="text-xs opacity-90">Earning {@hub_token}</div>
+              <div class="text-xl font-bold">+{@current_bux} {@hub_token}</div>
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
@@ -91,7 +103,7 @@
             </div>
             <div class="flex justify-between">
               <span>Base Reward:</span>
-              <span class="font-semibold">{@base_bux_reward} BUX</span>
+              <span class="font-semibold">{@base_bux_reward} {@hub_token}</span>
             </div>
             <div class="flex justify-between">
               <span>Multiplier:</span>
@@ -479,8 +491,11 @@
                       RETWEET & LIKE ON X
                     </h4>
                   </div>
-                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-3 py-1 rounded-full text-sm font-bold">
-                    +{@x_share_reward} BUX
+                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                    <%= if @hub_logo do %>
+                      <img src={@hub_logo} alt={@hub_token} class="w-4 h-4 rounded-full object-cover" />
+                    <% end %>
+                    +{@x_share_reward} {@hub_token}
                   </span>
                 </div>
 
@@ -494,7 +509,7 @@
                       <span class="text-green-700 font-haas_medium_65">
                         <%= case @share_reward.status do %>
                           <% "rewarded" -> %>
-                            Retweeted & Liked! Earned {@share_reward.bux_rewarded} BUX
+                            Retweeted & Liked! Earned {@share_reward.bux_rewarded} {@hub_token}
                           <% "verified" -> %>
                             Verified, reward pending
                           <% "pending" -> %>
@@ -718,7 +733,12 @@
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-6">
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-haas_bold_75 text-black">Share to Earn BUX</h3>
+          <h3 class="text-xl font-haas_bold_75 text-black flex items-center gap-2">
+            <%= if @hub_logo do %>
+              <img src={@hub_logo} alt={@hub_token} class="w-6 h-6 rounded-full object-cover" />
+            <% end %>
+            Share to Earn {@hub_token}
+          </h3>
           <button phx-click="close_share_modal" class="text-black/70 hover:text-black">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -727,7 +747,7 @@
         </div>
         <%= if @share_campaign do %>
           <p class="text-black/70 text-sm mt-2">
-            Share this article on X and earn <span class="font-bold">{@x_share_reward} BUX</span>!
+            Share this article on X and earn <span class="font-bold">{@x_share_reward} {@hub_token}</span>!
           </p>
         <% end %>
       </div>
@@ -869,8 +889,11 @@
             </svg>
             Retweet & Like
             <%= if @share_campaign do %>
-              <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2">
-                +{@x_share_reward} BUX
+              <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2 flex items-center gap-1">
+                <%= if @hub_logo do %>
+                  <img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" />
+                <% end %>
+                +{@x_share_reward} {@hub_token}
               </span>
             <% end %>
           </button>
