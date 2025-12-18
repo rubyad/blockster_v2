@@ -5,6 +5,7 @@ defmodule BlocksterV2Web.BuxBalanceHook do
   - Fetches the initial on-chain BUX balance from Mnesia
   - Subscribes to PubSub updates when balance changes after minting
   - Updates the bux_balance assign when new balance is broadcast
+  - Also updates token_balances for individual token balances in dropdowns
   """
   import Phoenix.LiveView
   import Phoenix.Component, only: [assign: 3]
@@ -35,6 +36,9 @@ defmodule BlocksterV2Web.BuxBalanceHook do
         {:bux_balance_updated, new_balance}, socket ->
           {:halt, assign(socket, :bux_balance, new_balance)}
 
+        {:token_balances_updated, token_balances}, socket ->
+          {:halt, assign(socket, :token_balances, token_balances)}
+
         _other, socket ->
           {:cont, socket}
       end)
@@ -55,5 +59,13 @@ defmodule BlocksterV2Web.BuxBalanceHook do
   """
   def broadcast_balance_update(user_id, new_balance) do
     Phoenix.PubSub.broadcast(@pubsub, "#{@topic_prefix}#{user_id}", {:bux_balance_updated, new_balance})
+  end
+
+  @doc """
+  Broadcasts token balances update to all LiveViews subscribed to this user's balance.
+  Call this from EngagementTracker after updating individual token balances.
+  """
+  def broadcast_token_balances_update(user_id, token_balances) do
+    Phoenix.PubSub.broadcast(@pubsub, "#{@topic_prefix}#{user_id}", {:token_balances_updated, token_balances})
   end
 end

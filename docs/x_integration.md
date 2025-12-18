@@ -77,22 +77,39 @@ lib/blockster_v2_web/
 
 ## Database Schema
 
-### x_connections
+All X integration data is stored exclusively in **Mnesia** for fast, distributed access. PostgreSQL is only used for the `users.locked_x_user_id` field (permanent X account locking).
+
+**Important:** The retweet flow uses Mnesia only. No PostgreSQL queries occur during the retweet action itself - user and post data are already loaded in the LiveView socket from page mount.
+
+### Mnesia Table: `x_oauth_states`
+
+Temporary storage for OAuth state during the authorization flow (10 minute TTL).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | string | **Primary key** - Random state parameter |
+| `user_id` | integer | User initiating OAuth |
+| `code_verifier` | string | PKCE code verifier |
+| `redirect_path` | string | Where to redirect after auth |
+| `created_at` | integer | Unix timestamp |
+| `expires_at` | integer | Unix timestamp (10 min from creation) |
+
+### Mnesia Table: `x_connections`
 
 Stores user's X account connection and tokens.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `user_id` | integer | Foreign key to users |
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | integer | **Primary key** - Blockster user ID |
 | `x_user_id` | string | X account ID |
 | `x_username` | string | X handle (e.g., "blockster") |
 | `x_name` | string | Display name |
 | `x_profile_image_url` | string | Profile picture URL |
-| `access_token_encrypted` | binary | Encrypted OAuth access token |
-| `refresh_token_encrypted` | binary | Encrypted OAuth refresh token |
-| `token_expires_at` | utc_datetime | When access token expires |
-| `scopes` | array | Granted OAuth scopes |
+| `access_token` | string | Decrypted OAuth access token |
+| `refresh_token` | string | Decrypted OAuth refresh token |
+| `token_expires_at` | DateTime | When access token expires |
+| `scopes` | list | Granted OAuth scopes |
+| `connected_at` | DateTime | When first connected |
 | `x_score` | integer | Account quality score (1-100) |
 | `followers_count` | integer | Number of followers |
 | `following_count` | integer | Number following |
@@ -100,110 +117,93 @@ Stores user's X account connection and tokens.
 | `listed_count` | integer | Number of lists user is on |
 | `avg_engagement_rate` | float | Average engagement rate on original tweets |
 | `original_tweets_analyzed` | integer | Number of tweets analyzed for score |
-| `account_created_at` | utc_datetime | When X account was created |
-| `score_calculated_at` | utc_datetime | When score was last calculated |
-
-**Security**: Tokens are encrypted at rest using `Cloak.Ecto.Binary`.
+| `account_created_at` | DateTime | When X account was created |
+| `score_calculated_at` | DateTime | When score was last calculated |
 
 **Score Refresh**: The `x_score` is recalculated every 7 days or on first connect.
 
-### x_oauth_states
+### Mnesia Table: `share_campaigns`
 
-Temporary storage for OAuth state during the authorization flow.
+Defines retweet campaigns for posts (one campaign per post).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `state` | string | Random state parameter |
-| `code_verifier` | string | PKCE code verifier |
-| `redirect_to` | string | Where to redirect after auth |
-| `expires_at` | utc_datetime | State expiration (10 minutes) |
-
-### share_campaigns
-
-Defines retweet campaigns for posts.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `post_id` | integer | Foreign key to posts |
+| Field | Type | Description |
+|-------|------|-------------|
+| `post_id` | integer | **Primary key** - Foreign key to posts |
 | `tweet_id` | string | X tweet ID to retweet |
 | `tweet_url` | string | Full tweet URL |
-| `bux_reward` | integer | BUX reward amount (default: 50) |
+| `tweet_text` | string | Custom tweet text (optional) |
+| `bux_reward` | Decimal | BUX reward amount |
 | `is_active` | boolean | Whether campaign is active |
-| `starts_at` | utc_datetime | Campaign start time (optional) |
-| `ends_at` | utc_datetime | Campaign end time (optional) |
+| `starts_at` | DateTime | Campaign start time (optional) |
+| `ends_at` | DateTime | Campaign end time (optional) |
 | `max_participants` | integer | Max participants (optional) |
 | `total_shares` | integer | Count of successful shares |
-
-### share_rewards
-
-Tracks individual user participation in campaigns.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer | Primary key |
-| `user_id` | integer | Foreign key to users |
-| `campaign_id` | integer | Foreign key to share_campaigns |
-| `x_connection_id` | integer | Foreign key to x_connections |
-| `status` | string | `pending`, `verified`, `rewarded`, `failed` |
-| `retweet_id` | string | ID of the created retweet |
-| `bux_rewarded` | integer | BUX amount awarded |
-| `failure_reason` | string | Error message if failed |
-| `verified_at` | utc_datetime | When verified |
-| `rewarded_at` | utc_datetime | When reward was minted |
-| `tx_hash` | string | Blockchain transaction hash |
-
----
-
-## Mnesia Integration
-
-Share rewards are mirrored to Mnesia for fast distributed reads. This allows the member profile page to display user activity without hitting PostgreSQL.
+| `inserted_at` | DateTime | When campaign was created |
+| `updated_at` | DateTime | Last update time |
 
 ### Mnesia Table: `share_rewards`
 
-The `share_rewards` Mnesia table mirrors the PostgreSQL `share_rewards` table.
+Tracks individual user participation in campaigns.
 
-| Index | Attribute | Type | Description |
-|-------|-----------|------|-------------|
-| 0 | table_name | atom | `:share_rewards` |
-| 1 | key | tuple | `{user_id, campaign_id}` primary key |
-| 2 | id | integer | PostgreSQL id (for sync reference) |
-| 3 | user_id | integer | User ID |
-| 4 | campaign_id | integer | Campaign ID |
-| 5 | x_connection_id | integer | X connection reference |
-| 6 | retweet_id | string | X post/retweet ID |
-| 7 | status | string | `pending`, `verified`, `rewarded`, `failed` |
-| 8 | bux_rewarded | float | BUX amount (converted from Decimal) |
-| 9 | verified_at | integer | Unix timestamp |
-| 10 | rewarded_at | integer | Unix timestamp |
-| 11 | failure_reason | string | Error message if failed |
-| 12 | tx_hash | string | Blockchain transaction hash |
-| 13 | created_at | integer | Unix timestamp |
-| 14 | updated_at | integer | Unix timestamp |
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | tuple | **Primary key** - `{user_id, campaign_id}` |
+| `user_id` | integer | User ID |
+| `campaign_id` | integer | Campaign ID (post_id) |
+| `x_connection_id` | integer | X connection reference |
+| `retweet_id` | string | ID of the created retweet |
+| `status` | string | `pending`, `verified`, `rewarded`, `failed` |
+| `bux_rewarded` | float | BUX amount awarded |
+| `verified_at` | DateTime | When verified |
+| `rewarded_at` | DateTime | When reward was minted |
+| `failure_reason` | string | Error message if failed |
+| `tx_hash` | string | Blockchain transaction hash |
+| `created_at` | DateTime | When reward was created |
+| `updated_at` | DateTime | Last update time |
 
 **Indexes**: `user_id`, `campaign_id`, `status`, `rewarded_at`
 
-### Automatic Sync
+### PostgreSQL: `users.locked_x_user_id`
 
-All PostgreSQL operations automatically sync to Mnesia:
+The only PostgreSQL field used for X integration. When a user first connects their X account, their `locked_x_user_id` is set permanently to prevent switching accounts.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `locked_x_user_id` | string | X account ID user is locked to |
+
+The column has a unique partial index (`WHERE locked_x_user_id IS NOT NULL`) to prevent the same X account from being locked to multiple users.
+
+---
+
+## Data Access Patterns
+
+### Writing to Mnesia
+
+All X data operations go through the `Social` context which calls `EngagementTracker` Mnesia functions:
 
 ```elixir
-# These functions sync to Mnesia after PostgreSQL write:
+# OAuth state management
+Social.create_oauth_state(user_id, code_verifier, redirect_path)
+Social.get_valid_oauth_state(state)
+Social.consume_oauth_state(state)
+
+# X connection management
+Social.upsert_x_connection(user_id, attrs)
+Social.get_x_connection_for_user(user_id)
+Social.disconnect_x_account(user_id)
+Social.maybe_refresh_token(connection)
+
+# Share campaign management
+Social.create_share_campaign(attrs)
+Social.get_share_campaign(post_id)
+Social.list_active_campaigns()
+
+# Share reward management
 Social.create_pending_reward(user_id, campaign_id, x_connection_id)
-Social.verify_share_reward(reward, retweet_id)
-Social.mark_rewarded(reward, bux_amount, tx_hash)
-Social.mark_failed(reward, reason)
-Social.delete_share_reward(reward)
-```
-
-### Manual Backfill
-
-To sync all existing PostgreSQL records to Mnesia (e.g., after data recovery):
-
-```elixir
-BlocksterV2.Social.sync_all_share_rewards_to_mnesia()
-# Returns: {:ok, %{total: 18, success: 18, errors: 0}}
+Social.verify_share_reward(user_id, campaign_id, retweet_id)
+Social.mark_rewarded(user_id, campaign_id, bux_amount, opts)
+Social.mark_failed(user_id, campaign_id, reason)
+Social.delete_share_reward(user_id, campaign_id)
 ```
 
 ### Reading from Mnesia
@@ -264,12 +264,8 @@ def authorize(conn, _params) do
   code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
   state = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
 
-  # Store state in database
-  {:ok, _oauth_state} = Social.create_oauth_state(%{
-    state: state,
-    code_verifier: code_verifier,
-    redirect_to: redirect_path
-  })
+  # Store state in Mnesia (10 minute TTL)
+  {:ok, _state} = Social.create_oauth_state(user_id, code_verifier, redirect_path)
 
   # Redirect to X authorization URL
   auth_url = XApiClient.authorize_url(state, code_challenge)
@@ -293,7 +289,7 @@ X redirects back with authorization code:
 ```elixir
 # In XAuthController
 def callback(conn, %{"code" => code, "state" => state}) do
-  # Validate state
+  # Validate state from Mnesia
   oauth_state = Social.get_valid_oauth_state(state)
 
   # Exchange code for tokens
@@ -302,7 +298,7 @@ def callback(conn, %{"code" => code, "state" => state}) do
   # Get user profile from X
   {:ok, user_data} = XApiClient.get_me(token_data.access_token)
 
-  # Store connection
+  # Store connection in Mnesia (also locks user to X account in PostgreSQL on first connect)
   {:ok, _connection} = Social.upsert_x_connection(user_id, %{
     x_user_id: user_data["id"],
     x_username: user_data["username"],
@@ -311,7 +307,7 @@ def callback(conn, %{"code" => code, "state" => state}) do
     token_expires_at: expires_at
   })
 
-  # Clean up OAuth state
+  # Clean up OAuth state from Mnesia
   Social.consume_oauth_state(oauth_state)
 
   # Calculate X score asynchronously (doesn't block redirect)
@@ -321,12 +317,12 @@ end
 
 ### Token Refresh
 
-Tokens are automatically refreshed when expired:
+Tokens are automatically refreshed when expired. Token data is stored in and updated via Mnesia:
 
 ```elixir
 # In Social context
-def maybe_refresh_token(%XConnection{} = connection) do
-  if XConnection.token_needs_refresh?(connection) do
+def maybe_refresh_token(connection) when is_map(connection) do
+  if token_needs_refresh?(connection) do
     refresh_x_token(connection)
   else
     {:ok, connection}
@@ -334,15 +330,17 @@ def maybe_refresh_token(%XConnection{} = connection) do
 end
 
 defp refresh_x_token(connection) do
-  refresh_token = XConnection.decrypt_refresh_token(connection)
+  refresh_token = Map.get(connection, :refresh_token)
 
   case XApiClient.refresh_token(refresh_token) do
     {:ok, token_data} ->
-      update_x_connection(connection, %{
-        access_token: token_data.access_token,
-        refresh_token: token_data.refresh_token,
-        token_expires_at: new_expiry
-      })
+      # Update tokens in Mnesia
+      EngagementTracker.update_x_connection_tokens(
+        connection.user_id,
+        token_data.access_token,
+        token_data.refresh_token,
+        expires_at
+      )
     {:error, reason} ->
       {:error, reason}
   end
@@ -357,18 +355,17 @@ Users are permanently locked to the first X account they connect. This prevents 
 
 ### How It Works
 
-1. **First connection**: When a user connects their X account for the first time, the `x_user_id` is stored in `users.locked_x_user_id`
+1. **First connection**: When a user connects their X account for the first time, the `x_user_id` is stored in PostgreSQL `users.locked_x_user_id`
 2. **Subsequent connections**: Any reconnection must use the same X account
-3. **Disconnect**: Users can disconnect their X account, but the lock persists
+3. **Disconnect**: Users can disconnect their X account (Mnesia), but the PostgreSQL lock persists
 4. **Lock check**: On OAuth callback, the system verifies the X account matches the locked ID
 
-### Database Schema
+### Database Split
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `users.locked_x_user_id` | string | X account ID user is locked to |
+- **PostgreSQL**: `users.locked_x_user_id` - permanent lock (survives Mnesia data loss)
+- **Mnesia**: `x_connections` - active connection data (can be recreated)
 
-The column has a unique partial index (`WHERE locked_x_user_id IS NOT NULL`) to prevent the same X account from being locked to multiple users.
+The PostgreSQL column has a unique partial index (`WHERE locked_x_user_id IS NOT NULL`) to prevent the same X account from being locked to multiple users.
 
 ### Implementation
 
@@ -376,16 +373,19 @@ The column has a unique partial index (`WHERE locked_x_user_id IS NOT NULL`) to 
 # In Social.upsert_x_connection/2
 def upsert_x_connection(user_id, attrs) do
   x_user_id = attrs[:x_user_id] || attrs["x_user_id"]
-  user = Repo.get!(User, user_id)
+  user = Repo.get!(User, user_id)  # Only PostgreSQL query in the flow
 
   case check_x_account_lock(user, x_user_id) do
     {:ok, :first_connection} ->
-      # First X connection - lock the user to this X account
-      create_x_connection_and_lock(user, attrs)
+      # First X connection - lock user in PostgreSQL, create connection in Mnesia
+      with {:ok, _user} <- lock_user_to_x_account(user, x_user_id),
+           {:ok, connection} <- EngagementTracker.upsert_x_connection(user_id, attrs) do
+        {:ok, connection}
+      end
 
     {:ok, :same_account} ->
-      # Reconnecting same X account - allow
-      upsert_existing_x_connection(user_id, attrs)
+      # Reconnecting same X account - update Mnesia only
+      EngagementTracker.upsert_x_connection(user_id, attrs)
 
     {:error, :x_account_locked} ->
       # Trying to connect a different X account
@@ -482,9 +482,9 @@ engagement_rate = avg_engagement_per_tweet / followers_count
 
 ### Score Storage
 
-The score is saved to two locations:
-1. **PostgreSQL**: `x_connections.x_score` (persistent)
-2. **Mnesia**: `user_multipliers` table as `x_multiplier` (fast distributed reads)
+The score is saved to two Mnesia tables:
+1. **Mnesia**: `x_connections.x_score` - stored with the connection data
+2. **Mnesia**: `user_multipliers` table as `x_multiplier` - used for fast reward calculations
 
 ```elixir
 # Update x_multiplier in Mnesia
@@ -894,38 +894,51 @@ Check X API responses in logs:
 [error] X API retweet failed: 403 - %{"errors" => [...]}
 ```
 
-### Database Queries
+### Mnesia Queries
 
-Check user's X connection:
+Check user's X connection (from Mnesia):
 ```elixir
 Social.get_x_connection_for_user(user_id)
+# Or directly from EngagementTracker:
+EngagementTracker.get_x_connection_by_user(user_id)
 ```
 
-Check campaign status:
+Check campaign status (from Mnesia):
 ```elixir
 Social.get_campaign_for_post(post_id)
+# Or:
+EngagementTracker.get_share_campaign(post_id)
 ```
 
-Check user's reward status:
+Check user's reward status (from Mnesia):
 ```elixir
 Social.get_successful_share_reward(user_id, campaign_id)
+# Or:
+EngagementTracker.get_share_reward(user_id, campaign_id)
 ```
 
-Get campaign statistics:
+Get campaign statistics (from Mnesia):
 ```elixir
 Social.get_campaign_stats(campaign_id)
 # Returns: %{total: 10, pending: 2, verified: 3, rewarded: 5, failed: 0, total_bux: 250}
+```
+
+List all share campaigns:
+```elixir
+Social.list_share_campaigns()
+Social.list_active_campaigns()
 ```
 
 ---
 
 ## Security Considerations
 
-1. **Token Encryption**: Access and refresh tokens are encrypted at rest using Cloak
+1. **Token Storage**: Access and refresh tokens are stored in Mnesia (in-memory, replicated across cluster)
 2. **PKCE**: OAuth flow uses PKCE to prevent authorization code interception
 3. **State Parameter**: Random state prevents CSRF attacks
-4. **Short-lived States**: OAuth states expire after 10 minutes
+4. **Short-lived States**: OAuth states expire after 10 minutes (auto-cleaned from Mnesia)
 5. **Scope Limitation**: Only request necessary scopes
+6. **Account Locking**: Permanent X account lock in PostgreSQL prevents reward gaming
 
 ---
 

@@ -247,6 +247,15 @@ All scoring thresholds are in `engagement_tracker.ex` in the `calculate_engageme
 
 The engagement tracking system ties directly into BUX token rewards. Users earn BUX for reading articles and sharing them on social media.
 
+### Storage Architecture
+
+All reward data is stored in **Mnesia** for fast, distributed access:
+- **Read rewards**: `user_post_rewards` Mnesia table
+- **X share rewards**: `share_rewards` Mnesia table (keyed by `{user_id, post_id}`)
+- **User multipliers**: `user_multipliers` Mnesia table
+
+**Important**: The retweet flow uses Mnesia only. No PostgreSQL queries occur during the retweet action - user and post data are already loaded in the LiveView socket from page mount.
+
 ### Reward Types
 
 Users can earn BUX from three activities per article:

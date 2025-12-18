@@ -1051,6 +1051,11 @@ defmodule BlocksterV2.EngagementTracker do
     # Broadcast aggregate from user_bux_balances (the authoritative source)
     aggregate = get_user_bux_balance(user_id)
     BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
+
+    # Also broadcast individual token balances for dropdown updates
+    token_balances = get_user_token_balances(user_id)
+    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, token_balances)
+
     {:ok, aggregate}
   rescue
     e ->
@@ -1582,5 +1587,877 @@ defmodule BlocksterV2.EngagementTracker do
     _ -> %{}
   catch
     :exit, _ -> %{}
+  end
+
+  # =============================================================================
+  # X OAuth State Functions (x_oauth_states table)
+  # =============================================================================
+
+  @oauth_state_ttl_seconds 15 * 60  # 15 minutes
+
+  @doc """
+  Creates a new OAuth state for X authentication flow.
+  Returns {:ok, state_string} or {:error, reason}.
+
+  Mnesia tuple structure:
+  0: :x_oauth_states (table name)
+  1: state (primary key - random string)
+  2: user_id
+  3: code_verifier
+  4: redirect_path
+  5: expires_at (Unix timestamp)
+  6: inserted_at (Unix timestamp)
+  """
+  def create_x_oauth_state(user_id, code_verifier, redirect_path \\ "/profile") do
+    state = generate_random_string(32)
+    now = System.system_time(:second)
+    expires_at = now + @oauth_state_ttl_seconds
+
+    record = {
+      :x_oauth_states,
+      state,
+      user_id,
+      code_verifier,
+      redirect_path,
+      expires_at,
+      now
+    }
+
+    :mnesia.dirty_write(record)
+    Logger.info("[EngagementTracker] Created X OAuth state for user #{user_id}, expires in #{@oauth_state_ttl_seconds}s")
+    {:ok, state}
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error creating X OAuth state: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit creating X OAuth state: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets a valid (non-expired) OAuth state by its state string.
+  Returns the state record as a map or nil if not found/expired.
+  """
+  def get_valid_x_oauth_state(state) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:x_oauth_states, state}) do
+      [] -> nil
+      [record] ->
+        expires_at = elem(record, 5)
+        if expires_at > now do
+          %{
+            state: elem(record, 1),
+            user_id: elem(record, 2),
+            code_verifier: elem(record, 3),
+            redirect_path: elem(record, 4),
+            expires_at: expires_at,
+            inserted_at: elem(record, 6)
+          }
+        else
+          # Expired - clean it up
+          :mnesia.dirty_delete({:x_oauth_states, state})
+          nil
+        end
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Consumes (deletes) an OAuth state after successful use.
+  """
+  def consume_x_oauth_state(state) when is_binary(state) do
+    :mnesia.dirty_delete({:x_oauth_states, state})
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  def consume_x_oauth_state(%{state: state}), do: consume_x_oauth_state(state)
+
+  @doc """
+  Cleans up expired OAuth states.
+  Returns the count of deleted states.
+  """
+  def cleanup_expired_x_oauth_states do
+    now = System.system_time(:second)
+
+    # Get all states and filter for expired ones
+    case :mnesia.dirty_all_keys(:x_oauth_states) do
+      keys when is_list(keys) ->
+        expired_count = Enum.reduce(keys, 0, fn state, count ->
+          case :mnesia.dirty_read({:x_oauth_states, state}) do
+            [record] ->
+              expires_at = elem(record, 5)
+              if expires_at <= now do
+                :mnesia.dirty_delete({:x_oauth_states, state})
+                count + 1
+              else
+                count
+              end
+            [] -> count
+          end
+        end)
+
+        if expired_count > 0 do
+          Logger.info("[EngagementTracker] Cleaned up #{expired_count} expired X OAuth states")
+        end
+        expired_count
+
+      _ -> 0
+    end
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  # =============================================================================
+  # X Connection Functions (x_connections table)
+  # =============================================================================
+
+  @doc """
+  Creates or updates an X connection for a user.
+  Implements account locking - once connected, user is locked to that X account.
+
+  Returns {:ok, record_map} or {:error, :x_account_locked}.
+
+  Mnesia tuple structure:
+  0: :x_connections (table name)
+  1: user_id (primary key)
+  2: x_user_id
+  3: x_username
+  4: x_name
+  5: x_profile_image_url
+  6: access_token_encrypted
+  7: refresh_token_encrypted
+  8: token_expires_at
+  9: scopes (list)
+  10: connected_at
+  11: x_score
+  12: followers_count
+  13: following_count
+  14: tweet_count
+  15: listed_count
+  16: avg_engagement_rate
+  17: original_tweets_analyzed
+  18: account_created_at
+  19: score_calculated_at
+  20: updated_at
+  """
+  def upsert_x_connection(user_id, attrs) do
+    now = System.system_time(:second)
+
+    # Get attrs with defaults
+    x_user_id = Map.get(attrs, :x_user_id)
+    x_username = Map.get(attrs, :x_username)
+    x_name = Map.get(attrs, :x_name)
+    x_profile_image_url = Map.get(attrs, :x_profile_image_url)
+    access_token = Map.get(attrs, :access_token)
+    refresh_token = Map.get(attrs, :refresh_token)
+    token_expires_at = datetime_to_unix(Map.get(attrs, :token_expires_at))
+    scopes = Map.get(attrs, :scopes, [])
+    connected_at = datetime_to_unix(Map.get(attrs, :connected_at)) || now
+
+    # Encrypt tokens
+    access_token_encrypted = encrypt_token(access_token)
+    refresh_token_encrypted = encrypt_token(refresh_token)
+
+    case :mnesia.dirty_read({:x_connections, user_id}) do
+      [] ->
+        # New connection - check if this X account is already connected to another user
+        case get_x_connection_by_x_user_id(x_user_id) do
+          nil ->
+            # X account not connected anywhere else - create new record
+            record = {
+              :x_connections,
+              user_id,
+              x_user_id,
+              x_username,
+              x_name,
+              x_profile_image_url,
+              access_token_encrypted,
+              refresh_token_encrypted,
+              token_expires_at,
+              scopes,
+              connected_at,
+              nil,   # x_score
+              nil,   # followers_count
+              nil,   # following_count
+              nil,   # tweet_count
+              nil,   # listed_count
+              nil,   # avg_engagement_rate
+              nil,   # original_tweets_analyzed
+              nil,   # account_created_at
+              nil,   # score_calculated_at
+              now    # updated_at
+            }
+            :mnesia.dirty_write(record)
+            Logger.info("[EngagementTracker] Created X connection for user #{user_id}: @#{x_username}")
+            {:ok, x_connection_to_map(record)}
+
+          existing ->
+            # X account already connected to another user
+            if existing.user_id == user_id do
+              # Same user trying to reconnect - allow (shouldn't happen with new record check)
+              record = {
+                :x_connections, user_id, x_user_id, x_username, x_name, x_profile_image_url,
+                access_token_encrypted, refresh_token_encrypted, token_expires_at, scopes,
+                connected_at, nil, nil, nil, nil, nil, nil, nil, nil, nil, now
+              }
+              :mnesia.dirty_write(record)
+              {:ok, x_connection_to_map(record)}
+            else
+              Logger.warning("[EngagementTracker] X account @#{x_username} already connected to user #{existing.user_id}")
+              {:error, :x_account_locked}
+            end
+        end
+
+      [existing_record] ->
+        # Existing connection - check account locking
+        existing_x_user_id = elem(existing_record, 2)
+
+        if existing_x_user_id != nil and existing_x_user_id != x_user_id do
+          # User is trying to connect a different X account - blocked!
+          Logger.warning("[EngagementTracker] User #{user_id} locked to X account #{existing_x_user_id}, cannot connect #{x_user_id}")
+          {:error, :x_account_locked}
+        else
+          # Same X account or first connection - update
+          # Preserve existing score data
+          record = {
+            :x_connections,
+            user_id,
+            x_user_id,
+            x_username,
+            x_name,
+            x_profile_image_url,
+            access_token_encrypted,
+            refresh_token_encrypted,
+            token_expires_at,
+            scopes,
+            elem(existing_record, 10) || connected_at,  # preserve original connected_at
+            elem(existing_record, 11),   # x_score
+            elem(existing_record, 12),   # followers_count
+            elem(existing_record, 13),   # following_count
+            elem(existing_record, 14),   # tweet_count
+            elem(existing_record, 15),   # listed_count
+            elem(existing_record, 16),   # avg_engagement_rate
+            elem(existing_record, 17),   # original_tweets_analyzed
+            elem(existing_record, 18),   # account_created_at
+            elem(existing_record, 19),   # score_calculated_at
+            now
+          }
+          :mnesia.dirty_write(record)
+          Logger.info("[EngagementTracker] Updated X connection for user #{user_id}: @#{x_username}")
+          {:ok, x_connection_to_map(record)}
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error upserting X connection: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit upserting X connection: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets X connection for a user by user_id.
+  Returns map with decrypted tokens or nil.
+  """
+  def get_x_connection_by_user(user_id) do
+    case :mnesia.dirty_read({:x_connections, user_id}) do
+      [] -> nil
+      [record] -> x_connection_to_map(record)
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Gets X connection by X user ID (for checking if account already connected).
+  Returns map or nil.
+  """
+  def get_x_connection_by_x_user_id(nil), do: nil
+  def get_x_connection_by_x_user_id(x_user_id) do
+    # Use index lookup
+    pattern = {:x_connections, :_, x_user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    case :mnesia.dirty_match_object(pattern) do
+      [] -> nil
+      [record | _] -> x_connection_to_map(record)
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Updates X connection with new token data.
+  Used for token refresh.
+  """
+  def update_x_connection_tokens(user_id, access_token, refresh_token, expires_at) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:x_connections, user_id}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(6, encrypt_token(access_token))
+          |> put_elem(7, encrypt_token(refresh_token))
+          |> put_elem(8, datetime_to_unix(expires_at))
+          |> put_elem(20, now)
+        :mnesia.dirty_write(updated)
+        {:ok, x_connection_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Updates X score fields for a connection.
+  """
+  def update_x_connection_score(user_id, score_attrs) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:x_connections, user_id}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(11, Map.get(score_attrs, :x_score, elem(existing, 11)))
+          |> put_elem(12, Map.get(score_attrs, :followers_count, elem(existing, 12)))
+          |> put_elem(13, Map.get(score_attrs, :following_count, elem(existing, 13)))
+          |> put_elem(14, Map.get(score_attrs, :tweet_count, elem(existing, 14)))
+          |> put_elem(15, Map.get(score_attrs, :listed_count, elem(existing, 15)))
+          |> put_elem(16, Map.get(score_attrs, :avg_engagement_rate, elem(existing, 16)))
+          |> put_elem(17, Map.get(score_attrs, :original_tweets_analyzed, elem(existing, 17)))
+          |> put_elem(18, datetime_to_unix(Map.get(score_attrs, :account_created_at)) || elem(existing, 18))
+          |> put_elem(19, now)  # score_calculated_at
+          |> put_elem(20, now)  # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Updated X score for user #{user_id}: score=#{Map.get(score_attrs, :x_score)}")
+        {:ok, x_connection_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Deletes X connection for a user (disconnect).
+  """
+  def delete_x_connection(user_id) do
+    :mnesia.dirty_delete({:x_connections, user_id})
+    Logger.info("[EngagementTracker] Deleted X connection for user #{user_id}")
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  # Convert X connection record to map with decrypted tokens
+  defp x_connection_to_map(record) do
+    %{
+      user_id: elem(record, 1),
+      x_user_id: elem(record, 2),
+      x_username: elem(record, 3),
+      x_name: elem(record, 4),
+      x_profile_image_url: elem(record, 5),
+      access_token: decrypt_token(elem(record, 6)),
+      refresh_token: decrypt_token(elem(record, 7)),
+      token_expires_at: unix_to_datetime(elem(record, 8)),
+      scopes: elem(record, 9) || [],
+      connected_at: unix_to_datetime(elem(record, 10)),
+      x_score: elem(record, 11),
+      followers_count: elem(record, 12),
+      following_count: elem(record, 13),
+      tweet_count: elem(record, 14),
+      listed_count: elem(record, 15),
+      avg_engagement_rate: elem(record, 16),
+      original_tweets_analyzed: elem(record, 17),
+      account_created_at: unix_to_datetime(elem(record, 18)),
+      score_calculated_at: unix_to_datetime(elem(record, 19)),
+      updated_at: unix_to_datetime(elem(record, 20))
+    }
+  end
+
+  # =============================================================================
+  # Share Campaign Functions (share_campaigns table)
+  # =============================================================================
+
+  @doc """
+  Creates a new share campaign for a post.
+  Returns {:ok, campaign_map} or {:error, reason}.
+
+  Mnesia tuple structure:
+  0: :share_campaigns (table name)
+  1: post_id (primary key)
+  2: tweet_id
+  3: tweet_url
+  4: tweet_text
+  5: bux_reward
+  6: is_active
+  7: starts_at
+  8: ends_at
+  9: max_participants
+  10: total_shares
+  11: inserted_at
+  12: updated_at
+  """
+  def create_share_campaign(post_id, attrs) do
+    now = System.system_time(:second)
+
+    record = {
+      :share_campaigns,
+      post_id,
+      Map.get(attrs, :tweet_id),
+      Map.get(attrs, :tweet_url),
+      Map.get(attrs, :tweet_text),
+      Map.get(attrs, :bux_reward, 50),
+      Map.get(attrs, :is_active, true),
+      datetime_to_unix(Map.get(attrs, :starts_at)),
+      datetime_to_unix(Map.get(attrs, :ends_at)),
+      Map.get(attrs, :max_participants),
+      0,    # total_shares starts at 0
+      now,
+      now
+    }
+
+    :mnesia.dirty_write(record)
+    Logger.info("[EngagementTracker] Created share campaign for post #{post_id}: #{Map.get(attrs, :bux_reward, 50)} BUX")
+    {:ok, share_campaign_to_map(record)}
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error creating share campaign: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit creating share campaign: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets share campaign by post_id.
+  """
+  def get_share_campaign(post_id) do
+    case :mnesia.dirty_read({:share_campaigns, post_id}) do
+      [] -> nil
+      [record] -> share_campaign_to_map(record)
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Gets share campaign by tweet_id.
+  """
+  def get_share_campaign_by_tweet(nil), do: nil
+  def get_share_campaign_by_tweet(tweet_id) do
+    pattern = {:share_campaigns, :_, tweet_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    case :mnesia.dirty_match_object(pattern) do
+      [] -> nil
+      [record | _] -> share_campaign_to_map(record)
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Lists all active share campaigns.
+  """
+  def list_active_share_campaigns do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_all_keys(:share_campaigns) do
+      keys when is_list(keys) ->
+        keys
+        |> Enum.map(fn post_id ->
+          case :mnesia.dirty_read({:share_campaigns, post_id}) do
+            [record] -> record
+            [] -> nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.filter(fn record -> campaign_active?(record, now) end)
+        |> Enum.map(&share_campaign_to_map/1)
+
+      _ -> []
+    end
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  @doc """
+  Updates a share campaign.
+  """
+  def update_share_campaign(post_id, attrs) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:share_campaigns, post_id}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(2, Map.get(attrs, :tweet_id, elem(existing, 2)))
+          |> put_elem(3, Map.get(attrs, :tweet_url, elem(existing, 3)))
+          |> put_elem(4, Map.get(attrs, :tweet_text, elem(existing, 4)))
+          |> put_elem(5, Map.get(attrs, :bux_reward, elem(existing, 5)))
+          |> put_elem(6, Map.get(attrs, :is_active, elem(existing, 6)))
+          |> put_elem(7, datetime_to_unix(Map.get(attrs, :starts_at)) || elem(existing, 7))
+          |> put_elem(8, datetime_to_unix(Map.get(attrs, :ends_at)) || elem(existing, 8))
+          |> put_elem(9, Map.get(attrs, :max_participants, elem(existing, 9)))
+          |> put_elem(12, now)
+        :mnesia.dirty_write(updated)
+        {:ok, share_campaign_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Increments the total_shares count for a campaign.
+  Returns {:ok, new_count}.
+  """
+  def increment_campaign_shares(post_id) do
+    case :mnesia.dirty_read({:share_campaigns, post_id}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        current = elem(existing, 10) || 0
+        new_count = current + 1
+        now = System.system_time(:second)
+        updated = existing
+          |> put_elem(10, new_count)
+          |> put_elem(12, now)
+        :mnesia.dirty_write(updated)
+        {:ok, new_count}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  # Check if campaign is active
+  defp campaign_active?(record, now) do
+    is_active = elem(record, 6)
+    starts_at = elem(record, 7)
+    ends_at = elem(record, 8)
+    max_participants = elem(record, 9)
+    total_shares = elem(record, 10)
+
+    is_active == true and
+      (is_nil(starts_at) or starts_at <= now) and
+      (is_nil(ends_at) or ends_at > now) and
+      (is_nil(max_participants) or total_shares < max_participants)
+  end
+
+  # Convert campaign record to map
+  defp share_campaign_to_map(record) do
+    %{
+      post_id: elem(record, 1),
+      tweet_id: elem(record, 2),
+      tweet_url: elem(record, 3),
+      tweet_text: elem(record, 4),
+      bux_reward: elem(record, 5),
+      is_active: elem(record, 6),
+      starts_at: unix_to_datetime(elem(record, 7)),
+      ends_at: unix_to_datetime(elem(record, 8)),
+      max_participants: elem(record, 9),
+      total_shares: elem(record, 10) || 0,
+      inserted_at: unix_to_datetime(elem(record, 11)),
+      updated_at: unix_to_datetime(elem(record, 12))
+    }
+  end
+
+  # =============================================================================
+  # Share Reward Functions (share_rewards table) - Enhanced from existing
+  # =============================================================================
+
+  @doc """
+  Creates a pending share reward record.
+  Returns {:ok, map} or {:error, :already_exists}.
+
+  Uses existing share_rewards table which has:
+  0: :share_rewards (table name)
+  1: key ({user_id, campaign_id})
+  2: id (PostgreSQL id - deprecated for Mnesia-only)
+  3: user_id
+  4: campaign_id
+  5: x_connection_id
+  6: retweet_id
+  7: status
+  8: bux_rewarded
+  9: verified_at
+  10: rewarded_at
+  11: failure_reason
+  12: tx_hash
+  13: created_at
+  14: updated_at
+  """
+  def create_pending_share_reward(user_id, campaign_id, x_connection_id \\ nil) do
+    key = {user_id, campaign_id}
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:share_rewards, key}) do
+      [_existing] ->
+        {:error, :already_exists}
+
+      [] ->
+        record = {
+          :share_rewards,
+          key,
+          nil,              # id (not needed for Mnesia-only)
+          user_id,
+          campaign_id,
+          x_connection_id,
+          nil,              # retweet_id
+          "pending",        # status
+          nil,              # bux_rewarded
+          nil,              # verified_at
+          nil,              # rewarded_at
+          nil,              # failure_reason
+          nil,              # tx_hash
+          now,              # created_at
+          now               # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created pending share reward for user #{user_id}, campaign #{campaign_id}")
+        {:ok, share_reward_to_map(record)}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error creating pending share reward: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit creating pending share reward: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Marks a share reward as verified with the retweet ID.
+  """
+  def verify_share_reward(user_id, campaign_id, retweet_id) do
+    key = {user_id, campaign_id}
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:share_rewards, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(6, retweet_id)    # retweet_id
+          |> put_elem(7, "verified")    # status
+          |> put_elem(9, now)           # verified_at
+          |> put_elem(14, now)          # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Verified share reward for user #{user_id}, campaign #{campaign_id}")
+        {:ok, share_reward_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Marks a share reward as rewarded with BUX amount and tx hash.
+  """
+  def mark_share_reward_paid(user_id, campaign_id, bux_amount, tx_hash) do
+    key = {user_id, campaign_id}
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:share_rewards, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(7, "rewarded")    # status
+          |> put_elem(8, bux_amount)    # bux_rewarded
+          |> put_elem(10, now)          # rewarded_at
+          |> put_elem(12, tx_hash)      # tx_hash
+          |> put_elem(14, now)          # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Marked share reward paid for user #{user_id}, campaign #{campaign_id}: #{bux_amount} BUX")
+        {:ok, share_reward_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Marks a share reward as failed with reason.
+  """
+  def mark_share_reward_failed(user_id, campaign_id, reason) do
+    key = {user_id, campaign_id}
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:share_rewards, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(7, "failed")      # status
+          |> put_elem(11, reason)       # failure_reason
+          |> put_elem(14, now)          # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Marked share reward failed for user #{user_id}, campaign #{campaign_id}: #{reason}")
+        {:ok, share_reward_to_map(updated)}
+    end
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, e -> {:error, e}
+  end
+
+  @doc """
+  Gets a share reward by user_id and campaign_id.
+  """
+  def get_share_reward(user_id, campaign_id) do
+    key = {user_id, campaign_id}
+
+    case :mnesia.dirty_read({:share_rewards, key}) do
+      [] -> nil
+      [record] -> share_reward_to_map(record)
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc """
+  Gets all pending share rewards created before a given timestamp.
+  Used for background verification job.
+  """
+  def get_pending_share_rewards_before(before_timestamp) do
+    before_unix = datetime_to_unix(before_timestamp)
+    pattern = {:share_rewards, :_, :_, :_, :_, :_, :_, "pending", :_, :_, :_, :_, :_, :_, :_}
+
+    :mnesia.dirty_match_object(pattern)
+    |> Enum.filter(fn record -> elem(record, 13) < before_unix end)
+    |> Enum.map(&share_reward_to_map/1)
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  @doc """
+  Gets all share rewards for a user.
+  """
+  def get_user_share_rewards(user_id) do
+    pattern = {:share_rewards, :_, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    :mnesia.dirty_match_object(pattern)
+    |> Enum.map(&share_reward_to_map/1)
+    |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  @doc """
+  Deletes a share reward by user_id and campaign_id.
+  """
+  def delete_share_reward(user_id, campaign_id) do
+    key = {user_id, campaign_id}
+    :mnesia.dirty_delete({:share_rewards, key})
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  # Convert share reward record to map
+  defp share_reward_to_map(record) do
+    %{
+      user_id: elem(record, 3),
+      campaign_id: elem(record, 4),
+      x_connection_id: elem(record, 5),
+      retweet_id: elem(record, 6),
+      status: elem(record, 7),
+      bux_rewarded: elem(record, 8),
+      verified_at: unix_to_datetime(elem(record, 9)),
+      rewarded_at: unix_to_datetime(elem(record, 10)),
+      failure_reason: elem(record, 11),
+      tx_hash: elem(record, 12),
+      created_at: unix_to_datetime(elem(record, 13)),
+      updated_at: unix_to_datetime(elem(record, 14))
+    }
+  end
+
+  # =============================================================================
+  # Token Encryption/Decryption Helpers
+  # =============================================================================
+
+  defp encrypt_token(nil), do: nil
+  defp encrypt_token(token) when is_binary(token) do
+    BlocksterV2.Encryption.encrypt(token)
+  end
+
+  defp decrypt_token(nil), do: nil
+  defp decrypt_token(encrypted) when is_binary(encrypted) do
+    BlocksterV2.Encryption.decrypt(encrypted)
+  end
+
+  # =============================================================================
+  # DateTime/Unix Conversion Helpers
+  # =============================================================================
+
+  defp datetime_to_unix(nil), do: nil
+  defp datetime_to_unix(%DateTime{} = dt), do: DateTime.to_unix(dt)
+  defp datetime_to_unix(unix) when is_integer(unix), do: unix
+
+  defp unix_to_datetime(nil), do: nil
+  defp unix_to_datetime(unix) when is_integer(unix) do
+    case DateTime.from_unix(unix) do
+      {:ok, dt} -> dt
+      _ -> nil
+    end
+  end
+
+  defp generate_random_string(length) do
+    :crypto.strong_rand_bytes(length)
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, length)
   end
 end

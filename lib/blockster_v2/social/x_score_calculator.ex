@@ -14,8 +14,8 @@ defmodule BlocksterV2.Social.XScoreCalculator do
 
   require Logger
 
-  alias BlocksterV2.Social.{XApiClient, XConnection}
-  alias BlocksterV2.{Repo, EngagementTracker}
+  alias BlocksterV2.Social.XApiClient
+  alias BlocksterV2.EngagementTracker
 
   @score_refresh_days 7
 
@@ -24,12 +24,22 @@ defmodule BlocksterV2.Social.XScoreCalculator do
   Returns true if:
   - score_calculated_at is nil (never calculated)
   - More than 7 days have passed since last calculation
+
+  Works with both Mnesia maps and legacy XConnection structs.
   """
-  def needs_score_calculation?(%XConnection{score_calculated_at: nil}), do: true
-  def needs_score_calculation?(%XConnection{score_calculated_at: calculated_at}) do
+  def needs_score_calculation?(%{score_calculated_at: nil}), do: true
+  def needs_score_calculation?(%{score_calculated_at: calculated_at}) when is_struct(calculated_at, DateTime) do
     days_since = DateTime.diff(DateTime.utc_now(), calculated_at, :day)
     days_since >= @score_refresh_days
   end
+  # Handle Unix timestamps (from Mnesia)
+  def needs_score_calculation?(%{score_calculated_at: calculated_at}) when is_integer(calculated_at) do
+    now = DateTime.utc_now() |> DateTime.to_unix()
+    days_since = div(now - calculated_at, 86400)
+    days_since >= @score_refresh_days
+  end
+  # Fallback for any other connection format
+  def needs_score_calculation?(_connection), do: true
 
   @doc """
   Calculates and saves the X score for a connection if needed.
@@ -234,20 +244,21 @@ defmodule BlocksterV2.Social.XScoreCalculator do
     end
   end
 
-  # Save score to database and Mnesia
+  # Save score to Mnesia x_connections and user_multipliers tables
   defp save_score(connection, score_data) do
-    changeset = XConnection.changeset(connection, score_data)
+    user_id = connection.user_id
 
-    case Repo.update(changeset) do
+    # Update x_connection with score data
+    case EngagementTracker.update_x_connection_score(user_id, score_data) do
       {:ok, updated_connection} ->
-        # Update x_multiplier in Mnesia
-        EngagementTracker.set_user_x_multiplier(connection.user_id, score_data.x_score)
-        Logger.info("[XScoreCalculator] Saved X score #{score_data.x_score} for user #{connection.user_id}")
+        # Update x_multiplier in Mnesia user_multipliers table
+        EngagementTracker.set_user_x_multiplier(user_id, score_data.x_score)
+        Logger.info("[XScoreCalculator] Saved X score #{score_data.x_score} for user #{user_id}")
         {:ok, updated_connection}
 
-      {:error, changeset} ->
-        Logger.error("[XScoreCalculator] Failed to save score: #{inspect(changeset.errors)}")
-        {:error, changeset}
+      {:error, reason} ->
+        Logger.error("[XScoreCalculator] Failed to save score: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 end

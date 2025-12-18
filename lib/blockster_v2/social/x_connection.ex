@@ -81,6 +81,15 @@ defmodule BlocksterV2.Social.XConnection do
   def token_expired?(%__MODULE__{token_expires_at: expires_at}) do
     DateTime.compare(DateTime.utc_now(), expires_at) == :gt
   end
+  # Handle plain maps from Mnesia
+  def token_expired?(%{token_expires_at: nil}), do: false
+  def token_expired?(%{token_expires_at: expires_at}) when is_struct(expires_at, DateTime) do
+    DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+  end
+  def token_expired?(%{token_expires_at: expires_at}) when is_integer(expires_at) do
+    DateTime.utc_now() |> DateTime.to_unix() > expires_at
+  end
+  def token_expired?(_), do: false
 
   @doc """
   Checks if the token needs to be refreshed (expires within 5 minutes or already expired).
@@ -90,6 +99,17 @@ defmodule BlocksterV2.Social.XConnection do
     five_minutes_from_now = DateTime.utc_now() |> DateTime.add(5, :minute)
     DateTime.compare(expires_at, five_minutes_from_now) == :lt
   end
+  # Handle plain maps from Mnesia
+  def token_needs_refresh?(%{token_expires_at: nil}), do: false
+  def token_needs_refresh?(%{token_expires_at: expires_at}) when is_struct(expires_at, DateTime) do
+    five_minutes_from_now = DateTime.utc_now() |> DateTime.add(5, :minute)
+    DateTime.compare(expires_at, five_minutes_from_now) == :lt
+  end
+  def token_needs_refresh?(%{token_expires_at: expires_at}) when is_integer(expires_at) do
+    five_minutes_from_now = DateTime.utc_now() |> DateTime.to_unix() |> Kernel.+(5 * 60)
+    expires_at < five_minutes_from_now
+  end
+  def token_needs_refresh?(_), do: false
 
   @doc """
   Changeset for updating an existing connection.

@@ -90,7 +90,7 @@ defmodule BlocksterV2Web.PostLive.Show do
           # Only consider successful (verified/rewarded) shares - failed shares can be retried
           reward =
             if campaign do
-              Social.get_successful_share_reward(current_user.id, campaign.id)
+              Social.get_successful_share_reward(current_user.id, campaign.post_id)
             end
 
           # Calculate personalized X share reward: x_multiplier * base_bux_reward
@@ -434,14 +434,14 @@ defmodule BlocksterV2Web.PostLive.Show do
   defp initiate_tracked_share(socket, user, x_connection, share_campaign) do
     post = socket.assigns.post
 
-    # Create pending reward
-    case Social.create_pending_reward(user.id, share_campaign.id, x_connection.id) do
+    # Create pending reward (campaign_id is post_id in Mnesia, x_connection_id is user_id)
+    case Social.create_pending_reward(user.id, post.id, user.id) do
       {:ok, reward} ->
         # Refresh token if needed before making API call
         case Social.maybe_refresh_token(x_connection) do
           {:ok, refreshed_connection} ->
-            # Get decrypted access token from potentially refreshed connection
-            access_token = Social.XConnection.decrypt_access_token(refreshed_connection)
+            # Get access token from the Mnesia map (already decrypted)
+            access_token = refreshed_connection.access_token
 
             if access_token do
               # Retweet and like the campaign's specified tweet
@@ -453,8 +453,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                 {:ok, result} ->
                   # Check if at least the retweet succeeded
                   if result[:retweeted] do
-                    # Verify and record the tweet
-                    case Social.verify_share_reward(reward, campaign_tweet_id) do
+                    # Verify and record the tweet (campaign_id is post.id)
+                    case Social.verify_share_reward(user.id, post.id, campaign_tweet_id) do
                       {:ok, verified_reward} ->
                         # Award BUX (use personalized x_share_reward from socket)
                         bux_amount = socket.assigns.x_share_reward
@@ -476,7 +476,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                             nil
                           end
 
-                        {:ok, final_reward} = Social.mark_rewarded(verified_reward, bux_amount, tx_hash: tx_hash, post_id: post.id)
+                        {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, bux_amount, tx_hash: tx_hash, post_id: post.id)
 
                         # Build success message - mention if like failed, use hub token name
                         success_msg =
@@ -500,7 +500,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                   else
                     # Retweet failed even though API returned :ok
                     retweet_error = result[:retweet_error] || "Unknown error"
-                    Social.delete_share_reward(reward)
+                    Social.delete_share_reward(user.id, post.id)
 
                     {:noreply,
                      socket
@@ -510,7 +510,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
                 {:error, reason} ->
                   # Delete the pending reward so user can retry
-                  Social.delete_share_reward(reward)
+                  Social.delete_share_reward(user.id, post.id)
 
                   {:noreply,
                    socket
@@ -519,7 +519,7 @@ defmodule BlocksterV2Web.PostLive.Show do
               end
             else
               # Delete reward so user can retry after reconnecting
-              Social.delete_share_reward(reward)
+              Social.delete_share_reward(user.id, post.id)
               Social.disconnect_x_account(user.id)
 
               {:noreply,
@@ -530,9 +530,9 @@ defmodule BlocksterV2Web.PostLive.Show do
                |> assign(:share_status, {:error, "Failed to authenticate with X. Please reconnect your account."})}
             end
 
-          {:error, reason} ->
+          {:error, _reason} ->
             # Token refresh failed - delete the pending reward so user can retry after reconnecting
-            Social.delete_share_reward(reward)
+            Social.delete_share_reward(user.id, post.id)
             Social.disconnect_x_account(user.id)
 
             {:noreply,

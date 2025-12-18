@@ -220,14 +220,14 @@ defmodule BlocksterV2Web.CampaignsAdminLive do
                     <div class="flex gap-2">
                       <button
                         phx-click="edit_campaign"
-                        phx-value-id={campaign.id}
+                        phx-value-id={campaign.post_id}
                         class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
                       >
                         Edit
                       </button>
                       <button
                         phx-click="toggle_active"
-                        phx-value-id={campaign.id}
+                        phx-value-id={campaign.post_id}
                         class={"px-3 py-1 rounded text-sm #{if campaign.is_active, do: "bg-yellow-600 hover:bg-yellow-700", else: "bg-green-600 hover:bg-green-700"}"}
                       >
                         <%= if campaign.is_active, do: "Deactivate", else: "Activate" %>

@@ -4,7 +4,7 @@ defmodule BlocksterV2Web.XAuthController do
   require Logger
 
   alias BlocksterV2.Social
-  alias BlocksterV2.Social.{XApiClient, XOauthState, XScoreCalculator}
+  alias BlocksterV2.Social.{XApiClient, XScoreCalculator}
 
   @doc """
   Initiates the X OAuth flow by redirecting to X's authorization page.
@@ -19,14 +19,17 @@ defmodule BlocksterV2Web.XAuthController do
     else
       redirect_path = normalize_redirect_path(params["redirect"])
 
-      case Social.create_oauth_state(%{user_id: user.id, redirect_path: redirect_path}) do
-        {:ok, oauth_state} ->
-          code_challenge = XOauthState.generate_code_challenge(oauth_state.code_verifier)
-          auth_url = XApiClient.authorize_url(oauth_state.state, code_challenge)
+      # Generate PKCE code_verifier
+      code_verifier = generate_code_verifier()
+
+      case Social.create_oauth_state(user.id, code_verifier, redirect_path) do
+        {:ok, state} ->
+          code_challenge = generate_code_challenge(code_verifier)
+          auth_url = XApiClient.authorize_url(state, code_challenge)
 
           redirect(conn, external: auth_url)
 
-        {:error, _changeset} ->
+        {:error, _reason} ->
           conn
           |> put_flash(:error, "Failed to initiate X connection. Please try again.")
           |> redirect(to: redirect_path)
@@ -77,6 +80,11 @@ defmodule BlocksterV2Web.XAuthController do
       |> json(%{error: "Not authenticated"})
     else
       case Social.disconnect_x_account(user.id) do
+        :ok ->
+          conn
+          |> put_flash(:info, "X account disconnected successfully")
+          |> redirect(to: ~p"/profile")
+
         {:ok, _} ->
           conn
           |> put_flash(:info, "X account disconnected successfully")
@@ -191,4 +199,16 @@ defmodule BlocksterV2Web.XAuthController do
   defp normalize_redirect_path(""), do: "/profile"
   defp normalize_redirect_path("/" <> _ = path), do: path
   defp normalize_redirect_path(path), do: "/" <> path
+
+  # PKCE code_verifier generation (43-128 characters, URL-safe base64)
+  defp generate_code_verifier do
+    :crypto.strong_rand_bytes(32)
+    |> Base.url_encode64(padding: false)
+  end
+
+  # PKCE code_challenge generation (SHA256 hash of verifier, URL-safe base64)
+  defp generate_code_challenge(verifier) do
+    :crypto.hash(:sha256, verifier)
+    |> Base.url_encode64(padding: false)
+  end
 end

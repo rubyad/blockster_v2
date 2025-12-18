@@ -187,6 +187,66 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:total_bux_rewarded, :updated_at]
+    },
+    # X/Twitter OAuth and sharing tables
+    %{
+      name: :x_oauth_states,
+      type: :set,
+      attributes: [
+        :state,                     # Primary key - random OAuth state string
+        :user_id,                   # User initiating the OAuth flow
+        :code_verifier,             # PKCE code verifier
+        :redirect_path,             # Where to redirect after OAuth completes
+        :expires_at,                # Unix timestamp when state expires (15 min TTL)
+        :inserted_at                # Unix timestamp when created
+      ],
+      index: [:user_id, :expires_at]
+    },
+    %{
+      name: :x_connections,
+      type: :set,
+      attributes: [
+        :user_id,                   # Primary key - one X account per user
+        :x_user_id,                 # X's user ID (for account locking)
+        :x_username,                # X username (handle)
+        :x_name,                    # X display name
+        :x_profile_image_url,       # Profile image URL
+        :access_token_encrypted,    # Encrypted OAuth access token
+        :refresh_token_encrypted,   # Encrypted OAuth refresh token
+        :token_expires_at,          # Unix timestamp when token expires
+        :scopes,                    # List of granted scopes
+        :connected_at,              # Unix timestamp when first connected
+        :x_score,                   # Account quality score (1-100)
+        :followers_count,           # Number of followers
+        :following_count,           # Number of accounts following
+        :tweet_count,               # Total tweets
+        :listed_count,              # Times listed
+        :avg_engagement_rate,       # Average engagement rate
+        :original_tweets_analyzed,  # Number of tweets analyzed for score
+        :account_created_at,        # When X account was created
+        :score_calculated_at,       # When score was last calculated
+        :updated_at                 # Last update timestamp
+      ],
+      index: [:x_user_id, :x_username]
+    },
+    %{
+      name: :share_campaigns,
+      type: :set,
+      attributes: [
+        :post_id,                   # Primary key - one campaign per post
+        :tweet_id,                  # X tweet ID for this campaign
+        :tweet_url,                 # Full URL to the tweet
+        :tweet_text,                # Text of the tweet
+        :bux_reward,                # BUX reward amount for sharing
+        :is_active,                 # Boolean - is campaign active
+        :starts_at,                 # Unix timestamp - campaign start (nil = immediate)
+        :ends_at,                   # Unix timestamp - campaign end (nil = no end)
+        :max_participants,          # Max number of participants (nil = unlimited)
+        :total_shares,              # Running count of shares
+        :inserted_at,               # Unix timestamp when created
+        :updated_at                 # Last update timestamp
+      ],
+      index: [:tweet_id, :is_active]
     }
   ]
 

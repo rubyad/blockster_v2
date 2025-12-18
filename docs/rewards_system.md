@@ -212,20 +212,23 @@ end)
 
 Users must connect their X (Twitter) account via OAuth to participate in share campaigns.
 
-**PostgreSQL Table:** `x_connections`
-- `user_id` - Blockster user ID
-- `x_user_id` - X user ID
+**Mnesia Table:** `x_connections` (keyed by `user_id`)
+- `user_id` - Primary key, Blockster user ID
+- `x_user_id` - X user ID (for account locking)
 - `x_username` - X username
 - `access_token_encrypted` - Encrypted OAuth access token
 - `refresh_token_encrypted` - Encrypted refresh token
-- `token_expires_at` - Token expiration timestamp
+- `token_expires_at` - Token expiration timestamp (Unix)
+- `x_score` - Account quality score (1-100)
+
+**Note:** The `locked_x_user_id` field remains in PostgreSQL `users` table for permanent account locking.
 
 ### 2. Share Campaigns
 
 Each post can have an associated share campaign with a specific tweet to retweet.
 
-**PostgreSQL Table:** `share_campaigns`
-- `post_id` - Associated post
+**Mnesia Table:** `share_campaigns` (keyed by `post_id`)
+- `post_id` - Primary key (one campaign per post)
 - `tweet_id` - The specific tweet to retweet
 - `tweet_url` - URL to the tweet
 - `bux_reward` - Fixed BUX amount for completion
@@ -239,12 +242,14 @@ Each post can have an associated share campaign with a specific tweet to retweet
    - X account connected
    - Campaign active
    - User hasn't already participated
-3. Creates pending reward in PostgreSQL
+3. Creates pending reward in **Mnesia**
 4. Calls X API to retweet and like
 5. Verifies retweet success
 6. Calculates reward: `x_multiplier × base_bux_reward`
 7. Mints tokens with hub-specific token type
-8. Updates reward status to "rewarded"
+8. Updates reward status to "rewarded" in **Mnesia**
+
+**Important:** The entire retweet flow uses Mnesia only. No PostgreSQL queries are made during the retweet action itself. User and post data are already loaded in the LiveView socket from page mount.
 
 ### 4. Reward Calculation
 
@@ -366,26 +371,82 @@ function getContractForToken(token) {
 
 ## Database Storage
 
-### PostgreSQL Tables
+### Mnesia Tables (Primary Storage)
 
-#### share_rewards
-```sql
-- id (primary key)
-- user_id (foreign key)
-- campaign_id (foreign key)
-- x_connection_id (foreign key)
-- retweet_id (X retweet ID)
-- status (pending | verified | rewarded | failed)
-- bux_rewarded (decimal)
-- verified_at (timestamp)
-- rewarded_at (timestamp)
-- tx_hash (blockchain transaction hash)
-- failure_reason (if failed)
+All X share-related data is stored exclusively in Mnesia for fast, distributed access. PostgreSQL is only used for the `locked_x_user_id` field on the `users` table (for permanent X account locking).
+
+#### x_oauth_states (Mnesia)
+Temporary storage for OAuth state during authorization flow.
+```
+Key: state (random string)
+- user_id: integer
+- code_verifier: PKCE code verifier
+- redirect_path: where to redirect after auth
+- created_at: Unix timestamp
+- expires_at: Unix timestamp (10 minutes TTL)
 ```
 
-### Mnesia Tables
+#### x_connections (Mnesia)
+Stores user's X account connection and encrypted tokens.
+```
+Key: user_id
+- x_user_id: X account ID
+- x_username: X handle
+- x_name: display name
+- x_profile_image_url: profile picture URL
+- access_token: OAuth access token (decrypted)
+- refresh_token: OAuth refresh token (decrypted)
+- token_expires_at: DateTime when token expires
+- scopes: list of granted OAuth scopes
+- connected_at: DateTime when connected
+- x_score: account quality score (1-100)
+- followers_count, following_count, tweet_count, listed_count
+- avg_engagement_rate: float
+- original_tweets_analyzed: integer
+- account_created_at: DateTime
+- score_calculated_at: DateTime
+```
 
-Real-time reward data is stored in Mnesia for fast access.
+#### share_campaigns (Mnesia)
+Defines retweet campaigns for posts.
+```
+Key: post_id (one campaign per post)
+- tweet_id: X tweet ID to retweet
+- tweet_url: full tweet URL
+- tweet_text: custom tweet text (optional)
+- bux_reward: Decimal reward amount
+- is_active: boolean
+- starts_at: DateTime (optional)
+- ends_at: DateTime (optional)
+- max_participants: integer (optional)
+- total_shares: integer count of successful shares
+- inserted_at: DateTime
+- updated_at: DateTime
+```
+
+#### share_rewards (Mnesia)
+Tracks individual user participation in campaigns.
+```
+Key: {user_id, campaign_id} tuple
+- x_connection_id: reference to x_connection
+- retweet_id: ID of the created retweet
+- status: "pending" | "verified" | "rewarded" | "failed"
+- bux_rewarded: float amount awarded
+- verified_at: DateTime
+- rewarded_at: DateTime
+- failure_reason: error message if failed
+- tx_hash: blockchain transaction hash
+- created_at: DateTime
+- updated_at: DateTime
+```
+
+### PostgreSQL (Limited Use)
+
+Only the `users.locked_x_user_id` field is stored in PostgreSQL for permanent X account locking. This ensures users cannot switch X accounts to game rewards.
+
+### Other Mnesia Tables
+
+Real-time reward data for engagement tracking:
 
 #### user_post_engagement
 ```

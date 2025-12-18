@@ -328,6 +328,22 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets a single post with all associations loaded.
+  Returns nil if the Post does not exist.
+  """
+  def get_post(id) do
+    from(p in Post,
+      where: p.id == ^id,
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+    )
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      post -> populate_author_names(post)
+    end
+  end
+
+  @doc """
   Gets related posts based on shared tags.
   Returns posts that share the most tags with the given post.
 
