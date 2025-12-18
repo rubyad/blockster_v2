@@ -64,7 +64,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
 
     if new_components == [] do
       IO.puts("📜 No more posts to load")
-      {:noreply, socket}
+      {:reply, %{end_reached: true}, socket}
     else
       IO.puts("📜 Loaded #{length(new_components)} components with #{length(new_displayed_post_ids) - length(displayed_post_ids)} new posts")
 
@@ -77,7 +77,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
       # Track the last component module for next load
       last_module = if new_components != [], do: List.last(new_components).module, else: last_module
 
-      {:noreply,
+      {:reply, %{},
        socket
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:last_component_module, last_module)}

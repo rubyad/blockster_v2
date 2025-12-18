@@ -75,6 +75,7 @@ let Autocomplete = {
 let InfiniteScroll = {
   mounted() {
     this.pending = false;
+    this.endReached = false;
     this.scrollCheckInterval = null;
 
     // Create a sentinel element at the bottom
@@ -86,7 +87,7 @@ let InfiniteScroll = {
     this.observer = new IntersectionObserver(
       entries => {
         const entry = entries[0];
-        if (entry.isIntersecting && !this.pending) {
+        if (entry.isIntersecting && !this.pending && !this.endReached) {
           this.loadMore();
         }
       },
@@ -101,7 +102,7 @@ let InfiniteScroll = {
 
     // Backup scroll event handler for very fast scrolling
     this.handleScroll = () => {
-      if (this.pending) return;
+      if (this.pending || this.endReached) return;
 
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -117,18 +118,30 @@ let InfiniteScroll = {
   },
 
   loadMore() {
-    if (this.pending) return;
+    if (this.pending || this.endReached) return;
 
     this.pending = true;
 
     // Determine which event to push based on element ID
     const eventName = this.el.id === 'hub-news-stream' ? 'load-more-news' : 'load-more';
-    this.pushEvent(eventName, {});
 
-    // Reset pending after a short delay
-    setTimeout(() => {
-      this.pending = false;
-    }, 100);
+    // Use pushEvent callback to reset pending only after server responds
+    this.pushEvent(eventName, {}, (reply) => {
+      // Check if server indicated no more content
+      if (reply && reply.end_reached) {
+        this.endReached = true;
+        // Stop observing since there's nothing more to load
+        if (this.observer) {
+          this.observer.disconnect();
+        }
+        window.removeEventListener('scroll', this.handleScroll);
+        return;
+      }
+      // Small delay after server response to let DOM update
+      setTimeout(() => {
+        this.pending = false;
+      }, 200);
+    });
   },
 
   destroyed() {

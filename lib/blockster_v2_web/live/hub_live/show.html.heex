@@ -69,7 +69,7 @@
               {String.first(@hub.name)}
             </div>
           <% end %>
-          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(42257, precision: 0)} {@hub.token || "BUX"}</span>
+          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@hub_bux_balance, precision: 2)} {@hub.token || "BUX"}</span>
         </button>
       </div>
 

@@ -137,7 +137,7 @@
                         {String.first(hub.name)}
                       </div>
                     <% end %>
-                    <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(:rand.uniform(50000), precision: 0)} {hub.token || "BUX"}</span>
+                    <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(BlocksterV2Web.HubLive.Index.get_hub_bux(@hub_bux_balances, hub.id), precision: 2)} {hub.token || "BUX"}</span>
                   </div>
                 </div>
               </div>

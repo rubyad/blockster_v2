@@ -172,6 +172,21 @@ defmodule BlocksterV2.MnesiaInitializer do
         :tranbux_balance            # tranBUX token balance
       ],
       index: [:user_smart_wallet, :aggregate_bux_balance]
+    },
+    %{
+      name: :hub_bux_points,
+      type: :ordered_set,
+      attributes: [
+        :hub_id,                    # Primary key (PostgreSQL hub id)
+        :total_bux_rewarded,        # Total BUX rewarded through this hub
+        :extra_field1,              # Reserved for future use
+        :extra_field2,              # Reserved for future use
+        :extra_field3,              # Reserved for future use
+        :extra_field4,              # Reserved for future use
+        :created_at,
+        :updated_at
+      ],
+      index: [:total_bux_rewarded, :updated_at]
     }
   ]
 

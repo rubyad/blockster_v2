@@ -264,7 +264,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                 if wallet && wallet != "" do
                   lv_pid = self()
                   Task.start(fn ->
-                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read, hub_token) do
+                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read, hub_token, socket.assigns.post.hub_id) do
                       {:ok, %{"transactionHash" => tx_hash}} ->
                         send(lv_pid, {:mint_completed, tx_hash})
                       _ ->
@@ -468,7 +468,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                         hub_token = socket.assigns.hub_token
                         tx_hash =
                           if wallet && wallet != "" do
-                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share, hub_token) do
+                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share, hub_token, post.hub_id) do
                               {:ok, response} -> response["transactionHash"]
                               {:error, _} -> nil
                             end

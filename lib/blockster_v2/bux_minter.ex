@@ -25,12 +25,13 @@ defmodule BlocksterV2.BuxMinter do
     - post_id: The post ID that earned the reward (for logging)
     - reward_type: The type of reward - :read or :x_share
     - token: The token type to mint (default: "BUX")
+    - hub_id: Optional hub_id to track hub-level BUX totals (default: nil)
 
   ## Returns
     - {:ok, response} on success with transaction details
     - {:error, reason} on failure
   """
-  def mint_bux(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX")
+  def mint_bux(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX", hub_id \\ nil)
       when reward_type in [:read, :x_share] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
@@ -84,6 +85,11 @@ defmodule BlocksterV2.BuxMinter do
 
           # Add minted amount to post_bux_points
           EngagementTracker.add_post_bux_earned(post_id, amount)
+
+          # Add minted amount to hub_bux_points (if hub_id provided)
+          if hub_id do
+            EngagementTracker.add_hub_bux_earned(hub_id, amount)
+          end
 
           {:ok, response}
 

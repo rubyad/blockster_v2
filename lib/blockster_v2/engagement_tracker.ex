@@ -1442,4 +1442,145 @@ defmodule BlocksterV2.EngagementTracker do
       Logger.error("[DEBUG] Exit dumping user_bux_balances: #{inspect(reason)}")
       nil
   end
+
+  # =============================================================================
+  # Hub BUX Points Functions (hub_bux_points table)
+  # =============================================================================
+
+  @doc """
+  Adds BUX earned to a hub's total in the hub_bux_points Mnesia table.
+  Called after every successful mint to aggregate hub-level rewards.
+  """
+  def add_hub_bux_earned(nil, _amount), do: {:ok, 0}
+  def add_hub_bux_earned(_hub_id, 0), do: {:ok, 0}
+  def add_hub_bux_earned(hub_id, amount) do
+    now = System.system_time(:second)
+
+    result = case :mnesia.dirty_read({:hub_bux_points, hub_id}) do
+      [] ->
+        # No existing record - create new with this amount
+        record = {
+          :hub_bux_points,
+          hub_id,
+          amount,  # total_bux_rewarded
+          nil,     # extra_field1
+          nil,     # extra_field2
+          nil,     # extra_field3
+          nil,     # extra_field4
+          now,     # created_at
+          now      # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created hub_bux_points for hub #{hub_id}: total=#{amount}")
+        {:ok, amount}
+
+      [existing] ->
+        # Add to existing total
+        current_total = elem(existing, 2) || 0
+        new_total = current_total + amount
+        updated = existing
+          |> put_elem(2, new_total)   # total_bux_rewarded
+          |> put_elem(8, now)         # updated_at
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Updated hub_bux_points for hub #{hub_id}: total=#{new_total} (+#{amount})")
+        {:ok, new_total}
+    end
+
+    # Broadcast the hub BUX balance update for real-time UI updates
+    case result do
+      {:ok, new_total} ->
+        broadcast_hub_bux_update(hub_id, new_total)
+        result
+      _ ->
+        result
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error adding hub bux earned: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit adding hub bux earned: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Broadcasts a hub BUX balance update for real-time UI updates.
+  """
+  def broadcast_hub_bux_update(hub_id, new_balance) do
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "hub_bux:#{hub_id}",
+      {:hub_bux_update, hub_id, new_balance}
+    )
+    # Also broadcast to a global topic for index pages showing multiple hubs
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "hub_bux:all",
+      {:hub_bux_update, hub_id, new_balance}
+    )
+  end
+
+  @doc """
+  Subscribe to BUX balance updates for a specific hub.
+  """
+  def subscribe_to_hub_bux(hub_id) do
+    Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "hub_bux:#{hub_id}")
+  end
+
+  @doc """
+  Subscribe to all hub BUX balance updates (for index pages).
+  """
+  def subscribe_to_all_hub_bux_updates() do
+    Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "hub_bux:all")
+  end
+
+  @doc """
+  Gets the total BUX rewarded for a specific hub.
+  Returns 0 if no record exists.
+  """
+  def get_hub_bux_balance(nil), do: 0
+  def get_hub_bux_balance(hub_id) do
+    case :mnesia.dirty_read({:hub_bux_points, hub_id}) do
+      [] -> 0
+      [record] -> elem(record, 2) || 0
+    end
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  @doc """
+  Gets BUX totals for multiple hubs at once.
+  Returns a map of hub_id => total_bux_rewarded.
+  """
+  def get_hub_bux_balances(hub_ids) when is_list(hub_ids) do
+    hub_ids
+    |> Enum.map(fn hub_id -> {hub_id, get_hub_bux_balance(hub_id)} end)
+    |> Map.new()
+  end
+
+  @doc """
+  Gets all hub BUX balances from Mnesia.
+  Returns a map of hub_id => total_bux_rewarded.
+  """
+  def get_all_hub_bux_balances do
+    case :mnesia.dirty_all_keys(:hub_bux_points) do
+      keys when is_list(keys) ->
+        keys
+        |> Enum.map(fn hub_id ->
+          case :mnesia.dirty_read({:hub_bux_points, hub_id}) do
+            [record] -> {hub_id, elem(record, 2) || 0}
+            [] -> {hub_id, 0}
+          end
+        end)
+        |> Map.new()
+      _ -> %{}
+    end
+  rescue
+    _ -> %{}
+  catch
+    :exit, _ -> %{}
+  end
 end

@@ -170,10 +170,12 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
   end
 
   defp mint_reward(%ShareReward{} = reward) do
-    reward = Repo.preload(reward, [:user, :campaign])
+    reward = Repo.preload(reward, [:user, campaign: :post])
     user = reward.user
     campaign = reward.campaign
     bux_amount = campaign.bux_reward
+    # Get hub_id from the campaign's post (if it has one)
+    hub_id = campaign.post && campaign.post.hub_id
 
     # Get user's wallet address
     case user.smart_wallet_address do
@@ -182,8 +184,8 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
         {:error, "No wallet address"}
 
       wallet_address ->
-        # Use campaign post_id for tracking
-        case BuxMinter.mint_bux(wallet_address, bux_amount, user.id, campaign.post_id, :x_share) do
+        # Use campaign post_id for tracking, include hub_id for hub BUX totals
+        case BuxMinter.mint_bux(wallet_address, bux_amount, user.id, campaign.post_id, :x_share, "BUX", hub_id) do
           {:ok, response} ->
             tx_hash = response["transactionHash"]
             Social.mark_rewarded(reward, bux_amount, tx_hash: tx_hash, post_id: campaign.post_id)
