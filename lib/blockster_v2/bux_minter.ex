@@ -173,6 +173,70 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  @doc """
+  Gets all token balances via the BalanceAggregator contract (single RPC call).
+  Returns {:ok, %{balances: %{}, aggregate: float}} or {:error, reason}.
+  """
+  def get_aggregated_balances(wallet_address) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_get("#{minter_url}/aggregated-balances/#{wallet_address}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, %{balances: response["balances"], aggregate: response["aggregate"]}}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Fetches all token balances via BalanceAggregator and updates the user_bux_balances Mnesia table.
+  Call this on page load to sync on-chain balances with local cache.
+  """
+  def sync_user_balances(user_id, wallet_address) do
+    case get_aggregated_balances(wallet_address) do
+      {:ok, %{balances: balances, aggregate: aggregate}} ->
+        Logger.info("[BuxMinter] Syncing balances for user #{user_id}: aggregate=#{aggregate}")
+
+        # Update each token balance in Mnesia
+        Enum.each(balances, fn {token, balance} ->
+          EngagementTracker.update_user_token_balance(user_id, wallet_address, token, balance)
+        end)
+
+        # Also update the aggregate in user_bux_points for backward compatibility
+        EngagementTracker.update_user_bux_balance(user_id, wallet_address, aggregate)
+
+        {:ok, %{balances: balances, aggregate: aggregate}}
+
+      {:error, reason} ->
+        Logger.warning("[BuxMinter] Failed to sync balances for user #{user_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Syncs user balances asynchronously (fire and forget).
+  """
+  def sync_user_balances_async(user_id, wallet_address) do
+    Task.start(fn ->
+      sync_user_balances(user_id, wallet_address)
+    end)
+  end
+
   # Normalize token name - default to BUX if nil or empty
   defp normalize_token(nil), do: "BUX"
   defp normalize_token(""), do: "BUX"
@@ -198,7 +262,9 @@ defmodule BlocksterV2.BuxMinter do
     # Use Req if available, otherwise fall back to httpc
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.post(url, body: body, headers: headers) do
+        # Use longer timeout for blockchain transactions which can take time
+        # Use inet backend for DNS to avoid issues with Erlang distributed mode
+        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000, connect_options: [transport_opts: [inet_backend: :inet]]) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}
@@ -227,7 +293,8 @@ defmodule BlocksterV2.BuxMinter do
   defp http_get(url, headers) do
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.get(url, headers: headers) do
+        # Use inet backend for DNS to avoid issues with Erlang distributed mode
+        case Req.get(url, headers: headers, receive_timeout: 30_000, connect_options: [transport_opts: [inet_backend: :inet]]) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}

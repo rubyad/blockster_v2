@@ -9,7 +9,7 @@ app.use(express.json());
 
 // Token contract addresses - all deployed on Rogue Chain
 const TOKEN_CONTRACTS = {
-  BUX: '0xbe46C2A9C729768aE938bc62eaC51C7Ad560F18d',
+  BUX: '0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8',
   moonBUX: '0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5',
   neoBUX: '0x423656448374003C2cfEaFF88D5F64fb3A76487C',
   rogueBUX: '0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3',
@@ -48,6 +48,15 @@ const BUX_ABI = [
   'function balanceOf(address account) external view returns (uint256)',
   'function decimals() external view returns (uint8)'
 ];
+
+// BalanceAggregator contract - fetches all token balances in a single call
+const BALANCE_AGGREGATOR_ADDRESS = '0x3A5a60fE307088Ae3F367d529E601ac52ed2b660';
+const BALANCE_AGGREGATOR_ABI = [
+  'function getBalances(address user, address[] tokens) external view returns (uint256[] memory)'
+];
+
+// Token addresses array in the order we want balances returned
+const TOKEN_ADDRESSES = Object.values(TOKEN_CONTRACTS);
 
 // Configuration from environment
 const RPC_URL = process.env.RPC_URL || 'https://rpc.roguechain.io/rpc';
@@ -265,6 +274,50 @@ app.get('/balances/:address', authenticate, async (req, res) => {
   } catch (error) {
     console.error(`[BALANCES] Error getting balances:`, error);
     res.status(500).json({ error: 'Failed to get balances', details: error.message });
+  }
+});
+
+// Token names in the order returned by BalanceAggregator.getBalances()
+const TOKEN_ORDER = ['BUX', 'moonBUX', 'neoBUX', 'rogueBUX', 'flareBUX', 'nftBUX', 'nolchaBUX', 'solBUX', 'spaceBUX', 'tronBUX', 'tranBUX'];
+
+// BalanceAggregator contract instance
+const balanceAggregator = new ethers.Contract(BALANCE_AGGREGATOR_ADDRESS, BALANCE_AGGREGATOR_ABI, provider);
+
+// Get all token balances via BalanceAggregator contract (single RPC call)
+app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+
+  try {
+    console.log(`[AGGREGATED] Fetching balances for ${address}`);
+
+    // Call the aggregator contract - returns array of uint256 balances
+    const rawBalances = await balanceAggregator.getBalances(address, TOKEN_ADDRESSES);
+
+    // Convert to formatted balances map (all tokens have 18 decimals)
+    const balances = {};
+    let aggregate = 0;
+
+    for (let i = 0; i < TOKEN_ORDER.length && i < rawBalances.length; i++) {
+      const tokenName = TOKEN_ORDER[i];
+      const formatted = parseFloat(ethers.formatUnits(rawBalances[i], 18));
+      balances[tokenName] = formatted;
+      aggregate += formatted;
+    }
+
+    console.log(`[AGGREGATED] Balances for ${address}: aggregate=${aggregate}`);
+
+    res.json({
+      address,
+      balances,
+      aggregate
+    });
+  } catch (error) {
+    console.error(`[AGGREGATED] Error getting balances:`, error);
+    res.status(500).json({ error: 'Failed to get aggregated balances', details: error.message });
   }
 });
 

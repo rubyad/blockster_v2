@@ -18,10 +18,10 @@ defmodule BlocksterV2Web.HubLive.Show do
       hub ->
         # Get posts for this hub by hub_id
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
-        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5)
-        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id))
+        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_balances()
+        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_balances()
         # VideosComponent needs 3 posts for the All tab
-        videos_posts = Blog.list_published_posts_by_hub(hub.id, limit: 3)
+        videos_posts = Blog.list_published_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_balances()
 
         {:ok,
          socket
@@ -77,7 +77,7 @@ defmodule BlocksterV2Web.HubLive.Show do
     # Load videos when switching to videos tab for the first time
     socket =
       if tab == "videos" && !socket.assigns.videos_loaded do
-        videos_posts = Blog.list_published_posts_by_hub(socket.assigns.hub.id, limit: 3)
+        videos_posts = Blog.list_published_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_balances()
 
         socket
         |> assign(:videos_loaded, true)
@@ -177,12 +177,12 @@ defmodule BlocksterV2Web.HubLive.Show do
         module = Enum.at(@component_modules, module_index)
         posts_needed = Map.get(@posts_per_component, module)
 
-        # Fetch posts for this component
+        # Fetch posts for this component (with bux_balances from Mnesia)
         posts = Blog.list_published_posts_by_hub(
           hub_id,
           limit: posts_needed,
           exclude_ids: acc_ids
-        )
+        ) |> Blog.with_bux_balances()
 
         if posts == [] do
           # No more posts available

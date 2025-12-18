@@ -11,7 +11,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, active_tab: "activity", time_period: "24h")}
+    {:ok, assign(socket, active_tab: "activity", time_period: "24h", show_token_dropdown: false)}
   end
 
   @impl true
@@ -30,6 +30,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
         total_bux = calculate_total_bux(filtered_activities)
         overall_multiplier = EngagementTracker.get_user_multiplier(member.id)
         bux_balance = EngagementTracker.get_user_bux_balance(member.id)
+        token_balances = EngagementTracker.get_user_token_balances(member.id)
+        token_logos = build_token_logo_map()
 
         # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
         maybe_refresh_bux_balance(member)
@@ -43,13 +45,25 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:total_bux, total_bux)
          |> assign(:time_period, time_period)
          |> assign(:overall_multiplier, overall_multiplier)
-         |> assign(:bux_balance, bux_balance)}
+         |> assign(:bux_balance, bux_balance)
+         |> assign(:token_balances, token_balances)
+         |> assign(:token_logos, token_logos)}
     end
   end
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
+  def handle_event("toggle_token_dropdown", _params, socket) do
+    {:noreply, assign(socket, :show_token_dropdown, !socket.assigns.show_token_dropdown)}
+  end
+
+  @impl true
+  def handle_event("close_token_dropdown", _params, socket) do
+    {:noreply, assign(socket, :show_token_dropdown, false)}
   end
 
   @impl true
@@ -78,7 +92,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
     |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
   end
 
-  # Add post title/slug to read activities only
+  # Add post title/slug/token to read activities only
   defp enrich_read_activities_with_post_info(activities) do
     # Get all unique post IDs from read activities
     post_ids =
@@ -86,7 +100,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
       |> Enum.map(& &1.post_id)
       |> Enum.uniq()
 
-    # Fetch posts
+    # Fetch posts (includes hub_token from joined hub)
     posts = Blog.get_posts_by_ids(post_ids)
     posts_map = Map.new(posts, fn post -> {post.id, post} end)
 
@@ -96,7 +110,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
       Map.merge(activity, %{
         post_title: post && post.title,
-        post_slug: post && post.slug
+        post_slug: post && post.slug,
+        token: (post && post.hub_token) || "BUX"
       })
     end)
   end
@@ -122,19 +137,25 @@ defmodule BlocksterV2Web.MemberLive.Show do
     |> Enum.sum()
   end
 
-  # Fetch on-chain BUX balance and update Mnesia (async)
+  # Fetch all on-chain token balances via BalanceAggregator and update Mnesia (async)
   defp maybe_refresh_bux_balance(%{id: user_id, smart_wallet_address: wallet})
        when is_binary(wallet) and wallet != "" do
-    Task.start(fn ->
-      case BuxMinter.get_balance(wallet) do
-        {:ok, balance} ->
-          EngagementTracker.update_user_bux_balance(user_id, wallet, balance)
-
-        {:error, _reason} ->
-          :ok
-      end
-    end)
+    BuxMinter.sync_user_balances_async(user_id, wallet)
   end
 
   defp maybe_refresh_bux_balance(_member), do: :ok
+
+  # Build a map of token name -> hub logo URL
+  defp build_token_logo_map do
+    # Start with default BUX logo
+    default_logos = %{"BUX" => "https://ik.imagekit.io/blockster/blockster-icon.png"}
+
+    # Fetch all hubs and build token -> logo map
+    hub_logos =
+      Blog.list_hubs()
+      |> Enum.filter(fn hub -> hub.token && hub.token != "" && hub.logo_url && hub.logo_url != "" end)
+      |> Map.new(fn hub -> {hub.token, hub.logo_url} end)
+
+    Map.merge(default_logos, hub_logos)
+  end
 end

@@ -65,12 +65,7 @@
                       </div>
                       <!-- Bottom content: BUX button (and description on hover) -->
                       <div class="mt-auto">
-                        <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                          <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                            <.lightning_icon id={"bux_posts_four_#{post.id}_#{idx}"} size="20" />
-                            <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                          </button>
-                        </div>
+                        <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_#{post.id}_#{idx}"} />
                         <%= if post.excerpt do %>
                           <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
                         <% end %>

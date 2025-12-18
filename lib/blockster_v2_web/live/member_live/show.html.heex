@@ -42,16 +42,64 @@
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <!-- BUX Balance Card -->
-          <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balance</h3>
-              <.lightning_icon id="member_bux" size="24" />
+          <!-- BUX Balance Card (Clickable with Dropdown) -->
+          <div class="relative" phx-click-away="close_token_dropdown">
+            <div
+              class="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-md transition-shadow"
+              phx-click="toggle_token_dropdown"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balance</h3>
+                <div class="flex items-center gap-2">
+                  <.lightning_icon id="member_bux" size="24" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class={"h-4 w-4 text-gray-400 transition-transform #{if @show_token_dropdown, do: "rotate-180", else: ""}"}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-haas_bold_75 text-gray-900 tracking-wide">
+                <%= Number.Currency.number_to_currency(@bux_balance || 0, unit: "", precision: 2) %>
+              </p>
+              <p class="text-xs text-gray-500 mt-1">Click to view all token balances</p>
             </div>
-            <p class="text-3xl font-haas_bold_75 text-gray-900 tracking-wide">
-              <%= Number.Currency.number_to_currency(@bux_balance || 0, unit: "", precision: 1) %>
-            </p>
-            <p class="text-xs text-gray-500 mt-1">Earn more by reading & sharing articles</p>
+
+            <!-- Token Balances Dropdown -->
+            <%= if @show_token_dropdown do %>
+              <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+                <div class="p-3 bg-gradient-to-r from-[#8AE388] to-[#BAF55F]">
+                  <h4 class="text-sm font-haas_bold_75 text-black">Token Balances</h4>
+                </div>
+                <div class="max-h-64 overflow-y-auto">
+                  <%= for {token, balance} <- Enum.filter(@token_balances, fn {k, _v} -> k != "aggregate" end) |> Enum.sort_by(fn {_k, v} -> -v end) do %>
+                    <div class={"flex items-center justify-between px-4 py-2 #{if balance > 0, do: "bg-white", else: "bg-gray-50"} border-b border-gray-100 last:border-b-0"}>
+                      <div class="flex items-center gap-2">
+                        <%= if logo = Map.get(@token_logos, token) do %>
+                          <img src={logo} alt={token} class="h-5 w-5 rounded-full object-cover" />
+                        <% else %>
+                          <div class="h-5 w-5 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span class="text-xs text-gray-500"><%= String.first(token) %></span>
+                          </div>
+                        <% end %>
+                        <span class={"text-sm font-haas_medium_65 #{if balance > 0, do: "text-gray-900", else: "text-gray-400"}"}><%= token %></span>
+                      </div>
+                      <span class={"text-sm font-haas_bold_75 #{if balance > 0, do: "text-gray-900", else: "text-gray-400"}"}><%= Number.Currency.number_to_currency(balance || 0, unit: "", precision: 2) %></span>
+                    </div>
+                  <% end %>
+                </div>
+                <div class="p-3 bg-gray-50 border-t border-gray-200">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-haas_bold_75 text-gray-700">Total</span>
+                    <span class="text-sm font-haas_bold_75 text-gray-900"><%= Number.Currency.number_to_currency(@bux_balance || 0, unit: "", precision: 2) %></span>
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
 
           <!-- Level Card -->
@@ -745,11 +793,11 @@
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap text-sm font-haas_medium_65 text-[#4E84DA] w-1/3 text-center">
                           <%= cond do %>
                             <% activity.type == :x_share && activity[:retweet_id] -> %>
-                              <a href={"https://x.com/i/status/#{activity.retweet_id}"} target="_blank" rel="noopener noreferrer" class="underline hover:text-[#3a6ab8]">
+                              <a href={"https://x.com/i/status/#{activity.retweet_id}"} target="_blank" rel="noopener noreferrer" class="hover:underline hover:text-[#3a6ab8]">
                                 <%= activity.label %>
                               </a>
                             <% activity[:post_slug] -> %>
-                              <a href={~p"/#{activity.post_slug}"} class="underline hover:text-[#3a6ab8]">
+                              <a href={~p"/#{activity.post_slug}"} class="hover:underline hover:text-[#3a6ab8]">
                                 <%= activity.label %>
                               </a>
                             <% true -> %>
@@ -758,11 +806,11 @@
                         </td>
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap font-haas_medium_65 text-sm w-1/3 text-right">
                           <%= if activity[:tx_id] do %>
-                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="text-[#4E84DA] underline hover:text-[#3a6ab8]">
-                              +<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> BUX
+                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="text-[#4E84DA] hover:underline hover:text-[#3a6ab8]">
+                              +<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= activity[:token] || "BUX" %>
                             </a>
                           <% else %>
-                            <span class="text-[#4EDA55]">+<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> BUX</span>
+                            <span class="text-[#4EDA55]">+<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= activity[:token] || "BUX" %></span>
                           <% end %>
                         </td>
                       </tr>

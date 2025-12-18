@@ -74,12 +74,7 @@
                           <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft"}</span>
                         </li>
                       </ul>
-                      <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                          <.lightning_icon id={"bux_video_#{post.id}_#{idx}"} size="20" />
-                          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1)}</span>
-                        </button>
-                      </div>
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_video_#{post.id}_#{idx}"} />
                     </div>
                     <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md">{post.title}</h4>
                   </div>

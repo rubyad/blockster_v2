@@ -64,8 +64,8 @@ defmodule BlocksterV2Web.Layouts do
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
 
   def site_header(assigns) do
-    # Format BUX balance with thousand separators and 1 decimal place
-    formatted_balance = Number.Currency.number_to_currency(assigns.bux_balance || 0, unit: "", precision: 1)
+    # Format BUX balance with thousand separators and 2 decimal places
+    formatted_balance = Number.Currency.number_to_currency(assigns.bux_balance || 0, unit: "", precision: 2)
     assigns = assign(assigns, :formatted_bux_balance, formatted_balance)
 
     ~H"""

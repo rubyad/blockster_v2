@@ -223,8 +223,9 @@ defmodule BlocksterV2.Blog do
 
   def get_posts_by_ids(post_ids) when is_list(post_ids) do
     from(p in Post,
+      left_join: h in assoc(p, :hub),
       where: p.id in ^post_ids,
-      select: %{id: p.id, title: p.title, slug: p.slug}
+      select: %{id: p.id, title: p.title, slug: p.slug, hub_token: h.token}
     )
     |> Repo.all()
   end

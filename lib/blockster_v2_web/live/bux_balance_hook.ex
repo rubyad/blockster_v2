@@ -17,6 +17,9 @@ defmodule BlocksterV2Web.BuxBalanceHook do
     # Get user_id from current_user (set by UserAuth hook which runs before this)
     user_id = get_user_id(socket)
 
+    # DEBUG: Dump full token balances record for user 65
+    if user_id == 65, do: EngagementTracker.dump_user_bux_balances(65)
+
     # Fetch initial balance from Mnesia
     initial_balance = if user_id, do: EngagementTracker.get_user_bux_balance(user_id), else: 0
 

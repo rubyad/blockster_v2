@@ -103,12 +103,7 @@
                             <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight"><%= post.title %></h4>
                             <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                             <div class="flex justify-center mt-3">
-                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                  <.lightning_icon id={"bux_conv_1_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                                </button>
-                              </div>
+                              <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_conv_1_#{post.id}"} />
                             </div>
                           </div>
                         </.link>
@@ -154,12 +149,7 @@
                             <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight"><%= post.title %></h4>
                             <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                             <div class="flex justify-center mt-3">
-                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                  <.lightning_icon id={"bux_conv_2_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                                </button>
-                              </div>
+                              <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_conv_2_#{post.id}"} />
                             </div>
                           </div>
                         </.link>
@@ -205,12 +195,7 @@
                             <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight"><%= post.title %></h4>
                             <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                             <div class="flex justify-center mt-3">
-                              <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                                  <.lightning_icon id={"bux_conv_3_#{post.id}"} size="20" />
-                                  <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                                </button>
-                              </div>
+                              <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_conv_3_#{post.id}"} />
                             </div>
                           </div>
                         </.link>
@@ -254,11 +239,8 @@
                               <%= post.title %>
                             </h4>
                           </div>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] w-fit shrink-0">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id={"bux_conv_4_#{post.id}"} size="16" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                            </button>
+                          <div class="w-fit">
+                            <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_conv_4_#{post.id}"} />
                           </div>
                         </div>
                       </.link>
@@ -298,11 +280,8 @@
                               <%= post.title %>
                             </h4>
                           </div>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] w-fit shrink-0">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id={"bux_conv_5_#{post.id}"} size="16" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, post), precision: 1) %></span>
-                            </button>
+                          <div class="w-fit">
+                            <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_conv_5_#{post.id}"} />
                           </div>
                         </div>
                       </.link>
@@ -344,11 +323,8 @@
                             <%= large_interview_post.title %>
                           </h4>
                           <p class="text-sm font-haas_roman_55 text-white/80 mt-2"><%= if large_interview_post.published_at, do: Calendar.strftime(large_interview_post.published_at, "%B %d, %Y"), else: "Draft" %></p>
-                          <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block mt-3">
-                            <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                              <.lightning_icon id="bux_icon_15" size="20" />
-                              <span class="text-xs font-haas_medium_65"><%= Number.Delimit.number_to_delimited(get_bux_balance(assigns, large_interview_post), precision: 1) %></span>
-                            </button>
+                          <div class="mt-3">
+                            <.token_badge post={large_interview_post} balance={get_bux_balance(assigns, large_interview_post)} id="bux_icon_15" />
                           </div>
                         </div>
                       </.link>

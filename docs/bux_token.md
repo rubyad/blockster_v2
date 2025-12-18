@@ -1,8 +1,8 @@
 # BUX Token Deployment Summary
 
-**Contract Address:** `0xbe46C2A9C729768aE938bc62eaC51C7Ad560F18d`
+**Contract Address:** `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8`
 
-**Name:** Bux
+**Name:** BUX
 
 **Symbol:** BUX
 
@@ -256,4 +256,26 @@ To mint tokens, the owner can call:
 
 ```solidity
 tranbux.mint(recipientAddress, amount)
+```
+
+---
+
+# blocksterBUX Token Deployment Summary
+
+**Contract Address:** `0x133Faa922052aE42485609E14A1565551323CdbE`
+
+**Name:** blocksterBUX
+
+**Symbol:** blocksterBUX
+
+**Owner:** `0x2dDC1caA8e63B091D353b8E3E7e3Eeb6008DC7Cd`
+
+**Total Supply:** 0 blocksterBUX (mint as needed)
+
+## Minting Tokens
+
+To mint tokens, the owner can call:
+
+```solidity
+blocksterbux.mint(recipientAddress, amount)
 ```

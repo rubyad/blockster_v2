@@ -179,7 +179,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   defp get_hub_token(_), do: "BUX"
 
   # Get the hub's logo URL (if any) for displaying alongside the token
-  defp get_hub_logo(%{hub: %{logo: logo}}) when is_binary(logo) and logo != "", do: logo
+  defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
   defp get_hub_logo(_), do: nil
 
   @impl true

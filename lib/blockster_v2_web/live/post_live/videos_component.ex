@@ -1,7 +1,7 @@
 defmodule BlocksterV2Web.PostLive.VideosComponent do
   use BlocksterV2Web, :live_component
 
-  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
+  import BlocksterV2Web.SharedComponents, only: [token_badge: 1]
 
   # Get BUX balance from the real-time bux_balances map, falling back to post's value
   defp get_bux_balance(assigns, post) do

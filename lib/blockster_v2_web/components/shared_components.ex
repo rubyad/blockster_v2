@@ -7,32 +7,62 @@ defmodule BlocksterV2Web.SharedComponents do
   use BlocksterV2Web, :verified_routes
 
   @doc """
-  Renders a lightning bolt icon with gradient (BUX token icon).
-  Ensures unique IDs to avoid duplicate ID warnings by auto-generating them.
+  Renders the BUX token icon.
+  Uses the ImageKit-hosted blockster icon image.
   """
   attr :size, :string, default: "20"
   attr :id, :string, default: nil
 
   def lightning_icon(assigns) do
-    # Generate a unique ID if not provided
-    assigns = assign(assigns, :unique_id, assigns[:id] || "lightning_#{:erlang.unique_integer([:positive])}")
+    ~H"""
+    <img
+      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+      alt="BUX"
+      class="rounded-full object-cover"
+      style={"width: #{@size}px; height: #{@size}px;"}
+    />
+    """
+  end
+
+  @doc """
+  Renders a token badge for posts/content.
+  Shows hub logo with thin black border if post has active hub with token,
+  otherwise shows default blocksterBUX icon with thin black border.
+
+  ## Attributes
+    - post: The post struct (must have hub preloaded)
+    - balance: The balance to display
+    - id: Unique ID for the component (optional)
+  """
+  attr :post, :map, required: true
+  attr :balance, :any, required: true
+  attr :id, :string, default: nil
+
+  def token_badge(assigns) do
+    hub = assigns.post.hub
+    has_hub_token = hub && hub.is_active && hub.token && hub.token != "" && hub.logo_url && hub.logo_url != ""
+    assigns = assign(assigns, :has_hub_token, has_hub_token)
+    assigns = assign(assigns, :hub, hub)
+    assigns = assign(assigns, :unique_id, assigns[:id] || "token_#{:erlang.unique_integer([:positive])}")
 
     ~H"""
-    <svg xmlns="http://www.w3.org/2000/svg" width={@size} height={@size} viewBox="0 0 24 24" fill="none">
-      <g clip-path={"url(#clip_#{@unique_id})"}>
-        <circle cx="12" cy="12" r="12" fill={"url(#paint_#{@unique_id})"} />
-        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
-      </g>
-      <defs>
-        <linearGradient id={"paint_#{@unique_id}"} x1="24" y1="24" x2="0" y2="0" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#8AE388" />
-          <stop offset="1" stop-color="#BAF55F" />
-        </linearGradient>
-        <clipPath id={"clip_#{@unique_id}"}>
-          <rect width="24" height="24" rx="12" fill="white" />
-        </clipPath>
-      </defs>
-    </svg>
+    <%= if @has_hub_token do %>
+      <!-- Hub token badge with thin black border -->
+      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
+        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+          <img src={@hub.logo_url} alt={@hub.name} class="h-5 w-5 rounded-full object-cover" />
+          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
+        </div>
+      </div>
+    <% else %>
+      <!-- Default BUX badge with thin black border -->
+      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
+        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
+          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
+        </div>
+      </div>
+    <% end %>
     """
   end
 

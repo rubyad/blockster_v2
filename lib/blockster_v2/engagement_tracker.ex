@@ -1007,12 +1007,13 @@ defmodule BlocksterV2.EngagementTracker do
   # =============================================================================
 
   @doc """
-  Updates the user's BUX balance in the user_bux_points table.
-  Uses the on-chain balance fetched from the blockchain.
+  Updates the user's BUX balance in the user_bux_points table (legacy).
+  Uses the aggregate balance fetched from the blockchain.
+  Also broadcasts the aggregate from user_bux_balances to subscribed LiveViews.
 
   Table structure: user_id, user_smart_wallet, bux_balance, extra_field1-4, created_at, updated_at
   """
-  def update_user_bux_balance(user_id, wallet_address, on_chain_balance) do
+  def update_user_bux_balance(user_id, wallet_address, aggregate_balance) do
     now = System.system_time(:second)
 
     case :mnesia.dirty_read({:user_bux_points, user_id}) do
@@ -1022,7 +1023,7 @@ defmodule BlocksterV2.EngagementTracker do
           :user_bux_points,
           user_id,
           wallet_address,
-          on_chain_balance,
+          aggregate_balance,
           nil,  # extra_field1
           nil,  # extra_field2
           nil,  # extra_field3
@@ -1031,27 +1032,26 @@ defmodule BlocksterV2.EngagementTracker do
           now   # updated_at
         }
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Created user_bux_points for user #{user_id}: balance=#{on_chain_balance}")
+        Logger.info("[EngagementTracker] Created user_bux_points for user #{user_id}: balance=#{aggregate_balance}")
 
-        # Broadcast balance update to all subscribed LiveViews
-        BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, on_chain_balance)
-
-        {:ok, on_chain_balance}
+        {:ok, aggregate_balance}
 
       [existing] ->
         # Update existing record with new balance
         updated = existing
           |> put_elem(2, wallet_address)      # user_smart_wallet
-          |> put_elem(3, on_chain_balance)    # bux_balance
+          |> put_elem(3, aggregate_balance)   # bux_balance
           |> put_elem(9, now)                 # updated_at
         :mnesia.dirty_write(updated)
-        Logger.info("[EngagementTracker] Updated user_bux_points for user #{user_id}: balance=#{on_chain_balance}")
+        Logger.info("[EngagementTracker] Updated user_bux_points for user #{user_id}: balance=#{aggregate_balance}")
 
-        # Broadcast balance update to all subscribed LiveViews
-        BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, on_chain_balance)
-
-        {:ok, on_chain_balance}
+        {:ok, aggregate_balance}
     end
+
+    # Broadcast aggregate from user_bux_balances (the authoritative source)
+    aggregate = get_user_bux_balance(user_id)
+    BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
+    {:ok, aggregate}
   rescue
     e ->
       Logger.error("[EngagementTracker] Error updating user bux balance: #{inspect(e)}")
@@ -1063,14 +1063,14 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
-  Gets the user's BUX balance from the user_bux_points Mnesia table.
-  Returns the on-chain balance that was last synced after a mint.
+  Gets the user's aggregate BUX balance from the user_bux_balances Mnesia table.
+  Returns the sum of all token balances that was last synced from chain.
   Returns 0 if no record exists.
   """
   def get_user_bux_balance(user_id) do
-    case :mnesia.dirty_read({:user_bux_points, user_id}) do
+    case :mnesia.dirty_read({:user_bux_balances, user_id}) do
       [] -> 0
-      [record] -> elem(record, 3) || 0  # bux_balance is at index 3
+      [record] -> elem(record, 4) || 0  # aggregate_bux_balance is at index 4
     end
   rescue
     _ -> 0
@@ -1269,6 +1269,8 @@ defmodule BlocksterV2.EngagementTracker do
           record = create_new_balance_record(user_id, wallet_address, now, token, balance_float)
           :mnesia.dirty_write(record)
           Logger.info("[EngagementTracker] Created user_bux_balances for user #{user_id}: #{token}=#{balance_float}")
+          # Broadcast the new aggregate balance (for new records, aggregate = balance_float)
+          BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, balance_float)
           {:ok, balance_float}
 
         [existing] ->
@@ -1284,6 +1286,8 @@ defmodule BlocksterV2.EngagementTracker do
 
           :mnesia.dirty_write(updated)
           Logger.info("[EngagementTracker] Updated user_bux_balances for user #{user_id}: #{token}=#{balance_float}, aggregate=#{aggregate}")
+          # Broadcast the updated aggregate balance to subscribed LiveViews
+          BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
           {:ok, balance_float}
       end
     end
@@ -1315,7 +1319,7 @@ defmodule BlocksterV2.EngagementTracker do
       wallet_address,
       now,
       balance,   # aggregate starts as this token's balance
-      0.0,       # bux_balance
+      0.0,       # blocksterbux_balance
       0.0,       # moonbux_balance
       0.0,       # neobux_balance
       0.0,       # roguebux_balance
@@ -1347,6 +1351,7 @@ defmodule BlocksterV2.EngagementTracker do
   def get_user_token_balances(user_id) do
     case :mnesia.dirty_read({:user_bux_balances, user_id}) do
       [] ->
+        Logger.info("[EngagementTracker] No user_bux_balances record for user #{user_id}")
         # Return empty balances
         %{
           "aggregate" => 0.0,
@@ -1364,6 +1369,7 @@ defmodule BlocksterV2.EngagementTracker do
         }
 
       [record] ->
+        Logger.info("[EngagementTracker] user_bux_balances record for user #{user_id}: #{inspect(record)}")
         %{
           "aggregate" => elem(record, 4) || 0.0,
           "BUX" => elem(record, 5) || 0.0,
@@ -1393,5 +1399,47 @@ defmodule BlocksterV2.EngagementTracker do
   def get_user_token_balance(user_id, token) do
     balances = get_user_token_balances(user_id)
     Map.get(balances, token, 0.0)
+  end
+
+  @doc """
+  Debug function to dump a user's bux_balances record to the log.
+  """
+  def dump_user_bux_balances(user_id) do
+    # Check if table exists first
+    if :mnesia.system_info(:tables) |> Enum.member?(:user_bux_balances) do
+      case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+        [] ->
+          Logger.info("[DEBUG] No user_bux_balances record for user #{user_id}")
+          nil
+        [record] ->
+          Logger.info("""
+          [DEBUG] user_bux_balances for user #{user_id}:
+            Raw: #{inspect(record)}
+            user_id:       #{elem(record, 1)}
+            wallet:        #{elem(record, 2)}
+            updated_at:    #{elem(record, 3)}
+            aggregate:     #{elem(record, 4)}
+            BUX:           #{elem(record, 5)}
+            moonBUX:       #{elem(record, 6)}
+            neoBUX:        #{elem(record, 7)}
+            rogueBUX:      #{elem(record, 8)}
+            flareBUX:      #{elem(record, 9)}
+            nftBUX:        #{elem(record, 10)}
+            nolchaBUX:     #{elem(record, 11)}
+            solBUX:        #{elem(record, 12)}
+            spaceBUX:      #{elem(record, 13)}
+            tronBUX:       #{elem(record, 14)}
+            tranBUX:       #{elem(record, 15)}
+          """)
+          record
+      end
+    else
+      Logger.info("[DEBUG] user_bux_balances table not ready yet")
+      nil
+    end
+  catch
+    :exit, reason ->
+      Logger.error("[DEBUG] Exit dumping user_bux_balances: #{inspect(reason)}")
+      nil
   end
 end

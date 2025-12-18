@@ -102,12 +102,12 @@ defmodule BlocksterV2Web.PostLive.Tag do
         module = Enum.at(@component_modules, module_index)
         posts_needed = Map.get(@posts_per_component, module)
 
-        # Fetch posts for this component
+        # Fetch posts for this component (with bux_balances from Mnesia)
         posts = Blog.list_published_posts_by_tag(
           tag_slug,
           limit: posts_needed,
           exclude_ids: acc_ids
-        )
+        ) |> Blog.with_bux_balances()
 
         if posts == [] do
           # No more posts available
