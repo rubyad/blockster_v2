@@ -78,145 +78,91 @@ defmodule BlocksterV2Web.Layouts do
       class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300"
     >
       <!-- Desktop Header -->
-      <header class="pt-6 pb-4 hidden lg:flex items-center justify-between gap-4 px-6 lg:pl-11 lg:pr-7">
-        <div class="left-header-inner flex items-center gap-9 w-full">
-        <div>
-          <.link navigate={~p"/"} class="bg-white py-6 px-5 rounded-[85px] block">
-            <img src="/images/Logo.png" alt="Blockster" />
-          </.link>
+      <header id="desktop-header" class="hidden lg:block pt-6 transition-all duration-300">
+        <!-- Top Row: Logo centered (shrinks on scroll) -->
+        <div id="header-logo-row" class="flex justify-center py-0.5 pb-4 mb-2 transition-all duration-300 overflow-hidden border-b border-gray-200" style="max-height: 68px; opacity: 1;">
+          <div class="flex flex-col items-center">
+            <.link navigate={~p"/"} class="block">
+              <img id="header-logo" src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-7 transition-all duration-300" />
+            </.link>
+            <p id="header-tagline" class="uppercase font-extralight text-xs text-black tracking-[0.4em] mt-0.5 transition-all duration-300">
+              Web3 Media Platform
+            </p>
+          </div>
         </div>
-        <div class="flex gap-2 bg-white p-2 rounded-[85px] justify-between w-full border border-[#E8EAEC]">
-          <div class="flex gap-2 items-center">
-            <!-- Search Bar -->
-            <div class="right-section-left" id="search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
-              <div class="input-wrapper relative max-w-[247px] w-[100%]">
-                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
-                          stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={@search_query}
-                  phx-keyup="search_posts"
-                  phx-debounce="300"
-                  class="text-left text-grey-30 h-12 px-5 pl-[29px] bg-bg-input text-sm font-[400] font-haas_roman_55 w-full rounded-[85px]"
-                />
 
-                <!-- Search Results Dropdown -->
-                <%= if @show_search_results && length(@search_results) > 0 do %>
-                  <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-[#E7E8F1] shadow-xl z-50 max-h-[500px] overflow-y-auto">
-                    <div class="py-2">
-                      <%= for post <- @search_results do %>
-                        <.link
-                          navigate={~p"/#{post.slug}"}
-                          class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
-                          phx-click="close_search"
-                        >
-                          <div class="img-wrapper rounded-lg overflow-hidden flex-shrink-0" style="width: 60px; height: 60px;">
-                            <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
-                          </div>
-                          <div class="flex-1 min-w-0">
-                            <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
-                              <%= post.title %>
-                            </h4>
-                            <%= if post.category do %>
-                              <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
-                                <%= post.category.name %>
-                              </span>
-                            <% end %>
-                          </div>
-                        </.link>
-                      <% end %>
-                    </div>
+        <!-- Navigation Row: Search left, Menu centered, Balance right -->
+        <div class="max-w-7xl mx-auto px-4">
+          <div class="flex items-center justify-between">
+          <!-- Search Bar with Scroll Logo - Left -->
+          <div class="flex items-center gap-3">
+            <div class="relative" id="search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
+            <!-- Lightning Bolt Logo (hidden by default, shows on scroll, positioned right of search) -->
+            <.link navigate={~p"/"} id="scroll-logo" class="absolute -right-12 top-1/2 -translate-y-1/2 cursor-pointer opacity-0 transition-opacity duration-300 z-20 pointer-events-none">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="Blockster" class="h-8 w-8" />
+            </.link>
+            <div class="input-wrapper relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
+                        stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search"
+                value={@search_query}
+                phx-keyup="search_posts"
+                phx-debounce="300"
+                class="text-left text-grey-30 h-10 px-4 pl-9 bg-[#F5F6FB] text-sm font-haas_roman_55 w-[180px] rounded-full border border-[#E8EAEC]"
+              />
+              <!-- Search Results Dropdown -->
+              <%= if @show_search_results && length(@search_results) > 0 do %>
+                <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-[#E7E8F1] shadow-xl z-50 max-h-[500px] overflow-y-auto">
+                  <div class="py-2">
+                    <%= for post <- @search_results do %>
+                      <.link
+                        navigate={~p"/#{post.slug}"}
+                        class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
+                        phx-click="close_search"
+                      >
+                        <div class="img-wrapper rounded-lg overflow-hidden shrink-0" style="width: 60px; height: 60px;">
+                          <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
+                            <%= post.title %>
+                          </h4>
+                          <%= if post.category do %>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
+                              <%= post.category.name %>
+                            </span>
+                          <% end %>
+                        </div>
+                      </.link>
+                    <% end %>
                   </div>
-                <% end %>
-              </div>
-            </div>
-            <!-- Navigation Links -->
-            <div class="inner-section-right">
-              <ul class="flex gap-2 items-center">
-                <li class="relative group">
-                  <a href="#" class="px-4 pr-[9px] py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid flex items-center hover:bg-[#F5F6FB] transition-colors">
-                    <span class="flex items-center">News</span>
-                    <span class="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M8 10L12 14L16 10" stroke="#101C36" stroke-width="1.5" stroke-linecap="square" />
-                      </svg>
-                    </span>
-                  </a>
-
-                  <!-- Dropdown Menu -->
-                  <div class="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl border border-[#E7E8F1] shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div class="py-2">
-                      <.link navigate={~p"/"} class="block px-4 py-2.5 text-sm font-haas_medium_65 text-[#141414] hover:bg-[#F5F6FB] transition-colors">
-                        All News
-                      </.link>
-                      <div class="border-t border-[#E7E8F1] my-2"></div>
-                      <.link navigate={~p"/category/blockchain"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Blockchain
-                      </.link>
-                      <.link navigate={~p"/category/market-analysis"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Market Analysis
-                      </.link>
-                      <.link navigate={~p"/category/investment"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Investment
-                      </.link>
-                      <.link navigate={~p"/category/events"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Events
-                      </.link>
-                      <.link navigate={~p"/category/crypto-trading"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Crypto Trading
-                      </.link>
-                      <.link navigate={~p"/category/people"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        People
-                      </.link>
-                      <.link navigate={~p"/category/defi"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        DeFi
-                      </.link>
-                      <.link navigate={~p"/category/announcements"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Announcements
-                      </.link>
-                      <.link navigate={~p"/category/gaming"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Gaming
-                      </.link>
-                      <.link navigate={~p"/category/tech"} class="block px-4 py-2.5 text-sm font-haas_roman_55 text-[#515B70] hover:bg-[#F5F6FB] hover:text-[#141414] transition-colors">
-                        Tech
-                      </.link>
-                    </div>
-                  </div>
-                </li>
-                <li>
-                  <.link navigate={~p"/hubs"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
-                    Hubs
-                  </.link>
-                </li>
-                <li>
-                  <.link navigate={~p"/shop-landing"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
-                    Shop
-                  </.link>
-                </li>
-                <li>
-                  <.link navigate={~p"/events"} class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-[#101D36] border-solid xl:text-[16px] text-[14px] hover:bg-[#F5F6FB] transition-colors">
-                    Events
-                  </.link>
-                </li>
-                <li>
-                  <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block xl:text-[16px] text-[14px] text-[#101D36] border-solid hover:bg-[#F5F6FB] transition-colors">
-                    Play
-                  </a>
-                </li>
-              </ul>
+                </div>
+              <% end %>
             </div>
           </div>
-          <!-- Right Section with User/Connect -->
-          <div class="right-outer flex items-center gap-2 w-1/4 justify-end">
+          </div>
+
+          <!-- Navigation Links - Centered -->
+          <nav class="flex items-center gap-1">
+            <.link navigate={~p"/"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">News</.link>
+            <.link navigate={~p"/hubs"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Hubs</.link>
+            <.link navigate={~p"/shop-landing"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Shop</.link>
+            <.link navigate={~p"/events"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Events</.link>
+            <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Play</a>
+          </nav>
+
+          <!-- Balance/User - Right -->
+          <div class="flex items-center gap-2">
             <%= if @current_user do %>
               <!-- Logged in user display with dropdown -->
               <div class="relative" id="desktop-user-dropdown">
-                <button id="desktop-user-button" onclick="var dropdown = document.getElementById('desktop-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 rounded-[100px] bg-bg-light py-2 pl-2 pr-4 hover:bg-gray-100 transition-colors">
+                <button id="desktop-user-button" onclick="var dropdown = document.getElementById('desktop-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-1 pr-3 hover:bg-gray-200 transition-colors">
                   <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
                     <%= if @current_user.avatar_url do %>
                       <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
@@ -312,8 +258,29 @@ defmodule BlocksterV2Web.Layouts do
               <.live_component module={BlocksterV2Web.ThirdwebLoginLive} id="thirdweb-login-desktop" />
             <% end %>
           </div>
+          </div>
         </div>
-      </div>
+
+        <!-- Category Row -->
+        <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
+          <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
+            <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
+            <span class="text-gray-300">|</span>
+            <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
+          </div>
+        </div>
       </header>
 
       <!-- Mobile Header -->

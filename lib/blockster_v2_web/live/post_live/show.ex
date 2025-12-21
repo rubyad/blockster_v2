@@ -100,6 +100,9 @@ defmodule BlocksterV2Web.PostLive.Show do
           {x_conn, campaign, reward, calculated_reward}
       end
 
+    # Load related posts (shares tags with current post)
+    related_posts = Blog.get_related_posts(post, 4)
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
@@ -124,7 +127,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:share_status, nil)
      |> assign(:needs_x_reconnect, false)
      |> assign(:hub_token, hub_token)
-     |> assign(:hub_logo, hub_logo)}
+     |> assign(:hub_logo, hub_logo)
+     |> assign(:related_posts, related_posts)}
   end
 
   @impl true

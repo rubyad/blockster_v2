@@ -2,7 +2,6 @@
 <%= if @current_user do %>
   <div id="bux-panel" class="fixed bottom-4 right-4 z-50">
     <%= if @already_rewarded do %>
-      <!-- Already received reward from previous session - amber panel -->
       <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
         <div class="flex items-center gap-3">
           <%= if @hub_logo do %>
@@ -18,11 +17,7 @@
         <%= if @read_tx_id do %>
           <div class="mt-2 pt-2 border-t border-white/20">
             <a href={"https://roguescan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               <span>View Transaction</span>
             </a>
           </div>
@@ -30,7 +25,6 @@
       </div>
     <% else %>
       <%= if @article_completed do %>
-        <!-- Just completed - gold/amber panel with checkmark -->
         <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px] animate-pulse-once">
           <div class="flex items-center gap-3">
             <%= if @hub_logo do %>
@@ -44,34 +38,12 @@
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
-            <div class="flex justify-between">
-              <span>Score:</span>
-              <span class="font-semibold">{@current_score}/10</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Base Reward:</span>
-              <span class="font-semibold">{@base_bux_reward} {@hub_token}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Multiplier:</span>
-              <span class="font-semibold">{@user_multiplier}x</span>
-            </div>
+            <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
+            <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} {@hub_token}</span></div>
+            <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
           </div>
-          <%= if @read_tx_id do %>
-            <div class="mt-2 pt-2 border-t border-white/20">
-              <a href={"https://roguescan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-                <span>View Transaction</span>
-              </a>
-            </div>
-          <% end %>
         </div>
       <% else %>
-        <!-- Active earning panel - green gradient -->
         <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
           <div class="flex items-center gap-3">
             <%= if @hub_logo do %>
@@ -85,18 +57,9 @@
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
-            <div class="flex justify-between">
-              <span>Score:</span>
-              <span class="font-semibold">{@current_score}/10</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Base Reward:</span>
-              <span class="font-semibold">{@base_bux_reward} {@hub_token}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Multiplier:</span>
-              <span class="font-semibold">{@user_multiplier}x</span>
-            </div>
+            <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
+            <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} {@hub_token}</span></div>
+            <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
           </div>
         </div>
       <% end %>
@@ -105,7 +68,7 @@
 <% end %>
 
 <div
-  class="article-page bg-[#F7F8FA] min-h-screen"
+  class="article-page bg-white min-h-screen"
   id="post-engagement-tracker"
   phx-hook="EngagementTracker"
   data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
@@ -115,732 +78,349 @@
   data-user-multiplier={@user_multiplier || 1}
   data-already-rewarded={to_string(@already_rewarded)}
 >
-  <!-- TimeTracker disabled for now - keeping code in place -->
-  <!-- <div
-    id="post-time-tracker"
-    phx-hook="TimeTracker"
-    data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
-    data-post-id={@post.id}
-    data-initial-time={@time_spent}
-    class="hidden"
-  ></div> -->
-    <!-- Full Height Hero Section -->
-    <section class="full-height-section md:h-screen flex md:flex-row flex-col bg-[#F7F8FA] max-md:items-center max-md:px-0">
-      <!-- Left Section: Content -->
-      <div class="left-section md:w-1/2 w-full md:pt-[124px] pt-20 max-md:px-0 px-6 flex items-center flex-col justify-center">
-        <div class="h-full flex justify-center">
-          <div class="form-center-data wrapper flex flex-col justify-between items-center max-w-[548px]">
-            <!-- Back Button -->
-            <div class="flex w-full max-md:hidden">
-              <.link
-                navigate={~p"/"}
-                class="px-4 pr-[9px] py-2 bg-white rounded-[100px] font-haas_medium_65 text-[16px] text-[#101D36] border-[1px] border-[#0000001F] flex items-center gap-1"
+  <!-- 3-Column Layout Container -->
+  <div class="max-w-7xl mx-auto px-4 pt-32 pb-16">
+    <div class="flex gap-8 justify-center">
+
+      <!-- LEFT SIDEBAR - Shop (Desktop only) -->
+      <aside class="hidden lg:block w-[200px] shrink-0">
+        <div class="sticky top-36 space-y-6">
+          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider mb-4">Shop</div>
+
+          <!-- Product 1 -->
+          <a href="/shop" class="block group">
+            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/blockster-hoodie.png" alt="Blockster Hoodie" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Blockster Hoodie</h5>
+            <p class="text-xs text-[#141414A3]">$89 <span class="text-[#8AE388]">or 890 BUX</span></p>
+          </a>
+
+          <!-- Product 2 -->
+          <a href="/shop" class="block group">
+            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/cargo.png" alt="Cargo Pants" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Cargo Pants</h5>
+            <p class="text-xs text-[#141414A3]">$120 <span class="text-[#8AE388]">or 1200 BUX</span></p>
+          </a>
+
+          <!-- Product 3 -->
+          <a href="/shop" class="block group">
+            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/nendorring.png" alt="Nendorring" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Nendorring</h5>
+            <p class="text-xs text-[#141414A3]">$45 <span class="text-[#8AE388]">or 450 BUX</span></p>
+          </a>
+        </div>
+      </aside>
+
+      <!-- CENTER COLUMN - Main Article Content -->
+      <main class="w-full max-w-[680px]">
+
+        <!-- Category -->
+        <%= if @post.category do %>
+          <div class="mb-4">
+            <span class="text-sm font-haas_medium_65 text-[#141414] uppercase tracking-wider">{@post.category.name}</span>
+          </div>
+        <% end %>
+
+        <!-- Title -->
+        <h1 class="text-4xl md:text-5xl font-bold leading-tight text-[#141414] mb-6">
+          {@post.title}
+        </h1>
+
+        <!-- Author & Date Row -->
+        <div class="flex items-center gap-3 mb-6 text-sm">
+          <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+          <span class="text-[#141414A3]">·</span>
+          <span class="text-[#141414A3]">{if @post.published_at, do: Calendar.strftime(@post.published_at, "%b %d, %Y"), else: "Draft"}</span>
+          <%= if @post.hub do %>
+            <span class="text-[#141414A3]">·</span>
+            <.link navigate={~p"/hub/#{@post.hub.slug}"} class="flex items-center gap-1.5 hover:opacity-80">
+              <%= if @hub_logo do %>
+                <img src={@hub_logo} alt={@post.hub.name} class="h-4 w-4 rounded-full object-cover" />
+              <% end %>
+              <span class="font-haas_medium_65 text-[#141414]">{@post.hub.name}</span>
+            </.link>
+          <% end %>
+        </div>
+
+        <!-- Social Share Row (Sticky) -->
+        <div class="sticky top-24 z-10 bg-white flex items-center gap-2 py-4 mb-4 border-b border-[#E7E8F1]">
+          <!-- X/Twitter Share with BUX Reward -->
+          <%= if @share_campaign && @share_campaign.is_active do %>
+            <%= if @current_user do %>
+              <button
+                phx-click="open_share_modal"
+                class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
               >
-                <span class="min-w-[14px]">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                  >
-                    <path
-                      d="M8.16683 9.33332L5.8335 6.99999L8.16683 4.66666"
-                      stroke="#101D36"
-                      stroke-width="1.5"
-                      stroke-linecap="square"
-                    >
-                    </path>
-                  </svg>
-                </span>
-                <span>Back</span>
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
+              </button>
+            <% else %>
+              <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
               </.link>
-            </div>
+            <% end %>
+          <% else %>
+            <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer">
+              <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+          <% end %>
 
-            <div class="wrapper max-md:px-6">
-              <!-- Category -->
-              <%= if @post.category do %>
-                <div class="mt-6">
-                  <span class="text-[#141414] text-[24px] max-md:text-[18px] font-haas_medium_65 tracking-[0.02em]">
-                    {@post.category.name}
-                  </span>
-                </div>
-              <% end %>
+          <!-- LinkedIn -->
+          <a href={"https://www.linkedin.com/sharing/share-offsite/?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}"} target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 h-9 px-3 bg-[#0A66C2] text-white rounded-full text-sm font-haas_medium_65 hover:bg-[#004182] transition-colors cursor-pointer">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{round(@user_multiplier)} {@hub_token}</span>
+          </a>
 
-              <!-- Title -->
-              <h1 class="text-black text-[64px] max-md:text-[24px] max-lg:text-[50px] mt-4 text-left leading-[100%] tracking-[0.02em] font-bold">
-                {@post.title}
-              </h1>
-
-              <!-- Tags -->
-              <%= if @post.tags && length(@post.tags) > 0 do %>
-                <div class="flex flex-wrap gap-2 mt-4">
-                  <%= for tag <- @post.tags do %>
-                    <.link
-                      navigate={~p"/tag/#{tag.slug}"}
-                      class="px-3 py-1.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65 hover:bg-[#F3F5FF] hover:border-[#B0B6FE] transition-all cursor-pointer"
-                    >
-                      {tag.name}
-                    </.link>
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
-            
-<!-- Author Info Card (Desktop) -->
-            <div class="rounded-[12px] bg-white p-6 w-full max-md:hidden">
-              <div class="flex justify-between">
-                <div>
-                  <div class="flex gap-2 items-center">
-                    <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">
-                      By
-                    </span>
-                    <%!-- <span>
-                      <img
-                        src="/images/author.png"
-                        alt=""
-                        class="w-[26px] h-[26px] rounded-full"
-                      />
-                    </span> --%>
-                    <h4 class="text-md font-haas_medium_65 leading-[1.4]">
-                      {@post.author_name}
-                    </h4>
-                  </div>
-                  <span class="font-haas_medium_65 text-[#141414A3] text-sm leading-[1.4] block mt-[6px]">
-                    {if @post.published_at,
-                      do: Calendar.strftime(@post.published_at, "%b %d, %Y"),
-                      else: "Draft"}
-                  </span>
-                  <%= if @post.hub do %>
-                    <div class="flex gap-2 items-center mt-[6px]">
-                      <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">
-                        Hub:
-                      </span>
-                      <.link navigate={~p"/hub/#{@post.hub.slug}"} class="text-sm font-haas_medium_65 text-[#141414] hover:text-[#8AE388] transition-colors">
-                        {@post.hub.name}
-                      </.link>
-                    </div>
-                  <% end %>
-                </div>
-
-                <div class="flex items-end gap-4">
-                  <div>
-                    <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                      <%= @hub_token %>
-                    </span>
-                    <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-                      <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-                        <%= if @hub_logo do %>
-                          <img src={@hub_logo} alt={@hub_token} class="h-5 w-5 rounded-full object-cover" />
-                        <% else %>
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-                        <% end %>
-                        <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 2)}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <button class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] border-btn font-haas_medium_65 rounded-full block">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="14"
-                      viewBox="0 0 16 14"
-                      fill="none"
-                    >
-                      <path
-                        d="M13.8931 2.07321C13.5526 1.73254 13.1483 1.46231 12.7033 1.27793C12.2584 1.09356 11.7814 0.998657 11.2998 0.998657C10.8181 0.998657 10.3412 1.09356 9.89618 1.27793C9.45121 1.46231 9.04692 1.73254 8.70642 2.07321L7.99975 2.77987L7.29309 2.07321C6.60529 1.38541 5.67244 0.999014 4.69975 0.999014C3.72706 0.999014 2.79422 1.38541 2.10642 2.07321C1.41863 2.761 1.03223 3.69385 1.03223 4.66654C1.03223 5.63923 1.41863 6.57208 2.10642 7.25987L7.99975 13.1532L13.8931 7.25987C14.2337 6.91937 14.504 6.51508 14.6884 6.07011C14.8727 5.62514 14.9676 5.1482 14.9676 4.66654C14.9676 4.18488 14.8727 3.70794 14.6884 3.26297C14.504 2.818 14.2337 2.41371 13.8931 2.07321Z"
-                        stroke="#1E1E1E"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+          <!-- Token Badge -->
+          <div class="ml-auto flex items-center gap-2 bg-[#F7F8FA] rounded-full px-3 py-1.5">
+            <%= if @hub_logo do %>
+              <img src={@hub_logo} alt={@hub_token} class="h-5 w-5 rounded-full object-cover" />
+            <% else %>
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
+            <% end %>
+            <span class="text-sm font-haas_medium_65 text-[#141414]">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} {@hub_token}</span>
           </div>
         </div>
-      </div>
-      
-<!-- Right Section: Featured Image -->
-      <div class="right-section md:w-1/2 w-[320px] max-xs:w-full max-md:mt-5 bg-cover bg-center max-md:h-[353px] relative">
+
+        <!-- Featured Image (Square) -->
         <%= if @post.featured_image do %>
-          <img
-            src={ImageKit.w640_h800(@post.featured_image)}
-            srcset={"#{ImageKit.w640_h800(@post.featured_image)} 640w, #{ImageKit.w1200_h1600(@post.featured_image)} 1200w"}
-            sizes="(max-width: 768px) 640px, 1200px"
-            alt={@post.title}
-            class="w-full h-full object-cover"
-          />
-        <% else %>
-          <div class="w-full h-full bg-gradient-to-br from-purple-600/20 to-blue-600/20 flex items-center justify-center">
-            <div class="w-24 h-24 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-              <.icon name="hero-document-text" class="w-12 h-12 text-white" />
+          <div class="mb-10 rounded-2xl overflow-hidden aspect-square">
+            <img
+              src={ImageKit.w800(@post.featured_image)}
+              alt={@post.title}
+              class="w-full h-full object-cover"
+            />
+          </div>
+        <% end %>
+
+        <!-- Article Body -->
+        <article class="prose prose-lg max-w-none">
+          <%= if @post.content && @post.content != %{} do %>
+            <div
+              id="post-content"
+              class="text-[#343434] leading-[1.8] space-y-6 font-segoe_regular text-lg"
+              phx-hook="TwitterWidgets"
+              phx-update="ignore"
+              phx-no-format
+            >
+              <%= raw(render_content(@post.content)) %>
+            </div>
+            <div id="article-end-marker" class="h-px"></div>
+          <% else %>
+            <p class="text-gray-400 italic">No content available</p>
+          <% end %>
+        </article>
+
+        <!-- Tags -->
+        <%= if @post.tags && length(@post.tags) > 0 do %>
+          <div class="flex flex-wrap gap-2 mt-10 pt-8 border-t border-[#E7E8F1]">
+            <%= for tag <- @post.tags do %>
+              <.link navigate={~p"/tag/#{tag.slug}"} class="px-4 py-2 bg-[#F7F8FA] text-[#141414] rounded-full text-sm font-haas_medium_65 hover:bg-[#E7E8F1] transition-colors">
+                {tag.name}
+              </.link>
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Admin Actions -->
+        <%= if @current_user && (@current_user.is_admin || @current_user.id == @post.author_id) do %>
+          <div class="flex items-center gap-3 mt-8 flex-wrap">
+            <.link navigate={~p"/#{@post.slug}/edit"} class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Edit Post</.link>
+            <%= if @post.published_at do %>
+              <button phx-click="unpublish" class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Unpublish</button>
+            <% else %>
+              <button phx-click="publish" class="px-5 py-2.5 bg-[#8AE388] text-[#141414] rounded-full font-haas_medium_65 hover:opacity-90 transition-all text-sm">Publish</button>
+            <% end %>
+            <button phx-click="delete" data-confirm="Are you sure you want to delete this post?" class="px-5 py-2.5 bg-red-50 text-red-600 rounded-full font-haas_medium_65 hover:bg-red-100 transition-all text-sm">Delete</button>
+          </div>
+        <% end %>
+
+        <!-- Engagement Metrics -->
+        <%= if @current_user && @engagement do %>
+          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+            <h3 class="text-base font-haas_medium_65 mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+              Your Reading Engagement
+            </h3>
+            <div class="flex items-center gap-4 mb-4">
+              <div class={"w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold #{engagement_score_color(@engagement.engagement_score)}"}>{@engagement.engagement_score}</div>
+              <div>
+                <div class="text-sm text-[#141414A3]">Engagement Score</div>
+                <div class="font-haas_medium_65">{engagement_score_label(@engagement.engagement_score)}</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Time Spent</div><div class="font-haas_medium_65">{format_time(@engagement.time_spent)}</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Min Read Time</div><div class="font-haas_medium_65">{format_time(@engagement.min_read_time)}</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Scroll Depth</div><div class="font-haas_medium_65">{@engagement.scroll_depth}%</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Reached End</div><div class="font-haas_medium_65">{if @engagement.reached_end, do: "Yes", else: "No"}</div></div>
+            </div>
+            <%= if @engagement.is_read do %>
+              <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-haas_medium_65 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Article marked as read!
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Related Posts -->
+        <%= if @related_posts && length(@related_posts) > 0 do %>
+          <div class="mt-16 pt-10 border-t border-[#E7E8F1]">
+            <h2 class="text-2xl font-haas_bold_75 mb-8 text-[#141414]">Related Articles</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%= for post <- @related_posts do %>
+                <.link navigate={~p"/#{post.slug}"} class="group block">
+                  <article class="bg-[#F7F8FA] rounded-2xl overflow-hidden hover:shadow-lg transition-all">
+                    <%= if post.featured_image do %>
+                      <div class="aspect-square overflow-hidden">
+                        <img src={ImageKit.w400_h400(post.featured_image)} alt={post.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      </div>
+                    <% else %>
+                      <div class="aspect-square bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+                        <.icon name="hero-document-text" class="w-10 h-10 text-gray-400" />
+                      </div>
+                    <% end %>
+                    <div class="p-5">
+                      <%= if post.category do %>
+                        <span class="text-xs font-haas_medium_65 text-[#141414A3] uppercase tracking-wider">{post.category.name}</span>
+                      <% end %>
+                      <h3 class="text-base font-haas_medium_65 text-[#141414] mt-1 line-clamp-2">{post.title}</h3>
+                      <div class="flex items-center gap-2 mt-2 text-xs text-[#141414A3]">
+                        <span>{post.author_name}</span>
+                        <span>·</span>
+                        <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d, %Y"), else: "Draft"}</span>
+                      </div>
+                    </div>
+                  </article>
+                </.link>
+              <% end %>
             </div>
           </div>
         <% end %>
-      </div>
-      
-<!-- Author Info Card (Mobile) -->
-      <div class="rounded-[12px] bg-white p-6 w-full -mt-6 md:hidden max-md:max-w-[calc(100%-48px)]">
-        <div class="flex justify-between flex-wrap gap-6">
-          <div>
-            <div class="flex gap-2 items-center">
-              <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">By</span>
-              <%!-- <span>
-                <img src="/images/author.png" alt="" class="w-[26px] h-[26px] rounded-full" />
-              </span> --%>
-              <h4 class="text-md font-haas_medium_65 leading-[1.4]">
-                {@post.author_name}
-              </h4>
-            </div>
-            <span class="font-haas_medium_65 text-[#141414A3] text-sm leading-[1.4] block mt-[6px]">
-              {if @post.published_at,
-                do: Calendar.strftime(@post.published_at, "%b %d, %Y"),
-                else: "Draft"}
-            </span>
-            <%= if @post.hub do %>
-              <div class="flex gap-2 items-center mt-[6px]">
-                <span class="font-haas_roman_55 text-[#141414A3] text-sm leading-[1.4]">
-                  Hub:
-                </span>
-                <.link navigate={~p"/hub/#{@post.hub.slug}"} class="text-sm font-haas_medium_65 text-[#141414] hover:text-[#8AE388] transition-colors">
-                  {@post.hub.name}
-                </.link>
-              </div>
-            <% end %>
-          </div>
 
-          <div class="flex items-end gap-4">
-            <div>
-              <span class="font-haas_roman_55 text-[#141414A3] text-xs leading-[1.4] block mb-2">
-                <%= @hub_token %>
-              </span>
-              <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px]">
-                  <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 2)}</span>
-                </button>
-              </div>
+      </main>
+
+      <!-- RIGHT SIDEBAR - Events (Desktop only) -->
+      <aside class="hidden lg:block w-[200px] shrink-0">
+        <div class="sticky top-36 space-y-6">
+          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider mb-4">Events</div>
+
+          <!-- Event 1 -->
+          <a href="/events" class="block group">
+            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/group-shot.png" alt="Web3 Summit 2025" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             </div>
-          </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Web3 Summit 2025</h5>
+            <p class="text-xs text-[#141414A3]">Jan 15-17 · Miami</p>
+          </a>
+
+          <!-- Event 2 -->
+          <a href="/events" class="block group">
+            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/delivering-speech.png" alt="DeFi Conference" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">DeFi Conference</h5>
+            <p class="text-xs text-[#141414A3]">Feb 20-22 · NYC</p>
+          </a>
+
+          <!-- Event 3 -->
+          <a href="/events" class="block group">
+            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
+              <img src="https://ik.imagekit.io/blockster/images/team.png" alt="Crypto Meetup" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            </div>
+            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Crypto Meetup</h5>
+            <p class="text-xs text-[#141414A3]">Mar 10 · London</p>
+          </a>
         </div>
-      </div>
-    </section>
-    
-<!-- Article Content Section -->
-    <div class="section article-main-content md:py-[90px] pt-20">
-      <div class="container mx-auto flex md:flex-row flex-col-reverse gap-[88px] max-lg:gap-[20px] max-w-[1300px]">
-        <!-- Sidebar -->
-        <div class="max-w-[411px] max-lg:max-w-[350px] max-md:max-w-full w-full self-start md:sticky top-32">
-          <!-- Share to Earn Card - Only show if no active share campaign -->
-          <%= if !(@share_campaign && @share_campaign.is_active) do %>
-          <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px]">
-            <div class="px-4 py-5 bg-white rounded-[16px] flex-col flex items-center justify-between">
-              <div class="flex justify-between items-center w-full">
-                <div class="flex items-center gap-2">
-                  <%= if @hub_logo do %>
-                    <img src={@hub_logo} alt={@hub_token} class="h-6 w-6 rounded-full object-cover" />
-                  <% else %>
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-6 w-6 rounded-full object-cover" />
-                  <% end %>
-                  <h4 class="!text-[16px] font-haas_medium_65 leading-[21px] tracking-[0.02em]">
-                    SHARE TO EARN $<%= @hub_token %>
-                  </h4>
-                </div>
+      </aside>
 
-                <ul class="flex gap-2">
-                  <!-- X Share Link (regular share, not reward) -->
-                  <li>
-                    <a
-                      href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/posts/#{@post.slug}")}&text=#{URI.encode_www_form(@post.title)}"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-                          fill="#141414"
-                        />
-                      </svg>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={"https://www.linkedin.com/sharing/share-offsite/?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/posts/#{@post.slug}")}"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="h-8 w-8 arrow-animated bg-bg-light flex justify-center items-center text-[#ffffff] small-buttons-shadow border-btn font-haas_medium_65 rounded-[8px] block"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="15"
-                        height="16"
-                        viewBox="0 0 15 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M0.990754 3.53566C0.662997 3.20998 0.5 2.80685 0.5 2.3272C0.5 1.84754 0.663868 1.42668 0.990754 1.10007C1.31851 0.774389 1.74041 0.611084 2.25733 0.611084C2.77424 0.611084 3.17959 0.774389 3.50647 1.10007C3.83423 1.42575 3.99723 1.83541 3.99723 2.3272C3.99723 2.81898 3.83336 3.20998 3.50647 3.53566C3.17872 3.86133 2.76291 4.02464 2.25733 4.02464C1.75175 4.02464 1.31851 3.86133 0.990754 3.53566ZM3.72178 5.40388V15.3889H0.774575V5.40388H3.72178Z"
-                          fill="#141414"
-                        />
-                        <path
-                          d="M13.5365 6.39018C14.1791 7.13672 14.5 8.16136 14.5 9.46594V15.2124H11.7002V9.87094C11.7002 9.21305 11.5406 8.70166 11.2224 8.33772C10.9041 7.97378 10.4751 7.79088 9.93797 7.79088C9.40085 7.79088 8.97183 7.97285 8.65356 8.33772C8.3353 8.70166 8.17574 9.21305 8.17574 9.87094V15.2124H5.35935V5.37582H8.17574V6.6804C8.46086 6.24554 8.84541 5.90214 9.32847 5.64925C9.81154 5.39636 10.3548 5.27037 10.959 5.27037C12.035 5.27037 12.8947 5.64458 13.5365 6.39018Z"
-                          fill="#141414"
-                        />
-                      </svg>
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-            </div>
-          </div>
-          <% end %>
-
-          <!-- Retweet & Like Campaign Box -->
-          <%= if @share_campaign && @share_campaign.is_active do %>
-            <div class="p-[1px] bg-gradient-to-b from-[#1DA1F2] via-[#1DA1F2] to-[#0d8ecf] rounded-[16px] mt-3">
-              <div class="bg-white rounded-[16px] p-4">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-2">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-black">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="white"/>
-                      </svg>
-                    </span>
-                    <h4 class="text-[14px] font-haas_medium_65 leading-[21px]">
-                      RETWEET & LIKE ON X
-                    </h4>
-                  </div>
-                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                    <%= if @hub_logo do %>
-                      <img src={@hub_logo} alt={@hub_token} class="w-4 h-4 rounded-full object-cover" />
-                    <% else %>
-                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
-                    <% end %>
-                    +{@x_share_reward} {@hub_token}
-                  </span>
-                </div>
-
-                <%= if @share_reward do %>
-                  <!-- Already completed -->
-                  <div class="text-sm bg-green-50 p-3 rounded-lg">
-                    <div class="flex items-center gap-2">
-                      <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                      </svg>
-                      <span class="text-green-700 font-haas_medium_65">
-                        <%= case @share_reward.status do %>
-                          <% "rewarded" -> %>
-                            Retweeted & Liked! Earned {@share_reward.bux_rewarded} {@hub_token}
-                          <% "verified" -> %>
-                            Verified, reward pending
-                          <% "pending" -> %>
-                            Pending verification
-                          <% _ -> %>
-                            Recorded
-                        <% end %>
-                      </span>
-                    </div>
-                    <%= if @share_reward.status == "rewarded" && @share_reward.tx_hash do %>
-                      <div class="mt-2 pt-2 border-t border-green-200">
-                        <a href={"https://roguescan.io/tx/#{@share_reward.tx_hash}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-green-700 text-xs hover:underline">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                            <polyline points="15 3 21 3 21 9"></polyline>
-                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                          </svg>
-                          <span>View Transaction</span>
-                        </a>
-                      </div>
-                    <% end %>
-                  </div>
-                <% else %>
-                  <%= if @current_user do %>
-                    <button
-                      phx-click="open_share_modal"
-                      class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                      </svg>
-                      Retweet & Like
-                    </button>
-                  <% else %>
-                    <.link
-                      href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"}
-                      class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                    >
-                      Sign in to earn <%= @hub_token %>
-                    </.link>
-                  <% end %>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-
-<!-- AI Chat Section -->
-          <div class="p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px] mt-3">
-            <div class="bg-white rounded-[16px] p-6">
-              <div class="text-center text-[24px] mb-4 font-haas_medium_65 md:mt-[68px] mt-11">
-                Ask AI Questions
-              </div>
-
-              <div class="space-y-2">
-                <ul class="flex flex-col gap-2">
-                  <li class="border border-[#14141414] rounded-lg">
-                    <button class="w-full text-left p-3 text-[#141414] text-md font-haas_roman_55">
-                      What's the main topic of this post?
-                    </button>
-                  </li>
-                  <li class="border border-[#14141414] rounded-lg">
-                    <button class="w-full text-left p-3 text-[#141414] text-md font-haas_roman_55">
-                      Who is the author?
-                    </button>
-                  </li>
-                  <li class="border border-[#14141414] rounded-lg">
-                    <button class="w-full text-left p-3 text-md font-haas_roman_55">
-                      When was this published?
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              <div class="flex mt-2 border border-[#14141414] overflow-hidden rounded-[100px] p-1.5">
-                <input
-                  type="text"
-                  placeholder="Ask anything..."
-                  class="flex-1 py-2 px-1 outline-none border-none text-left font-haas_roman_55 md:text-[16px] text-[14px] text-[#343434]"
-                />
-                <button class="h-9 w-9 arrow-animated bg-[#F3F5FF] flex justify-center items-center text-[#ffffff] border-btn font-haas_medium_65 rounded-full block">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="21"
-                    viewBox="0 0 20 21"
-                    fill="none"
-                  >
-                    <path
-                      d="M7.167 15.916V5.08301C7.167 4.8841 7.24602 4.69333 7.38667 4.55268C7.52732 4.41203 7.71809 4.33301 7.917 4.33301C8.11591 4.33301 8.30668 4.41203 8.44733 4.55268C8.58798 4.69333 8.667 4.8841 8.667 5.08301V15.916C8.667 16.1149 8.58798 16.3057 8.44733 16.4463C8.30668 16.587 8.11591 16.666 7.917 16.666C7.71809 16.666 7.52732 16.587 7.38667 16.4463C7.24602 16.3057 7.167 16.1149 7.167 15.916Z"
-                      fill="#141414"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-<!-- Main Content -->
-        <div class="w-[calc(100%-499px)] max-lg:w-[calc(100%-421px)] max-md:w-full">
-          <!-- Post Content -->
-          <div class="prose prose-lg max-w-none">
-            <%= if @post.content && @post.content != %{} do %>
-              <div
-                id="post-content"
-                class="text-[#343434] leading-[1.4] space-y-6 font-segoe_regular"
-                phx-hook="TwitterWidgets"
-                phx-update="ignore"
-                phx-no-format
-              >
-                <%= raw(render_content(@post.content)) %>
-              </div>
-              <!-- End marker positioned lower to ensure user has fully scrolled through content -->
-              <div id="article-end-marker" class="h-px"></div>
-            <% else %>
-              <p class="text-gray-400 italic">No content available</p>
-            <% end %>
-          </div>
-
-<!-- Action Buttons -->
-          <%= if @current_user && (@current_user.is_admin || @current_user.id == @post.author_id) do %>
-            <div class="flex items-center gap-3 mt-12 flex-wrap">
-              <.link
-                navigate={~p"/#{@post.slug}/edit"}
-                class="px-6 py-3 bg-white border border-[#E7E8F1] text-[#141414] rounded-full font-haas_medium_65 hover:bg-gray-50 transition-all text-sm"
-              >
-                Edit Post
-              </.link>
-
-              <%= if @post.published_at do %>
-                <button
-                  phx-click="unpublish"
-                  class="px-6 py-3 bg-white border border-[#E7E8F1] text-[#141414] rounded-full font-haas_medium_65 hover:bg-gray-50 transition-all text-sm"
-                >
-                  Unpublish
-                </button>
-              <% else %>
-                <button
-                  phx-click="publish"
-                  class="px-6 py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-full font-haas_medium_65 hover:shadow-lg transition-all text-sm"
-                >
-                  Publish
-                </button>
-              <% end %>
-
-              <button
-                phx-click="delete"
-                data-confirm="Are you sure you want to delete this post?"
-                class="px-6 py-3 bg-white border border-red-200 text-red-600 rounded-full font-haas_medium_65 hover:bg-red-50 transition-all text-sm"
-              >
-                Delete
-              </button>
-            </div>
-          <% end %>
-
-          <!-- Engagement Metrics Display (for logged-in users) -->
-          <%= if @current_user && @engagement do %>
-            <div class="mt-8 p-[1px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[16px]">
-              <div class="bg-white rounded-[16px] p-6">
-                <h3 class="text-lg font-haas_medium_65 mb-4 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                  </svg>
-                  Your Reading Engagement
-                </h3>
-
-                <!-- Engagement Score -->
-                <div class="flex items-center gap-4 mb-4">
-                  <div class="flex-shrink-0">
-                    <div class={"w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold #{engagement_score_color(@engagement.engagement_score)}"}>
-                      {@engagement.engagement_score}
-                    </div>
-                  </div>
-                  <div>
-                    <div class="text-sm text-[#141414A3] font-haas_roman_55">Engagement Score</div>
-                    <div class="font-haas_medium_65">{engagement_score_label(@engagement.engagement_score)}</div>
-                  </div>
-                </div>
-
-                <!-- Metrics Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div class="bg-[#F7F8FA] rounded-lg p-3">
-                    <div class="text-[#141414A3] font-haas_roman_55">Time Spent</div>
-                    <div class="font-haas_medium_65">{format_time(@engagement.time_spent)}</div>
-                  </div>
-                  <div class="bg-[#F7F8FA] rounded-lg p-3">
-                    <div class="text-[#141414A3] font-haas_roman_55">Min Read Time</div>
-                    <div class="font-haas_medium_65">{format_time(@engagement.min_read_time)}</div>
-                  </div>
-                  <div class="bg-[#F7F8FA] rounded-lg p-3">
-                    <div class="text-[#141414A3] font-haas_roman_55">Scroll Depth</div>
-                    <div class="font-haas_medium_65">{@engagement.scroll_depth}%</div>
-                  </div>
-                  <div class="bg-[#F7F8FA] rounded-lg p-3">
-                    <div class="text-[#141414A3] font-haas_roman_55">Reached End</div>
-                    <div class="font-haas_medium_65">{if @engagement.reached_end, do: "Yes ✓", else: "No"}</div>
-                  </div>
-                </div>
-
-                <%= if @engagement.is_read do %>
-                  <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-haas_medium_65 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                    Article marked as read!
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-        </div>
-      </div>
     </div>
   </div>
+</div>
 
 <!-- Share Modal -->
 <%= if @show_share_modal do %>
   <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" phx-click="close_share_modal">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" phx-click-away="close_share_modal">
-      <!-- Modal Header -->
       <div class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-6">
         <div class="flex items-center justify-between">
           <h3 class="text-xl font-haas_bold_75 text-black flex items-center gap-2">
-            <%= if @hub_logo do %>
-              <img src={@hub_logo} alt={@hub_token} class="w-6 h-6 rounded-full object-cover" />
-            <% else %>
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
-            <% end %>
+            <%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-6 h-6 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" /><% end %>
             Share to Earn {@hub_token}
           </h3>
           <button phx-click="close_share_modal" class="text-black/70 hover:text-black">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <%= if @share_campaign do %>
-          <p class="text-black/70 text-sm mt-2">
-            Share this article on X and earn <span class="font-bold">{@x_share_reward} {@hub_token}</span>!
-          </p>
+          <p class="text-black/70 text-sm mt-2">Share this article on X and earn <span class="font-bold">{@x_share_reward} {@hub_token}</span>!</p>
         <% end %>
       </div>
-
-      <!-- Modal Body -->
       <div class="p-6">
-        <!-- Status Messages -->
         <%= if @share_status do %>
           <%= case @share_status do %>
             <% {:success, message} -> %>
-              <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div class="flex items-center gap-2 text-green-700">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                  </svg>
-                  <span class="font-haas_medium_65">{message}</span>
-                </div>
-              </div>
+              <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg"><div class="flex items-center gap-2 text-green-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div></div>
             <% {:error, message} -> %>
-              <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div class="flex items-center gap-2 text-red-700">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                  </svg>
-                  <span class="font-haas_medium_65">{message}</span>
-                </div>
-                <%= if @needs_x_reconnect do %>
-                  <div class="mt-3">
-                    <.link
-                      href={~p"/auth/x?redirect=#{@post.slug}"}
-                      class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-                    >
-                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                      </svg>
-                      <span class="font-haas_medium_65">Reconnect X Account</span>
-                    </.link>
-                  </div>
-                <% end %>
+              <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg"><div class="flex items-center gap-2 text-red-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div>
+                <%= if @needs_x_reconnect do %><div class="mt-3"><.link href={~p"/auth/x?redirect=#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg><span class="font-haas_medium_65">Reconnect X Account</span></.link></div><% end %>
               </div>
             <% {:info, message} -> %>
-              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div class="flex items-center gap-2 text-blue-700">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                  </svg>
-                  <span class="font-haas_medium_65">{message}</span>
-                </div>
-              </div>
+              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"><div class="flex items-center gap-2 text-blue-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div></div>
           <% end %>
         <% end %>
 
-        <!-- X Connection Status -->
         <%= if @x_connection do %>
           <div class="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg">
-            <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-sm font-haas_medium_65 text-gray-900">@{@x_connection.x_username}</div>
-              <div class="text-xs text-gray-500">Connected</div>
-            </div>
-            <svg class="w-5 h-5 text-green-500 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
+            <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></div>
+            <div><div class="text-sm font-haas_medium_65 text-gray-900">@{@x_connection.x_username}</div><div class="text-xs text-gray-500">Connected</div></div>
+            <svg class="w-5 h-5 text-green-500 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
           </div>
         <% else %>
           <%= if @needs_x_reconnect do %>
-            <!-- Token expired - needs reconnect -->
             <div class="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div class="flex items-center gap-2 text-orange-700 mb-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <span class="font-haas_medium_65">X Session Expired</span>
-              </div>
+              <div class="flex items-center gap-2 text-orange-700 mb-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">X Session Expired</span></div>
               <p class="text-sm text-orange-600 mb-3">Your X connection has expired. Please reconnect to continue earning <%= @hub_token %> rewards.</p>
-              <.link
-                href={~p"/auth/x?redirect=/#{@post.slug}"}
-                class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-                Reconnect X Account
-              </.link>
+              <.link href={~p"/auth/x?redirect=/#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>Reconnect X Account</.link>
             </div>
           <% else %>
-            <!-- Not connected at all -->
             <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div class="flex items-center gap-2 text-yellow-700 mb-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <span class="font-haas_medium_65">X Account Not Connected</span>
-              </div>
+              <div class="flex items-center gap-2 text-yellow-700 mb-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">X Account Not Connected</span></div>
               <p class="text-sm text-yellow-600 mb-3">Connect your X account to share and earn <%= @hub_token %> rewards.</p>
-              <.link
-                href={~p"/auth/x?redirect=/#{@post.slug}"}
-                class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-                Connect X Account
-              </.link>
+              <.link href={~p"/auth/x?redirect=/#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>Connect X Account</.link>
             </div>
           <% end %>
         <% end %>
 
-        <!-- Tweet Preview -->
         <div class="mb-6">
           <div class="text-xs text-gray-500 mb-2">Will retweet & like:</div>
           <%= if @share_campaign && @share_campaign.tweet_id do %>
             <div id="share-modal-tweet-embed" phx-hook="TwitterWidgets" phx-update="ignore" class="tweet-embed-container max-h-[400px] overflow-y-auto">
-              <blockquote class="twitter-tweet" data-theme="light" data-dnt="true">
-                <p lang="en" dir="ltr">Loading tweet...</p>
-                <a href={"https://twitter.com/i/status/#{@share_campaign.tweet_id}"}>View Tweet</a>
-              </blockquote>
+              <blockquote class="twitter-tweet" data-theme="light" data-dnt="true"><p lang="en" dir="ltr">Loading tweet...</p><a href={"https://twitter.com/i/status/#{@share_campaign.tweet_id}"}>View Tweet</a></blockquote>
             </div>
           <% else %>
-            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p class="text-sm font-haas_medium_65 text-gray-900">{@post.title}</p>
-              <p class="text-xs text-gray-500 mt-1">{BlocksterV2Web.Endpoint.url()}/{@post.slug}</p>
-            </div>
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200"><p class="text-sm font-haas_medium_65 text-gray-900">{@post.title}</p><p class="text-xs text-gray-500 mt-1">{BlocksterV2Web.Endpoint.url()}/{@post.slug}</p></div>
           <% end %>
         </div>
 
-        <!-- Share Button -->
         <%= if @x_connection && !@share_reward do %>
-          <button
-            phx-click="share_to_x"
-            class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-            </svg>
+          <button phx-click="share_to_x" class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             Retweet & Like
-            <%= if @share_campaign do %>
-              <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2 flex items-center gap-1">
-                <%= if @hub_logo do %>
-                  <img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" />
-                <% else %>
-                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" />
-                <% end %>
-                +{@x_share_reward} {@hub_token}
-              </span>
-            <% end %>
+            <%= if @share_campaign do %><span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2 flex items-center gap-1"><%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><% end %>+{@x_share_reward} {@hub_token}</span><% end %>
           </button>
         <% end %>
 
         <%= if @share_reward do %>
           <div class="text-center py-4">
-            <div class="text-green-600 font-haas_medium_65 mb-2">
-              <svg class="w-12 h-12 mx-auto text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-              </svg>
-            </div>
+            <div class="text-green-600 font-haas_medium_65 mb-2"><svg class="w-12 h-12 mx-auto text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
             <p class="text-gray-600">You've already shared this article!</p>
           </div>
         <% end %>
@@ -849,21 +429,15 @@
   </div>
 <% end %>
 
-<!-- Twitter Widget Loader Script -->
 <script>
-  // Wait for Twitter widgets library to load, then process tweet embeds
   (function() {
     function loadTwitterWidgets() {
       if (typeof twttr !== "undefined" && twttr.widgets) {
-        console.log("Loading Twitter widgets...");
         twttr.widgets.load();
       } else {
-        console.log("Twitter widgets not ready, retrying...");
         setTimeout(loadTwitterWidgets, 100);
       }
     }
-    
-    // Start trying to load widgets after page loads
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", loadTwitterWidgets);
     } else {

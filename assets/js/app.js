@@ -72,6 +72,27 @@ let Autocomplete = {
   }
 };
 
+let CopyToClipboard = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const textToCopy = this.el.dataset.copyText;
+      if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          // Show brief feedback
+          const originalHTML = this.el.innerHTML;
+          this.el.innerHTML = `<svg class="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          setTimeout(() => {
+            this.el.innerHTML = originalHTML;
+          }, 1500);
+        }).catch(err => {
+          console.error('Failed to copy: ', err);
+        });
+      }
+    });
+  }
+};
+
 let InfiniteScroll = {
   mounted() {
     this.pending = false;
@@ -163,7 +184,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, InfiniteScroll, TimeTracker, EngagementTracker },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker },
 });
 
 // connect if there are any LiveViews on the page
@@ -174,6 +195,121 @@ liveSocket.connect();
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket;
+
+// Header scroll behavior - shrink and hide logo on scroll
+// Use a function that can be called on initial load and after LiveView navigation
+
+// Helper to collapse the logo row immediately (no transition)
+function collapseLogoRow(instant = false) {
+  const logoRow = document.getElementById('header-logo-row');
+  const scrollLogo = document.getElementById('scroll-logo');
+  const desktopHeader = document.getElementById('desktop-header');
+
+  if (logoRow) {
+    // If instant, disable transitions temporarily
+    if (instant) {
+      logoRow.style.transition = 'none';
+      if (scrollLogo) scrollLogo.style.transition = 'none';
+      if (desktopHeader) desktopHeader.style.transition = 'none';
+    }
+
+    logoRow.style.maxHeight = '0px';
+    logoRow.style.opacity = '0';
+    logoRow.style.marginBottom = '0';
+    logoRow.style.paddingTop = '0';
+    logoRow.style.paddingBottom = '0';
+    logoRow.style.borderBottom = 'none';
+
+    if (scrollLogo) {
+      scrollLogo.style.opacity = '1';
+      scrollLogo.style.pointerEvents = 'auto';
+    }
+    if (desktopHeader) {
+      desktopHeader.style.paddingTop = '0.5rem';
+    }
+
+    // Re-enable transitions after a frame if instant was used
+    if (instant) {
+      // Force a reflow to apply the styles immediately
+      logoRow.offsetHeight;
+      requestAnimationFrame(() => {
+        if (logoRow) logoRow.style.transition = '';
+        if (scrollLogo) scrollLogo.style.transition = '';
+        if (desktopHeader) desktopHeader.style.transition = '';
+      });
+    }
+  } else if (scrollLogo) {
+    scrollLogo.style.opacity = '1';
+    scrollLogo.style.pointerEvents = 'auto';
+  }
+}
+
+// Helper to expand the logo row
+function expandLogoRow() {
+  const logoRow = document.getElementById('header-logo-row');
+  const scrollLogo = document.getElementById('scroll-logo');
+  const desktopHeader = document.getElementById('desktop-header');
+
+  if (logoRow) {
+    logoRow.style.maxHeight = '68px';
+    logoRow.style.opacity = '1';
+    logoRow.style.marginBottom = '0.5rem';
+    logoRow.style.paddingTop = '0.125rem';
+    logoRow.style.paddingBottom = '1rem';
+    logoRow.style.borderBottom = '1px solid #e5e7eb';
+  }
+  if (scrollLogo) {
+    scrollLogo.style.opacity = '0';
+    scrollLogo.style.pointerEvents = 'none';
+  }
+  if (desktopHeader) {
+    desktopHeader.style.paddingTop = '1.5rem';
+  }
+}
+
+function initHeaderScroll() {
+  const logoRow = document.getElementById('header-logo-row');
+
+  // Skip if elements don't exist
+  if (!logoRow) return;
+
+  function handleScroll() {
+    const scrollY = window.scrollY;
+
+    if (scrollY > 50) {
+      collapseLogoRow();
+    } else {
+      expandLogoRow();
+    }
+  }
+
+  // Remove any existing scroll listener to prevent duplicates
+  if (window._headerScrollHandler) {
+    window.removeEventListener('scroll', window._headerScrollHandler);
+  }
+
+  // Store reference to handler so we can remove it later
+  window._headerScrollHandler = function() {
+    window.requestAnimationFrame(handleScroll);
+  };
+
+  window.addEventListener('scroll', window._headerScrollHandler, { passive: true });
+
+  // Run once immediately to set correct initial state
+  if (window.scrollY > 50) {
+    collapseLogoRow(true);
+  } else {
+    expandLogoRow();
+  }
+}
+
+// Initialize on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', initHeaderScroll);
+
+// Re-initialize header scroll handler after LiveView navigation
+window.addEventListener('phx:page-loading-stop', function() {
+  initHeaderScroll();
+});
 
 // Dropdown toggle functionality
 document.addEventListener('DOMContentLoaded', function() {

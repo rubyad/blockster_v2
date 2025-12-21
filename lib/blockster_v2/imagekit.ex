@@ -94,6 +94,9 @@ defmodule BlocksterV2.ImageKit do
   @doc "Content width 480 - post body images on mobile"
   def w480(url), do: url(url, width: 480)
 
+  @doc "Landscape 640x360 - 16:9 card thumbnails"
+  def w640_h360(url), do: url(url, width: 640, height: 360)
+
   # Extract the filename from an S3 URL
   # S3 URLs look like: https://bucket.s3.region.amazonaws.com/uploads/timestamp-random.ext
   # We want just the filename: timestamp-random.ext
