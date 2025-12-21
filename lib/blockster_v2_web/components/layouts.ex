@@ -62,6 +62,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :search_results, :list, default: [], doc: "the search results"
   attr :show_search_results, :boolean, default: false, doc: "whether to show the search dropdown"
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
+  attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
 
   def site_header(assigns) do
     # Format BUX balance with thousand separators and 2 decimal places
@@ -92,7 +93,7 @@ defmodule BlocksterV2Web.Layouts do
         </div>
 
         <!-- Navigation Row: Search left, Menu centered, Balance right -->
-        <div class="max-w-7xl mx-auto px-4">
+        <div class={["max-w-7xl mx-auto px-4", !@show_categories && "pb-2"]}>
           <div class="flex items-center justify-between">
           <!-- Search Bar with Scroll Logo - Left -->
           <div class="flex items-center gap-3">
@@ -262,25 +263,27 @@ defmodule BlocksterV2Web.Layouts do
         </div>
 
         <!-- Category Row -->
-        <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
-          <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
-            <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
-            <span class="text-gray-300">|</span>
-            <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
+        <%= if @show_categories do %>
+          <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
+              <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
+            </div>
           </div>
-        </div>
+        <% end %>
       </header>
 
       <!-- Mobile Header -->

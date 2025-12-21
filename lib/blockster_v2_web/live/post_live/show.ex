@@ -106,6 +106,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     {:noreply,
      socket
      |> assign(:page_title, post.title)
+     |> assign(:show_categories, true)
      |> assign(:post, updated_post)
      |> assign(:time_spent, time_spent)
      |> assign(:word_count, word_count)

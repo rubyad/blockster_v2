@@ -40,6 +40,7 @@ defmodule BlocksterV2Web.PostLive.Category do
          |> assign(:category, category.name)
          |> assign(:category_slug, category.slug)
          |> assign(:page_title, "#{category.name} - Blockster")
+         |> assign(:show_categories, true)
          |> assign(:displayed_post_ids, displayed_post_ids)
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:components, components)}

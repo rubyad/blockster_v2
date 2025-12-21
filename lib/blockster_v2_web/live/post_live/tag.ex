@@ -39,6 +39,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> assign(:tag_name, tag.name)
          |> assign(:tag_slug, tag.slug)
          |> assign(:page_title, "#{tag.name} - Blockster")
+         |> assign(:show_categories, true)
          |> assign(:displayed_post_ids, displayed_post_ids)
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:components, components)}

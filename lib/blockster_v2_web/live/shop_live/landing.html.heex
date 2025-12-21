@@ -3,12 +3,23 @@
   <.live_component
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
     id="shop-hero-banner"
+    current_user={assigns[:current_user]}
+    banner_key="shop_landing_banner"
   />
 
   <%!-- Shop Content Sections --%>
   <.live_component
     module={BlocksterV2Web.PostLive.ShopOneComponent}
     id="shop-section-one"
+    current_user={assigns[:current_user]}
+  />
+
+  <%!-- Full Width Banner Below Shop One --%>
+  <.live_component
+    module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
+    id="shop-banner-two"
+    current_user={assigns[:current_user]}
+    banner_key="shop_banner_two"
   />
 
   <.live_component

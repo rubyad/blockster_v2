@@ -91,6 +91,7 @@ defmodule BlocksterV2Web.PostLive.Index do
           # |> assign(:selected_category, nil)
           # |> assign(:selected_interview_category, nil)
           |> assign(:page_title, "Latest Posts")
+          |> assign(:show_categories, true)
           |> assign(:search_query, "")
           |> assign(:search_results, [])
           |> assign(:show_search_results, false)
