@@ -24,6 +24,13 @@ defmodule BlocksterV2Web.BuxBalanceHook do
     # Fetch initial balance from Mnesia
     initial_balance = if user_id, do: EngagementTracker.get_user_bux_balance(user_id), else: 0
 
+    # Fetch initial token balances (individual tokens like BUX, moonBUX, etc.)
+    initial_token_balances = if user_id do
+      EngagementTracker.get_user_token_balances(user_id) || %{}
+    else
+      %{}
+    end
+
     # Subscribe to balance updates for this user (only if connected and logged in)
     if connected?(socket) && user_id do
       Phoenix.PubSub.subscribe(@pubsub, "#{@topic_prefix}#{user_id}")
@@ -32,6 +39,7 @@ defmodule BlocksterV2Web.BuxBalanceHook do
     socket =
       socket
       |> assign(:bux_balance, initial_balance)
+      |> assign(:token_balances, initial_token_balances)
       |> attach_hook(:bux_balance_updates, :handle_info, fn
         {:bux_balance_updated, new_balance}, socket ->
           {:halt, assign(socket, :bux_balance, new_balance)}

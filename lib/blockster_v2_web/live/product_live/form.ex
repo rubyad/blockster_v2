@@ -8,6 +8,27 @@ defmodule BlocksterV2Web.ProductLive.Form do
   alias BlocksterV2.Blog
   alias BlocksterV2.Repo
 
+  # Available sizes for checkbox selection
+  @available_sizes ["S", "M", "L", "XL"]
+
+  # Available colors with their hex codes for checkbox selection
+  @available_colors [
+    {"White", "#FFFFFF"},
+    {"Black", "#000000"},
+    {"Grey", "#808080"},
+    {"Beige", "#F5F5DC"},
+    {"Light Blue", "#ADD8E6"},
+    {"Orange", "#FFA500"},
+    {"Pink", "#FFC0CB"},
+    {"Red", "#FF0000"},
+    {"Navy Blue", "#000080"},
+    {"Royal Blue", "#4169E1"},
+    {"Green", "#008000"},
+    {"Lime", "#00FF00"},
+    {"Yellow", "#FFFF00"},
+    {"Lavender", "#E6E6FA"}
+  ]
+
   @impl true
   def mount(params, _session, socket) do
     if socket.assigns.current_user && socket.assigns.current_user.is_admin do
@@ -27,6 +48,9 @@ defmodule BlocksterV2Web.ProductLive.Form do
       categories = Shop.list_categories()
       tags = Shop.list_tags()
 
+      # Extract selected sizes and colors from existing variants
+      {selected_sizes, selected_colors, variant_price} = extract_variant_options(product.variants || [])
+
       {:ok,
        socket
        |> assign(:product, product)
@@ -38,6 +62,11 @@ defmodule BlocksterV2Web.ProductLive.Form do
        |> assign(:variants, transform_variants(product.variants || []))
        |> assign(:selected_category_ids, get_selected_category_ids(product))
        |> assign(:selected_tag_ids, get_selected_tag_ids(product))
+       |> assign(:selected_sizes, selected_sizes)
+       |> assign(:selected_colors, selected_colors)
+       |> assign(:variant_price, variant_price)
+       |> assign(:available_sizes, @available_sizes)
+       |> assign(:available_colors, @available_colors)
        |> assign(:page_title, page_title(socket.assigns.live_action))}
     else
       {:ok,
@@ -60,6 +89,7 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     product = Shop.get_product!(id) |> Repo.preload(ordered_preloads())
+    {selected_sizes, selected_colors, variant_price} = extract_variant_options(product.variants || [])
 
     socket
     |> assign(:page_title, "Edit Product")
@@ -68,6 +98,9 @@ defmodule BlocksterV2Web.ProductLive.Form do
     |> assign(:variants, transform_variants(product.variants || []))
     |> assign(:selected_category_ids, get_selected_category_ids(product))
     |> assign(:selected_tag_ids, get_selected_tag_ids(product))
+    |> assign(:selected_sizes, selected_sizes)
+    |> assign(:selected_colors, selected_colors)
+    |> assign(:variant_price, variant_price)
   end
 
   @impl true
@@ -117,6 +150,69 @@ defmodule BlocksterV2Web.ProductLive.Form do
       end
 
     {:noreply, assign(socket, :selected_tag_ids, new_selected_tag_ids)}
+  end
+
+  @impl true
+  def handle_event("toggle_size", %{"size" => size}, socket) do
+    selected_sizes = socket.assigns.selected_sizes
+
+    new_selected_sizes =
+      if size in selected_sizes do
+        List.delete(selected_sizes, size)
+      else
+        selected_sizes ++ [size]
+      end
+
+    # Regenerate variants based on new selections
+    new_variants = generate_variants_from_selections(
+      new_selected_sizes,
+      socket.assigns.selected_colors,
+      socket.assigns.variant_price
+    )
+
+    {:noreply,
+     socket
+     |> assign(:selected_sizes, new_selected_sizes)
+     |> assign(:variants, new_variants)}
+  end
+
+  @impl true
+  def handle_event("toggle_color", %{"color" => color}, socket) do
+    selected_colors = socket.assigns.selected_colors
+
+    new_selected_colors =
+      if color in selected_colors do
+        List.delete(selected_colors, color)
+      else
+        selected_colors ++ [color]
+      end
+
+    # Regenerate variants based on new selections
+    new_variants = generate_variants_from_selections(
+      socket.assigns.selected_sizes,
+      new_selected_colors,
+      socket.assigns.variant_price
+    )
+
+    {:noreply,
+     socket
+     |> assign(:selected_colors, new_selected_colors)
+     |> assign(:variants, new_variants)}
+  end
+
+  @impl true
+  def handle_event("update_variant_price", %{"price" => price}, socket) do
+    # Update all variants with the new price
+    new_variants = generate_variants_from_selections(
+      socket.assigns.selected_sizes,
+      socket.assigns.selected_colors,
+      price
+    )
+
+    {:noreply,
+     socket
+     |> assign(:variant_price, price)
+     |> assign(:variants, new_variants)}
   end
 
   @impl true
@@ -323,6 +419,80 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
   defp transform_variants(_), do: []
 
+  # Extract unique sizes, colors, and common price from existing variants
+  defp extract_variant_options(variants) when is_list(variants) and length(variants) > 0 do
+    sizes = variants
+            |> Enum.map(& &1.option1)
+            |> Enum.reject(&is_nil/1)
+            |> Enum.uniq()
+
+    colors = variants
+             |> Enum.map(& &1.option2)
+             |> Enum.reject(&is_nil/1)
+             |> Enum.uniq()
+
+    # Get the price from the first variant
+    price = case List.first(variants) do
+      nil -> ""
+      v -> if v.price, do: Decimal.to_string(v.price), else: ""
+    end
+
+    {sizes, colors, price}
+  end
+
+  defp extract_variant_options(_), do: {[], [], ""}
+
+  # Generate variants from selected sizes and colors
+  defp generate_variants_from_selections(sizes, colors, price) do
+    cond do
+      # Both sizes and colors selected - create cartesian product
+      Enum.any?(sizes) && Enum.any?(colors) ->
+        for size <- sizes, color <- colors do
+          %{
+            id: "new_#{System.unique_integer([:positive])}",
+            option1: size,
+            option2: color,
+            price: price,
+            compare_at_price: "",
+            inventory_quantity: "0",
+            sku: ""
+          }
+        end
+
+      # Only sizes selected
+      Enum.any?(sizes) ->
+        for size <- sizes do
+          %{
+            id: "new_#{System.unique_integer([:positive])}",
+            option1: size,
+            option2: "",
+            price: price,
+            compare_at_price: "",
+            inventory_quantity: "0",
+            sku: ""
+          }
+        end
+
+      # Only colors selected
+      Enum.any?(colors) ->
+        for color <- colors do
+          %{
+            id: "new_#{System.unique_integer([:positive])}",
+            option1: "",
+            option2: color,
+            price: price,
+            compare_at_price: "",
+            inventory_quantity: "0",
+            sku: ""
+          }
+        end
+
+      # Nothing selected
+      true ->
+        []
+    end
+  end
+
   defp save_variants(product_id, variants) do
     # Delete existing variants for the product
     existing_variants = Shop.list_product_variants(product_id)
@@ -400,7 +570,17 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <.input field={@form[:body_html]} type="textarea" rows="5" placeholder="Product description..." class="w-full" />
+              <div id="product-description-editor" phx-hook="ProductDescriptionEditor" phx-update="ignore" class="border border-gray-300 rounded-lg overflow-hidden">
+                <div class="product-editor-toolbar"></div>
+                <div class="product-editor-container"></div>
+                <textarea
+                  name={@form[:body_html].name}
+                  id={@form[:body_html].id}
+                  data-product-description
+                  class="hidden"
+                ><%= Phoenix.HTML.Form.input_value(@form, :body_html) %></textarea>
+              </div>
+              <p class="text-sm text-gray-500 mt-1">Use the toolbar to format text with bold, italic, lists, and more.</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -412,6 +592,32 @@ defmodule BlocksterV2Web.ProductLive.Form do
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Product Type</label>
                 <.input field={@form[:product_type]} type="text" placeholder="e.g., T-Shirt, Hoodie" class="w-full" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Artist</label>
+                <.input field={@form[:artist]} type="text" placeholder="e.g., Artist name" class="w-full" />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Collection Name</label>
+                <.input field={@form[:collection_name]} type="text" placeholder="e.g., Summer 2024" class="w-full" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Max Inventory (Limited Edition)</label>
+                <.input field={@form[:max_inventory]} type="number" min="1" placeholder="Leave empty for unlimited" class="w-full" />
+                <p class="text-sm text-gray-500 mt-1">Optional. Set for limited edition items to show sold count.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sold Count</label>
+                <.input field={@form[:sold_count]} type="number" min="0" placeholder="0" class="w-full" />
+                <p class="text-sm text-gray-500 mt-1">Number of units sold (auto-increments on purchase).</p>
               </div>
             </div>
           </div>
@@ -458,118 +664,88 @@ defmodule BlocksterV2Web.ProductLive.Form do
           </div>
         </div>
 
-        <%!-- Variants (Sizes, Colors, Stock) --%>
+        <%!-- Variants (Sizes, Colors, Price) --%>
         <div class="bg-white shadow-md rounded-lg p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold">Variants (Size, Color, Stock)</h2>
-            <button
-              type="button"
-              phx-click="add_variant"
-              class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 cursor-pointer"
-            >
-              + Add Variant
-            </button>
+          <h2 class="text-xl font-semibold mb-4">Variants</h2>
+          <p class="text-sm text-gray-500 mb-4">Select sizes and colors to auto-generate variants with a single price.</p>
+
+          <%!-- Price Input --%>
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Price (applies to all variants) *</label>
+            <div class="relative w-48">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={@variant_price}
+                phx-blur="update_variant_price"
+                phx-value-price={@variant_price}
+                placeholder="0.00"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
 
-          <%= if Enum.empty?(@variants) do %>
-            <p class="text-gray-500 text-center py-4">No variants yet. Add variants to specify sizes, colors, and inventory.</p>
-          <% else %>
-            <div class="space-y-4">
-              <%= for {variant, index} <- Enum.with_index(@variants) do %>
-                <div class="border border-gray-200 rounded-lg p-4">
-                  <div class="flex justify-between items-start mb-3">
-                    <span class="text-sm font-medium text-gray-600">Variant <%= index + 1 %></span>
-                    <button
-                      type="button"
-                      phx-click="remove_variant"
-                      phx-value-index={index}
-                      class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Size</label>
-                      <input
-                        type="text"
-                        value={variant.option1}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="option1"
-                        placeholder="e.g., S, M, L, XL"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Color</label>
-                      <input
-                        type="text"
-                        value={variant.option2}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="option2"
-                        placeholder="e.g., Black, White"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Price *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={variant.price}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="price"
-                        placeholder="0.00"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Compare At Price</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={variant.compare_at_price}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="compare_at_price"
-                        placeholder="Original price"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">Stock Qty</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={variant.inventory_quantity}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="inventory_quantity"
-                        placeholder="0"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-gray-500 mb-1">SKU</label>
-                      <input
-                        type="text"
-                        value={variant.sku}
-                        phx-blur="update_variant"
-                        phx-value-index={index}
-                        phx-value-field="sku"
-                        placeholder="Stock code"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
+          <%!-- Sizes Selection --%>
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Sizes</label>
+            <div class="flex flex-wrap gap-2">
+              <%= for size <- @available_sizes do %>
+                <button
+                  type="button"
+                  phx-click="toggle_size"
+                  phx-value-size={size}
+                  class={"px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-2 #{if size in @selected_sizes, do: "border-blue-600 bg-blue-50 text-blue-700", else: "border-gray-300 bg-white text-gray-700 hover:border-gray-400"}"}
+                >
+                  <%= size %>
+                </button>
               <% end %>
             </div>
+          </div>
+
+          <%!-- Colors Selection --%>
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Colors</label>
+            <div class="flex flex-wrap gap-3">
+              <%= for {color_name, hex_code} <- @available_colors do %>
+                <button
+                  type="button"
+                  phx-click="toggle_color"
+                  phx-value-color={color_name}
+                  class={"flex flex-col items-center gap-1 p-2 rounded-lg transition-all cursor-pointer #{if color_name in @selected_colors, do: "ring-2 ring-blue-600 ring-offset-2", else: "hover:bg-gray-50"}"}
+                  title={color_name}
+                >
+                  <div
+                    class={"w-8 h-8 rounded-full border #{if hex_code == "#FFFFFF", do: "border-gray-300", else: "border-transparent"}"}
+                    style={"background-color: #{hex_code};"}
+                  />
+                  <span class="text-xs text-gray-600"><%= color_name %></span>
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Generated Variants Preview --%>
+          <%= if length(@variants) > 0 do %>
+            <div class="border-t pt-4">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-medium text-gray-700">Generated Variants (<%= length(@variants) %>)</h3>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <%= for variant <- @variants do %>
+                  <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                    <%= if variant.option1 && variant.option2 do %>
+                      <%= variant.option1 %> / <%= variant.option2 %>
+                    <% else %>
+                      <%= variant.option1 || variant.option2 %>
+                    <% end %>
+                  </span>
+                <% end %>
+              </div>
+            </div>
+          <% else %>
+            <p class="text-gray-500 text-center py-4 border-t">Select at least one size or color to generate variants.</p>
           <% end %>
         </div>
 

@@ -17,6 +17,14 @@ defmodule BlocksterV2.Shop.Product do
     field :bux_max_discount, :integer, default: 0
     field :hub_token_max_discount, :integer, default: 0
 
+    # Artist and collection info
+    field :artist, :string
+    field :collection_name, :string
+
+    # Inventory tracking (optional - for limited edition items)
+    field :max_inventory, :integer
+    field :sold_count, :integer, default: 0
+
     # Publishing
     field :published_at, :utc_datetime
     field :published_scope, :string, default: "web"
@@ -54,6 +62,10 @@ defmodule BlocksterV2.Shop.Product do
     :hub_id,
     :bux_max_discount,
     :hub_token_max_discount,
+    :artist,
+    :collection_name,
+    :max_inventory,
+    :sold_count,
     :published_at,
     :published_scope,
     :template_suffix,

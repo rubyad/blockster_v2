@@ -62,6 +62,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :search_results, :list, default: [], doc: "the search results"
   attr :show_search_results, :boolean, default: false, doc: "whether to show the search dropdown"
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
+  attr :token_balances, :map, default: %{}, doc: "the user's individual token balances"
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
 
   def site_header(assigns) do
@@ -162,8 +163,8 @@ defmodule BlocksterV2Web.Layouts do
           <div class="flex items-center gap-2">
             <%= if @current_user do %>
               <!-- Logged in user display with dropdown -->
-              <div class="relative" id="desktop-user-dropdown">
-                <button id="desktop-user-button" onclick="var dropdown = document.getElementById('desktop-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-1 pr-3 hover:bg-gray-200 transition-colors">
+              <div class="relative" id="desktop-user-dropdown" phx-click-away={JS.hide(to: "#desktop-dropdown-menu")}>
+                <button id="desktop-user-button" phx-click={JS.toggle(to: "#desktop-dropdown-menu")} class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-1 pr-3 hover:bg-gray-200 transition-colors cursor-pointer">
                   <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
                     <%= if @current_user.avatar_url do %>
                       <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
@@ -171,9 +172,12 @@ defmodule BlocksterV2Web.Layouts do
                       <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
                     <% end %>
                   </div>
-                  <h4 class="text-base font-haas_medium_65 text-[#000000]">
-                    {@formatted_bux_balance} <span class="text-sm text-gray-500">BUX</span>
-                  </h4>
+                  <div class="flex flex-col items-start">
+                    <span class="text-[9px] text-gray-400 font-haas_medium_65 uppercase leading-none">BUX Balances</span>
+                    <h4 class="text-base font-haas_medium_65 text-[#000000] leading-tight">
+                      {@formatted_bux_balance} <span class="text-sm text-gray-500">BUX</span>
+                    </h4>
+                  </div>
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="ml-1">
                     <path d="M8 10L12 14L16 10" stroke="#101C36" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
@@ -181,27 +185,258 @@ defmodule BlocksterV2Web.Layouts do
                 <!-- Dropdown menu -->
                 <div id="desktop-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                   <div class="py-1">
-                    <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                      <div class="font-semibold">{@current_user.username || "User"}</div>
-                      <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
-                    </div>
+                    <a
+                    href={"https://roguescan.io/address/#{@current_user.smart_wallet_address || @current_user.wallet_address}?tab=tokens"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div class="font-semibold">Wallet</div>
+                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
+                  </a>
+                    <!-- Token Balances -->
+                    <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
+                      <div class="border-t border-gray-100 py-1">
+                        <%= for {token_name, balance} <- Enum.filter(@token_balances, fn {k, v} -> k != "aggregate" && (is_number(v) && v > 0) end) |> Enum.sort_by(fn {_, v} -> v end, :desc) do %>
+                          <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
+                            <div class="flex items-center gap-2">
+                              <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>
+                              <%= if logo_url do %>
+                                <img src={logo_url} alt={token_name} class="w-4 h-4 rounded-full object-cover" />
+                              <% else %>
+                                <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                                  <span class="text-white text-[8px] font-bold">{String.first(token_name)}</span>
+                                </div>
+                              <% end %>
+                              <span class="font-medium">{token_name}</span>
+                            </div>
+                            <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
+                          </div>
+                        <% end %>
+                        <!-- Total Aggregate -->
+                        <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2">
+                          <span class="font-semibold">Total</span>
+                          <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
+                        </div>
+                      </div>
+                    <% end %>
+                    <div class="border-t border-gray-100"></div>
                     <.link
                       navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
                       class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       View Profile
                     </.link>
+                    <button
+                      onclick="window.handleWalletDisconnect()"
+                      class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                      Disconnect Wallet
+                    </button>
                     <%= if @current_user.is_author || @current_user.is_admin do %>
+                      <div class="border-t border-gray-100 my-1"></div>
+                      <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
                       <.link
                         navigate={~p"/new"}
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Create Article
                       </.link>
+                      <%= if @current_user.is_admin do %>
+                        <.link
+                          navigate={~p"/admin"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Dashboard
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/posts"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Posts
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/events"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Events
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/campaigns"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Campaigns
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/categories"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Categories
+                        </.link>
+                        <.link
+                          navigate={~p"/hubs/admin"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Hubs
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/products"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Products
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/product-categories"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Product Categories
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/product-tags"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Product Tags
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/waitlist"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Waitlist
+                        </.link>
+                      <% end %>
                     <% end %>
+                  </div>
+                </div>
+              </div>
+            <% else %>
+              <!-- ThirdwebLogin nested LiveView -->
+              <.live_component module={BlocksterV2Web.ThirdwebLoginLive} id="thirdweb-login-desktop" />
+            <% end %>
+          </div>
+          </div>
+        </div>
+
+        <!-- Category Row -->
+        <%= if @show_categories do %>
+          <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
+              <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
+              <span class="text-gray-300">|</span>
+              <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
+            </div>
+          </div>
+        <% end %>
+      </header>
+
+      <!-- Mobile Header -->
+      <div class="mobile-header border border-[#E7E8F1] p-3 flex items-center justify-between bg-white lg:hidden">
+      <div class="no-search-wrapper flex justify-between items-center w-full">
+        <div>
+          <.link navigate={~p"/"}>
+            <img src="/images/Logo.png" alt="Blockster" />
+          </.link>
+        </div>
+        <div class="flex gap-2 items-center">
+          <button class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
+              <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
+                    stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <%= if @current_user do %>
+            <!-- Mobile logged in user with dropdown -->
+            <div class="relative" id="mobile-user-dropdown" phx-click-away={JS.hide(to: "#mobile-dropdown-menu")}>
+              <button id="mobile-user-button" phx-click={JS.toggle(to: "#mobile-dropdown-menu")} class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-2 shadow-sm cursor-pointer">
+                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
+                  <%= if @current_user.avatar_url do %>
+                    <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
+                  <% else %>
+                    <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
+                  <% end %>
+                </div>
+                <div class="flex flex-col items-start">
+                  <span class="text-[8px] text-gray-400 font-haas_medium_65 uppercase leading-none">BUX Balances</span>
+                  <span class="text-sm font-haas_medium_65 text-[#000000] leading-tight">{@formatted_bux_balance} <span class="text-gray-500">BUX</span></span>
+                </div>
+                <span class="flex items-center transition-all ease-linear duration-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 10L12 14L16 10" stroke="#101D36" stroke-width="1.5" stroke-linecap="square" />
+                  </svg>
+                </span>
+              </button>
+              <!-- Mobile Dropdown menu -->
+              <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
+                <div class="py-1">
+                  <a
+                    href={"https://roguescan.io/address/#{@current_user.smart_wallet_address || @current_user.wallet_address}?tab=tokens"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div class="font-semibold">Wallet</div>
+                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
+                  </a>
+                  <!-- Token Balances (Mobile) -->
+                  <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
+                    <div class="border-t border-gray-100 py-1">
+                      <%= for {token_name, balance} <- Enum.filter(@token_balances, fn {k, v} -> k != "aggregate" && (is_number(v) && v > 0) end) |> Enum.sort_by(fn {_, v} -> v end, :desc) do %>
+                        <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
+                          <div class="flex items-center gap-2">
+                            <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>
+                            <%= if logo_url do %>
+                              <img src={logo_url} alt={token_name} class="w-4 h-4 rounded-full object-cover" />
+                            <% else %>
+                              <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                                <span class="text-white text-[8px] font-bold">{String.first(token_name)}</span>
+                              </div>
+                            <% end %>
+                            <span class="font-medium">{token_name}</span>
+                          </div>
+                          <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
+                        </div>
+                      <% end %>
+                      <!-- Total Aggregate -->
+                      <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2">
+                        <span class="font-semibold">Total</span>
+                        <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
+                      </div>
+                    </div>
+                  <% end %>
+                  <div class="border-t border-gray-100"></div>
+                  <.link
+                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
+                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    View Profile
+                  </.link>
+                  <button
+                    onclick="window.handleWalletDisconnect()"
+                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    Disconnect Wallet
+                  </button>
+                  <%= if @current_user.is_author || @current_user.is_admin do %>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
+                    <.link
+                      navigate={~p"/new"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Create Article
+                    </.link>
                     <%= if @current_user.is_admin do %>
-                      <div class="border-t border-gray-100 my-1"></div>
-                      <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
                       <.link
                         navigate={~p"/admin"}
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -263,171 +498,7 @@ defmodule BlocksterV2Web.Layouts do
                         Waitlist
                       </.link>
                     <% end %>
-                    <button
-                      onclick="window.handleWalletDisconnect()"
-                      class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      Disconnect Wallet
-                    </button>
-                  </div>
-                </div>
-              </div>
-            <% else %>
-              <!-- ThirdwebLogin nested LiveView -->
-              <.live_component module={BlocksterV2Web.ThirdwebLoginLive} id="thirdweb-login-desktop" />
-            <% end %>
-          </div>
-          </div>
-        </div>
-
-        <!-- Category Row -->
-        <%= if @show_categories do %>
-          <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
-            <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
-              <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
-              <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
-            </div>
-          </div>
-        <% end %>
-      </header>
-
-      <!-- Mobile Header -->
-      <div class="mobile-header border border-[#E7E8F1] p-3 flex items-center justify-between bg-white lg:hidden">
-      <div class="no-search-wrapper flex justify-between items-center w-full">
-        <div>
-          <.link navigate={~p"/"}>
-            <img src="/images/Logo.png" alt="Blockster" />
-          </.link>
-        </div>
-        <div class="flex gap-2 items-center">
-          <button class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
-              <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
-                    stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <%= if @current_user do %>
-            <!-- Mobile logged in user with dropdown -->
-            <div class="relative" id="mobile-user-dropdown">
-              <button id="mobile-user-button" onclick="var dropdown = document.getElementById('mobile-dropdown-menu'); dropdown.classList.toggle('hidden');" class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-2 shadow-sm">
-                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
-                  <%= if @current_user.avatar_url do %>
-                    <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
-                  <% else %>
-                    <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
                   <% end %>
-                </div>
-                <span class="text-sm font-haas_medium_65 text-[#000000]">{@formatted_bux_balance} <span class="text-gray-500">BUX</span></span>
-                <span class="flex items-center transition-all ease-linear duration-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M8 10L12 14L16 10" stroke="#101D36" stroke-width="1.5" stroke-linecap="square" />
-                  </svg>
-                </span>
-              </button>
-              <!-- Mobile Dropdown menu -->
-              <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
-                <div class="py-1">
-                  <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                    <div class="font-semibold">{@current_user.username || "User"}</div>
-                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
-                  </div>
-                  <.link
-                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
-                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    View Profile
-                  </.link>
-                  <%= if @current_user.is_author || @current_user.is_admin do %>
-                    <.link
-                      navigate={~p"/new"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Create Article
-                    </.link>
-                  <% end %>
-                  <%= if @current_user.is_admin do %>
-                    <div class="border-t border-gray-100 my-1"></div>
-                    <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
-                    <.link
-                      navigate={~p"/admin"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Dashboard
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/posts"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Posts
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/events"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Events
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/campaigns"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Campaigns
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/categories"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Categories
-                    </.link>
-                    <.link
-                      navigate={~p"/hubs/admin"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Hubs
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/products"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Products
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/product-categories"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Product Categories
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/product-tags"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Product Tags
-                    </.link>
-                    <.link
-                      navigate={~p"/admin/waitlist"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Waitlist
-                    </.link>
-                  <% end %>
-                  <button
-                    onclick="window.handleWalletDisconnect()"
-                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    Disconnect Wallet
-                  </button>
                 </div>
               </div>
             </div>

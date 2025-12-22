@@ -16,6 +16,8 @@ defmodule BlocksterV2.Application do
       {BlocksterV2.MnesiaInitializer, []},
       # Time tracking GenServer
       {BlocksterV2.TimeTracker, %{}},
+      # Hub logo cache (ETS-based, for header dropdown)
+      {BlocksterV2.HubLogoCache, []},
       # Start to serve requests, typically the last entry
       BlocksterV2Web.Endpoint
     ]

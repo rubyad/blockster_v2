@@ -33,6 +33,7 @@ import { BannerUpload } from "./banner_upload.js";
 import { BannerDrag } from "./banner_drag.js";
 import { TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag } from "./text_block_drag.js";
 import { ProductImageUpload } from "./product_image_upload.js";
+import { ProductDescriptionEditor } from "./product_description_editor.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -65,6 +66,68 @@ let Autocomplete = {
             input.value = input.value; // Keep the selected value
           }
         }
+      }
+    };
+
+    document.addEventListener('click', this.handleClickOutside);
+  },
+
+  destroyed() {
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+};
+
+// TokenInput Hook for instant value clamping when user enters more than max
+let TokenInput = {
+  mounted() {
+    this.el.addEventListener("input", (e) => {
+      // Allow empty input for typing
+      if (this.el.value === '' || this.el.value === null) {
+        return;
+      }
+
+      const max = parseFloat(this.el.dataset.max) || 0;
+      let value = parseFloat(this.el.value);
+
+      // If not a valid number, allow user to continue typing
+      if (isNaN(value)) {
+        return;
+      }
+
+      // Only clamp if value exceeds max (not if it's 0 or below)
+      if (value > max) {
+        this.el.value = max;
+      } else if (value < 0) {
+        this.el.value = 0;
+      }
+    });
+  },
+
+  updated() {
+    // Don't update if user is actively editing (field is focused)
+    if (document.activeElement === this.el) {
+      return;
+    }
+
+    // When server updates the max, re-clamp current value
+    const max = parseFloat(this.el.dataset.max) || 0;
+    let value = parseFloat(this.el.value) || 0;
+    if (value > max) {
+      this.el.value = max;
+    }
+  }
+};
+
+// TokenAllocationDropdown Hook for handling click-outside to close dropdown
+let TokenAllocationDropdown = {
+  mounted() {
+    this.handleClickOutside = (e) => {
+      const dropdown = document.getElementById('allocation-dropdown');
+      const wrapper = this.el;
+
+      // If dropdown exists and click is outside wrapper, close it
+      if (dropdown && !wrapper.contains(e.target)) {
+        this.pushEvent('hide_allocation_dropdown', {});
       }
     };
 
@@ -188,7 +251,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, TokenAllocationDropdown, ProductDescriptionEditor },
 });
 
 // connect if there are any LiveViews on the page

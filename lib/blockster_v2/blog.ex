@@ -674,18 +674,38 @@ defmodule BlocksterV2.Blog do
   Creates a hub.
   """
   def create_hub(attrs \\ %{}) do
-    %Hub{}
+    result = %Hub{}
     |> Hub.changeset(attrs)
     |> Repo.insert()
+
+    # Refresh logo cache after creating hub
+    case result do
+      {:ok, hub} ->
+        if hub.token && hub.token != "" do
+          BlocksterV2.HubLogoCache.update_hub(hub.token, hub.logo_url)
+        end
+        {:ok, hub}
+      error -> error
+    end
   end
 
   @doc """
   Updates a hub.
   """
   def update_hub(%Hub{} = hub, attrs) do
-    hub
+    result = hub
     |> Hub.changeset(attrs)
     |> Repo.update()
+
+    # Refresh logo cache after updating hub
+    case result do
+      {:ok, updated_hub} ->
+        if updated_hub.token && updated_hub.token != "" do
+          BlocksterV2.HubLogoCache.update_hub(updated_hub.token, updated_hub.logo_url)
+        end
+        {:ok, updated_hub}
+      error -> error
+    end
   end
 
   @doc """
