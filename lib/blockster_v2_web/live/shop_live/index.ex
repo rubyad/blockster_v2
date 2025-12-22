@@ -1,9 +1,18 @@
 defmodule BlocksterV2Web.ShopLive.Index do
   use BlocksterV2Web, :live_view
 
+  alias BlocksterV2.Shop
+
   @impl true
   def mount(_params, _session, socket) do
-    products = get_sample_products()
+    # Load active products from database with preloads
+    db_products = Shop.list_active_products(preload: [:images, :variants, :hub])
+
+    # Transform database products to display format, falling back to sample products if empty
+    products = case db_products do
+      [] -> get_sample_products()
+      _ -> Enum.map(db_products, &transform_product/1)
+    end
 
     {:ok,
      socket
@@ -18,6 +27,44 @@ defmodule BlocksterV2Web.ShopLive.Index do
      |> assign(:selected_community, nil)
      |> assign(:selected_artist, nil)
      |> assign(:selected_basics, nil)}
+  end
+
+  defp transform_product(product) do
+    first_variant = List.first(product.variants || [])
+    first_image = List.first(product.images || [])
+
+    price = if first_variant && first_variant.price do
+      Decimal.to_float(first_variant.price)
+    else
+      0.0
+    end
+
+    compare_price = if first_variant && first_variant.compare_at_price do
+      Decimal.to_float(first_variant.compare_at_price)
+    else
+      price
+    end
+
+    discount_percent = if compare_price > 0 && compare_price > price do
+      round((1 - price / compare_price) * 100)
+    else
+      product.bux_max_discount || 0
+    end
+
+    # Get all image URLs
+    images = Enum.map(product.images || [], fn img -> img.src end)
+
+    %{
+      id: product.id,
+      name: product.title,
+      slug: product.handle,
+      price: price,
+      original_price: compare_price,
+      image: if(first_image, do: first_image.src, else: "https://via.placeholder.com/300x300?text=No+Image"),
+      images: images,
+      bux_discount: round(price * 25.28),
+      discount_percent: max(discount_percent, product.bux_max_discount || 0)
+    }
   end
 
   @impl true
@@ -130,6 +177,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 50.00,
         original_price: 65.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
         bux_discount: 1264,
         discount_percent: 25
       },
@@ -140,6 +188,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 50.00,
         original_price: 65.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
         bux_discount: 1264,
         discount_percent: 25
       },
@@ -150,6 +199,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 50.00,
         original_price: 65.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
         bux_discount: 1264,
         discount_percent: 25
       },
@@ -160,6 +210,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 50.00,
         original_price: 65.00,
         image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
+        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500"],
         bux_discount: 1264,
         discount_percent: 25
       },
@@ -170,6 +221,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 75.00,
         original_price: 95.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
         bux_discount: 1580,
         discount_percent: 21
       },
@@ -180,6 +232,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 35.00,
         original_price: 45.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
         bux_discount: 884,
         discount_percent: 22
       },
@@ -190,6 +243,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 25.00,
         original_price: 35.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
         bux_discount: 632,
         discount_percent: 29
       },
@@ -200,6 +254,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 85.00,
         original_price: 110.00,
         image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
+        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
         bux_discount: 2106,
         discount_percent: 23
       },
@@ -210,6 +265,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 60.00,
         original_price: 80.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
         bux_discount: 1516,
         discount_percent: 25
       },
@@ -220,6 +276,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 90.00,
         original_price: 120.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
         bux_discount: 2274,
         discount_percent: 25
       },
@@ -230,6 +287,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 15.00,
         original_price: 20.00,
         image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
+        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
         bux_discount: 380,
         discount_percent: 25
       },
@@ -240,6 +298,7 @@ defmodule BlocksterV2Web.ShopLive.Index do
         price: 95.00,
         original_price: 125.00,
         image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
+        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
         bux_discount: 2400,
         discount_percent: 24
       }

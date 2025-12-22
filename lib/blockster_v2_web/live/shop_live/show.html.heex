@@ -1,5 +1,5 @@
 <div class="shop-show">
-  <div class="container mx-auto px-4 py-8">
+  <div class="container mx-auto px-4 pt-24 pb-8">
     <%!-- Back Button --%>
     <div class="mb-6">
       <.link
@@ -27,13 +27,65 @@
 
     <%!-- Product Details --%>
     <div class="grid md:grid-cols-2 gap-8">
-      <%!-- Product Image --%>
-      <div class="bg-[#E8EAEC] rounded-2xl p-8 flex items-center justify-center">
-        <img
-          src={@product.image}
-          alt={@product.name}
-          class="max-h-[600px] object-contain rounded-xl"
-        />
+      <%!-- Product Image Carousel --%>
+      <div class="flex flex-col gap-4">
+        <%!-- Main Image with Navigation Arrows --%>
+        <div class="relative rounded-2xl overflow-hidden">
+          <%!-- Images Container with Sliding Animation --%>
+          <div class="relative w-full" style="padding-bottom: 100%;">
+            <%= for {image, idx} <- Enum.with_index(if(Enum.empty?(@product.images), do: [@product.image], else: @product.images)) do %>
+              <div
+                class={"absolute inset-0 transition-transform duration-500 ease-in-out"}
+                style={"transform: translateX(#{(idx - @current_image_index) * 100}%);"}
+              >
+                <img
+                  src={image}
+                  alt={"#{@product.name} - Image #{idx + 1}"}
+                  class="w-full h-full object-cover"
+                />
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Navigation Arrows (only show if more than 1 image) --%>
+          <%= if length(@product.images) > 1 do %>
+            <button
+              phx-click="prev_image"
+              class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M15 18L9 12L15 6" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+              phx-click="next_image"
+              class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18L15 12L9 6" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          <% end %>
+        </div>
+
+        <%!-- Image Indicators (only show if more than 1 image) --%>
+        <%= if length(@product.images) > 1 do %>
+          <div class="flex justify-center gap-3">
+            <%= for {_image, idx} <- Enum.with_index(@product.images) do %>
+              <button
+                phx-click="select_image"
+                phx-value-index={idx}
+                class={"w-16 h-16 rounded-xl overflow-hidden border-2 transition-all hover:scale-105 cursor-pointer #{if @current_image_index == idx, do: "border-[#8AE388] ring-2 ring-[#8AE388] ring-offset-2", else: "border-transparent opacity-60 hover:opacity-100"}"}
+              >
+                <img
+                  src={Enum.at(@product.images, idx)}
+                  alt={"Thumbnail #{idx + 1}"}
+                  class="w-full h-full object-cover"
+                />
+              </button>
+            <% end %>
+          </div>
+        <% end %>
       </div>
 
       <%!-- Product Info --%>

@@ -25,24 +25,34 @@
   <.live_component
     module={BlocksterV2Web.PostLive.ShopTwoComponent}
     id="shop-section-two"
+    current_user={assigns[:current_user]}
   />
 
-  <%!-- Full Width Image Banner --%>
-  <section class="w-full">
-    <img
-      src="https://ik.imagekit.io/blockster/lena-ekert-wide.jpg"
-      alt="Luminescent Skin 03 Frame Capture - Blockster x Lena Ekert"
-      class="w-full h-auto object-cover"
-    />
-  </section>
+  <%!-- Full Width Banner Component --%>
+  <.live_component
+    module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
+    id="shop-banner-three"
+    current_user={assigns[:current_user]}
+    banner_key="shop_banner_three"
+  />
 
   <.live_component
     module={BlocksterV2Web.PostLive.ShopTwoComponent}
     id="shop-section-twoooo"
+    current_user={assigns[:current_user]}
+  />
+
+  <%!-- Full Width Banner Above Shop Four --%>
+  <.live_component
+    module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
+    id="shop-banner-four"
+    current_user={assigns[:current_user]}
+    banner_key="shop_banner_four"
   />
 
   <.live_component
     module={BlocksterV2Web.PostLive.ShopFourComponent}
     id="shop-section-four"
+    current_user={assigns[:current_user]}
   />
 </div>

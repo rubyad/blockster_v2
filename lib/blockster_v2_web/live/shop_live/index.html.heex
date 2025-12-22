@@ -3,26 +3,16 @@
     <%!-- Header Section --%>
     <div class="mb-8">
       <div class="flex items-center justify-center mb-4">
-        <button class="flex gap-2.5 items-center shadow-[0px_1px_1px_-0.5px_#4D5E8012,0px_4px_4px_-2px_#4D5E800D,0px_8px_8px_-4px_#4D5E800F,0px_16px_16px_-8px_#4D5E8014] bg-white px-[15.5px] py-[9px] text-[#000000] rounded-[100px] leading-[1.4] border border-[#0000000D] font-haas_roman_55 text-sm">
+        <button class="flex gap-2.5 items-center shadow-[0px_1px_1px_-0.5px_#4D5E8012,0px_4px_4px_-2px_#4D5E800D,0px_8px_8px_-4px_#4D5E800F,0px_16px_16px_-8px_#4D5E8014] bg-white px-[15.5px] md:py-btn-primary-y py-[9px] text-[#000000] rounded-[100px] leading-[1.4] border border-[#0000000D] font-haas_roman_55 text-sm">
           <span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="26"
-              viewBox="0 0 16 26"
-              fill="none"
-            >
-              <path
-                d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z"
-                fill="#AFB5FF"
-              />
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="26" viewBox="0 0 16 26" fill="none">
+              <path d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z" fill="#AFB5FF" />
             </svg>
-          </span>
-          The Crypto-Infused Look
+          </span>Crypto-Infused Streetwear
         </button>
       </div>
 
-      <h1 class="flex gap-3 items-center justify-center md:text-[48px] text-[32px] font-haas_medium_65">
+      <h1 class="flex gap-3 items-center justify-center md:text-[48px] text-[24px] font-haas_medium_65">
         <span>Blockster</span>
         <div class="flex -space-x-4 overflow-hidden items-center">
           <span class="img-rounded rounded-full bg-[#AFB5FF] inline-block size-10 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
@@ -35,9 +25,9 @@
         <span>Shop</span>
       </h1>
 
-      <div class="max-w-[430px] mx-auto text-center mt-4">
-        <p class="font-haas_medium_55 text-[#141414A3] text-center leading-[1.5] md:text-[16px] text-sm tracking-[0.02em]">
-          Streetwear inspired by crypto culture. Use your $BLXR to score instant discounts and rep the future every day.
+      <div class="max-w-[430px] mx-auto text-center">
+        <p class="font-haas_medium_55 text-[#141414A3] text-center leading-[1.5] md:text-[16px] text-sm md:mt-6 mt-4 tracking-[0.02em]">
+          Streetwear inspired by crypto culture. Use your BUX to get up to 100% discounts on shopping.
         </p>
       </div>
     </div>
@@ -53,7 +43,7 @@
             <button
               phx-click="clear_filter"
               phx-value-filter="community"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
+              class="cursor-pointer ml-1 text-[#515B70] hover:text-[#141414]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -76,7 +66,7 @@
           <button
             phx-click="toggle_dropdown"
             phx-value-filter="community"
-            class="ml-auto hover:opacity-70"
+            class="cursor-pointer ml-auto hover:opacity-70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -146,7 +136,7 @@
             <button
               phx-click="clear_filter"
               phx-value-filter="artist"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
+              class="cursor-pointer ml-1 text-[#515B70] hover:text-[#141414]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -169,7 +159,7 @@
           <button
             phx-click="toggle_dropdown"
             phx-value-filter="artist"
-            class="ml-auto hover:opacity-70"
+            class="cursor-pointer ml-auto hover:opacity-70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -239,7 +229,7 @@
             <button
               phx-click="clear_filter"
               phx-value-filter="basics"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
+              class="cursor-pointer ml-1 text-[#515B70] hover:text-[#141414]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -262,7 +252,7 @@
           <button
             phx-click="toggle_dropdown"
             phx-value-filter="basics"
-            class="ml-auto hover:opacity-70"
+            class="cursor-pointer ml-auto hover:opacity-70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -335,16 +325,31 @@
     <%!-- Products Grid --%>
     <div class="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] md:gap-6 gap-4 md:mt-8">
       <%= for product <- @products do %>
-        <.link navigate={~p"/shop/#{product.slug}"}>
-          <div class="rounded-lg bg-[#ffffff] p-3 hover:shadow-lg transition-shadow">
-            <div class="img-wrapper flex justify-center pt-2.5 h-[287px] overflow-hidden bg-[#E8EAEC] rounded-[8px]">
-              <img
-                alt={product.name}
-                src={product.image}
-                class="h-full rounded-[12px] object-cover"
-              />
+        <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
+            <div class="img-wrapper w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+              <div
+                class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
+                style="transform-style: preserve-3d;"
+              >
+                <%!-- Front face (first image) --%>
+                <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                  <img
+                    alt={product.name}
+                    src={product.image}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <%!-- Back face (second image or same image if only one) --%>
+                <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                  <img
+                    alt={product.name}
+                    src={Enum.at(product.images, 1) || product.image}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
             </div>
-            <div class="py-2">
+            <div class="px-3 py-3">
               <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">
                 <%= product.name %>
               </h4>
@@ -360,7 +365,7 @@
                 </div>
 
                 <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                  <button class="flex items-center gap-1.5 whitespace-nowrap bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
+                  <div class="flex items-center gap-1.5 whitespace-nowrap bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
@@ -388,15 +393,14 @@
                     <span class="md:text-xs text-[8.5px] font-haas_medium_65">
                       <%= product.bux_discount %> = <%= product.discount_percent %>%
                     </span>
-                  </button>
+                  </div>
                 </div>
               </div>
 
-              <button class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-[4px] max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm border-solid">
-                Coming Soon
-              </button>
+              <div class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-1 max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border rounded-[100px] block text-sm border-solid text-center">
+                Buy Now
+              </div>
             </div>
-          </div>
         </.link>
       <% end %>
     </div>

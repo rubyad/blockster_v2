@@ -13,37 +13,42 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def update(assigns, socket) do
     banner_key = Map.get(assigns, :banner_key, "shop_landing_banner")
-    banner_url = SiteSettings.get(banner_key, @default_banner)
-    banner_position = SiteSettings.get("#{banner_key}_position", "50% 50%")
-    banner_zoom = SiteSettings.get("#{banner_key}_zoom", "100")
+
+    # Load all settings with this prefix in a single query
+    settings = SiteSettings.get_by_prefix(banner_key)
+
+    # Extract settings with defaults
+    banner_url = settings[banner_key] || @default_banner
+    banner_position = settings["#{banner_key}_position"] || "50% 50%"
+    banner_zoom = settings["#{banner_key}_zoom"] || "100"
 
     # Text overlay settings
-    overlay_text = SiteSettings.get("#{banner_key}_overlay_text", "Shop the collection on Blockster")
-    overlay_text_color = SiteSettings.get("#{banner_key}_overlay_text_color", "#ffffff")
-    overlay_text_size = SiteSettings.get("#{banner_key}_overlay_text_size", "48")
-    overlay_bg_color = SiteSettings.get("#{banner_key}_overlay_bg_color", "#000000")
-    overlay_bg_opacity = SiteSettings.get("#{banner_key}_overlay_bg_opacity", "50")
-    overlay_border_radius = SiteSettings.get("#{banner_key}_overlay_border_radius", "12")
-    overlay_position = SiteSettings.get("#{banner_key}_overlay_position", "50% 50%")
+    overlay_text = settings["#{banner_key}_overlay_text"] || "Shop the collection on Blockster"
+    overlay_text_color = settings["#{banner_key}_overlay_text_color"] || "#ffffff"
+    overlay_text_size = settings["#{banner_key}_overlay_text_size"] || "48"
+    overlay_bg_color = settings["#{banner_key}_overlay_bg_color"] || "#000000"
+    overlay_bg_opacity = settings["#{banner_key}_overlay_bg_opacity"] || "50"
+    overlay_border_radius = settings["#{banner_key}_overlay_border_radius"] || "12"
+    overlay_position = settings["#{banner_key}_overlay_position"] || "50% 50%"
 
     # Text box dimensions (for resizing)
-    overlay_width = SiteSettings.get("#{banner_key}_overlay_width", "400")
-    overlay_height = SiteSettings.get("#{banner_key}_overlay_height", "auto")
+    overlay_width = settings["#{banner_key}_overlay_width"] || "400"
+    overlay_height = settings["#{banner_key}_overlay_height"] || "auto"
 
     # Button settings
-    button_text = SiteSettings.get("#{banner_key}_button_text", "View All")
-    button_url = SiteSettings.get("#{banner_key}_button_url", "/shop")
-    button_bg_color = SiteSettings.get("#{banner_key}_button_bg_color", "#ffffff")
-    button_text_color = SiteSettings.get("#{banner_key}_button_text_color", "#000000")
-    button_size = SiteSettings.get("#{banner_key}_button_size", "medium")
-    button_position = SiteSettings.get("#{banner_key}_button_position", "50% 70%")
+    button_text = settings["#{banner_key}_button_text"] || "View All"
+    button_url = settings["#{banner_key}_button_url"] || "/shop"
+    button_bg_color = settings["#{banner_key}_button_bg_color"] || "#ffffff"
+    button_text_color = settings["#{banner_key}_button_text_color"] || "#000000"
+    button_size = settings["#{banner_key}_button_size"] || "medium"
+    button_position = settings["#{banner_key}_button_position"] || "50% 70%"
 
     # Banner height setting
-    banner_height = SiteSettings.get("#{banner_key}_height", "600")
+    banner_height = settings["#{banner_key}_height"] || "600"
 
     # Visibility settings
-    show_text = SiteSettings.get("#{banner_key}_show_text", "true") == "true"
-    show_button = SiteSettings.get("#{banner_key}_show_button", "true") == "true"
+    show_text = (settings["#{banner_key}_show_text"] || "true") == "true"
+    show_button = (settings["#{banner_key}_show_button"] || "true") == "true"
 
     {:ok,
      socket

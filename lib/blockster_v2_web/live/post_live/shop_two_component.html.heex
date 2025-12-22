@@ -1,109 +1,162 @@
 <section id={"component-#{@id}"} class="our-store md:pt-16 pt-8 md:pb-4 pb-2">
   <div class="container mx-auto">
     <div class="mb-6">
-      <h2 class="text-3xl font-haas_medium_65 text-[#141414]">Crypto-Infused Streetwear</h2>
+      <%= if assigns[:current_user] && @current_user.is_admin && @editing_title do %>
+        <form phx-submit="save_title" phx-target={"#component-#{@id}"} class="flex items-center gap-2">
+          <input
+            type="text"
+            name="title"
+            value={@section_title}
+            class="text-3xl font-haas_medium_65 text-[#141414] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autofocus
+          />
+          <button type="submit" class="p-1 hover:bg-green-100 rounded cursor-pointer" title="Save">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <button type="button" phx-click="cancel_edit_title" phx-target={"#component-#{@id}"} class="p-1 hover:bg-red-100 rounded cursor-pointer" title="Cancel">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </form>
+      <% else %>
+        <h2 class="text-3xl font-haas_medium_65 text-[#141414] group flex items-center gap-2">
+          <%= @section_title %>
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <button
+              type="button"
+              phx-click="edit_title"
+              phx-target={"#component-#{@id}"}
+              class="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded cursor-pointer transition-opacity"
+              title="Edit title"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          <% end %>
+        </h2>
+      <% end %>
     </div>
 
-    <div class="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] md:gap-3">
-      <div class="rounded-lg bg-[#ffffff] right-10 top-[100px] p-3">
-        <div class="img-wrapper flex justify-center pt-2.5 h-[287px] overflow-hidden bg-[#E8EAEC] rounded-[8px]">
-          <img alt="" src="https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500" class="h-full rounded-[12px] object-cover" />
-        </div>
-        <div class="py-2">
-          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Cargo Comfort Pants</h4>
-
-          <div class="flex justify-between items-center">
-            <div class="gap-1 flex items-center">
-              <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
-              <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
+    <div class="grid grid-cols-2 lg:grid-cols-4 md:gap-4 gap-3">
+      <%= for {product, idx} <- Enum.with_index(@products) do %>
+        <div class="relative">
+          <%!-- Admin Edit Icon - positioned outside the link to avoid event bubbling --%>
+          <%= if assigns[:current_user] && @current_user.is_admin do %>
+            <button
+              type="button"
+              phx-click="open_product_picker"
+              phx-value-slot={idx}
+              phx-target={"#component-#{@id}"}
+              class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-colors cursor-pointer"
+              title="Change product"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          <% end %>
+          <.link navigate={~p"/shop/#{product.handle}"} class="block rounded-lg bg-[#ffffff] border border-[#1414141A] relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
+            <%!-- Image with flip animation on hover --%>
+            <div class="img-wrapper w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+              <div
+                class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
+                style="transform-style: preserve-3d;"
+              >
+                <%!-- Front face (first image) --%>
+                <div class="absolute inset-0" style="backface-visibility: hidden;">
+                  <img
+                    alt={product.title}
+                    src={get_product_image(product)}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <%!-- Back face (second image or same image) --%>
+                <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                  <img
+                    alt={product.title}
+                    src={Enum.at(get_product_images(product), 1) || get_product_image(product)}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-              <button class="flex items-center gap-1.5 whitespace-nowrap bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
-                <.lightning_icon size="20" />
-                <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
-              </button>
+            <div class="px-3 py-3">
+              <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2 line-clamp-1"><%= product.title %></h4>
+              <div class="flex justify-between items-center gap-2 mb-2">
+                <div class="gap-1 flex items-center shrink-0">
+                  <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414]">$<%= :erlang.float_to_binary(get_product_price(product), decimals: 0) %></span>
+                  <%= if get_product_compare_price(product) > get_product_price(product) do %>
+                    <span class="md:text-[11px] text-[9px] font-haas_roman_55 text-[#141414] line-through">$<%= :erlang.float_to_binary(get_product_compare_price(product), decimals: 0) %></span>
+                  <% end %>
+                </div>
+                <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-flex shrink">
+                  <div class="flex items-center gap-1 bg-white rounded-[100px] px-2 py-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="shrink-0">
+                      <g clip-path={"url(#clip-two-#{@id}-#{idx})"}>
+                        <circle cx="12" cy="12" r="12" fill={"url(#paint-two-#{@id}-#{idx})"} />
+                        <path d="M16.0709 10.7413L9.28536 19.0418L11.071 13.2675H8.0354L14.4638 5.50839L12.8567 10.7413H16.0709Z" fill="#141414" />
+                      </g>
+                      <defs>
+                        <linearGradient id={"paint-two-#{@id}-#{idx}"} x1="12" y1="0" x2="12" y2="24">
+                          <stop stop-color="#8AE388" />
+                          <stop offset="1" stop-color="#BAF55F" />
+                        </linearGradient>
+                        <clipPath id={"clip-two-#{@id}-#{idx}"}>
+                          <rect width="24" height="24" rx="12" fill="white" />
+                        </clipPath>
+                      </defs>
+                    </svg>
+                    <span class="md:text-[10px] text-[8px] font-haas_medium_65 leading-tight whitespace-nowrap"><%= round(get_product_price(product) * 25.28) %> = <%= product.bux_max_discount || 25 %>%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="w-full mt-1 bg-[#000000] text-[#ffffff] small-buttons-shadow py-2.5 max-md:py-2 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm max-md:text-xs border-solid text-center">
+                Buy Now
+              </div>
             </div>
-          </div>
-
-          <button class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-[4px] max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">Coming Soon</button>
+          </.link>
         </div>
-      </div>
-
-      <div class="rounded-lg bg-[#ffffff] right-10 top-[100px] p-3">
-        <div class="img-wrapper flex justify-center pt-2.5 h-[287px] overflow-hidden bg-[#E8EAEC] rounded-[8px]">
-          <img alt="" src="https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500" class="h-full rounded-[12px] object-cover" />
-        </div>
-        <div class="py-2">
-          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Cargo Comfort Pants</h4>
-
-          <div class="flex justify-between items-center">
-            <div class="gap-1 flex items-center">
-              <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
-              <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
-            </div>
-
-            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-              <button class="flex items-center whitespace-nowrap gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
-                <.lightning_icon size="20" />
-                <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
-              </button>
-            </div>
-          </div>
-
-          <button class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-[4px] max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">Coming Soon</button>
-        </div>
-      </div>
-
-      <div class="rounded-lg bg-[#ffffff] right-10 top-[100px] p-3">
-        <div class="img-wrapper flex justify-center pt-2.5 h-[287px] overflow-hidden bg-[#E8EAEC] rounded-[8px]">
-          <img alt="" src="https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500" class="h-full rounded-[12px] object-cover" />
-        </div>
-        <div class="py-2">
-          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Cargo Comfort Pants</h4>
-
-          <div class="flex justify-between items-center">
-            <div class="gap-1 flex items-center">
-              <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
-              <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
-            </div>
-
-            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-              <button class="flex whitespace-nowrap items-center gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
-                <.lightning_icon size="20" />
-                <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
-              </button>
-            </div>
-          </div>
-
-          <button class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-[4px] max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">Coming Soon</button>
-        </div>
-      </div>
-
-      <div class="rounded-lg bg-[#ffffff] right-10 top-[100px] p-3">
-        <div class="img-wrapper flex justify-center pt-2.5 h-[287px] overflow-hidden bg-[#E8EAEC] rounded-[8px]">
-          <img alt="" src="https://ik.imagekit.io/blockster/hoode-comnmg-soon.png" class="h-full rounded-[12px] object-cover" />
-        </div>
-        <div class="py-2">
-          <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] mb-2">Cargo Comfort Pants</h4>
-
-          <div class="flex justify-between items-center">
-            <div class="gap-1 flex items-center">
-              <span class="md:text-[20px] text-[14px] font-haas_medium_65 text-[#141414] flex items-center">$50</span>
-              <span class="md:text-md text-[11px] font-haas_roman_55 text-[#141414] relative flex">$65</span>
-            </div>
-
-            <div class="p-[2px] bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-              <button class="flex items-center whitespace-nowrap gap-1.5 bg-white rounded-[100px] px-1 py-1 min-w-[73px] pr-3.5">
-                <.lightning_icon size="20" />
-                <span class="md:text-xs text-[8.5px] font-haas_medium_65">1,264 = 25% Discount</span>
-              </button>
-            </div>
-          </div>
-
-          <button class="w-full mt-2.5 p-4 max-md:text-[10px] max-md:py-[4px] max-md:p-0 bg-[#000000] text-[#ffffff] small-buttons-shadow py-3 border-btn font-haas_medium_65 border-border-grey_12 border-[1px] rounded-[100px] block text-sm text-[#515B70] border-solid">Coming Soon</button>
-        </div>
-      </div>
+      <% end %>
     </div>
   </div>
+
+  <%!-- Product Picker Modal --%>
+  <%= if @show_product_picker do %>
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" phx-click="close_product_picker" phx-target={"#component-#{@id}"}>
+      <div class="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" phx-click-away="close_product_picker" phx-target={"#component-#{@id}"}>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold">Select Product for Slot <%= @picking_slot + 1 %></h3>
+          <button type="button" phx-click="close_product_picker" phx-target={"#component-#{@id}"} class="text-gray-500 hover:text-gray-700 cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+          <%= for product <- @all_products do %>
+            <button
+              phx-click="select_product"
+              phx-value-id={product.id}
+              phx-target={"#component-#{@id}"}
+              class="text-left border rounded-lg p-2 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+            >
+              <img
+                src={get_product_image(product)}
+                alt={product.title}
+                class="w-full h-24 object-cover rounded-lg mb-2"
+              />
+              <p class="text-sm font-medium line-clamp-2"><%= product.title %></p>
+              <p class="text-sm text-gray-500">$<%= :erlang.float_to_binary(get_product_price(product), decimals: 2) %></p>
+            </button>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </section>

@@ -1,27 +1,5 @@
-<div class=" bg-[#F5F6FB]"
+<div class=" bg-[#F5F6FB] pt-24"
       id="homepage">
-
-  <!-- Master Crypto Banner -->
-  <div class="w-full flex h-[240px] sm:h-[300px] lg:h-[360px]">
-    <div class="w-[70%] h-full">
-      <img
-        src="https://ik.imagekit.io/blockster/master-crypto.jpg"
-        alt="Master Crypto"
-        class="w-full h-full object-cover object-left"
-      />
-    </div>
-    <div class="w-[30%] h-full bg-black flex flex-col items-center justify-between p-4 text-center">
-      <div></div>
-      <div>
-        <h2 class="text-white font-haas_bold_75 text-lg sm:text-xl lg:text-2xl">Read, share, earn $BUX.</h2>
-        <p class="text-white font-haas_medium_65 text-sm sm:text-base lg:text-lg mt-2">$25,000 prize pool.</p>
-        <button class="mt-4 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 px-6 py-2 rounded-full hover:shadow-lg transition-all cursor-pointer text-sm sm:text-base">
-          Claim airdrop 
-        </button>
-      </div>
-      <p class="text-white/60 font-haas_roman_55 text-xs">Sponsored by ByBit</p>
-    </div>
-  </div>
 
   <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
     <%= for {dom_id, comp} <- @streams.components do %>
