@@ -18,8 +18,11 @@ defmodule BlocksterV2.Shop.Product do
     field :hub_token_max_discount, :integer, default: 0
 
     # Artist and collection info
-    field :artist, :string
+    field :artist, :string  # Legacy text field - kept for backwards compatibility
     field :collection_name, :string
+
+    # Artist association (new)
+    belongs_to :artist_record, BlocksterV2.Shop.Artist, foreign_key: :artist_id, type: :id
 
     # Inventory tracking (optional - for limited edition items)
     field :max_inventory, :integer
@@ -63,6 +66,7 @@ defmodule BlocksterV2.Shop.Product do
     :bux_max_discount,
     :hub_token_max_discount,
     :artist,
+    :artist_id,
     :collection_name,
     :max_inventory,
     :sold_count,

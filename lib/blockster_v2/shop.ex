@@ -6,7 +6,7 @@ defmodule BlocksterV2.Shop do
   import Ecto.Query, warn: false
   alias BlocksterV2.Repo
 
-  alias BlocksterV2.Shop.{Product, ProductVariant, ProductImage, ProductCategory, ProductTag}
+  alias BlocksterV2.Shop.{Product, ProductVariant, ProductImage, ProductCategory, ProductTag, Artist}
 
   # ============================================================================
   # Products
@@ -333,4 +333,64 @@ defmodule BlocksterV2.Shop do
     |> Ecto.Changeset.put_assoc(:product_tags, tags)
     |> Repo.update()
   end
+
+  # ============================================================================
+  # Artists
+  # ============================================================================
+
+  def list_artists do
+    Artist
+    |> order_by([a], a.name)
+    |> Repo.all()
+  end
+
+  def get_artist!(id), do: Repo.get!(Artist, id)
+
+  def get_artist(id), do: Repo.get(Artist, id)
+
+  def get_artist_by_slug(slug) do
+    Repo.get_by(Artist, slug: slug)
+  end
+
+  def get_artist_with_products(id) do
+    Artist
+    |> Repo.get(id)
+    |> Repo.preload(:products)
+  end
+
+  def create_artist(attrs \\ %{}) do
+    %Artist{}
+    |> Artist.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_artist(%Artist{} = artist, attrs) do
+    artist
+    |> Artist.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_artist(%Artist{} = artist) do
+    Repo.delete(artist)
+  end
+
+  def change_artist(%Artist{} = artist, attrs \\ %{}) do
+    Artist.changeset(artist, attrs)
+  end
+
+  @doc """
+  Search artists by name for autocomplete.
+  Returns up to 10 matching artists.
+  """
+  def search_artists(query) when is_binary(query) do
+    search_term = "%#{query}%"
+
+    Artist
+    |> where([a], ilike(a.name, ^search_term))
+    |> order_by([a], a.name)
+    |> limit(10)
+    |> Repo.all()
+  end
+
+  def search_artists(_), do: []
 end

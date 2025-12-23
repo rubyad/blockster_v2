@@ -7,9 +7,9 @@ defmodule BlocksterV2Web.ThirdwebLoginLive do
     is_mobile = String.contains?(assigns[:id] || "", "mobile")
 
     button_classes = if is_mobile do
-      "flex items-center gap-1.5 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-[100px] px-3 py-2 cursor-pointer"
+      "flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-[100px] h-8 px-3 cursor-pointer"
     else
-      "flex items-center gap-1.5 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-[100px] px-6 py-3 hover:shadow-lg transition-all cursor-pointer"
+      "flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-[100px] h-10 px-6 hover:shadow-lg transition-all cursor-pointer"
     end
 
     text_classes = if is_mobile do
@@ -23,7 +23,7 @@ defmodule BlocksterV2Web.ThirdwebLoginLive do
     ~H"""
     <div>
       <.link navigate={~p"/login"} class={@button_classes}>
-        <span class={@text_classes}>Connect wallet</span>
+        <span class={@text_classes}>Sign In</span>
       </.link>
     </div>
     """

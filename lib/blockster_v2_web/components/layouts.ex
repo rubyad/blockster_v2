@@ -95,9 +95,9 @@ defmodule BlocksterV2Web.Layouts do
 
         <!-- Navigation Row: Search left, Menu centered, Balance right -->
         <div class={["max-w-7xl mx-auto px-4", !@show_categories && "pb-2"]}>
-          <div class="flex items-center justify-between">
-          <!-- Search Bar with Scroll Logo - Left -->
-          <div class="flex items-center gap-3">
+          <div class="flex items-center">
+          <!-- Search Bar with Scroll Logo - Left (flex-1 for equal width with right side) -->
+          <div class="flex items-center gap-3 flex-1">
             <div class="relative" id="search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
             <!-- Lightning Bolt Logo (hidden by default, shows on scroll, positioned right of search) -->
             <.link navigate={~p"/"} id="scroll-logo" class="absolute -right-12 top-1/2 -translate-y-1/2 cursor-pointer opacity-0 transition-opacity duration-300 z-20 pointer-events-none">
@@ -159,8 +159,8 @@ defmodule BlocksterV2Web.Layouts do
             <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Play</a>
           </nav>
 
-          <!-- Balance/User - Right -->
-          <div class="flex items-center gap-2">
+          <!-- Balance/User - Right (flex-1 for equal width with left side) -->
+          <div class="flex items-center gap-2 flex-1 justify-end">
             <%= if @current_user do %>
               <!-- Logged in user display with dropdown -->
               <div class="relative" id="desktop-user-dropdown" phx-click-away={JS.hide(to: "#desktop-dropdown-menu")}>
@@ -296,6 +296,12 @@ defmodule BlocksterV2Web.Layouts do
                           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
                           Product Tags
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/artists"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Artists
                         </.link>
                         <.link
                           navigate={~p"/admin/waitlist"}
@@ -490,6 +496,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Product Tags
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/artists"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Artists
                       </.link>
                       <.link
                         navigate={~p"/admin/waitlist"}

@@ -8,10 +8,16 @@
             Shop
           </.link>
         </li>
-        <%= if @product.artist do %>
+        <%= if @product.artist_name do %>
           <li class="flex items-center gap-2">
             <span class="text-gray-400">/</span>
-            <span class="text-[#141414] font-haas_medium_65"><%= @product.artist %></span>
+            <%= if @product.artist_slug do %>
+              <.link navigate={~p"/shop?artist=#{@product.artist_slug}"} class="hover:text-[#141414] transition-colors cursor-pointer">
+                <%= @product.artist_name %>
+              </.link>
+            <% else %>
+              <span class="text-[#141414] font-haas_medium_65"><%= @product.artist_name %></span>
+            <% end %>
           </li>
         <% end %>
         <%= if Enum.any?(@product.categories) do %>
@@ -132,11 +138,39 @@
             </.link>
           <% end %>
 
+          <%!-- Artist Badge --%>
+          <%= if @product.artist_name do %>
+            <%= if @product.artist_slug do %>
+              <.link
+                navigate={~p"/shop?artist=#{@product.artist_slug}"}
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-haas_medium_65 hover:bg-purple-200 transition-colors cursor-pointer"
+              >
+                <%= if @product.artist_image do %>
+                  <img src={@product.artist_image} alt={@product.artist_name} class="w-4 h-4 rounded-full object-cover" />
+                <% else %>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                <% end %>
+                <%= @product.artist_name %>
+              </.link>
+            <% else %>
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-haas_medium_65">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <%= @product.artist_name %>
+              </span>
+            <% end %>
+          <% end %>
+
           <%!-- Category Badge --%>
           <%= for category <- @product.categories do %>
             <.link
               navigate={~p"/shop?category=#{category.slug}"}
-              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#E7E8F1] text-[#515B70] text-sm font-haas_medium_65 hover:bg-[#D8DAE8] transition-colors"
+              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#E7E8F1] text-[#515B70] text-sm font-haas_medium_65 hover:bg-[#D8DAE8] transition-colors cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>

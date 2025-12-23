@@ -44,7 +44,7 @@ defmodule BlocksterV2Web.ShopLive.Show do
         variants_query = from(v in BlocksterV2.Shop.ProductVariant, order_by: v.position)
 
         product = db_product
-                  |> Repo.preload([{:images, images_query}, {:variants, variants_query}, :hub, :categories, :product_tags])
+                  |> Repo.preload([{:images, images_query}, {:variants, variants_query}, :hub, :categories, :product_tags, :artist_record])
                   |> transform_product()
 
         # Fetch user balances if logged in
@@ -161,6 +161,9 @@ defmodule BlocksterV2Web.ShopLive.Show do
     # Get hub info if available
     hub = if Ecto.assoc_loaded?(db_product.hub) && db_product.hub, do: db_product.hub, else: nil
 
+    # Get artist info if available
+    artist_record = if Ecto.assoc_loaded?(db_product.artist_record) && db_product.artist_record, do: db_product.artist_record, else: nil
+
     # Get categories
     categories = if Ecto.assoc_loaded?(db_product.categories) do
       Enum.map(db_product.categories, fn cat -> %{name: cat.name, slug: cat.slug} end)
@@ -190,6 +193,9 @@ defmodule BlocksterV2Web.ShopLive.Show do
       hub_slug: if(hub, do: hub.slug, else: nil),
       hub_token: if(hub, do: hub.token, else: nil),
       hub_logo_url: if(hub, do: hub.logo_url, else: nil),
+      artist_name: if(artist_record, do: artist_record.name, else: db_product.artist),
+      artist_slug: if(artist_record, do: artist_record.slug, else: nil),
+      artist_image: if(artist_record, do: artist_record.image, else: nil),
       product_type: db_product.product_type,
       categories: categories,
       product_tags: product_tags,

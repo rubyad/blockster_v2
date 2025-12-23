@@ -37,6 +37,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/products/:id/edit", ProductLive.Form, :edit
       live "/admin/product-categories", ProductCategoriesAdminLive, :index
       live "/admin/product-tags", ProductTagsAdminLive, :index
+      live "/admin/artists", ArtistsAdminLive, :index
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 

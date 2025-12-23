@@ -48,6 +48,13 @@ defmodule BlocksterV2Web.ProductLive.Form do
       categories = Shop.list_categories()
       tags = Shop.list_tags()
 
+      # Get artist info if product has an artist_id
+      selected_artist = if product.artist_id do
+        Shop.get_artist(product.artist_id)
+      else
+        nil
+      end
+
       # Extract selected sizes and colors from existing variants
       {selected_sizes, selected_colors, variant_price} = extract_variant_options(product.variants || [])
 
@@ -67,6 +74,10 @@ defmodule BlocksterV2Web.ProductLive.Form do
        |> assign(:variant_price, variant_price)
        |> assign(:available_sizes, @available_sizes)
        |> assign(:available_colors, @available_colors)
+       |> assign(:selected_artist, selected_artist)
+       |> assign(:artist_search, "")
+       |> assign(:artist_suggestions, [])
+       |> assign(:show_artist_dropdown, false)
        |> assign(:page_title, page_title(socket.assigns.live_action))}
     else
       {:ok,
@@ -91,6 +102,13 @@ defmodule BlocksterV2Web.ProductLive.Form do
     product = Shop.get_product!(id) |> Repo.preload(ordered_preloads())
     {selected_sizes, selected_colors, variant_price} = extract_variant_options(product.variants || [])
 
+    # Get artist info if product has an artist_id
+    selected_artist = if product.artist_id do
+      Shop.get_artist(product.artist_id)
+    else
+      nil
+    end
+
     socket
     |> assign(:page_title, "Edit Product")
     |> assign(:product, product)
@@ -101,6 +119,10 @@ defmodule BlocksterV2Web.ProductLive.Form do
     |> assign(:selected_sizes, selected_sizes)
     |> assign(:selected_colors, selected_colors)
     |> assign(:variant_price, variant_price)
+    |> assign(:selected_artist, selected_artist)
+    |> assign(:artist_search, "")
+    |> assign(:artist_suggestions, [])
+    |> assign(:show_artist_dropdown, false)
   end
 
   @impl true
@@ -305,7 +327,59 @@ defmodule BlocksterV2Web.ProductLive.Form do
     {:noreply, assign(socket, :variants, new_variants)}
   end
 
+  @impl true
+  def handle_event("search_artist", %{"value" => query}, socket) do
+    if String.length(query) >= 1 do
+      suggestions = Shop.search_artists(query)
+      {:noreply,
+       socket
+       |> assign(:artist_search, query)
+       |> assign(:artist_suggestions, suggestions)
+       |> assign(:show_artist_dropdown, length(suggestions) > 0)}
+    else
+      {:noreply,
+       socket
+       |> assign(:artist_search, query)
+       |> assign(:artist_suggestions, [])
+       |> assign(:show_artist_dropdown, false)}
+    end
+  end
+
+  @impl true
+  def handle_event("select_artist", %{"artist-id" => artist_id_str}, socket) do
+    artist_id = String.to_integer(artist_id_str)
+    artist = Shop.get_artist!(artist_id)
+    {:noreply,
+     socket
+     |> assign(:selected_artist, artist)
+     |> assign(:artist_search, "")
+     |> assign(:artist_suggestions, [])
+     |> assign(:show_artist_dropdown, false)}
+  end
+
+  @impl true
+  def handle_event("clear_artist", _, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_artist, nil)
+     |> assign(:artist_search, "")
+     |> assign(:artist_suggestions, [])
+     |> assign(:show_artist_dropdown, false)}
+  end
+
+  @impl true
+  def handle_event("close_artist_dropdown", _, socket) do
+    {:noreply, assign(socket, :show_artist_dropdown, false)}
+  end
+
   defp save_product(socket, :edit, product_params, category_ids, tag_ids) do
+    # Add artist_id to params if an artist is selected
+    product_params = if socket.assigns.selected_artist do
+      Map.put(product_params, "artist_id", socket.assigns.selected_artist.id)
+    else
+      Map.put(product_params, "artist_id", nil)
+    end
+
     case Shop.update_product(socket.assigns.product, product_params) do
       {:ok, product} ->
         # Update categories
@@ -331,6 +405,13 @@ defmodule BlocksterV2Web.ProductLive.Form do
   end
 
   defp save_product(socket, :new, product_params, category_ids, tag_ids) do
+    # Add artist_id to params if an artist is selected
+    product_params = if socket.assigns.selected_artist do
+      Map.put(product_params, "artist_id", socket.assigns.selected_artist.id)
+    else
+      product_params
+    end
+
     case Shop.create_product(product_params) do
       {:ok, product} ->
         # Update categories
@@ -598,7 +679,65 @@ defmodule BlocksterV2Web.ProductLive.Form do
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Artist</label>
-                <.input field={@form[:artist]} type="text" placeholder="e.g., Artist name" class="w-full" />
+                <%= if @selected_artist do %>
+                  <%!-- Selected artist display --%>
+                  <div class="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <%= if @selected_artist.image do %>
+                      <img src={@selected_artist.image} alt={@selected_artist.name} class="w-8 h-8 rounded-full object-cover" />
+                    <% else %>
+                      <div class="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center">
+                        <span class="text-blue-700 font-medium text-sm"><%= String.first(@selected_artist.name) %></span>
+                      </div>
+                    <% end %>
+                    <span class="font-medium text-gray-900 flex-1"><%= @selected_artist.name %></span>
+                    <button
+                      type="button"
+                      phx-click="clear_artist"
+                      class="text-gray-400 hover:text-red-500 cursor-pointer"
+                      title="Remove artist"
+                    >
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                <% else %>
+                  <%!-- Artist search autocomplete --%>
+                  <div class="relative" phx-click-away="close_artist_dropdown">
+                    <input
+                      type="text"
+                      value={@artist_search}
+                      phx-keyup="search_artist"
+                      phx-debounce="200"
+                      placeholder="Search artists..."
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <%= if @show_artist_dropdown && length(@artist_suggestions) > 0 do %>
+                      <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <%= for artist <- @artist_suggestions do %>
+                          <button
+                            type="button"
+                            phx-click="select_artist"
+                            phx-value-artist-id={artist.id}
+                            class="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer text-left"
+                          >
+                            <%= if artist.image do %>
+                              <img src={artist.image} alt={artist.name} class="w-8 h-8 rounded-full object-cover" />
+                            <% else %>
+                              <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span class="text-gray-600 font-medium text-sm"><%= String.first(artist.name) %></span>
+                              </div>
+                            <% end %>
+                            <span class="font-medium text-gray-900"><%= artist.name %></span>
+                          </button>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                  <p class="text-sm text-gray-500 mt-1">
+                    <.link navigate={~p"/admin/artists"} class="text-blue-600 hover:underline cursor-pointer">Create new artist</.link>
+                  </p>
+                <% end %>
               </div>
 
               <div>
