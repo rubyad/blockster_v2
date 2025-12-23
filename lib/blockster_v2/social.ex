@@ -130,17 +130,25 @@ defmodule BlocksterV2.Social do
   Refreshes an X connection's access token if it's expired or about to expire.
   """
   def maybe_refresh_token(connection) when is_map(connection) do
-    if token_needs_refresh?(connection) do
+    needs_refresh = token_needs_refresh?(connection)
+    Logger.info("[X Auth] Token refresh check: needs_refresh=#{needs_refresh}, expires_at=#{inspect(connection[:token_expires_at])}, now=#{inspect(DateTime.utc_now())}")
+
+    if needs_refresh do
+      Logger.info("[X Auth] Attempting token refresh for user #{connection[:user_id]}")
       refresh_x_token(connection)
     else
       {:ok, connection}
     end
   end
 
+  # X access tokens expire after 2 hours. Refresh if token expires within 1 hour
+  # to be safe, since we can't validate tokens without an API call.
+  @token_refresh_buffer_minutes 60
+
   defp token_needs_refresh?(%{token_expires_at: nil}), do: false
   defp token_needs_refresh?(%{token_expires_at: expires_at}) when is_struct(expires_at, DateTime) do
-    five_minutes_from_now = DateTime.utc_now() |> DateTime.add(5, :minute)
-    DateTime.compare(expires_at, five_minutes_from_now) == :lt
+    buffer_time = DateTime.utc_now() |> DateTime.add(@token_refresh_buffer_minutes, :minute)
+    DateTime.compare(expires_at, buffer_time) == :lt
   end
   defp token_needs_refresh?(_), do: false
 
@@ -148,10 +156,13 @@ defmodule BlocksterV2.Social do
     refresh_token = Map.get(connection, :refresh_token)
 
     if is_nil(refresh_token) do
+      Logger.error("[X Auth] No refresh token available for user #{connection[:user_id]}")
       {:error, "No refresh token available"}
     else
+      Logger.info("[X Auth] Calling X API to refresh token for user #{connection[:user_id]}")
       case XApiClient.refresh_token(refresh_token) do
         {:ok, token_data} ->
+          Logger.info("[X Auth] Token refresh successful, new token expires in #{token_data.expires_in}s")
           expires_at =
             if token_data.expires_in do
               DateTime.utc_now()
@@ -166,13 +177,16 @@ defmodule BlocksterV2.Social do
             expires_at
           ) do
             {:ok, updated_connection} ->
+              Logger.info("[X Auth] Updated tokens in Mnesia for user #{connection[:user_id]}")
               {:ok, updated_connection}
 
             {:error, reason} ->
+              Logger.error("[X Auth] Failed to save refreshed token: #{inspect(reason)}")
               {:error, "Failed to save refreshed token: #{inspect(reason)}"}
           end
 
         {:error, reason} ->
+          Logger.error("[X Auth] Token refresh failed for user #{connection[:user_id]}: #{reason}")
           {:error, "Token refresh failed: #{reason}"}
       end
     end

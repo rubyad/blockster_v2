@@ -91,23 +91,29 @@ defmodule BlocksterV2.Social.XConnection do
   end
   def token_expired?(_), do: false
 
+  # X access tokens expire after 2 hours. Refresh if token expires within 1 hour
+  # to be safe, since we can't validate tokens without an API call.
+  @token_refresh_buffer_minutes 60
+
   @doc """
-  Checks if the token needs to be refreshed (expires within 5 minutes or already expired).
+  Checks if the token needs to be refreshed (expires within 1 hour or already expired).
+  X access tokens expire after 2 hours, so we use a 1 hour buffer to be safe.
   """
   def token_needs_refresh?(%__MODULE__{token_expires_at: nil}), do: false
   def token_needs_refresh?(%__MODULE__{token_expires_at: expires_at}) do
-    five_minutes_from_now = DateTime.utc_now() |> DateTime.add(5, :minute)
-    DateTime.compare(expires_at, five_minutes_from_now) == :lt
+    buffer_time = DateTime.utc_now() |> DateTime.add(@token_refresh_buffer_minutes, :minute)
+    DateTime.compare(expires_at, buffer_time) == :lt
   end
   # Handle plain maps from Mnesia
   def token_needs_refresh?(%{token_expires_at: nil}), do: false
   def token_needs_refresh?(%{token_expires_at: expires_at}) when is_struct(expires_at, DateTime) do
-    five_minutes_from_now = DateTime.utc_now() |> DateTime.add(5, :minute)
-    DateTime.compare(expires_at, five_minutes_from_now) == :lt
+    buffer_time = DateTime.utc_now() |> DateTime.add(@token_refresh_buffer_minutes, :minute)
+    DateTime.compare(expires_at, buffer_time) == :lt
   end
   def token_needs_refresh?(%{token_expires_at: expires_at}) when is_integer(expires_at) do
-    five_minutes_from_now = DateTime.utc_now() |> DateTime.to_unix() |> Kernel.+(5 * 60)
-    expires_at < five_minutes_from_now
+    buffer_seconds = @token_refresh_buffer_minutes * 60
+    buffer_time = DateTime.utc_now() |> DateTime.to_unix() |> Kernel.+(buffer_seconds)
+    expires_at < buffer_time
   end
   def token_needs_refresh?(_), do: false
 

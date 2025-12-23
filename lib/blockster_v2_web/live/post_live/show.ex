@@ -513,8 +513,20 @@ defmodule BlocksterV2Web.PostLive.Show do
                      |> assign(:share_status, {:error, "Failed to retweet: #{retweet_error}"})}
                   end
 
+                {:error, :unauthorized} ->
+                  # Token is invalid/expired - disconnect and prompt reconnection
+                  Social.delete_share_reward(user.id, post.id)
+                  Social.disconnect_x_account(user.id)
+
+                  {:noreply,
+                   socket
+                   |> assign(:x_connection, nil)
+                   |> assign(:share_reward, nil)
+                   |> assign(:needs_x_reconnect, true)
+                   |> assign(:share_status, {:error, "X session expired. Please reconnect your account."})}
+
                 {:error, reason} ->
-                  # Delete the pending reward so user can retry
+                  # Other errors - user can retry
                   Social.delete_share_reward(user.id, post.id)
 
                   {:noreply,

@@ -208,6 +208,11 @@ defmodule BlocksterV2.Social.XApiClient do
         Logger.warning("Unexpected like response format: #{inspect(resp)}")
         {:ok, %{liked: true}}
 
+      {:ok, %Req.Response{status: 401, body: body}} ->
+        # 401 means the access token is invalid/expired - user needs to reconnect
+        Logger.error("X API like failed: 401 Unauthorized - #{inspect(body)}")
+        {:error, :unauthorized}
+
       {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
         error_msg = Enum.map_join(errors, ", ", & &1["message"])
         {:error, error_msg}
@@ -245,19 +250,30 @@ defmodule BlocksterV2.Social.XApiClient do
     like_result = like_tweet(access_token, user_id, tweet_id)
 
     case {retweet_result, like_result} do
+      # Both succeeded
       {{:ok, _}, {:ok, _}} ->
         {:ok, %{retweeted: true, liked: true}}
 
+      # Either returned unauthorized - user needs to reconnect
+      {{:error, :unauthorized}, _} ->
+        {:error, :unauthorized}
+
+      {_, {:error, :unauthorized}} ->
+        {:error, :unauthorized}
+
+      # Retweet succeeded but like failed
       {{:ok, _}, {:error, like_error}} ->
-        Logger.warning("Retweet succeeded but like failed: #{like_error}")
+        Logger.warning("Retweet succeeded but like failed: #{inspect(like_error)}")
         {:ok, %{retweeted: true, liked: false, like_error: like_error}}
 
+      # Retweet failed but like succeeded
       {{:error, retweet_error}, {:ok, _}} ->
-        Logger.warning("Retweet failed but like succeeded: #{retweet_error}")
+        Logger.warning("Retweet failed but like succeeded: #{inspect(retweet_error)}")
         {:ok, %{retweeted: false, liked: true, retweet_error: retweet_error}}
 
+      # Both failed
       {{:error, retweet_error}, {:error, like_error}} ->
-        {:error, "Retweet: #{retweet_error}, Like: #{like_error}"}
+        {:error, "Retweet: #{inspect(retweet_error)}, Like: #{inspect(like_error)}"}
     end
   end
 
@@ -267,6 +283,8 @@ defmodule BlocksterV2.Social.XApiClient do
   """
   def create_retweet(access_token, user_id, tweet_id) do
     url = "#{@api_base}/users/#{user_id}/retweets"
+    token_preview = if access_token, do: String.slice(access_token, 0, 10) <> "...", else: "nil"
+    Logger.info("[X API] Attempting retweet: user_id=#{user_id}, tweet_id=#{tweet_id}, token=#{token_preview}")
 
     opts =
       req_options()
@@ -283,6 +301,11 @@ defmodule BlocksterV2.Social.XApiClient do
         # 200 means success, even if response format is unexpected
         Logger.warning("Unexpected retweet response format: #{inspect(resp)}")
         {:ok, %{retweeted: true}}
+
+      {:ok, %Req.Response{status: 401, body: body}} ->
+        # 401 means the access token is invalid/expired - user needs to reconnect
+        Logger.error("X API retweet failed: 401 Unauthorized - #{inspect(body)}")
+        {:error, :unauthorized}
 
       {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
         error_msg = Enum.map_join(errors, ", ", & &1["message"])
