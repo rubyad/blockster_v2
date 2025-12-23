@@ -152,11 +152,20 @@
           <!-- X/Twitter Share with BUX Reward -->
           <%= if @share_campaign && @share_campaign.is_active do %>
             <%= if @share_reward do %>
-              <%!-- User has already shared - show success state --%>
-              <div class="flex items-center gap-2 h-9 px-3 bg-green-600 text-white rounded-full text-sm font-haas_medium_65">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                <span>Shared!</span>
-                <span class="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-bold">+<%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> {@hub_token}</span>
+              <%!-- User has already shared - show success state with X branding + green ring --%>
+              <div class="flex items-center gap-1">
+                <%!-- Main success badge --%>
+                <div class="flex items-center gap-2 h-10 px-4 bg-black text-white rounded-full text-sm font-haas_medium_65 ring-2 ring-[#8AE388] ring-offset-2">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <span class="text-[#8AE388] font-bold">Shared & Liked!</span>
+                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"><%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-3.5 h-3.5 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full object-cover" /><% end %><%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> <%= @hub_token %></span>
+                </div>
+                <%!-- Transaction link --%>
+                <%= if @share_reward[:tx_hash] do %>
+                  <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on RogueScan">
+                    <svg class="w-4 h-4 text-[#141414]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                  </a>
+                <% end %>
               </div>
             <% else %>
               <%= if @current_user do %>
@@ -165,12 +174,12 @@
                   class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
                 >
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
+                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><% end %><%= @x_share_reward %> <%= @hub_token %></span>
                 </button>
               <% else %>
                 <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
+                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><% end %><%= @x_share_reward %> <%= @hub_token %></span>
                 </.link>
               <% end %>
             <% end %>
@@ -183,7 +192,7 @@
           <!-- LinkedIn -->
           <a href={"https://www.linkedin.com/sharing/share-offsite/?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}"} target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 h-9 px-3 bg-[#0A66C2] text-white rounded-full text-sm font-haas_medium_65 hover:bg-[#004182] transition-colors cursor-pointer">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-            <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{round(@user_multiplier)} {@hub_token}</span>
+            <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><%= if @hub_logo do %><img src={@hub_logo} alt={@hub_token} class="w-3 h-3 rounded-full object-cover" /><% else %><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><% end %><%= round(@user_multiplier) %> <%= @hub_token %></span>
           </a>
 
           <!-- Token Badge -->

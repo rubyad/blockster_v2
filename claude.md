@@ -3,6 +3,8 @@
 Phoenix LiveView application with Elixir backend, serving a web3 content platform with a shop, hubs, events, and token-based engagement system.
 
 > **Claude Instructions**: After every conversation compaction/summarization, update this file with any new learnings, patterns, contract addresses, configuration changes, or important decisions made during the session. This file is persistent project memory - keep it current.
+>
+> **How to detect compaction**: If your first message contains "This session is being continued from a previous conversation" or similar summary text, that means compaction occurred. IMMEDIATELY update this file with learnings from the summary before doing anything else.
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -44,6 +46,10 @@ mix phx.server
 ## Deployment
 
 **IMPORTANT: Never deploy to production without explicit user instructions to do so.**
+
+- A previous "git push and fly deploy" instruction does NOT carry over to new changes
+- After making additional edits, ALWAYS ask for explicit confirmation before deploying
+- When in doubt, ask: "Should I deploy these changes to production?"
 
 ```bash
 git push origin <branch> && flyctl deploy --app blockster-v2
@@ -493,3 +499,36 @@ Claude can inspect and control your live Chrome browser for debugging Blockster 
 - Inspect LiveView WebSocket messages
 - Profile TipTap editor performance
 - Capture UI states for bug reports
+
+---
+
+## Session Learnings
+
+### Number Formatting in Templates
+Use `:erlang.float_to_binary/2` to avoid scientific notation in number inputs:
+```elixir
+value={:erlang.float_to_binary(@tokens_to_redeem / 1, decimals: 2)}
+```
+This prevents values like `1.1e3` appearing in input fields.
+
+### Product Variants
+- Sizes come from `option1` field on variants, colors from `option2`
+- No fallback defaults - if a product has no variants, sizes/colors lists are empty
+- Size selector section is hidden when `sizes` list is empty
+- Color selector section is hidden when `colors` list is empty
+
+### X Share Success State
+After a successful retweet, check `@share_reward` to show success UI:
+- Replace share button with green "Shared!" badge
+- Display actual earned amount from `@share_reward[:bux_rewarded]`
+- Located in [post_live/show.html.heex](lib/blockster_v2_web/live/post_live/show.html.heex)
+
+### Tailwind Typography Plugin
+- Required for `prose` class to style HTML content (paragraphs, lists, etc.)
+- Installed via npm: `@tailwindcss/typography`
+- Enabled in app.css: `@plugin "@tailwindcss/typography";`
+- Used for product descriptions with `raw(@product.description)`
+
+### Self-Hosted Dependencies
+- Swiper is bundled via npm (not CDN) for better performance
+- Eliminates external DNS lookup and connection overhead
