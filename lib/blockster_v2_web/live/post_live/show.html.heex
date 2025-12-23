@@ -151,19 +151,28 @@
         <div class="sticky top-24 z-10 bg-white flex items-center gap-2 py-4 mb-4 border-b border-[#E7E8F1]">
           <!-- X/Twitter Share with BUX Reward -->
           <%= if @share_campaign && @share_campaign.is_active do %>
-            <%= if @current_user do %>
-              <button
-                phx-click="open_share_modal"
-                class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
-              >
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
-              </button>
+            <%= if @share_reward do %>
+              <%!-- User has already shared - show success state --%>
+              <div class="flex items-center gap-2 h-9 px-3 bg-green-600 text-white rounded-full text-sm font-haas_medium_65">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Shared!</span>
+                <span class="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-bold">+<%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> {@hub_token}</span>
+              </div>
             <% else %>
-              <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
-              </.link>
+              <%= if @current_user do %>
+                <button
+                  phx-click="open_share_modal"
+                  class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
+                </button>
+              <% else %>
+                <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+{@x_share_reward} {@hub_token}</span>
+                </.link>
+              <% end %>
             <% end %>
           <% else %>
             <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer">
