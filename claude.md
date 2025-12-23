@@ -64,6 +64,7 @@ Migrations run automatically via release commands during deploy.
 - **Always add `cursor-pointer`** to all links, buttons, and clickable elements
 - Use custom fonts: `font-haas_medium_65`, `font-haas_roman_55` (defined in Tailwind config)
 - Style links in content areas: `[&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline`
+- **Prefer Tailwind utility classes over arbitrary hex values**: Use `text-black`, `text-gray-500`, `bg-white` instead of `text-[#141414]`, `text-[#6B7280]`, `bg-[#FFFFFF]`. Only use arbitrary values when the exact color is critical to the design.
 
 ### Code Principles
 
@@ -372,8 +373,7 @@ Content is stored as TipTap JSON in PostgreSQL:
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Main App | `https://blockster-v2.fly.dev` | Phoenix app |
-| v2 Domain | `https://v2.blockster.com` | Production domain |
+| Main App | `https://blockster-v2.fly.dev` | Phoenix app (production) |
 | BUX Minter | `https://bux-minter.fly.dev` | Token minting service |
 | Mainnet Bundler | `https://rogue-bundler-mainnet.fly.dev` | ERC-4337 bundler |
 | Rogue RPC | `https://rpc.roguechain.io/rpc` | Blockchain RPC |

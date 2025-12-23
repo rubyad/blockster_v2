@@ -272,9 +272,9 @@
                 <span class="text-[14px] font-haas_roman_55 text-[#9CA3AF] line-through">
                   $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                 </span>
-                <%!-- Discounted Price - Large, green --%>
+                <%!-- Discounted Price - Large, black --%>
                 <%= if product.total_max_discount > 0 do %>
-                  <span class="text-[24px] font-haas_medium_65 text-[#22C55E]">
+                  <span class="text-[24px] font-haas_medium_65 text-black">
                     $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
                   </span>
                   <span class="text-[11px] font-haas_roman_55 text-[#6B7280] mt-0.5">
