@@ -59,7 +59,7 @@
                 <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if post.featured_image do %>
-                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
+                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
                     <% else %>
                       <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">
@@ -112,7 +112,7 @@
                 <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if post.featured_image do %>
-                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
+                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
                     <% else %>
                       <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
@@ -167,7 +167,7 @@
                 <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if post.featured_image do %>
-                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" />
+                      <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
                     <% else %>
                       <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none">

@@ -336,7 +336,7 @@
                   <img
                     alt={product.name}
                     src={product.image}
-                    class="w-full h-full object-cover"
+                    class="w-full h-full object-cover" loading="lazy"
                   />
                 </div>
                 <%!-- Back face (second image or same image if only one) --%>
@@ -344,7 +344,7 @@
                   <img
                     alt={product.name}
                     src={Enum.at(product.images, 1) || product.image}
-                    class="w-full h-full object-cover"
+                    class="w-full h-full object-cover" loading="lazy"
                   />
                 </div>
               </div>

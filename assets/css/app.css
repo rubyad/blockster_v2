@@ -6,6 +6,9 @@
 @source "../js";
 @source "../../lib/blockster_v2_web";
 
+/* Tailwind Typography plugin for prose styling */
+@plugin "@tailwindcss/typography";
+
 /* Enable smooth scrolling globally */
 html {
   scroll-behavior: smooth;

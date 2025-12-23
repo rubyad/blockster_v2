@@ -11,12 +11,21 @@
     <link rel="icon" type="image/png" sizes="32x32" href="https://ik.imagekit.io/blockster/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="https://ik.imagekit.io/blockster/favicon-16x16.png" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <!-- Preconnect to critical origins -->
+    <link rel="preconnect" href="https://ik.imagekit.io" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Google Fonts with display=swap (non-blocking) -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    </noscript>
+    <!-- Swiper is now self-hosted via app.js for better performance -->
     <script>
       // Make Thirdweb client ID available to JavaScript BEFORE app.js loads
       window.THIRDWEB_CLIENT_ID = "a914a4c615baa6291b52524a4446ab90";

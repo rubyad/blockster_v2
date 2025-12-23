@@ -115,7 +115,7 @@
                 <div class="img-wrapper w-full overflow-hidden rounded-t-lg" style="padding-bottom: 133%; position: relative;">
                   <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                     <%= if post.featured_image do %>
-                      <img alt={post.title} src={ImageKit.w600_h800(post.featured_image)} class="w-full h-full object-cover" />
+                      <img alt={post.title} src={ImageKit.w600_h800(post.featured_image)} class="w-full h-full object-cover" fetchpriority="high" />
                     <% else %>
                       <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">

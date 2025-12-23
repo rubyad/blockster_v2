@@ -201,7 +201,7 @@ defmodule BlocksterV2Web.ProductLive.Form do
   end
 
   @impl true
-  def handle_event("update_variant_price", %{"price" => price}, socket) do
+  def handle_event("update_variant_price", %{"value" => price}, socket) do
     # Update all variants with the new price
     new_variants = generate_variants_from_selections(
       socket.assigns.selected_sizes,
@@ -487,7 +487,7 @@ defmodule BlocksterV2Web.ProductLive.Form do
           }
         end
 
-      # Nothing selected
+      # Nothing selected - no variants
       true ->
         []
     end
@@ -678,9 +678,10 @@ defmodule BlocksterV2Web.ProductLive.Form do
                 type="number"
                 step="0.01"
                 min="0"
+                name="variant_price"
                 value={@variant_price}
-                phx-blur="update_variant_price"
-                phx-value-price={@variant_price}
+                phx-keyup="update_variant_price"
+                phx-debounce="100"
                 placeholder="0.00"
                 class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
               />

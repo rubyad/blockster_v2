@@ -196,7 +196,7 @@ defmodule BlocksterV2Web.ShopLive.Show do
       tags: db_product.tags || [],
       description: db_product.body_html || "Premium product from the Blockster shop.",
       features: [],
-      sizes: if(Enum.empty?(sizes), do: ["S", "M", "L", "XL", "XXL"], else: sizes),
+      sizes: sizes,
       colors: colors,
       artist: db_product.artist,
       collection_name: db_product.collection_name,

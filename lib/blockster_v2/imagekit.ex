@@ -97,6 +97,12 @@ defmodule BlocksterV2.ImageKit do
   @doc "Landscape 640x360 - 16:9 card thumbnails"
   def w640_h360(url), do: url(url, width: 640, height: 360)
 
+  @doc "Square 800x800 - large product images"
+  def w800_h800(url), do: url(url, width: 800, height: 800)
+
+  @doc "Square 128x128 - small thumbnails"
+  def w128_h128(url), do: url(url, width: 128, height: 128)
+
   # Extract the filename from an S3 URL
   # S3 URLs look like: https://bucket.s3.region.amazonaws.com/uploads/timestamp-random.ext
   # We want just the filename: timestamp-random.ext
@@ -134,8 +140,8 @@ defmodule BlocksterV2.ImageKit do
       []
       |> maybe_add_transform(opts[:width], "w")
       |> maybe_add_transform(opts[:height], "h")
-      |> maybe_add_transform(opts[:quality], "q")
-      |> maybe_add_transform(opts[:format], "f")
+      |> maybe_add_transform(opts[:quality] || 90, "q")
+      |> maybe_add_transform(opts[:format] || "auto", "f")
 
     Enum.join(transforms, ",")
   end
