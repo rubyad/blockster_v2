@@ -222,7 +222,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                         phx-click="toggle_prediction"
                         phx-value-index={i}
                         class={"w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
-                          :heads -> "bg-[#f59e0b] text-white"
+                          :heads -> "bg-coin-heads text-white"
                           :tails -> "bg-gray-700 text-white"
                           _ -> "bg-gray-200 text-gray-500 hover:bg-gray-300"
                         end}"}
@@ -265,7 +265,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
                       <div class="text-center">
                         <!-- Prediction -->
-                        <div class={"w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-[#f59e0b] text-white", else: "bg-gray-700 text-white"}"}>
+                        <div class={"w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads text-white", else: "bg-gray-700 text-white"}"}>
                           <%= if Enum.at(@predictions, i - 1) == :heads, do: "H", else: "T" %>
                         </div>
                         <!-- Result indicator -->
@@ -313,7 +313,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <p class="text-gray-600 mb-3 text-sm">Flip #<%= @current_flip %></p>
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
                       <div class={"coin w-full h-full absolute #{if Enum.at(@results, @current_flip - 1) == :heads, do: "animate-flip-heads", else: "animate-flip-tails"}"}>
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-[#f59e0b] flex items-center justify-center backface-hidden">
+                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-coin-heads flex items-center justify-center backface-hidden">
                           <span class="text-3xl font-bold text-white">H</span>
                         </div>
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full bg-gray-700 flex items-center justify-center backface-hidden rotate-y-180">
@@ -331,7 +331,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
                       <!-- Static coin showing the result -->
                       <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if Enum.at(@results, @current_flip - 1) == :heads, do: "0deg", else: "180deg"})"}>
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-[#f59e0b] flex items-center justify-center backface-hidden">
+                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-coin-heads flex items-center justify-center backface-hidden">
                           <span class="text-3xl font-bold text-white">H</span>
                         </div>
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full bg-gray-700 flex items-center justify-center backface-hidden rotate-y-180">

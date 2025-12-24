@@ -818,3 +818,8 @@ html {
 .animate-pulse-once {
   animation: bux-earned 0.6s ease-out;
 }
+
+/* BUX Booster coin colors */
+.bg-coin-heads {
+  background-color: #f59e0b;
+}
