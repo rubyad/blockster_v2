@@ -78,6 +78,7 @@ defmodule BlocksterV2Web.Router do
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/", PostLive.Index, :index
       live "/login", LoginLive, :index
+      live "/play", BuxBoosterLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/events", EventLive.Index, :index
       live "/event/:slug", EventLive.Show, :show

@@ -1,5 +1,5 @@
-<div class="profile-main bg-bg-light">
-  <section class="lg:mt-10 lg:mb-40">
+<div class="profile-main bg-bg-light pt-28">
+  <section class="lg:mb-40">
     <div class="container mx-auto">
       <div class="w-full max-w-4xl mx-auto">
         <!-- Profile Header Card -->
@@ -19,12 +19,6 @@
                     <img src="/images/avatar.png" alt="Avatar" class="w-full h-full object-cover" />
                   <% end %>
                 </div>
-                <!-- Level Badge -->
-                <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                  <span class="flex h-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#8AE388] to-[#BAF55F] px-3 text-black text-sm font-work_sans font-bold shadow-md">
-                    Level {@member.level}
-                  </span>
-                </div>
               </div>
 
               <!-- Name and Username -->
@@ -32,9 +26,34 @@
                 <h1 class="text-3xl font-haas_bold_75 text-gray-900">
                   <%= @member.username || "User" %>
                 </h1>
-                <p class="text-sm text-gray-500 mt-1">
-                  Member since <%= Calendar.strftime(@member.inserted_at, "%B %Y") %>
-                </p>
+                <%= if @member.smart_wallet_address do %>
+                  <div class="flex items-center gap-2 mt-1">
+                    <a
+                      href={"https://roguescan.io/address/#{@member.smart_wallet_address}?tab=token_transfers"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-sm text-gray-500 hover:text-blue-500 cursor-pointer"
+                    >
+                      <%= @member.smart_wallet_address %>
+                    </a>
+                    <button
+                      type="button"
+                      id={"copy-wallet-#{@member.id}"}
+                      phx-hook="CopyToClipboard"
+                      data-copy-text={@member.smart_wallet_address}
+                      class="text-gray-400 hover:text-gray-600 cursor-pointer"
+                      title="Copy address"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 mt-1">
+                    Member since <%= Calendar.strftime(@member.inserted_at, "%B %Y") %>
+                  </p>
+                <% end %>
               </div>
             </div>
           </div>
@@ -49,7 +68,7 @@
               phx-click="toggle_token_dropdown"
             >
               <div class="flex items-center justify-between mb-2">
-                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balance</h3>
+                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase">BUX Balances</h3>
                 <div class="flex items-center gap-2">
                   <.lightning_icon id="member_bux" size="24" />
                   <svg
@@ -92,12 +111,17 @@
                     </div>
                   <% end %>
                 </div>
-                <div class="p-3 bg-gray-50 border-t border-gray-200">
+                <a
+                  href={"https://roguescan.io/address/#{@member.smart_wallet_address}?tab=tokens"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block p-3 bg-gray-50 border-t border-gray-200 hover:bg-gray-100 cursor-pointer"
+                >
                   <div class="flex items-center justify-between">
-                    <span class="text-sm font-haas_bold_75 text-gray-700">Total</span>
+                    <span class="text-sm font-haas_bold_75 text-gray-700">Total BUX</span>
                     <span class="text-sm font-haas_bold_75 text-gray-900"><%= Number.Currency.number_to_currency(@bux_balance || 0, unit: "", precision: 2) %></span>
                   </div>
-                </div>
+                </a>
               </div>
             <% end %>
           </div>
@@ -788,7 +812,7 @@
                     <%= for activity <- @activities do %>
                       <tr class="font-haas_roman_55 leading-[1.4]">
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap font-haas_medium_65 text-[#141414] text-sm w-1/3 text-left">
-                          <%= Calendar.strftime(activity.timestamp, "%H:%M:%S %Y-%m-%d") %>
+                          <%= Calendar.strftime(activity.timestamp, "%b %d, %Y") %>
                         </td>
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap text-sm font-haas_medium_65 text-[#4E84DA] w-1/3 text-center">
                           <%= cond do %>
@@ -805,12 +829,18 @@
                           <% end %>
                         </td>
                         <td class="md:px-8 px-4 py-5 whitespace-nowrap font-haas_medium_65 text-sm w-1/3 text-right">
+                          <% token_name = activity[:token] || "BUX" %>
+                          <% token_logo = @token_logos[token_name] || "https://ik.imagekit.io/blockster/blockster-icon.png" %>
                           <%= if activity[:tx_id] do %>
-                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="text-[#4E84DA] hover:underline hover:text-[#3a6ab8]">
-                              +<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= activity[:token] || "BUX" %>
+                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[#4E84DA] hover:underline hover:text-[#3a6ab8]">
+                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full" />
+                              <%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %>
                             </a>
                           <% else %>
-                            <span class="text-[#4EDA55]">+<%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= activity[:token] || "BUX" %></span>
+                            <span class="inline-flex items-center gap-1.5 text-[#4EDA55]">
+                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full" />
+                              <%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %>
+                            </span>
                           <% end %>
                         </td>
                       </tr>

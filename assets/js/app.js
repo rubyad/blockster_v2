@@ -44,6 +44,7 @@ import { TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag } fro
 import { ProductImageUpload } from "./product_image_upload.js";
 import { ProductDescriptionEditor } from "./product_description_editor.js";
 import { ArtistImageUpload } from "./artist_image_upload.js";
+import { CoinFlip } from "./coin_flip.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -261,7 +262,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, TokenAllocationDropdown, ProductDescriptionEditor, ArtistImageUpload },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, TokenAllocationDropdown, ProductDescriptionEditor, ArtistImageUpload, CoinFlip },
 });
 
 // connect if there are any LiveViews on the page

@@ -94,6 +94,22 @@ Then use `@token_value_usd` in templates instead of hardcoding values.
 - Batch database operations where possible
 - Use indexes on frequently queried columns
 
+#### Mnesia Best Practices
+- **Always use dirty operations** (`dirty_read`, `dirty_write`, `dirty_delete`, `dirty_index_read`) instead of transactions for performance
+- Dirty operations are faster and sufficient for most use cases in this application
+- **For concurrent updates**: When Mnesia updates can come from multiple users simultaneously (e.g., game stats, counters), route all writes through a dedicated GenServer to serialize operations and prevent inconsistency. This makes dirty operations safe.
+- **After creating new Mnesia tables in code**: You must restart both node1 and node2 for the tables to be created. The MnesiaInitializer only creates tables on application startup.
+- Example:
+  ```elixir
+  # GOOD - use dirty operations
+  :mnesia.dirty_write({:my_table, key, value})
+  :mnesia.dirty_read({:my_table, key})
+  :mnesia.dirty_index_read(:my_table, value, :index_field)
+
+  # AVOID - transactions are slower and rarely needed
+  :mnesia.transaction(fn -> :mnesia.write({:my_table, key, value}) end)
+  ```
+
 #### Caching Pattern with ETS
 ```elixir
 defmodule BlocksterV2.Cache.HubsCache do

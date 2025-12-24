@@ -156,7 +156,7 @@ defmodule BlocksterV2Web.Layouts do
             <.link navigate={~p"/hubs"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Hubs</.link>
             <.link navigate={~p"/shop-landing"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Shop</.link>
             <.link navigate={~p"/events"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Events</.link>
-            <a href="https://roguetrader.io" target="_blank" rel="noopener noreferrer" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Play</a>
+            <.link navigate={~p"/play"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity cursor-pointer">Play</.link>
           </nav>
 
           <!-- Balance/User - Right (flex-1 for equal width with left side) -->
@@ -214,10 +214,15 @@ defmodule BlocksterV2Web.Layouts do
                           </div>
                         <% end %>
                         <!-- Total Aggregate -->
-                        <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2">
-                          <span class="font-semibold">Total</span>
+                        <a
+                          href={"https://roguescan.io/address/#{@current_user.smart_wallet_address}?tab=tokens"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <span class="font-semibold">Total BUX</span>
                           <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
-                        </div>
+                        </a>
                       </div>
                     <% end %>
                     <div class="border-t border-gray-100"></div>
@@ -414,10 +419,15 @@ defmodule BlocksterV2Web.Layouts do
                         </div>
                       <% end %>
                       <!-- Total Aggregate -->
-                      <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2">
-                        <span class="font-semibold">Total</span>
+                      <a
+                        href={"https://roguescan.io/address/#{@current_user.smart_wallet_address}?tab=tokens"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <span class="font-semibold">Total BUX</span>
                         <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
-                      </div>
+                      </a>
                     </div>
                   <% end %>
                   <div class="border-t border-gray-100"></div>

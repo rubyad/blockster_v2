@@ -247,6 +247,47 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at                 # Last update timestamp
       ],
       index: [:tweet_id, :is_active]
+    },
+    # BUX Booster gambling game tables
+    %{
+      name: :bux_booster_games,
+      type: :ordered_set,
+      attributes: [
+        :game_id,                   # Primary key - unique game identifier (UUID or timestamp-based)
+        :user_id,                   # User who played
+        :token_type,                # Token used: "BUX", "moonBUX", "neoBUX", "rogueBUX", "flareBUX", "ROGUE"
+        :bet_amount,                # Amount wagered
+        :difficulty,                # Number of correct predictions needed (1-5)
+        :multiplier,                # Payout multiplier (2, 4, 8, 16, 32)
+        :predictions,               # List of user predictions [:heads, :tails, ...]
+        :results,                   # List of actual results [:heads, :tails, ...]
+        :won,                       # Boolean - did user win
+        :payout,                    # Amount won (0 if lost)
+        :created_at                 # Unix timestamp when game was played
+      ],
+      index: [:user_id, :token_type, :won, :created_at]
+    },
+    %{
+      name: :bux_booster_user_stats,
+      type: :set,
+      attributes: [
+        :key,                       # Primary key - {user_id, token_type} tuple
+        :user_id,                   # User ID
+        :token_type,                # Token type for these stats
+        :total_games,               # Total games played
+        :total_wins,                # Total games won
+        :total_losses,              # Total games lost
+        :total_wagered,             # Total amount wagered
+        :total_won,                 # Total amount won
+        :total_lost,                # Total amount lost (wagered - won when lost)
+        :biggest_win,               # Largest single win
+        :biggest_loss,              # Largest single loss
+        :current_streak,            # Current win/loss streak (positive = wins, negative = losses)
+        :best_streak,               # Best winning streak
+        :worst_streak,              # Worst losing streak
+        :updated_at                 # Last update timestamp
+      ],
+      index: [:user_id, :total_games, :total_won]
     }
   ]
 

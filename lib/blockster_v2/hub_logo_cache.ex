@@ -102,5 +102,8 @@ defmodule BlocksterV2.HubLogoCache do
 
     # Always include BUX with the blockster icon
     :ets.insert(@table_name, {"BUX", "https://ik.imagekit.io/blockster/blockster-icon.png"})
+
+    # Include ROGUE native token
+    :ets.insert(@table_name, {"ROGUE", "https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png"})
   end
 end
