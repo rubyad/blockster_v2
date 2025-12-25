@@ -823,3 +823,40 @@ html {
 .bg-coin-heads {
   background-color: #f59e0b;
 }
+
+/* Casino chip styles */
+.casino-chip-heads {
+  background: conic-gradient(
+    #f59e0b 0deg 30deg,
+    #ffffff 30deg 60deg,
+    #f59e0b 60deg 90deg,
+    #ffffff 90deg 120deg,
+    #f59e0b 120deg 150deg,
+    #ffffff 150deg 180deg,
+    #f59e0b 180deg 210deg,
+    #ffffff 210deg 240deg,
+    #f59e0b 240deg 270deg,
+    #ffffff 270deg 300deg,
+    #f59e0b 300deg 330deg,
+    #ffffff 330deg 360deg
+  );
+  border: 3px solid #d97706;
+}
+
+.casino-chip-tails {
+  background: conic-gradient(
+    #374151 0deg 30deg,
+    #ffffff 30deg 60deg,
+    #374151 60deg 90deg,
+    #ffffff 90deg 120deg,
+    #374151 120deg 150deg,
+    #ffffff 150deg 180deg,
+    #374151 180deg 210deg,
+    #ffffff 210deg 240deg,
+    #374151 240deg 270deg,
+    #ffffff 270deg 300deg,
+    #374151 300deg 330deg,
+    #ffffff 330deg 360deg
+  );
+  border: 3px solid #1f2937;
+}

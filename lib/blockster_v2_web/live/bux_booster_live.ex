@@ -207,7 +207,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               <% end %>
 
               <!-- Prediction Selection Grid -->
-              <div class="mb-4">
+              <div class="flex-1 flex flex-col">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   <%= if get_mode(@selected_difficulty) == :win_one do %>
                     Make your predictions (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
@@ -215,36 +215,44 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     Make your predictions (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
                   <% end %>
                 </label>
+                <div class="flex-1 flex items-center justify-center">
                   <div class="flex gap-2 justify-center">
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
                       <button
                         type="button"
                         phx-click="toggle_prediction"
                         phx-value-index={i}
-                        class={"w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
-                          :heads -> "bg-coin-heads text-white"
-                          :tails -> "bg-gray-700 text-white"
+                        class={"w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
+                          :heads -> "casino-chip-heads"
+                          :tails -> "casino-chip-tails"
                           _ -> "bg-gray-200 text-gray-500 hover:bg-gray-300"
                         end}"}
                       >
                           <%= case Enum.at(@predictions, i - 1) do %>
-                          <% :heads -> %>H
-                          <% :tails -> %>T
+                          <% :heads -> %>
+                            <div class="w-10 h-10 rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner">
+                              <span class="text-2xl">🚀</span>
+                            </div>
+                          <% :tails -> %>
+                            <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner">
+                              <span class="text-2xl">💩</span>
+                            </div>
                           <% _ -> %><%= i %>
                         <% end %>
                       </button>
                     <% end %>
                   </div>
-                  <p class="text-center text-gray-500 text-xs mt-2">Click to toggle: H = Heads, T = Tails</p>
+                </div>
               </div>
 
               <!-- Start Game Button -->
-              <button
-                type="button"
-                phx-click="start_game"
-                disabled={length(@predictions) != get_predictions_needed(@selected_difficulty)}
-                class="w-full py-4 bg-black text-white font-bold text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <div class="mt-4">
+                <button
+                  type="button"
+                  phx-click="start_game"
+                  disabled={length(@predictions) != get_predictions_needed(@selected_difficulty)}
+                  class="w-full py-4 bg-black text-white font-bold text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                 <%= if length(@predictions) == get_predictions_needed(@selected_difficulty) do %>
                   Place Bet
                 <% else %>
@@ -254,42 +262,43 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     Select all <%= get_predictions_needed(@selected_difficulty) %> predictions
                   <% end %>
                 <% end %>
-              </button>
+                </button>
+              </div>
 
             <% else %>
               <!-- Game in Progress -->
               <div class="text-center flex-1 flex flex-col">
                 <!-- Prediction vs Result Display -->
-                <div class="mb-6">
-                  <div class="flex justify-center gap-3 mb-2">
+                <div class="mb-4">
+                  <div class="flex justify-center gap-2 mb-2">
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
                       <div class="text-center">
                         <!-- Prediction -->
-                        <div class={"w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads text-white", else: "bg-gray-700 text-white"}"}>
-                          <%= if Enum.at(@predictions, i - 1) == :heads, do: "H", else: "T" %>
+                        <div class={"w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
+                          <div class={"w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                            <span class="text-3xl"><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
+                          </div>
                         </div>
                         <!-- Result indicator -->
-                        <div class={"w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold #{cond do
-                          @game_state == :result and i <= @current_flip and Enum.at(@results, i - 1) != nil ->
-                            if Enum.at(@results, i - 1) == Enum.at(@predictions, i - 1), do: "bg-green-500 text-white", else: "bg-red-500 text-white"
-                          i < @current_flip or (i == @current_flip and @game_state == :showing_result) ->
-                            if Enum.at(@results, i - 1) == Enum.at(@predictions, i - 1), do: "bg-green-500 text-white", else: "bg-red-500 text-white"
-                          i == @current_flip and @game_state == :flipping ->
-                            "bg-purple-500 text-white animate-pulse"
-                          true ->
-                            "bg-gray-100 text-gray-400"
-                        end}"}>
-                          <%= cond do %>
-                            <% @game_state == :result and i <= @current_flip and Enum.at(@results, i - 1) != nil -> %>
-                              <%= if Enum.at(@results, i - 1) == :heads, do: "H", else: "T" %>
-                            <% i < @current_flip or (i == @current_flip and @game_state == :showing_result) -> %>
-                              <%= if Enum.at(@results, i - 1) == :heads, do: "H", else: "T" %>
-                            <% i == @current_flip and @game_state == :flipping -> %>
-                              ?
-                            <% true -> %>
-                              -
-                          <% end %>
-                        </div>
+                        <%= cond do %>
+                          <% (@game_state == :result and i <= @current_flip and Enum.at(@results, i - 1) != nil) or
+                             (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) -> %>
+                            <% result = Enum.at(@results, i - 1) %>
+                            <% matched = result == Enum.at(@predictions, i - 1) %>
+                            <div class={"w-20 h-20 mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
+                              <div class={"w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                                <span class="text-3xl"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                              </div>
+                            </div>
+                          <% i == @current_flip and @game_state == :flipping -> %>
+                            <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse">
+                              <span class="text-white text-3xl font-bold">?</span>
+                            </div>
+                          <% true -> %>
+                            <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center bg-gray-100">
+                              <span class="text-gray-400 text-xl">-</span>
+                            </div>
+                        <% end %>
                       </div>
                     <% end %>
                   </div>
@@ -310,14 +319,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <%= if @game_state == :flipping do %>
                   <!-- Coin Flip Animation -->
                   <div class="mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)}>
-                    <p class="text-gray-600 mb-3 text-sm">Flip #<%= @current_flip %></p>
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
                       <div class={"coin w-full h-full absolute #{if Enum.at(@results, @current_flip - 1) == :heads, do: "animate-flip-heads", else: "animate-flip-tails"}"}>
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-coin-heads flex items-center justify-center backface-hidden">
-                          <span class="text-3xl font-bold text-white">H</span>
+                        <!-- Heads chip -->
+                        <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
+                          <div class="w-16 h-16 rounded-full bg-coin-heads flex items-center justify-center border-4 border-white shadow-inner">
+                            <span class="text-4xl">🚀</span>
+                          </div>
                         </div>
-                        <div class="coin-face coin-tails absolute w-full h-full rounded-full bg-gray-700 flex items-center justify-center backface-hidden rotate-y-180">
-                          <span class="text-3xl font-bold text-white">T</span>
+                        <!-- Tails chip -->
+                        <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
+                          <div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center border-4 border-white shadow-inner">
+                            <span class="text-4xl">💩</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -327,15 +341,20 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <%= if @game_state == :showing_result do %>
                   <!-- Show coin result for 1 second -->
                   <div class="mb-6">
-                    <p class="text-gray-600 mb-3 text-sm">Flip #<%= @current_flip %></p>
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
                       <!-- Static coin showing the result -->
                       <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if Enum.at(@results, @current_flip - 1) == :heads, do: "0deg", else: "180deg"})"}>
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full bg-coin-heads flex items-center justify-center backface-hidden">
-                          <span class="text-3xl font-bold text-white">H</span>
+                        <!-- Heads chip -->
+                        <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
+                          <div class="w-16 h-16 rounded-full bg-coin-heads flex items-center justify-center border-4 border-white shadow-inner">
+                            <span class="text-4xl">🚀</span>
+                          </div>
                         </div>
-                        <div class="coin-face coin-tails absolute w-full h-full rounded-full bg-gray-700 flex items-center justify-center backface-hidden rotate-y-180">
-                          <span class="text-3xl font-bold text-white">T</span>
+                        <!-- Tails chip -->
+                        <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
+                          <div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center border-4 border-white shadow-inner">
+                            <span class="text-4xl">💩</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -353,9 +372,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <div class="confetti-fullpage fixed inset-0 pointer-events-none z-50 overflow-hidden">
                       <%= for piece <- @confetti_pieces do %>
                         <div
-                          class={"confetti-piece confetti-color-#{piece.color} confetti-shape-#{piece.shape}"}
-                          style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}
-                        ></div>
+                          class="confetti-emoji"
+                          style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --x-drift: #{piece.x_drift}vw; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}
+                        ><%= piece.emoji %></div>
                       <% end %>
                     </div>
                   <% end %>
@@ -363,15 +382,18 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   <!-- Final Result Display -->
                   <div class="mb-6 relative">
                     <%= if @won do %>
-                      <!-- Win content with scale-in and shake animation -->
-                      <div class="win-celebration win-shake">
-                        <div class="mb-3 animate-bounce" style="font-size: 80px; line-height: 1;">🎉</div>
-                        <h2 class="text-3xl font-bold text-green-600 mb-2 animate-pulse">YOU WON!</h2>
-                        <p class="text-2xl text-gray-900 flex items-center justify-center gap-2">
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-6 h-6 rounded-full" />
-                          <span class="text-green-600 font-bold"><%= format_balance(@payout) %></span>
-                          <span><%= @selected_token %></span>
-                        </p>
+                      <!-- Win content with scale-in and shake animation - emoji on side -->
+                      <div class="win-celebration win-shake flex items-center justify-center gap-4">
+                        <div class="animate-bounce" style="font-size: 50px; line-height: 1;">🎉</div>
+                        <div class="text-center">
+                          <h2 class="text-3xl font-bold text-green-600 mb-1 animate-pulse">YOU WON!</h2>
+                          <p class="text-2xl text-gray-900 flex items-center justify-center gap-2">
+                            <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-6 h-6 rounded-full" />
+                            <span class="text-green-600 font-bold"><%= format_balance(@payout) %></span>
+                            <span><%= @selected_token %></span>
+                          </p>
+                        </div>
+                        <div class="animate-bounce" style="font-size: 50px; line-height: 1;">🎉</div>
                       </div>
                     <% else %>
                       <!-- Loss content -->
@@ -488,35 +510,20 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         transform-style: preserve-3d;
       }
 
-      /* Full-page confetti burst animation */
+      /* Full-page emoji confetti burst animation */
       .confetti-fullpage {
         perspective: 1000px;
       }
-      .confetti-piece {
+      .confetti-emoji {
         position: absolute;
-        width: 12px;
-        height: 12px;
+        font-size: 24px;
         left: var(--x-start);
         bottom: 40%;
         animation: confetti-burst var(--duration, 3s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         animation-delay: var(--delay, 0ms);
         opacity: 0;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       }
-
-      /* Confetti colors - vibrant party colors */
-      .confetti-color-1 { background: #ff3e3e; }
-      .confetti-color-2 { background: #ff9500; }
-      .confetti-color-3 { background: #ffeb00; }
-      .confetti-color-4 { background: #00e676; }
-      .confetti-color-5 { background: #00bcd4; }
-      .confetti-color-6 { background: #3d5afe; }
-      .confetti-color-7 { background: #d500f9; }
-      .confetti-color-8 { background: #ff4081; }
-
-      /* Confetti shapes */
-      .confetti-shape-1 { border-radius: 50%; }
-      .confetti-shape-2 { border-radius: 2px; width: 8px; height: 14px; }
-      .confetti-shape-3 { border-radius: 2px; width: 14px; height: 8px; }
 
       @keyframes confetti-burst {
         0% {
@@ -524,15 +531,14 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           transform: translateY(0) translateX(0) rotate(0deg) scale(0.5);
         }
         15% {
-          /* Burst upward */
+          /* Peak of burst - already spread out */
           opacity: 1;
-          transform: translateY(-50vh) translateX(calc((var(--x-end) - var(--x-start)) * 0.3)) rotate(calc(var(--rotation) * 0.3)) scale(1);
+          transform: translateY(-50vh) translateX(var(--x-drift)) rotate(calc(var(--rotation) * 0.4)) scale(1.2);
         }
         100% {
-          /* Fall down to bottom */
-          opacity: 0;
-          left: var(--x-end);
-          transform: translateY(60vh) translateX(calc(var(--x-end) - var(--x-start))) rotate(var(--rotation)) scale(0.8);
+          /* Fall straight down from spread position - stay solid */
+          opacity: 1;
+          transform: translateY(60vh) translateX(var(--x-drift)) rotate(var(--rotation)) scale(0.8);
         }
       }
 
@@ -1114,17 +1120,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     :exit, _ -> []
   end
 
+  @confetti_emojis ["❤️", "🧡", "💛", "💚", "💙", "💜", "🩷", "⭐", "🌟", "✨", "⚡", "🌈", "🍀", "💎", "🎉", "🎊", "💫", "🔥", "💖", "💝"]
+
   defp generate_confetti_data(count) do
     Enum.map(1..count, fn i ->
       %{
         id: i,
-        x_start: 45 + :rand.uniform(10),
+        x_start: 40 + :rand.uniform(20),
         x_end: :rand.uniform(100),
-        rotation: :rand.uniform(1080),
+        x_drift: :rand.uniform(60) - 30,
+        rotation: :rand.uniform(720) - 360,
         delay: rem(i * 23, 400),
-        duration: 2500 + :rand.uniform(1500),
-        color: rem(i, 8) + 1,
-        shape: rem(i, 3) + 1
+        duration: 4000 + :rand.uniform(2000),
+        emoji: Enum.at(@confetti_emojis, rem(i + :rand.uniform(20), length(@confetti_emojis)))
       }
     end)
   end
