@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.HubLogoCache
+  alias BlocksterV2.ProvablyFair
 
   # Difficulty levels with true odds payouts (zero house edge)
   # mode: :win_all = must win all flips (harder, higher payout)
@@ -41,6 +42,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
       tokens = ["ROGUE" | other_tokens]
 
+      # Generate initial server seed for provably fair system
+      server_seed = ProvablyFair.generate_server_seed()
+      server_seed_hash = ProvablyFair.generate_commitment(server_seed)
+      nonce = get_user_nonce(current_user.id)
+
       socket =
         socket
         |> assign(page_title: "BUX Booster")
@@ -61,10 +67,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(payout: 0)
         |> assign(error_message: nil)
         |> assign(show_token_dropdown: false)
+        |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
         |> assign(confetti_pieces: [])
         |> assign(recent_games: load_recent_games(current_user.id))
         |> assign(user_stats: load_user_stats(current_user.id))
+        # Provably fair assigns
+        |> assign(server_seed: server_seed)
+        |> assign(server_seed_hash: server_seed_hash)
+        |> assign(nonce: nonce)
+        |> assign(show_fairness_modal: false)
+        |> assign(fairness_game: nil)
 
       {:ok, socket}
     else
@@ -208,13 +221,59 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
               <!-- Prediction Selection Grid -->
               <div class="flex-1 flex flex-col">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  <%= if get_mode(@selected_difficulty) == :win_one do %>
-                    Make your predictions (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
-                  <% else %>
-                    Make your predictions (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
-                  <% end %>
-                </label>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-medium text-gray-700">
+                    <%= if get_mode(@selected_difficulty) == :win_one do %>
+                      Make your predictions (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
+                    <% else %>
+                      Make your predictions (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
+                    <% end %>
+                  </label>
+                  <!-- Provably Fair -->
+                  <div class="relative">
+                    <button
+                      type="button"
+                      phx-click="toggle_provably_fair"
+                      class="text-xs text-gray-500 cursor-pointer hover:text-gray-700 flex items-center gap-1"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Provably Fair
+                    </button>
+                    <%= if @show_provably_fair do %>
+                      <div
+                        phx-click-away="close_provably_fair"
+                        class="absolute right-0 top-full mt-1 z-50 w-80 bg-white rounded-lg p-3 border border-gray-200 shadow-lg text-left overflow-hidden"
+                      >
+                        <p class="text-xs text-gray-600 mb-2">
+                          This hash commits the server to a result BEFORE you place your bet.
+                          After the game, you can verify the result was fair.
+                        </p>
+                        <div class="flex items-start gap-2 overflow-hidden">
+                          <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
+                            <%= @server_seed_hash %>
+                          </code>
+                          <button
+                            type="button"
+                            id="copy-server-hash"
+                            phx-hook="CopyToClipboard"
+                            data-copy-text={@server_seed_hash}
+                            class="shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition-colors"
+                            title="Copy hash"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">
+                          Game #<%= @nonce %>
+                        </p>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
                 <div class="flex-1 flex items-center justify-center">
                   <div class="flex gap-2 justify-center">
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
@@ -407,14 +466,24 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <% end %>
                   </div>
 
-                  <!-- Play Again Button -->
-                  <div class="mt-auto">
+                  <!-- Play Again & Verify Buttons -->
+                  <div class="mt-auto flex flex-col items-center gap-2">
                     <button
                       type="button"
                       phx-click="reset_game"
                       class="px-8 py-3 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in"
                     >
                       Play Again
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="show_fairness_modal"
+                      class="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Verify Fairness
                     </button>
                   </div>
                 <% end %>
@@ -480,6 +549,191 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         </div>
       </div>
     </div>
+
+    <!-- Fairness Verification Modal -->
+    <%= if @show_fairness_modal and @fairness_game do %>
+      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" phx-click="hide_fairness_modal">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl" phx-click="stop_propagation">
+          <!-- Header -->
+          <div class="p-4 border-b flex items-center justify-between bg-gray-50 rounded-t-2xl">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <h2 class="text-lg font-bold text-gray-900">Provably Fair Verification</h2>
+            </div>
+            <button type="button" phx-click="hide_fairness_modal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="p-4 space-y-4">
+            <!-- Bet Details -->
+            <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <p class="text-sm font-medium text-blue-800 mb-2">Your Bet Details</p>
+              <p class="text-xs text-blue-600 mb-2">These player-controlled values derive your client seed:</p>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="text-blue-600">User ID:</div>
+                <div class="font-mono text-xs"><%= @fairness_game.user_id %></div>
+                <div class="text-blue-600">Bet Amount:</div>
+                <div><%= @fairness_game.bet_amount %></div>
+                <div class="text-blue-600">Token:</div>
+                <div><%= @fairness_game.token %></div>
+                <div class="text-blue-600">Difficulty:</div>
+                <div><%= @fairness_game.difficulty %></div>
+                <div class="text-blue-600">Predictions:</div>
+                <div><%= @fairness_game.predictions_str %></div>
+              </div>
+            </div>
+
+            <!-- Nonce -->
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Game Nonce:</span>
+                <span class="font-mono text-sm"><%= @fairness_game.nonce %></span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                Ensures unique results even for identical bets
+              </p>
+            </div>
+
+            <!-- Seeds -->
+            <div class="space-y-3">
+              <div>
+                <label class="text-sm font-medium text-gray-700">Server Seed (revealed)</label>
+                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                  <%= @fairness_game.server_seed %>
+                </code>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-gray-700">Server Commitment (shown before bet)</label>
+                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                  <%= @fairness_game.server_seed_hash %>
+                </code>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-gray-700">Client Seed (derived from bet details)</label>
+                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                  <%= @fairness_game.client_seed %>
+                </code>
+                <p class="text-xs text-gray-500 mt-1">
+                  = SHA256("<%= @fairness_game.client_seed_input %>")
+                </p>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-gray-700">Combined Seed</label>
+                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                  <%= @fairness_game.combined_seed %>
+                </code>
+                <p class="text-xs text-gray-500 mt-1">
+                  = SHA256(server_seed + ":" + client_seed + ":" + nonce)
+                </p>
+              </div>
+            </div>
+
+            <!-- Verification Steps -->
+            <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+              <p class="text-sm font-medium text-green-800 mb-2">Verification Steps</p>
+              <ol class="text-sm text-green-700 space-y-1 list-decimal ml-4">
+                <li>SHA256(server_seed) = commitment</li>
+                <li>client_seed = SHA256(bet_details)</li>
+                <li>combined_seed = SHA256(server_seed:client_seed:nonce)</li>
+                <li>Results derived from combined seed bytes</li>
+              </ol>
+            </div>
+
+            <!-- Flip Results Breakdown -->
+            <div>
+              <p class="text-sm font-medium text-gray-700 mb-2">Flip Results</p>
+              <div class="space-y-2">
+                <%= for {result, i} <- Enum.with_index(@fairness_game.results) do %>
+                  <div class="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                    <span>Flip <%= i + 1 %>:</span>
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono text-xs">byte[<%= i %>] = <%= Enum.at(@fairness_game.bytes, i) %></span>
+                      <span class={if Enum.at(@fairness_game.bytes, i) < 128, do: "text-amber-600", else: "text-gray-600"}>
+                        <%= if result == :heads, do: "🚀 Heads", else: "💩 Tails" %>
+                      </span>
+                      <span class="text-xs text-gray-400">
+                        (<%= if Enum.at(@fairness_game.bytes, i) < 128, do: "< 128", else: ">= 128" %>)
+                      </span>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <!-- External Verification -->
+            <div class="border-t pt-4">
+              <p class="text-sm font-medium text-gray-700 mb-2">Verify Externally</p>
+              <p class="text-xs text-gray-500 mb-3">
+                Click each link to verify using an online SHA256 calculator:
+              </p>
+              <div class="space-y-3">
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <p class="text-xs text-gray-600 mb-1">1. Verify server commitment</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+                    SHA256(server_seed) → Click to verify
+                  </a>
+                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.server_seed_hash %></p>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <p class="text-xs text-gray-600 mb-1">2. Derive client seed from bet details</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.client_seed_input}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+                    SHA256(bet_details) → Click to verify
+                  </a>
+                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.client_seed %></p>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <p class="text-xs text-gray-600 mb-1">3. Generate combined seed</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}:#{@fairness_game.client_seed}:#{@fairness_game.nonce}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+                    SHA256(server:client:nonce) → Click to verify
+                  </a>
+                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.combined_seed %></p>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <p class="text-xs text-gray-600 mb-1">4. Convert hex to bytes for flip results</p>
+                  <p class="text-xs text-gray-500 mb-2">
+                    Each pair of hex chars = 1 byte. First <%= length(@fairness_game.results) %> bytes determine flips:
+                  </p>
+                  <div class="bg-white rounded p-2 border">
+                    <%= for {byte, i} <- Enum.with_index(@fairness_game.bytes) do %>
+                      <div class={"flex items-center justify-between text-xs py-1 #{if i > 0, do: "border-t border-gray-100"}"}>
+                        <span class="font-mono text-gray-500">
+                          byte[<%= i %>] = 0x<%= String.slice(@fairness_game.combined_seed, i * 2, 2) %> = <%= byte %>
+                        </span>
+                        <span class={if byte < 128, do: "text-amber-600", else: "text-gray-600"}>
+                          <%= if byte < 128, do: "< 128 → Heads", else: ">= 128 → Tails" %>
+                        </span>
+                      </div>
+                    <% end %>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-2">
+                    Verify: <a href="https://www.rapidtables.com/convert/number/hex-to-decimal.html" target="_blank" class="text-blue-500 hover:underline cursor-pointer">Hex to Decimal converter</a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="p-4 border-t bg-gray-50 rounded-b-2xl">
+            <button type="button" phx-click="hide_fairness_modal" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
 
     <style>
       .perspective-1000 {
@@ -607,6 +861,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   end
 
   @impl true
+  def handle_event("toggle_provably_fair", _params, socket) do
+    {:noreply, assign(socket, show_provably_fair: !socket.assigns.show_provably_fair)}
+  end
+
+  @impl true
+  def handle_event("close_provably_fair", _params, socket) do
+    {:noreply, assign(socket, show_provably_fair: false)}
+  end
+
+  @impl true
   def handle_event("select_difficulty", %{"level" => level}, socket) do
     new_level = String.to_integer(level)
     predictions_needed = get_predictions_needed(new_level)
@@ -726,8 +990,22 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
 
       true ->
-        # Generate all results upfront
-        results = Enum.map(1..predictions_needed, fn _ -> Enum.random([:heads, :tails]) end)
+        # Generate client seed DETERMINISTICALLY from player's bet choices
+        client_seed = ProvablyFair.generate_client_seed(
+          socket.assigns.current_user.id,
+          bet_amount,
+          socket.assigns.selected_token,
+          socket.assigns.selected_difficulty,
+          predictions
+        )
+
+        # Generate results using provably fair method
+        combined_seed = ProvablyFair.generate_combined_seed(
+          socket.assigns.server_seed,
+          client_seed,
+          socket.assigns.nonce
+        )
+        results = ProvablyFair.generate_results(combined_seed, predictions_needed)
 
         # Start the sequential flip process with flip_id starting at 1
         # current_bet tracks the doubling bet for win_all mode (4x, 8x, 16x, 32x)
@@ -764,6 +1042,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     recent_games = load_recent_games(socket.assigns.current_user.id)
     predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
 
+    # Generate fresh server seed for next game
+    server_seed = ProvablyFair.generate_server_seed()
+    server_seed_hash = ProvablyFair.generate_commitment(server_seed)
+    new_nonce = socket.assigns.nonce + 1
+
     {:noreply,
      socket
      |> assign(game_state: :idle)
@@ -774,7 +1057,85 @@ defmodule BlocksterV2Web.BuxBoosterLive do
      |> assign(payout: 0)
      |> assign(balances: balances)
      |> assign(user_stats: user_stats)
-     |> assign(recent_games: recent_games)}
+     |> assign(recent_games: recent_games)
+     |> assign(server_seed: server_seed)
+     |> assign(server_seed_hash: server_seed_hash)
+     |> assign(nonce: new_nonce)
+     |> assign(confetti_pieces: [])
+     |> assign(show_fairness_modal: false)
+     |> assign(fairness_game: nil)}
+  end
+
+  @impl true
+  def handle_event("show_fairness_modal", _params, socket) do
+    # Build the bet details string (same format used for hashing)
+    predictions_str =
+      socket.assigns.predictions
+      |> Enum.map(&Atom.to_string/1)
+      |> Enum.join(",")
+
+    client_seed_input = ProvablyFair.build_client_seed_input(
+      socket.assigns.current_user.id,
+      socket.assigns.bet_amount,
+      socket.assigns.selected_token,
+      socket.assigns.selected_difficulty,
+      socket.assigns.predictions
+    )
+
+    # Derive client seed from bet details
+    client_seed = ProvablyFair.generate_client_seed(
+      socket.assigns.current_user.id,
+      socket.assigns.bet_amount,
+      socket.assigns.selected_token,
+      socket.assigns.selected_difficulty,
+      socket.assigns.predictions
+    )
+
+    # Build fairness game data for current game
+    combined_seed = ProvablyFair.generate_combined_seed(
+      socket.assigns.server_seed,
+      client_seed,
+      socket.assigns.nonce
+    )
+
+    bytes = ProvablyFair.get_result_bytes(combined_seed, length(socket.assigns.results))
+
+    fairness_game = %{
+      game_id: "#{socket.assigns.current_user.id}_#{socket.assigns.nonce}",
+      # Bet details (player-controlled only)
+      user_id: socket.assigns.current_user.id,
+      bet_amount: socket.assigns.bet_amount,
+      token: socket.assigns.selected_token,
+      difficulty: socket.assigns.selected_difficulty,
+      predictions_str: predictions_str,
+      nonce: socket.assigns.nonce,
+      # Seeds
+      server_seed: socket.assigns.server_seed,
+      server_seed_hash: socket.assigns.server_seed_hash,
+      client_seed_input: client_seed_input,
+      client_seed: client_seed,
+      combined_seed: combined_seed,
+      # Results
+      results: socket.assigns.results,
+      bytes: bytes,
+      won: socket.assigns.won
+    }
+
+    {:noreply,
+     socket
+     |> assign(show_fairness_modal: true)
+     |> assign(fairness_game: fairness_game)}
+  end
+
+  @impl true
+  def handle_event("hide_fairness_modal", _params, socket) do
+    {:noreply, assign(socket, show_fairness_modal: false)}
+  end
+
+  @impl true
+  def handle_event("stop_propagation", _params, socket) do
+    # This event stops click propagation to prevent modal backdrop from closing
+    {:noreply, socket}
   end
 
   @impl true
@@ -975,7 +1336,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     game_id = "#{user_id}_#{System.system_time(:millisecond)}"
     now = System.system_time(:second)
 
-    # Save game record
+    # Save game record with provably fair fields
     game_record = {
       :bux_booster_games,
       game_id,
@@ -988,7 +1349,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       results,
       won,
       payout,
-      now
+      now,
+      # Provably fair fields:
+      socket.assigns.server_seed,
+      socket.assigns.server_seed_hash,
+      socket.assigns.nonce
     }
 
     :mnesia.dirty_write(game_record)
@@ -1111,13 +1476,57 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         bet_amount: elem(record, 4),
         multiplier: elem(record, 6),
         won: elem(record, 9),
-        payout: elem(record, 10)
+        payout: elem(record, 10),
+        # Provably fair fields (may be nil for old games)
+        server_seed: safe_elem(record, 12),
+        server_seed_hash: safe_elem(record, 13),
+        nonce: safe_elem(record, 14)
       }
     end)
   rescue
     _ -> []
   catch
     :exit, _ -> []
+  end
+
+  # Safe tuple element access for backwards compatibility with old records
+  defp safe_elem(tuple, index) when tuple_size(tuple) > index, do: elem(tuple, index)
+  defp safe_elem(_tuple, _index), do: nil
+
+  # Get user's next nonce (game counter) for provably fair system
+  defp get_user_nonce(user_id) do
+    # Count existing games for this user to determine next nonce
+    games = :mnesia.dirty_index_read(:bux_booster_games, user_id, :user_id)
+    length(games)
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  # Load a specific game for fairness verification
+  defp load_game_for_fairness(game_id) do
+    case :mnesia.dirty_read({:bux_booster_games, game_id}) do
+      [] -> nil
+      [record] ->
+        %{
+          game_id: elem(record, 1),
+          user_id: elem(record, 2),
+          token: elem(record, 3),
+          bet_amount: elem(record, 4),
+          difficulty: elem(record, 5),
+          predictions: elem(record, 7),
+          results: elem(record, 8),
+          won: elem(record, 9),
+          server_seed: safe_elem(record, 12),
+          server_seed_hash: safe_elem(record, 13),
+          nonce: safe_elem(record, 14)
+        }
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
   end
 
   @confetti_emojis ["❤️", "🧡", "💛", "💚", "💙", "💜", "🩷", "⭐", "🌟", "✨", "⚡", "🌈", "🍀", "💎", "🎉", "🎊", "💫", "🔥", "💖", "💝"]

@@ -263,7 +263,11 @@ defmodule BlocksterV2.MnesiaInitializer do
         :results,                   # List of actual results [:heads, :tails, ...]
         :won,                       # Boolean - did user win
         :payout,                    # Amount won (0 if lost)
-        :created_at                 # Unix timestamp when game was played
+        :created_at,                # Unix timestamp when game was played
+        # Provably fair fields:
+        :server_seed,               # Hex string, revealed after game
+        :server_seed_hash,          # SHA256 hash, shown before bet (commitment)
+        :nonce                      # Integer, game counter for this user
       ],
       index: [:user_id, :token_type, :won, :created_at]
     },
@@ -1271,7 +1275,12 @@ defmodule BlocksterV2.MnesiaInitializer do
         if existing_attrs == attributes do
           Logger.info("[MnesiaInitializer] Table #{table_name} already exists with correct schema")
         else
-          Logger.info("[MnesiaInitializer] Table #{table_name} exists but schema differs, will use existing")
+          Logger.warning("[MnesiaInitializer] Table #{table_name} exists with different schema")
+          Logger.info("[MnesiaInitializer] Existing: #{inspect(existing_attrs)}")
+          Logger.info("[MnesiaInitializer] Expected: #{inspect(attributes)}")
+
+          # Attempt to migrate the table schema
+          migrate_table_schema(table_name, existing_attrs, attributes)
         end
 
         if copy_type == :disc_copies, do: ensure_disc_copies(table_name)
@@ -1311,6 +1320,302 @@ defmodule BlocksterV2.MnesiaInitializer do
     true
   catch
     :exit, _ -> false
+  end
+
+  # Schema migration for tables that have changed structure
+  # This handles adding new fields to existing tables while preserving data
+  defp migrate_table_schema(table_name, existing_attrs, new_attrs) do
+    # First check if the table has active copies - transform_table won't work without them
+    case get_table_status(table_name) do
+      {:has_copies, copies} ->
+        # Check if any copy is reachable
+        reachable = Enum.any?(copies, fn n -> n == node() or n in Node.list() end)
+
+        if reachable do
+          do_migrate_table_schema(table_name, existing_attrs, new_attrs)
+        else
+          # No reachable copies - try to force load from disk first
+          Logger.warning("[MnesiaInitializer] Table #{table_name} has no reachable copies, attempting force load")
+          force_load_and_migrate(table_name, existing_attrs, new_attrs)
+        end
+
+      :exists_no_copies ->
+        # Table exists in schema but has no copies - zombie table
+        # Try to force load from disk, or recreate if that fails
+        Logger.warning("[MnesiaInitializer] Table #{table_name} is a zombie (no copies), attempting recovery")
+        recover_zombie_table_and_migrate(table_name, existing_attrs, new_attrs)
+
+      :not_exists ->
+        # Should not happen since we checked table_exists? before calling this
+        Logger.error("[MnesiaInitializer] Table #{table_name} doesn't exist despite earlier check")
+    end
+  end
+
+  # Attempt to force load a table and then migrate it
+  defp force_load_and_migrate(table_name, existing_attrs, new_attrs) do
+    case :mnesia.force_load_table(table_name) do
+      :yes ->
+        Logger.info("[MnesiaInitializer] Force loaded #{table_name}, now migrating")
+        do_migrate_table_schema(table_name, existing_attrs, new_attrs)
+
+      other ->
+        Logger.warning("[MnesiaInitializer] Force load #{table_name} returned: #{inspect(other)}")
+        Logger.warning("[MnesiaInitializer] Table #{table_name} migration deferred until table is available")
+    end
+  end
+
+  # Recover a zombie table (exists in schema but no copies) and migrate it
+  defp recover_zombie_table_and_migrate(table_name, existing_attrs, new_attrs) do
+    # First try to force load - this may work if there's data on disk
+    case :mnesia.force_load_table(table_name) do
+      :yes ->
+        Logger.info("[MnesiaInitializer] Force loaded zombie table #{table_name}, now migrating")
+        do_migrate_table_schema(table_name, existing_attrs, new_attrs)
+
+      _ ->
+        # Force load didn't work - table truly has no data
+        # We need to delete it from schema and recreate with new schema
+        Logger.warning("[MnesiaInitializer] Cannot recover #{table_name}, will delete and recreate with new schema")
+        delete_and_recreate_table(table_name, new_attrs)
+    end
+  end
+
+  # Delete a zombie table from schema and recreate with new schema
+  defp delete_and_recreate_table(table_name, _new_attrs) do
+    # Find the table definition from @tables
+    table_def = Enum.find(@tables, fn t -> t.name == table_name end)
+
+    if table_def == nil do
+      Logger.error("[MnesiaInitializer] Cannot find table definition for #{table_name}")
+    else
+      # Try to delete the table from schema
+      Logger.info("[MnesiaInitializer] Deleting zombie table #{table_name} from schema")
+
+      case :mnesia.delete_table(table_name) do
+        {:atomic, :ok} ->
+          Logger.info("[MnesiaInitializer] Deleted #{table_name}, recreating with new schema")
+          create_fresh_table(table_def)
+
+        {:aborted, {:no_exists, _}} ->
+          # Already gone, create fresh
+          Logger.info("[MnesiaInitializer] Table #{table_name} already gone, creating fresh")
+          create_fresh_table(table_def)
+
+        {:aborted, reason} ->
+          Logger.warning("[MnesiaInitializer] Could not delete #{table_name}: #{inspect(reason)}")
+          # Try force removing from schema
+          force_delete_table_from_schema(table_name)
+          create_fresh_table(table_def)
+      end
+    end
+  end
+
+  # Remove disc_copies from nodes that are not active/reachable
+  # This is needed when trying to transform a table and some nodes with copies are offline
+  defp remove_inactive_node_copies(table_name, inactive_nodes) do
+    Enum.each(inactive_nodes, fn node ->
+      Logger.info("[MnesiaInitializer] Removing #{table_name} copy from inactive node #{node}")
+
+      # First try to forcefully remove the node from the cluster schema
+      # This is needed when the node is completely dead
+      remove_dead_node_from_schema(node)
+
+      case :mnesia.del_table_copy(table_name, node) do
+        {:atomic, :ok} ->
+          Logger.info("[MnesiaInitializer] Removed #{table_name} copy from #{node}")
+
+        {:aborted, {:no_exists, _, _}} ->
+          Logger.info("[MnesiaInitializer] #{table_name} copy already gone from #{node}")
+
+        {:aborted, reason} ->
+          Logger.warning("[MnesiaInitializer] Could not remove #{table_name} from #{node}: #{inspect(reason)}")
+      end
+    end)
+  end
+
+  # Forcefully remove a dead node from the Mnesia schema
+  # This is a last resort when a node will never come back
+  defp remove_dead_node_from_schema(dead_node) do
+    Logger.info("[MnesiaInitializer] Attempting to remove dead node #{dead_node} from schema")
+
+    # Check if this node is in the connected nodes - if so, don't remove it
+    if dead_node in Node.list() do
+      Logger.info("[MnesiaInitializer] Node #{dead_node} is still connected, not removing")
+    else
+      # The node is truly dead - try to remove it from all tables
+      # Use mnesia:del_table_copy for schema table to remove the node entirely
+      case :mnesia.del_table_copy(:schema, dead_node) do
+        {:atomic, :ok} ->
+          Logger.info("[MnesiaInitializer] Removed dead node #{dead_node} from schema")
+
+        {:aborted, {:no_exists, :schema, ^dead_node}} ->
+          Logger.info("[MnesiaInitializer] Node #{dead_node} already removed from schema")
+
+        {:aborted, reason} ->
+          Logger.warning("[MnesiaInitializer] Could not remove #{dead_node} from schema: #{inspect(reason)}")
+          # Last resort: try to directly manipulate the schema table
+          force_remove_node_from_all_tables(dead_node)
+      end
+    end
+  end
+
+  # Force remove a node from all tables by modifying table definitions
+  defp force_remove_node_from_all_tables(dead_node) do
+    Logger.info("[MnesiaInitializer] Force removing #{dead_node} from all table definitions")
+
+    # Get all tables except schema
+    all_tables = :mnesia.system_info(:tables) -- [:schema]
+
+    Enum.each(all_tables, fn table_name ->
+      try do
+        disc_copies = :mnesia.table_info(table_name, :disc_copies)
+
+        if dead_node in disc_copies do
+          Logger.info("[MnesiaInitializer] Table #{table_name} has copy on dead node #{dead_node}")
+          # We can't use del_table_copy because Mnesia won't allow it
+          # The only option is to delete and recreate the table
+        end
+      catch
+        :exit, _ -> :ok
+      end
+    end)
+  end
+
+  # Ensure a table is loaded before performing operations on it
+  defp ensure_table_loaded(table_name) do
+    # First try waiting for the table
+    case :mnesia.wait_for_tables([table_name], 5000) do
+      :ok ->
+        Logger.info("[MnesiaInitializer] Table #{table_name} is ready")
+        :ok
+
+      {:timeout, _} ->
+        # Table didn't become ready in time - try force loading
+        Logger.warning("[MnesiaInitializer] Table #{table_name} timed out, attempting force load")
+        case :mnesia.force_load_table(table_name) do
+          :yes ->
+            Logger.info("[MnesiaInitializer] Force loaded #{table_name}")
+            :ok
+
+          other ->
+            Logger.warning("[MnesiaInitializer] Force load #{table_name} returned: #{inspect(other)}")
+            {:error, other}
+        end
+
+      {:error, reason} ->
+        Logger.warning("[MnesiaInitializer] Error waiting for #{table_name}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  # Create a table fresh with current schema definition
+  defp create_fresh_table(%{name: table_name, type: type, attributes: attributes, index: index}) do
+    Logger.info("[MnesiaInitializer] Creating fresh table #{table_name} with #{length(attributes)} attributes")
+
+    result = :mnesia.create_table(
+      table_name,
+      [type: type, attributes: attributes, index: index, disc_copies: [node()]]
+    )
+
+    case result do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Successfully created fresh #{table_name}")
+
+      {:aborted, {:already_exists, ^table_name}} ->
+        Logger.warning("[MnesiaInitializer] Table #{table_name} still exists after deletion attempt")
+
+      {:aborted, reason} ->
+        Logger.error("[MnesiaInitializer] Failed to create #{table_name}: #{inspect(reason)}")
+    end
+  end
+
+  # Actually perform the table schema migration
+  defp do_migrate_table_schema(table_name, existing_attrs, new_attrs) do
+    # First ensure the table is loaded/active before attempting transform
+    ensure_table_loaded(table_name)
+
+    # Check if this is a supported migration (adding fields at the end)
+    existing_count = length(existing_attrs)
+    new_count = length(new_attrs)
+
+    # Verify the existing attributes are a prefix of the new attributes
+    existing_prefix_matches = Enum.take(new_attrs, existing_count) == existing_attrs
+
+    cond do
+      existing_prefix_matches and new_count > existing_count ->
+        # Safe migration: new fields added at the end
+        added_fields = Enum.drop(new_attrs, existing_count)
+        Logger.info("[MnesiaInitializer] Migrating #{table_name}: adding fields #{inspect(added_fields)}")
+
+        transform_fn = build_transform_function(table_name, existing_count, new_count)
+
+        case :mnesia.transform_table(table_name, transform_fn, new_attrs) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Successfully migrated #{table_name} from #{existing_count} to #{new_count} fields")
+
+          {:aborted, {:no_exists, _}} ->
+            # Table doesn't exist despite our checks - try to recreate it
+            Logger.warning("[MnesiaInitializer] Table #{table_name} disappeared during migration, recreating")
+            delete_and_recreate_table(table_name, new_attrs)
+
+          {:aborted, {:not_active, _msg, ^table_name, inactive_nodes}} ->
+            # Some nodes that have copies are not active - remove them and retry
+            Logger.warning("[MnesiaInitializer] Inactive nodes for #{table_name}: #{inspect(inactive_nodes)}")
+            remove_inactive_node_copies(table_name, inactive_nodes)
+            # Retry the transform after removing inactive copies
+            Logger.info("[MnesiaInitializer] Retrying migration after removing inactive node copies")
+            case :mnesia.transform_table(table_name, transform_fn, new_attrs) do
+              {:atomic, :ok} ->
+                Logger.info("[MnesiaInitializer] Successfully migrated #{table_name} on retry")
+              {:aborted, retry_reason} ->
+                Logger.error("[MnesiaInitializer] Retry failed for #{table_name}: #{inspect(retry_reason)}")
+                Logger.warning("[MnesiaInitializer] Falling back to recreate table")
+                delete_and_recreate_table(table_name, new_attrs)
+            end
+
+          {:aborted, reason} ->
+            Logger.error("[MnesiaInitializer] Failed to migrate #{table_name}: #{inspect(reason)}")
+            Logger.warning("[MnesiaInitializer] Table #{table_name} will use old schema until manual fix")
+        end
+
+      existing_prefix_matches and new_count < existing_count ->
+        # Removing fields - more dangerous, just log warning
+        Logger.warning("[MnesiaInitializer] Table #{table_name} has more fields than expected (#{existing_count} vs #{new_count})")
+        Logger.warning("[MnesiaInitializer] Manual migration may be required")
+
+      true ->
+        # Incompatible schema change
+        Logger.error("[MnesiaInitializer] Table #{table_name} has incompatible schema change")
+        Logger.error("[MnesiaInitializer] Existing: #{inspect(existing_attrs)}")
+        Logger.error("[MnesiaInitializer] Expected: #{inspect(new_attrs)}")
+        Logger.warning("[MnesiaInitializer] Table will continue with old schema - manual migration required")
+    end
+  end
+
+  # Build a transform function that adds nil values for new fields
+  defp build_transform_function(table_name, old_field_count, new_field_count) do
+    fields_to_add = new_field_count - old_field_count
+
+    # Get table-specific default values if any
+    defaults = get_migration_defaults(table_name, fields_to_add)
+
+    fn old_record ->
+      old_list = Tuple.to_list(old_record)
+      new_list = old_list ++ defaults
+      List.to_tuple(new_list)
+    end
+  end
+
+  # Define default values for new fields when migrating specific tables
+  # This allows for table-specific migration logic
+  defp get_migration_defaults(:bux_booster_games, 3) do
+    # Adding: server_seed, server_seed_hash, nonce - all nil for old games
+    [nil, nil, nil]
+  end
+
+  defp get_migration_defaults(_table_name, field_count) do
+    # Default: add nil for each new field
+    List.duplicate(nil, field_count)
   end
 
   defp ensure_disc_copies(table_name) do

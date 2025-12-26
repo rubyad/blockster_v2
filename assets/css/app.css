@@ -860,3 +860,9 @@ html {
   );
   border: 3px solid #1f2937;
 }
+
+/* Utility for wrapping long strings like hashes */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
