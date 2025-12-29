@@ -321,9 +321,326 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   }
 });
 
+// ============================================================
+// BuxBoosterGame Contract Integration
+// ============================================================
+
+const BUXBOOSTER_CONTRACT_ADDRESS = '0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B';
+const SETTLER_PRIVATE_KEY = process.env.SETTLER_PRIVATE_KEY;
+const CONTRACT_OWNER_PRIVATE_KEY = process.env.CONTRACT_OWNER_PRIVATE_KEY;
+
+// BuxBoosterGame ABI - only the functions we need
+const BUXBOOSTER_ABI = [
+  'function submitCommitment(bytes32 commitmentHash, address player, uint256 nonce) external',
+  'function settleBet(bytes32 commitmentHash, bytes32 serverSeed, uint8[] results, bool won) external returns (uint256 payout)',
+  'function configureToken(address token, bool enabled) external',
+  'function depositHouseBalance(address token, uint256 amount) external',
+  'function tokenConfigs(address) external view returns (bool enabled, uint256 houseBalance)',
+  'function getPlayerCurrentCommitment(address player) external view returns (bytes32 commitmentHash, uint256 nonce, uint256 timestamp, bool used)',
+  'function playerNonces(address player) external view returns (uint256)',
+  'event BetSettled(bytes32 indexed commitmentHash, bool won, uint8[] results, uint256 payout, bytes32 serverSeed)',
+  'event BetDetails(bytes32 indexed commitmentHash, address indexed token, uint256 amount, int8 difficulty, uint8[] predictions, uint256 nonce, uint256 timestamp)'
+];
+
+// Settler wallet for BuxBoosterGame (submits commitments and settlements)
+let settlerWallet = null;
+let buxBoosterContract = null;
+let contractOwnerWallet = null;
+
+if (SETTLER_PRIVATE_KEY) {
+  settlerWallet = new ethers.Wallet(SETTLER_PRIVATE_KEY, provider);
+  buxBoosterContract = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, settlerWallet);
+  console.log(`[INIT] BuxBoosterGame settler wallet: ${settlerWallet.address}`);
+} else {
+  console.log(`[WARN] SETTLER_PRIVATE_KEY not set - BuxBoosterGame endpoints disabled`);
+}
+
+if (CONTRACT_OWNER_PRIVATE_KEY) {
+  contractOwnerWallet = new ethers.Wallet(CONTRACT_OWNER_PRIVATE_KEY, provider);
+  console.log(`[INIT] BuxBoosterGame contract owner: ${contractOwnerWallet.address}`);
+} else {
+  console.log(`[WARN] CONTRACT_OWNER_PRIVATE_KEY not set - deposit endpoint disabled`);
+}
+
+// Submit commitment for a new game
+// Called by Blockster server when player initiates a game
+app.post('/submit-commitment', authenticate, async (req, res) => {
+  if (!buxBoosterContract) {
+    return res.status(503).json({ error: 'BuxBoosterGame not configured - SETTLER_PRIVATE_KEY missing' });
+  }
+
+  const { commitmentHash, player, nonce } = req.body;
+
+  if (!commitmentHash || !player || nonce === undefined) {
+    return res.status(400).json({ error: 'commitmentHash, player, and nonce are required' });
+  }
+
+  if (!ethers.isAddress(player)) {
+    return res.status(400).json({ error: 'Invalid player address format' });
+  }
+
+  try {
+    console.log(`[COMMITMENT] Submitting commitment for player ${player}, nonce ${nonce}`);
+
+    const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce);
+    console.log(`[COMMITMENT] Transaction submitted: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    console.log(`[COMMITMENT] Confirmed in block ${receipt.blockNumber}`);
+
+    res.json({
+      success: true,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      commitmentHash,
+      player,
+      nonce
+    });
+  } catch (error) {
+    console.error(`[COMMITMENT] Error:`, error);
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to submit commitment', details: error.message });
+  }
+});
+
+// Settle a bet after the game animation completes
+// Called by Blockster server with the revealed server seed and results
+// V3: Server now sends results to contract instead of contract calculating them
+app.post('/settle-bet', authenticate, async (req, res) => {
+  if (!buxBoosterContract) {
+    return res.status(503).json({ error: 'BuxBoosterGame not configured - SETTLER_PRIVATE_KEY missing' });
+  }
+
+  const { commitmentHash, serverSeed, results, won } = req.body;
+
+  // Validate required fields
+  if (!commitmentHash || !serverSeed || !results || won === undefined) {
+    return res.status(400).json({ error: 'commitmentHash, serverSeed, results, and won are required' });
+  }
+
+  // Validate results is an array
+  if (!Array.isArray(results)) {
+    return res.status(400).json({ error: 'results must be an array' });
+  }
+
+  try {
+    console.log(`[SETTLE] Settling bet ${commitmentHash}`);
+    console.log(`[SETTLE] Results: ${results.join(',')}, Won: ${won}`);
+
+    // V3: settleBet(commitmentHash, serverSeed, results, won)
+    const tx = await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
+    console.log(`[SETTLE] Transaction submitted: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    console.log(`[SETTLE] Confirmed in block ${receipt.blockNumber}`);
+
+    // Parse the BetSettled event to get the payout
+    let payout = '0';
+    for (const log of receipt.logs) {
+      try {
+        const parsed = buxBoosterContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'BetSettled') {
+          payout = ethers.formatUnits(parsed.args.payout, 18);
+          console.log(`[SETTLE] Payout: ${payout}`);
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      commitmentHash,
+      won,
+      payout
+    });
+  } catch (error) {
+    console.error(`[SETTLE] Error:`, error);
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to settle bet', details: error.message });
+  }
+});
+
+// Deposit house balance for a token
+// Called once per token to fund the house bankroll
+app.post('/deposit-house-balance', authenticate, async (req, res) => {
+  if (!contractOwnerWallet) {
+    return res.status(503).json({ error: 'Contract owner not configured - CONTRACT_OWNER_PRIVATE_KEY missing' });
+  }
+
+  const { token, amount } = req.body;
+
+  if (!token || !amount) {
+    return res.status(400).json({ error: 'token and amount are required' });
+  }
+
+  const tokenAddress = TOKEN_CONTRACTS[token];
+  if (!tokenAddress) {
+    return res.status(400).json({ error: `Unknown token: ${token}` });
+  }
+
+  // Get the wallet that owns this token (has minting rights)
+  const tokenWallet = tokenWallets[token];
+  if (!tokenWallet) {
+    return res.status(400).json({ error: `No wallet configured for ${token}` });
+  }
+
+  try {
+    const amountWei = ethers.parseUnits(amount.toString(), 18);
+    console.log(`[DEPOSIT] Depositing ${amount} ${token} as house balance`);
+
+    // Step 1: Mint tokens to the CONTRACT OWNER wallet (not token owner)
+    const tokenContract = tokenContracts[token];
+    console.log(`[DEPOSIT] Minting ${amount} ${token} to contract owner ${contractOwnerWallet.address}`);
+    const mintTx = await tokenContract.mint(contractOwnerWallet.address, amountWei);
+    await mintTx.wait();
+    console.log(`[DEPOSIT] Minted successfully`);
+
+    // Step 2: Contract owner approves the BuxBoosterGame contract to spend tokens
+    const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)'];
+    const tokenContractWithApprove = new ethers.Contract(tokenAddress, erc20Abi, contractOwnerWallet);
+    console.log(`[DEPOSIT] Contract owner approving BuxBoosterGame contract`);
+    const approveTx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei);
+    await approveTx.wait();
+    console.log(`[DEPOSIT] Approved successfully`);
+
+    // Step 3: Contract owner calls depositHouseBalance (onlyOwner function)
+    const buxBoosterFromOwner = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, contractOwnerWallet);
+    console.log(`[DEPOSIT] Contract owner calling depositHouseBalance`);
+    const depositTx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei);
+    const receipt = await depositTx.wait();
+    console.log(`[DEPOSIT] Deposited ${amount} ${token} in block ${receipt.blockNumber}`);
+
+    // Get updated house balance
+    const config = await buxBoosterContract.tokenConfigs(tokenAddress);
+
+    res.json({
+      success: true,
+      txHash: depositTx.hash,
+      blockNumber: receipt.blockNumber,
+      token,
+      amountDeposited: amount,
+      newHouseBalance: ethers.formatUnits(config.houseBalance, 18)
+    });
+  } catch (error) {
+    console.error(`[DEPOSIT] Error:`, error);
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to deposit house balance', details: error.message });
+  }
+});
+
+// Get player's on-chain nonce from BuxBoosterGame contract
+// Fast endpoint that only queries playerNonces mapping
+app.get('/player-nonce/:address', authenticate, async (req, res) => {
+  if (!buxBoosterContract) {
+    return res.status(503).json({ error: 'BuxBoosterGame not configured' });
+  }
+
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    // Query the playerNonces mapping directly (fastest query)
+    const nonce = await buxBoosterContract.playerNonces(address);
+
+    console.log(`[PLAYER-NONCE] Player ${address}: nonce=${nonce}`);
+
+    res.json({
+      address,
+      nonce: Number(nonce)
+    });
+  } catch (error) {
+    console.error(`[PLAYER-NONCE] Error:`, error);
+    res.status(500).json({ error: 'Failed to get player nonce', details: error.message });
+  }
+});
+
+// Get player's current state from BuxBoosterGame contract
+// Returns nonce and any unused commitment
+app.get('/player-state/:address', authenticate, async (req, res) => {
+  if (!buxBoosterContract) {
+    return res.status(503).json({ error: 'BuxBoosterGame not configured' });
+  }
+
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    // Get current commitment state (includes nonce)
+    const [commitmentHash, nonce, timestamp, used] = await buxBoosterContract.getPlayerCurrentCommitment(address);
+
+    // Check if there's an unused commitment
+    const hasUnusedCommitment = commitmentHash !== ethers.ZeroHash && !used;
+
+    console.log(`[PLAYER-STATE] Player ${address}: nonce=${nonce}, commitment=${commitmentHash}, used=${used}`);
+
+    res.json({
+      address,
+      nonce: Number(nonce),
+      commitmentHash: hasUnusedCommitment ? commitmentHash : null,
+      commitmentTimestamp: hasUnusedCommitment ? Number(timestamp) : null,
+      hasUnusedCommitment
+    });
+  } catch (error) {
+    console.error(`[PLAYER-STATE] Error:`, error);
+    res.status(500).json({ error: 'Failed to get player state', details: error.message });
+  }
+});
+
+// Get token config from BuxBoosterGame
+app.get('/game-token-config/:token', authenticate, async (req, res) => {
+  if (!buxBoosterContract) {
+    return res.status(503).json({ error: 'BuxBoosterGame not configured' });
+  }
+
+  const { token } = req.params;
+  const tokenAddress = TOKEN_CONTRACTS[token];
+
+  if (!tokenAddress) {
+    return res.status(400).json({ error: `Unknown token: ${token}` });
+  }
+
+  try {
+    const config = await buxBoosterContract.tokenConfigs(tokenAddress);
+
+    res.json({
+      token,
+      tokenAddress,
+      enabled: config.enabled,
+      houseBalance: ethers.formatUnits(config.houseBalance, 18),
+      maxBet: ethers.formatUnits(config.maxBet, 18)
+    });
+  } catch (error) {
+    console.error(`[CONFIG] Error:`, error);
+    res.status(500).json({ error: 'Failed to get token config', details: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`BUX Minter service running on port ${PORT}`);
   console.log(`Contract address: ${BUX_CONTRACT_ADDRESS}`);
   console.log(`Minter wallet: ${wallet.address}`);
+  if (buxBoosterContract) {
+    console.log(`BuxBoosterGame: ${BUXBOOSTER_CONTRACT_ADDRESS}`);
+    console.log(`Settler wallet: ${settlerWallet.address}`);
+  }
 });

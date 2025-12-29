@@ -861,6 +861,89 @@ html {
   border: 3px solid #1f2937;
 }
 
+/* Coin flip animations for BUX Booster */
+@keyframes flip-continuous {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(3600deg); /* 10 full rotations */
+  }
+}
+
+@keyframes flip-to-heads {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(1440deg); /* Fast spinning for first half */
+  }
+  75% {
+    transform: rotateY(1800deg); /* Slowing down */
+  }
+  90% {
+    transform: rotateY(2160deg); /* Nearly stopped */
+  }
+  100% {
+    transform: rotateY(2160deg); /* Land on heads (6 rotations = even) */
+  }
+}
+
+@keyframes flip-to-tails {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(1440deg); /* Fast spinning for first half */
+  }
+  75% {
+    transform: rotateY(1800deg); /* Slowing down */
+  }
+  90% {
+    transform: rotateY(2340deg); /* Nearly stopped */
+  }
+  100% {
+    transform: rotateY(2340deg); /* Land on tails (6.5 rotations = odd) */
+  }
+}
+
+.animate-flip-continuous {
+  animation: flip-continuous 3s linear infinite;
+  transform-style: preserve-3d;
+}
+
+.animate-flip-heads {
+  animation: flip-to-heads 3s linear forwards;
+  transform-style: preserve-3d;
+}
+
+.animate-flip-tails {
+  animation: flip-to-tails 3s linear forwards;
+  transform-style: preserve-3d;
+}
+
+/* 3D perspective for coin container */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Coin face styling */
+.coin {
+  transform-style: preserve-3d;
+}
+
+.coin-face {
+  backface-visibility: hidden;
+}
+
+.coin-heads {
+  transform: rotateY(0deg);
+}
+
+.coin-tails {
+  transform: rotateY(180deg);
+}
+
 /* Utility for wrapping long strings like hashes */
 .overflow-wrap-anywhere {
   overflow-wrap: anywhere;

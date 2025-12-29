@@ -1306,6 +1306,53 @@ defmodule BlocksterV2.EngagementTracker do
       {:error, e}
   end
 
+  @doc """
+  Optimistically deduct balance for a bet (before blockchain confirmation).
+  Returns {:ok, new_balance} or {:error, reason}
+  """
+  def deduct_user_token_balance(user_id, wallet_address, token, amount) do
+    case get_user_token_balances(user_id) do
+      balances when is_map(balances) ->
+        current_balance = Map.get(balances, token, 0.0)
+
+        if current_balance >= amount do
+          new_balance = current_balance - amount
+          update_user_token_balance(user_id, wallet_address, token, new_balance)
+          {:ok, new_balance}
+        else
+          {:error, "Insufficient #{token} balance"}
+        end
+
+      _ ->
+        {:error, "Failed to get user balances"}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error deducting token balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Refund balance when a bet fails (before blockchain confirmation).
+  Returns {:ok, new_balance} or {:error, reason}
+  """
+  def credit_user_token_balance(user_id, wallet_address, token, amount) do
+    case get_user_token_balances(user_id) do
+      balances when is_map(balances) ->
+        current_balance = Map.get(balances, token, 0.0)
+        new_balance = current_balance + amount
+        update_user_token_balance(user_id, wallet_address, token, new_balance)
+        {:ok, new_balance}
+
+      _ ->
+        {:error, "Failed to get user balances"}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error crediting token balance: #{inspect(e)}")
+      {:error, e}
+  end
+
   defp parse_balance(balance) when is_float(balance), do: balance
   defp parse_balance(balance) when is_integer(balance), do: balance * 1.0
   defp parse_balance(balance) when is_binary(balance) do

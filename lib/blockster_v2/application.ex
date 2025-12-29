@@ -7,12 +7,21 @@ defmodule BlocksterV2.Application do
 
   @impl true
   def start(_type, _args) do
+    # Add libcluster only in dev mode (production uses DNSCluster)
+    libcluster_child =
+      if Mix.env() == :dev do
+        [{Cluster.Supervisor, [Application.get_env(:libcluster, :topologies, []), [name: BlocksterV2.ClusterSupervisor]]}]
+      else
+        []
+      end
+
     children = [
       BlocksterV2Web.Telemetry,
       BlocksterV2.Repo,
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: BlocksterV2.PubSub},
-      # Mnesia initialization (after DNSCluster so nodes are connected)
+      {Phoenix.PubSub, name: BlocksterV2.PubSub}
+    ] ++ libcluster_child ++ [
+      # Mnesia initialization (after cluster discovery so nodes are connected)
       {BlocksterV2.MnesiaInitializer, []},
       # Time tracking GenServer
       {BlocksterV2.TimeTracker, %{}},

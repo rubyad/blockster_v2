@@ -226,6 +226,9 @@ defmodule BlocksterV2.BuxMinter do
         # Also update the aggregate in user_bux_points for backward compatibility
         EngagementTracker.update_user_bux_balance(user_id, wallet_address, aggregate)
 
+        # Broadcast token balances update to all LiveViews (including BuxBoosterLive)
+        BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+
         {:ok, %{balances: balances, aggregate: aggregate}}
 
       {:error, reason} ->

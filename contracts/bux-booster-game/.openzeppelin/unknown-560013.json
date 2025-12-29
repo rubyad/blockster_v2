@@ -1,0 +1,829 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "fbf98045bc6f4e788e9c11c9f16114eb21249b228c1416c8907f6bb226cfb803": {
+      "address": "0x8D7ab3486B8B71720F66Cb09291e5191d197c8AC",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/BuxBoosterGame.sol:69"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/BuxBoosterGame.sol:70"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:153"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:210"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:243"
+          },
+          {
+            "label": "MULTIPLIERS",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_array(t_uint32)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:420"
+          },
+          {
+            "label": "FLIP_COUNTS",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_uint8)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:424"
+          },
+          {
+            "label": "GAME_MODES",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_uint8)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:426"
+          },
+          {
+            "label": "tokenConfigs",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_struct(TokenConfig)905_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:434"
+          },
+          {
+            "label": "bets",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_bytes32,t_struct(Bet)926_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:435"
+          },
+          {
+            "label": "playerNonces",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:436"
+          },
+          {
+            "label": "playerBetHistory",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_address,t_array(t_bytes32)dyn_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:437"
+          },
+          {
+            "label": "playerStats",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_address,t_struct(PlayerStats)941_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:438"
+          },
+          {
+            "label": "commitments",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_bytes32,t_struct(Commitment)1022_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:442"
+          },
+          {
+            "label": "playerCommitments",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:446"
+          },
+          {
+            "label": "settler",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_address",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:456"
+          },
+          {
+            "label": "totalBetsPlaced",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_uint256",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:458"
+          },
+          {
+            "label": "totalBetsSettled",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:459"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_bytes32)dyn_storage": {
+            "label": "bytes32[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_int256)9_storage": {
+            "label": "int256[9]",
+            "numberOfBytes": "288"
+          },
+          "t_array(t_uint256)9_storage": {
+            "label": "uint256[9]",
+            "numberOfBytes": "288"
+          },
+          "t_array(t_uint32)9_storage": {
+            "label": "uint32[9]",
+            "numberOfBytes": "64"
+          },
+          "t_array(t_uint8)9_storage": {
+            "label": "uint8[9]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint8)dyn_storage": {
+            "label": "uint8[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_enum(BetStatus)946": {
+            "label": "enum BuxBoosterGame.BetStatus",
+            "members": [
+              "Pending",
+              "Won",
+              "Lost",
+              "Expired"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_int256": {
+            "label": "int256",
+            "numberOfBytes": "32"
+          },
+          "t_int8": {
+            "label": "int8",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_bytes32)dyn_storage)": {
+            "label": "mapping(address => bytes32[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))": {
+            "label": "mapping(address => mapping(uint256 => bytes32))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(PlayerStats)941_storage)": {
+            "label": "mapping(address => struct BuxBoosterGame.PlayerStats)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(TokenConfig)905_storage)": {
+            "label": "mapping(address => struct BuxBoosterGame.TokenConfig)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Bet)926_storage)": {
+            "label": "mapping(bytes32 => struct BuxBoosterGame.Bet)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Commitment)1022_storage)": {
+            "label": "mapping(bytes32 => struct BuxBoosterGame.Commitment)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bytes32)": {
+            "label": "mapping(uint256 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Bet)926_storage": {
+            "label": "struct BuxBoosterGame.Bet",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "token",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "difficulty",
+                "type": "t_int8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "predictions",
+                "type": "t_array(t_uint8)dyn_storage",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "commitmentHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "status",
+                "type": "t_enum(BetStatus)946",
+                "offset": 0,
+                "slot": "8"
+              }
+            ],
+            "numberOfBytes": "288"
+          },
+          "t_struct(Commitment)1022_storage": {
+            "label": "struct BuxBoosterGame.Commitment",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "used",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "serverSeed",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(PlayerStats)941_storage": {
+            "label": "struct BuxBoosterGame.PlayerStats",
+            "members": [
+              {
+                "label": "totalBets",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "totalStaked",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "overallProfitLoss",
+                "type": "t_int256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "betsPerDifficulty",
+                "type": "t_array(t_uint256)9_storage",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "profitLossPerDifficulty",
+                "type": "t_array(t_int256)9_storage",
+                "offset": 0,
+                "slot": "12"
+              }
+            ],
+            "numberOfBytes": "672"
+          },
+          "t_struct(TokenConfig)905_storage": {
+            "label": "struct BuxBoosterGame.TokenConfig",
+            "members": [
+              {
+                "label": "enabled",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "houseBalance",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      },
+      "allAddresses": [
+        "0x8D7ab3486B8B71720F66Cb09291e5191d197c8AC",
+        "0xb1BA743aF132a117C3f3F4153fC05288ECF44d5D"
+      ]
+    },
+    "be03667b81b4fa6df9179d15b194ed7de52f8cbd3765ae89cfa2c3256871a4db": {
+      "address": "0x766B68bf3CB02C19296c8e8e7C1394bb51ab5e6B",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/BuxBoosterGame.sol:77"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/BuxBoosterGame.sol:78"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:161"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:218"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "contracts/BuxBoosterGame.sol:251"
+          },
+          {
+            "label": "MULTIPLIERS",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_array(t_uint32)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:428"
+          },
+          {
+            "label": "FLIP_COUNTS",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_array(t_uint8)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:432"
+          },
+          {
+            "label": "GAME_MODES",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_uint8)9_storage",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:434"
+          },
+          {
+            "label": "tokenConfigs",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_struct(TokenConfig)905_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:442"
+          },
+          {
+            "label": "bets",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_bytes32,t_struct(Bet)926_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:443"
+          },
+          {
+            "label": "playerNonces",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:444"
+          },
+          {
+            "label": "playerBetHistory",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_address,t_array(t_bytes32)dyn_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:445"
+          },
+          {
+            "label": "playerStats",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_address,t_struct(PlayerStats)941_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:446"
+          },
+          {
+            "label": "commitments",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_bytes32,t_struct(Commitment)1022_storage)",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:450"
+          },
+          {
+            "label": "playerCommitments",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:454"
+          },
+          {
+            "label": "settler",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_address",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:464"
+          },
+          {
+            "label": "totalBetsPlaced",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_uint256",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:466"
+          },
+          {
+            "label": "totalBetsSettled",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "BuxBoosterGame",
+            "src": "contracts/BuxBoosterGame.sol:467"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_bytes32)dyn_storage": {
+            "label": "bytes32[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_int256)9_storage": {
+            "label": "int256[9]",
+            "numberOfBytes": "288"
+          },
+          "t_array(t_uint256)9_storage": {
+            "label": "uint256[9]",
+            "numberOfBytes": "288"
+          },
+          "t_array(t_uint32)9_storage": {
+            "label": "uint32[9]",
+            "numberOfBytes": "64"
+          },
+          "t_array(t_uint8)9_storage": {
+            "label": "uint8[9]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint8)dyn_storage": {
+            "label": "uint8[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_enum(BetStatus)946": {
+            "label": "enum BuxBoosterGame.BetStatus",
+            "members": [
+              "Pending",
+              "Won",
+              "Lost",
+              "Expired"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_int256": {
+            "label": "int256",
+            "numberOfBytes": "32"
+          },
+          "t_int8": {
+            "label": "int8",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_bytes32)dyn_storage)": {
+            "label": "mapping(address => bytes32[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))": {
+            "label": "mapping(address => mapping(uint256 => bytes32))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(PlayerStats)941_storage)": {
+            "label": "mapping(address => struct BuxBoosterGame.PlayerStats)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(TokenConfig)905_storage)": {
+            "label": "mapping(address => struct BuxBoosterGame.TokenConfig)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Bet)926_storage)": {
+            "label": "mapping(bytes32 => struct BuxBoosterGame.Bet)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Commitment)1022_storage)": {
+            "label": "mapping(bytes32 => struct BuxBoosterGame.Commitment)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bytes32)": {
+            "label": "mapping(uint256 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Bet)926_storage": {
+            "label": "struct BuxBoosterGame.Bet",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "token",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "difficulty",
+                "type": "t_int8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "predictions",
+                "type": "t_array(t_uint8)dyn_storage",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "commitmentHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "status",
+                "type": "t_enum(BetStatus)946",
+                "offset": 0,
+                "slot": "8"
+              }
+            ],
+            "numberOfBytes": "288"
+          },
+          "t_struct(Commitment)1022_storage": {
+            "label": "struct BuxBoosterGame.Commitment",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "used",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "serverSeed",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(PlayerStats)941_storage": {
+            "label": "struct BuxBoosterGame.PlayerStats",
+            "members": [
+              {
+                "label": "totalBets",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "totalStaked",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "overallProfitLoss",
+                "type": "t_int256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "betsPerDifficulty",
+                "type": "t_array(t_uint256)9_storage",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "profitLossPerDifficulty",
+                "type": "t_array(t_int256)9_storage",
+                "offset": 0,
+                "slot": "12"
+              }
+            ],
+            "numberOfBytes": "672"
+          },
+          "t_struct(TokenConfig)905_storage": {
+            "label": "struct BuxBoosterGame.TokenConfig",
+            "members": [
+              {
+                "label": "enabled",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "houseBalance",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    }
+  }
+}

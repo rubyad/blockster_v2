@@ -5,22 +5,22 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.HubLogoCache
   alias BlocksterV2.ProvablyFair
+  alias BlocksterV2.BuxBoosterOnchain
+  alias BlocksterV2.BuxMinter
 
-  # Difficulty levels with true odds payouts (zero house edge)
+  # Difficulty levels with house edge built into multipliers
   # mode: :win_all = must win all flips (harder, higher payout)
   # mode: :win_one = only need to win one flip (easier, lower payout)
-  # Win one fair odds: 1 / (1 - 0.5^n) where n = number of flips
-  # Win all fair odds: 2^n where n = number of flips
   @difficulty_options [
-    %{level: -4, predictions: 5, multiplier: 1.03, label: "1.03x", mode: :win_one},
-    %{level: -3, predictions: 4, multiplier: 1.06, label: "1.06x", mode: :win_one},
-    %{level: -2, predictions: 3, multiplier: 1.14, label: "1.14x", mode: :win_one},
-    %{level: -1, predictions: 2, multiplier: 1.33, label: "1.33x", mode: :win_one},
-    %{level: 1, predictions: 1, multiplier: 2, label: "2x", mode: :win_all},
-    %{level: 2, predictions: 2, multiplier: 4, label: "4x", mode: :win_all},
-    %{level: 3, predictions: 3, multiplier: 8, label: "8x", mode: :win_all},
-    %{level: 4, predictions: 4, multiplier: 16, label: "16x", mode: :win_all},
-    %{level: 5, predictions: 5, multiplier: 32, label: "32x", mode: :win_all}
+    %{level: -4, predictions: 5, multiplier: 1.02, label: "1.02x", mode: :win_one},
+    %{level: -3, predictions: 4, multiplier: 1.05, label: "1.05x", mode: :win_one},
+    %{level: -2, predictions: 3, multiplier: 1.13, label: "1.13x", mode: :win_one},
+    %{level: -1, predictions: 2, multiplier: 1.32, label: "1.32x", mode: :win_one},
+    %{level: 1, predictions: 1, multiplier: 1.98, label: "1.98x", mode: :win_all},
+    %{level: 2, predictions: 2, multiplier: 3.96, label: "3.96x", mode: :win_all},
+    %{level: 3, predictions: 3, multiplier: 7.92, label: "7.92x", mode: :win_all},
+    %{level: 4, predictions: 4, multiplier: 15.84, label: "15.84x", mode: :win_all},
+    %{level: 5, predictions: 5, multiplier: 31.68, label: "31.68x", mode: :win_all}
   ]
 
   @impl true
@@ -29,23 +29,51 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     if current_user do
       # User is logged in
+      # Get user's smart wallet address for on-chain games
+      wallet_address = current_user.smart_wallet_address
+
+      # Sync balances from blockchain on connected mount (async, will broadcast when done)
+      if wallet_address != nil and connected?(socket) do
+        BuxMinter.sync_user_balances_async(current_user.id, wallet_address)
+      end
+
       balances = EngagementTracker.get_user_token_balances(current_user.id)
       token_logos = HubLogoCache.get_all_logos()
 
-      # Dynamically get tokens from HubLogoCache, sorted by user's balance descending
-      # ROGUE always at top, then other tokens sorted by balance
-      other_tokens =
-        token_logos
-        |> Map.keys()
-        |> Enum.reject(fn token -> token == "ROGUE" end)
-        |> Enum.sort_by(fn token -> Map.get(balances, token, 0) end, :desc)
+      # Get supported tokens from BuxBoosterOnchain, sorted by user's balance
+      supported_tokens = BuxBoosterOnchain.token_addresses() |> Map.keys()
+      tokens = Enum.sort_by(supported_tokens, fn token -> Map.get(balances, token, 0) end, :desc)
 
-      tokens = ["ROGUE" | other_tokens]
+      # IMPORTANT: Only initialize on-chain game on connected mount (not disconnected)
+      # LiveView mounts twice - once disconnected, once connected via WebSocket
+      # We only want to submit commitment hash to blockchain once per page load
+      #
+      # Strategy: Load page immediately, then async query contract for nonce and init game
+      # This prevents blockchain RPC call from blocking page load
+      socket = if wallet_address != nil and connected?(socket) do
+        # Subscribe to balance updates for this user
+        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
 
-      # Generate initial server seed for provably fair system
-      server_seed = ProvablyFair.generate_server_seed()
-      server_seed_hash = ProvablyFair.generate_commitment(server_seed)
-      nonce = get_user_nonce(current_user.id)
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:wallet_address, wallet_address)
+        |> assign(:onchain_initializing, true)
+        |> start_async(:init_onchain_game, fn ->
+          BuxBoosterOnchain.get_or_init_game(current_user.id, wallet_address)
+        end)
+      else
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:wallet_address, wallet_address)
+        |> assign(:onchain_initializing, false)
+      end
+
+      onchain_assigns = %{onchain_ready: false, wallet_address: wallet_address}
+      error_msg = if wallet_address, do: nil, else: "No wallet connected"
+
+      # Use the on-chain commitment hash for provably fair display
+      server_seed_hash = Map.get(onchain_assigns, :commitment_hash) || ProvablyFair.generate_commitment(ProvablyFair.generate_server_seed())
+      nonce = Map.get(onchain_assigns, :onchain_nonce) || get_user_nonce(current_user.id)
 
       socket =
         socket
@@ -65,19 +93,24 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(current_flip: 0)
         |> assign(won: nil)
         |> assign(payout: 0)
-        |> assign(error_message: nil)
+        |> assign(error_message: error_msg)
         |> assign(show_token_dropdown: false)
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
         |> assign(confetti_pieces: [])
         |> assign(recent_games: load_recent_games(current_user.id))
         |> assign(user_stats: load_user_stats(current_user.id))
-        # Provably fair assigns
-        |> assign(server_seed: server_seed)
+        # Provably fair assigns (commitment hash from on-chain)
+        |> assign(server_seed: nil)  # Server seed is stored in Mnesia, not in socket
         |> assign(server_seed_hash: server_seed_hash)
         |> assign(nonce: nonce)
         |> assign(show_fairness_modal: false)
         |> assign(fairness_game: nil)
+        # On-chain assigns
+        |> assign(onchain_assigns)
+        |> assign(bet_tx: nil)
+        |> assign(bet_id: nil)
+        |> assign(settlement_tx: nil)
 
       {:ok, socket}
     else
@@ -89,7 +122,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-50">
+    <div
+      id="bux-booster-game"
+      class="min-h-screen bg-gray-50"
+      phx-hook="BuxBoosterOnchain"
+      data-game-id={assigns[:onchain_game_id]}
+      data-commitment-hash={assigns[:commitment_hash]}
+    >
       <div class="max-w-2xl mx-auto px-4 pt-24 pb-8">
         <!-- Header -->
         <div class="text-center mb-6">
@@ -118,7 +157,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           </div>
 
           <!-- Game Content Area -->
-          <div class="p-6 flex-1 flex flex-col min-h-0">
+          <div class="p-6 flex-1 flex flex-col min-h-0 relative">
             <%= if @game_state == :idle do %>
               <!-- Bet Stake with Token Dropdown -->
               <div class="mb-4">
@@ -251,9 +290,21 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           After the game, you can verify the result was fair.
                         </p>
                         <div class="flex items-start gap-2 overflow-hidden">
-                          <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
-                            <%= @server_seed_hash %>
-                          </code>
+                          <%= if assigns[:commitment_tx] do %>
+                            <a
+                              href={"https://roguescan.io/tx/#{@commitment_tx}?tab=logs"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 overflow-wrap-anywhere text-blue-500 hover:underline cursor-pointer"
+                              style="word-break: break-all;"
+                            >
+                              <%= @server_seed_hash %>
+                            </a>
+                          <% else %>
+                            <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
+                              <%= @server_seed_hash %>
+                            </code>
+                          <% end %>
                           <button
                             type="button"
                             id="copy-server-hash"
@@ -326,7 +377,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
             <% else %>
               <!-- Game in Progress -->
-              <div class="text-center flex-1 flex flex-col">
+              <div class="text-center flex-1 flex flex-col relative">
                 <!-- Prediction vs Result Display -->
                 <div class="mb-4">
                   <div class="flex justify-center gap-2 mb-2">
@@ -375,11 +426,28 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   </div>
                 <% end %>
 
+                <%= if @game_state == :awaiting_tx do %>
+                  <!-- Awaiting Transaction State -->
+                  <div class="mb-6 text-center">
+                    <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center bg-purple-100 animate-pulse mb-4">
+                      <svg class="w-12 h-12 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm Transaction</h3>
+                    <p class="text-sm text-gray-600 mb-4">Please approve the transaction in your wallet</p>
+                    <p class="text-xs text-gray-400">
+                      Betting <%= format_balance(@current_bet) %> <%= @selected_token %>
+                    </p>
+                  </div>
+                <% end %>
+
                 <%= if @game_state == :flipping do %>
                   <!-- Coin Flip Animation -->
                   <div class="mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)}>
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
-                      <div class={"coin w-full h-full absolute #{if Enum.at(@results, @current_flip - 1) == :heads, do: "animate-flip-heads", else: "animate-flip-tails"}"}>
+                      <div class="coin w-full h-full absolute animate-flip-continuous">
                         <!-- Heads chip -->
                         <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
                           <div class="w-16 h-16 rounded-full bg-coin-heads flex items-center justify-center border-4 border-white shadow-inner">
@@ -487,6 +555,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     </button>
                   </div>
                 <% end %>
+              </div>
+            <% end %>
+
+            <!-- Current Balance Display (absolutely positioned in bottom left, visible during game) -->
+            <%= if @game_state in [:flipping, :showing_result, :result] do %>
+              <div class="absolute bottom-4 left-4 text-left">
+                <p class="text-gray-500 text-xs mb-1">Balance</p>
+                <p class="text-sm font-bold text-gray-900 flex items-center gap-1">
+                  <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
+                  <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full" />
+                </p>
               </div>
             <% end %>
           </div>
@@ -876,17 +955,38 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     predictions_needed = get_predictions_needed(new_level)
 
     # Reset game state and predictions when difficulty changes
-    {:noreply,
-     socket
-     |> assign(selected_difficulty: new_level)
-     |> assign(predictions: List.duplicate(nil, predictions_needed))
-     |> assign(results: [])
-     |> assign(game_state: :idle)
-     |> assign(current_flip: 0)
-     |> assign(won: nil)
-     |> assign(payout: 0)
-     |> assign(error_message: nil)
-     |> assign(confetti_pieces: [])}
+    # Also create new commitment hash asynchronously (same as Play Again)
+    wallet_address = socket.assigns.wallet_address
+
+    socket =
+      socket
+      |> assign(selected_difficulty: new_level)
+      |> assign(predictions: List.duplicate(nil, predictions_needed))
+      |> assign(results: [])
+      |> assign(game_state: :idle)
+      |> assign(current_flip: 0)
+      |> assign(won: nil)
+      |> assign(payout: 0)
+      |> assign(error_message: nil)
+      |> assign(confetti_pieces: [])
+      |> assign(show_fairness_modal: false)
+      |> assign(fairness_game: nil)
+
+    # Initialize new on-chain game session asynchronously
+    socket = if wallet_address do
+      socket
+      |> assign(:onchain_ready, false)
+      |> assign(:onchain_initializing, true)
+      |> start_async(:init_onchain_game, fn ->
+        BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
+      end)
+    else
+      socket
+      |> assign(:onchain_ready, false)
+      |> assign(:error_message, "No wallet connected")
+    end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -973,6 +1073,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     bet_amount = socket.assigns.bet_amount
     predictions = socket.assigns.predictions
     predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
+    onchain_ready = Map.get(socket.assigns, :onchain_ready, false)
 
     # Validate all predictions are made
     all_predictions_made =
@@ -980,6 +1081,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         Enum.all?(predictions, fn p -> p in [:heads, :tails] end)
 
     cond do
+      not onchain_ready ->
+        {:noreply, assign(socket, error_message: "Wallet not connected or game not initialized")}
+
       not all_predictions_made ->
         {:noreply, assign(socket, error_message: "Please make all #{predictions_needed} predictions")}
 
@@ -990,37 +1094,83 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
 
       true ->
-        # Generate client seed DETERMINISTICALLY from player's bet choices
-        client_seed = ProvablyFair.generate_client_seed(
-          socket.assigns.current_user.id,
-          bet_amount,
-          socket.assigns.selected_token,
-          socket.assigns.selected_difficulty,
-          predictions
-        )
+        # OPTIMISTIC FLOW: Deduct balance and start animation immediately
+        user_id = socket.assigns.current_user.id
+        wallet_address = socket.assigns.wallet_address
+        token = socket.assigns.selected_token
+        token_address = BuxBoosterOnchain.token_address(token)
+        game_id = socket.assigns.onchain_game_id
+        difficulty = socket.assigns.selected_difficulty
 
-        # Generate results using provably fair method
-        combined_seed = ProvablyFair.generate_combined_seed(
-          socket.assigns.server_seed,
-          client_seed,
-          socket.assigns.nonce
-        )
-        results = ProvablyFair.generate_results(combined_seed, predictions_needed)
+        # Convert predictions to contract format (0 = heads, 1 = tails)
+        contract_predictions = Enum.map(predictions, fn
+          :heads -> 0
+          :tails -> 1
+        end)
 
-        # Start the sequential flip process with flip_id starting at 1
-        # current_bet tracks the doubling bet for win_all mode (4x, 8x, 16x, 32x)
-        socket =
-          socket
-          |> assign(results: results)
-          |> assign(game_state: :flipping)
-          |> assign(current_flip: 1)
-          |> assign(flip_id: 1)
-          |> assign(won: nil)
-          |> assign(payout: 0)
-          |> assign(current_bet: bet_amount)
-          |> assign(error_message: nil)
+        # 1. Optimistically deduct balance from Mnesia
+        Logger.info("[BuxBooster] Before deduct - current balances: #{inspect(socket.assigns.balances)}, token: #{token}, bet: #{bet_amount}")
 
-        {:noreply, socket}
+        case EngagementTracker.deduct_user_token_balance(user_id, wallet_address, token, bet_amount) do
+          {:ok, new_balance} ->
+            Logger.info("[BuxBooster] After deduct - new #{token} balance: #{new_balance}")
+
+            # 2. Calculate results immediately (server has seed already)
+            case BuxBoosterOnchain.calculate_game_result(game_id, predictions, bet_amount, token, difficulty) do
+              {:ok, result} ->
+                # 3. Update balances in socket and broadcast
+                balances = Map.put(socket.assigns.balances, token, new_balance)
+                # Calculate aggregate by summing all token balances (excluding the "aggregate" key to avoid double-counting)
+                aggregate_balance = balances
+                |> Map.delete("aggregate")
+                |> Map.values()
+                |> Enum.sum()
+
+                # Update the aggregate in the balances map
+                balances = Map.put(balances, "aggregate", aggregate_balance)
+
+                Logger.info("[BuxBooster] Broadcasting balances - #{token}: #{new_balance}, aggregate: #{aggregate_balance}, full map: #{inspect(balances)}")
+
+                BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate_balance)
+                BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+
+                # 4. Start animation IMMEDIATELY
+                socket =
+                  socket
+                  |> assign(balances: balances)
+                  |> assign(current_bet: bet_amount)
+                  |> assign(results: result.results)
+                  |> assign(won: result.won)
+                  |> assign(payout: result.payout)
+                  |> assign(game_state: :flipping)
+                  |> assign(current_flip: 1)
+                  |> assign(flip_id: 1)
+                  |> assign(bet_confirmed: false)
+                  |> assign(flip_start_time: System.monotonic_time(:millisecond))
+                  |> assign(error_message: nil)
+
+                # 5. Push background blockchain submission event
+                socket =
+                  push_event(socket, "place_bet_background", %{
+                    game_id: game_id,
+                    token_address: token_address,
+                    amount: bet_amount,
+                    difficulty: difficulty,
+                    predictions: contract_predictions,
+                    commitment_hash: socket.assigns.commitment_hash
+                  })
+
+                {:noreply, socket}
+
+              {:error, reason} ->
+                # Refund immediately if calculation fails
+                EngagementTracker.credit_user_token_balance(user_id, wallet_address, token, bet_amount)
+                {:noreply, assign(socket, error_message: "Failed to calculate result: #{inspect(reason)}")}
+            end
+
+          {:error, reason} ->
+            {:noreply, assign(socket, error_message: "Failed to deduct balance: #{reason}")}
+        end
     end
   end
 
@@ -1035,6 +1185,195 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   end
 
   @impl true
+  def handle_event("bet_confirmed", %{"game_id" => game_id, "tx_hash" => tx_hash, "confirmation_time_ms" => conf_time}, socket) do
+    Logger.info("[BuxBooster] Bet confirmed in #{conf_time}ms, tx: #{tx_hash}")
+
+    # Mark bet as placed in Mnesia (now that blockchain confirms it)
+    # Use the USER'S predictions, not the results!
+    predictions = socket.assigns.predictions
+
+    # Use commitment hash as bet_id (simpler than parsing events)
+    bet_id = socket.assigns.commitment_hash
+    bet_amount = socket.assigns.current_bet
+    token = socket.assigns.selected_token
+    difficulty = socket.assigns.selected_difficulty
+
+    case BuxBoosterOnchain.on_bet_placed(game_id, bet_id, tx_hash, predictions, bet_amount, token, difficulty) do
+      {:ok, _result} ->
+        Logger.info("[BuxBooster] Bet marked as placed in Mnesia")
+
+      {:error, reason} ->
+        Logger.error("[BuxBooster] Failed to mark bet as placed: #{inspect(reason)}")
+    end
+
+    # Calculate how long the flip has been spinning
+    flip_start = socket.assigns[:flip_start_time]
+    elapsed_ms = if flip_start do
+      System.monotonic_time(:millisecond) - flip_start
+    else
+      0
+    end
+
+    min_spin_time = 3000  # Minimum 3 seconds for UX
+    remaining_spin_time = max(0, min_spin_time - elapsed_ms)
+
+    Logger.info("[BuxBooster] Flip elapsed: #{elapsed_ms}ms, waiting #{remaining_spin_time}ms more before revealing result")
+
+    # Mark as confirmed
+    socket = assign(socket, bet_confirmed: true)
+
+    if remaining_spin_time > 0 do
+      # Still need to spin longer for minimum UX time
+      Process.send_after(self(), :reveal_flip_result, remaining_spin_time)
+    else
+      # Minimum time already passed, reveal immediately
+      send(self(), :reveal_flip_result)
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("bet_failed", %{"game_id" => game_id, "error" => error_message}, socket) do
+    Logger.error("[BuxBooster] Bet submission failed: #{error_message}")
+
+    # Refund the bet amount
+    user_id = socket.assigns.current_user.id
+    wallet_address = socket.assigns.wallet_address
+    token = socket.assigns.selected_token
+    bet_amount = socket.assigns.current_bet
+
+    case EngagementTracker.credit_user_token_balance(user_id, wallet_address, token, bet_amount) do
+      {:ok, new_balance} ->
+        balances = Map.put(socket.assigns.balances, token, new_balance)
+        # Calculate aggregate excluding the "aggregate" key
+        aggregate_balance = balances |> Map.delete("aggregate") |> Map.values() |> Enum.sum()
+        # Update aggregate in the map
+        balances = Map.put(balances, "aggregate", aggregate_balance)
+
+        BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate_balance)
+        BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+
+        {:noreply,
+         socket
+         |> assign(balances: balances)
+         |> assign(game_state: :idle)
+         |> assign(results: [])
+         |> assign(won: nil)
+         |> assign(payout: 0)
+         |> assign(bet_confirmed: false)
+         |> assign(error_message: "Transaction failed: #{error_message}. Bet refunded.")}
+
+      {:error, _reason} ->
+        {:noreply, assign(socket, error_message: "Transaction and refund failed - please contact support")}
+    end
+  end
+
+  @impl true
+  def handle_event("bet_placed", params, socket) do
+    # Frontend successfully placed the bet on-chain (optimistic or confirmed)
+    game_id = Map.get(params, "game_id")
+    bet_id = Map.get(params, "bet_id")
+    tx_hash = Map.get(params, "tx_hash")
+    pending = Map.get(params, "pending", false)
+
+    if pending do
+      # Optimistic update - transaction submitted but not confirmed yet
+      Logger.info("[BuxBooster] Bet placed optimistically: #{bet_id}, tx: #{tx_hash} (pending)")
+    else
+      Logger.info("[BuxBooster] Bet placed on-chain: #{bet_id}, tx: #{tx_hash} (confirmed)")
+    end
+
+    predictions = socket.assigns.predictions
+    bet_amount = socket.assigns.bet_amount
+    token = socket.assigns.selected_token
+    difficulty = socket.assigns.selected_difficulty
+
+    # Update the game record in Mnesia and calculate result
+    # This works the same whether pending or confirmed
+    case BuxBoosterOnchain.on_bet_placed(game_id, bet_id, tx_hash, predictions, bet_amount, token, difficulty) do
+      {:ok, result} ->
+        # Start the coin flip animation with pre-calculated results
+        socket =
+          socket
+          |> assign(bet_tx: tx_hash)
+          |> assign(bet_id: bet_id)
+          |> assign(results: result.results)
+          |> assign(game_state: :flipping)
+          |> assign(current_flip: 1)
+          |> assign(flip_id: 1)
+          |> assign(won: result.won)
+          |> assign(payout: result.payout)
+          |> assign(bet_pending: pending)
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        Logger.error("[BuxBooster] Failed to process bet: #{inspect(reason)}")
+        {:noreply, assign(socket, error_message: "Failed to process bet: #{inspect(reason)}", game_state: :idle)}
+    end
+  end
+
+  # Handle async result from on-chain game initialization
+  @impl true
+  def handle_async(:init_onchain_game, {:ok, {:ok, game_session}}, socket) do
+    Logger.info("[BuxBooster] On-chain game ready (async): #{game_session.game_id}")
+
+    {:noreply,
+     socket
+     |> assign(:onchain_game_id, game_session.game_id)
+     |> assign(:commitment_hash, game_session.commitment_hash)
+     |> assign(:commitment_tx, game_session.commitment_tx)
+     |> assign(:onchain_nonce, game_session.nonce)
+     |> assign(:onchain_ready, true)
+     |> assign(:onchain_initializing, false)
+     |> assign(:server_seed_hash, game_session.commitment_hash)
+     |> assign(:nonce, game_session.nonce)}
+  end
+
+  @impl true
+  def handle_async(:init_onchain_game, {:ok, {:error, reason}}, socket) do
+    Logger.error("[BuxBooster] Failed to init on-chain game (async): #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:onchain_ready, false)
+     |> assign(:onchain_initializing, false)
+     |> assign(:error_message, "Failed to initialize on-chain game")}
+  end
+
+  @impl true
+  def handle_async(:init_onchain_game, {:exit, reason}, socket) do
+    Logger.error("[BuxBooster] On-chain game init crashed (async): #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:onchain_ready, false)
+     |> assign(:onchain_initializing, false)
+     |> assign(:error_message, "Failed to initialize on-chain game")}
+  end
+
+  # Handle confirmed betId from background polling (if different from commitment)
+  def handle_event("bet_confirmed", %{"game_id" => game_id, "bet_id" => bet_id, "tx_hash" => tx_hash}, socket) do
+    Logger.info("[BuxBooster] Bet confirmed with actual betId: #{bet_id}, tx: #{tx_hash}")
+
+    # Update the bet_id if it changed
+    socket =
+      socket
+      |> assign(bet_id: bet_id)
+      |> assign(bet_pending: false)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("bet_error", %{"error" => error}, socket) do
+    # Frontend encountered an error placing the bet
+    Logger.error("[BuxBooster] Bet error from frontend: #{error}")
+    {:noreply, assign(socket, error_message: error, game_state: :idle)}
+  end
+
+  @impl true
   def handle_event("reset_game", _params, socket) do
     # Refresh balances and stats
     balances = EngagementTracker.get_user_token_balances(socket.assigns.current_user.id)
@@ -1042,32 +1381,55 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     recent_games = load_recent_games(socket.assigns.current_user.id)
     predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
 
-    # Generate fresh server seed for next game
-    server_seed = ProvablyFair.generate_server_seed()
-    server_seed_hash = ProvablyFair.generate_commitment(server_seed)
-    new_nonce = socket.assigns.nonce + 1
+    wallet_address = socket.assigns.wallet_address
 
-    {:noreply,
-     socket
-     |> assign(game_state: :idle)
-     |> assign(current_flip: 0)
-     |> assign(predictions: List.duplicate(nil, predictions_needed))
-     |> assign(results: [])
-     |> assign(won: nil)
-     |> assign(payout: 0)
-     |> assign(balances: balances)
-     |> assign(user_stats: user_stats)
-     |> assign(recent_games: recent_games)
-     |> assign(server_seed: server_seed)
-     |> assign(server_seed_hash: server_seed_hash)
-     |> assign(nonce: new_nonce)
-     |> assign(confetti_pieces: [])
-     |> assign(show_fairness_modal: false)
-     |> assign(fairness_game: nil)}
+    # Reset UI state immediately
+    socket =
+      socket
+      |> assign(game_state: :idle)
+      |> assign(current_flip: 0)
+      |> assign(predictions: List.duplicate(nil, predictions_needed))
+      |> assign(results: [])
+      |> assign(won: nil)
+      |> assign(payout: 0)
+      |> assign(balances: balances)
+      |> assign(user_stats: user_stats)
+      |> assign(recent_games: recent_games)
+      |> assign(server_seed: nil)
+      |> assign(confetti_pieces: [])
+      |> assign(show_fairness_modal: false)
+      |> assign(fairness_game: nil)
+      |> assign(bet_tx: nil)
+      |> assign(bet_id: nil)
+      |> assign(settlement_tx: nil)
+      |> assign(error_message: nil)
+
+    # Initialize new on-chain game session asynchronously (non-blocking)
+    socket = if wallet_address do
+      socket
+      |> assign(:onchain_ready, false)
+      |> assign(:onchain_initializing, true)
+      |> start_async(:init_onchain_game, fn ->
+        BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
+      end)
+    else
+      socket
+      |> assign(:onchain_ready, false)
+      |> assign(:error_message, "No wallet connected")
+    end
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("show_fairness_modal", _params, socket) do
+    # Get server seed from current game in Mnesia
+    game_id = socket.assigns.onchain_game_id
+    server_seed = case BuxBoosterOnchain.get_game(game_id) do
+      {:ok, game} -> game.server_seed
+      {:error, _} -> nil
+    end
+
     # Build the bet details string (same format used for hashing)
     predictions_str =
       socket.assigns.predictions
@@ -1093,7 +1455,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     # Build fairness game data for current game
     combined_seed = ProvablyFair.generate_combined_seed(
-      socket.assigns.server_seed,
+      server_seed,
       client_seed,
       socket.assigns.nonce
     )
@@ -1110,7 +1472,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       predictions_str: predictions_str,
       nonce: socket.assigns.nonce,
       # Seeds
-      server_seed: socket.assigns.server_seed,
+      server_seed: server_seed,
       server_seed_hash: socket.assigns.server_seed_hash,
       client_seed_input: client_seed_input,
       client_seed: client_seed,
@@ -1139,8 +1501,25 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   end
 
   @impl true
+  def handle_info(:reveal_flip_result, socket) do
+    # Called after bet confirmation + minimum spin time
+    # Push event to frontend to reveal the result
+    if socket.assigns.game_state == :flipping and socket.assigns.bet_confirmed do
+      socket = push_event(socket, "reveal_result", %{
+        flip_index: socket.assigns.current_flip - 1,
+        result: Enum.at(socket.assigns.results, socket.assigns.current_flip - 1) |> Atom.to_string()
+      })
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_info(:flip_complete, socket) do
     # After flip animation, show coin result for 1 second
+    Logger.info("[BuxBooster] Flip complete - current_flip: #{socket.assigns.current_flip}, showing result for 1s")
     socket = assign(socket, game_state: :showing_result)
 
     # After 1 second showing coin result, move to pause state
@@ -1158,6 +1537,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
     mode = get_mode(socket.assigns.selected_difficulty)
 
+    Logger.info("[BuxBooster] After result shown - flip #{current_flip}/#{predictions_needed}, mode: #{mode}")
+
     # Check if current prediction was correct
     current_prediction = Enum.at(predictions, current_flip - 1)
     current_result = Enum.at(results, current_flip - 1)
@@ -1167,15 +1548,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     case mode do
       :win_one ->
         # Win One mode: player wins if ANY flip is correct
+        Logger.info("[BuxBooster] Win One - correct: #{correct}, prediction: #{current_prediction}, result: #{current_result}")
         if correct do
           # Won! Show final result immediately
+          Logger.info("[BuxBooster] Won on flip #{current_flip}, showing final result")
           send(self(), :show_final_result)
         else
           if current_flip >= predictions_needed do
             # Lost all flips - show final result
+            Logger.info("[BuxBooster] Lost all flips, showing final result")
             send(self(), :show_final_result)
           else
             # More flips to go - continue to next flip
+            Logger.info("[BuxBooster] Moving to next flip (#{current_flip + 1})")
             send(self(), :next_flip)
           end
         end
@@ -1202,6 +1587,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   @impl true
   def handle_info(:next_flip, socket) do
     # Start the next flip with incremented flip_id to force hook remount
+    Logger.info("[BuxBooster] handle_info :next_flip - starting flip #{socket.assigns.current_flip + 1}")
     # For win_all mode (4x, 8x, 16x, 32x), double the current bet after each winning flip
     mode = get_mode(socket.assigns.selected_difficulty)
     new_current_bet = if mode == :win_all do
@@ -1209,6 +1595,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     else
       socket.assigns.current_bet
     end
+
+    # Schedule reveal_result for this flip (3 second minimum spin time)
+    Process.send_after(self(), :reveal_flip_result, 3000)
 
     {:noreply,
      socket
@@ -1229,62 +1618,81 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     Logger.info("[BuxBooster] show_final_result - mode: #{mode}, predictions: #{inspect(predictions)}, results: #{inspect(results)}")
 
-    # Determine win based on mode
-    # Only check results up to current_flip (not pre-generated future results)
-    results_to_check = Enum.take(results, current_flip)
-    predictions_to_check = Enum.take(predictions, current_flip)
+    # For on-chain games, won/payout were already calculated in on_bet_placed
+    won = socket.assigns.won
+    payout = socket.assigns.payout
 
-    won = case mode do
-      :win_one ->
-        # Player wins if ANY flip was correct
-        Enum.zip(predictions_to_check, results_to_check)
-        |> Enum.any?(fn {pred, res} -> pred == res end)
+    Logger.info("[BuxBooster] won: #{won}, payout: #{payout}")
 
-      :win_all ->
-        # Player wins only if ALL flips were correct
-        Enum.zip(predictions_to_check, results_to_check)
-        |> Enum.all?(fn {pred, res} -> pred == res end)
-    end
-
-    Logger.info("[BuxBooster] won: #{won}")
-
+    # Save game result to local Mnesia tables for stats/history
     if won do
-      # Player wins
-      multiplier = get_multiplier(socket.assigns.selected_difficulty)
-      payout = socket.assigns.bet_amount * multiplier
       save_game_result(socket, true, payout)
-
-      # Refresh stats and recent games immediately
-      user_stats = load_user_stats(user_id, token_type)
-      recent_games = load_recent_games(user_id)
-
-      # Generate confetti data for the win animation
-      confetti_pieces = generate_confetti_data(100)
-
-      {:noreply,
-       socket
-       |> assign(game_state: :result)
-       |> assign(won: true)
-       |> assign(payout: payout)
-       |> assign(user_stats: user_stats)
-       |> assign(recent_games: recent_games)
-       |> assign(confetti_pieces: confetti_pieces)}
     else
-      # Player loses
       save_game_result(socket, false)
-
-      # Refresh stats and recent games immediately
-      user_stats = load_user_stats(user_id, token_type)
-      recent_games = load_recent_games(user_id)
-
-      {:noreply,
-       socket
-       |> assign(game_state: :result)
-       |> assign(won: false)
-       |> assign(payout: 0)
-       |> assign(user_stats: user_stats)
-       |> assign(recent_games: recent_games)}
     end
+
+    # Refresh stats and recent games
+    user_stats = load_user_stats(user_id, token_type)
+    recent_games = load_recent_games(user_id)
+
+    # Generate confetti for wins
+    confetti_pieces = if won, do: generate_confetti_data(100), else: []
+
+    # Settle the bet on-chain in background (player already sees result)
+    game_id = socket.assigns.onchain_game_id
+    liveview_pid = self()  # Capture LiveView PID before spawning
+    spawn(fn ->
+      case BuxBoosterOnchain.settle_game(game_id) do
+        {:ok, %{tx_hash: tx_hash, player_balance: _balance}} ->
+          Logger.info("[BuxBooster] Settlement complete: #{tx_hash}")
+          # Send settlement confirmation back to LiveView
+          send(liveview_pid, {:settlement_complete, tx_hash})
+
+        {:error, reason} ->
+          Logger.error("[BuxBooster] Settlement failed: #{inspect(reason)}")
+          send(liveview_pid, {:settlement_failed, reason})
+      end
+    end)
+
+    # Push settlement event to frontend to update balance
+    socket =
+      socket
+      |> assign(game_state: :result)
+      |> assign(won: won)
+      |> assign(payout: payout)
+      |> assign(user_stats: user_stats)
+      |> assign(recent_games: recent_games)
+      |> assign(confetti_pieces: confetti_pieces)
+      |> push_event("bet_settled", %{won: won, payout: payout})
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:settlement_complete, tx_hash}, socket) do
+    Logger.info("[BuxBooster] Received settlement confirmation: #{tx_hash}")
+    user_id = socket.assigns.current_user.id
+    wallet_address = socket.assigns.wallet_address
+
+    # Sync balances from blockchain (async - will broadcast when complete)
+    # This fetches latest on-chain balances including the payout and broadcasts to all LiveViews
+    BuxMinter.sync_user_balances_async(user_id, wallet_address)
+
+    {:noreply, assign(socket, settlement_tx: tx_hash)}
+  end
+
+  @impl true
+  def handle_info({:settlement_failed, reason}, socket) do
+    Logger.error("[BuxBooster] Settlement failed: #{inspect(reason)}")
+    # The game result is already shown - settlement failure is a backend issue
+    # Player's tokens are still locked in contract until manual intervention
+    {:noreply, assign(socket, error_message: "Settlement pending - please contact support")}
+  end
+
+  # Handle balance updates broadcast from BuxBalanceHook
+  def handle_info({:bux_balance_updated, _new_balance}, socket) do
+    # The aggregate balance is maintained in the header component, we don't need it here
+    {:noreply, socket}
   end
 
   # Helper Functions
@@ -1311,8 +1719,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   end
 
   defp format_balance(amount) when is_float(amount), do: :erlang.float_to_binary(amount, decimals: 2)
-  defp format_balance(amount) when is_integer(amount), do: Integer.to_string(amount)
-  defp format_balance(_), do: "0"
+  defp format_balance(amount) when is_integer(amount), do: :erlang.float_to_binary(amount / 1, decimals: 2)
+  defp format_balance(_), do: "0.00"
 
   defp format_profit(amount) when amount >= 0, do: "+#{format_balance(amount)}"
   defp format_profit(amount), do: format_balance(amount)
@@ -1333,6 +1741,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     predictions = socket.assigns.predictions
     results = socket.assigns.results
 
+    # For on-chain games, get the server seed from the Mnesia game record
+    onchain_game_id = Map.get(socket.assigns, :onchain_game_id)
+    {server_seed, server_seed_hash, nonce} = if onchain_game_id do
+      case BuxBoosterOnchain.get_game(onchain_game_id) do
+        {:ok, game} -> {game.server_seed, game.commitment_hash, game.nonce}
+        _ -> {nil, socket.assigns.server_seed_hash, socket.assigns.nonce}
+      end
+    else
+      {nil, socket.assigns.server_seed_hash, socket.assigns.nonce}
+    end
+
     game_id = "#{user_id}_#{System.system_time(:millisecond)}"
     now = System.system_time(:second)
 
@@ -1351,9 +1770,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       payout,
       now,
       # Provably fair fields:
-      socket.assigns.server_seed,
-      socket.assigns.server_seed_hash,
-      socket.assigns.nonce
+      server_seed,
+      server_seed_hash,
+      nonce
     }
 
     :mnesia.dirty_write(game_record)

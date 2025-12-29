@@ -57,6 +57,14 @@ const rogueChain = defineChain({
   blockExplorers: [blockExplorer],
 });
 
+// Expose globals for use by other hooks (e.g., BuxBoosterOnchain)
+window.rogueChain = rogueChain;
+// Initialize and expose the Thirdweb client
+const initClient = getClient();
+if (initClient) {
+  window.thirdwebClient = initClient;
+}
+
 export const HomeHooks = {
   mounted() {
     // Toggle modal function
@@ -205,6 +213,7 @@ export const ThirdwebLogin = {
         bundlerUrl: bundlerUrl,
 
         // Paymaster configuration with gas sponsorship
+        // OPTIMIZED: Reduced gas limits for faster transaction processing
         paymaster: async (userOp) => {
           console.log('💰 Paymaster function called');
 
@@ -215,26 +224,39 @@ export const ThirdwebLogin = {
           }
           console.log('   UserOp received:', userOpForLog);
 
-          // Fill in any missing gas values with fixed amounts
-          // We use fixed values because Rogue Chain RPC can't simulate gas estimation reliably
-          if (!userOp.preVerificationGas || userOp.preVerificationGas === '0x0' || userOp.preVerificationGas === 0n) {
-            userOp.preVerificationGas = '0xb708'; // 46856
-          }
-
           // Check if initCode is present (account deployment)
           const hasInitCode = userOp.initCode && userOp.initCode !== '0x' && userOp.initCode.length > 2;
 
-          if (!userOp.verificationGasLimit || userOp.verificationGasLimit === '0x0' || userOp.verificationGasLimit === 0n) {
-            // Account deployment needs much more gas than just verification
-            // Factory createAccount() requires ~338k gas on Rogue Chain
-            userOp.verificationGasLimit = hasInitCode ? '0x061a80' : '0x0186a0'; // 400000 for deployment, 100000 for verification
-          }
-          if (!userOp.callGasLimit || userOp.callGasLimit === '0x0' || userOp.callGasLimit === 0n) {
-            userOp.callGasLimit = '0x1d4c0'; // 120000
+          // Check if callData suggests a batch transaction (executeBatch)
+          const isBatchTx = userOp.callData && userOp.callData.startsWith('0x47e1da2a'); // executeBatch selector
+
+          // Fill in any missing gas values with optimized amounts
+          // Reduced from previous conservative values for better performance
+          if (!userOp.preVerificationGas || userOp.preVerificationGas === '0x0' || userOp.preVerificationGas === 0n) {
+            // Reduced from 46856 to 30000 (sufficient for standard UserOps)
+            userOp.preVerificationGas = '0x7530'; // 30000
           }
 
-          if (hasInitCode) {
-            console.log('   🏭 Account deployment detected, using higher verificationGasLimit');
+          if (!userOp.verificationGasLimit || userOp.verificationGasLimit === '0x0' || userOp.verificationGasLimit === 0n) {
+            if (hasInitCode) {
+              // Account deployment needs high gas - keep at 400000
+              userOp.verificationGasLimit = '0x061a80'; // 400000
+              console.log('   🏭 Account deployment detected, using higher verificationGasLimit');
+            } else {
+              // Reduced from 100000 to 62500 for regular verification
+              userOp.verificationGasLimit = '0xf424'; // 62500
+            }
+          }
+
+          if (!userOp.callGasLimit || userOp.callGasLimit === '0x0' || userOp.callGasLimit === 0n) {
+            if (isBatchTx) {
+              // Batch transactions (approve + placeBet) need more gas
+              userOp.callGasLimit = '0x493e0'; // 300000 for batched operations
+              console.log('   📦 Batch transaction detected, using higher callGasLimit');
+            } else {
+              // Single operations use standard gas
+              userOp.callGasLimit = '0x30d40'; // 200000 (increased from 120000 for safety)
+            }
           }
 
           console.log('✅ Paymaster returning paymasterAndData');
@@ -243,13 +265,22 @@ export const ThirdwebLogin = {
           // Rundler configured with --unsafe flag to bypass strict paymaster checks
           console.log('📝 PaymasterAndData (SimplePaymaster):', paymasterAddress);
 
+          // Add 20% buffer to preVerificationGas to avoid bundler precheck errors
+          let preVerificationGas = userOp.preVerificationGas;
+          if (typeof preVerificationGas === 'bigint') {
+            preVerificationGas = preVerificationGas + (preVerificationGas / 5n);  // +20%
+          } else if (typeof preVerificationGas === 'string') {
+            const pvg = BigInt(preVerificationGas);
+            preVerificationGas = '0x' + (pvg + (pvg / 5n)).toString(16);
+          }
+
           return {
             paymasterAndData: paymasterAddress,
-            // Return dummy gas values to skip bundler's gas estimation
+            // Return optimized gas values to skip bundler's gas estimation
             // Rogue Chain RPC throws Router errors during simulation
             callGasLimit: userOp.callGasLimit,
             verificationGasLimit: userOp.verificationGasLimit,
-            preVerificationGas: userOp.preVerificationGas,
+            preVerificationGas: preVerificationGas,
           };
         },
       },
@@ -1333,11 +1364,20 @@ export const ThirdwebWallet = {
           console.log('✅ Paymaster returning paymasterAndData');
           console.log('📝 PaymasterAndData (SimplePaymaster):', paymasterAddress);
 
+          // Add 20% buffer to preVerificationGas to avoid bundler precheck errors
+          let preVerificationGas = userOp.preVerificationGas;
+          if (typeof preVerificationGas === 'bigint') {
+            preVerificationGas = preVerificationGas + (preVerificationGas / 5n);  // +20%
+          } else if (typeof preVerificationGas === 'string') {
+            const pvg = BigInt(preVerificationGas);
+            preVerificationGas = '0x' + (pvg + (pvg / 5n)).toString(16);
+          }
+
           return {
             paymasterAndData: paymasterAddress,
             callGasLimit: userOp.callGasLimit,
             verificationGasLimit: userOp.verificationGasLimit,
-            preVerificationGas: userOp.preVerificationGas,
+            preVerificationGas: preVerificationGas,
           };
         },
       },

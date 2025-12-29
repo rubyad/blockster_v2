@@ -25,6 +25,9 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 ## Running Locally
 
 ### Multi-node with Mnesia Persistence (Recommended)
+
+**Cluster Discovery**: Uses **libcluster** (dev only) for automatic node discovery and connection. Production uses DNSCluster on Fly.io.
+
 ```bash
 # Terminal 1
 elixir --sname node1 -S mix phx.server
@@ -32,6 +35,14 @@ elixir --sname node1 -S mix phx.server
 # Terminal 2
 PORT=4001 elixir --sname node2 -S mix phx.server
 ```
+
+Nodes will automatically discover and connect to each other via libcluster's Epmd strategy. Node2 will join node1's cluster and sync all Mnesia tables.
+
+**Important Notes:**
+- If nodes started independently before, delete `priv/mnesia/node2` to allow clean cluster join
+- libcluster is configured only for dev environment (see `config/dev.exs`)
+- Production continues to use DNSCluster (no changes to prod behavior)
+- Node discovery happens before Mnesia initialization in supervision tree
 
 ### Single Node
 ```bash
@@ -86,6 +97,39 @@ Then use `@token_value_usd` in templates instead of hardcoding values.
 - Use `phx-update="ignore"` for elements managed by JS (Twitter embeds, TipTap editors)
 - Always preload associations with ordered queries for consistent ordering
 - Use `assign_async` for expensive operations that shouldn't block mount
+
+##### LiveView Double Mount
+**CRITICAL**: LiveView mounts **twice** on initial page load:
+1. **First mount (disconnected)**: Initial HTTP request, `connected?(socket)` returns `false`
+2. **Second mount (connected)**: WebSocket connection established, `connected?(socket)` returns `true`
+
+**When to use `connected?(socket)` check**:
+- Operations that should happen **only once per page load** (not twice)
+- Side effects like API calls, blockchain transactions, creating database records
+- Expensive operations that would waste resources if run twice
+
+**Example** (from BuxBoosterLive):
+```elixir
+def mount(_params, _session, socket) do
+  # Only submit commitment to blockchain on connected mount
+  {onchain_assigns, error_msg} = if wallet_address != nil and connected?(socket) do
+    case BuxBoosterOnchain.get_or_init_game(user_id, wallet_address) do
+      {:ok, game_session} -> # ... submit to blockchain
+    end
+  else
+    # Skip on disconnected mount
+    {%{onchain_ready: false}, nil}
+  end
+
+  {:ok, assign(socket, onchain_assigns)}
+end
+```
+
+**Common pitfall**: Not using `connected?(socket)` for side effects causes them to execute twice, leading to:
+- Duplicate transactions
+- Incremented counters by 2 instead of 1
+- Wasted API calls
+- Race conditions
 
 #### Database Optimization
 - **Use ETS/Mnesia for caching** frequently accessed data to reduce PostgreSQL load
@@ -158,11 +202,18 @@ Products use a checkbox-based system for sizes/colors that auto-generates varian
 ### Token Contracts (Rogue Chain Mainnet)
 | Token | Contract Address |
 |-------|------------------|
-| BUX | `0xbe46C2A9C729768aE938bc62eaC51C7Ad560F18d` |
+| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` |
 | moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` |
 | neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` |
 | rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` |
 | flareBUX | `0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8` |
+| nftBUX | `0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED` |
+| nolchaBUX | `0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642` |
+| solBUX | `0x92434779E281468611237d18AdE20A4f7F29DB38` |
+| spaceBUX | `0xAcaCa77FbC674728088f41f6d978F0194cf3d55A` |
+| tronBUX | `0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665` |
+| tranBUX | `0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96` |
+| blocksterBUX | `0x133Faa922052aE42485609E14A1565551323CdbE` |
 
 ---
 
@@ -191,7 +242,33 @@ Products use a checkbox-based system for sizes/colors that auto-generates varian
 - **CREATE2**: Wallet addresses are deterministic before deployment
 
 ### BUX Minter Service
-Deployed at `https://bux-minter.fly.dev` - handles blockchain token minting.
+Deployed at `https://bux-minter.fly.dev` - handles blockchain token minting and BUX Booster game transactions.
+
+**Location**: `bux-minter/` directory in this repo
+**Deployment**: Fly.io app `bux-minter`
+**Tech Stack**: Node.js + Express + ethers.js
+
+**Key Endpoints**:
+- `POST /mint` - Mint tokens to a wallet address
+- `GET /balance/:address` - Get single token balance
+- `GET /aggregated-balances/:address` - Get all token balances in one call (via BalanceAggregator contract)
+- `POST /submit-commitment` - Submit commitment hash to BuxBoosterGame contract
+- `POST /settle-bet` - Settle a bet with server-calculated results (V3: accepts commitmentHash, serverSeed, results[], won)
+- `GET /player-nonce/:address` - Get player's on-chain nonce from contract (for Mnesia sync)
+- `GET /player-state/:address` - Get player's full state (nonce + unused commitment)
+
+**Nonce Management** (Updated Dec 2024):
+- **Mnesia is the ONLY source of truth** for nonces - contract does NOT validate nonces
+- Nonce calculated from Mnesia by finding max nonce from placed/settled bets + 1
+- Contract accepts all commitments regardless of nonce value
+- No blockchain queries for nonces - purely server-side tracking
+- `/player-nonce/:address` endpoint exists but is unused (legacy)
+
+**Deployment**:
+```bash
+cd bux-minter
+flyctl deploy  # Deploys to bux-minter.fly.dev
+```
 
 **Minting tokens as rewards is a very common operation - don't add unnecessary validation that would slow it down.**
 
@@ -289,6 +366,8 @@ bux_earned = (engagement_score / 10) * base_bux_reward * user_multiplier
 - `docs/rewards_system.md` - Multi-token rewards architecture
 - `docs/x_integration.md` - X OAuth and share campaigns
 - `docs/bux_token.md` - Token contract addresses
+- `docs/contract_upgrades.md` - BuxBoosterGame UUPS upgrade process and troubleshooting
+- `docs/nonce_system_simplification.md` - Dec 2024 nonce system changes
 
 ---
 
@@ -548,3 +627,270 @@ After a successful retweet, check `@share_reward` to show success UI:
 ### Self-Hosted Dependencies
 - Swiper is bundled via npm (not CDN) for better performance
 - Eliminates external DNS lookup and connection overhead
+
+### Libcluster Configuration (Dev Only)
+
+**Added**: December 2024 to fix multi-node development cluster discovery.
+
+**Problem**: DNSCluster is set to `:ignore` in development, so nodes wouldn't discover each other during startup, causing each node to initialize Mnesia independently.
+
+**Solution**: Added libcluster with Epmd strategy for dev-only automatic cluster discovery.
+
+**Files Changed**:
+- [mix.exs](mix.exs:62) - Added `{:libcluster, "~> 3.4", only: :dev}`
+- [config/dev.exs](config/dev.exs:94-103) - Configured Epmd topology with hardcoded node names
+- [lib/blockster_v2/application.ex](lib/blockster_v2/application.ex:10-23) - Added libcluster to supervision tree only when `Mix.env() == :dev`
+
+**Configuration** (config/dev.exs):
+```elixir
+config :libcluster,
+  topologies: [
+    local_epmd: [
+      strategy: Cluster.Strategy.Epmd,
+      config: [
+        hosts: [:"node1@Adams-iMac-Pro", :"node2@Adams-iMac-Pro"]
+      ]
+    ]
+  ]
+```
+
+**Production**: Unchanged - continues to use DNSCluster for Fly.io cluster discovery.
+
+**Troubleshooting**: If nodes fail to sync Mnesia after connecting, delete `priv/mnesia/node2` and restart both nodes for a clean join.
+
+### BUX Booster Game Contract
+- **Contract Address (Proxy)**: `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B`
+- **Network**: Rogue Chain Mainnet (560013)
+- **Pattern**: UUPS Upgradeable Proxy
+
+### Upgradeable Smart Contract Storage Layout - CRITICAL
+
+**VERY IMPORTANT**: When upgrading UUPS or Transparent proxy contracts, you MUST preserve the exact storage layout:
+
+1. **NEVER change the order of state variables** - Moving a variable breaks storage
+2. **NEVER remove state variables** - This shifts all subsequent slots
+3. **ONLY add new variables at the END** - After all existing variables
+4. **Inline array initialization doesn't work with proxies** - Use `reinitializer(N)` functions instead
+
+Example of what NOT to do:
+```solidity
+// WRONG - changing order or removing
+uint256 public foo;  // slot 0
+uint256 public bar;  // slot 1 -> removing this breaks everything below
+uint256 public baz;  // slot 2
+
+// RIGHT - only add at end
+uint256 public foo;  // slot 0
+uint256 public bar;  // slot 1
+uint256 public baz;  // slot 2
+uint256 public newVar; // slot 3 - safe to add
+```
+
+For arrays with inline initialization in proxy contracts:
+```solidity
+// WRONG - inline init doesn't work in proxy storage
+uint8[9] public FLIP_COUNTS = [5, 4, 3, 2, 1, 2, 3, 4, 5];
+
+// RIGHT - declare, then initialize in reinitializer
+uint8[9] public FLIP_COUNTS;
+
+function initializeV2() reinitializer(2) public {
+    FLIP_COUNTS[0] = 5;
+    // ...
+}
+```
+
+### Account Abstraction Performance Optimizations (Dec 2024)
+
+**Problem**: BUX Booster transactions were taking ~6 seconds due to sequential approve + placeBet UserOperations.
+
+**Solutions Attempted & Results**:
+
+1. **~~Batch Transactions~~** (Abandoned Dec 28, 2024)
+   - **Attempted**: Combine approve + placeBet into single UserOp with `sendBatchTransaction()`
+   - **Issue**: Batch transactions don't propagate state changes between calls - approve sets allowance but placeBet can't see it in same transaction
+   - **Error**: `SafeERC20FailedOperation` - placeBet failed because allowance was still 0
+   - **Lesson**: Sequential transactions with receipt waiting are more reliable
+
+2. **Infinite Approval + Caching** (✅ Primary Optimization)
+   - Approve MAX_UINT256 once, cache in localStorage
+   - **Results**: ~3.5s savings on repeat bets (50-67% improvement)
+   - Cache verification: check on-chain allowance >= half of MAX_UINT256 before trusting cache
+
+3. **Sequential Transactions with Receipt Waiting** (✅ Current Approach)
+   - Execute approve → wait for confirmation → execute placeBet
+   - **Results**: First bet ~4-5s, repeat bets ~2-3s
+   - More reliable than batching, slower on first bet but cached approvals make repeats fast
+
+4. **Optimistic UI Updates** (✅ Implemented Dec 28, 2024)
+   - Deduct balance immediately in Mnesia when user places bet (before blockchain confirms)
+   - Start coin animation immediately
+   - Mark bet as `:placed` in Mnesia only after blockchain confirms transaction
+   - On settlement, trigger async balance sync from blockchain
+   - Use PubSub broadcasts to update all LiveViews when balances change
+   - **Impact**: Instant UI feedback, ~2s+ perceived latency reduction
+   - **Key Pattern**: Never use `Process.sleep()` after async calls - rely on broadcasts instead
+
+**Performance Metrics**:
+- First bet: ~6s → ~4-5s (17-33% improvement)
+- Repeat bets: ~6s → ~2-3s (50-67% improvement via caching)
+- UserOps per bet: 2 → 1-2 (sequential but cached)
+
+**Key Files Changed**:
+- `assets/js/bux_booster_onchain.js` - Sequential approve + placeBet with caching
+- `bux-minter/index.js` - Updated ABI to V3 contract signature
+- `lib/blockster_v2_web/live/bux_booster_live.ex` - Optimistic balance updates with PubSub
+- `lib/blockster_v2_web/live/bux_balance_hook.ex` - Balance update broadcasts
+
+**Documentation**: See [docs/AA_PERFORMANCE_OPTIMIZATIONS.md](docs/AA_PERFORMANCE_OPTIMIZATIONS.md) for full details.
+
+**Critical Lessons for Optimistic UI**:
+1. **NEVER use `Process.sleep()` after async operations** - Async means it runs in background, sleeping doesn't wait for it
+2. **Use PubSub broadcasts for cross-LiveView updates** - Subscribe once, receive updates from anywhere
+3. **Balance sync pattern**:
+   - Page load: Trigger `BuxMinter.sync_user_balances_async()` on connected mount
+   - Bet placed: Deduct from Mnesia immediately (optimistic)
+   - Bet confirmed: Mark as `:placed` in Mnesia
+   - Settlement: Trigger async sync, rely on broadcast to update UI
+4. **Aggregate balance calculation bug**: When summing token balances, exclude the "aggregate" key itself to avoid double-counting
+5. **LiveView hook conflicts**: Don't use `on_mount` for hooks that attach to `handle_info` - manually subscribe and add handlers instead
+6. **Balance update flow**:
+   ```elixir
+   # Settlement completes
+   BuxMinter.sync_user_balances_async(user_id, wallet) # Fetches from blockchain
+   # When sync completes, BuxMinter broadcasts via BuxBalanceHook
+   # All subscribed LiveViews receive {:token_balances_updated, balances}
+   # UI updates automatically
+   ```
+
+**Cache Management**:
+```javascript
+// Clear approval cache for testing
+Object.keys(localStorage)
+  .filter(k => k.startsWith('approval_'))
+  .forEach(k => localStorage.removeItem(k));
+```
+
+### BUX Booster Smart Contract Upgrades (Dec 2024)
+
+**Contract**: `contracts/bux-booster-game/contracts/BuxBoosterGame.sol`
+**Proxy Address**: `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B` (Rogue Chain Mainnet)
+**Pattern**: UUPS (Universal Upgradeable Proxy Standard)
+
+**CRITICAL Storage Layout Rules**:
+1. **NEVER remove state variables** - Shifts all subsequent slots, corrupts data
+2. **NEVER reorder state variables** - Same corruption issue
+3. **ONLY add new variables at the END** - After all existing variables
+4. **KEEP unused variables** - If you stop using a variable, leave it in place with a comment
+
+**Stack Too Deep Errors**:
+- **NEVER enable `viaIR: true` to fix stack too deep errors** - This can cause unpredictable issues
+- Instead, fix stack too deep by:
+  - Moving code to helper functions
+  - Caching struct fields to memory variables
+  - Splitting large events into multiple smaller events
+  - Reducing number of parameters passed to functions
+
+**Upgrade Process**:
+```bash
+cd contracts/bux-booster-game
+
+# 1. Compile
+npx hardhat compile
+
+# 2. Force import proxy (if needed)
+npx hardhat run scripts/force-import.js --network rogueMainnet
+
+# 3. Use manual upgrade (recommended for Rogue Chain)
+npx hardhat run scripts/upgrade-manual.js --network rogueMainnet
+
+# 4. Call initializer (e.g., initializeV3)
+npx hardhat run scripts/init-v3.js --network rogueMainnet
+
+# 5. Verify upgrade
+npx hardhat run scripts/verify-upgrade.js --network rogueMainnet
+```
+
+**Common Issues**:
+- **"Deployment not registered"**: Run `force-import.js` first
+- **"execution reverted"**: Use `upgrade-manual.js` with explicit gas limits
+- **Gas estimation fails**: Rogue Chain gas estimation issues, use manual upgrade
+- **Stack too deep**: Follow rules above, NEVER use viaIR
+
+**V3 Changes (Dec 28, 2024)**:
+- **Architecture Change**: Server calculates results and sends to contract (eliminates nonce encoding mismatch between Elixir and Solidity)
+- **Bet ID**: commitmentHash used as betId (simpler, more gas efficient)
+- **Events Split**: BetSettled into two events (BetSettled + BetDetails) to avoid stack too deep
+- **Gas Optimization**: Removed on-chain result generation (~100 lines, ~50k gas savings per bet, ~25% reduction)
+- **New Implementation**: `0x9F3141bdcF91f66B3eC7E909032cd0b5A0fdd5eD`
+- **Upgrade Transaction**: `0x776f3c1d3f5bc4f9f99c09409fba2bf5ad44380f523dc0968cc6a816d9982a61`
+- **InitializeV3 Transaction**: `0x14527bf64278ae9d354b9deef2bdabaf7c5be29fb1ca8abba59df50101cb7982`
+
+**V3 Contract Changes**:
+- `settleBet()` now accepts `(commitmentHash, serverSeed, results[], won)` instead of calculating results on-chain
+- `BetSettled` event now emits core settlement data (won, results, payout, serverSeed)
+- `BetDetails` event emits game context (token, amount, difficulty, predictions, nonce, timestamp)
+- Removed functions: `_generateClientSeed()`, `_generateResults()`, `_checkWin()`, string conversion helpers
+
+**Trust Model**: V3 trusts server to calculate results correctly, but maintains provably fair properties:
+- Server commits before seeing predictions ✓
+- Server reveals seed after settlement ✓
+- Players can verify results off-chain ✓
+- Contract verifies seed matches commitment ✓
+
+See [docs/contract_upgrades.md](docs/contract_upgrades.md), [docs/nonce_system_simplification.md](docs/nonce_system_simplification.md), and [docs/v3_upgrade_summary.md](docs/v3_upgrade_summary.md) for full details.
+
+
+### BUX Booster Balance Update After Settlement (Dec 2024)
+
+**Problem**: After winning a bet, the aggregate balance in the header and dropdown updated correctly, but the balance displayed in the BuxBoosterLive coin flip area did not update.
+
+**Root Cause**:
+- BuxBoosterLive uses `:balances` assign for the coin flip area balance display
+- BuxBalanceHook (attached via `on_mount`) intercepts `:token_balances_updated` broadcasts and updates `:token_balances` assign (used by header)
+- The hook was using `{:halt, ...}` which prevented the broadcast from reaching BuxBoosterLive's `handle_info`
+- When settlement completed, `BuxMinter.sync_user_balances()` broadcast `:token_balances_updated` but only the header was updated
+
+**Solution**:
+1. **Updated BuxBalanceHook** ([bux_balance_hook.ex:47-55](lib/blockster_v2_web/live/bux_balance_hook.ex#L47-L55)) - Modified the `:token_balances_updated` handler to update BOTH `:token_balances` (for header) AND `:balances` (for BuxBoosterLive) when the assign exists:
+   ```elixir
+   {:token_balances_updated, token_balances}, socket ->
+     socket = assign(socket, :token_balances, token_balances)
+     socket = if Map.has_key?(socket.assigns, :balances) do
+       assign(socket, :balances, token_balances)
+     else
+       socket
+     end
+     {:halt, socket}
+   ```
+
+2. **Added broadcast to sync** ([bux_minter.ex:230](lib/blockster_v2/bux_minter.ex#L230)) - Added `broadcast_token_balances_update()` call in `sync_user_balances()` to ensure all LiveViews receive balance updates after blockchain sync
+
+3. **Removed duplicate handler** - Removed redundant `handle_info({:token_balances_updated, ...})` from BuxBoosterLive since the hook now handles it
+
+**Result**: All three balance displays now update correctly after bet settlement:
+- Top-right aggregate balance (header)
+- Token dropdown balances (header)
+- Coin flip area balance (BuxBoosterLive)
+
+**Key Lesson**: When using `attach_hook` with `{:halt, ...}`, the hook intercepts the message and prevents it from reaching the LiveView's `handle_info`. If multiple assigns need updating from the same broadcast, update them all in the hook handler.
+
+
+### Multi-Flip Coin Reveal Bug (Dec 2024)
+
+**Problem**: In multi-flip games (2+ flips), the second and subsequent flips would spin continuously and never reveal the result.
+
+**Root Cause**: The `reveal_result` event (which tells the JavaScript to stop spinning and show the final coin face) was only scheduled once during the initial bet confirmation. When moving to the next flip via `:next_flip`, no new `reveal_result` was scheduled, so the coin would spin forever.
+
+**Solution**: Added `Process.send_after(self(), :reveal_flip_result, 3000)` to the `handle_info(:next_flip, socket)` handler ([bux_booster_live.ex:1600](lib/blockster_v2_web/live/bux_booster_live.ex#L1600)). Now every time we start a new flip, we schedule the reveal event 3 seconds later.
+
+**Affected Difficulty Levels** (all now fixed):
+- Win One Mode: 1.32x (2 flips), 1.13x (3 flips), 1.05x (4 flips), 1.02x (5 flips)
+- Win All Mode: 3.96x (2 flips), 7.92x (3 flips), 15.84x (4 flips), 31.68x (5 flips)
+
+**Flow for Multi-Flip Games**:
+1. Bet confirmed → Schedule `reveal_flip_result` for flip 1
+2. Flip 1 completes → Show result → Check win condition
+3. If more flips needed → Send `:next_flip` → **Schedule `reveal_flip_result` for flip 2** ✓
+4. Flip 2 completes → Show result → Check win condition
+5. Continue until all flips done or win/loss determined

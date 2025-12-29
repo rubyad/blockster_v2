@@ -1,0 +1,17 @@
+{
+  "name": "bux-booster-game",
+  "version": "1.0.0",
+  "description": "BuxBoosterGame smart contract for on-chain provably fair coin flip game",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network rogueMainnet",
+    "upgrade": "hardhat run scripts/upgrade.js --network rogueMainnet",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.0"
+  }
+}

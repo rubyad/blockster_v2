@@ -45,7 +45,14 @@ defmodule BlocksterV2Web.BuxBalanceHook do
           {:halt, assign(socket, :bux_balance, new_balance)}
 
         {:token_balances_updated, token_balances}, socket ->
-          {:halt, assign(socket, :token_balances, token_balances)}
+          # Update both :token_balances (for header) and :balances (for BuxBoosterLive)
+          socket = assign(socket, :token_balances, token_balances)
+          socket = if Map.has_key?(socket.assigns, :balances) do
+            assign(socket, :balances, token_balances)
+          else
+            socket
+          end
+          {:halt, socket}
 
         _other, socket ->
           {:cont, socket}
@@ -74,6 +81,8 @@ defmodule BlocksterV2Web.BuxBalanceHook do
   Call this from EngagementTracker after updating individual token balances.
   """
   def broadcast_token_balances_update(user_id, token_balances) do
+    require Logger
+    Logger.info("[BuxBalanceHook] Broadcasting token balances for user #{user_id}: #{inspect(token_balances)}")
     Phoenix.PubSub.broadcast(@pubsub, "#{@topic_prefix}#{user_id}", {:token_balances_updated, token_balances})
   end
 end

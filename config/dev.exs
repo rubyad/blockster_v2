@@ -90,3 +90,14 @@ config :blockster_v2, BlocksterV2.Mailer,
 
 # Enable swoosh api client for SendGrid
 config :swoosh, :api_client, Swoosh.ApiClient.Hackney
+
+# Configure libcluster for local development multi-node setup
+config :libcluster,
+  topologies: [
+    local_epmd: [
+      strategy: Cluster.Strategy.Epmd,
+      config: [
+        hosts: [:"node1@Adams-iMac-Pro", :"node2@Adams-iMac-Pro"]
+      ]
+    ]
+  ]

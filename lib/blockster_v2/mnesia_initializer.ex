@@ -292,6 +292,35 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at                 # Last update timestamp
       ],
       index: [:user_id, :total_games, :total_won]
+    },
+    # BUX Booster on-chain games (smart contract version)
+    %{
+      name: :bux_booster_onchain_games,
+      type: :ordered_set,
+      attributes: [
+        :game_id,                   # PRIMARY KEY - 32-char hex string generated via :crypto.strong_rand_bytes(16)
+        :user_id,                   # User who played
+        :wallet_address,            # Player's wallet address (smart wallet)
+        :server_seed,               # Hex string (64 chars), revealed after settlement
+        :commitment_hash,           # 0x-prefixed SHA256 hash shown before bet (on-chain commitment)
+        :nonce,                     # Player's nonce for this game (integer)
+        :status,                    # :pending | :committed | :placed | :settled | :expired
+        :bet_id,                    # On-chain bet ID (0x-prefixed bytes32, set after placeBet tx)
+        :token,                     # Token name used (e.g., "BUX", "moonBUX")
+        :token_address,             # Token contract address
+        :bet_amount,                # Amount wagered (integer tokens)
+        :difficulty,                # Game difficulty (-4 to 5)
+        :predictions,               # List of predictions [:heads, :tails, ...]
+        :results,                   # List of results (calculated after bet placed)
+        :won,                       # Boolean - did player win
+        :payout,                    # Amount won (0 if lost)
+        :commitment_tx,             # TX hash for submitCommitment
+        :bet_tx,                    # TX hash for placeBet
+        :settlement_tx,             # TX hash for settleBet
+        :created_at,                # Unix timestamp when game started
+        :settled_at                 # Unix timestamp when settled (nil until settled)
+      ],
+      index: [:user_id, :wallet_address, :status, :created_at]
     }
   ]
 
