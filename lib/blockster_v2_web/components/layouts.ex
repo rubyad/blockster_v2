@@ -197,7 +197,17 @@ defmodule BlocksterV2Web.Layouts do
                     <!-- Token Balances -->
                     <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
                       <div class="border-t border-gray-100 py-1">
-                        <%= for {token_name, balance} <- Enum.filter(@token_balances, fn {k, v} -> k != "aggregate" && (is_number(v) && v > 0) end) |> Enum.sort_by(fn {_, v} -> v end, :desc) do %>
+                        <%
+                          # Always show ROGUE and BUX at top, then other tokens with balance > 0
+                          rogue_balance = Map.get(@token_balances, "ROGUE", 0)
+                          bux_balance = Map.get(@token_balances, "BUX", 0)
+                          other_tokens = Enum.filter(@token_balances, fn {k, v} ->
+                            k not in ["aggregate", "ROGUE", "BUX"] && is_number(v) && v > 0
+                          end) |> Enum.sort_by(fn {_, v} -> v end, :desc)
+
+                          display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}] ++ other_tokens
+                        %>
+                        <%= for {token_name, balance} <- display_tokens do %>
                           <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
                             <div class="flex items-center gap-2">
                               <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>

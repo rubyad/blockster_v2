@@ -1258,13 +1258,17 @@ defmodule BlocksterV2.EngagementTracker do
   15: tranbux_balance
   """
   def update_user_token_balance(user_id, wallet_address, token, balance) do
-    now = System.system_time(:second)
-    field_index = Map.get(@token_field_indices, token)
-
-    if is_nil(field_index) do
-      Logger.warning("[EngagementTracker] Unknown token '#{token}' - skipping balance update")
-      {:error, :unknown_token}
+    # Handle ROGUE separately (native token, stored in separate table)
+    if token == "ROGUE" do
+      update_user_rogue_balance(user_id, wallet_address, balance)
     else
+      now = System.system_time(:second)
+      field_index = Map.get(@token_field_indices, token)
+
+      if is_nil(field_index) do
+        Logger.warning("[EngagementTracker] Unknown token '#{token}' - skipping balance update")
+        {:error, :unknown_token}
+      else
       # Parse balance to float for calculations
       balance_float = parse_balance(balance)
 
@@ -1294,6 +1298,7 @@ defmodule BlocksterV2.EngagementTracker do
           # Broadcast the updated aggregate balance to subscribed LiveViews
           BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
           {:ok, balance_float}
+      end
       end
     end
   rescue
@@ -1397,14 +1402,58 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Updates ROGUE balance for a user (supports both Rogue Chain and Arbitrum).
+  For now, only Rogue Chain is fetched by BuxMinter.
+  """
+  def update_user_rogue_balance(user_id, wallet_address, balance, chain \\ :rogue_chain) do
+    now = System.system_time(:second)
+    balance_float = parse_balance(balance)
+
+    case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
+      [] ->
+        # Create new record
+        record = case chain do
+          :rogue_chain ->
+            {:user_rogue_balances, user_id, wallet_address, now, balance_float, 0.0}
+          :arbitrum ->
+            {:user_rogue_balances, user_id, wallet_address, now, 0.0, balance_float}
+        end
+        :mnesia.dirty_write(record)
+        Logger.info("[EngagementTracker] Created user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
+        {:ok, balance_float}
+
+      [existing] ->
+        # Update existing record
+        field_index = case chain do
+          :rogue_chain -> 4  # rogue_balance_rogue_chain
+          :arbitrum -> 5     # rogue_balance_arbitrum
+        end
+
+        updated = existing
+          |> put_elem(2, wallet_address)       # user_smart_wallet
+          |> put_elem(3, now)                   # updated_at
+          |> put_elem(field_index, balance_float)
+
+        :mnesia.dirty_write(updated)
+        Logger.info("[EngagementTracker] Updated user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
+        {:ok, balance_float}
+    end
+  rescue
+    error ->
+      Logger.error("[EngagementTracker] Error updating ROGUE balance: #{inspect(error)}")
+      {:error, error}
+  end
+
+  @doc """
   Gets all token balances for a user from the user_bux_balances table.
   Returns a map with token names as keys and balances as values.
+  Also includes ROGUE balances from user_rogue_balances table.
   """
   def get_user_token_balances(user_id) do
-    case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+    # Get BUX token balances
+    bux_balances = case :mnesia.dirty_read({:user_bux_balances, user_id}) do
       [] ->
         Logger.info("[EngagementTracker] No user_bux_balances record for user #{user_id}")
-        # Return empty balances
         %{
           "aggregate" => 0.0,
           "BUX" => 0.0,
@@ -1437,6 +1486,15 @@ defmodule BlocksterV2.EngagementTracker do
           "tranBUX" => elem(record, 15) || 0.0
         }
     end
+
+    # Get ROGUE balance (currently only Rogue Chain, Arbitrum coming later)
+    rogue_balance = case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
+      [] -> 0.0
+      [rogue_record] -> elem(rogue_record, 4) || 0.0  # rogue_balance_rogue_chain
+    end
+
+    # Merge ROGUE balance into the map
+    Map.put(bux_balances, "ROGUE", rogue_balance)
   rescue
     _ ->
       %{"aggregate" => 0.0}

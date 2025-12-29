@@ -174,6 +174,18 @@ defmodule BlocksterV2.MnesiaInitializer do
       index: [:user_smart_wallet, :aggregate_bux_balance]
     },
     %{
+      name: :user_rogue_balances,
+      type: :set,
+      attributes: [
+        :user_id,                   # Primary key
+        :user_smart_wallet,         # User's smart wallet address
+        :updated_at,                # Last update timestamp
+        :rogue_balance_rogue_chain, # ROGUE balance on Rogue Chain (native token)
+        :rogue_balance_arbitrum     # ROGUE balance on Arbitrum One (ERC-20 token)
+      ],
+      index: [:user_smart_wallet]
+    },
+    %{
       name: :hub_bux_points,
       type: :ordered_set,
       attributes: [

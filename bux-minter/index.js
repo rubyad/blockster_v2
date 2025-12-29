@@ -284,6 +284,7 @@ const TOKEN_ORDER = ['BUX', 'moonBUX', 'neoBUX', 'rogueBUX', 'flareBUX', 'nftBUX
 const balanceAggregator = new ethers.Contract(BALANCE_AGGREGATOR_ADDRESS, BALANCE_AGGREGATOR_ABI, provider);
 
 // Get all token balances via BalanceAggregator contract (single RPC call)
+// Also fetches ROGUE (native token) balance separately
 app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   const { address } = req.params;
 
@@ -294,21 +295,25 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   try {
     console.log(`[AGGREGATED] Fetching balances for ${address}`);
 
-    // Call the aggregator contract - returns array of uint256 balances
+    // Fetch ROGUE (native token) balance using provider.getBalance()
+    const rogueBalanceWei = await provider.getBalance(address);
+    const rogueBalance = parseFloat(ethers.formatUnits(rogueBalanceWei, 18));
+
+    // Call the aggregator contract - returns array of uint256 balances for ERC-20 tokens
     const rawBalances = await balanceAggregator.getBalances(address, TOKEN_ADDRESSES);
 
     // Convert to formatted balances map (all tokens have 18 decimals)
-    const balances = {};
+    const balances = { ROGUE: rogueBalance }; // Add ROGUE first
     let aggregate = 0;
 
     for (let i = 0; i < TOKEN_ORDER.length && i < rawBalances.length; i++) {
       const tokenName = TOKEN_ORDER[i];
       const formatted = parseFloat(ethers.formatUnits(rawBalances[i], 18));
       balances[tokenName] = formatted;
-      aggregate += formatted;
+      aggregate += formatted; // Only BUX tokens count toward aggregate (not ROGUE)
     }
 
-    console.log(`[AGGREGATED] Balances for ${address}: aggregate=${aggregate}`);
+    console.log(`[AGGREGATED] Balances for ${address}: ROGUE=${rogueBalance}, aggregate=${aggregate}`);
 
     res.json({
       address,
@@ -498,10 +503,15 @@ app.post('/deposit-house-balance', authenticate, async (req, res) => {
     const amountWei = ethers.parseUnits(amount.toString(), 18);
     console.log(`[DEPOSIT] Depositing ${amount} ${token} as house balance`);
 
+    // Get starting nonces for both wallets
+    let tokenOwnerNonce = await provider.getTransactionCount(tokenWallet.address, 'pending');
+    let contractOwnerNonce = await provider.getTransactionCount(contractOwnerWallet.address, 'pending');
+    console.log(`[DEPOSIT] Starting nonces - Token owner: ${tokenOwnerNonce}, Contract owner: ${contractOwnerNonce}`);
+
     // Step 1: Mint tokens to the CONTRACT OWNER wallet (not token owner)
     const tokenContract = tokenContracts[token];
     console.log(`[DEPOSIT] Minting ${amount} ${token} to contract owner ${contractOwnerWallet.address}`);
-    const mintTx = await tokenContract.mint(contractOwnerWallet.address, amountWei);
+    const mintTx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce: tokenOwnerNonce++ });
     await mintTx.wait();
     console.log(`[DEPOSIT] Minted successfully`);
 
@@ -509,14 +519,14 @@ app.post('/deposit-house-balance', authenticate, async (req, res) => {
     const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)'];
     const tokenContractWithApprove = new ethers.Contract(tokenAddress, erc20Abi, contractOwnerWallet);
     console.log(`[DEPOSIT] Contract owner approving BuxBoosterGame contract`);
-    const approveTx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei);
+    const approveTx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce: contractOwnerNonce++ });
     await approveTx.wait();
     console.log(`[DEPOSIT] Approved successfully`);
 
     // Step 3: Contract owner calls depositHouseBalance (onlyOwner function)
     const buxBoosterFromOwner = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, contractOwnerWallet);
     console.log(`[DEPOSIT] Contract owner calling depositHouseBalance`);
-    const depositTx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei);
+    const depositTx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce: contractOwnerNonce++ });
     const receipt = await depositTx.wait();
     console.log(`[DEPOSIT] Deposited ${amount} ${token} in block ${receipt.blockNumber}`);
 
@@ -619,17 +629,27 @@ app.get('/game-token-config/:token', authenticate, async (req, res) => {
   }
 
   try {
+    console.log(`[CONFIG] Querying tokenConfigs for ${token} at ${tokenAddress}`);
     const config = await buxBoosterContract.tokenConfigs(tokenAddress);
+    console.log(`[CONFIG] Raw config:`, config);
+    console.log(`[CONFIG] houseBalance type:`, typeof config.houseBalance);
+    console.log(`[CONFIG] houseBalance value:`, config.houseBalance);
+
+    // Handle null/undefined houseBalance
+    const houseBalance = config.houseBalance && config.houseBalance.toString() !== '0'
+      ? ethers.formatUnits(config.houseBalance, 18)
+      : "0";
+
+    console.log(`[CONFIG] Formatted house balance: ${houseBalance}`);
 
     res.json({
       token,
       tokenAddress,
-      enabled: config.enabled,
-      houseBalance: ethers.formatUnits(config.houseBalance, 18),
-      maxBet: ethers.formatUnits(config.maxBet, 18)
+      enabled: config.enabled || false,
+      houseBalance: houseBalance
     });
   } catch (error) {
-    console.error(`[CONFIG] Error:`, error);
+    console.error(`[CONFIG] Error querying ${token} at ${tokenAddress}:`, error);
     res.status(500).json({ error: 'Failed to get token config', details: error.message });
   }
 });

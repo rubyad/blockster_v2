@@ -178,6 +178,12 @@ let InfiniteScroll = {
     this.endReached = false;
     this.scrollCheckInterval = null;
 
+    // Detect if element has overflow scrolling
+    const hasOverflow = this.el.scrollHeight > this.el.clientHeight;
+    const isScrollable = getComputedStyle(this.el).overflowY === 'auto' ||
+                         getComputedStyle(this.el).overflowY === 'scroll';
+    this.useElementScroll = hasOverflow && isScrollable;
+
     // Create a sentinel element at the bottom
     this.sentinel = document.createElement('div');
     this.sentinel.style.height = '1px';
@@ -192,8 +198,8 @@ let InfiniteScroll = {
         }
       },
       {
-        root: null,
-        rootMargin: '500px', // Increased from 200px for faster scrolling
+        root: this.useElementScroll ? this.el : null, // Use element as root if it's scrollable
+        rootMargin: '200px',
         threshold: 0
       }
     );
@@ -204,17 +210,31 @@ let InfiniteScroll = {
     this.handleScroll = () => {
       if (this.pending || this.endReached) return;
 
-      const scrollHeight = document.documentElement.scrollHeight;
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const clientHeight = window.innerHeight;
+      let scrollHeight, scrollTop, clientHeight;
 
-      // Trigger when within 800px of bottom
-      if (scrollHeight - scrollTop - clientHeight < 800) {
+      if (this.useElementScroll) {
+        // Element scroll
+        scrollHeight = this.el.scrollHeight;
+        scrollTop = this.el.scrollTop;
+        clientHeight = this.el.clientHeight;
+      } else {
+        // Window scroll
+        scrollHeight = document.documentElement.scrollHeight;
+        scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        clientHeight = window.innerHeight;
+      }
+
+      // Trigger when within 200px of bottom
+      if (scrollHeight - scrollTop - clientHeight < 200) {
         this.loadMore();
       }
     };
 
-    window.addEventListener('scroll', this.handleScroll, { passive: true });
+    if (this.useElementScroll) {
+      this.el.addEventListener('scroll', this.handleScroll, { passive: true });
+    } else {
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+    }
   },
 
   loadMore() {
@@ -223,7 +243,12 @@ let InfiniteScroll = {
     this.pending = true;
 
     // Determine which event to push based on element ID
-    const eventName = this.el.id === 'hub-news-stream' ? 'load-more-news' : 'load-more';
+    let eventName = 'load-more';
+    if (this.el.id === 'hub-news-stream') {
+      eventName = 'load-more-news';
+    } else if (this.el.id === 'recent-games-scroll') {
+      eventName = 'load-more-games';
+    }
 
     // Use pushEvent callback to reset pending only after server responds
     this.pushEvent(eventName, {}, (reply) => {
@@ -252,7 +277,11 @@ let InfiniteScroll = {
       this.sentinel.parentNode.removeChild(this.sentinel);
     }
     if (this.handleScroll) {
-      window.removeEventListener('scroll', this.handleScroll);
+      if (this.useElementScroll) {
+        this.el.removeEventListener('scroll', this.handleScroll);
+      } else {
+        window.removeEventListener('scroll', this.handleScroll);
+      }
     }
     if (this.scrollCheckInterval) {
       clearInterval(this.scrollCheckInterval);

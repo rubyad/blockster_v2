@@ -26,6 +26,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns[:current_user]
+    token_logos = HubLogoCache.get_all_logos()
+    tokens = ["ROGUE", "BUX"]
 
     if current_user do
       # User is logged in
@@ -38,11 +40,6 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       end
 
       balances = EngagementTracker.get_user_token_balances(current_user.id)
-      token_logos = HubLogoCache.get_all_logos()
-
-      # Get supported tokens from BuxBoosterOnchain, sorted by user's balance
-      supported_tokens = BuxBoosterOnchain.token_addresses() |> Map.keys()
-      tokens = Enum.sort_by(supported_tokens, fn token -> Map.get(balances, token, 0) end, :desc)
 
       # IMPORTANT: Only initialize on-chain game on connected mount (not disconnected)
       # LiveView mounts twice - once disconnected, once connected via WebSocket
@@ -87,6 +84,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(selected_difficulty: 1)
         |> assign(bet_amount: 10)
         |> assign(current_bet: 10)
+        |> assign(house_balance: 0.0)  # Default, will be updated async
+        |> assign(max_bet: 0)  # Default, will be updated async
         |> assign(predictions: [])
         |> assign(results: [])
         |> assign(game_state: :idle)
@@ -98,7 +97,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
         |> assign(confetti_pieces: [])
-        |> assign(recent_games: load_recent_games(current_user.id))
+        |> assign(recent_games: load_recent_games(current_user.id, limit: 30))
+        |> assign(games_offset: 30)  # Track offset for pagination
         |> assign(user_stats: load_user_stats(current_user.id))
         # Provably fair assigns (commitment hash from on-chain)
         |> assign(server_seed: nil)  # Server seed is stored in Mnesia, not in socket
@@ -111,11 +111,59 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(bet_tx: nil)
         |> assign(bet_id: nil)
         |> assign(settlement_tx: nil)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("BUX", 1) end)
 
       {:ok, socket}
     else
-      # Not logged in - redirect to login
-      {:ok, push_navigate(socket, to: ~p"/login")}
+      # Not logged in - allow viewing with zero balances
+      balances = %{
+        "BUX" => 0,
+        "ROGUE" => 0,
+        "aggregate" => 0
+      }
+
+      socket =
+        socket
+        |> assign(page_title: "BUX Booster")
+        |> assign(current_user: nil)
+        |> assign(balances: balances)
+        |> assign(tokens: tokens)
+        |> assign(token_logos: token_logos)
+        |> assign(difficulty_options: @difficulty_options)
+        |> assign(selected_token: "BUX")
+        |> assign(selected_difficulty: 1)
+        |> assign(bet_amount: 10)
+        |> assign(current_bet: 10)
+        |> assign(house_balance: 0.0)
+        |> assign(max_bet: 0)
+        |> assign(predictions: [])
+        |> assign(results: [])
+        |> assign(game_state: :idle)
+        |> assign(current_flip: 0)
+        |> assign(won: nil)
+        |> assign(payout: 0)
+        |> assign(error_message: nil)
+        |> assign(show_token_dropdown: false)
+        |> assign(show_provably_fair: false)
+        |> assign(flip_id: 0)
+        |> assign(confetti_pieces: [])
+        |> assign(recent_games: [])
+        |> assign(games_offset: 0)
+        |> assign(user_stats: nil)
+        |> assign(server_seed: nil)
+        |> assign(server_seed_hash: nil)
+        |> assign(nonce: 0)
+        |> assign(show_fairness_modal: false)
+        |> assign(fairness_game: nil)
+        |> assign(onchain_ready: false)
+        |> assign(wallet_address: nil)
+        |> assign(onchain_initializing: false)
+        |> assign(bet_tx: nil)
+        |> assign(bet_id: nil)
+        |> assign(settlement_tx: nil)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("BUX", 1) end)
+
+      {:ok, socket}
     end
   end
 
@@ -211,12 +259,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             type="button"
                             phx-click="select_token"
                             phx-value-token={token}
-                            class={"w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer first:rounded-t-lg last:rounded-b-lg #{if @selected_token == token, do: "bg-purple-50"}"}
+                            class={"w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer first:rounded-t-lg last:rounded-b-lg #{if @selected_token == token, do: "bg-gray-100"}"}
                           >
                             <img src={Map.get(@token_logos, token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={token} class="w-5 h-5 rounded-full flex-shrink-0" />
-                            <span class={"font-medium flex-1 text-left whitespace-nowrap #{if @selected_token == token, do: "text-purple-600", else: "text-gray-900"}"}><%= token %></span>
+                            <span class={"font-medium flex-1 text-left whitespace-nowrap #{if @selected_token == token, do: "text-gray-900", else: "text-gray-900"}"}><%= token %></span>
                             <%= if token == "ROGUE" and Map.get(@balances, "ROGUE", 0) == 0 do %>
-                              <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="text-purple-600 text-xs hover:underline cursor-pointer" phx-click="hide_token_dropdown">Buy</a>
+                              <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="text-gray-600 text-xs hover:underline cursor-pointer" phx-click="hide_token_dropdown">Buy</a>
                             <% else %>
                               <span class="text-gray-500 text-sm whitespace-nowrap"><%= format_balance(Map.get(@balances, token, 0)) %></span>
                             <% end %>
@@ -228,16 +276,25 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   <button
                     type="button"
                     phx-click="set_max_bet"
-                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer font-medium"
+                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer flex flex-col items-center"
+                    title={"Max bet: #{@max_bet} #{@selected_token}"}
                   >
-                    MAX
+                    <span class="text-xs text-gray-500 font-normal">Max bet</span>
+                    <span class="text-sm font-medium"><%= format_integer(@max_bet) %></span>
                   </button>
                 </div>
-                <p class="text-gray-500 text-sm mt-2 flex items-center gap-1">
-                  Balance: <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                  <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full inline" />
-                  <%= @selected_token %>
-                </p>
+                <div class="mt-2">
+                  <div class="flex items-center justify-between text-sm">
+                    <p class="text-gray-500 flex items-center gap-1">
+                      Balance: <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
+                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full inline" />
+                      <%= @selected_token %>
+                    </p>
+                    <p class="text-gray-400 text-xs">
+                      House: <%= format_balance(@house_balance) %> <%= @selected_token %>
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <!-- Potential Win Display -->
@@ -290,33 +347,39 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           After the game, you can verify the result was fair.
                         </p>
                         <div class="flex items-start gap-2 overflow-hidden">
-                          <%= if assigns[:commitment_tx] do %>
-                            <a
-                              href={"https://roguescan.io/tx/#{@commitment_tx}?tab=logs"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 overflow-wrap-anywhere text-blue-500 hover:underline cursor-pointer"
-                              style="word-break: break-all;"
+                          <%= if @current_user do %>
+                            <%= if assigns[:commitment_tx] do %>
+                              <a
+                                href={"https://roguescan.io/tx/#{@commitment_tx}?tab=logs"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 overflow-wrap-anywhere text-blue-500 hover:underline cursor-pointer"
+                                style="word-break: break-all;"
+                              >
+                                <%= @server_seed_hash %>
+                              </a>
+                            <% else %>
+                              <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
+                                <%= @server_seed_hash %>
+                              </code>
+                            <% end %>
+                            <button
+                              type="button"
+                              id="copy-server-hash"
+                              phx-hook="CopyToClipboard"
+                              data-copy-text={@server_seed_hash}
+                              class="shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition-colors"
+                              title="Copy hash"
                             >
-                              <%= @server_seed_hash %>
-                            </a>
+                              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
                           <% else %>
-                            <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
-                              <%= @server_seed_hash %>
+                            <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-500 overflow-wrap-anywhere" style="word-break: break-all;">
+                              &lt;hashed_server_seed_displays_here_when_you_are_logged_in&gt;
                             </code>
                           <% end %>
-                          <button
-                            type="button"
-                            id="copy-server-hash"
-                            phx-hook="CopyToClipboard"
-                            data-copy-text={@server_seed_hash}
-                            class="shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition-colors"
-                            title="Copy hash"
-                          >
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
                         </div>
                         <p class="text-xs text-gray-400 mt-2">
                           Game #<%= @nonce %>
@@ -543,16 +606,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     >
                       Play Again
                     </button>
-                    <button
-                      type="button"
-                      phx-click="show_fairness_modal"
-                      class="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer"
-                    >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                      Verify Fairness
-                    </button>
+                    <%= if @onchain_game_id do %>
+                      <button
+                        type="button"
+                        phx-click="show_fairness_modal"
+                        phx-value-game-id={@onchain_game_id}
+                        class="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer"
+                      >
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Verify Fairness
+                      </button>
+                    <% end %>
                   </div>
                 <% end %>
               </div>
@@ -571,56 +637,109 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           </div>
         </div>
 
-        <!-- Stats & History -->
-        <div class="grid md:grid-cols-2 gap-4 mt-6">
-          <!-- User Stats -->
-          <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <h3 class="text-sm font-bold text-gray-900 mb-3">Your Stats (<%= @selected_token %>)</h3>
-            <%= if @user_stats do %>
-              <div class="space-y-1 text-xs">
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Total Games</span>
-                  <span class="text-gray-900"><%= @user_stats.total_games %></span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Win Rate</span>
-                  <span class="text-gray-900"><%= calculate_win_rate(@user_stats) %>%</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Net Profit/Loss</span>
-                  <span class={if @user_stats.total_won - @user_stats.total_lost >= 0, do: "text-green-600", else: "text-red-600"}>
-                    <%= format_profit(@user_stats.total_won - @user_stats.total_lost) %>
-                  </span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Biggest Win</span>
-                  <span class="text-green-600"><%= format_balance(@user_stats.biggest_win) %></span>
-                </div>
-              </div>
-            <% else %>
-              <p class="text-gray-500 text-xs">No games played yet with <%= @selected_token %></p>
-            <% end %>
-          </div>
-
-          <!-- Recent Games -->
+        <!-- Recent Games -->
+        <div class="mt-6">
           <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
             <h3 class="text-sm font-bold text-gray-900 mb-3">Recent Games</h3>
             <%= if length(@recent_games) > 0 do %>
-              <div class="space-y-1 text-xs max-h-32 overflow-y-auto">
-                <%= for game <- @recent_games do %>
-                  <div class={"flex justify-between items-center p-1.5 rounded #{if game.won, do: "bg-green-50", else: "bg-red-50"}"}>
-                    <div class="flex items-center gap-1.5">
-                      <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
-                      <span class="text-gray-600"><%= game.token_type %></span>
-                      <span class="text-gray-900"><%= game.multiplier %>x</span>
-                    </div>
-                    <span class={"flex items-center gap-1 #{if game.won, do: "text-green-600", else: "text-red-600"}"}>
-                      <%= if game.won, do: "+", else: "-" %><%= format_balance(if game.won, do: game.payout, else: game.bet_amount) %>
-                      <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-3.5 h-3.5 rounded-full" />
-                    </span>
-                  </div>
-                <% end %>
-              </div>
+              <div id="recent-games-scroll" class="overflow-y-auto max-h-96 relative" phx-hook="InfiniteScroll">
+                <table class="w-full text-xs">
+                  <thead class="sticky top-0 z-20 bg-white">
+                    <tr class="border-b-2 border-gray-200 bg-white">
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Bet ID</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Bet</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Predictions</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Results</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Odds</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Result</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Payout</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Verify</th>
+                    </tr>
+                  </thead>
+                    <tbody>
+                      <%= for game <- @recent_games do %>
+                        <tr class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
+                          <!-- Bet ID (nonce linked to bet tx) -->
+                          <td class="py-2 px-2">
+                            <%= if game.bet_tx do %>
+                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
+                                #<%= game.nonce %>
+                              </a>
+                            <% else %>
+                              <span class="font-mono text-gray-500">#<%= game.nonce %></span>
+                            <% end %>
+                          </td>
+                          <!-- Bet Amount with Token -->
+                          <td class="py-2 px-2">
+                            <div class="flex items-center gap-1.5">
+                              <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                              <span class="text-gray-900"><%= trunc(game.bet_amount) %></span>
+                              <span class="text-gray-700"><%= game.token_type %></span>
+                            </div>
+                          </td>
+                          <!-- Predictions -->
+                          <td class="py-2 px-2">
+                            <div class="flex gap-0.5">
+                              <%= for pred <- (game.predictions || []) do %>
+                                <span><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                              <% end %>
+                            </div>
+                          </td>
+                          <!-- Results -->
+                          <td class="py-2 px-2">
+                            <div class="flex gap-0.5">
+                              <%= for result <- (game.results || []) do %>
+                                <span><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                              <% end %>
+                            </div>
+                          </td>
+                          <!-- Odds -->
+                          <td class="py-2 px-2 text-gray-900 font-medium"><%= game.multiplier %>x</td>
+                          <!-- Win/Loss -->
+                          <td class="py-2 px-2">
+                            <%= if game.won do %>
+                              <span class="text-green-600 font-medium">Win</span>
+                            <% else %>
+                              <span class="text-red-600 font-medium">Loss</span>
+                            <% end %>
+                          </td>
+                          <!-- Payout (full payout for wins, 0 for losses) -->
+                          <td class="py-2 px-2">
+                            <%= if game.won do %>
+                              <%= if game.settlement_tx do %>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
+                                  <%= :erlang.float_to_binary(game.payout / 1, decimals: 2) %>
+                                </a>
+                              <% else %>
+                                <span class="text-green-600 font-medium">
+                                  <%= :erlang.float_to_binary(game.payout / 1, decimals: 2) %>
+                                </span>
+                              <% end %>
+                            <% else %>
+                              <%= if game.settlement_tx do %>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
+                                  0
+                                </a>
+                              <% else %>
+                                <span class="text-red-600 font-medium">0</span>
+                              <% end %>
+                            <% end %>
+                          </td>
+                          <!-- Verify -->
+                          <td class="py-2 px-2">
+                            <%= if game.server_seed && game.server_seed_hash && game.nonce do %>
+                              <button type="button" phx-click="show_fairness_modal" phx-value-game-id={game.game_id} class="text-blue-500 hover:underline cursor-pointer">
+                                Verify
+                              </button>
+                            <% else %>
+                              <span class="text-gray-400">-</span>
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
             <% else %>
               <p class="text-gray-500 text-xs">No games played yet</p>
             <% end %>
@@ -919,14 +1038,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   @impl true
   def handle_event("select_token", %{"token" => token}, socket) do
-    user_stats = load_user_stats(socket.assigns.current_user.id, token)
+    user_stats = if socket.assigns.current_user do
+      load_user_stats(socket.assigns.current_user.id, token)
+    else
+      nil
+    end
 
     {:noreply,
      socket
      |> assign(selected_token: token)
      |> assign(user_stats: user_stats)
      |> assign(show_token_dropdown: false)
-     |> assign(error_message: nil)}
+     |> assign(error_message: nil)
+     |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(token, socket.assigns.selected_difficulty) end)}
   end
 
   @impl true
@@ -971,6 +1095,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       |> assign(confetti_pieces: [])
       |> assign(show_fairness_modal: false)
       |> assign(fairness_game: nil)
+      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, new_level) end)
 
     # Initialize new on-chain game session asynchronously
     socket = if wallet_address do
@@ -1048,9 +1173,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   @impl true
   def handle_event("set_max_bet", _params, socket) do
-    balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
-    max_bet = trunc(balance)
-    {:noreply, assign(socket, bet_amount: max(1, max_bet), error_message: nil)}
+    if socket.assigns.current_user do
+      # For logged in users: use the smaller of contract max bet or user balance
+      balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
+      max_allowed = min(socket.assigns.max_bet, trunc(balance))
+      {:noreply, assign(socket, bet_amount: max(1, max_allowed), error_message: nil)}
+    else
+      # For unauthenticated users: use the contract's max bet
+      max_allowed = max(1, socket.assigns.max_bet)
+      {:noreply, assign(socket, bet_amount: max_allowed, error_message: nil)}
+    end
   end
 
   @impl true
@@ -1061,41 +1193,52 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   @impl true
   def handle_event("double_bet", _params, socket) do
-    balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
-    max_bet = trunc(balance)
-    new_amount = min(max_bet, socket.assigns.bet_amount * 2)
-    {:noreply, assign(socket, bet_amount: max(1, new_amount), error_message: nil)}
+    if socket.assigns.current_user do
+      # For logged in users: cap at user balance
+      balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
+      max_bet = trunc(balance)
+      new_amount = min(max_bet, socket.assigns.bet_amount * 2)
+      {:noreply, assign(socket, bet_amount: max(1, new_amount), error_message: nil)}
+    else
+      # For unauthenticated users: cap at contract max bet
+      new_amount = min(socket.assigns.max_bet, socket.assigns.bet_amount * 2)
+      {:noreply, assign(socket, bet_amount: max(1, new_amount), error_message: nil)}
+    end
   end
 
   @impl true
   def handle_event("start_game", _params, socket) do
-    balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
-    bet_amount = socket.assigns.bet_amount
-    predictions = socket.assigns.predictions
-    predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
-    onchain_ready = Map.get(socket.assigns, :onchain_ready, false)
+    # Redirect to login if not authenticated
+    if socket.assigns.current_user == nil do
+      {:noreply, push_navigate(socket, to: ~p"/login")}
+    else
+      balance = Map.get(socket.assigns.balances, socket.assigns.selected_token, 0)
+      bet_amount = socket.assigns.bet_amount
+      predictions = socket.assigns.predictions
+      predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
+      onchain_ready = Map.get(socket.assigns, :onchain_ready, false)
 
-    # Validate all predictions are made
-    all_predictions_made =
-      length(predictions) == predictions_needed and
-        Enum.all?(predictions, fn p -> p in [:heads, :tails] end)
+      # Validate all predictions are made
+      all_predictions_made =
+        length(predictions) == predictions_needed and
+          Enum.all?(predictions, fn p -> p in [:heads, :tails] end)
 
-    cond do
-      not onchain_ready ->
-        {:noreply, assign(socket, error_message: "Wallet not connected or game not initialized")}
+      cond do
+        not onchain_ready ->
+          {:noreply, assign(socket, error_message: "Wallet not connected or game not initialized")}
 
-      not all_predictions_made ->
-        {:noreply, assign(socket, error_message: "Please make all #{predictions_needed} predictions")}
+        not all_predictions_made ->
+          {:noreply, assign(socket, error_message: "Please make all #{predictions_needed} predictions")}
 
-      bet_amount <= 0 ->
-        {:noreply, assign(socket, error_message: "Bet amount must be greater than 0")}
+        bet_amount <= 0 ->
+          {:noreply, assign(socket, error_message: "Bet amount must be greater than 0")}
 
-      bet_amount > balance ->
-        {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
+        bet_amount > balance ->
+          {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
 
-      true ->
-        # OPTIMISTIC FLOW: Deduct balance and start animation immediately
-        user_id = socket.assigns.current_user.id
+        true ->
+          # OPTIMISTIC FLOW: Deduct balance and start animation immediately
+          user_id = socket.assigns.current_user.id
         wallet_address = socket.assigns.wallet_address
         token = socket.assigns.selected_token
         token_address = BuxBoosterOnchain.token_address(token)
@@ -1171,6 +1314,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           {:error, reason} ->
             {:noreply, assign(socket, error_message: "Failed to deduct balance: #{reason}")}
         end
+      end
     end
   end
 
@@ -1353,6 +1497,23 @@ defmodule BlocksterV2Web.BuxBoosterLive do
      |> assign(:error_message, "Failed to initialize on-chain game")}
   end
 
+  @impl true
+  def handle_async(:fetch_house_balance, {:ok, {house_balance, max_bet}}, socket) do
+    Logger.info("[BuxBooster] House balance fetched (async): #{house_balance}, max bet: #{max_bet}")
+
+    {:noreply,
+     socket
+     |> assign(:house_balance, house_balance)
+     |> assign(:max_bet, max_bet)}
+  end
+
+  @impl true
+  def handle_async(:fetch_house_balance, {:exit, reason}, socket) do
+    Logger.warning("[BuxBooster] Failed to fetch house balance (async): #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
   # Handle confirmed betId from background polling (if different from commitment)
   def handle_event("bet_confirmed", %{"game_id" => game_id, "bet_id" => bet_id, "tx_hash" => tx_hash}, socket) do
     Logger.info("[BuxBooster] Bet confirmed with actual betId: #{bet_id}, tx: #{tx_hash}")
@@ -1375,123 +1536,171 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   @impl true
   def handle_event("reset_game", _params, socket) do
-    # Refresh balances and stats
-    balances = EngagementTracker.get_user_token_balances(socket.assigns.current_user.id)
-    user_stats = load_user_stats(socket.assigns.current_user.id, socket.assigns.selected_token)
-    recent_games = load_recent_games(socket.assigns.current_user.id)
-    predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
+    # For unauthenticated users, just reset UI state
+    if socket.assigns.current_user == nil do
+      predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
 
-    wallet_address = socket.assigns.wallet_address
+      socket =
+        socket
+        |> assign(game_state: :idle)
+        |> assign(current_flip: 0)
+        |> assign(predictions: List.duplicate(nil, predictions_needed))
+        |> assign(results: [])
+        |> assign(won: nil)
+        |> assign(payout: 0)
+        |> assign(confetti_pieces: [])
+        |> assign(error_message: nil)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, socket.assigns.selected_difficulty) end)
 
-    # Reset UI state immediately
-    socket =
-      socket
-      |> assign(game_state: :idle)
-      |> assign(current_flip: 0)
-      |> assign(predictions: List.duplicate(nil, predictions_needed))
-      |> assign(results: [])
-      |> assign(won: nil)
-      |> assign(payout: 0)
-      |> assign(balances: balances)
-      |> assign(user_stats: user_stats)
-      |> assign(recent_games: recent_games)
-      |> assign(server_seed: nil)
-      |> assign(confetti_pieces: [])
-      |> assign(show_fairness_modal: false)
-      |> assign(fairness_game: nil)
-      |> assign(bet_tx: nil)
-      |> assign(bet_id: nil)
-      |> assign(settlement_tx: nil)
-      |> assign(error_message: nil)
-
-    # Initialize new on-chain game session asynchronously (non-blocking)
-    socket = if wallet_address do
-      socket
-      |> assign(:onchain_ready, false)
-      |> assign(:onchain_initializing, true)
-      |> start_async(:init_onchain_game, fn ->
-        BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
-      end)
+      {:noreply, socket}
     else
-      socket
-      |> assign(:onchain_ready, false)
-      |> assign(:error_message, "No wallet connected")
-    end
+      # Refresh balances and stats for logged in users
+      balances = EngagementTracker.get_user_token_balances(socket.assigns.current_user.id)
+      user_stats = load_user_stats(socket.assigns.current_user.id, socket.assigns.selected_token)
+      recent_games = load_recent_games(socket.assigns.current_user.id)
+      predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
 
-    {:noreply, socket}
+      wallet_address = socket.assigns.wallet_address
+
+      # Reset UI state immediately
+      socket =
+        socket
+        |> assign(game_state: :idle)
+        |> assign(current_flip: 0)
+        |> assign(predictions: List.duplicate(nil, predictions_needed))
+        |> assign(results: [])
+        |> assign(won: nil)
+        |> assign(payout: 0)
+        |> assign(balances: balances)
+        |> assign(user_stats: user_stats)
+        |> assign(recent_games: recent_games)
+        |> assign(server_seed: nil)
+        |> assign(confetti_pieces: [])
+        |> assign(show_fairness_modal: false)
+        |> assign(fairness_game: nil)
+        |> assign(bet_tx: nil)
+        |> assign(bet_id: nil)
+        |> assign(settlement_tx: nil)
+        |> assign(error_message: nil)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, socket.assigns.selected_difficulty) end)
+
+      # Initialize new on-chain game session asynchronously (non-blocking)
+      socket = if wallet_address do
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:onchain_initializing, true)
+        |> start_async(:init_onchain_game, fn ->
+          BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
+        end)
+      else
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:error_message, "No wallet connected")
+      end
+
+      {:noreply, socket}
+    end
   end
 
   @impl true
-  def handle_event("show_fairness_modal", _params, socket) do
-    # Get server seed from current game in Mnesia
-    game_id = socket.assigns.onchain_game_id
-    server_seed = case BuxBoosterOnchain.get_game(game_id) do
-      {:ok, game} -> game.server_seed
-      {:error, _} -> nil
+  def handle_event("show_fairness_modal", %{"game-id" => game_id}, socket) do
+    # CRITICAL SECURITY: Fetch ONLY settled games from Mnesia
+    # NEVER show server seed for upcoming/pending games - this would allow players to predict results!
+    case :mnesia.dirty_read({:bux_booster_onchain_games, game_id}) do
+      [{:bux_booster_onchain_games, ^game_id, user_id, _wallet, server_seed, commitment_hash, nonce,
+        status, _bet_id, token, _token_addr, bet_amount, difficulty, predictions, results, won,
+        payout, _commitment_tx, bet_tx, settlement_tx, _created_at, _settled_at}] when status == :settled ->
+
+        # Only show verification for SETTLED games where server seed has been revealed
+        # Build the bet details string (same format used for hashing)
+        predictions_str = predictions |> Enum.map(&Atom.to_string/1) |> Enum.join(",")
+
+        client_seed_input = ProvablyFair.build_client_seed_input(
+          user_id,
+          bet_amount,
+          token,
+          difficulty,
+          predictions
+        )
+
+        # Derive client seed from bet details
+        client_seed = ProvablyFair.generate_client_seed(
+          user_id,
+          bet_amount,
+          token,
+          difficulty,
+          predictions
+        )
+
+        # Build fairness game data for this SETTLED game
+        combined_seed = ProvablyFair.generate_combined_seed(server_seed, client_seed, nonce)
+        bytes = ProvablyFair.get_result_bytes(combined_seed, length(results))
+
+        fairness_game = %{
+          game_id: game_id,
+          # Bet details (player-controlled only)
+          user_id: user_id,
+          bet_amount: bet_amount,
+          token: token,
+          difficulty: difficulty,
+          predictions_str: predictions_str,
+          nonce: nonce,
+          # Seeds (ONLY revealed after settlement!)
+          server_seed: server_seed,
+          server_seed_hash: commitment_hash,
+          client_seed_input: client_seed_input,
+          client_seed: client_seed,
+          combined_seed: combined_seed,
+          # Results
+          results: results,
+          bytes: bytes,
+          won: won,
+          payout: payout,
+          bet_tx: bet_tx,
+          settlement_tx: settlement_tx
+        }
+
+        {:noreply,
+         socket
+         |> assign(show_fairness_modal: true)
+         |> assign(fairness_game: fairness_game)}
+
+      _ ->
+        # Game not found or not settled - don't show modal
+        {:noreply, socket}
     end
-
-    # Build the bet details string (same format used for hashing)
-    predictions_str =
-      socket.assigns.predictions
-      |> Enum.map(&Atom.to_string/1)
-      |> Enum.join(",")
-
-    client_seed_input = ProvablyFair.build_client_seed_input(
-      socket.assigns.current_user.id,
-      socket.assigns.bet_amount,
-      socket.assigns.selected_token,
-      socket.assigns.selected_difficulty,
-      socket.assigns.predictions
-    )
-
-    # Derive client seed from bet details
-    client_seed = ProvablyFair.generate_client_seed(
-      socket.assigns.current_user.id,
-      socket.assigns.bet_amount,
-      socket.assigns.selected_token,
-      socket.assigns.selected_difficulty,
-      socket.assigns.predictions
-    )
-
-    # Build fairness game data for current game
-    combined_seed = ProvablyFair.generate_combined_seed(
-      server_seed,
-      client_seed,
-      socket.assigns.nonce
-    )
-
-    bytes = ProvablyFair.get_result_bytes(combined_seed, length(socket.assigns.results))
-
-    fairness_game = %{
-      game_id: "#{socket.assigns.current_user.id}_#{socket.assigns.nonce}",
-      # Bet details (player-controlled only)
-      user_id: socket.assigns.current_user.id,
-      bet_amount: socket.assigns.bet_amount,
-      token: socket.assigns.selected_token,
-      difficulty: socket.assigns.selected_difficulty,
-      predictions_str: predictions_str,
-      nonce: socket.assigns.nonce,
-      # Seeds
-      server_seed: server_seed,
-      server_seed_hash: socket.assigns.server_seed_hash,
-      client_seed_input: client_seed_input,
-      client_seed: client_seed,
-      combined_seed: combined_seed,
-      # Results
-      results: socket.assigns.results,
-      bytes: bytes,
-      won: socket.assigns.won
-    }
-
-    {:noreply,
-     socket
-     |> assign(show_fairness_modal: true)
-     |> assign(fairness_game: fairness_game)}
   end
 
   @impl true
   def handle_event("hide_fairness_modal", _params, socket) do
     {:noreply, assign(socket, show_fairness_modal: false)}
+  end
+
+  @impl true
+  def handle_event("load-more-games", _params, socket) do
+    # Only load games for logged in users
+    if socket.assigns.current_user == nil do
+      {:reply, %{end_reached: true}, socket}
+    else
+      # Load next 30 games
+      user_id = socket.assigns.current_user.id
+      offset = socket.assigns.games_offset
+
+      new_games = load_recent_games(user_id, limit: 30, offset: offset)
+
+      # If no more games, signal end reached
+      if Enum.empty?(new_games) do
+        {:reply, %{end_reached: true}, socket}
+      else
+        # Append new games to existing list
+        updated_games = socket.assigns.recent_games ++ new_games
+
+        {:noreply,
+         socket
+         |> assign(:recent_games, updated_games)
+         |> assign(:games_offset, offset + length(new_games))}
+      end
+    end
   end
 
   @impl true
@@ -1678,7 +1887,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     # This fetches latest on-chain balances including the payout and broadcasts to all LiveViews
     BuxMinter.sync_user_balances_async(user_id, wallet_address)
 
-    {:noreply, assign(socket, settlement_tx: tx_hash)}
+    # Reload recent games to show the newly settled bet
+    recent_games = load_recent_games(user_id)
+
+    {:noreply,
+     socket
+     |> assign(settlement_tx: tx_hash)
+     |> assign(recent_games: recent_games)}
   end
 
   @impl true
@@ -1718,9 +1933,48 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     end
   end
 
-  defp format_balance(amount) when is_float(amount), do: :erlang.float_to_binary(amount, decimals: 2)
-  defp format_balance(amount) when is_integer(amount), do: :erlang.float_to_binary(amount / 1, decimals: 2)
+  defp format_balance(amount) when is_float(amount) do
+    amount
+    |> :erlang.float_to_binary(decimals: 2)
+    |> add_comma_delimiters()
+  end
+
+  defp format_balance(amount) when is_integer(amount) do
+    (amount / 1)
+    |> :erlang.float_to_binary(decimals: 2)
+    |> add_comma_delimiters()
+  end
+
   defp format_balance(_), do: "0.00"
+
+  defp add_comma_delimiters(number_string) do
+    [integer_part, decimal_part] = String.split(number_string, ".")
+
+    integer_with_commas =
+      integer_part
+      |> String.reverse()
+      |> String.graphemes()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.join/1)
+      |> Enum.join(",")
+      |> String.reverse()
+
+    "#{integer_with_commas}.#{decimal_part}"
+  end
+
+  defp format_integer(amount) when is_integer(amount) do
+    amount
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
+  end
+
+  defp format_integer(amount) when is_float(amount), do: format_integer(trunc(amount))
+  defp format_integer(_), do: "0"
 
   defp format_profit(amount) when amount >= 0, do: "+#{format_balance(amount)}"
   defp format_profit(amount), do: format_balance(amount)
@@ -1882,35 +2136,92 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     :exit, _ -> nil
   end
 
-  defp load_recent_games(user_id) do
-    # Query recent games from Mnesia using dirty index read
-    # Get last 10 games
-    :mnesia.dirty_index_read(:bux_booster_games, user_id, :user_id)
-    |> Enum.sort_by(fn record -> elem(record, 11) end, :desc)
-    |> Enum.take(10)
+  defp load_recent_games(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+    offset = Keyword.get(opts, :offset, 0)
+
+    # Query recent on-chain games from Mnesia using dirty index read
+    # Get settled games with pagination
+    onchain_games = :mnesia.dirty_index_read(:bux_booster_onchain_games, user_id, :user_id)
+    |> Enum.filter(fn record -> elem(record, 7) == :settled end)  # status field
+    |> Enum.sort_by(fn record -> elem(record, 21) end, :desc)  # settled_at field
+    |> Enum.drop(offset)  # Skip offset games
+    |> Enum.take(limit)  # Take limit games
     |> Enum.map(fn record ->
       %{
         game_id: elem(record, 1),
-        token_type: elem(record, 3),
-        bet_amount: elem(record, 4),
-        multiplier: elem(record, 6),
-        won: elem(record, 9),
-        payout: elem(record, 10),
-        # Provably fair fields (may be nil for old games)
-        server_seed: safe_elem(record, 12),
-        server_seed_hash: safe_elem(record, 13),
-        nonce: safe_elem(record, 14)
+        token_type: elem(record, 9),  # token field
+        bet_amount: elem(record, 11),  # bet_amount field
+        multiplier: get_multiplier_for_difficulty(elem(record, 12)),  # difficulty field
+        predictions: elem(record, 13),  # predictions field
+        results: elem(record, 14),  # results field
+        won: elem(record, 15),  # won field
+        payout: elem(record, 16),  # payout field
+        commitment_hash: elem(record, 5),  # commitment_hash field
+        bet_tx: elem(record, 18),  # bet_tx field
+        settlement_tx: elem(record, 19),  # settlement_tx field
+        # Provably fair fields
+        server_seed: elem(record, 4),  # server_seed field
+        server_seed_hash: elem(record, 5),  # commitment_hash is the server_seed_hash
+        nonce: elem(record, 6)  # nonce field
       }
     end)
+
+    onchain_games
   rescue
     _ -> []
   catch
     :exit, _ -> []
   end
 
+  # Helper to get multiplier from difficulty level
+  defp get_multiplier_for_difficulty(difficulty) do
+    case Enum.find(@difficulty_options, fn opt -> opt.level == difficulty end) do
+      nil -> 1.0
+      opt -> opt.multiplier
+    end
+  end
+
   # Safe tuple element access for backwards compatibility with old records
   defp safe_elem(tuple, index) when tuple_size(tuple) > index, do: elem(tuple, index)
   defp safe_elem(_tuple, _index), do: nil
+
+  # Calculate max bet based on house balance and difficulty
+  # Fetch house balance and calculate max bet asynchronously
+  defp fetch_house_balance_async(token, difficulty_level) do
+    case BuxMinter.get_house_balance(token) do
+      {:ok, balance} ->
+        max_bet = calculate_max_bet(balance, difficulty_level, @difficulty_options)
+        {balance, max_bet}
+
+      {:error, reason} ->
+        Logger.warning("[BuxBooster] Failed to fetch house balance for #{token}: #{inspect(reason)}")
+        {0.0, 0}
+    end
+  end
+
+  # Formula: maxBet = (houseBalance * 0.001 * 20000) / multiplier
+  # This ensures max payout is consistent at 0.2% of house balance
+  defp calculate_max_bet(house_balance, difficulty_level, difficulty_options) do
+    difficulty = Enum.find(difficulty_options, &(&1.level == difficulty_level))
+
+    if difficulty do
+      # Multiplier is already in display format (e.g., 1.98, 3.96)
+      # Convert to basis points for calculation (multiply by 10000)
+      multiplier_bp = trunc(difficulty.multiplier * 10000)
+
+      # 0.1% of house balance
+      base_max_bet = house_balance * 0.001
+
+      # Scale by multiplier to get consistent max payout
+      max_bet = (base_max_bet * 20000) / multiplier_bp
+
+      # Round down to nearest integer (bets must be whole tokens)
+      trunc(max_bet)
+    else
+      0
+    end
+  end
 
   # Get user's next nonce (game counter) for provably fair system
   defp get_user_nonce(user_id) do

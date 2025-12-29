@@ -98,6 +98,47 @@ Then use `@token_value_usd` in templates instead of hardcoding values.
 - Always preload associations with ordered queries for consistent ordering
 - Use `assign_async` for expensive operations that shouldn't block mount
 
+##### Async API Calls - CRITICAL PERFORMANCE RULE
+**ALWAYS use `start_async` for external API calls to avoid blocking the UI**:
+- Blockchain RPC calls (house balance, token balances, contract queries)
+- BUX Minter service calls (minting, balance fetching, game transactions)
+- Third-party API calls (X/Twitter, webhooks, external services)
+- Database queries that take >100ms
+
+**Pattern**:
+```elixir
+# Mount - set defaults, start async fetch
+def mount(_params, _session, socket) do
+  socket
+  |> assign(data: nil)  # Default value
+  |> start_async(:fetch_data, fn -> fetch_data_from_api() end)
+end
+
+# Helper - does the actual API call
+defp fetch_data_from_api() do
+  case ExternalAPI.fetch() do
+    {:ok, data} -> data
+    {:error, _} -> nil
+  end
+end
+
+# Handler - updates UI when complete
+def handle_async(:fetch_data, {:ok, data}, socket) do
+  {:noreply, assign(socket, :data, data)}
+end
+```
+
+**When to use async**:
+- Page mount (don't block initial render)
+- User interactions that trigger API calls (token selection, form submissions)
+- Background refreshes (balances, stats, game state)
+
+**Benefits**:
+- Page loads instantly with default values
+- UI remains responsive during API calls
+- Better perceived performance
+- Prevents timeouts on slow networks
+
 ##### LiveView Double Mount
 **CRITICAL**: LiveView mounts **twice** on initial page load:
 1. **First mount (disconnected)**: Initial HTTP request, `connected?(socket)` returns `false`
@@ -143,6 +184,20 @@ end
 - Dirty operations are faster and sufficient for most use cases in this application
 - **For concurrent updates**: When Mnesia updates can come from multiple users simultaneously (e.g., game stats, counters), route all writes through a dedicated GenServer to serialize operations and prevent inconsistency. This makes dirty operations safe.
 - **After creating new Mnesia tables in code**: You must restart both node1 and node2 for the tables to be created. The MnesiaInitializer only creates tables on application startup.
+
+**CRITICAL - Modifying Existing Mnesia Tables**:
+- **NEVER add fields in the middle of a table definition** - ALWAYS append new fields to the end
+- **Production deployment process for table schema changes**:
+  1. Add new field(s) to the END of the attributes list in MnesiaInitializer
+  2. Create a migration function to transform existing records
+  3. Scale down to 1 server in production before deploying
+  4. Deploy the change (table will be recreated with new schema)
+  5. Run migration function to transform existing records
+  6. Scale back up to multiple servers
+- **Development**: Delete `priv/mnesia/node1` and `priv/mnesia/node2`, restart nodes
+- **Breaking this process will corrupt Mnesia data across the cluster**
+- **Alternative**: Create a new table instead of modifying existing one (preferred for non-critical data)
+
 - Example:
   ```elixir
   # GOOD - use dirty operations
@@ -373,6 +428,40 @@ bux_earned = (engagement_score / 10) * base_bux_reward * user_multiplier
 
 ## Security Notes
 
+### CRITICAL: Provably Fair Server Seed Protection
+
+**NEVER display the server seed for any game that has not been settled.** This is a critical security vulnerability that would allow players to predict all future results.
+
+**Rules:**
+1. Server seed MUST ONLY be revealed AFTER the bet is settled on-chain
+2. Verify modal MUST ONLY show data for settled games (status = `:settled`)
+3. NEVER fetch server seed from the current/pending game session
+4. Always query Mnesia for settled games: `:mnesia.dirty_read({:bux_booster_onchain_games, game_id})` with `when status == :settled` guard
+5. Any UI showing server seed must pass a specific `game_id` and verify it's settled before displaying
+
+**Example of WRONG approach (NEVER do this):**
+```elixir
+# WRONG - This reveals upcoming game's server seed!
+def handle_event("show_fairness_modal", _params, socket) do
+  game_id = socket.assigns.onchain_game_id  # Current game
+  server_seed = BuxBoosterOnchain.get_game(game_id).server_seed  # DANGER!
+end
+```
+
+**Correct approach:**
+```elixir
+# CORRECT - Only shows settled games
+def handle_event("show_fairness_modal", %{"game-id" => game_id}, socket) do
+  case :mnesia.dirty_read({:bux_booster_onchain_games, game_id}) do
+    [record] when elem(record, 7) == :settled ->  # status field check
+      # Safe to show server seed
+    _ -> {:noreply, socket}  # Reject non-settled games
+  end
+end
+```
+
+### General Security
+
 - **Never read `.env` files** in code or expose environment variables
 - Token owner private keys only exist in the BUX Minter service
 - X OAuth tokens stored in Mnesia (not encrypted at rest - consider for future)
@@ -461,6 +550,22 @@ Content is stored as TipTap JSON in PostgreSQL:
 ### Bundler Service
 - **Mainnet**: `https://rogue-bundler-mainnet.fly.dev`
 - **Testnet** (for testing only): `https://rogue-bundler-testnet.fly.dev`
+
+### ROGUE Token - Native Gas Token
+
+**CRITICAL**: ROGUE is the native gas token of Rogue Chain (like ETH on Ethereum), NOT an ERC-20 token contract.
+
+**Key Differences from BUX and other tokens**:
+1. **No Contract Address**: ROGUE doesn't have a token contract address - it's part of the blockchain itself
+2. **Balance Checking**: Use `provider.getBalance(address)` instead of ERC-20 `balanceOf()`
+3. **Transfer Method**: Can be sent directly with transaction value (`{value: amountWei}`) - no approve/transferFrom needed
+4. **Betting**: In BUX Booster, ROGUE bets can include token amount in the transaction value, unlike ERC-20s which require separate approval
+5. **Aggregate Calculation**: ROGUE balance should NOT be included in BUX aggregate total (only BUX flavors count)
+
+**Implementation Notes**:
+- Display ROGUE balance in token dropdown but keep separate from BUX aggregate
+- When fetching balances, use different method for ROGUE vs ERC-20 tokens
+- ROGUE betting flow can be optimized (no approval step needed)
 
 ---
 
@@ -894,3 +999,294 @@ See [docs/contract_upgrades.md](docs/contract_upgrades.md), [docs/nonce_system_s
 3. If more flips needed → Send `:next_flip` → **Schedule `reveal_flip_result` for flip 2** ✓
 4. Flip 2 completes → Show result → Check win condition
 5. Continue until all flips done or win/loss determined
+
+### House Balance & Max Bet Display (Dec 2025)
+
+**Feature**: Display house bankroll and maximum bet limits in BUX Booster UI.
+
+**Implementation**:
+1. **BUX Minter API**: Added `/game-token-config/:token` endpoint
+   - Queries `BuxBoosterGame.tokenConfigs(address)` on-chain
+   - Returns: `{enabled: bool, houseBalance: string}`
+   - Handles null values gracefully (token not configured)
+   - Bug fix: Handles both `"0"` and `"123.45"` string formats (Dec 29, 2025)
+
+2. **Phoenix Client**: Added `BuxMinter.get_house_balance/1`
+   - Calls BUX minter API endpoint
+   - Returns `{:ok, balance}` or `{:error, reason}`
+   - **Async Optimization (Dec 29, 2025)**: All fetches now use `start_async` to avoid blocking UI
+
+3. **Max Bet Calculation**: Client-side formula matching contract logic
+   ```elixir
+   defp calculate_max_bet(house_balance, difficulty_level, difficulty_options) do
+     multiplier_bp = trunc(difficulty.multiplier * 10000)
+     base_max_bet = house_balance * 0.001  # 0.1% of house
+     max_bet = (base_max_bet * 20000) / multiplier_bp
+     trunc(max_bet)  # Round down to integer
+   end
+   ```
+
+4. **Async Fetching (Dec 29, 2025)**: Non-blocking house balance updates
+   - On mount: Defaults to 0.0, fetches async via `start_async(:fetch_house_balance, ...)`
+   - On token selection: Triggers async fetch for new token
+   - On difficulty change: Triggers async fetch to recalculate max bet
+   - On reset game: Triggers async fetch to refresh values
+   - Helper: `fetch_house_balance_async/2` returns `{balance, max_bet}` tuple
+   - Handler: `handle_async(:fetch_house_balance, ...)` updates assigns when complete
+
+5. **UI Updates**:
+   - House balance shown below token selector: "House: 59,704.26 BUX"
+   - Max bet displayed on MAX button: "MAX (60)"
+   - Updates dynamically when switching tokens or difficulties
+   - Page loads instantly without waiting for API call
+
+**Files Changed**:
+- [bux-minter/index.js](bux-minter/index.js#L608-645) - Added `/game-token-config/:token` endpoint
+- [lib/blockster_v2/bux_minter.ex](lib/blockster_v2/bux_minter.ex#L249-288) - Added `get_house_balance/1` with string parsing fix
+- [lib/blockster_v2_web/live/bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex) - Async house balance fetch, max bet calculation, UI display
+
+**Max Bet Formula** (Ensures max payout = 0.2% of house):
+- Base: 0.1% of house balance (e.g., 59.7 BUX for 59,704 BUX house)
+- Scaled by 20000 / multiplier (in basis points)
+- Result: Higher multipliers = lower max bet = consistent max payout
+- Example: 1.98x allows 60 BUX bet → 119 BUX payout (0.2% of 59,704)
+
+**Why Limit Max Payout (Not Just Profit)?**
+- Protects against winning streaks at low multipliers
+- 1.02x has 96.9% win rate - player could win 20+ times in a row
+- Limiting max bet by balance would let them drain bankroll
+- Limiting max payout ensures house never loses >0.2% per bet
+
+**Performance**: All house balance fetches are non-blocking via `start_async`. Page loads instantly, UI updates smoothly when data arrives.
+
+**Documentation**: See [docs/bux_minter.md](docs/bux_minter.md) for complete BUX minter API reference.
+
+### Infinite Scroll for Scrollable Divs (Dec 2024)
+
+**Problem**: The existing `InfiniteScroll` hook only worked for window scrolling, not scrollable divs with `overflow-y: auto`.
+
+**Solution**: Enhanced the hook to detect and handle both window scroll and element scroll:
+
+```javascript
+let InfiniteScroll = {
+  mounted() {
+    // Auto-detect if element is scrollable
+    const hasOverflow = this.el.scrollHeight > this.el.clientHeight;
+    const isScrollable = getComputedStyle(this.el).overflowY === 'auto' ||
+                         getComputedStyle(this.el).overflowY === 'scroll';
+    this.useElementScroll = hasOverflow && isScrollable;
+
+    // Use element as IntersectionObserver root for scrollable divs
+    this.observer = new IntersectionObserver(
+      entries => { /* ... */ },
+      {
+        root: this.useElementScroll ? this.el : null,  // Key change
+        rootMargin: '200px',
+        threshold: 0
+      }
+    );
+
+    // Attach scroll listener to element or window
+    if (this.useElementScroll) {
+      this.el.addEventListener('scroll', this.handleScroll, { passive: true });
+    } else {
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+    }
+  }
+}
+```
+
+**Key Points**:
+- IntersectionObserver's `root` option determines what is observed for scrolling
+- `root: null` = observe window scroll (default)
+- `root: this.el` = observe element scroll (for scrollable divs)
+- Must attach scroll listener to the correct target (element vs window)
+- Must clean up from the correct target in `destroyed()`
+
+**Use Case**: BUX Booster Recent Games table with `max-h-96 overflow-y-auto`
+
+**Files Changed**: [app.js:175-290](assets/js/app.js#L175-L290)
+
+### Mnesia Pagination Pattern (Dec 2024)
+
+**Pattern**: Load data from Mnesia with pagination using `Enum.drop` and `Enum.take`:
+
+```elixir
+defp load_recent_games(user_id, opts \\ []) do
+  limit = Keyword.get(opts, :limit, 10)
+  offset = Keyword.get(opts, :offset, 0)
+
+  :mnesia.dirty_index_read(:bux_booster_onchain_games, user_id, :user_id)
+  |> Enum.filter(fn record -> elem(record, 7) == :settled end)
+  |> Enum.sort_by(fn record -> elem(record, 21) end, :desc)
+  |> Enum.drop(offset)    # Skip already-loaded items
+  |> Enum.take(limit)     # Take next batch
+  |> Enum.map(fn record -> %{...} end)
+end
+```
+
+**Socket State**:
+```elixir
+socket
+|> assign(recent_games: load_recent_games(user_id, limit: 30))
+|> assign(games_offset: 30)  # Track position for next load
+```
+
+**Event Handler**:
+```elixir
+def handle_event("load-more-games", _params, socket) do
+  offset = socket.assigns.games_offset
+  new_games = load_recent_games(user_id, limit: 30, offset: offset)
+  
+  if Enum.empty?(new_games) do
+    {:reply, %{end_reached: true}, socket}  # Signal end to JS hook
+  else
+    {:noreply,
+     socket
+     |> assign(:recent_games, socket.assigns.recent_games ++ new_games)
+     |> assign(:games_offset, offset + length(new_games))}
+  end
+end
+```
+
+**Performance**: Mnesia dirty reads are fast (~1-2ms for 30 records), but consider total memory for unbounded lists.
+
+### Recent Games Table Implementation (Dec 2024)
+
+**Feature**: Comprehensive game history with clickable transaction links and provably fair verification.
+
+**Key Elements**:
+1. **Nonce as Bet ID**: User-friendly identifier (#137) linked to bet placement tx
+2. **Transaction Links**: All links include `?tab=logs` for immediate event log access
+3. **Sticky Header**: `sticky top-0 bg-white z-10` keeps headers visible during scroll
+4. **Security**: Verify button only appears for settled games with complete fairness data
+
+**Template Pattern**:
+```heex
+<div id="recent-games-scroll" class="overflow-y-auto max-h-96" phx-hook="InfiniteScroll">
+  <table class="w-full text-xs">
+    <thead class="sticky top-0 bg-white z-10">
+      <!-- Headers stay visible while scrolling -->
+    </thead>
+    <tbody>
+      <%= for game <- @recent_games do %>
+        <tr>
+          <td>
+            <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"}>
+              #<%= game.nonce %>
+            </a>
+          </td>
+          <!-- ... more columns ... -->
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+```
+
+**Gotcha**: When adding `phx-hook="InfiniteScroll"` to a div, ensure the div itself is scrollable (`overflow-y-auto`), not a child element. The hook observes the element it's attached to.
+
+
+### Unauthenticated User Access to BUX Booster (Dec 2024)
+
+**Feature**: Allow non-logged-in users to interact with the full BUX Booster UI to preview the game before signing up.
+
+**Implementation** ([bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex)):
+
+1. **Mount Logic** (lines 27-167):
+   - Removed redirect to login for unauthenticated users
+   - Initialize zero balances: `%{"BUX" => 0, "ROGUE" => 0, "aggregate" => 0}`
+   - No wallet initialization or blockchain calls
+   - House balance still fetched via async for max bet calculation
+
+2. **Event Handler Updates**:
+   - `select_token` - Skip user stats load if `current_user == nil`
+   - `set_max_bet` - Use contract max bet instead of user balance for unauthenticated users
+   - `double_bet` - Cap at contract max instead of user balance for unauthenticated users
+   - `halve_bet` - Works identically for all users (no changes)
+   - `update_bet_amount` - Already accepts any positive integer (no changes)
+   - `start_game` - Redirect to `/login` if `current_user == nil`
+   - `reset_game` - Only reset UI state for unauthenticated users (no Mnesia ops)
+   - `load-more-games` - Return empty immediately for unauthenticated users
+
+3. **Template Updates**:
+   - Provably Fair dropdown shows placeholder for unauthenticated users:
+     ```heex
+     <%= if @current_user do %>
+       <!-- Show actual server seed hash -->
+     <% else %>
+       <code>&lt;hashed_server_seed_displays_here_when_you_are_logged_in&gt;</code>
+     <% end %>
+     ```
+
+**What Works for Unauthenticated Users**:
+- View `/play` page without redirect
+- See zero balances in all displays
+- Switch tokens (BUX/ROGUE) in dropdown
+- Change difficulty levels (all 9 levels)
+- Select predictions (heads/tails)
+- Input any bet amount
+- Use bet controls (½, 2×, MAX)
+- See potential win calculations
+- View Provably Fair dropdown (with placeholder)
+
+**What Requires Login**:
+- Clicking "Place Bet" → redirects to `/login`
+- No blockchain transactions
+- No commitment hash submitted
+- No Mnesia operations
+
+**Key Principle**: For any event handler that accesses `current_user.id`, add a guard clause:
+```elixir
+if socket.assigns.current_user == nil do
+  # Handle unauthenticated case (redirect, skip, or use defaults)
+else
+  # Normal authenticated flow
+end
+```
+
+**Benefits**:
+- Better onboarding experience
+- Users can explore mechanics before signup
+- Educational preview of all features
+- Zero security risk (no blockchain exposure)
+
+**Documentation**: See [docs/bux_booster_onchain.md](docs/bux_booster_onchain.md#unauthenticated-user-access) for full details.
+
+### Recent Games Table Live Update on Settlement (Dec 2024)
+
+**Problem**: After a bet settled on-chain, the recent games table would not show the newly settled bet until the user clicked "Play Again".
+
+**Root Cause**:
+- Recent games are loaded during `:show_final_result` (line 1748), which happens BEFORE the settlement completes
+- Settlement happens asynchronously in a spawned process after showing the game result
+- When `BuxBoosterOnchain.settle_game/1` completes and updates the game status to `:settled` in Mnesia, the UI wasn't notified
+
+**Solution** ([bux_booster_live.ex:1843-1856](lib/blockster_v2_web/live/bux_booster_live.ex#L1843-L1856)):
+Added `recent_games = load_recent_games(user_id)` to the `:settlement_complete` handler:
+```elixir
+def handle_info({:settlement_complete, tx_hash}, socket) do
+  user_id = socket.assigns.current_user.id
+  wallet_address = socket.assigns.wallet_address
+
+  # Sync balances from blockchain (async - will broadcast when complete)
+  BuxMinter.sync_user_balances_async(user_id, wallet_address)
+
+  # Reload recent games to show the newly settled bet
+  recent_games = load_recent_games(user_id)
+
+  {:noreply,
+   socket
+   |> assign(settlement_tx: tx_hash)
+   |> assign(recent_games: recent_games)}
+end
+```
+
+**Result**: The settled bet now appears in the recent games table immediately (2-3 seconds after the result is shown) without requiring user interaction.
+
+**Timeline**:
+1. User sees result animation → Game marked with result in `:show_final_result`
+2. ~2-3s later → Settlement tx confirms on-chain
+3. Settlement complete → Recent games table updates with new settled game
+4. Balances sync → All balance displays update
+

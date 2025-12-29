@@ -21,6 +21,70 @@ This document outlines the plan to convert BUX Booster to a fully on-chain game 
 4. Game results remain provably fair using the existing commit-reveal pattern
 5. House edge built into multipliers
 
+## Unauthenticated User Access
+
+**Updated: December 2024**
+
+BUX Booster supports full UI interaction for unauthenticated users to preview the game before signing up:
+
+### What Works for Non-Logged-In Users:
+
+✅ **Full UI Access**:
+- View game interface at `/play` without redirect
+- See zero balances in all displays
+- Switch between tokens (BUX/ROGUE) in dropdown
+- Change difficulty levels (all 9 levels)
+- Select predictions by clicking coins (heads/tails)
+- Input any bet amount
+- Use bet controls (½, 2×, MAX buttons)
+- View Provably Fair dropdown (shows placeholder text)
+- See potential win calculations update in real-time
+
+✅ **Bet Controls Behavior**:
+- **Manual Input**: Accept any positive integer
+- **MAX Button**: Sets bet to contract's max bet (e.g., 60 BUX for 1.98x)
+- **Double (2×)**: Doubles bet, capped at contract max
+- **Halve (½)**: Halves bet amount
+- **Potential Win**: Calculates correctly as `bet_amount × multiplier`
+
+🔒 **What Requires Login**:
+- Clicking "Place Bet" button → redirects to `/login`
+- No blockchain transactions initiated
+- No commitment hash submitted
+- No Mnesia operations
+
+### Implementation Details:
+
+**File**: `lib/blockster_v2_web/live/bux_booster_live.ex`
+
+**Mount Logic** ([lines 27-167](lib/blockster_v2_web/live/bux_booster_live.ex#L27-L167)):
+- Unauthenticated users get zero balances map
+- No wallet initialization
+- No blockchain calls
+- House balance still fetched for max bet calculation
+
+**Event Handlers**:
+- `select_token` - Skips user stats load if not logged in
+- `set_max_bet` - Uses contract max instead of user balance
+- `double_bet` - Caps at contract max instead of user balance
+- `halve_bet` - Works identically for all users
+- `update_bet_amount` - Accepts any positive integer
+- `start_game` - Redirects to login if not authenticated
+- `reset_game` - Only resets UI state for unauthenticated users
+- `load-more-games` - Returns empty for unauthenticated users
+
+**Provably Fair Display**:
+- Shows placeholder: `<hashed_server_seed_displays_here_when_you_are_logged_in>`
+- Dropdown still clickable to educate users about fairness system
+
+### Benefits:
+
+1. **Better Onboarding**: Users can explore game mechanics before signup
+2. **Reduced Friction**: No forced login to see how the game works
+3. **Education**: Users learn difficulty levels, multipliers, and fairness before playing
+4. **Trust Building**: Transparent preview of all game features
+5. **No Security Risk**: Zero blockchain exposure for unauthenticated users
+
 ## Key Requirements
 
 - **No OpenZeppelin imports** - Roll our own Ownable, ReentrancyGuard, Pausable
@@ -76,16 +140,106 @@ Must get ALL flips correct.
 
 ## Max Bet Calculation
 
-Max bet is **0.1% of house balance** for a single-flip game. For multi-flip games, we extrapolate based on the maximum potential payout at each difficulty level.
+### Contract Formula
 
+The contract calculates max bet to ensure consistent **max payout** of 0.2% of house balance:
+
+```solidity
+function _calculateMaxBet(uint256 houseBalance, uint8 diffIndex) internal view returns (uint256) {
+    uint256 baseMaxBet = (houseBalance * MAX_BET_BPS) / 10000; // 0.1% of house
+    uint256 multiplier = MULTIPLIERS[diffIndex];
+
+    // Scale inversely with multiplier
+    return (baseMaxBet * 20000) / multiplier;
+}
 ```
-max_bet[difficulty] = (house_balance * 0.001) / multiplier[difficulty] * base_multiplier
+
+Where:
+- `MAX_BET_BPS = 10` (0.1% in basis points)
+- `MULTIPLIERS[diffIndex]` = multiplier in basis points (e.g., 19800 for 1.98x)
+
+### Formula Breakdown
+
+1. **Base**: 0.1% of house balance (e.g., 59.7 BUX for 59,704 BUX house)
+2. **Scaled by 20000**: Multiplied by 200 (20000/100) to get 2x the base
+3. **Divided by multiplier**: Scales inversely to keep payout consistent
+
+**Example** (House balance = 59,704 BUX):
+
+| Difficulty | Multiplier | Max Bet | Max Payout | Formula |
+|------------|-----------|---------|------------|---------|
+| 1.02x | 10200 | 117 BUX | 119.4 BUX | (59.7 * 20000) / 10200 |
+| 1.98x | 19800 | 60 BUX | 119.4 BUX | (59.7 * 20000) / 19800 |
+| 31.68x | 316800 | 4 BUX | 119.4 BUX | (59.7 * 20000) / 316800 |
+
+### Why This Design?
+
+**Protects against winning streaks**: A player on a hot streak at 1.02x (high win rate) can't drain the bankroll with massive bets. Each win is capped at ~119 BUX payout regardless of difficulty.
+
+**Consistent risk exposure**: House never risks more than ~0.2% of balance per bet, regardless of multiplier chosen.
+
+### UI Implementation
+
+Phoenix fetches house balance from contract **asynchronously** (non-blocking) and calculates max bet client-side:
+
+```elixir
+def mount(_params, _session, socket) do
+  socket =
+    socket
+    |> assign(house_balance: 0.0)  # Default while loading
+    |> assign(max_bet: 0)  # Default while loading
+    # ... other assigns
+    |> start_async(:fetch_house_balance, fn ->
+      fetch_house_balance_async("BUX", 1)
+    end)
+
+  {:ok, socket}
+end
+
+# Async fetch helper
+defp fetch_house_balance_async(token, difficulty_level) do
+  case BuxMinter.get_house_balance(token) do
+    {:ok, balance} ->
+      max_bet = calculate_max_bet(balance, difficulty_level, @difficulty_options)
+      {balance, max_bet}
+
+    {:error, reason} ->
+      Logger.warning("Failed to fetch house balance: #{inspect(reason)}")
+      {0.0, 0}
+  end
+end
+
+# Async result handler
+def handle_async(:fetch_house_balance, {:ok, {house_balance, max_bet}}, socket) do
+  {:noreply, socket |> assign(:house_balance, house_balance) |> assign(:max_bet, max_bet)}
+end
+
+defp calculate_max_bet(house_balance, difficulty_level, difficulty_options) do
+  difficulty = Enum.find(difficulty_options, &(&1.level == difficulty_level))
+  multiplier_bp = trunc(difficulty.multiplier * 10000)
+
+  base_max_bet = house_balance * 0.001
+  max_bet = (base_max_bet * 20000) / multiplier_bp
+
+  trunc(max_bet)  # Round down to integer
+end
 ```
 
-For Win All difficulty 5 (32x):
-- Max bet = house_balance * 0.001 / 32 * 2 = house_balance * 0.0000625
+**Async Updates** (non-blocking):
+- Page load: Fetches house balance in background via `start_async`
+- Token selection: Triggers async fetch for new token
+- Difficulty change: Triggers async fetch to recalculate max bet
+- Play Again button: Triggers async fetch to refresh values
 
-This ensures the maximum potential exposure at any difficulty is ~0.1% of house balance.
+**Display**:
+- House balance shown below token selector: "House: 59,704.26 BUX"
+- Max bet on button: "MAX (60)"
+- Updates dynamically when async fetch completes
+- Page loads instantly without waiting for API call
+
+**API Endpoint**: `GET /game-token-config/:token` (via BUX Minter service)
+
+**Performance**: All house balance fetches are non-blocking via `assign_async`. UI remains responsive during API calls.
 
 ## Architecture
 
@@ -2991,3 +3145,210 @@ end
 - ✅ 31.68x (5 flips, Win All)
 
 **Key Lesson**: When using timed events in multi-step processes, ensure each step schedules its own events. Don't assume one-time scheduling will cover all iterations.
+
+---
+
+## Recent Games Table & Infinite Scroll (Dec 2024)
+
+### Overview
+Added a comprehensive game history table with infinite scroll pagination to display all settled on-chain bets.
+
+### Features
+- **Initial Load**: Displays last 30 games
+- **Infinite Scroll**: Automatically loads 30 more games as user scrolls
+- **Scrollable Container**: `max-h-96` (384px) shows ~10 rows, rest accessible via scroll
+- **Sticky Header**: Table header remains visible during scroll
+- **Live Updates**: New bets automatically appear after settlement
+
+### Table Columns
+
+| Column | Content | Link |
+|--------|---------|------|
+| **Bet ID** | Nonce number (e.g., #137) | Links to bet placement tx on Roguescan with `?tab=logs` |
+| **Bet** | Token amount wagered | - |
+| **Token** | Token type with logo | - |
+| **Predictions** | User's predictions (H/T) | - |
+| **Results** | Actual flip results (H/T, bold) | - |
+| **Odds** | Multiplier (e.g., 1.98x) | - |
+| **Result** | Win/Loss | - |
+| **Payout** | Payout amount | Links to settlement tx on Roguescan with `?tab=logs` |
+| **Verify** | Provably Fair verification | Opens modal for settled games only |
+
+### Implementation
+
+#### 1. Data Loading with Pagination
+```elixir
+defp load_recent_games(user_id, opts \\ []) do
+  limit = Keyword.get(opts, :limit, 10)
+  offset = Keyword.get(opts, :offset, 0)
+
+  :mnesia.dirty_index_read(:bux_booster_onchain_games, user_id, :user_id)
+  |> Enum.filter(fn record -> elem(record, 7) == :settled end)
+  |> Enum.sort_by(fn record -> elem(record, 21) end, :desc)  # settled_at
+  |> Enum.drop(offset)
+  |> Enum.take(limit)
+  |> Enum.map(fn record -> %{...} end)
+end
+```
+
+#### 2. Socket State Management
+```elixir
+# Mount - load initial 30 games
+socket
+|> assign(recent_games: load_recent_games(current_user.id, limit: 30))
+|> assign(games_offset: 30)  # Track pagination position
+```
+
+#### 3. Infinite Scroll Event Handler
+```elixir
+def handle_event("load-more-games", _params, socket) do
+  user_id = socket.assigns.current_user.id
+  offset = socket.assigns.games_offset
+
+  new_games = load_recent_games(user_id, limit: 30, offset: offset)
+
+  if Enum.empty?(new_games) do
+    {:reply, %{end_reached: true}, socket}  # Signal no more data
+  else
+    updated_games = socket.assigns.recent_games ++ new_games
+    
+    {:noreply,
+     socket
+     |> assign(:recent_games, updated_games)
+     |> assign(:games_offset, offset + length(new_games))}
+  end
+end
+```
+
+#### 4. Template Structure
+```heex
+<div id="recent-games-scroll" class="overflow-y-auto max-h-96" phx-hook="InfiniteScroll">
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="sticky top-0 bg-white z-10">
+        <!-- Table headers -->
+      </thead>
+      <tbody>
+        <%= for game <- @recent_games do %>
+          <!-- Game rows -->
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+### InfiniteScroll Hook Updates
+
+Enhanced the existing `InfiniteScroll` hook to support both window scrolling and scrollable div containers.
+
+#### Key Improvements
+1. **Auto-Detection**: Detects if element has overflow scrolling
+2. **Dual Mode**: 
+   - Window scroll (existing posts index behavior)
+   - Element scroll (new for scrollable containers)
+3. **Element-Specific Events**: Routes to correct event based on element ID
+
+#### Implementation
+```javascript
+let InfiniteScroll = {
+  mounted() {
+    // Detect if element has overflow scrolling
+    const hasOverflow = this.el.scrollHeight > this.el.clientHeight;
+    const isScrollable = getComputedStyle(this.el).overflowY === 'auto' ||
+                         getComputedStyle(this.el).overflowY === 'scroll';
+    this.useElementScroll = hasOverflow && isScrollable;
+
+    // IntersectionObserver with element as root for scrollable divs
+    this.observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !this.pending && !this.endReached) {
+          this.loadMore();
+        }
+      },
+      {
+        root: this.useElementScroll ? this.el : null,
+        rootMargin: '200px',
+        threshold: 0
+      }
+    );
+
+    // Attach scroll listener to element or window
+    if (this.useElementScroll) {
+      this.el.addEventListener('scroll', this.handleScroll, { passive: true });
+    } else {
+      window.addEventListener('scroll', this.handleScroll, { passive: true });
+    }
+  },
+
+  loadMore() {
+    let eventName = 'load-more';
+    if (this.el.id === 'hub-news-stream') {
+      eventName = 'load-more-news';
+    } else if (this.el.id === 'recent-games-scroll') {
+      eventName = 'load-more-games';
+    }
+
+    this.pushEvent(eventName, {}, (reply) => {
+      if (reply && reply.end_reached) {
+        this.endReached = true;
+        this.observer.disconnect();
+      }
+      setTimeout(() => { this.pending = false; }, 200);
+    });
+  }
+}
+```
+
+### Security: Verify Modal Fix
+
+**CRITICAL BUG FIXED**: The verify modal was showing the server seed for the UPCOMING game, which would allow players to predict all future results!
+
+#### The Problem
+```elixir
+# WRONG - Shows upcoming game's server seed
+def handle_event("show_fairness_modal", _params, socket) do
+  game_id = socket.assigns.onchain_game_id  # Current/upcoming game!
+  server_seed = BuxBoosterOnchain.get_game(game_id).server_seed  # DANGER!
+end
+```
+
+#### The Fix
+```elixir
+# CORRECT - Only shows settled games
+def handle_event("show_fairness_modal", %{"game-id" => game_id}, socket) do
+  case :mnesia.dirty_read({:bux_booster_onchain_games, game_id}) do
+    [record] when elem(record, 7) == :settled ->  # status field check
+      # Build fairness_game from THIS SPECIFIC SETTLED GAME
+      {:noreply, assign(socket, show_fairness_modal: true, fairness_game: ...)}
+    _ ->
+      {:noreply, socket}  # Reject non-settled games
+  end
+end
+```
+
+#### Security Rules (Added to CLAUDE.md)
+1. Server seed MUST ONLY be revealed AFTER bet is settled
+2. Verify modal MUST ONLY show data for settled games (status = `:settled`)
+3. NEVER fetch server seed from current/pending game session
+4. Always query Mnesia with `status == :settled` guard
+5. Any UI showing server seed must pass specific `game_id` and verify it's settled
+
+### Files Changed
+- [bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex) - Recent games, pagination, verify modal fix
+- [app.js](assets/js/app.js) - InfiniteScroll hook enhancements
+- [CLAUDE.md](CLAUDE.md) - Security warnings for provably fair systems
+
+### Performance Characteristics
+- **Initial Query**: 30 games from Mnesia (~1-2ms)
+- **Scroll Load**: 30 games per trigger (~1-2ms)
+- **UI Rendering**: ~10 rows visible, smooth scrolling
+- **Memory**: Unbounded growth (consider limit in future)
+
+### Future Improvements
+- [ ] Add max total games limit (e.g., 300) to prevent memory issues
+- [ ] Add filters (token type, win/loss, date range)
+- [ ] Add search by nonce or bet ID
+- [ ] Add CSV export functionality
+- [ ] Consider virtual scrolling for 1000+ games
+
