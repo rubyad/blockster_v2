@@ -8,8 +8,9 @@ defmodule BlocksterV2.Application do
   @impl true
   def start(_type, _args) do
     # Add libcluster only in dev mode (production uses DNSCluster)
+    # Use compile-time check since Mix is not available in production releases
     libcluster_child =
-      if Mix.env() == :dev do
+      if Application.get_env(:blockster_v2, :env) == :dev do
         [{Cluster.Supervisor, [Application.get_env(:libcluster, :topologies, []), [name: BlocksterV2.ClusterSupervisor]]}]
       else
         []

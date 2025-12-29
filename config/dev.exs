@@ -1,5 +1,8 @@
 import Config
 
+# Set environment
+config :blockster_v2, :env, :dev
+
 # Configure your database
 config :blockster_v2, BlocksterV2.Repo,
   username: "tenmerry",
