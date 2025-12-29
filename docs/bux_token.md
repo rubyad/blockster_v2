@@ -1,3 +1,39 @@
+# BUX Token System
+
+## Overview
+
+The BUX token system consists of:
+- **BUX-flavored tokens**: 11 ERC-20 tokens representing different hubs (BUX, moonBUX, neoBUX, rogueBUX, flareBUX, nftBUX, nolchaBUX, solBUX, spaceBUX, tronBUX, tranBUX)
+- **ROGUE**: The native gas token of Rogue Chain (NOT part of BUX system)
+
+## Aggregate Balance
+
+**CRITICAL**: The aggregate balance represents the sum of BUX-flavored tokens ONLY. ROGUE is excluded from the aggregate.
+
+**Why ROGUE is Separate**:
+- ROGUE is Rogue Chain's native gas token (like ETH on Ethereum)
+- ROGUE has no ERC-20 contract address
+- ROGUE is used for gas fees (via Paymaster in our case)
+- ROGUE balance stored in separate `user_rogue_balances` Mnesia table
+- Aggregate represents the BUX economy only, not native chain assets
+
+**Calculation**:
+```elixir
+# Correct aggregate calculation
+aggregate = balances
+|> Map.delete("aggregate")
+|> Map.delete("ROGUE")        # Exclude ROGUE
+|> Map.values()
+|> Enum.sum()
+```
+
+**Display**:
+- Header shows aggregate of BUX-flavored tokens
+- Token dropdown shows individual balances including ROGUE separately
+- ROGUE displayed but not counted in aggregate total
+
+---
+
 # BUX Token Deployment Summary
 
 **Contract Address:** `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8`

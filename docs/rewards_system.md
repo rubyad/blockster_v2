@@ -474,6 +474,23 @@ Tracks per-token balances for each user:
  spacebux_balance, tronbux_balance, tranbux_balance}
 ```
 
+**IMPORTANT**: `aggregate_bux_balance` is the sum of ALL BUX-flavored tokens (indices 5-15) ONLY. ROGUE is stored separately in `user_rogue_balances` and is NOT included in the aggregate.
+
+**Aggregate Calculation**:
+```elixir
+# Sum indices 5-15: BUX, moonBUX, neoBUX, rogueBUX, flareBUX,
+# nftBUX, nolchaBUX, solBUX, spaceBUX, tronBUX, tranBUX
+aggregate = Enum.reduce(5..15, 0.0, fn index, acc ->
+  acc + (elem(record, index) || 0.0)
+end)
+```
+
+**Why ROGUE is Excluded**:
+- ROGUE is the native gas token of Rogue Chain (like ETH on Ethereum)
+- ROGUE is not an ERC-20 token - no contract address
+- ROGUE represents chain-level assets, not BUX economy tokens
+- Aggregate represents BUX-flavored token economy only
+
 #### user_multipliers
 ```
 {user_id, smart_wallet, x_multiplier, linkedin_multiplier,

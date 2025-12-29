@@ -1290,3 +1290,55 @@ end
 3. Settlement complete → Recent games table updates with new settled game
 4. Balances sync → All balance displays update
 
+
+### Aggregate Balance ROGUE Exclusion Fix (Dec 2024)
+
+**Problem**: When a bet failed in BUX Booster (e.g., exceeding max bet size), the aggregate balance incorrectly included ROGUE balance in the calculation, inflating the displayed total in the header.
+
+**Root Cause**:
+- Aggregate balance represents the sum of BUX-flavored tokens only (BUX, moonBUX, neoBUX, etc.)
+- ROGUE is the native gas token and stored separately in `user_rogue_balances` table
+- `get_user_token_balances/1` returns a map with ALL tokens including ROGUE
+- When recalculating aggregate after bet placement or refund, code was excluding only `"aggregate"` key but not `"ROGUE"` key
+- This caused ROGUE balance to be summed into the aggregate
+
+**Locations with Bug**:
+1. Successful bet placement ([bux_booster_live.ex:1266-1271](lib/blockster_v2_web/live/bux_booster_live.ex#L1266-L1271))
+2. Failed bet refund ([bux_booster_live.ex:1394-1401](lib/blockster_v2_web/live/bux_booster_live.ex#L1394-L1401))
+
+**Solution**:
+Exclude both `"aggregate"` and `"ROGUE"` keys when calculating aggregate:
+```elixir
+# CORRECT: Exclude both "aggregate" and "ROGUE"
+aggregate_balance = balances
+|> Map.delete("aggregate")
+|> Map.delete("ROGUE")
+|> Map.values()
+|> Enum.sum()
+```
+
+**Why ROGUE is Separate**:
+- ROGUE is Rogue Chain's native gas token (like ETH on Ethereum)
+- ROGUE has no contract address - it's part of the blockchain itself
+- ROGUE balance fetched with `provider.getBalance()`, not ERC-20 `balanceOf()`
+- Aggregate represents BUX economy tokens only, not native chain tokens
+
+**EngagementTracker Calculation**:
+The `calculate_aggregate_balance/1` function in EngagementTracker was already correct:
+```elixir
+defp calculate_aggregate_balance(record) do
+  # Sum all token balances (indices 5-15: BUX flavors only)
+  Enum.reduce(5..15, 0.0, fn index, acc ->
+    acc + (elem(record, index) || 0.0)
+  end)
+end
+```
+This sums indices 5-15 which are BUX-flavored tokens only. ROGUE is never stored in `user_bux_balances` table.
+
+**Testing**:
+1. Have ROGUE balance (e.g., 1.5M ROGUE)
+2. Have BUX balance (e.g., 600 BUX)
+3. Place a bet that fails (exceeds max bet)
+4. Verify aggregate shows ~600 BUX, not ~1,500,600
+
+**Files Changed**: [bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex#L1266-1271) and [bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex#L1394-1401)

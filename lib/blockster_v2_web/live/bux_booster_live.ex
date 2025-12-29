@@ -50,6 +50,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       socket = if wallet_address != nil and connected?(socket) do
         # Subscribe to balance updates for this user
         Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
+        # Subscribe to game settlements for this user
+        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_booster_settlement:#{current_user.id}")
 
         socket
         |> assign(:onchain_ready, false)
@@ -652,13 +654,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Results</th>
                       <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Odds</th>
                       <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Result</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Payout</th>
+                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">P/L</th>
                       <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Verify</th>
                     </tr>
                   </thead>
                     <tbody>
                       <%= for game <- @recent_games do %>
-                        <tr class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
+                        <tr id={"game-#{game.game_id}"} class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
                           <!-- Bet ID (nonce linked to bet tx) -->
                           <td class="py-2 px-2">
                             <%= if game.bet_tx do %>
@@ -673,7 +675,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <td class="py-2 px-2">
                             <div class="flex items-center gap-1.5">
                               <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
-                              <span class="text-gray-900"><%= trunc(game.bet_amount) %></span>
+                              <span class="text-gray-900"><%= format_integer(game.bet_amount) %></span>
                               <span class="text-gray-700"><%= game.token_type %></span>
                             </div>
                           </td>
@@ -703,25 +705,27 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                               <span class="text-red-600 font-medium">Loss</span>
                             <% end %>
                           </td>
-                          <!-- Payout (full payout for wins, 0 for losses) -->
+                          <!-- P/L (profit for wins, loss for losses) -->
                           <td class="py-2 px-2">
                             <%= if game.won do %>
+                              <% profit = game.payout - game.bet_amount %>
                               <%= if game.settlement_tx do %>
                                 <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
-                                  <%= :erlang.float_to_binary(game.payout / 1, decimals: 2) %>
+                                  +<%= format_balance(profit) %>
                                 </a>
                               <% else %>
                                 <span class="text-green-600 font-medium">
-                                  <%= :erlang.float_to_binary(game.payout / 1, decimals: 2) %>
+                                  +<%= format_balance(profit) %>
                                 </span>
                               <% end %>
                             <% else %>
+                              <% loss = game.bet_amount %>
                               <%= if game.settlement_tx do %>
                                 <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
-                                  0
+                                  -<%= format_balance(loss) %>
                                 </a>
                               <% else %>
-                                <span class="text-red-600 font-medium">0</span>
+                                <span class="text-red-600 font-medium">-<%= format_balance(loss) %></span>
                               <% end %>
                             <% end %>
                           </td>
@@ -1263,9 +1267,10 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               {:ok, result} ->
                 # 3. Update balances in socket and broadcast
                 balances = Map.put(socket.assigns.balances, token, new_balance)
-                # Calculate aggregate by summing all token balances (excluding the "aggregate" key to avoid double-counting)
+                # Calculate aggregate by summing BUX-flavored tokens only (exclude "aggregate" and "ROGUE")
                 aggregate_balance = balances
                 |> Map.delete("aggregate")
+                |> Map.delete("ROGUE")
                 |> Map.values()
                 |> Enum.sum()
 
@@ -1390,8 +1395,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     case EngagementTracker.credit_user_token_balance(user_id, wallet_address, token, bet_amount) do
       {:ok, new_balance} ->
         balances = Map.put(socket.assigns.balances, token, new_balance)
-        # Calculate aggregate excluding the "aggregate" key
-        aggregate_balance = balances |> Map.delete("aggregate") |> Map.values() |> Enum.sum()
+        # Calculate aggregate by summing BUX-flavored tokens only (exclude "aggregate" and "ROGUE")
+        aggregate_balance = balances
+        |> Map.delete("aggregate")
+        |> Map.delete("ROGUE")
+        |> Map.values()
+        |> Enum.sum()
         # Update aggregate in the map
         balances = Map.put(balances, "aggregate", aggregate_balance)
 
@@ -1557,7 +1566,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       # Refresh balances and stats for logged in users
       balances = EngagementTracker.get_user_token_balances(socket.assigns.current_user.id)
       user_stats = load_user_stats(socket.assigns.current_user.id, socket.assigns.selected_token)
-      recent_games = load_recent_games(socket.assigns.current_user.id)
+      # Keep existing recent_games list - don't reload
       predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
 
       wallet_address = socket.assigns.wallet_address
@@ -1573,7 +1582,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(payout: 0)
         |> assign(balances: balances)
         |> assign(user_stats: user_stats)
-        |> assign(recent_games: recent_games)
+        # Keep existing recent_games list - don't reload
         |> assign(server_seed: nil)
         |> assign(confetti_pieces: [])
         |> assign(show_fairness_modal: false)
@@ -1692,15 +1701,28 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       if Enum.empty?(new_games) do
         {:reply, %{end_reached: true}, socket}
       else
-        # Append new games to existing list
-        updated_games = socket.assigns.recent_games ++ new_games
+        # Filter out duplicates (in case offset got out of sync due to prepends)
+        existing_game_ids = MapSet.new(socket.assigns.recent_games, & &1.game_id)
+        unique_new_games = Enum.reject(new_games, fn game -> MapSet.member?(existing_game_ids, game.game_id) end)
+
+        # Append unique new games to existing list
+        updated_games = socket.assigns.recent_games ++ unique_new_games
+
+        # Update offset based on how many unique games we actually added
+        new_offset = offset + length(unique_new_games)
 
         {:noreply,
          socket
          |> assign(:recent_games, updated_games)
-         |> assign(:games_offset, offset + length(new_games))}
+         |> assign(:games_offset, new_offset)}
       end
     end
+  end
+
+  @impl true
+  def handle_event("load-more", _params, socket) do
+    # Fallback handler for load-more (same as load-more-games)
+    handle_event("load-more-games", _params, socket)
   end
 
   @impl true
@@ -1840,9 +1862,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       save_game_result(socket, false)
     end
 
-    # Refresh stats and recent games
+    # Refresh stats (recent_games will be updated via PubSub broadcast after settlement)
     user_stats = load_user_stats(user_id, token_type)
-    recent_games = load_recent_games(user_id)
 
     # Generate confetti for wins
     confetti_pieces = if won, do: generate_confetti_data(100), else: []
@@ -1870,7 +1891,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       |> assign(won: won)
       |> assign(payout: payout)
       |> assign(user_stats: user_stats)
-      |> assign(recent_games: recent_games)
+      # Keep existing recent_games list - will be updated via PubSub after settlement
       |> assign(confetti_pieces: confetti_pieces)
       |> push_event("bet_settled", %{won: won, payout: payout})
 
@@ -1882,18 +1903,44 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     Logger.info("[BuxBooster] Received settlement confirmation: #{tx_hash}")
     user_id = socket.assigns.current_user.id
     wallet_address = socket.assigns.wallet_address
+    game_id = socket.assigns.onchain_game_id
 
     # Sync balances from blockchain (async - will broadcast when complete)
     # This fetches latest on-chain balances including the payout and broadcasts to all LiveViews
     BuxMinter.sync_user_balances_async(user_id, wallet_address)
 
-    # Reload recent games to show the newly settled bet
-    recent_games = load_recent_games(user_id)
+    # Get the settled game and broadcast it to all /play pages for this user
+    case :mnesia.dirty_read({:bux_booster_onchain_games, game_id}) do
+      [record] when elem(record, 7) == :settled ->
+        settled_game = %{
+          game_id: elem(record, 1),
+          token_type: elem(record, 9),
+          bet_amount: elem(record, 11),
+          multiplier: get_multiplier_for_difficulty(elem(record, 12)),
+          predictions: elem(record, 13),
+          results: elem(record, 14),
+          won: elem(record, 15),
+          payout: elem(record, 16),
+          commitment_hash: elem(record, 5),
+          bet_tx: elem(record, 18),
+          settlement_tx: elem(record, 19),
+          server_seed: elem(record, 4),
+          server_seed_hash: elem(record, 5),
+          nonce: elem(record, 6)
+        }
 
-    {:noreply,
-     socket
-     |> assign(settlement_tx: tx_hash)
-     |> assign(recent_games: recent_games)}
+        # Broadcast to all /play pages for this user
+        Phoenix.PubSub.broadcast(
+          BlocksterV2.PubSub,
+          "bux_booster_settlement:#{user_id}",
+          {:new_settled_game, settled_game}
+        )
+
+      _ ->
+        Logger.warning("[BuxBooster] Could not find settled game #{game_id} in Mnesia")
+    end
+
+    {:noreply, assign(socket, settlement_tx: tx_hash)}
   end
 
   @impl true
@@ -1908,6 +1955,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   def handle_info({:bux_balance_updated, _new_balance}, socket) do
     # The aggregate balance is maintained in the header component, we don't need it here
     {:noreply, socket}
+  end
+
+  # Handle new settled game broadcast - prepend to recent games list
+  def handle_info({:new_settled_game, settled_game}, socket) do
+    recent_games = [settled_game | socket.assigns.recent_games]
+    {:noreply, assign(socket, :recent_games, recent_games)}
   end
 
   # Helper Functions
