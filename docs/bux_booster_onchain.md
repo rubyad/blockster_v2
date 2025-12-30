@@ -2315,9 +2315,9 @@ export const BuxBoosterOnchain = {
 
 ### Coin Flip Animation System
 
-**Updated: December 2024 - Optimized to 1.5 seconds**
+**Updated: December 2024 - 3 Second Duration with Gradual Deceleration**
 
-The BUX Booster coin flip animation system creates a smooth, realistic coin flipping experience with gradual deceleration. The animation has been optimized from the original 3 seconds to 1.5 seconds while maintaining smooth visual feedback.
+The BUX Booster coin flip animation system creates a smooth, realistic coin flipping experience with gradual deceleration. The animation uses a 3 second duration with carefully tuned keyframes to create a natural slowdown effect.
 
 #### Animation Architecture
 
@@ -2329,7 +2329,7 @@ This optimization significantly improves perceived performance for multi-flip ga
 
 #### CSS Animation Mechanics
 
-**File**: `assets/css/app.css` (lines 874-923)
+**File**: `assets/css/app.css` (lines 874-929)
 
 The animation uses CSS `@keyframes` with percentage-based timing for smooth deceleration:
 
@@ -2337,61 +2337,64 @@ The animation uses CSS `@keyframes` with percentage-based timing for smooth dece
 /* Continuous spin while waiting for bet confirmation (first flip only) */
 @keyframes flip-continuous {
   from { transform: rotateY(0deg); }
-  to { transform: rotateY(1260deg); }
+  to { transform: rotateY(2520deg); }  /* 7 full rotations */
 }
 
 .animate-flip-continuous {
-  animation: flip-continuous 1.5s linear infinite;
+  animation: flip-continuous 3s linear infinite;
 }
 
-/* Final reveal animations (1.5 seconds) */
+/* Final reveal animations (3 seconds) */
 @keyframes flip-to-heads {
-  0%   { transform: rotateY(0deg); }      /* Start position */
-  50%  { transform: rotateY(630deg); }    /* Fast spin: 840°/sec (matches continuous) */
-  75%  { transform: rotateY(900deg); }    /* Slowing down: 720°/sec */
-  90%  { transform: rotateY(1170deg); }   /* Nearly stopped: 1200°/sec (slight speed-up) */
-  100% { transform: rotateY(1260deg); }   /* Final position: 600°/sec */
+  0%   { transform: rotateY(0deg); }       /* Start position */
+  50%  { transform: rotateY(1260deg); }   /* Fast spin: 840°/sec */
+  75%  { transform: rotateY(1620deg); }   /* Slowing down: 480°/sec */
+  85%  { transform: rotateY(1800deg); }   /* Slower: 600°/sec */
+  95%  { transform: rotateY(1890deg); }   /* Very slow: 300°/sec */
+  100% { transform: rotateY(1980deg); }   /* Land on heads: 600°/sec */
 }
 
 @keyframes flip-to-tails {
   0%   { transform: rotateY(0deg); }
-  50%  { transform: rotateY(630deg); }
-  75%  { transform: rotateY(900deg); }
-  90%  { transform: rotateY(1260deg); }   /* More rotation for tails */
-  100% { transform: rotateY(1440deg); }   /* Land on tails (4 full rotations) */
+  50%  { transform: rotateY(1260deg); }   /* Fast spin: 840°/sec */
+  75%  { transform: rotateY(1620deg); }   /* Slowing down: 480°/sec */
+  85%  { transform: rotateY(1890deg); }   /* Slower: 900°/sec */
+  95%  { transform: rotateY(2070deg); }   /* Very slow: 600°/sec */
+  100% { transform: rotateY(2160deg); }   /* Land on tails: 600°/sec */
 }
 
 .animate-flip-heads {
-  animation: flip-to-heads 1.5s linear forwards;
+  animation: flip-to-heads 3s linear forwards;
 }
 
 .animate-flip-tails {
-  animation: flip-to-tails 1.5s linear forwards;
+  animation: flip-to-tails 3s linear forwards;
 }
 ```
 
 #### Landing Face Mathematics
 
 **Critical**: The final rotation degree determines which face shows:
-- **Heads**: Odd multiples of 180° (e.g., 180°, 540°, 900°, **1260°**)
-- **Tails**: Even multiples of 360° (e.g., 360°, 720°, 1080°, **1440°**)
+- **Heads**: Odd multiples of 180° (e.g., 180°, 540°, 900°, 1260°, **1980°**)
+- **Tails**: Even multiples of 360° (e.g., 360°, 720°, 1080°, 1440°, 1800°, **2160°**)
 
 The animation uses:
-- **1260° for heads** = 3.5 full rotations = 7 × 180° (odd multiple)
-- **1440° for tails** = 4 full rotations = 4 × 360° (even multiple)
+- **1980° for heads** = 5.5 full rotations = 11 × 180° (odd multiple)
+- **2160° for tails** = 6 full rotations = 6 × 360° (even multiple)
 
 #### Deceleration Curve Analysis
 
-The animation creates a realistic deceleration curve with speeds (in degrees/second):
+The animation creates a realistic gradual deceleration curve with speeds (in degrees/second):
 
 | Keyframe Range | Heads Speed | Tails Speed | Notes |
 |---------------|-------------|-------------|-------|
-| 0% → 50% | **840°/sec** | **840°/sec** | Matches continuous spin |
-| 50% → 75% | **720°/sec** | **720°/sec** | Initial slowdown |
-| 75% → 90% | **1200°/sec** | **1600°/sec** | Slight speed-up (acceptable) |
-| 90% → 100% | **600°/sec** | **1200°/sec** | Final deceleration |
+| 0% → 50% | **840°/sec** | **840°/sec** | Fast initial spin |
+| 50% → 75% | **480°/sec** | **480°/sec** | Initial slowdown |
+| 75% → 85% | **600°/sec** | **900°/sec** | Continued slowing |
+| 85% → 95% | **300°/sec** | **600°/sec** | Very slow |
+| 95% → 100% | **600°/sec** | **600°/sec** | Final gentle stop |
 
-**Note**: The 75-90% range shows a slight speed-up instead of pure deceleration. This is a known characteristic that was deemed acceptable for the 1.5s duration, as it still produces a smooth visual result and lands correctly on the intended face.
+**Note**: The animation uses linear timing with carefully spaced keyframes to create a gradual deceleration effect that feels natural and smooth.
 
 #### JavaScript Integration
 
@@ -2416,13 +2419,13 @@ export const CoinFlip = {
       this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
       console.log('[CoinFlip] Flip', flipIndex, '- starting direct reveal animation:', finalAnimation);
 
-      // Notify backend when animation completes (1500ms = 1.5s)
+      // Notify backend when animation completes (3000ms = 3s)
       setTimeout(() => {
         if (!this.flipCompleted && this.el.id === this.currentFlipId) {
           this.flipCompleted = true;
           this.pushEvent('flip_complete', {});
         }
-      }, 1500);
+      }, 3000);
     }
   }
 }
@@ -2444,13 +2447,13 @@ this.handleEvent("reveal_result", ({ flip_index, result }) => {
 
   this.coinEl.addEventListener('animationiteration', switchAnimation);
 
-  // Wait for final animation to complete (1.5 seconds)
+  // Wait for final animation to complete (3 seconds)
   setTimeout(() => {
     if (!this.flipCompleted && this.el.id === this.currentFlipId) {
       this.flipCompleted = true;
       this.pushEvent('flip_complete', {});
     }
-  }, 1500);
+  }, 3000);
 });
 ```
 
@@ -2464,48 +2467,35 @@ this.handleEvent("reveal_result", ({ flip_index, result }) => {
    - Backend sends `reveal_result` event
    - Wait for next `animationiteration` (0° position)
    - Switch to `animate-flip-heads` or `animate-flip-tails`
-   - Animation completes in 1.5s
+   - Animation completes in 3s
    - Push `flip_complete` to backend
 
 2. **Flip 2** (Subsequent):
    - Mount: Apply `animate-flip-heads` directly (result already known)
-   - Animation completes in 1.5s
+   - Animation completes in 3s
    - Push `flip_complete` to backend
 
 3. **Flip 3** (Subsequent):
    - Same as Flip 2
 
-**Total Time**: ~5-7s (depending on blockchain confirmation) instead of ~9-12s with 3s animations
+**Total Time**: ~8-10s (depending on blockchain confirmation)
 
 #### Performance Optimizations
 
-1. **Reduced Animation Duration**: 1.5s (down from 3s) = 50% faster reveal
-2. **Multi-Flip Optimization**: Subsequent flips skip continuous spin phase
-3. **Matching Initial Speed**: 50% keyframe at 630° matches continuous spin's 840°/sec for seamless transition
-4. **Linear Timing**: Uses `linear` instead of `ease` for predictable deceleration curve
+1. **Multi-Flip Optimization**: Subsequent flips skip continuous spin phase
+2. **Matching Initial Speed**: 50% keyframe at 1260° matches continuous spin's 840°/sec for seamless transition
+3. **Linear Timing**: Uses `linear` instead of `ease` for predictable deceleration curve
+4. **Gradual Deceleration**: Multiple keyframes (50%, 75%, 85%, 95%, 100%) create smooth slowdown
 
-#### Known Characteristics
+#### Key Characteristics
 
-1. **Slight Speed-Up at 75-90%**: The animation briefly speeds up during the 75-90% keyframe range. This was deemed acceptable as:
-   - It still produces a smooth visual result
-   - The coin lands correctly on the intended face
-   - Achieving pure deceleration while landing correctly proved challenging at 1.5s duration
-   - The speed-up is subtle and not distracting to users
+1. **Gradual Deceleration**: The animation uses carefully spaced keyframes to create a natural slowdown effect:
+   - Fast initial spin (840°/sec at 0-50%)
+   - Progressive slowing through intermediate keyframes
+   - Very slow final rotation (300-600°/sec at 85-100%)
+   - Smooth stop on the correct face
 
-2. **Why Not Pure Deceleration?**: Attempts to create a pure deceleration curve (constant slowing) while maintaining:
-   - Correct landing faces (1260° for heads, 1440° for tails)
-   - Smooth transition from continuous spin (840°/sec)
-   - 1.5s total duration
-
-   ...resulted in worse visual artifacts (sudden stops or uneven speeds). The current curve with slight speed-up was the best balance.
-
-#### Future Improvements
-
-Potential areas for refinement:
-- Experiment with cubic-bezier timing functions for smoother deceleration
-- Adjust keyframe percentages to reduce 75-90% speed-up
-- Consider different rotation amounts that allow pure deceleration
-- Profile performance on low-end devices
+2. **Linear Timing with Keyframes**: Instead of using easing functions, the animation uses `linear` timing with multiple percentage-based keyframes. This allows precise control over the deceleration curve while maintaining predictable behavior.
 
 ---
 

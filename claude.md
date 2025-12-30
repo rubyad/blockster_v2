@@ -5,6 +5,8 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > **Claude Instructions**: After every conversation compaction/summarization, update this file with any new learnings, patterns, contract addresses, configuration changes, or important decisions made during the session. This file is persistent project memory - keep it current.
 >
 > **How to detect compaction**: If your first message contains "This session is being continued from a previous conversation" or similar summary text, that means compaction occurred. IMMEDIATELY update this file with learnings from the summary before doing anything else.
+>
+> **CRITICAL GIT RULE**: NEVER change git branches (checkout, switch, merge) without EXPLICIT user instructions to do so. Always stay on the current branch unless the user specifically tells you to change branches.
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView

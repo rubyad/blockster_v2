@@ -38,7 +38,7 @@ export const CoinFlip = {
         this.resultRevealed = true; // Mark as revealed so reveal_result event is ignored
         console.log('[CoinFlip] Flip', flipIndex, '- starting direct reveal animation:', finalAnimation);
 
-        // Notify backend when animation completes
+        // Notify backend when animation completes (3 seconds)
         setTimeout(() => {
           if (!this.flipCompleted && this.el.id === this.currentFlipId) {
             this.flipCompleted = true;
@@ -111,7 +111,7 @@ export const CoinFlip = {
             this.resultRevealed = true;
             console.log('[CoinFlip] Updated - flip', flipIndex, 'applied direct reveal:', finalAnimation);
 
-            // Notify backend when animation completes
+            // Notify backend when animation completes (3 seconds)
             setTimeout(() => {
               if (!this.flipCompleted && this.el.id === this.currentFlipId) {
                 this.flipCompleted = true;

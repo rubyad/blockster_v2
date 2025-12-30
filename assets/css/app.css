@@ -876,16 +876,19 @@ html {
     transform: rotateY(0deg);
   }
   50% {
-    transform: rotateY(630deg); /* Starts at 840°/sec to match continuous spin */
+    transform: rotateY(1260deg); /* Starts at 840°/sec to match continuous spin */
   }
   75% {
-    transform: rotateY(900deg); /* Slowing down */
+    transform: rotateY(1620deg); /* Slowing down */
   }
-  90% {
-    transform: rotateY(1170deg); /* Nearly stopped */
+  85% {
+    transform: rotateY(1800deg); /* Slower */
+  }
+  95% {
+    transform: rotateY(1890deg); /* Very slow */
   }
   100% {
-    transform: rotateY(1260deg); /* Land on heads (3.5 rotations = odd * 180) */
+    transform: rotateY(1980deg); /* Land on heads (5.5 rotations = 0deg) */
   }
 }
 
@@ -894,16 +897,19 @@ html {
     transform: rotateY(0deg);
   }
   50% {
-    transform: rotateY(630deg); /* Starts at 840°/sec to match continuous spin */
+    transform: rotateY(1260deg); /* Starts at 840°/sec to match continuous spin */
   }
   75% {
-    transform: rotateY(900deg); /* Slowing down */
+    transform: rotateY(1620deg); /* Slowing down */
   }
-  90% {
-    transform: rotateY(1260deg); /* Nearly stopped */
+  85% {
+    transform: rotateY(1890deg); /* Slower */
+  }
+  95% {
+    transform: rotateY(2070deg); /* Very slow */
   }
   100% {
-    transform: rotateY(1440deg); /* Land on tails (4 rotations = even) */
+    transform: rotateY(2160deg); /* Land on tails (6 rotations = 180deg) */
   }
 }
 
