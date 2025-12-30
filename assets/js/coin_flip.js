@@ -18,14 +18,34 @@ export const CoinFlip = {
         return;
       }
 
-      console.log('[CoinFlip] Found coin element, starting continuous spin');
-      // Get the result from data attribute
+      // Get the result and flip index from data attributes
       this.result = this.el.dataset.result;
+      const flipIndex = parseInt(this.el.dataset.flipIndex || '1');
 
-      // Start with continuous spinning animation
-      this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
-      this.animationStartTime = Date.now(); // Update start time after applying animation
-      console.log('[CoinFlip] Applied class:', this.coinEl.className);
+      console.log('[CoinFlip] Found coin element, flip index:', flipIndex, 'result:', this.result);
+
+      // Only use continuous spin for first flip (waiting for bet confirmation)
+      // Subsequent flips already know the result, so go straight to reveal animation
+      if (flipIndex === 1) {
+        // First flip: start with continuous spinning, wait for reveal_result event
+        this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+        this.animationStartTime = Date.now();
+        console.log('[CoinFlip] First flip - starting continuous spin');
+      } else {
+        // Subsequent flips: go straight to the result animation
+        const finalAnimation = this.result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+        this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+        this.resultRevealed = true; // Mark as revealed so reveal_result event is ignored
+        console.log('[CoinFlip] Flip', flipIndex, '- starting direct reveal animation:', finalAnimation);
+
+        // Notify backend when animation completes
+        setTimeout(() => {
+          if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+            this.flipCompleted = true;
+            this.pushEvent('flip_complete', {});
+          }
+        }, 3000);
+      }
     });
 
     // Listen for reveal_result event from backend
@@ -78,9 +98,27 @@ export const CoinFlip = {
         this.coinEl = this.el.querySelector('.coin');
         if (this.coinEl) {
           this.result = this.el.dataset.result;
-          // Start with continuous spinning for new flip
-          this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
-          console.log('[CoinFlip] Updated - applied continuous spin class');
+          const flipIndex = parseInt(this.el.dataset.flipIndex || '1');
+
+          // Only use continuous spin for first flip
+          if (flipIndex === 1) {
+            this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+            console.log('[CoinFlip] Updated - first flip, applied continuous spin class');
+          } else {
+            // Subsequent flips: go straight to result animation
+            const finalAnimation = this.result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+            this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+            this.resultRevealed = true;
+            console.log('[CoinFlip] Updated - flip', flipIndex, 'applied direct reveal:', finalAnimation);
+
+            // Notify backend when animation completes
+            setTimeout(() => {
+              if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+                this.flipCompleted = true;
+                this.pushEvent('flip_complete', {});
+              }
+            }, 3000);
+          }
         }
       });
     }

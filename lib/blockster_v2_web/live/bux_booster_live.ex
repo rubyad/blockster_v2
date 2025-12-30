@@ -510,7 +510,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
                 <%= if @game_state == :flipping do %>
                   <!-- Coin Flip Animation -->
-                  <div class="mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)}>
+                  <div class="mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)} data-flip-index={@current_flip}>
                     <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
                       <div class="coin w-full h-full absolute animate-flip-continuous">
                         <!-- Heads chip -->
