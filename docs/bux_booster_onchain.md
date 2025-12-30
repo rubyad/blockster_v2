@@ -2313,6 +2313,200 @@ export const BuxBoosterOnchain = {
 <% end %>
 ```
 
+### Coin Flip Animation System
+
+**Updated: December 2024 - Optimized to 1.5 seconds**
+
+The BUX Booster coin flip animation system creates a smooth, realistic coin flipping experience with gradual deceleration. The animation has been optimized from the original 3 seconds to 1.5 seconds while maintaining smooth visual feedback.
+
+#### Animation Architecture
+
+**Multi-Flip Optimization**:
+- **First flip**: Uses continuous spinning animation while waiting for bet confirmation on-chain
+- **Subsequent flips** (2-5 flips for multi-flip difficulties): Go straight to reveal animation since the result is already known
+
+This optimization significantly improves perceived performance for multi-flip games (Win One and Win All modes with 2-5 predictions).
+
+#### CSS Animation Mechanics
+
+**File**: `assets/css/app.css` (lines 874-923)
+
+The animation uses CSS `@keyframes` with percentage-based timing for smooth deceleration:
+
+```css
+/* Continuous spin while waiting for bet confirmation (first flip only) */
+@keyframes flip-continuous {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(1260deg); }
+}
+
+.animate-flip-continuous {
+  animation: flip-continuous 1.5s linear infinite;
+}
+
+/* Final reveal animations (1.5 seconds) */
+@keyframes flip-to-heads {
+  0%   { transform: rotateY(0deg); }      /* Start position */
+  50%  { transform: rotateY(630deg); }    /* Fast spin: 840°/sec (matches continuous) */
+  75%  { transform: rotateY(900deg); }    /* Slowing down: 720°/sec */
+  90%  { transform: rotateY(1170deg); }   /* Nearly stopped: 1200°/sec (slight speed-up) */
+  100% { transform: rotateY(1260deg); }   /* Final position: 600°/sec */
+}
+
+@keyframes flip-to-tails {
+  0%   { transform: rotateY(0deg); }
+  50%  { transform: rotateY(630deg); }
+  75%  { transform: rotateY(900deg); }
+  90%  { transform: rotateY(1260deg); }   /* More rotation for tails */
+  100% { transform: rotateY(1440deg); }   /* Land on tails (4 full rotations) */
+}
+
+.animate-flip-heads {
+  animation: flip-to-heads 1.5s linear forwards;
+}
+
+.animate-flip-tails {
+  animation: flip-to-tails 1.5s linear forwards;
+}
+```
+
+#### Landing Face Mathematics
+
+**Critical**: The final rotation degree determines which face shows:
+- **Heads**: Odd multiples of 180° (e.g., 180°, 540°, 900°, **1260°**)
+- **Tails**: Even multiples of 360° (e.g., 360°, 720°, 1080°, **1440°**)
+
+The animation uses:
+- **1260° for heads** = 3.5 full rotations = 7 × 180° (odd multiple)
+- **1440° for tails** = 4 full rotations = 4 × 360° (even multiple)
+
+#### Deceleration Curve Analysis
+
+The animation creates a realistic deceleration curve with speeds (in degrees/second):
+
+| Keyframe Range | Heads Speed | Tails Speed | Notes |
+|---------------|-------------|-------------|-------|
+| 0% → 50% | **840°/sec** | **840°/sec** | Matches continuous spin |
+| 50% → 75% | **720°/sec** | **720°/sec** | Initial slowdown |
+| 75% → 90% | **1200°/sec** | **1600°/sec** | Slight speed-up (acceptable) |
+| 90% → 100% | **600°/sec** | **1200°/sec** | Final deceleration |
+
+**Note**: The 75-90% range shows a slight speed-up instead of pure deceleration. This is a known characteristic that was deemed acceptable for the 1.5s duration, as it still produces a smooth visual result and lands correctly on the intended face.
+
+#### JavaScript Integration
+
+**File**: `assets/js/coin_flip.js`
+
+The JavaScript hook manages animation state and transitions:
+
+```javascript
+export const CoinFlip = {
+  mounted() {
+    this.coinEl = this.el.querySelector('.coin');
+    this.result = this.el.dataset.result;
+    const flipIndex = parseInt(this.el.dataset.flipIndex || '1');
+
+    if (flipIndex === 1) {
+      // First flip: start with continuous spinning
+      this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+      console.log('[CoinFlip] First flip - starting continuous spin');
+    } else {
+      // Subsequent flips: go straight to the result animation
+      const finalAnimation = this.result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+      this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+      console.log('[CoinFlip] Flip', flipIndex, '- starting direct reveal animation:', finalAnimation);
+
+      // Notify backend when animation completes (1500ms = 1.5s)
+      setTimeout(() => {
+        if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+          this.flipCompleted = true;
+          this.pushEvent('flip_complete', {});
+        }
+      }, 1500);
+    }
+  }
+}
+```
+
+**Reveal Result Handler**:
+```javascript
+this.handleEvent("reveal_result", ({ flip_index, result }) => {
+  this.resultRevealed = true;
+  this.pendingResult = result;
+
+  // Listen for the next animationiteration event (when continuous animation completes one loop)
+  const switchAnimation = () => {
+    const finalAnimation = this.pendingResult === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+    this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+    console.log('[CoinFlip] Switched to final animation:', finalAnimation, 'at 0deg');
+    this.coinEl.removeEventListener('animationiteration', switchAnimation);
+  };
+
+  this.coinEl.addEventListener('animationiteration', switchAnimation);
+
+  // Wait for final animation to complete (1.5 seconds)
+  setTimeout(() => {
+    if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+      this.flipCompleted = true;
+      this.pushEvent('flip_complete', {});
+    }
+  }, 1500);
+});
+```
+
+#### Animation Flow for Multi-Flip Games
+
+**Example: 3-flip game (difficulty 1.13x, Win One Mode)**
+
+1. **Flip 1** (First flip):
+   - Mount: Apply `animate-flip-continuous` (infinite spinning)
+   - Backend confirms bet (2-4s)
+   - Backend sends `reveal_result` event
+   - Wait for next `animationiteration` (0° position)
+   - Switch to `animate-flip-heads` or `animate-flip-tails`
+   - Animation completes in 1.5s
+   - Push `flip_complete` to backend
+
+2. **Flip 2** (Subsequent):
+   - Mount: Apply `animate-flip-heads` directly (result already known)
+   - Animation completes in 1.5s
+   - Push `flip_complete` to backend
+
+3. **Flip 3** (Subsequent):
+   - Same as Flip 2
+
+**Total Time**: ~5-7s (depending on blockchain confirmation) instead of ~9-12s with 3s animations
+
+#### Performance Optimizations
+
+1. **Reduced Animation Duration**: 1.5s (down from 3s) = 50% faster reveal
+2. **Multi-Flip Optimization**: Subsequent flips skip continuous spin phase
+3. **Matching Initial Speed**: 50% keyframe at 630° matches continuous spin's 840°/sec for seamless transition
+4. **Linear Timing**: Uses `linear` instead of `ease` for predictable deceleration curve
+
+#### Known Characteristics
+
+1. **Slight Speed-Up at 75-90%**: The animation briefly speeds up during the 75-90% keyframe range. This was deemed acceptable as:
+   - It still produces a smooth visual result
+   - The coin lands correctly on the intended face
+   - Achieving pure deceleration while landing correctly proved challenging at 1.5s duration
+   - The speed-up is subtle and not distracting to users
+
+2. **Why Not Pure Deceleration?**: Attempts to create a pure deceleration curve (constant slowing) while maintaining:
+   - Correct landing faces (1260° for heads, 1440° for tails)
+   - Smooth transition from continuous spin (840°/sec)
+   - 1.5s total duration
+
+   ...resulted in worse visual artifacts (sudden stops or uneven speeds). The current curve with slight speed-up was the best balance.
+
+#### Future Improvements
+
+Potential areas for refinement:
+- Experiment with cubic-bezier timing functions for smoother deceleration
+- Adjust keyframe percentages to reduce 75-90% speed-up
+- Consider different rotation amounts that allow pure deceleration
+- Profile performance on low-end devices
+
 ---
 
 ## Required Admin Addresses

@@ -88,7 +88,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(current_bet: 10)
         |> assign(house_balance: 0.0)  # Default, will be updated async
         |> assign(max_bet: 0)  # Default, will be updated async
-        |> assign(predictions: [])
+        |> assign(predictions: [nil])  # Initialize with 1 nil for default difficulty (1 flip)
         |> assign(results: [])
         |> assign(game_state: :idle)
         |> assign(current_flip: 0)
@@ -138,7 +138,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(current_bet: 10)
         |> assign(house_balance: 0.0)
         |> assign(max_bet: 0)
-        |> assign(predictions: [])
+        |> assign(predictions: [nil])  # Initialize with 1 nil for default difficulty (1 flip)
         |> assign(results: [])
         |> assign(game_state: :idle)
         |> assign(current_flip: 0)
@@ -322,9 +322,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <div class="flex items-center justify-between mb-2">
                   <label class="block text-sm font-medium text-gray-700">
                     <%= if get_mode(@selected_difficulty) == :win_one do %>
-                      Make your predictions (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
+                      Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
                     <% else %>
-                      Make your predictions (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
+                      Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
                     <% end %>
                   </label>
                   <!-- Provably Fair -->
@@ -425,14 +425,14 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <button
                   type="button"
                   phx-click="start_game"
-                  disabled={length(@predictions) != get_predictions_needed(@selected_difficulty)}
+                  disabled={Enum.any?(@predictions, &is_nil/1)}
                   class="w-full py-4 bg-black text-white font-bold text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                <%= if length(@predictions) == get_predictions_needed(@selected_difficulty) do %>
+                <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
                   Place Bet
                 <% else %>
-                  <%= if get_mode(@selected_difficulty) == :win_one do %>
-                    Select Heads or Tails
+                  <%= if get_predictions_needed(@selected_difficulty) == 1 do %>
+                    Make your prediction
                   <% else %>
                     Select all <%= get_predictions_needed(@selected_difficulty) %> predictions
                   <% end %>
