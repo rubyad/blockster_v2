@@ -863,11 +863,11 @@ html {
 
 /* Coin flip animations for BUX Booster */
 @keyframes flip-continuous {
-  0% {
+  from {
     transform: rotateY(0deg);
   }
-  100% {
-    transform: rotateY(3600deg); /* 10 full rotations */
+  to {
+    transform: rotateY(2520deg); /* 7 full rotations - ends at same visual position as start */
   }
 }
 
@@ -876,16 +876,16 @@ html {
     transform: rotateY(0deg);
   }
   50% {
-    transform: rotateY(1440deg); /* Fast spinning for first half */
+    transform: rotateY(1260deg); /* Starts at 840°/sec to match continuous spin */
   }
   75% {
-    transform: rotateY(1800deg); /* Slowing down */
+    transform: rotateY(1620deg); /* Slowing down */
   }
   90% {
-    transform: rotateY(2160deg); /* Nearly stopped */
+    transform: rotateY(1980deg); /* Nearly stopped */
   }
   100% {
-    transform: rotateY(2160deg); /* Land on heads (6 rotations = even) */
+    transform: rotateY(1980deg); /* Land on heads (5.5 rotations = even) */
   }
 }
 
@@ -894,16 +894,16 @@ html {
     transform: rotateY(0deg);
   }
   50% {
-    transform: rotateY(1440deg); /* Fast spinning for first half */
+    transform: rotateY(1260deg); /* Starts at 840°/sec to match continuous spin */
   }
   75% {
-    transform: rotateY(1800deg); /* Slowing down */
+    transform: rotateY(1620deg); /* Slowing down */
   }
   90% {
-    transform: rotateY(2340deg); /* Nearly stopped */
+    transform: rotateY(2160deg); /* Nearly stopped */
   }
   100% {
-    transform: rotateY(2340deg); /* Land on tails (6.5 rotations = odd) */
+    transform: rotateY(2160deg); /* Land on tails (6 rotations = odd) */
   }
 }
 

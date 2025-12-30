@@ -7,6 +7,7 @@ export const CoinFlip = {
     this.currentFlipId = this.el.id;
     this.flipCompleted = false;
     this.resultRevealed = false;
+    this.animationStartTime = Date.now(); // Track when continuous animation started
 
     // Use requestAnimationFrame to ensure DOM is fully rendered
     requestAnimationFrame(() => {
@@ -23,6 +24,7 @@ export const CoinFlip = {
 
       // Start with continuous spinning animation
       this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+      this.animationStartTime = Date.now(); // Update start time after applying animation
       console.log('[CoinFlip] Applied class:', this.coinEl.className);
     });
 
@@ -32,16 +34,23 @@ export const CoinFlip = {
 
       // Mark result as revealed
       this.resultRevealed = true;
+      this.pendingResult = result;
 
       if (!this.coinEl) {
         this.coinEl = this.el.querySelector('.coin');
       }
 
       if (this.coinEl) {
-        // Switch to final animation based on result
-        const finalAnimation = result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
-        this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
-        console.log('[CoinFlip] Switched to final animation:', finalAnimation);
+        // Listen for the next animationiteration event (when animation completes one loop and reaches 0deg)
+        const switchAnimation = () => {
+          const finalAnimation = this.pendingResult === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+          this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+          console.log('[CoinFlip] Switched to final animation:', finalAnimation, 'at 0deg');
+          this.coinEl.removeEventListener('animationiteration', switchAnimation);
+        };
+
+        this.coinEl.addEventListener('animationiteration', switchAnimation);
+        console.log('[CoinFlip] Waiting for next animation loop completion (0deg position)');
       }
 
       // Wait for final animation to complete (3 seconds for result to settle with gradual slowdown)
