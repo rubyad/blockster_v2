@@ -663,23 +663,33 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <tbody>
                       <%= for game <- @recent_games do %>
                         <tr id={"game-#{game.game_id}"} class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
-                          <!-- Bet ID (nonce linked to bet tx) -->
+                          <!-- Bet ID (nonce linked to commitment tx) -->
                           <td class="py-2 px-2">
-                            <%= if game.bet_tx do %>
-                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
+                            <%= if game.commitment_tx do %>
+                              <a href={"https://roguescan.io/tx/#{game.commitment_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
                                 #<%= game.nonce %>
                               </a>
                             <% else %>
                               <span class="font-mono text-gray-500">#<%= game.nonce %></span>
                             <% end %>
                           </td>
-                          <!-- Bet Amount with Token -->
+                          <!-- Bet Amount with Token (linked to bet placement tx) -->
                           <td class="py-2 px-2">
-                            <div class="flex items-center gap-1.5">
-                              <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
-                              <span class="text-gray-900"><%= format_integer(game.bet_amount) %></span>
-                              <span class="text-gray-700"><%= game.token_type %></span>
-                            </div>
+                            <%= if game.bet_tx do %>
+                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="hover:underline cursor-pointer">
+                                <div class="flex items-center gap-1.5">
+                                  <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                                  <span class="text-blue-500"><%= format_integer(game.bet_amount) %></span>
+                                  <span class="text-blue-500"><%= game.token_type %></span>
+                                </div>
+                              </a>
+                            <% else %>
+                              <div class="flex items-center gap-1.5">
+                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                                <span class="text-gray-900"><%= format_integer(game.bet_amount) %></span>
+                                <span class="text-gray-700"><%= game.token_type %></span>
+                              </div>
+                            <% end %>
                           </td>
                           <!-- Predictions -->
                           <td class="py-2 px-2">
@@ -2277,6 +2287,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         won: elem(record, 15),  # won field
         payout: elem(record, 16),  # payout field
         commitment_hash: elem(record, 5),  # commitment_hash field
+        commitment_tx: elem(record, 17),  # commitment_tx field
         bet_tx: elem(record, 18),  # bet_tx field
         settlement_tx: elem(record, 19),  # settlement_tx field
         # Provably fair fields
