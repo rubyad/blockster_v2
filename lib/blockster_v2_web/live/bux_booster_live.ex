@@ -676,12 +676,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <!-- Bet Amount with Token (linked to bet placement tx) -->
                           <td class="py-2 px-2">
                             <%= if game.bet_tx do %>
-                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="hover:underline cursor-pointer">
-                                <div class="flex items-center gap-1.5">
-                                  <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
-                                  <span class="text-blue-500"><%= format_integer(game.bet_amount) %></span>
-                                  <span class="text-blue-500"><%= game.token_type %></span>
-                                </div>
+                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1.5">
+                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                                <span><%= format_integer(game.bet_amount) %> <%= game.token_type %></span>
                               </a>
                             <% else %>
                               <div class="flex items-center gap-1.5">
