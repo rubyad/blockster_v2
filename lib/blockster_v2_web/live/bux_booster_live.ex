@@ -57,6 +57,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(:onchain_ready, false)
         |> assign(:wallet_address, wallet_address)
         |> assign(:onchain_initializing, true)
+        |> assign(:init_retry_count, 0)  # Initialize retry counter
         |> start_async(:init_onchain_game, fn ->
           BuxBoosterOnchain.get_or_init_game(current_user.id, wallet_address)
         end)
@@ -65,6 +66,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(:onchain_ready, false)
         |> assign(:wallet_address, wallet_address)
         |> assign(:onchain_initializing, false)
+        |> assign(:init_retry_count, 0)
       end
 
       onchain_assigns = %{onchain_ready: false, wallet_address: wallet_address}
@@ -1487,30 +1489,70 @@ defmodule BlocksterV2Web.BuxBoosterLive do
      |> assign(:onchain_nonce, game_session.nonce)
      |> assign(:onchain_ready, true)
      |> assign(:onchain_initializing, false)
+     |> assign(:init_retry_count, 0)  # Reset retry counter on success
      |> assign(:server_seed_hash, game_session.commitment_hash)
-     |> assign(:nonce, game_session.nonce)}
+     |> assign(:nonce, game_session.nonce)
+     |> assign(:error_message, nil)}  # Clear any error messages
   end
 
   @impl true
   def handle_async(:init_onchain_game, {:ok, {:error, reason}}, socket) do
-    Logger.error("[BuxBooster] Failed to init on-chain game (async): #{inspect(reason)}")
+    retry_count = Map.get(socket.assigns, :init_retry_count, 0)
+    max_retries = 3
 
-    {:noreply,
-     socket
-     |> assign(:onchain_ready, false)
-     |> assign(:onchain_initializing, false)
-     |> assign(:error_message, "Failed to initialize on-chain game")}
+    if retry_count < max_retries do
+      # Retry with exponential backoff: 1s, 2s, 4s
+      delay = :math.pow(2, retry_count) * 1000 |> round()
+      Logger.warning("[BuxBooster] Failed to init on-chain game (attempt #{retry_count + 1}/#{max_retries}): #{inspect(reason)}. Retrying in #{delay}ms...")
+
+      Process.send_after(self(), :retry_init_onchain_game, delay)
+
+      {:noreply,
+       socket
+       |> assign(:onchain_ready, false)
+       |> assign(:onchain_initializing, true)
+       |> assign(:init_retry_count, retry_count + 1)
+       |> assign(:error_message, "Initializing game... (attempt #{retry_count + 1}/#{max_retries})")}
+    else
+      Logger.error("[BuxBooster] Failed to init on-chain game after #{max_retries} attempts: #{inspect(reason)}")
+
+      {:noreply,
+       socket
+       |> assign(:onchain_ready, false)
+       |> assign(:onchain_initializing, false)
+       |> assign(:init_retry_count, 0)
+       |> assign(:error_message, "Failed to initialize on-chain game. Please refresh the page.")}
+    end
   end
 
   @impl true
   def handle_async(:init_onchain_game, {:exit, reason}, socket) do
-    Logger.error("[BuxBooster] On-chain game init crashed (async): #{inspect(reason)}")
+    retry_count = Map.get(socket.assigns, :init_retry_count, 0)
+    max_retries = 3
 
-    {:noreply,
-     socket
-     |> assign(:onchain_ready, false)
-     |> assign(:onchain_initializing, false)
-     |> assign(:error_message, "Failed to initialize on-chain game")}
+    if retry_count < max_retries do
+      # Retry with exponential backoff: 1s, 2s, 4s
+      delay = :math.pow(2, retry_count) * 1000 |> round()
+      Logger.warning("[BuxBooster] On-chain game init crashed (attempt #{retry_count + 1}/#{max_retries}): #{inspect(reason)}. Retrying in #{delay}ms...")
+
+      Process.send_after(self(), :retry_init_onchain_game, delay)
+
+      {:noreply,
+       socket
+       |> assign(:onchain_ready, false)
+       |> assign(:onchain_initializing, true)
+       |> assign(:init_retry_count, retry_count + 1)
+       |> assign(:error_message, "Initializing game... (attempt #{retry_count + 1}/#{max_retries})")}
+    else
+      Logger.error("[BuxBooster] On-chain game init crashed after #{max_retries} attempts: #{inspect(reason)}")
+
+      {:noreply,
+       socket
+       |> assign(:onchain_ready, false)
+       |> assign(:onchain_initializing, false)
+       |> assign(:init_retry_count, 0)
+       |> assign(:error_message, "Failed to initialize on-chain game. Please refresh the page.")}
+    end
   end
 
   @impl true
@@ -1605,12 +1647,14 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         socket
         |> assign(:onchain_ready, false)
         |> assign(:onchain_initializing, true)
+        |> assign(:init_retry_count, 0)  # Reset retry counter on manual reset
         |> start_async(:init_onchain_game, fn ->
           BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
         end)
       else
         socket
         |> assign(:onchain_ready, false)
+        |> assign(:init_retry_count, 0)
         |> assign(:error_message, "No wallet connected")
       end
 
@@ -1736,6 +1780,21 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   def handle_event("stop_propagation", _params, socket) do
     # This event stops click propagation to prevent modal backdrop from closing
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(:retry_init_onchain_game, socket) do
+    # Retry game initialization after a failure
+    user_id = socket.assigns.current_user.id
+    wallet_address = socket.assigns.wallet_address
+
+    Logger.info("[BuxBooster] Retrying on-chain game initialization (attempt #{socket.assigns.init_retry_count}/3)")
+
+    {:noreply,
+     socket
+     |> start_async(:init_onchain_game, fn ->
+       BuxBoosterOnchain.get_or_init_game(user_id, wallet_address)
+     end)}
   end
 
   @impl true

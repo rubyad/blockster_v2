@@ -6,7 +6,11 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 >
 > **How to detect compaction**: If your first message contains "This session is being continued from a previous conversation" or similar summary text, that means compaction occurred. IMMEDIATELY update this file with learnings from the summary before doing anything else.
 >
-> **CRITICAL GIT RULE**: NEVER change git branches (checkout, switch, merge) without EXPLICIT user instructions to do so. Always stay on the current branch unless the user specifically tells you to change branches.
+> **CRITICAL GIT RULES**:
+> - NEVER add, commit, or push changes to git without EXPLICIT user instructions to do so
+> - NEVER change git branches (checkout, switch, merge) without EXPLICIT user instructions to do so
+> - Always stay on the current branch unless the user specifically tells you to change branches
+> - Wait for explicit "commit", "push", "git add", or "deploy" commands from the user before making git operations
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
