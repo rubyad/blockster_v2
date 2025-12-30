@@ -307,8 +307,10 @@ defmodule BlocksterV2.BuxMinter do
   # Private helpers
 
   defp get_minter_url do
-    # Use public URL for both environments - internal DNS can be unreliable
-    "https://bux-minter.fly.dev"
+    # Use environment variable if set, otherwise fall back to public URL
+    Application.get_env(:blockster_v2, :bux_minter_url) ||
+      System.get_env("BUX_MINTER_URL") ||
+      "https://bux-minter.fly.dev"
   end
 
   defp get_api_secret do
