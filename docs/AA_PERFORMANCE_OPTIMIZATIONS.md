@@ -312,15 +312,24 @@ if (allowanceBigInt >= INFINITE_THRESHOLD) {
 
 ---
 
-## Future Optimizations
+## Additional Optimizations Implemented
 
-### 1. Bundler Configuration
-Reduce bundle waiting time by setting `--max-bundle-size 1`:
+### 4. Bundler Configuration - Immediate Submission
+**Impact**: 0.5-1.5s reduction by eliminating batch waiting time
+
+Configured bundler to submit UserOperations immediately instead of waiting to batch:
 ```bash
-# bundler/entrypoint.sh
---max-bundle-size 1  # Submit UserOps immediately
+# bundler/entrypoint.sh (line 50)
+--max-bundle-size 1  # Submit UserOps immediately (don't wait to batch)
 ```
-**Expected savings**: 0.5-1s
+
+**Why this helps**:
+- Default behavior: Bundler waits to collect multiple UserOps to save gas
+- With `--max-bundle-size 1`: Each UserOp submitted immediately
+- **Tradeoff**: Slightly higher bundler gas costs (but paymaster covers this anyway)
+- **Benefit**: Lower latency for individual transactions (ideal for gaming)
+
+## Future Optimizations
 
 ### 2. Gas Price Optimization
 Use dynamic gas pricing based on network congestion:

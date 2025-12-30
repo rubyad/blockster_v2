@@ -47,4 +47,5 @@ exec rundler node \
   --pool.same_sender_mempool_count 100 \
   --pool.throttled_entity_mempool_count 100 \
   --pool.throttled_entity_live_blocks 100 \
+  --builder.max_bundle_size 1 \
   --unsafe
