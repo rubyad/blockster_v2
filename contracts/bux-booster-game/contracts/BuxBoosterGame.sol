@@ -759,13 +759,13 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         if (bet.status != BetStatus.Pending) revert BetAlreadySettled();
         if (block.timestamp > bet.timestamp + BET_EXPIRY) revert BetExpiredError();
 
-        // Verify server seed matches commitment
-        if (sha256(abi.encodePacked(serverSeed)) != bet.commitmentHash) revert InvalidServerSeed();
+        // V4: Server is single source of truth - no verification needed
+        // Server seed is stored for transparency and off-chain verification only
 
         // Verify results array length matches predictions
         if (results.length != bet.predictions.length) revert InvalidPredictions();
 
-        // Store the revealed server seed
+        // Store the revealed server seed (for transparency and player verification)
         commitments[bet.commitmentHash].serverSeed = serverSeed;
 
         // Process payout

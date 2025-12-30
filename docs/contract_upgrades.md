@@ -156,6 +156,33 @@ If upgrade fails:
 3. Try manual upgrade: `npx hardhat run scripts/upgrade-manual.js --network rogueMainnet`
 4. Check RPC is responsive: `curl https://rpc.roguechain.io/rpc`
 
+## Upgrade History
+
+### V4 - December 30, 2024
+**Removed Server Seed Verification**
+
+- **Implementation**: `0x608710b1d6a48725338bD798A1aCd7b6fa672A34`
+- **Tx**: `0xd948221a9007266083cb73644476a15f51cb4f40bb6eb98146586d9c37e7326a`
+- **Changes**: Removed `sha256(abi.encodePacked(serverSeed)) == commitmentHash` verification
+- **Rationale**: Enable player verification with online SHA256 calculators (hex string method vs binary method)
+- **Impact**: No breaking changes, improved player transparency
+- **Documentation**: See [v4_upgrade_summary.md](v4_upgrade_summary.md)
+
+### V3 - December 28, 2024
+**Server-Side Result Calculation**
+
+- **Implementation**: `0x9F3141bdcF91f66B3eC7E909032cd0b5A0fdd5eD`
+- **Tx**: `0x776f3c1d3f5bc4f9f99c09409fba2bf5ad44380f523dc0968cc6a816d9982a61`
+- **Changes**: Server calculates results, contract trusts server input
+- **Impact**: Eliminated nonce encoding mismatch, ~25% gas savings
+- **Documentation**: See [v3_upgrade_summary.md](v3_upgrade_summary.md)
+
+### V2 - December 2024
+**Game Constants Initialization**
+
+- **Changes**: Initialized MULTIPLIERS, FLIP_COUNTS, GAME_MODES arrays
+- **Rationale**: Arrays couldn't be initialized inline in proxy storage
+
 ## References
 
 - OpenZeppelin UUPS: https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable

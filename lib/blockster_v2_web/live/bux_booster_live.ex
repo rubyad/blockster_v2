@@ -710,8 +710,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <%= if game.won do %>
                               <% profit = game.payout - game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
-                                  +<%= format_balance(profit) %>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium inline-flex items-center gap-1">
+                                  <span>+<%= format_balance(profit) %></span>
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                  </svg>
                                 </a>
                               <% else %>
                                 <span class="text-green-600 font-medium">
@@ -721,8 +724,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <% else %>
                               <% loss = game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
-                                  -<%= format_balance(loss) %>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium inline-flex items-center gap-1">
+                                  <span>-<%= format_balance(loss) %></span>
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                  </svg>
                                 </a>
                               <% else %>
                                 <span class="text-red-600 font-medium">-<%= format_balance(loss) %></span>
@@ -854,16 +860,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
             <div>
               <p class="text-sm font-medium text-gray-700 mb-2">Flip Results</p>
               <div class="space-y-2">
-                <%= for {result, i} <- Enum.with_index(@fairness_game.results) do %>
+                <%= for i <- 0..(length(@fairness_game.results) - 1) do %>
+                  <% byte = Enum.at(@fairness_game.bytes, i) %>
                   <div class="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
                     <span>Flip <%= i + 1 %>:</span>
                     <div class="flex items-center gap-2">
-                      <span class="font-mono text-xs">byte[<%= i %>] = <%= Enum.at(@fairness_game.bytes, i) %></span>
-                      <span class={if Enum.at(@fairness_game.bytes, i) < 128, do: "text-amber-600", else: "text-gray-600"}>
-                        <%= if result == :heads, do: "🚀 Heads", else: "💩 Tails" %>
+                      <span class="font-mono text-xs">byte[<%= i %>] = <%= byte %></span>
+                      <span class={if byte < 128, do: "text-amber-600", else: "text-gray-600"}>
+                        <%= if byte < 128, do: "🚀 Heads", else: "💩 Tails" %>
                       </span>
                       <span class="text-xs text-gray-400">
-                        (<%= if Enum.at(@fairness_game.bytes, i) < 128, do: "< 128", else: ">= 128" %>)
+                        (<%= if byte < 128, do: "< 128", else: ">= 128" %>)
                       </span>
                     </div>
                   </div>

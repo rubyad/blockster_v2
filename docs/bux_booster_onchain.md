@@ -1,5 +1,19 @@
 # BUX Booster On-Chain Implementation Plan
 
+> **⚠️ DOCUMENTATION STATUS**: Parts of this document contain outdated V2 contract code and implementation details.
+> For current contract implementation, see:
+> - **V4 Upgrade**: [v4_upgrade_summary.md](v4_upgrade_summary.md) - Current version (removed server seed verification)
+> - **V3 Upgrade**: [v3_upgrade_summary.md](v3_upgrade_summary.md) - Server-side result calculation
+> - **Contract Source**: [contracts/bux-booster-game/contracts/BuxBoosterGame.sol](../contracts/bux-booster-game/contracts/BuxBoosterGame.sol)
+>
+> **Key Changes in V3/V4**:
+> - Server calculates results off-chain (V3)
+> - Contract removed server seed verification (V4)
+> - `settleBet(commitmentHash, serverSeed, results[], won)` signature
+> - Commitment hash serves as bet ID
+>
+> This document is preserved for historical reference and high-level architecture.
+
 ## Deployed Contract
 
 | Property | Value |
@@ -84,6 +98,38 @@ BUX Booster supports full UI interaction for unauthenticated users to preview th
 3. **Education**: Users learn difficulty levels, multipliers, and fairness before playing
 4. **Trust Building**: Transparent preview of all game features
 5. **No Security Risk**: Zero blockchain exposure for unauthenticated users
+
+## Provably Fair System (V4)
+
+**Current Implementation**: Server calculates results, contract trusts server input, players verify off-chain with online SHA256 tools.
+
+### How It Works
+
+1. **Before Bet**: Server generates random server seed (64-char hex) and commits `SHA256(server_seed_hex_string)`
+2. **Player Bets**: Player sees commitment hash, makes predictions, places bet
+3. **Result Calculation**: Server calculates results using:
+   - Client seed: `SHA256(user_id:bet_amount:token:difficulty:predictions)`
+   - Combined seed: `SHA256(server_seed_hex:client_seed_hex:nonce)`
+   - Results: Decode combined seed to bytes, each byte < 128 = Heads, >= 128 = Tails
+4. **Settlement**: Server submits results to contract with revealed server seed
+5. **Verification**: Player can verify:
+   - Step 1: `SHA256(server_seed)` matches commitment shown before bet
+   - Step 2: Recalculate client seed from their bet details
+   - Step 3: Recalculate combined seed and results
+   - All steps verifiable with online SHA256 calculators (e.g., md5calc.com)
+
+### V4 Changes (Dec 2024)
+
+**Removed**: Contract verification that `sha256(abi.encodePacked(serverSeed)) == commitmentHash`
+
+**Rationale**:
+- Solidity's `abi.encodePacked(bytes32)` hashes binary bytes
+- Online SHA256 tools hash hex strings (characters)
+- Same server seed produces different hashes depending on method
+- Server is already trusted source for results (V3)
+- Removing verification enables player verification with standard tools
+
+**Impact**: No security regression, improved player transparency
 
 ## Key Requirements
 

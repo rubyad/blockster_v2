@@ -63,9 +63,9 @@ defmodule BlocksterV2.BuxBoosterOnchain do
     # 2. Generate server seed (32 bytes as hex string without 0x prefix)
     server_seed = :crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower)
 
-    # 3. Calculate commitment hash (sha256 of the raw bytes, not the hex string)
-    server_seed_bytes = Base.decode16!(server_seed, case: :lower)
-    commitment_hash_bytes = :crypto.hash(:sha256, server_seed_bytes)
+    # 3. Calculate commitment hash (sha256 of the hex string for player verification)
+    # This matches ProvablyFair.generate_commitment - hashes the string, not bytes
+    commitment_hash_bytes = :crypto.hash(:sha256, server_seed)
     commitment_hash = "0x" <> Base.encode16(commitment_hash_bytes, case: :lower)
 
     # 4. Generate game ID (primary key)
@@ -133,7 +133,7 @@ defmodule BlocksterV2.BuxBoosterOnchain do
           bet_amount,
           token,
           difficulty,
-          game.wallet_address
+          game.user_id
         )
 
       {:error, reason} ->
@@ -155,7 +155,7 @@ defmodule BlocksterV2.BuxBoosterOnchain do
         # Calculate result locally (we have the server seed)
         {:ok, result} = calculate_result(
           game.server_seed, game.nonce, predictions, bet_amount, token,
-          difficulty, game.wallet_address
+          difficulty, game.user_id
         )
 
         # Update game record with bet details and calculated results
@@ -196,16 +196,14 @@ defmodule BlocksterV2.BuxBoosterOnchain do
   Calculate game result from server seed and bet details.
   This is called after bet is placed but before settlement.
   """
-  def calculate_result(server_seed, nonce, predictions, bet_amount, token, difficulty, wallet_address) do
-    # Generate client seed from bet details (must match smart contract)
-    token_address = Map.get(@token_addresses, token, token)
-    amount_wei = bet_amount * 1_000_000_000_000_000_000
+  def calculate_result(server_seed, nonce, predictions, bet_amount, token, difficulty, user_id) do
+    # Generate client seed from bet details (deterministic from player choices only)
+    client_seed_binary = generate_client_seed_from_bet(user_id, bet_amount, token, difficulty, predictions)
+    client_seed_hex = Base.encode16(client_seed_binary, case: :lower)
 
-    client_seed = generate_client_seed(wallet_address, amount_wei, token_address, difficulty, predictions)
-
-    # Combined seed (must match smart contract exactly)
-    server_seed_bytes = Base.decode16!(server_seed, case: :lower)
-    combined_input = server_seed_bytes <> ":" <> client_seed <> ":" <> Integer.to_string(nonce)
+    # Combined seed (matching ProvablyFair: SHA256(server_hex:client_hex:nonce))
+    # All hex strings concatenated with colons
+    combined_input = "#{server_seed}:#{client_seed_hex}:#{nonce}"
     combined_seed = :crypto.hash(:sha256, combined_input)
 
     # Generate flip results
@@ -649,20 +647,13 @@ defmodule BlocksterV2.BuxBoosterOnchain do
     :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 
-  defp generate_client_seed(wallet, amount_wei, token_address, difficulty, predictions) do
-    # Must match smart contract's _generateClientSeed exactly
+  defp generate_client_seed_from_bet(user_id, bet_amount, token, difficulty, predictions) do
+    # Deterministic client seed from player-controlled values only (matches ProvablyFair module)
     predictions_str = predictions
-    |> Enum.with_index()
-    |> Enum.map(fn {pred, i} ->
-      pred_str = if pred == :heads or pred == 0, do: "heads", else: "tails"
-      if i > 0, do: "," <> pred_str, else: pred_str
-    end)
-    |> Enum.join("")
+    |> Enum.map(&Atom.to_string/1)
+    |> Enum.join(",")
 
-    # Format wallet address as lowercase with 0x prefix
-    wallet_lower = String.downcase(wallet)
-
-    input = "#{wallet_lower}:#{amount_wei}:#{String.downcase(token_address)}:#{difficulty}:#{predictions_str}"
+    input = "#{user_id}:#{bet_amount}:#{token}:#{difficulty}:#{predictions_str}"
     :crypto.hash(:sha256, input)
   end
 
