@@ -305,6 +305,19 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:user_id, :total_games, :total_won]
     },
+    # Token prices from CoinGecko (cached for USD display)
+    %{
+      name: :token_prices,
+      type: :set,
+      attributes: [
+        :token_id,                  # PRIMARY KEY - CoinGecko token ID (e.g., "bitcoin", "ethereum", "rogue")
+        :symbol,                    # Token symbol (e.g., "BTC", "ETH", "ROGUE")
+        :usd_price,                 # Current USD price (float)
+        :usd_24h_change,            # 24h price change percentage (float)
+        :last_updated               # Unix timestamp of last update (integer)
+      ],
+      index: [:symbol]
+    },
     # BUX Booster on-chain games (smart contract version)
     %{
       name: :bux_booster_onchain_games,

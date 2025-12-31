@@ -432,6 +432,7 @@ All real-time data is stored in Mnesia for fast, distributed access:
 | `share_campaigns` | Retweet campaigns | `post_id` |
 | `share_rewards` | Share participation | `{user_id, campaign_id}` |
 | `post_bux_points` | Post reward pools | `post_id` |
+| `token_prices` | CoinGecko price cache | `token_id` |
 
 ### Mnesia Directory
 - **Production**: `/data/mnesia/blockster` (Fly.io persistent volume)
@@ -1887,3 +1888,58 @@ end
 2. Check Mnesia `created_at` vs current time
 3. Compare with BetSettler's `@settlement_timeout` (120 seconds)
 4. If `created_at` is from days ago but bet was just placed, this bug is the cause
+
+### Token Price Tracker (Dec 31, 2024)
+
+**Feature**: Poll CoinGecko API every 10 minutes for 41 cryptocurrency prices (ROGUE + top 40 by market cap), store in Mnesia, display USD values in BUX Booster UI.
+
+**Components**:
+1. **Mnesia Table** `token_prices` - stores cached prices with symbol index
+2. **PriceTracker GenServer** - polls CoinGecko every 10 minutes, stores in Mnesia, broadcasts via PubSub
+3. **BuxBoosterLive** - subscribes to price updates, displays USD values for ROGUE
+
+**USD Display Locations** (all in BuxBoosterLive for ROGUE token only):
+| Location | Description |
+|----------|-------------|
+| User Balance | Below ROGUE balance in bottom-left when betting |
+| House Bankroll | Below house balance (linked to roguetrader.io/rogue-bankroll) |
+| Bet Input | Right side of bet amount input field |
+| Potential Profit | Right side of potential win amount |
+| Spinning Balance | Below balance in bottom-left during coin animation |
+| Win Payout | Below payout amount on win screen |
+| Loss Amount | Below loss amount on loss screen |
+
+**Key Files**:
+- [lib/blockster_v2/price_tracker.ex](lib/blockster_v2/price_tracker.ex) - Main GenServer
+- [lib/blockster_v2/mnesia_initializer.ex](lib/blockster_v2/mnesia_initializer.ex) - Table definition
+- [lib/blockster_v2_web/live/bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex) - UI integration
+
+**Tracked Tokens (41 total)**:
+- ROGUE (custom)
+- Top 40 by market cap: BTC, ETH, USDT, BNB, XRP, USDC, SOL, TRX, DOGE, ADA, BCH, LINK, LEO, ZEC, XMR, XLM, HYPE, LTC, SUI, AVAX, HBAR, DAI, SHIB, TON, UNI, CRO, DOT, BGB, NEAR, PEPE, APT, ICP, AAVE, KAS, ETC, RENDER, ARB, VET, FIL, ATOM
+
+**API Rate Limits** (CoinGecko Free Tier):
+- 30 calls/min, 10,000 calls/month
+- 50 tokens max per request (we use 41)
+- 10-minute polling = 4,320 calls/month (well within limit)
+
+**PubSub Topics**:
+- `token_prices` - broadcasts `{:token_prices_updated, prices}` when prices refresh
+
+**Usage**:
+```elixir
+# Get single price
+PriceTracker.get_price("ROGUE")
+# => {:ok, %{symbol: "ROGUE", usd_price: 0.00008206, usd_24h_change: 0.81, last_updated: 1767190945}}
+
+# Get all prices
+PriceTracker.get_all_prices()
+# => %{"ROGUE" => %{...}, "BTC" => %{...}, ...}
+
+# Force refresh
+PriceTracker.refresh_prices()
+```
+
+**Startup Behavior**: PriceTracker waits for Mnesia `token_prices` table to be created before fetching prices. This prevents errors on first run when table doesn't exist yet.
+
+**Documentation**: See [docs/ROGUE_PRICE_DISPLAY_PLAN.md](docs/ROGUE_PRICE_DISPLAY_PLAN.md) for complete implementation plan.

@@ -30,6 +30,8 @@ defmodule BlocksterV2.Application do
       {BlocksterV2.HubLogoCache, []},
       # BuxBooster bet settlement checker (runs every minute to settle stuck bets)
       {BlocksterV2.BuxBoosterBetSettler, []},
+      # Token price tracker (polls CoinGecko every 10 minutes)
+      {BlocksterV2.PriceTracker, []},
       # Start to serve requests, typically the last entry
       BlocksterV2Web.Endpoint
     ]
