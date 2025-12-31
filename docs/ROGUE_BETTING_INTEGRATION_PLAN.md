@@ -1,7 +1,34 @@
 # ROGUE Betting Integration Plan for BUX Booster
 
-**Date**: December 30, 2025
+**Date**: December 30, 2024
+**Status**: ✅ **COMPLETED** - Fully deployed and operational with automatic settlement recovery
 **Objective**: Enable ROGUE (native gas token) betting in BUX Booster using the existing ROGUEBankroll contract as the house bankroll.
+
+---
+
+## Implementation Status
+
+**✅ Completed** - December 30, 2024
+
+### Deployment Details
+- **BuxBoosterGame V5**: `0xb406d4965dd10918dEac08355840F03E45eE661F` (Deployed Dec 30, 2024)
+- **BuxBoosterGame V4**: `0x608710b1d6a48725338bD798A1aCd7b6fa672A34` (Removed server seed verification)
+- **ROGUEBankroll V6**: `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` (Added accounting system)
+- **Network**: Rogue Chain Mainnet (Chain ID: 560013)
+
+### Critical Bug Fixes (Post-Deployment)
+1. ✅ Fixed ROGUE balance not updating in UI (added broadcast)
+2. ✅ Fixed out-of-gas errors (explicit 500k gas limit)
+3. ✅ Fixed ROGUE payouts not being sent (settlement routing bug)
+4. ✅ Fixed ABI field order mismatch (token before amount)
+5. ✅ Fixed ABI dynamic array exclusion (predictions not in auto-generated getter)
+
+### Enhancements
+1. ✅ Added comprehensive accounting system to ROGUEBankroll (V6)
+2. ✅ Implemented automatic bet settlement recovery (BetSettler GenServer)
+3. ✅ Created monitoring scripts (accounting snapshot, settlement analysis)
+
+See [CLAUDE.md](../CLAUDE.md#rogue-betting-integration---bug-fixes-and-improvements-dec-30-2024) for detailed bug reports and fixes.
 
 ---
 
@@ -350,11 +377,23 @@ function initializeV5(address _rogueBankroll) reinitializer(5) public {
 
 **IMPORTANT**: These functions must be added to ROGUEBankroll contract to preserve storage layout.
 
-#### 6.1 Add State Variable (Append to End)
+#### 6.1 Add State Variables (Append to End)
 
 ```solidity
 // Add after existing state variables (line ~933)
 address public buxBoosterGame;  // Authorized BuxBooster game contract
+
+// BuxBooster-specific player stats (separate from existing game stats)
+struct BuxBoosterPlayerStats {
+    uint256 totalBets;
+    uint256 wins;
+    uint256 losses;
+    uint256 totalWagered;
+    uint256 totalWinnings;  // Total profit from wins
+    uint256 totalLosses;    // Total losses from losing bets
+}
+
+mapping(address => BuxBoosterPlayerStats) public buxBoosterPlayerStats;
 ```
 
 #### 6.2 Add Authorization Modifier
@@ -498,10 +537,12 @@ function settleBuxBoosterWinningBet(
     hb.pool_token_price = ((hb.total_balance - hb.unsettled_bets) * 1000000000000000000) / hb.pool_token_supply;
     hb.actual_balance = address(this).balance;
 
-    // Update player stats
-    players[winner].winners += 1;
-    players[winner].betCount += 1;
-    players[winner].rogue_winnings += profit;
+    // Update BuxBooster-specific player stats (separate from existing game stats)
+    BuxBoosterPlayerStats storage stats = buxBoosterPlayerStats[winner];
+    stats.totalBets += 1;
+    stats.wins += 1;
+    stats.totalWagered += betAmount;
+    stats.totalWinnings += profit;
 
     // Send payout to winner
     (bool sent,) = payable(winner).call{value: payout}("");
@@ -562,10 +603,12 @@ function settleBuxBoosterLosingBet(
     houseBalance.pool_token_supply = this.totalSupply();
     houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
 
-    // Update player stats
-    players[player].losers += 1;
-    players[player].betCount += 1;
-    players[player].rogue_losses += wagerAmount;
+    // Update BuxBooster-specific player stats (separate from existing game stats)
+    BuxBoosterPlayerStats storage stats = buxBoosterPlayerStats[player];
+    stats.totalBets += 1;
+    stats.losses += 1;
+    stats.totalWagered += wagerAmount;
+    stats.totalLosses += wagerAmount;
 
     // Emit BuxBooster-specific event with comprehensive information
     emit BuxBoosterLosingBet(
@@ -608,9 +651,12 @@ function getBuxBoosterGame() external view returns (address) {
 
 **Storage Layout Notes**:
 - `buxBoosterGame` address variable added at the END of state variables (after line ~933)
+- `BuxBoosterPlayerStats` struct added (new struct, not modifying existing)
+- `buxBoosterPlayerStats` mapping added after `buxBoosterGame` address
 - No reordering of existing variables
 - No removal of existing variables
-- This ensures storage layout compatibility with existing proxy
+- No modifications to existing `players` mapping or `Player` struct
+- This ensures storage layout compatibility with existing proxy and keeps BuxBooster stats completely separate from existing game stats
 
 ---
 

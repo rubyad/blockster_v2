@@ -71,6 +71,49 @@ library SafeERC20 {
     }
 }
 
+// ============ IROGUEBankroll Interface ============
+
+interface IROGUEBankroll {
+    // Functions for BuxBooster integration with ROGUEBankroll
+    function updateHouseBalanceBuxBoosterBetPlaced(
+        bytes32 commitmentHash,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external payable returns(bool);
+
+    function settleBuxBoosterWinningBet(
+        address winner,
+        bytes32 commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint8[] calldata results,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external returns(bool);
+
+    function settleBuxBoosterLosingBet(
+        address player,
+        bytes32 commitmentHash,
+        uint256 wagerAmount,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint8[] calldata results,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external returns(bool);
+
+    function getHouseInfo() external view returns (
+        uint256 netBalance,
+        uint256 totalBalance,
+        uint256 minBetSize,
+        uint256 maxBetSize
+    );
+}
+
 // ============ Initializable (for upgradeable contracts) ============
 
 abstract contract Initializable {
@@ -509,6 +552,10 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     event HouseDeposit(address indexed token, uint256 amount);
     event HouseWithdraw(address indexed token, uint256 amount);
 
+    // V5: ROGUE betting support (add at end to preserve storage layout)
+    address public rogueBankroll;  // Address of ROGUEBankroll contract
+    address constant ROGUE_TOKEN = address(0);  // Special address to represent ROGUE (native token)
+
     // ============ Errors ============
 
     error TokenNotEnabled();
@@ -527,6 +574,7 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     error CommitmentAlreadyUsed();
     error CommitmentWrongPlayer();
     error CommitmentWrongNonce();
+    error InvalidToken();
 
     // ============ Modifiers ============
 
@@ -605,6 +653,14 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     function initializeV3() reinitializer(3) public {
         // No state changes needed - all changes are in function logic
         // This function exists to mark the upgrade and allow future migrations if needed
+    }
+
+    /**
+     * @notice Initialize V5 - ROGUE betting support
+     * @param _rogueBankroll Address of ROGUEBankroll contract
+     */
+    function initializeV5(address _rogueBankroll) reinitializer(5) public {
+        rogueBankroll = _rogueBankroll;
     }
 
     /**
@@ -709,6 +765,41 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         if (config.houseBalance < potentialProfit) revert InsufficientHouseBalance();
     }
 
+    /**
+     * @notice Validate ROGUE bet parameters
+     * @dev Queries ROGUEBankroll for max bet and house balance
+     */
+    function _validateROGUEBetParams(
+        uint256 amount,
+        int8 difficulty,
+        uint8[] calldata predictions
+    ) internal view returns (uint8 diffIndex) {
+        if (difficulty == 0 || difficulty < -4 || difficulty > 5) revert InvalidDifficulty();
+        if (amount < MIN_BET) revert BetAmountTooLow();
+
+        diffIndex = difficulty < 0 ? uint8(int8(4) + difficulty) : uint8(int8(3) + difficulty);
+
+        if (predictions.length != FLIP_COUNTS[diffIndex]) revert InvalidPredictions();
+        for (uint i = 0; i < predictions.length; i++) {
+            if (predictions[i] > 1) revert InvalidPredictions();
+        }
+
+        // Query ROGUEBankroll for limits
+        (uint256 netBalance, , uint256 minBetSize, uint256 maxBetFromBankroll) =
+            IROGUEBankroll(rogueBankroll).getHouseInfo();
+
+        if (amount < minBetSize) revert BetAmountTooLow();
+
+        // Apply both ROGUEBankroll's max bet AND BuxBooster's multiplier-based max
+        uint256 maxBetForMultiplier = _calculateMaxBet(netBalance, diffIndex);
+        uint256 maxBet = maxBetFromBankroll < maxBetForMultiplier ? maxBetFromBankroll : maxBetForMultiplier;
+
+        if (amount > maxBet) revert BetAmountTooHigh();
+
+        uint256 potentialProfit = ((amount * MULTIPLIERS[diffIndex]) / 10000) - amount;
+        if (netBalance < potentialProfit) revert InsufficientHouseBalance();
+    }
+
     function _createBet(
         address token,
         uint256 amount,
@@ -737,6 +828,49 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         totalBetsPlaced++;
 
         emit BetPlaced(commitmentHash, msg.sender, token, amount, difficulty, predictions, nonce);
+    }
+
+    /**
+     * @notice Place a ROGUE bet (native token) using ROGUEBankroll
+     * @dev Separate function from placeBet() to avoid modifying existing ERC-20 flow
+     * @param amount The bet amount in wei
+     * @param difficulty Game difficulty (-4 to -1 for Win One, 1 to 5 for Win All)
+     * @param predictions Array of predictions (0=heads, 1=tails)
+     * @param commitmentHash The commitment hash submitted by server BEFORE this bet
+     */
+    function placeBetROGUE(
+        uint256 amount,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        bytes32 commitmentHash
+    ) external payable nonReentrant whenNotPaused {
+        require(msg.value == amount, "ROGUE amount mismatch");
+
+        // Validate commitment
+        _validateCommitment(commitmentHash);
+
+        // Validate bet params with ROGUE-specific validation
+        _validateROGUEBetParams(amount, difficulty, predictions);
+
+        // Get commitment to read the nonce
+        Commitment storage commitment = commitments[commitmentHash];
+        uint256 nonce = commitment.nonce;
+
+        // Calculate max possible payout for this bet
+        uint8 diffIndex = difficulty < 0 ? uint8(int8(4) + difficulty) : uint8(int8(3) + difficulty);
+        uint256 maxPayout = (amount * MULTIPLIERS[diffIndex]) / 10000;
+
+        // Forward bet to ROGUEBankroll (also sends the ROGUE and bet details)
+        IROGUEBankroll(rogueBankroll).updateHouseBalanceBuxBoosterBetPlaced{value: amount}(
+            commitmentHash,
+            difficulty,
+            predictions,
+            nonce,
+            maxPayout
+        );
+
+        // Create bet record using ROGUE_TOKEN address
+        _createBet(ROGUE_TOKEN, amount, difficulty, predictions, commitmentHash);
     }
 
     /**
@@ -779,6 +913,115 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
 
         // Emit event in separate function to avoid stack too deep
         _emitSettled(commitmentHash, bet, won, results, payout, serverSeed);
+    }
+
+    /**
+     * @notice Settle a ROGUE bet by revealing the server seed and results
+     * @dev Calls ROGUEBankroll for actual payout instead of handling internally
+     * @param commitmentHash The commitment hash (also serves as betId)
+     * @param serverSeed The revealed server seed
+     * @param results The flip results calculated by server
+     * @param won Whether the player won
+     */
+    function settleBetROGUE(
+        bytes32 commitmentHash,
+        bytes32 serverSeed,
+        uint8[] calldata results,
+        bool won
+    ) external onlySettler nonReentrant returns (uint256 payout) {
+        Bet storage bet = bets[commitmentHash];
+
+        if (bet.player == address(0)) revert BetNotFound();
+        if (bet.token != ROGUE_TOKEN) revert InvalidToken(); // Ensure this is a ROGUE bet
+        if (bet.status != BetStatus.Pending) revert BetAlreadySettled();
+        if (block.timestamp > bet.timestamp + BET_EXPIRY) revert BetExpiredError();
+        if (results.length != bet.predictions.length) revert InvalidPredictions();
+
+        // Store revealed server seed
+        commitments[bet.commitmentHash].serverSeed = serverSeed;
+
+        uint8 diffIndex = bet.difficulty < 0 ? uint8(int8(4) + bet.difficulty) : uint8(int8(3) + bet.difficulty);
+
+        // Settle via ROGUEBankroll (pass results array for event emission)
+        payout = _settleROGUEBet(bet, diffIndex, won, results);
+
+        totalBetsSettled++;
+        _emitSettled(commitmentHash, bet, won, results, payout, serverSeed);
+    }
+
+    function _settleROGUEBet(
+        Bet storage bet,
+        uint8 diffIndex,
+        bool won,
+        uint8[] calldata results
+    ) internal returns (uint256 payout) {
+        PlayerStats storage stats = playerStats[bet.player];
+
+        stats.totalBets++;
+        stats.totalStaked += bet.amount;
+        stats.betsPerDifficulty[diffIndex]++;
+
+        // Calculate payout
+        uint256 maxPayout = (bet.amount * MULTIPLIERS[diffIndex]) / 10000;
+
+        if (won) {
+            payout = maxPayout;
+            bet.status = BetStatus.Won;
+
+            int256 profit = int256(payout) - int256(bet.amount);
+            stats.overallProfitLoss += profit;
+            stats.profitLossPerDifficulty[diffIndex] += profit;
+
+            // Call helper to avoid stack too deep
+            _callBankrollWinning(bet, payout, maxPayout, results);
+        } else {
+            payout = 0;
+            bet.status = BetStatus.Lost;
+
+            stats.overallProfitLoss -= int256(bet.amount);
+            stats.profitLossPerDifficulty[diffIndex] -= int256(bet.amount);
+
+            // Call helper to avoid stack too deep
+            _callBankrollLosing(bet, maxPayout, results);
+        }
+    }
+
+    // Helper to call ROGUEBankroll for winning bet (avoids stack too deep)
+    function _callBankrollWinning(
+        Bet storage bet,
+        uint256 payout,
+        uint256 maxPayout,
+        uint8[] calldata results
+    ) private {
+        IROGUEBankroll(rogueBankroll).settleBuxBoosterWinningBet(
+            bet.player,
+            bet.commitmentHash,
+            bet.amount,
+            payout,
+            bet.difficulty,
+            bet.predictions,
+            results,
+            bet.nonce,
+            maxPayout
+        );
+    }
+
+    // Helper to call ROGUEBankroll for losing bet (avoids stack too deep)
+    function _callBankrollLosing(
+        Bet storage bet,
+        uint256 maxPayout,
+        uint8[] calldata results
+    ) private {
+        IROGUEBankroll(rogueBankroll).settleBuxBoosterLosingBet(
+            bet.player,
+            bet.commitmentHash,
+            bet.amount,
+            bet.difficulty,
+            bet.predictions,
+            results,
+            bet.nonce,
+            maxPayout
+        );
     }
 
     // Helper to emit BetSettled events - split into two to avoid stack too deep
@@ -894,6 +1137,26 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         if (difficulty == 0 || difficulty < -4 || difficulty > 5) return 0;
         uint8 diffIndex = difficulty < 0 ? uint8(int8(4) + difficulty) : uint8(int8(3) + difficulty);
         return _calculateMaxBet(tokenConfigs[token].houseBalance, diffIndex);
+    }
+
+    /**
+     * @notice Get maximum bet size for ROGUE at given difficulty
+     * @dev Queries ROGUEBankroll and applies multiplier-based constraints
+     * @param difficulty Game difficulty (-4 to -1 for Win One, 1 to 5 for Win All)
+     * @return Maximum allowed bet in wei
+     */
+    function getMaxBetROGUE(int8 difficulty) external view returns (uint256) {
+        if (difficulty == 0 || difficulty < -4 || difficulty > 5) return 0;
+
+        // Get limits from ROGUEBankroll
+        (uint256 netBalance, , , uint256 maxBetFromBankroll) = IROGUEBankroll(rogueBankroll).getHouseInfo();
+
+        // Calculate our multiplier-based max bet
+        uint8 diffIndex = difficulty < 0 ? uint8(int8(4) + difficulty) : uint8(int8(3) + difficulty);
+        uint256 maxBetForMultiplier = _calculateMaxBet(netBalance, diffIndex);
+
+        // Return the minimum of both constraints
+        return maxBetFromBankroll < maxBetForMultiplier ? maxBetFromBankroll : maxBetForMultiplier;
     }
 
     /**
@@ -1031,6 +1294,13 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
      */
     function setSettler(address _settler) external onlyOwner {
         settler = _settler;
+    }
+
+    /**
+     * @notice Set ROGUEBankroll contract address (V5)
+     */
+    function setROGUEBankroll(address _rogueBankroll) external onlyOwner {
+        rogueBankroll = _rogueBankroll;
     }
 
     /**

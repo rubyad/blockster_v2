@@ -301,13 +301,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 </div>
               </div>
 
-              <!-- Potential Win Display -->
+              <!-- Potential Profit Display -->
               <div class="bg-green-50 rounded-xl p-3 mb-4 border border-green-200">
                 <div class="flex items-center justify-between">
-                  <span class="text-gray-700 text-sm">Potential Win:</span>
+                  <span class="text-gray-700 text-sm">Potential Profit:</span>
                   <span class="text-xl font-bold text-green-600 flex items-center gap-2">
                     <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 h-5 rounded-full" />
-                    <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty)) %> <%= @selected_token %>
+                    +<%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %> <%= @selected_token %>
                   </span>
                 </div>
               </div>
@@ -673,18 +673,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                               <span class="font-mono text-gray-500">#<%= game.nonce %></span>
                             <% end %>
                           </td>
-                          <!-- Bet Amount with Token (linked to bet placement tx) -->
+                          <!-- Bet Amount (linked to bet placement tx) -->
                           <td class="py-2 px-2">
                             <%= if game.bet_tx do %>
                               <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1.5">
                                 <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
-                                <span><%= format_integer(game.bet_amount) %> <%= game.token_type %></span>
+                                <span><%= format_integer(game.bet_amount) %></span>
                               </a>
                             <% else %>
                               <div class="flex items-center gap-1.5">
                                 <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
                                 <span class="text-gray-900"><%= format_integer(game.bet_amount) %></span>
-                                <span class="text-gray-700"><%= game.token_type %></span>
                               </div>
                             <% end %>
                           </td>
@@ -1064,9 +1063,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       nil
     end
 
+    # Set default bet amount based on token (ROGUE has much higher values)
+    default_bet = if token == "ROGUE", do: 100_000, else: 10
+
     {:noreply,
      socket
      |> assign(selected_token: token)
+     |> assign(bet_amount: default_bet)
      |> assign(user_stats: user_stats)
      |> assign(show_token_dropdown: false)
      |> assign(error_message: nil)
@@ -1995,6 +1998,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           won: elem(record, 15),
           payout: elem(record, 16),
           commitment_hash: elem(record, 5),
+          commitment_tx: elem(record, 17),
           bet_tx: elem(record, 18),
           settlement_tx: elem(record, 19),
           server_seed: elem(record, 4),
@@ -2316,14 +2320,29 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   # Calculate max bet based on house balance and difficulty
   # Fetch house balance and calculate max bet asynchronously
   defp fetch_house_balance_async(token, difficulty_level) do
-    case BuxMinter.get_house_balance(token) do
-      {:ok, balance} ->
-        max_bet = calculate_max_bet(balance, difficulty_level, @difficulty_options)
-        {balance, max_bet}
+    # ROGUE uses ROGUEBankroll contract, other tokens use BuxBoosterGame
+    case token do
+      "ROGUE" ->
+        case BuxMinter.get_rogue_house_balance() do
+          {:ok, balance} ->
+            max_bet = calculate_max_bet(balance, difficulty_level, @difficulty_options)
+            {balance, max_bet}
 
-      {:error, reason} ->
-        Logger.warning("[BuxBooster] Failed to fetch house balance for #{token}: #{inspect(reason)}")
-        {0.0, 0}
+          {:error, reason} ->
+            Logger.warning("[BuxBooster] Failed to fetch ROGUE house balance: #{inspect(reason)}")
+            {0.0, 0}
+        end
+
+      _ ->
+        case BuxMinter.get_house_balance(token) do
+          {:ok, balance} ->
+            max_bet = calculate_max_bet(balance, difficulty_level, @difficulty_options)
+            {balance, max_bet}
+
+          {:error, reason} ->
+            Logger.warning("[BuxBooster] Failed to fetch house balance for #{token}: #{inspect(reason)}")
+            {0.0, 0}
+        end
     end
   end
 

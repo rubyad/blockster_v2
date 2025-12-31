@@ -295,6 +295,53 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  @doc """
+  Gets the house balance for ROGUE from the ROGUEBankroll contract.
+  Returns {:ok, balance} or {:error, reason}.
+  """
+  def get_rogue_house_balance do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    Logger.info("[BuxMinter] Fetching ROGUE house balance from #{minter_url}")
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.error("[BuxMinter] API secret not configured!")
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      url = "#{minter_url}/rogue-house-balance"
+      Logger.info("[BuxMinter] GET #{url}")
+
+      case http_get(url, headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Got ROGUE house balance: #{response["netBalance"]} ROGUE")
+
+          # Parse net balance - this is what we use for max bet calculations
+          balance = case response["netBalance"] do
+            "0" -> 0.0
+            val when is_binary(val) -> String.to_float(val)
+            val when is_number(val) -> val / 1.0
+          end
+
+          {:ok, balance}
+
+        {:ok, %{status_code: status, body: body}} ->
+          Logger.warning("[BuxMinter] Got status #{status}: #{body}")
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] HTTP error: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
   # Normalize token name - default to BUX if nil or empty
   defp normalize_token(nil), do: "BUX"
   defp normalize_token(""), do: "BUX"

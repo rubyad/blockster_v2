@@ -932,6 +932,35 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     address public nftRoguePayer;
     address public rogueBotsBetSettler;
 
+    // BuxBooster integration (add at end to preserve storage layout)
+    address public buxBoosterGame;  // Authorized BuxBooster game contract
+
+    // BuxBooster-specific player stats (separate from existing game stats)
+    struct BuxBoosterPlayerStats {
+        uint256 totalBets;
+        uint256 wins;
+        uint256 losses;
+        uint256 totalWagered;
+        uint256 totalWinnings;  // Total profit from wins
+        uint256 totalLosses;    // Total losses from losing bets
+    }
+
+    mapping(address => BuxBoosterPlayerStats) public buxBoosterPlayerStats;
+
+    // BuxBooster global accounting - tracks overall activity and house profit/loss
+    struct BuxBoosterAccounting {
+        uint256 totalBets;           // Total number of bets placed
+        uint256 totalWins;           // Total number of winning bets
+        uint256 totalLosses;         // Total number of losing bets
+        uint256 totalVolumeWagered;  // Total ROGUE wagered across all bets
+        uint256 totalPayouts;        // Total ROGUE paid out to winners
+        int256 totalHouseProfit;     // Net profit for house (wagers - payouts), can be negative
+        uint256 largestWin;          // Largest single payout
+        uint256 largestBet;          // Largest single wager
+    }
+
+    BuxBoosterAccounting public buxBoosterAccounting;
+
     event Payout(uint256 betId, address winner, uint256 payout, uint256 wagerCurrency, uint256 exitSerialNumber);
     event ROGUEPayout(uint256 betId, address winner, uint256 payout);
     event ROGUEPayoutFailed(uint256 betId, address winner, uint256 payout);
@@ -941,6 +970,55 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     event NFTROGUEPayerCallFailed(uint256 rewardTotal);
     event RogueBotsBetSettlerCalled(address rogueBot, uint256 wagerAmount, address rogueTrader);
     event RogueBotsBetSettlerCallFailed(address rogueBot, uint256 wagerAmount, address rogueTrader);
+
+    // BuxBooster-specific events (completely separate from existing events)
+    event BuxBoosterBetPlaced(
+        address indexed player,
+        bytes32 indexed commitmentHash,
+        uint256 amount,
+        int8 difficulty,
+        uint8[] predictions,
+        uint256 nonce,
+        uint256 timestamp
+    );
+
+    // Split into two events to avoid stack too deep
+    event BuxBoosterWinningPayout(
+        address indexed winner,
+        bytes32 indexed commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        uint256 profit
+    );
+
+    event BuxBoosterWinDetails(
+        bytes32 indexed commitmentHash,
+        int8 difficulty,
+        uint8[] predictions,
+        uint8[] results,
+        uint256 nonce
+    );
+
+    // Split into two events to avoid stack too deep
+    event BuxBoosterLosingBet(
+        address indexed player,
+        bytes32 indexed commitmentHash,
+        uint256 betAmount
+    );
+
+    event BuxBoosterLossDetails(
+        bytes32 indexed commitmentHash,
+        int8 difficulty,
+        uint8[] predictions,
+        uint8[] results,
+        uint256 nonce
+    );
+
+    event BuxBoosterPayoutFailed(
+        address indexed winner,
+        bytes32 indexed commitmentHash,
+        uint256 payout
+    );
 
     function setMinimumBetSize(uint256 _minimumBetSize) external onlyOwner {
         minimumBetSize = _minimumBetSize;
@@ -1227,8 +1305,264 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         }
     }
 
-    
+    // ============ BuxBooster Integration Functions ============
 
-    
+    modifier onlyBuxBooster() {
+        require(msg.sender == buxBoosterGame, "Only BuxBooster can call this function");
+        _;
+    }
+
+    /**
+     * @notice Set the authorized BuxBooster game contract address
+     * @param _buxBoosterGame Address of BuxBoosterGame contract
+     */
+    function setBuxBoosterGame(address _buxBoosterGame) external onlyOwner {
+        buxBoosterGame = _buxBoosterGame;
+    }
+
+    /**
+     * @notice Get the authorized BuxBooster game contract address
+     * @return Address of BuxBoosterGame contract
+     */
+    function getBuxBoosterGame() external view returns (address) {
+        return buxBoosterGame;
+    }
+
+    /**
+     * @notice Update house balance when BuxBooster bet is placed
+     * @dev Called by BuxBoosterGame contract with ROGUE sent as msg.value
+     * @param commitmentHash Bet identifier (commitment hash)
+     * @param difficulty Game difficulty (-4 to -1 for Win One, 1 to 5 for Win All)
+     * @param predictions Player's predictions array
+     * @param nonce Player's nonce for this bet
+     * @param maxPayout Maximum possible payout for this bet (based on multiplier)
+     * @return success True if update successful
+     */
+    function updateHouseBalanceBuxBoosterBetPlaced(
+        bytes32 commitmentHash,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external payable onlyBuxBooster returns(bool) {
+        require(msg.value >= minimumBetSize, "Your bet is below the minimum bet size");
+        require(msg.value <= (houseBalance.net_balance / maximumBetSizeDivisor), "Your bet is above the maximum bet size");
+
+        houseBalance.total_balance += msg.value;
+        // Add liability based on actual max payout for this specific bet
+        houseBalance.liability += maxPayout;
+        houseBalance.unsettled_bets += msg.value;
+        houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+        houseBalance.actual_balance = address(this).balance;
+
+        // Update global accounting
+        buxBoosterAccounting.totalBets++;
+        buxBoosterAccounting.totalVolumeWagered += msg.value;
+        if (msg.value > buxBoosterAccounting.largestBet) {
+            buxBoosterAccounting.largestBet = msg.value;
+        }
+
+        // Emit comprehensive bet placement event
+        emit BuxBoosterBetPlaced(
+            tx.origin,  // Player address (msg.sender is BuxBoosterGame contract)
+            commitmentHash,
+            msg.value,
+            difficulty,
+            predictions,
+            nonce,
+            block.timestamp
+        );
+
+        return true;
+    }
+
+    /**
+     * @dev Internal helper to update house balance for winning BuxBooster bet
+     */
+    function _updateHouseBalanceWinning(uint256 payout, uint256 betAmount, uint256 maxPayout) private {
+        houseBalance.total_balance -= payout;
+        houseBalance.liability -= maxPayout;
+        houseBalance.unsettled_bets -= betAmount;
+        houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+        houseBalance.pool_token_supply = this.totalSupply();
+        houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
+        houseBalance.actual_balance = address(this).balance;
+    }
+
+    /**
+     * @dev Internal helper to send payout or credit balance
+     */
+    function _sendPayoutOrCredit(
+        address winner,
+        bytes32 commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        uint256 profit,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint8[] calldata results,
+        uint256 nonce
+    ) private {
+        (bool sent,) = payable(winner).call{value: payout}("");
+        if (sent) {
+            emit BuxBoosterWinningPayout(winner, commitmentHash, betAmount, payout, profit);
+            emit BuxBoosterWinDetails(commitmentHash, difficulty, predictions, results, nonce);
+        } else {
+            players[winner].rogue_balance += payout;
+            emit BuxBoosterPayoutFailed(winner, commitmentHash, payout);
+        }
+    }
+
+    /**
+     * @notice Settle a winning BuxBooster bet and pay out winner
+     * @dev NEW function specifically for BuxBooster - does not use legacy Payout event
+     * @param winner Player address
+     * @param commitmentHash Bet identifier (commitment hash)
+     * @param betAmount Original bet amount
+     * @param payout Total payout amount (includes original wager)
+     * @param difficulty Game difficulty
+     * @param predictions Player's predictions
+     * @param results Actual game results
+     * @param nonce Player's nonce
+     * @param maxPayout Maximum possible payout (for liability calculation)
+     * @return success True if settlement successful
+     */
+    function settleBuxBoosterWinningBet(
+        address winner,
+        bytes32 commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint8[] calldata results,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external onlyBuxBooster returns(bool) {
+        // Cache profit calculation
+        uint256 profit = payout - betAmount;
+
+        // Update player stats first
+        BuxBoosterPlayerStats storage stats = buxBoosterPlayerStats[winner];
+        stats.totalBets += 1;
+        stats.wins += 1;
+        stats.totalWagered += betAmount;
+        stats.totalWinnings += profit;
+
+        // Update global accounting
+        buxBoosterAccounting.totalWins++;
+        buxBoosterAccounting.totalPayouts += payout;
+        buxBoosterAccounting.totalHouseProfit -= int256(profit);  // House loses when player wins
+        if (payout > buxBoosterAccounting.largestWin) {
+            buxBoosterAccounting.largestWin = payout;
+        }
+
+        // Update house balance via helper
+        _updateHouseBalanceWinning(payout, betAmount, maxPayout);
+
+        // Send payout via helper
+        _sendPayoutOrCredit(winner, commitmentHash, betAmount, payout, profit, difficulty, predictions, results, nonce);
+
+        return true;
+    }
+
+    /**
+     * @notice Settle a losing BuxBooster bet (updates house balance only)
+     * @dev NEW function specifically for BuxBooster - does not use legacy events
+     * @param player Player address
+     * @param commitmentHash Unique bet identifier (commitment hash)
+     * @param wagerAmount Amount wagered
+     * @param difficulty Difficulty level selected
+     * @param predictions Array of player predictions
+     * @param results Array of actual results
+     * @param nonce Player's nonce for this bet
+     * @param maxPayout Maximum possible payout (for liability calculation)
+     * @return success True if update successful
+     */
+    function settleBuxBoosterLosingBet(
+        address player,
+        bytes32 commitmentHash,
+        uint256 wagerAmount,
+        int8 difficulty,
+        uint8[] calldata predictions,
+        uint8[] calldata results,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external onlyBuxBooster returns(bool) {
+        houseBalance.liability -= maxPayout;  // Remove the liability that was added when bet was placed
+        houseBalance.unsettled_bets -= wagerAmount;
+        houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+        houseBalance.actual_balance = address(this).balance;
+        houseBalance.pool_token_supply = this.totalSupply();
+        houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
+
+        // Update BuxBooster-specific player stats (separate from existing game stats)
+        BuxBoosterPlayerStats storage stats = buxBoosterPlayerStats[player];
+        stats.totalBets += 1;
+        stats.losses += 1;
+        stats.totalWagered += wagerAmount;
+        stats.totalLosses += wagerAmount;
+
+        // Update global accounting
+        buxBoosterAccounting.totalLosses++;
+        buxBoosterAccounting.totalHouseProfit += int256(wagerAmount);  // House wins when player loses
+
+        // Emit BuxBooster-specific events (split to avoid stack too deep)
+        emit BuxBoosterLosingBet(player, commitmentHash, wagerAmount);
+        emit BuxBoosterLossDetails(commitmentHash, difficulty, predictions, results, nonce);
+
+        return true;
+    }
+
+    /**
+     * @notice Get BuxBooster accounting snapshot
+     * @dev View function to get comprehensive statistics about BuxBooster activity
+     * @return totalBets Total number of bets placed
+     * @return totalWins Total number of winning bets
+     * @return totalLosses Total number of losing bets
+     * @return totalVolumeWagered Total ROGUE wagered across all bets
+     * @return totalPayouts Total ROGUE paid out to winners
+     * @return totalHouseProfit Net profit for house (can be negative if house is losing)
+     * @return largestWin Largest single payout
+     * @return largestBet Largest single wager
+     * @return winRate Win rate as percentage (basis points, 10000 = 100%)
+     * @return houseEdge Actual house edge based on profit/volume (basis points, 10000 = 100%)
+     */
+    function getBuxBoosterAccounting() external view returns (
+        uint256 totalBets,
+        uint256 totalWins,
+        uint256 totalLosses,
+        uint256 totalVolumeWagered,
+        uint256 totalPayouts,
+        int256 totalHouseProfit,
+        uint256 largestWin,
+        uint256 largestBet,
+        uint256 winRate,
+        int256 houseEdge
+    ) {
+        BuxBoosterAccounting storage acc = buxBoosterAccounting;
+
+        totalBets = acc.totalBets;
+        totalWins = acc.totalWins;
+        totalLosses = acc.totalLosses;
+        totalVolumeWagered = acc.totalVolumeWagered;
+        totalPayouts = acc.totalPayouts;
+        totalHouseProfit = acc.totalHouseProfit;
+        largestWin = acc.largestWin;
+        largestBet = acc.largestBet;
+
+        // Calculate win rate (basis points)
+        if (acc.totalBets > 0) {
+            winRate = (acc.totalWins * 10000) / acc.totalBets;
+        } else {
+            winRate = 0;
+        }
+
+        // Calculate house edge (basis points)
+        if (acc.totalVolumeWagered > 0) {
+            houseEdge = (acc.totalHouseProfit * 10000) / int256(acc.totalVolumeWagered);
+        } else {
+            houseEdge = 0;
+        }
+    }
 
 }

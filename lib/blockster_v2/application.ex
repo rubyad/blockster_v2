@@ -28,6 +28,8 @@ defmodule BlocksterV2.Application do
       {BlocksterV2.TimeTracker, %{}},
       # Hub logo cache (ETS-based, for header dropdown)
       {BlocksterV2.HubLogoCache, []},
+      # BuxBooster bet settlement checker (runs every minute to settle stuck bets)
+      {BlocksterV2.BuxBoosterBetSettler, []},
       # Start to serve requests, typically the last entry
       BlocksterV2Web.Endpoint
     ]

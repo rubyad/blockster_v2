@@ -1409,7 +1409,7 @@ defmodule BlocksterV2.EngagementTracker do
     now = System.system_time(:second)
     balance_float = parse_balance(balance)
 
-    case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
+    result = case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
       [] ->
         # Create new record
         record = case chain do
@@ -1438,6 +1438,13 @@ defmodule BlocksterV2.EngagementTracker do
         Logger.info("[EngagementTracker] Updated user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
         {:ok, balance_float}
     end
+
+    # Broadcast updated balances to all LiveViews (same as BUX token updates)
+    # This ensures ROGUE balance updates trigger UI refresh
+    all_balances = get_user_token_balances(user_id)
+    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, all_balances)
+
+    result
   rescue
     error ->
       Logger.error("[EngagementTracker] Error updating ROGUE balance: #{inspect(error)}")

@@ -83,41 +83,59 @@ export const BuxBoosterOnchain = {
       const predictionsArray = predictions.map(p => Number(p));
       console.log("[BuxBoosterOnchain] Predictions (as numbers):", predictionsArray);
 
-      // Check if we need approval (with cache optimization)
-      console.log("[BuxBoosterOnchain] Checking approval status...");
-      const needsApproval = await this.needsApproval(wallet, token_address, amountWei);
-
+      // ROGUE uses address(0) to indicate native token betting
+      // Handle both null and zero address (0x0000000000000000000000000000000000000000)
+      const isROGUE = !token_address ||
+                      token_address === null ||
+                      token_address === "0x0000000000000000000000000000000000000000";
       let result;
-      if (needsApproval) {
-        // Execute approve first, then placeBet (sequential transactions)
-        console.log("[BuxBoosterOnchain] Executing approval transaction...");
-        const approveResult = await this.executeApprove(wallet, token_address);
 
-        if (!approveResult.success) {
-          this.pushEvent("bet_error", { error: approveResult.error });
-          return;
-        }
-
-        console.log("[BuxBoosterOnchain] ✅ Approval confirmed, now placing bet...");
-        result = await this.executePlaceBet(
+      if (isROGUE) {
+        // ROGUE betting: no approval needed, send ROGUE with transaction value
+        console.log("[BuxBoosterOnchain] Placing ROGUE bet (native token, no approval needed)...");
+        result = await this.executePlaceBetROGUE(
           wallet,
-          token_address,
           amountWei,
           difficulty,
           predictionsArray,
           commitment_hash
         );
       } else {
-        // Already approved, just place bet
-        console.log("[BuxBoosterOnchain] Already approved, placing bet...");
-        result = await this.executePlaceBet(
-          wallet,
-          token_address,
-          amountWei,
-          difficulty,
-          predictionsArray,
-          commitment_hash
-        );
+        // ERC-20 betting: check approval first
+        console.log("[BuxBoosterOnchain] Checking ERC-20 approval status...");
+        const needsApproval = await this.needsApproval(wallet, token_address, amountWei);
+
+        if (needsApproval) {
+          // Execute approve first, then placeBet (sequential transactions)
+          console.log("[BuxBoosterOnchain] Executing approval transaction...");
+          const approveResult = await this.executeApprove(wallet, token_address);
+
+          if (!approveResult.success) {
+            this.pushEvent("bet_error", { error: approveResult.error });
+            return;
+          }
+
+          console.log("[BuxBoosterOnchain] ✅ Approval confirmed, now placing bet...");
+          result = await this.executePlaceBet(
+            wallet,
+            token_address,
+            amountWei,
+            difficulty,
+            predictionsArray,
+            commitment_hash
+          );
+        } else {
+          // Already approved, just place bet
+          console.log("[BuxBoosterOnchain] Already approved, placing bet...");
+          result = await this.executePlaceBet(
+            wallet,
+            token_address,
+            amountWei,
+            difficulty,
+            predictionsArray,
+            commitment_hash
+          );
+        }
       }
 
       if (result.success) {
@@ -319,6 +337,55 @@ export const BuxBoosterOnchain = {
       return {
         success: false,
         error: error.message || "PlaceBet failed"
+      };
+    }
+  },
+
+  /**
+   * Execute placeBetROGUE for native token betting (no approval needed)
+   * Sends ROGUE as transaction value instead of using approve/transferFrom
+   */
+  async executePlaceBetROGUE(wallet, amount, difficulty, predictions, commitmentHash) {
+    try {
+      const { prepareContractCall, sendTransaction } = await import("thirdweb");
+      const { getContract } = await import("thirdweb/contract");
+
+      const client = window.thirdwebClient;
+      const chain = window.rogueChain;
+
+      const gameContract = getContract({
+        client,
+        chain,
+        address: this.contractAddress,
+        abi: BuxBoosterGameArtifact.abi
+      });
+
+      const placeBetTx = prepareContractCall({
+        contract: gameContract,
+        method: "function placeBetROGUE(uint256 amount, int8 difficulty, uint8[] calldata predictions, bytes32 commitmentHash) external payable",
+        params: [amount, difficulty, predictions, commitmentHash],
+        value: amount,  // Send ROGUE as transaction value
+        gas: 500000n    // Set higher gas limit - ROGUE bets need more gas due to ROGUEBankroll call
+      });
+
+      console.log("[BuxBoosterOnchain] Executing placeBetROGUE with value:", amount.toString());
+      const result = await sendTransaction({
+        transaction: placeBetTx,
+        account: wallet
+      });
+
+      console.log("[BuxBoosterOnchain] ✅ PlaceBetROGUE tx submitted:", result.transactionHash);
+
+      return {
+        success: true,
+        txHash: result.transactionHash
+      };
+
+    } catch (error) {
+      console.error("[BuxBoosterOnchain] PlaceBetROGUE error:", error);
+      return {
+        success: false,
+        error: error.message || "PlaceBetROGUE failed"
       };
     }
   },

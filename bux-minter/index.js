@@ -338,11 +338,14 @@ const CONTRACT_OWNER_PRIVATE_KEY = process.env.CONTRACT_OWNER_PRIVATE_KEY;
 const BUXBOOSTER_ABI = [
   'function submitCommitment(bytes32 commitmentHash, address player, uint256 nonce) external',
   'function settleBet(bytes32 commitmentHash, bytes32 serverSeed, uint8[] results, bool won) external returns (uint256 payout)',
+  'function settleBetROGUE(bytes32 commitmentHash, bytes32 serverSeed, uint8[] results, bool won) external returns (uint256 payout)',
+  'function bets(bytes32 betId) external view returns (address player, address token, uint256 amount, int8 difficulty, bytes32 commitmentHash, uint256 nonce, uint256 timestamp, uint8 status)',
   'function configureToken(address token, bool enabled) external',
   'function depositHouseBalance(address token, uint256 amount) external',
   'function tokenConfigs(address) external view returns (bool enabled, uint256 houseBalance)',
   'function getPlayerCurrentCommitment(address player) external view returns (bytes32 commitmentHash, uint256 nonce, uint256 timestamp, bool used)',
   'function playerNonces(address player) external view returns (uint256)',
+  'function ROGUE_TOKEN() external view returns (address)',
   'event BetSettled(bytes32 indexed commitmentHash, bool won, uint8[] results, uint256 payout, bytes32 serverSeed)',
   'event BetDetails(bytes32 indexed commitmentHash, address indexed token, uint256 amount, int8 difficulty, uint8[] predictions, uint256 nonce, uint256 timestamp)'
 ];
@@ -366,6 +369,21 @@ if (CONTRACT_OWNER_PRIVATE_KEY) {
 } else {
   console.log(`[WARN] CONTRACT_OWNER_PRIVATE_KEY not set - deposit endpoint disabled`);
 }
+
+// ============================================================
+// ROGUEBankroll Contract Integration (for ROGUE betting)
+// ============================================================
+
+const ROGUE_BANKROLL_ADDRESS = '0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd';
+
+// ROGUEBankroll ABI - only the functions we need
+const ROGUE_BANKROLL_ABI = [
+  'function getHouseInfo() external view returns (uint256 netBalance, uint256 totalBalance, uint256 minBetSize, uint256 maxBetSize)'
+];
+
+// ROGUEBankroll contract instance (read-only, no wallet needed)
+const rogueBankrollContract = new ethers.Contract(ROGUE_BANKROLL_ADDRESS, ROGUE_BANKROLL_ABI, provider);
+console.log(`[INIT] ROGUEBankroll contract: ${ROGUE_BANKROLL_ADDRESS}`);
 
 // Submit commitment for a new game
 // Called by Blockster server when player initiates a game
@@ -435,8 +453,18 @@ app.post('/settle-bet', authenticate, async (req, res) => {
     console.log(`[SETTLE] Settling bet ${commitmentHash}`);
     console.log(`[SETTLE] Results: ${results.join(',')}, Won: ${won}`);
 
-    // V3: settleBet(commitmentHash, serverSeed, results, won)
-    const tx = await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
+    // V5: Check if this is a ROGUE bet and call the appropriate settlement function
+    const bet = await buxBoosterContract.bets(commitmentHash);
+    const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
+
+    console.log(`[SETTLE] Bet token: ${bet.token}`);
+    console.log(`[SETTLE] Is ROGUE bet: ${isROGUE}`);
+
+    // Call the appropriate settlement function
+    const tx = isROGUE
+      ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won)
+      : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
+
     console.log(`[SETTLE] Transaction submitted: ${tx.hash}`);
 
     const receipt = await tx.wait();
@@ -651,6 +679,28 @@ app.get('/game-token-config/:token', authenticate, async (req, res) => {
   } catch (error) {
     console.error(`[CONFIG] Error querying ${token} at ${tokenAddress}:`, error);
     res.status(500).json({ error: 'Failed to get token config', details: error.message });
+  }
+});
+
+// Get ROGUE house balance from ROGUEBankroll
+app.get('/rogue-house-balance', authenticate, async (req, res) => {
+  try {
+    console.log('[ROGUE-HOUSE] Fetching house balance from ROGUEBankroll');
+
+    const [netBalance, totalBalance, minBetSize, maxBetSize] =
+      await rogueBankrollContract.getHouseInfo();
+
+    console.log(`[ROGUE-HOUSE] Raw values: net=${netBalance}, total=${totalBalance}, min=${minBetSize}, max=${maxBetSize}`);
+
+    res.json({
+      netBalance: ethers.formatEther(netBalance),
+      totalBalance: ethers.formatEther(totalBalance),
+      minBetSize: ethers.formatEther(minBetSize),
+      maxBetSize: ethers.formatEther(maxBetSize)
+    });
+  } catch (error) {
+    console.error('[ROGUE-HOUSE] Error fetching ROGUE house balance:', error);
+    res.status(500).json({ error: 'Failed to get ROGUE house balance', details: error.message });
   }
 });
 
