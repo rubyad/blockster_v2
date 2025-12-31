@@ -17,6 +17,60 @@
 
 import BuxBoosterGameArtifact from './BuxBoosterGame.json';
 
+// Map of known contract error signatures to human-readable messages
+const CONTRACT_ERROR_MESSAGES = {
+  '0xf2c2fd8b': 'Bet amount is below minimum (100 ROGUE)',
+  '0x54f3089e': 'Bet amount exceeds maximum allowed',
+  '0x9c220f03': 'Insufficient house balance for this bet',
+  '0x05d09e5f': 'Bet has already been settled',
+  '0x469bfa91': 'Bet not found on chain',
+  '0xb3679761': 'Bet has expired',
+  '0x3f9f188e': 'Token not enabled for betting',
+  '0xeff9b19d': 'Invalid difficulty level',
+  '0x341c3a11': 'Invalid predictions',
+  '0xb69fad68': 'Invalid server seed',
+  '0x778fe324': 'Unauthorized settler',
+  '0x07a899a1': 'Bet not expired yet',
+  '0xb6682ad2': 'Commitment not found',
+  '0xb7c01e1e': 'Commitment already used',
+  '0x28a4d615': 'Wrong player for commitment',
+  '0x5a01a0a4': 'Wrong nonce for commitment',
+  '0xc1ab6dc1': 'Invalid token'
+};
+
+/**
+ * Parse contract error and return human-readable message
+ */
+function parseContractError(error) {
+  const errorMessage = error?.message || error?.toString() || '';
+
+  // Check for known error signatures in the message
+  for (const [signature, message] of Object.entries(CONTRACT_ERROR_MESSAGES)) {
+    if (errorMessage.includes(signature)) {
+      return message;
+    }
+  }
+
+  // Check for common error patterns
+  if (errorMessage.includes('insufficient funds')) {
+    return 'Insufficient funds for transaction';
+  }
+  if (errorMessage.includes('user rejected') || errorMessage.includes('User rejected')) {
+    return 'Transaction was cancelled';
+  }
+  if (errorMessage.includes('nonce')) {
+    return 'Transaction nonce error - please try again';
+  }
+
+  // If it's an encoded error signature we don't know, give a generic message
+  if (errorMessage.includes('Encoded error signature')) {
+    return 'Transaction failed - please check your bet amount and try again';
+  }
+
+  // Return the original message if we can't parse it
+  return errorMessage;
+}
+
 export const BuxBoosterOnchain = {
   mounted() {
     this.contractAddress = "0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B";
@@ -164,7 +218,7 @@ export const BuxBoosterOnchain = {
 
       this.pushEvent("bet_failed", {
         game_id: game_id,
-        error: error.message || "Transaction failed"
+        error: parseContractError(error)
       });
     }
   },
@@ -290,7 +344,7 @@ export const BuxBoosterOnchain = {
       console.error("[BuxBoosterOnchain] Approval transaction error:", error);
       return {
         success: false,
-        error: error.message || "Approval failed"
+        error: parseContractError(error)
       };
     }
   },
@@ -336,7 +390,7 @@ export const BuxBoosterOnchain = {
       console.error("[BuxBoosterOnchain] PlaceBet error:", error);
       return {
         success: false,
-        error: error.message || "PlaceBet failed"
+        error: parseContractError(error)
       };
     }
   },
@@ -385,7 +439,7 @@ export const BuxBoosterOnchain = {
       console.error("[BuxBoosterOnchain] PlaceBetROGUE error:", error);
       return {
         success: false,
-        error: error.message || "PlaceBetROGUE failed"
+        error: parseContractError(error)
       };
     }
   },

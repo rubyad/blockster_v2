@@ -1317,6 +1317,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         length(predictions) == predictions_needed and
           Enum.all?(predictions, fn p -> p in [:heads, :tails] end)
 
+      # Minimum bet for ROGUE is 100 (set in ROGUEBankroll contract)
+      min_rogue_bet = 100
+
       cond do
         not onchain_ready ->
           {:noreply, assign(socket, error_message: "Wallet not connected or game not initialized")}
@@ -1326,6 +1329,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
         bet_amount <= 0 ->
           {:noreply, assign(socket, error_message: "Bet amount must be greater than 0")}
+
+        socket.assigns.selected_token == "ROGUE" and bet_amount < min_rogue_bet ->
+          {:noreply, assign(socket, error_message: "Minimum bet for ROGUE is #{min_rogue_bet} ROGUE")}
 
         bet_amount > balance ->
           {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
