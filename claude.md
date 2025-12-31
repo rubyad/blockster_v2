@@ -11,6 +11,11 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - NEVER change git branches (checkout, switch, merge) without EXPLICIT user instructions to do so
 > - Always stay on the current branch unless the user specifically tells you to change branches
 > - Wait for explicit "commit", "push", "git add", or "deploy" commands from the user before making git operations
+>
+> **DEVELOPMENT WORKFLOW**:
+> - DO NOT restart node1/node2 after every code fix - Elixir hot reloads most changes automatically
+> - Only restart nodes when explicitly asked, or when changing supervision tree/application config
+> - Code changes in lib/ are automatically recompiled and reloaded on next request
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -1840,3 +1845,45 @@ end
 | 21 | settled_at | Unix timestamp (ms) |
 
 **Key Lesson**: When matching Mnesia records, the tuple pattern size MUST exactly match the table arity. The `bux_booster_onchain_games` table has 22 fields, so patterns need 22 elements (table name + 21 wildcards).
+
+### BetSettler Premature Settlement Bug (Dec 31, 2024)
+
+**Problem**: BetSettler was settling bets immediately after placement instead of waiting the 2-minute timeout. This caused `BetAlreadySettled (0x05d09e5f)` errors when the normal settlement flow tried to settle after the animation completed.
+
+**Root Cause**: Game sessions can be reused. When a user creates a commitment but doesn't complete the bet, the game session stays in `:committed` status. When they return later (hours or days later), `get_pending_game()` returns the old session for reuse.
+
+The problem was in `on_bet_placed()` - it kept the **original** `created_at` timestamp from when the game was first created, not when the bet was actually placed. The BetSettler uses `created_at` to determine if a bet is "stuck" (older than 2 minutes). So a reused game session from yesterday would appear as "stuck for 24+ hours" and get settled immediately.
+
+**Fix** ([bux_booster_onchain.ex:164-188](lib/blockster_v2/bux_booster_onchain.ex#L164-L188)):
+```elixir
+def on_bet_placed(game_id, bet_id, bet_tx, predictions, bet_amount, token, difficulty) do
+  case get_game(game_id) do
+    {:ok, game} ->
+      # ... calculate result ...
+
+      # Update created_at to NOW when bet is actually placed
+      # This is important for the BetSettler which uses created_at to determine if a bet is stuck
+      now = System.system_time(:second)
+
+      updated_record = {
+        # ... other fields ...
+        now,  # created_at - updated to when bet is placed, not when game was created
+        nil   # settled_at
+      }
+      :mnesia.dirty_write(updated_record)
+  end
+end
+```
+
+**Additional Fix**: Added graceful handling of `BetAlreadySettled` error in `settle_game/1`:
+- If game is already `:settled` in Mnesia, skip settlement and return success
+- If contract returns `BetAlreadySettled (0x05d09e5f)`, mark game as settled in Mnesia instead of logging error
+
+**Error Code Reference**:
+- `0x05d09e5f` = `BetAlreadySettled()` - Bet was already settled on-chain
+
+**Timeline Analysis** (debugging this issue):
+1. Check on-chain timestamps: bet placement block vs settlement block
+2. Check Mnesia `created_at` vs current time
+3. Compare with BetSettler's `@settlement_timeout` (120 seconds)
+4. If `created_at` is from days ago but bet was just placed, this bug is the cause

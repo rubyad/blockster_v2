@@ -9,7 +9,7 @@ The `BuxBoosterBetSettler` GenServer automatically monitors and settles BuxBoost
 ### Periodic Checks
 - Runs every **1 minute** (`@check_interval`)
 - Queries Mnesia for bets with `status = :placed`
-- Only attempts settlement for bets older than **30 seconds** (`@settlement_timeout`)
+- Only attempts settlement for bets older than **2 minutes** (`@settlement_timeout = 120`)
 - This avoids race conditions with bets that just finished their game flow
 
 ### Settlement Logic
@@ -21,9 +21,9 @@ The `BuxBoosterBetSettler` GenServer automatically monitors and settles BuxBoost
 
 2. **Filter by Age**:
    ```elixir
-   created_at < cutoff_time  # cutoff_time = now - 30_seconds
+   created_at < cutoff_time  # cutoff_time = now - 120_seconds
    ```
-   Only processes bets that are at least 30 seconds old
+   Only processes bets that are at least 2 minutes old
 
 3. **Attempt Settlement**:
    - Calls `BuxBoosterOnchain.settle_game(game_id)` for each stuck bet
@@ -94,8 +94,8 @@ The settler extracts:
 
 ### Found Unsettled Bets
 ```
-[BetSettler] Found 3 unsettled bets older than 30 seconds
-[BetSettler] Attempting to settle bet abc123... (placed 45s ago)
+[BetSettler] Found 3 unsettled bets older than 2 minutes
+[BetSettler] Attempting to settle bet abc123... (placed 180s ago)
 ```
 
 ### Settlement Results
@@ -110,13 +110,46 @@ The settler extracts:
 [BetSettler] ❌ Exception settling bet abc123...: %RuntimeError{...}
 ```
 
+## Critical: `created_at` Timestamp
+
+The BetSettler uses the `created_at` field (element 20) to determine bet age. **This timestamp is set when the bet is actually placed, not when the game session is created.**
+
+### Why This Matters
+
+Game sessions can be reused. A user might:
+1. Visit `/play` page → game session created with `created_at = now`
+2. Leave without betting → session stays in `:committed` status
+3. Return 24 hours later → `get_pending_game()` reuses the old session
+4. Place bet → status changes to `:placed`
+
+If `created_at` wasn't updated when the bet is placed, the BetSettler would see a bet that appears to be "24 hours old" and settle it immediately.
+
+### The Fix (Dec 31, 2024)
+
+In `on_bet_placed()`, the `created_at` timestamp is now updated to the current time:
+
+```elixir
+def on_bet_placed(game_id, ...) do
+  # Update created_at to NOW when bet is actually placed
+  now = System.system_time(:second)
+
+  updated_record = {
+    # ... other fields ...
+    now,  # created_at - updated to when bet is placed
+    nil   # settled_at
+  }
+end
+```
+
+This ensures the BetSettler correctly measures time since the bet was placed, not time since the game session was originally created.
+
 ## Configuration
 
 Edit `lib/blockster_v2/bux_booster_bet_settler.ex`:
 
 ```elixir
 @check_interval :timer.minutes(1)      # How often to check
-@settlement_timeout 30_000             # Min age before settling (ms)
+@settlement_timeout 120                # Min age before settling (seconds)
 ```
 
 ## Supervision

@@ -158,6 +158,11 @@ defmodule BlocksterV2.BuxBoosterOnchain do
           difficulty, game.user_id
         )
 
+        # Update created_at to NOW when bet is actually placed
+        # This is important for the BetSettler which uses created_at to determine if a bet is stuck
+        # Without this, reused game sessions from days ago would appear as "stuck" immediately
+        now = System.system_time(:second)
+
         # Update game record with bet details and calculated results
         updated_record = {
           :bux_booster_onchain_games,
@@ -180,7 +185,7 @@ defmodule BlocksterV2.BuxBoosterOnchain do
           game.commitment_tx,         # commitment_tx
           bet_tx,                     # bet_tx
           nil,                        # settlement_tx
-          game.created_at,            # created_at
+          now,                        # created_at - updated to when bet is placed, not when game was created
           nil                         # settled_at
         }
         :mnesia.dirty_write(updated_record)
@@ -235,6 +240,11 @@ defmodule BlocksterV2.BuxBoosterOnchain do
   """
   def settle_game(game_id) do
     case get_game(game_id) do
+      {:ok, game} when game.status == :settled ->
+        # Already settled - return existing settlement info
+        Logger.debug("[BuxBoosterOnchain] Game #{game_id} already settled, skipping")
+        {:ok, %{tx_hash: game.settlement_tx, player_balance: nil, already_settled: true}}
+
       {:ok, game} when game.bet_id != nil ->
         # Add 0x prefix to server seed for the contract
         server_seed_hex = "0x" <> game.server_seed
@@ -243,39 +253,20 @@ defmodule BlocksterV2.BuxBoosterOnchain do
         case settle_bet(game.commitment_hash, server_seed_hex, game.results, game.won) do
           {:ok, tx_hash, player_balance} ->
             # Update Mnesia record to settled
-            now = System.system_time(:second)
-            updated_record = {
-              :bux_booster_onchain_games,
-              game_id,
-              game.user_id,
-              game.wallet_address,
-              game.server_seed,
-              game.commitment_hash,
-              game.nonce,
-              :settled,                   # status
-              game.bet_id,
-              game.token,
-              game.token_address,
-              game.bet_amount,
-              game.difficulty,
-              game.predictions,
-              game.results,
-              game.won,
-              game.payout,
-              game.commitment_tx,
-              game.bet_tx,
-              tx_hash,                    # settlement_tx
-              game.created_at,
-              now                         # settled_at
-            }
-            :mnesia.dirty_write(updated_record)
-
+            mark_game_settled(game_id, game, tx_hash)
             Logger.info("[BuxBoosterOnchain] Game #{game_id} settled: #{tx_hash}")
             {:ok, %{tx_hash: tx_hash, player_balance: player_balance}}
 
           {:error, reason} ->
-            Logger.error("[BuxBoosterOnchain] Failed to settle game #{game_id}: #{inspect(reason)}")
-            {:error, reason}
+            # Check if it's a BetAlreadySettled error (0x05d09e5f)
+            if is_bet_already_settled_error?(reason) do
+              Logger.info("[BuxBoosterOnchain] Game #{game_id} was already settled on-chain, marking as settled")
+              mark_game_settled(game_id, game, "already_settled_on_chain")
+              {:ok, %{tx_hash: "already_settled_on_chain", player_balance: nil, already_settled: true}}
+            else
+              Logger.error("[BuxBoosterOnchain] Failed to settle game #{game_id}: #{inspect(reason)}")
+              {:error, reason}
+            end
         end
 
       {:ok, _game} ->
@@ -284,6 +275,42 @@ defmodule BlocksterV2.BuxBoosterOnchain do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # Check if the error is BetAlreadySettled (error selector 0x05d09e5f)
+  defp is_bet_already_settled_error?(reason) when is_binary(reason) do
+    String.contains?(reason, "0x05d09e5f")
+  end
+  defp is_bet_already_settled_error?(_), do: false
+
+  # Mark a game as settled in Mnesia
+  defp mark_game_settled(game_id, game, tx_hash) do
+    now = System.system_time(:second)
+    updated_record = {
+      :bux_booster_onchain_games,
+      game_id,
+      game.user_id,
+      game.wallet_address,
+      game.server_seed,
+      game.commitment_hash,
+      game.nonce,
+      :settled,                   # status
+      game.bet_id,
+      game.token,
+      game.token_address,
+      game.bet_amount,
+      game.difficulty,
+      game.predictions,
+      game.results,
+      game.won,
+      game.payout,
+      game.commitment_tx,
+      game.bet_tx,
+      tx_hash,                    # settlement_tx
+      game.created_at,
+      now                         # settled_at
+    }
+    :mnesia.dirty_write(updated_record)
   end
 
   @doc """
