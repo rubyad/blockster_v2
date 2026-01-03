@@ -14,12 +14,13 @@ defmodule BlocksterV2.TimeTracker do
   # Client API
 
   def start_link(default) do
-    # Use global registration so there's only one TimeTracker across the cluster
-    case GenServer.start_link(__MODULE__, default, name: {:global, __MODULE__}) do
+    # Use GlobalSingleton to avoid killing existing process during name conflicts
+    # This prevents crashes during rolling deploys when Mnesia tables are being copied
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, default) do
       {:ok, pid} ->
         {:ok, pid}
 
-      {:error, {:already_started, _pid}} ->
+      {:already_registered, _pid} ->
         # Another node already has the global TimeTracker running
         # Return :ignore so supervisor doesn't fail
         :ignore

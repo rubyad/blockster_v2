@@ -68,13 +68,13 @@ defmodule BlocksterV2.PriceTracker do
   # --- Client API ---
 
   def start_link(opts \\ []) do
-    # Use global registration to ensure only one PriceTracker runs across the cluster
-    # This prevents duplicate API calls to CoinGecko from multiple nodes
-    case GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__}) do
+    # Use GlobalSingleton to avoid killing existing process during name conflicts
+    # This prevents crashes during rolling deploys when Mnesia tables are being copied
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
       {:ok, pid} ->
         {:ok, pid}
 
-      {:error, {:already_started, _pid}} ->
+      {:already_registered, _pid} ->
         # Another node already started the global GenServer - this is expected
         :ignore
     end

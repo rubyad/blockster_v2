@@ -352,12 +352,13 @@ defmodule BlocksterV2.MnesiaInitializer do
   # Client API
 
   def start_link(opts) do
-    # Check if already started globally (in a multi-node cluster)
-    case GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__}) do
+    # Use GlobalSingleton to avoid killing existing process during name conflicts
+    # This prevents crashes during rolling deploys when Mnesia tables are being copied
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
       {:ok, pid} ->
         {:ok, pid}
 
-      {:error, {:already_started, pid}} ->
+      {:already_registered, _pid} ->
         # Another node already started the global GenServer
         # We still need to initialize Mnesia on this node
         Logger.info("[MnesiaInitializer] Global GenServer already running on another node, initializing Mnesia locally")

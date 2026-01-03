@@ -18,13 +18,13 @@ defmodule BlocksterV2.BuxBoosterBetSettler do
   @settlement_timeout 120  # Don't try to settle bets younger than 2 minutes (in seconds)
 
   def start_link(_opts) do
-    # Use global registration to ensure only one BetSettler runs across the cluster
-    # This prevents duplicate settlement attempts from multiple nodes
-    case GenServer.start_link(__MODULE__, [], name: {:global, __MODULE__}) do
+    # Use GlobalSingleton to avoid killing existing process during name conflicts
+    # This prevents crashes during rolling deploys when Mnesia tables are being copied
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, []) do
       {:ok, pid} ->
         {:ok, pid}
 
-      {:error, {:already_started, _pid}} ->
+      {:already_registered, _pid} ->
         # Another node already started the global GenServer - this is expected
         :ignore
     end
