@@ -45,10 +45,15 @@ defmodule BlocksterV2Web.BuxBalanceHook do
           {:halt, assign(socket, :bux_balance, new_balance)}
 
         {:token_balances_updated, token_balances}, socket ->
+          # Merge new token balances with existing (preserves ROGUE when only BUX is updated)
+          existing_balances = Map.get(socket.assigns, :token_balances, %{})
+          merged_balances = Map.merge(existing_balances, token_balances)
           # Update both :token_balances (for header) and :balances (for BuxBoosterLive)
-          socket = assign(socket, :token_balances, token_balances)
+          socket = assign(socket, :token_balances, merged_balances)
           socket = if Map.has_key?(socket.assigns, :balances) do
-            assign(socket, :balances, token_balances)
+            existing_game_balances = Map.get(socket.assigns, :balances, %{})
+            merged_game_balances = Map.merge(existing_game_balances, token_balances)
+            assign(socket, :balances, merged_game_balances)
           else
             socket
           end

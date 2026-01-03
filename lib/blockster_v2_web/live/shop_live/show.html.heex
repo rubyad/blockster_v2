@@ -236,7 +236,7 @@
               $<%= :erlang.float_to_binary(@product.price, decimals: 2) %>
             </span>
           <% end %>
-          <%= if @product.bux_max_discount > 0 || @product.hub_token_max_discount > 0 do %>
+          <%= if @product.bux_max_discount > 0 do %>
             <button
               phx-click="toggle_discount_breakdown"
               class="text-sm text-[#515B70] hover:text-[#141414] flex items-center gap-1 cursor-pointer transition-colors"
@@ -256,18 +256,14 @@
           <% end %>
         </div>
 
-        <%!-- Token Discount Section (collapsible) --%>
-        <%= if (@product.bux_max_discount > 0 || @product.hub_token_max_discount > 0) && @show_discount_breakdown do %>
+        <%!-- Token Discount Section (collapsible) - BUX only (hub tokens removed) --%>
+        <%= if @product.bux_max_discount > 0 && @show_discount_breakdown do %>
           <%
-            # Calculate combined balance and max tokens
-            combined_balance = @user_bux_balance + @user_hub_token_balance
-            max_discount_percent = max(@product.bux_max_discount, @product.hub_token_max_discount)
-
-            # Calculate discount and final price
+            # Calculate discount and final price (BUX only)
             discount_amount = @tokens_to_redeem * @token_value_usd
             discounted_price = max(@product.price - discount_amount, 0)
             discount_percent = if @product.price > 0, do: round(discount_amount / @product.price * 100), else: 0
-            effective_max = min(@max_combined_tokens, combined_balance)
+            effective_max = min(@max_bux_tokens, @user_bux_balance)
           %>
           <div class="mb-6">
             <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Redeem BUX Tokens</h3>
@@ -275,52 +271,22 @@
             <%!-- Token Redemption Card --%>
             <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
               <div class="flex-1">
-                <%!-- Token Balances --%>
-                <div class="space-y-2 mb-4">
-                  <%!-- BUX Balance --%>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
-                      <span class="text-sm text-gray-500">BUX Balance:</span>
-                    </div>
-                    <span class="font-haas_medium_65 text-[#141414]">
-                      <%= Number.Delimit.number_to_delimited(@user_bux_balance, precision: 2) %>
-                    </span>
+                <%!-- BUX Balance (hub tokens removed) --%>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-2">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
+                    <span class="text-sm text-gray-500">Your BUX Balance:</span>
                   </div>
-
-                  <%!-- Hub Token Balance (only show if product has hub token) --%>
-                  <%= if @product.hub_token do %>
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2">
-                        <%= if @product.hub_logo_url do %>
-                          <img src={@product.hub_logo_url} alt={@product.hub_token} class="w-6 h-6 rounded-full object-cover" />
-                        <% else %>
-                          <div class="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                            <span class="text-gray-600 text-xs font-haas_medium_65"><%= String.first(@product.hub_token) %></span>
-                          </div>
-                        <% end %>
-                        <span class="text-sm text-gray-500"><%= @product.hub_token %> Balance:</span>
-                      </div>
-                      <span class="font-haas_medium_65 text-[#141414]">
-                        <%= Number.Delimit.number_to_delimited(@user_hub_token_balance, precision: 2) %>
-                      </span>
-                    </div>
-                  <% end %>
-
-                  <%!-- Total Available --%>
-                  <div class="flex items-center justify-between pt-2 border-t border-gray-200">
-                    <span class="text-sm font-haas_medium_65 text-gray-600">Total Available:</span>
-                    <span class="font-haas_medium_65 text-[#141414]">
-                      <%= Number.Delimit.number_to_delimited(combined_balance, precision: 2) %> tokens
-                    </span>
-                  </div>
+                  <span class="font-haas_medium_65 text-[#141414]">
+                    <%= Number.Delimit.number_to_delimited(@user_bux_balance, precision: 2) %>
+                  </span>
                 </div>
 
-                <%!-- Token Input with Allocation Dropdown --%>
-                <div class="mb-3 relative" id="token-allocation-wrapper" phx-hook="TokenAllocationDropdown">
+                <%!-- Token Input (simplified - BUX only) --%>
+                <div class="mb-3">
                   <div class="flex items-center justify-between mb-1">
-                    <label class="text-sm text-gray-500">Tokens to redeem:</label>
-                    <span class="text-xs text-gray-400">Max: <%= Number.Delimit.number_to_delimited(effective_max, precision: 2) %> (up to <%= max_discount_percent %>% off)</span>
+                    <label class="text-sm text-gray-500">BUX to redeem:</label>
+                    <span class="text-xs text-gray-400">Max: <%= Number.Delimit.number_to_delimited(effective_max, precision: 2) %> (up to <%= @product.bux_max_discount %>% off)</span>
                   </div>
                   <form phx-change="update_tokens" class="flex items-center gap-2">
                     <input
@@ -334,7 +300,6 @@
                       id="token-input"
                       phx-hook="TokenInput"
                       data-max={:erlang.float_to_binary(effective_max / 1, decimals: 2)}
-                      phx-focus="show_allocation_dropdown"
                       class="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
                     />
                     <button
@@ -345,80 +310,6 @@
                       Max
                     </button>
                   </form>
-
-                  <%!-- Allocation Dropdown --%>
-                  <%= if @show_allocation_dropdown do %>
-                    <div class="absolute left-0 right-0 mt-2 p-3 bg-white border border-gray-200 rounded-xl shadow-lg z-10" id="allocation-dropdown">
-                      <div class="text-xs text-gray-500 mb-2 font-haas_medium_65">Customize token allocation:</div>
-
-                      <%!-- BUX Allocation --%>
-                      <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 rounded-full" />
-                          <span class="text-sm text-gray-600">BUX:</span>
-                        </div>
-                        <form phx-change="update_bux_allocation" class="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="0"
-                            max={:erlang.float_to_binary(@user_bux_balance / 1, decimals: 2)}
-                            step="0.1"
-                            value={:erlang.float_to_binary(@bux_to_redeem / 1, decimals: 2)}
-                            phx-debounce="300"
-                            name="bux"
-                            class="w-24 px-2 py-1 text-sm rounded-lg border border-gray-300 bg-white font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-1 focus:ring-gray-400"
-                          />
-                          <span class="text-xs text-gray-400">/ <%= Number.Delimit.number_to_delimited(@user_bux_balance, precision: 2) %></span>
-                        </form>
-                      </div>
-
-                      <%!-- Hub Token Allocation (only show if product has hub token) --%>
-                      <%= if @product.hub_token do %>
-                        <div class="flex items-center justify-between mb-2">
-                          <div class="flex items-center gap-2">
-                            <%= if @product.hub_logo_url do %>
-                              <img src={@product.hub_logo_url} alt={@product.hub_token} class="w-5 h-5 rounded-full object-cover" />
-                            <% else %>
-                              <div class="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center">
-                                <span class="text-gray-600 text-xs font-haas_medium_65"><%= String.first(@product.hub_token) %></span>
-                              </div>
-                            <% end %>
-                            <span class="text-sm text-gray-600"><%= @product.hub_token %>:</span>
-                          </div>
-                          <form phx-change="update_hub_allocation" class="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max={:erlang.float_to_binary(@user_hub_token_balance / 1, decimals: 2)}
-                              step="0.1"
-                              value={:erlang.float_to_binary(@hub_to_redeem / 1, decimals: 2)}
-                              phx-debounce="300"
-                              name="hub"
-                              class="w-24 px-2 py-1 text-sm rounded-lg border border-gray-300 bg-white font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-1 focus:ring-gray-400"
-                            />
-                            <span class="text-xs text-gray-400">/ <%= Number.Delimit.number_to_delimited(@user_hub_token_balance, precision: 2) %></span>
-                          </form>
-                        </div>
-                      <% end %>
-
-                      <%!-- Total --%>
-                      <div class="flex items-center justify-between pt-2 border-t border-gray-200">
-                        <span class="text-sm font-haas_medium_65 text-gray-600">Total:</span>
-                        <span class="font-haas_medium_65 text-[#141414]">
-                          <%= Number.Delimit.number_to_delimited(@bux_to_redeem + @hub_to_redeem, precision: 2) %> tokens
-                        </span>
-                      </div>
-
-                      <%!-- Close button --%>
-                      <button
-                        type="button"
-                        phx-click="hide_allocation_dropdown"
-                        class="mt-2 w-full text-center text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  <% end %>
                 </div>
 
                 <%!-- Price Calculation --%>

@@ -68,7 +68,16 @@ defmodule BlocksterV2.PriceTracker do
   # --- Client API ---
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    # Use global registration to ensure only one PriceTracker runs across the cluster
+    # This prevents duplicate API calls to CoinGecko from multiple nodes
+    case GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__}) do
+      {:ok, pid} ->
+        {:ok, pid}
+
+      {:error, {:already_started, _pid}} ->
+        # Another node already started the global GenServer - this is expected
+        :ignore
+    end
   end
 
   @doc "Get current price for a token symbol (e.g., 'ROGUE', 'ETH', 'BTC')"
@@ -103,7 +112,7 @@ defmodule BlocksterV2.PriceTracker do
 
   @doc "Force refresh prices (for manual trigger)"
   def refresh_prices do
-    GenServer.cast(__MODULE__, :fetch_prices)
+    GenServer.cast({:global, __MODULE__}, :fetch_prices)
   end
 
   @doc "Get the list of tracked token symbols"
@@ -122,21 +131,42 @@ defmodule BlocksterV2.PriceTracker do
   end
 
   @impl true
+  def handle_info(:wait_for_mnesia, %{mnesia_wait_attempts: attempts} = state) when attempts > 30 do
+    # After 60 seconds of waiting, give up to avoid infinite loop
+    Logger.error("[PriceTracker] Gave up waiting for Mnesia token_prices table after 60 seconds")
+    {:noreply, state}
+  end
+
   def handle_info(:wait_for_mnesia, state) do
-    if table_exists?(:token_prices) do
+    attempts = Map.get(state, :mnesia_wait_attempts, 0)
+
+    if table_ready?(:token_prices) do
       Logger.info("[PriceTracker] Mnesia table ready, starting price fetcher")
       send(self(), :fetch_prices)
       {:noreply, %{state | mnesia_ready: true}}
     else
-      Logger.info("[PriceTracker] Waiting for Mnesia token_prices table...")
+      Logger.info("[PriceTracker] Waiting for Mnesia token_prices table... (attempt #{attempts + 1})")
       Process.send_after(self(), :wait_for_mnesia, 2000)
-      {:noreply, state}
+      {:noreply, Map.put(state, :mnesia_wait_attempts, attempts + 1)}
     end
   end
 
-  defp table_exists?(table_name) do
-    :mnesia.table_info(table_name, :type)
-    true
+  # Check if table is ready for use - handles both local and remote table copies
+  defp table_ready?(table_name) do
+    # First check if table exists in the schema at all
+    tables = :mnesia.system_info(:tables)
+
+    if table_name in tables do
+      # Table exists in schema, now check if it's accessible
+      # Use wait_for_tables with a short timeout to verify it's usable
+      case :mnesia.wait_for_tables([table_name], 1000) do
+        :ok -> true
+        {:timeout, _} -> false
+        {:error, _} -> false
+      end
+    else
+      false
+    end
   catch
     :exit, _ -> false
   end

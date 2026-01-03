@@ -1,5 +1,7 @@
 # BUX Minter Service
 
+> **Note (January 2026)**: Hub tokens have been removed from the application. The BUX Minter now only mints BUX tokens for rewards. ROGUE (native chain token) is used for BUX Booster betting. This document has been updated to reflect the simplified token system.
+
 The BUX Minter is a Node.js microservice deployed on Fly.io that handles blockchain operations for the Blockster platform. It serves as the bridge between the Phoenix application and the Rogue Chain blockchain.
 
 **Service URL**: `https://bux-minter.fly.dev`
@@ -44,32 +46,18 @@ bux-minter/
 | `SETTLER_PRIVATE_KEY` | BuxBoosterGame settler wallet | Yes |
 | `CONTRACT_OWNER_PRIVATE_KEY` | BuxBoosterGame owner (for deposits) | Yes |
 | `API_SECRET` | Authentication secret for API calls | Yes |
-| `PRIVATE_KEY_MOONBUX` | moonBUX token owner | Optional |
-| `PRIVATE_KEY_NEOBUX` | neoBUX token owner | Optional |
-| *(other hub tokens)* | Hub token owner private keys | Optional |
 
 ## Token Minting
 
 ### Overview
 
-The BUX minter can mint any supported token to a user's smart wallet address. This is the **primary** way tokens are distributed as rewards in the Blockster platform.
+The BUX minter mints BUX tokens to user smart wallet addresses as rewards for reading articles and sharing on social media.
 
-### Supported Tokens
+### Supported Token
 
 | Token | Contract Address | Use Case |
 |-------|------------------|----------|
-| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` | Global platform token |
-| moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` | Moon hub rewards |
-| neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` | Neo hub rewards |
-| rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` | Rogue hub rewards |
-| flareBUX | `0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8` | Flare hub rewards |
-| nftBUX | `0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED` | NFT hub rewards |
-| nolchaBUX | `0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642` | Nolcha hub rewards |
-| solBUX | `0x92434779E281468611237d18AdE20A4f7F29DB38` | Sol hub rewards |
-| spaceBUX | `0xAcaCa77FbC674728088f41f6d978F0194cf3d55A` | Space hub rewards |
-| tronBUX | `0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665` | Tron hub rewards |
-| tranBUX | `0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96` | Tran hub rewards |
-| blocksterBUX | `0x133Faa922052aE42485609E14A1565551323CdbE` | Blockster hub rewards |
+| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` | Reading/sharing rewards, shop discounts |
 
 ### Minting Flow
 
@@ -80,9 +68,7 @@ BuxMinter.mint_bux(
   amount,          # Tokens to mint (in whole units)
   user_id,         # For logging
   post_id,         # For logging
-  :read,           # Reward type (:read or :x_share)
-  "moonBUX",       # Token to mint
-  hub_id           # Optional hub_id for tracking
+  :read            # Reward type (:read or :x_share)
 )
 ```
 
@@ -100,17 +86,9 @@ BuxMinter.mint_bux(
 ### Single Token Balance
 
 ```elixir
-# Get balance for a specific token
-BuxMinter.get_balance(wallet_address, "BUX")
+# Get BUX balance
+BuxMinter.get_balance(wallet_address)
 # => {:ok, 1234.56} or {:error, reason}
-```
-
-### All Token Balances (Individual Queries)
-
-```elixir
-# Queries each token separately (11 RPC calls)
-BuxMinter.get_all_balances(wallet_address)
-# => {:ok, %{"BUX" => 100.0, "moonBUX" => 50.0, ...}}
 ```
 
 ### Aggregated Balances (Single Query)
@@ -120,7 +98,7 @@ BuxMinter.get_all_balances(wallet_address)
 ```elixir
 # Single RPC call via BalanceAggregator contract
 BuxMinter.get_aggregated_balances(wallet_address)
-# => {:ok, %{balances: %{"BUX" => 100.0, ...}, aggregate: 150.0}}
+# => {:ok, %{balances: %{"BUX" => 100.0, "ROGUE" => 50.0}}}
 ```
 
 **BalanceAggregator Contract**: `0x3A5a60fE307088Ae3F367d529E601ac52ed2b660`
@@ -143,7 +121,7 @@ BuxMinter.sync_user_balances_async(user_id, wallet_address)
 - Various LiveViews - To refresh user balances
 
 **Flow**:
-1. Fetches all token balances via BalanceAggregator
+1. Fetches BUX and ROGUE balances via BalanceAggregator
 2. Updates Mnesia `user_bux_balances` table
 3. Broadcasts `:token_balances_updated` event via PubSub
 4. All subscribed LiveViews update UI automatically
@@ -292,19 +270,17 @@ Authorization: Bearer <API_SECRET>
   "amount": 100,
   "userId": 65,
   "postId": 123,
-  "rewardType": "read",
-  "token": "BUX",
-  "hubId": null
+  "rewardType": "read"
 }
 ```
 
 ### Balance Queries
 
-**GET /balance/:address/:token**
-Returns single token balance
+**GET /balance/:address**
+Returns BUX balance
 
 **GET /aggregated-balances/:address**
-Returns all token balances (recommended)
+Returns BUX and ROGUE balances (recommended)
 
 ### Game Operations
 
@@ -372,7 +348,7 @@ curl -X POST https://bux-minter.fly.dev/deposit-house-balance \
 
 **Requirements**:
 - `CONTRACT_OWNER_PRIVATE_KEY` must be set in environment
-- Token owner private key must be configured (e.g., `OWNER_PRIVATE_KEY` for BUX)
+- `OWNER_PRIVATE_KEY` must be configured for BUX minting
 
 **Flow**:
 1. Token owner mints tokens to contract owner wallet
@@ -392,7 +368,7 @@ curl -X POST https://bux-minter.fly.dev/deposit-house-balance \
 - **NEVER** expose private keys in code or logs
 - All keys stored in Fly.io secrets
 - Separate keys for different roles:
-  - Token owners (mint tokens)
+  - Token owner (mint BUX tokens)
   - Settler (submit commitments & settlements)
   - Contract owner (deposit house funds)
 
@@ -466,9 +442,8 @@ flyctl secrets set API_SECRET=<secret> -a bux-minter
 **Purpose**: Elixir client for BUX minter service
 
 **Key Functions**:
-- `mint_bux/7` - Mint tokens to wallet
-- `get_balance/2` - Get single token balance
-- `get_all_balances/1` - Get all balances (deprecated - use aggregated)
+- `mint_bux/5` - Mint BUX tokens to wallet
+- `get_balance/1` - Get BUX balance
 - `get_aggregated_balances/1` - Get all balances (single call)
 - `sync_user_balances/2` - Sync balances to Mnesia
 - `sync_user_balances_async/2` - Async sync
@@ -481,8 +456,8 @@ flyctl secrets set API_SECRET=<secret> -a bux-minter
 **Usage**:
 ```elixir
 # After calculating engagement score
-case BuxMinter.mint_bux(wallet_address, bux_earned, user_id, post_id, :read, token) do
-  {:ok, _} -> Logger.info("Minted #{bux_earned} #{token}")
+case BuxMinter.mint_bux(wallet_address, bux_earned, user_id, post_id, :read) do
+  {:ok, _} -> Logger.info("Minted #{bux_earned} BUX")
   {:error, reason} -> Logger.error("Mint failed: #{inspect(reason)}")
 end
 ```
@@ -496,7 +471,7 @@ end
 **Usage**:
 ```elixir
 # After verifying retweet
-BuxMinter.mint_bux(wallet, reward_amount, user_id, post_id, :x_share, campaign.token)
+BuxMinter.mint_bux(wallet, reward_amount, user_id, post_id, :x_share)
 ```
 
 **When**: User successfully shares article on X and retweet is verified
@@ -578,7 +553,7 @@ end
 
 ### RPC Call Optimization
 
-1. **Use BalanceAggregator**: Single RPC call vs 11 separate calls
+1. **Use BalanceAggregator**: Single RPC call for BUX + ROGUE
 2. **Cache in Mnesia**: Don't query blockchain on every page load
 3. **Async Syncing**: Use `sync_user_balances_async` for non-blocking updates
 4. **PubSub Broadcasts**: Update all LiveViews simultaneously after sync
@@ -647,3 +622,24 @@ end
 - [ ] Support multiple RPC endpoints for failover
 - [ ] Batch minting for multiple users
 - [ ] WebSocket events for real-time balance updates
+
+---
+
+## Deprecated Hub Tokens (Historical Reference)
+
+> **IMPORTANT**: These tokens are no longer used by the application as of January 2026.
+> The contracts still exist on Rogue Chain but the app no longer mints or tracks these tokens.
+
+| Token | Contract Address |
+|-------|------------------|
+| moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` |
+| neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` |
+| rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` |
+| flareBUX | `0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8` |
+| nftBUX | `0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED` |
+| nolchaBUX | `0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642` |
+| solBUX | `0x92434779E281468611237d18AdE20A4f7F29DB38` |
+| spaceBUX | `0xAcaCa77FbC674728088f41f6d978F0194cf3d55A` |
+| tronBUX | `0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665` |
+| tranBUX | `0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96` |
+| blocksterBUX | `0x133Faa922052aE42485609E14A1565551323CdbE` |

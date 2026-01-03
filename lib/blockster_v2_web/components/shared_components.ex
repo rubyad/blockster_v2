@@ -25,12 +25,11 @@ defmodule BlocksterV2Web.SharedComponents do
   end
 
   @doc """
-  Renders a token badge for posts/content.
-  Shows hub logo with thin black border if post has active hub with token,
-  otherwise shows default blocksterBUX icon with thin black border.
+  Renders a BUX token badge for posts/content.
+  Always shows BUX icon with thin black border (hub tokens removed).
 
   ## Attributes
-    - post: The post struct (must have hub preloaded)
+    - post: The post struct (kept for backward compatibility)
     - balance: The balance to display
     - id: Unique ID for the component (optional)
   """
@@ -39,30 +38,14 @@ defmodule BlocksterV2Web.SharedComponents do
   attr :id, :string, default: nil
 
   def token_badge(assigns) do
-    hub = assigns.post.hub
-    has_hub_token = hub && hub.is_active && hub.token && hub.token != "" && hub.logo_url && hub.logo_url != ""
-    assigns = assign(assigns, :has_hub_token, has_hub_token)
-    assigns = assign(assigns, :hub, hub)
-    assigns = assign(assigns, :unique_id, assigns[:id] || "token_#{:erlang.unique_integer([:positive])}")
-
     ~H"""
-    <%= if @has_hub_token do %>
-      <!-- Hub token badge with thin black border -->
-      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-          <img src={@hub.logo_url} alt={@hub.name} class="h-5 w-5 rounded-full object-cover" />
-          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
-        </div>
+    <!-- BUX badge with thin black border (hub tokens removed) -->
+    <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
+      <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
+        <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
       </div>
-    <% else %>
-      <!-- Default BUX badge with thin black border -->
-      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
-        </div>
-      </div>
-    <% end %>
+    </div>
     """
   end
 

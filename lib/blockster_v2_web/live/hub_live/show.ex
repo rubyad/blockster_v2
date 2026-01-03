@@ -4,7 +4,6 @@ defmodule BlocksterV2Web.HubLive.Show do
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Blog
-  alias BlocksterV2.EngagementTracker
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
@@ -17,14 +16,6 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> redirect(to: "/")}
 
       hub ->
-        # Subscribe to hub BUX updates for real-time updates
-        if connected?(socket) do
-          EngagementTracker.subscribe_to_hub_bux(hub.id)
-        end
-
-        # Get hub BUX balance from Mnesia
-        hub_bux_balance = EngagementTracker.get_hub_bux_balance(hub.id)
-
         # Get posts for this hub by hub_id
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
         posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_balances()
@@ -37,7 +28,6 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:posts_three, posts_three)
          |> assign(:posts_four, posts_four)
          |> assign(:hub, hub)
-         |> assign(:hub_bux_balance, hub_bux_balance)
          |> assign(:page_title, "#{hub.name} Hub")
          |> assign(:show_all, true)
          |> assign(:show_news, false)
@@ -150,16 +140,6 @@ defmodule BlocksterV2Web.HubLive.Show do
        socket
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:last_component_module, last_module)}
-    end
-  end
-
-  @impl true
-  def handle_info({:hub_bux_update, hub_id, new_balance}, socket) do
-    # Only update if this is for the current hub
-    if socket.assigns.hub.id == hub_id do
-      {:noreply, assign(socket, :hub_bux_balance, new_balance)}
-    else
-      {:noreply, socket}
     end
   end
 

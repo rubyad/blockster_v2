@@ -10,6 +10,8 @@ defmodule BlocksterV2.HubLogoCache do
   # Client API
 
   def start_link(_opts) do
+    # Local registration - each node needs its own ETS table for fast local lookups
+    # The GenServer runs on every node and creates a local ETS table
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 

@@ -88,6 +88,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(token_logos: token_logos)
         |> assign(difficulty_options: @difficulty_options)
         |> assign(selected_token: "BUX")
+        |> assign(header_token: "BUX")
         |> assign(selected_difficulty: 1)
         |> assign(bet_amount: 10)
         |> assign(current_bet: 10)
@@ -144,6 +145,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(token_logos: token_logos)
         |> assign(difficulty_options: @difficulty_options)
         |> assign(selected_token: "BUX")
+        |> assign(header_token: "BUX")
         |> assign(selected_difficulty: 1)
         |> assign(bet_amount: 10)
         |> assign(current_bet: 10)
@@ -313,11 +315,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <%= @selected_token %>
                         </a>
                       <% else %>
-                        <p class="flex items-center gap-1">
-                          Balance: <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
+                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-1 text-blue-500 hover:underline cursor-pointer">
+                          <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
                           <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full inline" />
                           <%= @selected_token %>
-                        </p>
+                        </a>
                       <% end %>
                       <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
                         <p class="text-xs text-gray-400">
@@ -694,21 +696,6 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               </div>
             <% end %>
 
-            <!-- Current Balance Display (absolutely positioned in bottom left, visible during game) -->
-            <%= if @game_state in [:flipping, :showing_result, :result] do %>
-              <div class="absolute bottom-4 left-4 text-left">
-                <p class="text-gray-500 text-xs mb-1">Balance</p>
-                <p class="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                  <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full" />
-                </p>
-                <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                  <p class="text-xs text-gray-400">
-                    ≈ <%= format_usd(@rogue_usd_price, Map.get(@balances, "ROGUE", 0)) %>
-                  </p>
-                <% end %>
-              </div>
-            <% end %>
           </div>
         </div>
 
@@ -1140,6 +1127,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     {:noreply,
      socket
      |> assign(selected_token: token)
+     |> assign(header_token: token)
      |> assign(bet_amount: default_bet)
      |> assign(user_stats: user_stats)
      |> assign(show_token_dropdown: false)

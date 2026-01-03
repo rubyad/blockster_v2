@@ -8,34 +8,15 @@ const app = express();
 app.use(express.json());
 
 // Token contract addresses - all deployed on Rogue Chain
+// NOTE: Hub tokens (moonBUX, neoBUX, etc.) removed - only BUX remains for rewards
 const TOKEN_CONTRACTS = {
-  BUX: '0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8',
-  moonBUX: '0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5',
-  neoBUX: '0x423656448374003C2cfEaFF88D5F64fb3A76487C',
-  rogueBUX: '0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3',
-  flareBUX: '0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8',
-  nftBUX: '0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED',
-  nolchaBUX: '0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642',
-  solBUX: '0x92434779E281468611237d18AdE20A4f7F29DB38',
-  spaceBUX: '0xAcaCa77FbC674728088f41f6d978F0194cf3d55A',
-  tronBUX: '0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665',
-  tranBUX: '0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96'
+  BUX: '0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8'
 };
 
-// Private keys for each token owner (from environment)
-// Format: PRIVATE_KEY_TOKENNAME (e.g., PRIVATE_KEY_MOONBUX)
+// Private keys for token owner (from environment)
+// NOTE: Hub token private keys removed - only BUX remains
 const TOKEN_PRIVATE_KEYS = {
-  BUX: process.env.OWNER_PRIVATE_KEY,
-  moonBUX: process.env.PRIVATE_KEY_MOONBUX,
-  neoBUX: process.env.PRIVATE_KEY_NEOBUX,
-  rogueBUX: process.env.PRIVATE_KEY_ROGUEBUX,
-  flareBUX: process.env.PRIVATE_KEY_FLAREBUX,
-  nftBUX: process.env.PRIVATE_KEY_NFTBUX,
-  nolchaBUX: process.env.PRIVATE_KEY_NOLCHABUX,
-  solBUX: process.env.PRIVATE_KEY_SOLBUX,
-  spaceBUX: process.env.PRIVATE_KEY_SPACEBUX,
-  tronBUX: process.env.PRIVATE_KEY_TRONBUX,
-  tranBUX: process.env.PRIVATE_KEY_TRANBUX
+  BUX: process.env.OWNER_PRIVATE_KEY
 };
 
 // Default token for backward compatibility
@@ -49,14 +30,7 @@ const BUX_ABI = [
   'function decimals() external view returns (uint8)'
 ];
 
-// BalanceAggregator contract - fetches all token balances in a single call
-const BALANCE_AGGREGATOR_ADDRESS = '0x3A5a60fE307088Ae3F367d529E601ac52ed2b660';
-const BALANCE_AGGREGATOR_ABI = [
-  'function getBalances(address user, address[] tokens) external view returns (uint256[] memory)'
-];
-
-// Token addresses array in the order we want balances returned
-const TOKEN_ADDRESSES = Object.values(TOKEN_CONTRACTS);
+// NOTE: BalanceAggregator no longer needed - we fetch BUX balance directly from contract
 
 // Configuration from environment
 const RPC_URL = process.env.RPC_URL || 'https://rpc.roguechain.io/rpc';
@@ -277,14 +251,8 @@ app.get('/balances/:address', authenticate, async (req, res) => {
   }
 });
 
-// Token names in the order returned by BalanceAggregator.getBalances()
-const TOKEN_ORDER = ['BUX', 'moonBUX', 'neoBUX', 'rogueBUX', 'flareBUX', 'nftBUX', 'nolchaBUX', 'solBUX', 'spaceBUX', 'tronBUX', 'tranBUX'];
-
-// BalanceAggregator contract instance
-const balanceAggregator = new ethers.Contract(BALANCE_AGGREGATOR_ADDRESS, BALANCE_AGGREGATOR_ABI, provider);
-
-// Get all token balances via BalanceAggregator contract (single RPC call)
-// Also fetches ROGUE (native token) balance separately
+// Get BUX and ROGUE balances
+// NOTE: Simplified - hub tokens removed, only BUX + ROGUE remain
 app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   const { address } = req.params;
 
@@ -293,36 +261,30 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   }
 
   try {
-    console.log(`[AGGREGATED] Fetching balances for ${address}`);
+    console.log(`[BALANCES] Fetching BUX and ROGUE balances for ${address}`);
 
     // Fetch ROGUE (native token) balance using provider.getBalance()
     const rogueBalanceWei = await provider.getBalance(address);
     const rogueBalance = parseFloat(ethers.formatUnits(rogueBalanceWei, 18));
 
-    // Call the aggregator contract - returns array of uint256 balances for ERC-20 tokens
-    const rawBalances = await balanceAggregator.getBalances(address, TOKEN_ADDRESSES);
+    // Fetch BUX balance directly from contract (simpler than using aggregator for single token)
+    const buxBalance = await buxContract.balanceOf(address);
+    const buxFormatted = parseFloat(ethers.formatUnits(buxBalance, 18));
 
-    // Convert to formatted balances map (all tokens have 18 decimals)
-    const balances = { ROGUE: rogueBalance }; // Add ROGUE first
-    let aggregate = 0;
+    const balances = {
+      ROGUE: rogueBalance,
+      BUX: buxFormatted
+    };
 
-    for (let i = 0; i < TOKEN_ORDER.length && i < rawBalances.length; i++) {
-      const tokenName = TOKEN_ORDER[i];
-      const formatted = parseFloat(ethers.formatUnits(rawBalances[i], 18));
-      balances[tokenName] = formatted;
-      aggregate += formatted; // Only BUX tokens count toward aggregate (not ROGUE)
-    }
-
-    console.log(`[AGGREGATED] Balances for ${address}: ROGUE=${rogueBalance}, aggregate=${aggregate}`);
+    console.log(`[BALANCES] Balances for ${address}: ROGUE=${rogueBalance}, BUX=${buxFormatted}`);
 
     res.json({
       address,
-      balances,
-      aggregate
+      balances
     });
   } catch (error) {
-    console.error(`[AGGREGATED] Error getting balances:`, error);
-    res.status(500).json({ error: 'Failed to get aggregated balances', details: error.message });
+    console.error(`[BALANCES] Error getting balances:`, error);
+    res.status(500).json({ error: 'Failed to get balances', details: error.message });
   }
 });
 

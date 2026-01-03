@@ -1,14 +1,15 @@
 defmodule BlocksterV2.BuxMinter do
   @moduledoc """
   Client module for calling the BUX minting service.
-  Mints BUX tokens (and hub-specific tokens) to users' smart wallets when they earn rewards.
+  Mints BUX tokens to users' smart wallets when they earn rewards.
+  NOTE: Hub tokens (moonBUX, neoBUX, etc.) removed - only BUX remains for rewards.
   """
 
   alias BlocksterV2.EngagementTracker
   require Logger
 
-  # Valid token types that can be minted
-  @valid_tokens ~w(BUX moonBUX neoBUX rogueBUX flareBUX nftBUX nolchaBUX solBUX spaceBUX tronBUX tranBUX)
+  # Valid token types that can be minted (hub tokens removed)
+  @valid_tokens ~w(BUX)
 
   @doc """
   Returns the list of valid token types.
@@ -16,7 +17,7 @@ defmodule BlocksterV2.BuxMinter do
   def valid_tokens, do: @valid_tokens
 
   @doc """
-  Mints tokens to a user's smart wallet.
+  Mints BUX tokens to a user's smart wallet.
 
   ## Parameters
     - wallet_address: The user's smart wallet address (ERC-4337)
@@ -24,20 +25,20 @@ defmodule BlocksterV2.BuxMinter do
     - user_id: The user's ID (for logging)
     - post_id: The post ID that earned the reward (for logging)
     - reward_type: The type of reward - :read or :x_share
-    - token: The token type to mint (default: "BUX")
-    - hub_id: Optional hub_id to track hub-level BUX totals (default: nil)
 
   ## Returns
     - {:ok, response} on success with transaction details
     - {:error, reason} on failure
+
+  NOTE: Hub tokens removed. Token parameter kept for backward compatibility but always mints BUX.
   """
-  def mint_bux(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX", hub_id \\ nil)
+  def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
       when reward_type in [:read, :x_share] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
-    # Normalize token - default to BUX if nil or empty
-    token = normalize_token(token)
+    # Always use BUX (hub tokens removed)
+    token = "BUX"
 
     if is_nil(api_secret) or api_secret == "" do
       Logger.warning("[BuxMinter] API_SECRET not configured, skipping mint")
@@ -86,11 +87,6 @@ defmodule BlocksterV2.BuxMinter do
           # Add minted amount to post_bux_points
           EngagementTracker.add_post_bux_earned(post_id, amount)
 
-          # Add minted amount to hub_bux_points (if hub_id provided)
-          if hub_id do
-            EngagementTracker.add_hub_bux_earned(hub_id, amount)
-          end
-
           {:ok, response}
 
         {:ok, %{status_code: status, body: body}} ->
@@ -106,24 +102,24 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   @doc """
-  Mints tokens asynchronously (fire and forget).
+  Mints BUX tokens asynchronously (fire and forget).
   Use this when you don't need to wait for the transaction to complete.
   """
-  def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type, token \\ "BUX")
+  def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX")
       when reward_type in [:read, :x_share] do
     Task.start(fn ->
-      mint_bux(wallet_address, amount, user_id, post_id, reward_type, token)
+      mint_bux(wallet_address, amount, user_id, post_id, reward_type)
     end)
   end
 
   @doc """
-  Gets the token balance for a wallet address.
-  Defaults to BUX if no token specified.
+  Gets the BUX balance for a wallet address.
+  NOTE: Hub tokens removed - always fetches BUX balance.
   """
-  def get_balance(wallet_address, token \\ "BUX") do
+  def get_balance(wallet_address, _token \\ "BUX") do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
-    token = normalize_token(token)
+    token = "BUX"
 
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
@@ -180,8 +176,9 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   @doc """
-  Gets all token balances via the BalanceAggregator contract (single RPC call).
-  Returns {:ok, %{balances: %{}, aggregate: float}} or {:error, reason}.
+  Gets BUX and ROGUE balances.
+  Returns {:ok, %{balances: %{"BUX" => float, "ROGUE" => float}}} or {:error, reason}.
+  NOTE: Hub tokens removed - only BUX and ROGUE are fetched.
   """
   def get_aggregated_balances(wallet_address) do
     minter_url = get_minter_url()
@@ -197,7 +194,7 @@ defmodule BlocksterV2.BuxMinter do
       case http_get("#{minter_url}/aggregated-balances/#{wallet_address}", headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
-          {:ok, %{balances: response["balances"], aggregate: response["aggregate"]}}
+          {:ok, %{balances: response["balances"]}}
 
         {:ok, %{status_code: _status, body: body}} ->
           error = Jason.decode!(body)
@@ -210,26 +207,30 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   @doc """
-  Fetches all token balances via BalanceAggregator and updates the user_bux_balances Mnesia table.
+  Fetches BUX and ROGUE balances and updates the user_bux_balances Mnesia table.
   Call this on page load to sync on-chain balances with local cache.
+  NOTE: Hub tokens removed - only syncs BUX and ROGUE.
   """
   def sync_user_balances(user_id, wallet_address) do
     case get_aggregated_balances(wallet_address) do
-      {:ok, %{balances: balances, aggregate: aggregate}} ->
-        Logger.info("[BuxMinter] Syncing balances for user #{user_id}: aggregate=#{aggregate}")
+      {:ok, %{balances: balances}} ->
+        # Filter to only BUX and ROGUE (hub tokens removed)
+        filtered_balances = Map.take(balances, ["BUX", "ROGUE"])
+        bux_balance = Map.get(filtered_balances, "BUX", 0)
+        Logger.info("[BuxMinter] Syncing balances for user #{user_id}: BUX=#{bux_balance}")
 
-        # Update each token balance in Mnesia
-        Enum.each(balances, fn {token, balance} ->
+        # Update BUX and ROGUE balances in Mnesia
+        Enum.each(filtered_balances, fn {token, balance} ->
           EngagementTracker.update_user_token_balance(user_id, wallet_address, token, balance)
         end)
 
-        # Also update the aggregate in user_bux_points for backward compatibility
-        EngagementTracker.update_user_bux_balance(user_id, wallet_address, aggregate)
+        # Update the BUX balance in user_bux_points for backward compatibility
+        EngagementTracker.update_user_bux_balance(user_id, wallet_address, bux_balance)
 
         # Broadcast token balances update to all LiveViews (including BuxBoosterLive)
-        BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+        BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, filtered_balances)
 
-        {:ok, %{balances: balances, aggregate: aggregate}}
+        {:ok, %{balances: filtered_balances}}
 
       {:error, reason} ->
         Logger.warning("[BuxMinter] Failed to sync balances for user #{user_id}: #{inspect(reason)}")
@@ -342,14 +343,8 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
-  # Normalize token name - default to BUX if nil or empty
-  defp normalize_token(nil), do: "BUX"
-  defp normalize_token(""), do: "BUX"
-  defp normalize_token(token) when token in @valid_tokens, do: token
-  defp normalize_token(token) do
-    Logger.warning("[BuxMinter] Unknown token '#{token}', defaulting to BUX")
-    "BUX"
-  end
+  # Normalize token name - always returns BUX (hub tokens removed)
+  defp normalize_token(_token), do: "BUX"
 
   # Private helpers
 

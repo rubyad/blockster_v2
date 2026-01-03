@@ -414,6 +414,36 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets all user multiplier components from the :user_multipliers Mnesia table.
+  Returns a map with all multiplier values for display.
+  """
+  def get_user_multiplier_details(user_id) do
+    case :mnesia.dirty_read({:user_multipliers, user_id}) do
+      [] ->
+        %{
+          x_multiplier: 1,
+          linkedin_multiplier: 1,
+          personal_multiplier: 1,
+          rogue_multiplier: 1,
+          overall_multiplier: 1
+        }
+      [record] ->
+        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, ...]
+        %{
+          x_multiplier: elem(record, 3) || 1,
+          linkedin_multiplier: elem(record, 4) || 1,
+          personal_multiplier: elem(record, 5) || 1,
+          rogue_multiplier: elem(record, 6) || 1,
+          overall_multiplier: elem(record, 7) || 1
+        }
+    end
+  rescue
+    _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, overall_multiplier: 1}
+  catch
+    :exit, _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, overall_multiplier: 1}
+  end
+
+  @doc """
   Gets user X (Twitter) multiplier from the :user_multipliers Mnesia table.
   Returns the x_multiplier value, defaulting to 1 if not found or nil.
   Creates record with default values if user doesn't exist in the table.
@@ -1221,41 +1251,24 @@ defmodule BlocksterV2.EngagementTracker do
 
   # Maps token names to their corresponding balance field index in the Mnesia record
   # Record structure: {:user_bux_balances, user_id, wallet, updated_at, aggregate, bux, moonbux, neobux, roguebux, flarebux, nftbux, nolchabux, solbux, spacebux, tronbux, tranbux}
+  # NOTE: Hub tokens removed - only BUX is now actively used. Other indices kept for backward compatibility with existing Mnesia records.
   @token_field_indices %{
-    "BUX" => 5,
-    "moonBUX" => 6,
-    "neoBUX" => 7,
-    "rogueBUX" => 8,
-    "flareBUX" => 9,
-    "nftBUX" => 10,
-    "nolchaBUX" => 11,
-    "solBUX" => 12,
-    "spaceBUX" => 13,
-    "tronBUX" => 14,
-    "tranBUX" => 15
+    "BUX" => 5
   }
 
   @doc """
   Updates a specific token balance for a user in the user_bux_balances table.
-  Also updates the aggregate_bux_balance with the sum of all token balances.
+  NOTE: Hub tokens removed - only BUX and ROGUE are now actively used.
+  ROGUE is stored in a separate table (user_rogue_balances).
 
   Table structure (0-indexed tuple positions):
   0: :user_bux_balances (table name)
   1: user_id
   2: user_smart_wallet
   3: updated_at
-  4: aggregate_bux_balance
+  4: aggregate_bux_balance (now equals BUX balance since hub tokens removed)
   5: bux_balance
-  6: moonbux_balance
-  7: neobux_balance
-  8: roguebux_balance
-  9: flarebux_balance
-  10: nftbux_balance
-  11: nolchabux_balance
-  12: solbux_balance
-  13: spacebux_balance
-  14: tronbux_balance
-  15: tranbux_balance
+  6-15: deprecated hub token fields (kept for backward compatibility)
   """
   def update_user_token_balance(user_id, wallet_address, token, balance) do
     # Handle ROGUE separately (native token, stored in separate table)
@@ -1266,7 +1279,8 @@ defmodule BlocksterV2.EngagementTracker do
       field_index = Map.get(@token_field_indices, token)
 
       if is_nil(field_index) do
-        Logger.warning("[EngagementTracker] Unknown token '#{token}' - skipping balance update")
+        # Hub tokens removed - silently skip unknown tokens (only BUX supported now)
+        Logger.debug("[EngagementTracker] Skipping unknown token '#{token}' (hub tokens removed)")
         {:error, :unknown_token}
       else
       # Parse balance to float for calculations
@@ -1278,8 +1292,10 @@ defmodule BlocksterV2.EngagementTracker do
           record = create_new_balance_record(user_id, wallet_address, now, token, balance_float)
           :mnesia.dirty_write(record)
           Logger.info("[EngagementTracker] Created user_bux_balances for user #{user_id}: #{token}=#{balance_float}")
-          # Broadcast the new aggregate balance (for new records, aggregate = balance_float)
+          # Broadcast both aggregate balance and token_balances map (for header display)
           BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, balance_float)
+          # Also broadcast token_balances with just BUX (since only BUX is rewarded now)
+          BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
           {:ok, balance_float}
 
         [existing] ->
@@ -1295,8 +1311,10 @@ defmodule BlocksterV2.EngagementTracker do
 
           :mnesia.dirty_write(updated)
           Logger.info("[EngagementTracker] Updated user_bux_balances for user #{user_id}: #{token}=#{balance_float}, aggregate=#{aggregate}")
-          # Broadcast the updated aggregate balance to subscribed LiveViews
+          # Broadcast both aggregate balance and token_balances map (for header display)
           BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
+          # Also broadcast token_balances with just BUX (since only BUX is rewarded now)
+          BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
           {:ok, balance_float}
       end
       end
@@ -1455,59 +1473,37 @@ defmodule BlocksterV2.EngagementTracker do
   Gets all token balances for a user from the user_bux_balances table.
   Returns a map with token names as keys and balances as values.
   Also includes ROGUE balances from user_rogue_balances table.
+  NOTE: Hub tokens removed - only returns BUX and ROGUE.
   """
   def get_user_token_balances(user_id) do
-    # Get BUX token balances
-    bux_balances = case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+    # Get BUX balance (hub tokens removed)
+    bux_balance = case :mnesia.dirty_read({:user_bux_balances, user_id}) do
       [] ->
         Logger.info("[EngagementTracker] No user_bux_balances record for user #{user_id}")
-        %{
-          "aggregate" => 0.0,
-          "BUX" => 0.0,
-          "moonBUX" => 0.0,
-          "neoBUX" => 0.0,
-          "rogueBUX" => 0.0,
-          "flareBUX" => 0.0,
-          "nftBUX" => 0.0,
-          "nolchaBUX" => 0.0,
-          "solBUX" => 0.0,
-          "spaceBUX" => 0.0,
-          "tronBUX" => 0.0,
-          "tranBUX" => 0.0
-        }
+        0.0
 
       [record] ->
-        Logger.info("[EngagementTracker] user_bux_balances record for user #{user_id}: #{inspect(record)}")
-        %{
-          "aggregate" => elem(record, 4) || 0.0,
-          "BUX" => elem(record, 5) || 0.0,
-          "moonBUX" => elem(record, 6) || 0.0,
-          "neoBUX" => elem(record, 7) || 0.0,
-          "rogueBUX" => elem(record, 8) || 0.0,
-          "flareBUX" => elem(record, 9) || 0.0,
-          "nftBUX" => elem(record, 10) || 0.0,
-          "nolchaBUX" => elem(record, 11) || 0.0,
-          "solBUX" => elem(record, 12) || 0.0,
-          "spaceBUX" => elem(record, 13) || 0.0,
-          "tronBUX" => elem(record, 14) || 0.0,
-          "tranBUX" => elem(record, 15) || 0.0
-        }
+        Logger.info("[EngagementTracker] user_bux_balances record for user #{user_id}: BUX=#{elem(record, 5)}")
+        elem(record, 5) || 0.0
     end
 
-    # Get ROGUE balance (currently only Rogue Chain, Arbitrum coming later)
+    # Get ROGUE balance
     rogue_balance = case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
       [] -> 0.0
       [rogue_record] -> elem(rogue_record, 4) || 0.0  # rogue_balance_rogue_chain
     end
 
-    # Merge ROGUE balance into the map
-    Map.put(bux_balances, "ROGUE", rogue_balance)
+    # Return only BUX and ROGUE (hub tokens removed)
+    %{
+      "BUX" => bux_balance,
+      "ROGUE" => rogue_balance
+    }
   rescue
     _ ->
-      %{"aggregate" => 0.0}
+      %{"BUX" => 0.0, "ROGUE" => 0.0}
   catch
     :exit, _ ->
-      %{"aggregate" => 0.0}
+      %{"BUX" => 0.0, "ROGUE" => 0.0}
   end
 
   @doc """
@@ -1520,6 +1516,7 @@ defmodule BlocksterV2.EngagementTracker do
 
   @doc """
   Debug function to dump a user's bux_balances record to the log.
+  NOTE: Hub tokens removed - only shows BUX balance now.
   """
   def dump_user_bux_balances(user_id) do
     # Check if table exists first
@@ -1531,22 +1528,10 @@ defmodule BlocksterV2.EngagementTracker do
         [record] ->
           Logger.info("""
           [DEBUG] user_bux_balances for user #{user_id}:
-            Raw: #{inspect(record)}
             user_id:       #{elem(record, 1)}
             wallet:        #{elem(record, 2)}
             updated_at:    #{elem(record, 3)}
-            aggregate:     #{elem(record, 4)}
             BUX:           #{elem(record, 5)}
-            moonBUX:       #{elem(record, 6)}
-            neoBUX:        #{elem(record, 7)}
-            rogueBUX:      #{elem(record, 8)}
-            flareBUX:      #{elem(record, 9)}
-            nftBUX:        #{elem(record, 10)}
-            nolchaBUX:     #{elem(record, 11)}
-            solBUX:        #{elem(record, 12)}
-            spaceBUX:      #{elem(record, 13)}
-            tronBUX:       #{elem(record, 14)}
-            tranBUX:       #{elem(record, 15)}
           """)
           record
       end

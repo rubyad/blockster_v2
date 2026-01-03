@@ -16,6 +16,13 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - DO NOT restart node1/node2 after every code fix - Elixir hot reloads most changes automatically
 > - Only restart nodes when explicitly asked, or when changing supervision tree/application config
 > - Code changes in lib/ are automatically recompiled and reloaded on next request
+>
+> **CRITICAL MNESIA RULES**:
+> - NEVER delete or suggest deleting Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`)
+> - Mnesia directories contain persistent user data that cannot be recovered
+> - If Mnesia tables are missing, the issue is usually in the GenServer startup order or global registration
+> - When a new Mnesia table is added, both nodes must be restarted to create the table - this happens automatically on restart
+> - If PriceTracker or other global GenServers fail with "table doesn't exist", check if the GenServer started before MnesiaInitializer finished
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -190,6 +197,43 @@ end
 - Batch database operations where possible
 - Use indexes on frequently queried columns
 
+#### GenServer Global Registration (Multi-Node Cluster)
+**CRITICAL**: Named GenServers (`name: __MODULE__`) are unique **per node**, not globally. In a multi-node cluster (like Fly.io with 2 servers), each node runs its own instance. This causes:
+- Duplicate API calls (wastes external service quotas)
+- Duplicate periodic tasks (settlement attempts, price fetches)
+- Inconsistent state between nodes
+
+**Solution**: Use global registration for GenServers that should only run once across the cluster:
+```elixir
+def start_link(opts) do
+  # Global registration - only one instance across all nodes
+  GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
+end
+
+# Client functions must also use global name
+def some_function do
+  GenServer.call({:global, __MODULE__}, :some_message)
+end
+```
+
+**When to use global registration**:
+- External API polling (CoinGecko prices, etc.) - saves API quota
+- Periodic background tasks (bet settlement, cleanup jobs)
+- Any GenServer making external calls or doing work that shouldn't be duplicated
+
+**When to keep local registration** (`name: __MODULE__`):
+- GenServers that manage local ETS tables (each node needs its own ETS)
+- GenServers where every node needs local state
+
+**Current global GenServers**:
+- `PriceTracker` - polls CoinGecko every 10 min
+- `BuxBoosterBetSettler` - checks for stuck bets every 1 min
+- `TimeTracker` - tracks user reading time
+- `MnesiaInitializer` - initializes Mnesia schema
+
+**Current local GenServers**:
+- `HubLogoCache` - manages local ETS table for fast lookups
+
 #### Mnesia Best Practices
 - **Always use dirty operations** (`dirty_read`, `dirty_write`, `dirty_delete`, `dirty_index_read`) instead of transactions for performance
 - Dirty operations are faster and sufficient for most use cases in this application
@@ -328,16 +372,25 @@ Products use a checkbox-based system for sizes/colors that auto-generates varian
 ## Token System
 
 ### Overview
-- **BUX** is the global token
-- **Hub tokens** are per-hub (e.g., moonBUX, neoBUX, rogueBUX)
+- **BUX** is the only token for reading/sharing rewards and shop discounts
+- **ROGUE** is the native gas token used for BUX Booster betting
 - Token balances tracked in Mnesia via `EngagementTracker`
-- Products can have `bux_max_discount` and `hub_token_max_discount` (percentage 0-100)
-- 1 token = $0.10 discount (configurable via `@token_value_usd`)
+- Products can have `bux_max_discount` (percentage 0-100)
+- 1 BUX = $0.10 discount (configurable via `@token_value_usd`)
+
+> **Note (Jan 2026)**: Hub tokens (moonBUX, neoBUX, etc.) have been removed from the app.
+> All reading/sharing rewards now give BUX only. Shop discounts only use BUX.
+> The hub token contracts still exist on-chain but are no longer used by the app.
 
 ### Token Contracts (Rogue Chain Mainnet)
+| Token | Contract Address | Status |
+|-------|------------------|--------|
+| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` | **Active** |
+| ROGUE | (native token - no contract) | **Active** |
+
+#### Deprecated Hub Tokens (contracts exist but unused by app)
 | Token | Contract Address |
 |-------|------------------|
-| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` |
 | moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` |
 | neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` |
 | rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` |
@@ -1943,3 +1996,33 @@ PriceTracker.refresh_prices()
 **Startup Behavior**: PriceTracker waits for Mnesia `token_prices` table to be created before fetching prices. This prevents errors on first run when table doesn't exist yet.
 
 **Documentation**: See [docs/ROGUE_PRICE_DISPLAY_PLAN.md](docs/ROGUE_PRICE_DISPLAY_PLAN.md) for complete implementation plan.
+
+### Contract Error Handling (Dec 31, 2024)
+
+**Problem**: Users saw cryptic error messages like `Encoded error signature "0xf2c2fd8b" not found on ABI` instead of clear explanations.
+
+**Solution**: Added human-readable error message mapping in JavaScript and server-side validation.
+
+**Contract Error Signatures** (BuxBoosterGame):
+| Signature | Error | Message |
+|-----------|-------|---------|
+| `0xf2c2fd8b` | `BetAmountTooLow()` | Bet amount is below minimum (100 ROGUE) |
+| `0x54f3089e` | `BetAmountTooHigh()` | Bet amount exceeds maximum allowed |
+| `0x9c220f03` | `InsufficientHouseBalance()` | Insufficient house balance for this bet |
+| `0x05d09e5f` | `BetAlreadySettled()` | Bet has already been settled |
+| `0x469bfa91` | `BetNotFound()` | Bet not found on chain |
+| `0xb3679761` | `BetExpiredError()` | Bet has expired |
+| `0x3f9f188e` | `TokenNotEnabled()` | Token not enabled for betting |
+| `0xeff9b19d` | `InvalidDifficulty()` | Invalid difficulty level |
+| `0x341c3a11` | `InvalidPredictions()` | Invalid predictions |
+| `0xb6682ad2` | `CommitmentNotFound()` | Commitment not found |
+| `0xb7c01e1e` | `CommitmentAlreadyUsed()` | Commitment already used |
+
+**Files Changed**:
+- [assets/js/bux_booster_onchain.js](assets/js/bux_booster_onchain.js#L20-66) - Added `CONTRACT_ERROR_MESSAGES` map and `parseContractError()` function
+- [lib/blockster_v2_web/live/bux_booster_live.ex](lib/blockster_v2_web/live/bux_booster_live.ex#L1320-1334) - Added minimum ROGUE bet validation (100 ROGUE)
+
+**How to Add New Errors**:
+1. Get the error signature: `keccak256(toBytes('ErrorName()'))).slice(0, 10)`
+2. Add to `CONTRACT_ERROR_MESSAGES` in `bux_booster_onchain.js`
+3. For common validation errors, also add server-side check in `handle_event("start_game", ...)`

@@ -1,5 +1,7 @@
 # Engagement Tracking System
 
+> **Note (January 2026)**: Hub tokens have been removed from the application. All reading rewards are now paid in BUX tokens only, regardless of which hub the content belongs to.
+
 ## Overview
 
 The engagement tracking system monitors user reading behavior on article pages to determine reading quality and detect bot-like behavior. It calculates an engagement score from 1-10 based on multiple behavioral signals.

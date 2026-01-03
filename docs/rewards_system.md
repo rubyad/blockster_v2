@@ -1,6 +1,8 @@
 # Blockster Rewards System
 
-A comprehensive guide to the multi-token BUX rewards system that rewards users for reading articles and sharing on social media.
+> **Note (January 2026)**: Hub tokens have been removed from the application. Only BUX (for rewards and shop discounts) and ROGUE (for BUX Booster betting) are active. This document has been updated to reflect the simplified BUX-only rewards system.
+
+A guide to the BUX rewards system that rewards users for reading articles and sharing on social media.
 
 ## Table of Contents
 
@@ -11,42 +13,32 @@ A comprehensive guide to the multi-token BUX rewards system that rewards users f
 5. [Share Rewards Flow](#share-rewards-flow)
 6. [BUX Minter Service](#bux-minter-service)
 7. [Database Storage](#database-storage)
-8. [Hub Token Configuration](#hub-token-configuration)
-9. [API Reference](#api-reference)
-10. [Environment Configuration](#environment-configuration)
+8. [API Reference](#api-reference)
+9. [Environment Configuration](#environment-configuration)
 
 ---
 
 ## Overview
 
-The Blockster rewards system incentivizes user engagement through token rewards. Users earn tokens by:
+The Blockster rewards system incentivizes user engagement through token rewards. Users earn BUX by:
 
 1. **Reading articles** - Engagement score based on time spent, scroll depth, and completion
 2. **Sharing on X (Twitter)** - Retweeting and liking campaign tweets
 
-Each hub can configure its own token, allowing for branded reward experiences. Posts without a hub (or hubs without a configured token) default to the standard **BUX** token.
+All rewards are paid in **BUX** tokens regardless of which hub the content belongs to.
 
 ---
 
 ## Token Types
 
-The system supports 11 different token types, each deployed on the Rogue Chain:
+The system uses two tokens:
 
-| Token | Contract Address | Owner Wallet |
-|-------|------------------|--------------|
-| BUX | `0xbe46C2A9C729768aE938bc62eaC51C7Ad560F18d` | `0x2dDC1caA8e63B091D353b8E3E7e3Eeb6008DC7Cd` |
-| moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` | `0x198C14bAa29c8a01d6b08A08a9c32b61F1Aa011F` |
-| neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` | `0xDBAe86548451Bb1aDCC8dec3711888C20f70a0d2` |
-| rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` | `0x8DbeD9fcF5e0BD80CA512634D9f8a2Fe9605bD3e` |
-| flareBUX | `0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8` | `0x7f2b766D73f4A1d5930AFb3C4eB19a1d5c07F426` |
-| nftBUX | `0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED` | `0xE9432533e06fa3f61A9d85E31B451B3094702B72` |
-| nolchaBUX | `0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642` | `0xB6e8cFFBd667C5139C53E18d48F83891c0beF531` |
-| solBUX | `0x92434779E281468611237d18AdE20A4f7F29DB38` | `0x1dd957dD4B8F299a087665A72986Ed50cCE5a489` |
-| spaceBUX | `0xAcaCa77FbC674728088f41f6d978F0194cf3d55A` | `0x9409B1A555862c5B399B355744829E5187db9354` |
-| tronBUX | `0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665` | `0x95e5364787574021fD9Ea44eEd90b30dF5bB5e78` |
-| tranBUX | `0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96` | `0x16E02A25FDfab050Fd3D7E1FB6cB39B61b6CB4A4` |
+| Token | Contract Address | Purpose |
+|-------|------------------|---------|
+| BUX | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` | Reading/sharing rewards, shop discounts |
+| ROGUE | (native token - no contract) | BUX Booster betting, gas fees |
 
-All tokens are ERC-20 compliant with 18 decimals and use the same ABI:
+BUX is an ERC-20 token with 18 decimals:
 
 ```solidity
 function mint(address to, uint256 amount) external
@@ -75,19 +67,18 @@ function decimals() external view returns (uint8)
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  post_live/show.ex                                       │   │
 │  │  - Handles engagement events                              │   │
-│  │  - Determines hub token from post.hub.token               │   │
-│  │  - Calls BuxMinter.mint_bux() with token parameter        │   │
+│  │  - Calls BuxMinter.mint_bux() to reward BUX              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  engagement_tracker.ex                                    │   │
 │  │  - Calculates engagement scores                           │   │
 │  │  - Records rewards in Mnesia tables                       │   │
-│  │  - Updates per-token balances                             │   │
+│  │  - Updates BUX balances                                   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  bux_minter.ex                                            │   │
 │  │  - HTTP client for BUX Minter service                     │   │
-│  │  - Handles token normalization and validation             │   │
+│  │  - Handles token minting and balance queries              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -97,9 +88,9 @@ function decimals() external view returns (uint8)
 │                    (Node.js / Express)                           │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  index.js                                                 │   │
-│  │  - POST /mint - Mint tokens                               │   │
-│  │  - GET /balance/:address - Get single token balance       │   │
-│  │  - GET /balances/:address - Get all token balances        │   │
+│  │  - POST /mint - Mint BUX tokens                           │   │
+│  │  - GET /balance/:address - Get BUX balance                │   │
+│  │  - GET /aggregated-balances/:address - Get all balances   │   │
 │  │  - Uses ethers.js to interact with Rogue Chain            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
@@ -108,9 +99,8 @@ function decimals() external view returns (uint8)
 ┌─────────────────────────────────────────────────────────────────┐
 │                      ROGUE CHAIN                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Token Contracts (ERC-20)                                 │   │
-│  │  - BUX, moonBUX, neoBUX, rogueBUX, flareBUX              │   │
-│  │  - nftBUX, nolchaBUX, solBUX, spaceBUX, tronBUX, tranBUX │   │
+│  │  BUX Token Contract (ERC-20)                              │   │
+│  │  0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -180,22 +170,12 @@ Where:
 - `base_bux_reward`: Post-level reward (default: 1)
 - `user_multiplier`: User-specific multiplier (default: 1.0)
 
-### 4. Token Selection
-
-**File:** `lib/blockster_v2_web/live/post_live/show.ex`
-
-```elixir
-# Get token from hub if available, otherwise default to "BUX"
-defp get_hub_token(%{hub: %{token: token}}) when is_binary(token) and token != "", do: token
-defp get_hub_token(_), do: "BUX"
-```
-
-### 5. Minting Process
+### 4. Minting Process
 
 ```elixir
 # Async mint with callback for tx_hash
 Task.start(fn ->
-  case BuxMinter.mint_bux(wallet, bux_earned, user_id, post_id, :read, hub_token) do
+  case BuxMinter.mint_bux(wallet, bux_earned, user_id, post_id, :read) do
     {:ok, %{"transactionHash" => tx_hash}} ->
       send(lv_pid, {:mint_completed, tx_hash})
     _ ->
@@ -246,10 +226,10 @@ Each post can have an associated share campaign with a specific tweet to retweet
 4. Calls X API to retweet and like
 5. Verifies retweet success
 6. Calculates reward: `x_multiplier × base_bux_reward`
-7. Mints tokens with hub-specific token type
+7. Mints BUX tokens
 8. Updates reward status to "rewarded" in **Mnesia**
 
-**Important:** The entire retweet flow uses Mnesia only. No PostgreSQL queries are made during the retweet action itself. User and post data are already loaded in the LiveView socket from page mount.
+**Important:** The entire retweet flow uses Mnesia only. No PostgreSQL queries are made during the retweet action itself.
 
 ### 4. Reward Calculation
 
@@ -283,7 +263,7 @@ Authorization: Bearer {API_SECRET}
 
 #### POST /mint
 
-Mint tokens to a user's wallet.
+Mint BUX tokens to a user's wallet.
 
 **Request:**
 ```json
@@ -291,8 +271,7 @@ Mint tokens to a user's wallet.
   "walletAddress": "0x...",
   "amount": 10,
   "userId": 123,
-  "postId": 456,
-  "token": "moonBUX"  // optional, defaults to "BUX"
+  "postId": 456
 }
 ```
 
@@ -304,7 +283,7 @@ Mint tokens to a user's wallet.
   "blockNumber": 12345,
   "walletAddress": "0x...",
   "amountMinted": 10,
-  "token": "moonBUX",
+  "token": "BUX",
   "newBalance": "50.0",
   "userId": 123,
   "postId": 456
@@ -313,24 +292,21 @@ Mint tokens to a user's wallet.
 
 #### GET /balance/:address
 
-Get balance for a specific token.
-
-**Query Parameters:**
-- `token` (optional): Token name, defaults to "BUX"
+Get BUX balance for an address.
 
 **Response:**
 ```json
 {
   "address": "0x...",
-  "token": "moonBUX",
+  "token": "BUX",
   "balance": "50.0",
   "balanceWei": "50000000000000000000"
 }
 ```
 
-#### GET /balances/:address
+#### GET /aggregated-balances/:address
 
-Get all token balances for an address.
+Get BUX and ROGUE balances for an address.
 
 **Response:**
 ```json
@@ -338,32 +314,8 @@ Get all token balances for an address.
   "address": "0x...",
   "balances": {
     "BUX": "100.0",
-    "moonBUX": "50.0",
-    "neoBUX": "25.0",
-    "rogueBUX": "0.0",
-    ...
+    "ROGUE": "50.0"
   }
-}
-```
-
-### Token Selection Logic
-
-```javascript
-function getContractForToken(token) {
-  const tokenName = token || 'BUX';
-
-  // Use configured contract if available
-  if (tokenContracts[tokenName]) {
-    return {
-      contract: tokenContracts[tokenName],
-      wallet: tokenWallets[tokenName],
-      token: tokenName
-    };
-  }
-
-  // Fallback to BUX
-  console.log(`[WARN] No private key for ${tokenName}, falling back to BUX`);
-  return { contract: buxContract, wallet: wallet, token: 'BUX' };
 }
 ```
 
@@ -373,7 +325,7 @@ function getContractForToken(token) {
 
 ### Mnesia Tables (Primary Storage)
 
-All X share-related data is stored exclusively in Mnesia for fast, distributed access. PostgreSQL is only used for the `locked_x_user_id` field on the `users` table (for permanent X account locking).
+All X share-related data is stored exclusively in Mnesia for fast, distributed access.
 
 #### x_oauth_states (Mnesia)
 Temporary storage for OAuth state during authorization flow.
@@ -442,7 +394,7 @@ Key: {user_id, campaign_id} tuple
 
 ### PostgreSQL (Limited Use)
 
-Only the `users.locked_x_user_id` field is stored in PostgreSQL for permanent X account locking. This ensures users cannot switch X accounts to game rewards.
+Only the `users.locked_x_user_id` field is stored in PostgreSQL for permanent X account locking.
 
 ### Other Mnesia Tables
 
@@ -465,31 +417,23 @@ Real-time reward data for engagement tracking:
 ```
 
 #### user_bux_balances
-Tracks per-token balances for each user:
+Tracks BUX balance for each user:
 
 ```
 {user_id, user_smart_wallet, updated_at, aggregate_bux_balance,
- bux_balance, moonbux_balance, neobux_balance, roguebux_balance,
- flarebux_balance, nftbux_balance, nolchabux_balance, solbux_balance,
- spacebux_balance, tronbux_balance, tranbux_balance}
+ bux_balance, ...deprecated hub token fields...}
 ```
 
-**IMPORTANT**: `aggregate_bux_balance` is the sum of ALL BUX-flavored tokens (indices 5-15) ONLY. ROGUE is stored separately in `user_rogue_balances` and is NOT included in the aggregate.
+**Note**: Fields for hub tokens (indices 6-15) remain in the schema for backward compatibility but are no longer used. Only `bux_balance` (index 5) is actively maintained.
 
-**Aggregate Calculation**:
-```elixir
-# Sum indices 5-15: BUX, moonBUX, neoBUX, rogueBUX, flareBUX,
-# nftBUX, nolchaBUX, solBUX, spaceBUX, tronBUX, tranBUX
-aggregate = Enum.reduce(5..15, 0.0, fn index, acc ->
-  acc + (elem(record, index) || 0.0)
-end)
+#### user_rogue_balances
+Tracks ROGUE (native token) balance separately:
+
+```
+{user_id, rogue_balance, updated_at}
 ```
 
-**Why ROGUE is Excluded**:
-- ROGUE is the native gas token of Rogue Chain (like ETH on Ethereum)
-- ROGUE is not an ERC-20 token - no contract address
-- ROGUE represents chain-level assets, not BUX economy tokens
-- Aggregate represents BUX-flavored token economy only
+**IMPORTANT**: ROGUE is the native gas token of Rogue Chain and is NOT included in BUX aggregate calculations. It has no contract address.
 
 #### user_multipliers
 ```
@@ -500,29 +444,6 @@ end)
 
 ---
 
-## Hub Token Configuration
-
-### Setting Up a Hub Token
-
-1. Create/edit a hub in the admin panel
-2. Set the `token` field to one of the valid token names:
-   - `BUX`, `moonBUX`, `neoBUX`, `rogueBUX`, `flareBUX`
-   - `nftBUX`, `nolchaBUX`, `solBUX`, `spaceBUX`, `tronBUX`, `tranBUX`
-3. Optionally set a hub `logo` for display in the rewards panel
-
-### UI Display
-
-When a post has a hub with a configured token:
-
-1. **Earning Panel** - Shows hub logo (if set) and token name
-2. **Share Campaign Box** - Shows token name in reward badge
-3. **Share Modal** - Header and buttons display token name
-4. **Success Messages** - Include the specific token name
-
-If no hub token is configured, "BUX" is displayed everywhere.
-
----
-
 ## API Reference
 
 ### Elixir Functions
@@ -530,37 +451,32 @@ If no hub token is configured, "BUX" is displayed everywhere.
 #### BuxMinter
 
 ```elixir
-# Mint tokens (sync)
-BuxMinter.mint_bux(wallet_address, amount, user_id, post_id, :read, "moonBUX")
-BuxMinter.mint_bux(wallet_address, amount, user_id, post_id, :x_share, "moonBUX")
+# Mint BUX tokens (sync)
+BuxMinter.mint_bux(wallet_address, amount, user_id, post_id, :read)
+BuxMinter.mint_bux(wallet_address, amount, user_id, post_id, :x_share)
 
-# Mint tokens (async)
-BuxMinter.mint_bux_async(wallet_address, amount, user_id, post_id, :read, "moonBUX")
+# Mint BUX tokens (async)
+BuxMinter.mint_bux_async(wallet_address, amount, user_id, post_id, :read)
 
-# Get balance for specific token
-BuxMinter.get_balance(wallet_address, "moonBUX")
+# Get BUX balance
+BuxMinter.get_balance(wallet_address)
 
-# Get all token balances
-BuxMinter.get_all_balances(wallet_address)
-
-# List valid tokens
-BuxMinter.valid_tokens()
-# => ["BUX", "moonBUX", "neoBUX", "rogueBUX", "flareBUX",
-#     "nftBUX", "nolchaBUX", "solBUX", "spaceBUX", "tronBUX", "tranBUX"]
+# Get all token balances (BUX and ROGUE)
+BuxMinter.get_aggregated_balances(wallet_address)
 ```
 
 #### EngagementTracker
 
 ```elixir
-# Update per-token balance
-EngagementTracker.update_user_token_balance(user_id, wallet, "moonBUX", "100.5")
+# Update BUX balance
+EngagementTracker.update_user_token_balance(user_id, wallet, "BUX", "100.5")
 
 # Get all token balances for user
 EngagementTracker.get_user_token_balances(user_id)
-# => %{"aggregate" => 150.5, "BUX" => 50.0, "moonBUX" => 100.5, ...}
+# => %{"BUX" => 100.5, "ROGUE" => 50.0}
 
-# Get specific token balance
-EngagementTracker.get_user_token_balance(user_id, "moonBUX")
+# Get BUX balance
+EngagementTracker.get_user_token_balance(user_id, "BUX")
 # => 100.5
 ```
 
@@ -584,18 +500,8 @@ API_SECRET=your-secret-key
 # Rogue Chain RPC
 RPC_URL=https://rpc.roguechain.io/rpc
 
-# Token owner private keys
-OWNER_PRIVATE_KEY=0x...           # BUX token owner
-PRIVATE_KEY_MOONBUX=0x...         # moonBUX token owner
-PRIVATE_KEY_NEOBUX=0x...          # neoBUX token owner
-PRIVATE_KEY_ROGUEBUX=0x...        # rogueBUX token owner
-PRIVATE_KEY_FLAREBUX=0x...        # flareBUX token owner
-PRIVATE_KEY_NFTBUX=0x...          # nftBUX token owner
-PRIVATE_KEY_NOLCHABUX=0x...       # nolchaBUX token owner
-PRIVATE_KEY_SOLBUX=0x...          # solBUX token owner
-PRIVATE_KEY_SPACEBUX=0x...        # spaceBUX token owner
-PRIVATE_KEY_TRONBUX=0x...         # tronBUX token owner
-PRIVATE_KEY_TRANBUX=0x...         # tranBUX token owner
+# BUX token owner private key
+OWNER_PRIVATE_KEY=0x...
 ```
 
 ### Production Deployment (Fly.io)
@@ -605,19 +511,16 @@ Set secrets using:
 ```bash
 flyctl secrets set API_SECRET=your-secret-key
 flyctl secrets set OWNER_PRIVATE_KEY=0x...
-flyctl secrets set PRIVATE_KEY_MOONBUX=0x...
-# ... etc
 ```
 
 ---
 
 ## Security Considerations
 
-1. **Private Key Isolation** - Token owner private keys only exist in the BUX Minter service, never in the main app
+1. **Private Key Isolation** - BUX token owner private key only exists in the BUX Minter service, never in the main app
 2. **Bearer Token Auth** - All minting requests require valid API secret
 3. **Wallet Validation** - All wallet addresses are validated before minting
 4. **Transaction Verification** - Transactions are confirmed on-chain before recording
-5. **Token Fallback** - Invalid/unconfigured tokens fall back to BUX to prevent errors
 
 ---
 
@@ -625,19 +528,14 @@ flyctl secrets set PRIVATE_KEY_MOONBUX=0x...
 
 ### Common Issues
 
-1. **"No private key configured for X token"**
-   - Ensure the corresponding `PRIVATE_KEY_*` env var is set in bux-minter
-   - The system will fall back to BUX
+1. **"No private key configured"**
+   - Ensure `OWNER_PRIVATE_KEY` env var is set in bux-minter
 
 2. **"Insufficient gas funds"**
-   - The token owner wallet needs ROGUE for gas
+   - The BUX token owner wallet needs ROGUE for gas
    - Fund the wallet shown in the error message
 
-3. **Token not appearing in UI**
-   - Verify hub.token field is set correctly
-   - Check that token name matches exactly (case-sensitive)
-
-4. **Balance not updating**
+3. **Balance not updating**
    - Check BUX Minter logs for errors
    - Verify RPC endpoint is responsive
    - Check Mnesia table `user_bux_balances`
@@ -646,15 +544,36 @@ flyctl secrets set PRIVATE_KEY_MOONBUX=0x...
 
 **BUX Minter:**
 ```
-[INIT] Configured moonBUX with wallet 0x...
-[MINT] Starting mint: 10 moonBUX to 0x...
+[INIT] Configured BUX with wallet 0x...
+[MINT] Starting mint: 10 BUX to 0x...
 [MINT] Transaction submitted: 0x...
 [MINT] Transaction confirmed in block 12345
 ```
 
 **Blockster App:**
 ```
-[BuxMinter] Minting 10 moonBUX to 0x... (user: 123, post: 456)
-[BuxMinter] Mint successful: moonBUX tx=0x...
-[EngagementTracker] Updated user_bux_balances: moonBUX=10.0, aggregate=10.0
+[BuxMinter] Minting 10 BUX to 0x... (user: 123, post: 456)
+[BuxMinter] Mint successful: BUX tx=0x...
+[EngagementTracker] Updated user_bux_balances: BUX=10.0
 ```
+
+---
+
+## Deprecated Hub Tokens (Historical Reference)
+
+> **IMPORTANT**: These tokens are no longer used by the application as of January 2026.
+> The contracts still exist on Rogue Chain but the app no longer mints or tracks these tokens.
+
+| Token | Contract Address |
+|-------|------------------|
+| moonBUX | `0x08F12025c1cFC4813F21c2325b124F6B6b5cfDF5` |
+| neoBUX | `0x423656448374003C2cfEaFF88D5F64fb3A76487C` |
+| rogueBUX | `0x56d271b1C1DCF597aA3ee454bCCb265d4Dee47b3` |
+| flareBUX | `0xd27EcA9bc2401E8CEf92a14F5Ee9847508EDdaC8` |
+| nftBUX | `0x9853e3Abea96985d55E9c6963afbAf1B0C9e49ED` |
+| nolchaBUX | `0x4cE5C87FAbE273B58cb4Ef913aDEa5eE15AFb642` |
+| solBUX | `0x92434779E281468611237d18AdE20A4f7F29DB38` |
+| spaceBUX | `0xAcaCa77FbC674728088f41f6d978F0194cf3d55A` |
+| tronBUX | `0x98eDb381281FA02b494FEd76f0D9F3AEFb2Db665` |
+| tranBUX | `0xcDdE88C8bacB37Fc669fa6DECE92E3d8FE672d96` |
+| blocksterBUX | `0x133Faa922052aE42485609E14A1565551323CdbE` |

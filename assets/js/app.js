@@ -130,27 +130,6 @@ let TokenInput = {
   }
 };
 
-// TokenAllocationDropdown Hook for handling click-outside to close dropdown
-let TokenAllocationDropdown = {
-  mounted() {
-    this.handleClickOutside = (e) => {
-      const dropdown = document.getElementById('allocation-dropdown');
-      const wrapper = this.el;
-
-      // If dropdown exists and click is outside wrapper, close it
-      if (dropdown && !wrapper.contains(e.target)) {
-        this.pushEvent('hide_allocation_dropdown', {});
-      }
-    };
-
-    document.addEventListener('click', this.handleClickOutside);
-  },
-
-  destroyed() {
-    document.removeEventListener('click', this.handleClickOutside);
-  }
-};
-
 let CopyToClipboard = {
   mounted() {
     this.el.addEventListener("click", (e) => {
@@ -292,7 +271,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, TokenAllocationDropdown, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain },
 });
 
 // connect if there are any LiveViews on the page

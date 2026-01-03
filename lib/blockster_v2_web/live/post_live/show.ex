@@ -33,8 +33,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Add bux_balance from Mnesia
     updated_post = Blog.with_bux_balances(post)
 
-    # Get the token type from the hub (if any) - defaults to "BUX"
-    hub_token = get_hub_token(updated_post)
+    # Always use "BUX" for rewards (hub tokens removed)
     hub_logo = get_hub_logo(updated_post)
 
     # Get existing time spent for this user on this post
@@ -127,7 +126,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:show_share_modal, false)
      |> assign(:share_status, nil)
      |> assign(:needs_x_reconnect, false)
-     |> assign(:hub_token, hub_token)
+     |> assign(:hub_token, "BUX")  # Always BUX (hub tokens removed)
      |> assign(:hub_logo, hub_logo)
      |> assign(:related_posts, related_posts)}
   end
@@ -178,9 +177,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     :exit, _ -> nil
   end
 
-  # Get the token type from the post's hub (if any)
-  # Returns "BUX" as default if no hub or hub has no token configured
-  defp get_hub_token(%{hub: %{token: token}}) when is_binary(token) and token != "", do: token
+  # Always return "BUX" (hub tokens removed)
   defp get_hub_token(_), do: "BUX"
 
   # Get the hub's logo URL (if any) for displaying alongside the token
@@ -261,15 +258,13 @@ defmodule BlocksterV2Web.PostLive.Show do
               engagement = safe_get_engagement(user_id, post_id)
               rewards = safe_get_rewards(user_id, post_id)
 
-              # Mint tokens to user's smart wallet (async with callback to update tx_id)
-              # Use hub-specific token if configured, otherwise default to BUX
+              # Mint BUX tokens to user's smart wallet (async with callback to update tx_id)
               if socket.assigns[:current_user] do
                 wallet = socket.assigns.current_user.smart_wallet_address
-                hub_token = socket.assigns.hub_token
                 if wallet && wallet != "" do
                   lv_pid = self()
                   Task.start(fn ->
-                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read, hub_token, socket.assigns.post.hub_id) do
+                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read) do
                       {:ok, %{"transactionHash" => tx_hash}} ->
                         send(lv_pid, {:mint_completed, tx_hash})
                       _ ->
@@ -467,13 +462,11 @@ defmodule BlocksterV2Web.PostLive.Show do
                         # Update campaign share count
                         Social.increment_campaign_shares(share_campaign)
 
-                        # Mint tokens to user's wallet (synchronous to capture tx_hash)
-                        # Use hub-specific token if configured, otherwise default to BUX
+                        # Mint BUX tokens to user's wallet (synchronous to capture tx_hash)
                         wallet = user.smart_wallet_address
-                        hub_token = socket.assigns.hub_token
                         tx_hash =
                           if wallet && wallet != "" do
-                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share, hub_token, post.hub_id) do
+                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share) do
                               {:ok, response} -> response["transactionHash"]
                               {:error, _} -> nil
                             end
@@ -483,12 +476,12 @@ defmodule BlocksterV2Web.PostLive.Show do
 
                         {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, bux_amount, tx_hash: tx_hash, post_id: post.id)
 
-                        # Build success message - mention if like failed, use hub token name
+                        # Build success message
                         success_msg =
                           if result[:liked] do
-                            "Retweeted & Liked! You earned #{bux_amount} #{hub_token}!"
+                            "Retweeted & Liked! You earned #{bux_amount} BUX!"
                           else
-                            "Retweeted! You earned #{bux_amount} #{hub_token}!"
+                            "Retweeted! You earned #{bux_amount} BUX!"
                           end
 
                         {:noreply,

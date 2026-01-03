@@ -18,7 +18,16 @@ defmodule BlocksterV2.BuxBoosterBetSettler do
   @settlement_timeout 120  # Don't try to settle bets younger than 2 minutes (in seconds)
 
   def start_link(_opts) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+    # Use global registration to ensure only one BetSettler runs across the cluster
+    # This prevents duplicate settlement attempts from multiple nodes
+    case GenServer.start_link(__MODULE__, [], name: {:global, __MODULE__}) do
+      {:ok, pid} ->
+        {:ok, pid}
+
+      {:error, {:already_started, _pid}} ->
+        # Another node already started the global GenServer - this is expected
+        :ignore
+    end
   end
 
   def init(_) do

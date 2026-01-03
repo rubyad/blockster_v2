@@ -64,11 +64,22 @@ defmodule BlocksterV2Web.Layouts do
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
   attr :token_balances, :map, default: %{}, doc: "the user's individual token balances"
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
+  attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
 
   def site_header(assigns) do
-    # Format BUX balance with thousand separators and 2 decimal places
-    formatted_balance = Number.Currency.number_to_currency(assigns.bux_balance || 0, unit: "", precision: 2)
-    assigns = assign(assigns, :formatted_bux_balance, formatted_balance)
+    # Get the selected token balance and logo (defaults to BUX)
+    token = assigns.header_token || "BUX"
+    balance = Map.get(assigns.token_balances || %{}, token, 0)
+    formatted_balance = Number.Currency.number_to_currency(balance, unit: "", precision: 2)
+    token_logo = if token == "ROGUE" do
+      "https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png"
+    else
+      "https://ik.imagekit.io/blockster/blockster-icon.png"
+    end
+    assigns = assigns
+      |> assign(:formatted_bux_balance, formatted_balance)
+      |> assign(:display_token, token)
+      |> assign(:token_logo, token_logo)
 
     ~H"""
     <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
@@ -164,20 +175,9 @@ defmodule BlocksterV2Web.Layouts do
             <%= if @current_user do %>
               <!-- Logged in user display with dropdown -->
               <div class="relative" id="desktop-user-dropdown" phx-click-away={JS.hide(to: "#desktop-dropdown-menu")}>
-                <button id="desktop-user-button" phx-click={JS.toggle(to: "#desktop-dropdown-menu")} class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-1 pr-3 hover:bg-gray-200 transition-colors cursor-pointer">
-                  <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
-                    <%= if @current_user.avatar_url do %>
-                      <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
-                    <% else %>
-                      <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
-                    <% end %>
-                  </div>
-                  <div class="flex flex-col items-start">
-                    <span class="text-[9px] text-gray-400 font-haas_medium_65 uppercase leading-none">BUX Balances</span>
-                    <h4 class="text-base font-haas_medium_65 text-[#000000] leading-tight">
-                      {@formatted_bux_balance} <span class="text-sm text-gray-500">BUX</span>
-                    </h4>
-                  </div>
+                <button id="desktop-user-button" phx-click={JS.toggle(to: "#desktop-dropdown-menu")} class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-2 pr-3 hover:bg-gray-200 transition-colors cursor-pointer">
+                  <img src={@token_logo} alt={@display_token} class="w-6 h-6 rounded-full" />
+                  <span class="text-base font-haas_medium_65 text-[#000000]">{@formatted_bux_balance} <span class="text-sm text-gray-500">{@display_token}</span></span>
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" class="ml-1">
                     <path d="M8 10L12 14L16 10" stroke="#101C36" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
@@ -194,18 +194,14 @@ defmodule BlocksterV2Web.Layouts do
                     <div class="font-semibold">Wallet</div>
                     <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
                   </a>
-                    <!-- Token Balances -->
+                    <!-- Token Balances (BUX and ROGUE only - hub tokens removed) -->
                     <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
                       <div class="border-t border-gray-100 py-1">
                         <%
-                          # Always show ROGUE and BUX at top, then other tokens with balance > 0
+                          # Only show ROGUE and BUX (hub tokens removed)
                           rogue_balance = Map.get(@token_balances, "ROGUE", 0)
                           bux_balance = Map.get(@token_balances, "BUX", 0)
-                          other_tokens = Enum.filter(@token_balances, fn {k, v} ->
-                            k not in ["aggregate", "ROGUE", "BUX"] && is_number(v) && v > 0
-                          end) |> Enum.sort_by(fn {_, v} -> v end, :desc)
-
-                          display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}] ++ other_tokens
+                          display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}]
                         %>
                         <%= for {token_name, balance} <- display_tokens do %>
                           <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
@@ -223,16 +219,6 @@ defmodule BlocksterV2Web.Layouts do
                             <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
                           </div>
                         <% end %>
-                        <!-- Total Aggregate -->
-                        <a
-                          href={"https://roguescan.io/address/#{@current_user.smart_wallet_address}?tab=tokens"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <span class="font-semibold">Total BUX</span>
-                          <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
-                        </a>
                       </div>
                     <% end %>
                     <div class="border-t border-gray-100"></div>
@@ -379,18 +365,9 @@ defmodule BlocksterV2Web.Layouts do
           <%= if @current_user do %>
             <!-- Mobile logged in user with dropdown -->
             <div class="relative" id="mobile-user-dropdown" phx-click-away={JS.hide(to: "#mobile-dropdown-menu")}>
-              <button id="mobile-user-button" phx-click={JS.toggle(to: "#mobile-dropdown-menu")} class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1 pl-1 pr-2 shadow-sm cursor-pointer">
-                <div class="img-rounded h-8 min-w-8 rounded-full bg-[#AFB5FF]">
-                  <%= if @current_user.avatar_url do %>
-                    <img src={@current_user.avatar_url} alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
-                  <% else %>
-                    <img src="/images/avatar.png" alt="User" class="h-full w-full min-w-auto object-cover rounded-full" />
-                  <% end %>
-                </div>
-                <div class="flex flex-col items-start">
-                  <span class="text-[8px] text-gray-400 font-haas_medium_65 uppercase leading-none">BUX Balances</span>
-                  <span class="text-sm font-haas_medium_65 text-[#000000] leading-tight">{@formatted_bux_balance} <span class="text-gray-500">BUX</span></span>
-                </div>
+              <button id="mobile-user-button" phx-click={JS.toggle(to: "#mobile-dropdown-menu")} class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1.5 pl-2 pr-2 shadow-sm cursor-pointer">
+                <img src={@token_logo} alt={@display_token} class="w-6 h-6 rounded-full" />
+                <span class="text-sm font-haas_medium_65 text-[#000000]">{@formatted_bux_balance} <span class="text-gray-500">{@display_token}</span></span>
                 <span class="flex items-center transition-all ease-linear duration-500">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M8 10L12 14L16 10" stroke="#101D36" stroke-width="1.5" stroke-linecap="square" />
@@ -411,8 +388,14 @@ defmodule BlocksterV2Web.Layouts do
                   </a>
                   <!-- Token Balances (Mobile) -->
                   <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
+                    <%
+                      # Only show ROGUE and BUX (hub tokens removed)
+                      rogue_balance = Map.get(@token_balances, "ROGUE", 0)
+                      bux_balance = Map.get(@token_balances, "BUX", 0)
+                      display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}]
+                    %>
                     <div class="border-t border-gray-100 py-1">
-                      <%= for {token_name, balance} <- Enum.filter(@token_balances, fn {k, v} -> k != "aggregate" && (is_number(v) && v > 0) end) |> Enum.sort_by(fn {_, v} -> v end, :desc) do %>
+                      <%= for {token_name, balance} <- display_tokens do %>
                         <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
                           <div class="flex items-center gap-2">
                             <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>
@@ -428,16 +411,6 @@ defmodule BlocksterV2Web.Layouts do
                           <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
                         </div>
                       <% end %>
-                      <!-- Total Aggregate -->
-                      <a
-                        href={"https://roguescan.io/address/#{@current_user.smart_wallet_address}?tab=tokens"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-700 border-t border-gray-100 mt-1 pt-2 hover:bg-gray-50 cursor-pointer"
-                      >
-                        <span class="font-semibold">Total BUX</span>
-                        <span class="font-semibold">{Number.Delimit.number_to_delimited(@token_balances["aggregate"] || @bux_balance || 0, precision: 2)}</span>
-                      </a>
                     </div>
                   <% end %>
                   <div class="border-t border-gray-100"></div>

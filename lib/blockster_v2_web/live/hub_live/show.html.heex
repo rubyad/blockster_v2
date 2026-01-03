@@ -61,16 +61,10 @@
 
     <div class="flex flex-wrap gap-4 items-center justify-between mt-4">
       <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-        <button class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]" onclick="toggleModal('buxModal', event)">
-          <%= if @hub.logo_url do %>
-            <img src={@hub.logo_url} alt={@hub.name} class="h-5 w-5 rounded-full object-cover" />
-          <% else %>
-            <div class="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-haas_bold_75 bg-[#141414]">
-              {String.first(@hub.name)}
-            </div>
-          <% end %>
-          <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@hub_bux_balance, precision: 2)} {@hub.token || "BUX"}</span>
-        </button>
+        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
+          <span class="text-xs font-haas_medium_65">Earn BUX</span>
+        </div>
       </div>
 
       <!-- Social Media Icons -->
