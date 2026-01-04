@@ -43,6 +43,14 @@ class HighRollersApp {
     mintService.onMintError((error) => this.handleMintError(error));
   }
 
+  // ==================== Wallet Balance ====================
+
+  async updateWalletBalance() {
+    if (!walletService.isConnected()) return;
+    const balance = await walletService.getBalance();
+    document.getElementById('wallet-balance').textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+  }
+
   // ==================== Tab Navigation ====================
 
   setupTabNavigation() {
@@ -285,8 +293,9 @@ class HighRollersApp {
     document.getElementById('minted-tx-link').href =
       `${CONFIG.EXPLORER_URL}/tx/${data.txHash}`;
 
-    // Refresh stats
+    // Refresh stats and wallet balance
     this.loadStats();
+    this.updateWalletBalance();
 
     UI.showToast(`You minted ${data.hostessName}!`, 'success');
   }
@@ -640,8 +649,9 @@ class HighRollersApp {
 
       UI.showToast('Withdrawal successful!', 'success');
 
-      // Refresh stats
+      // Refresh stats and wallet balance
       await this.loadMyAffiliateStats();
+      await this.updateWalletBalance();
     } catch (error) {
       console.error('Withdrawal failed:', error);
       UI.showToast(error.message || 'Withdrawal failed', 'error');
