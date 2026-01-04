@@ -17,86 +17,161 @@ class EventListener {
     this.pendingMints = new Map(); // requestId -> { sender, timestamp, tokenId }
     this.lastKnownSupply = 0;
 
-    // Reconnection state
-    this.isConnected = false;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 10;
+    // Track last processed block for polling
+    this.lastProcessedBlock = 0;
+
+    // Polling interval (in ms) - 30 seconds to reduce RPC load
+    this.pollIntervalMs = 30000;
   }
 
-  start() {
-    this.setupEventListeners();
+  async start() {
+    // Get current block number to start polling from
+    try {
+      this.lastProcessedBlock = await this.provider.getBlockNumber();
+      console.log(`[EventListener] Starting from block ${this.lastProcessedBlock}`);
+    } catch (error) {
+      console.error('[EventListener] Failed to get block number:', error.message);
+      this.lastProcessedBlock = 0;
+    }
+
+    // Use polling instead of event filters (filters cause "filter not found" errors)
+    this.startEventPolling();
     this.startFallbackPolling();
-    this.startHealthCheck();
+    console.log('[EventListener] Started (using polling mode)');
   }
 
-  setupEventListeners() {
-    // Listen for NFTRequested (mint initiated)
-    this.contract.on('NFTRequested', async (requestId, sender, price, tokenId, event) => {
-      console.log(`[Event] NFTRequested: requestId=${requestId}, sender=${sender}, tokenId=${tokenId}`);
+  /**
+   * Poll for events using getLogs instead of filters
+   * This avoids the "filter not found" errors that occur with eth_getFilterChanges
+   */
+  startEventPolling() {
+    this.pollInterval = setInterval(async () => {
+      try {
+        const currentBlock = await this.provider.getBlockNumber();
 
-      // Track pending mint for fallback
-      this.pendingMints.set(requestId.toString(), {
-        sender,
-        tokenId: tokenId.toString(),
-        price: price.toString(),
-        timestamp: Date.now(),
-        txHash: event.log.transactionHash
-      });
+        // Only poll if there are new blocks
+        if (currentBlock <= this.lastProcessedBlock) return;
 
-      // Store in database
-      this.db.insertPendingMint({
-        requestId: requestId.toString(),
-        sender,
-        tokenId: tokenId.toString(),
-        price: price.toString(),
-        txHash: event.log.transactionHash
-      });
+        const fromBlock = this.lastProcessedBlock + 1;
+        const toBlock = currentBlock;
 
-      this.ws.broadcast({
-        type: 'MINT_REQUESTED',
-        data: {
+        // Don't query more than 1000 blocks at a time
+        const maxBlocks = 1000;
+        const queryToBlock = Math.min(toBlock, fromBlock + maxBlocks - 1);
+
+        // Query NFTRequested events
+        await this.pollNFTRequestedEvents(fromBlock, queryToBlock);
+
+        // Query NFTMinted events
+        await this.pollNFTMintedEvents(fromBlock, queryToBlock);
+
+        // Query Transfer events (non-mint only)
+        await this.pollTransferEvents(fromBlock, queryToBlock);
+
+        this.lastProcessedBlock = queryToBlock;
+
+      } catch (error) {
+        // Don't spam console with rate limit or coalesce errors
+        if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
+          console.error('[EventListener] Polling error:', error.message);
+        }
+      }
+    }, this.pollIntervalMs);
+  }
+
+  async pollNFTRequestedEvents(fromBlock, toBlock) {
+    try {
+      const filter = this.contract.filters.NFTRequested();
+      const events = await this.contract.queryFilter(filter, fromBlock, toBlock);
+
+      for (const event of events) {
+        const [requestId, sender, price, tokenId] = event.args;
+        console.log(`[Event] NFTRequested: requestId=${requestId}, sender=${sender}, tokenId=${tokenId}`);
+
+        // Track pending mint for fallback
+        this.pendingMints.set(requestId.toString(), {
+          sender,
+          tokenId: tokenId.toString(),
+          price: price.toString(),
+          timestamp: Date.now(),
+          txHash: event.transactionHash
+        });
+
+        // Store in database
+        this.db.insertPendingMint({
           requestId: requestId.toString(),
           sender,
+          tokenId: tokenId.toString(),
           price: price.toString(),
-          tokenId: tokenId.toString(),
-          txHash: event.log.transactionHash
-        }
-      });
-    });
+          txHash: event.transactionHash
+        });
 
-    // Listen for NFTMinted (Chainlink VRF callback complete)
-    this.contract.on('NFTMinted', async (requestId, recipient, price, tokenId, hostess, affiliate, affiliate2, event) => {
-      this.handleMintComplete(requestId, recipient, price, tokenId, hostess, affiliate, affiliate2, event);
-    });
+        this.ws.broadcast({
+          type: 'MINT_REQUESTED',
+          data: {
+            requestId: requestId.toString(),
+            sender,
+            price: price.toString(),
+            tokenId: tokenId.toString(),
+            txHash: event.transactionHash
+          }
+        });
+      }
+    } catch (error) {
+      // Suppress rate limit errors
+      if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
+        console.error('[EventListener] NFTRequested poll error:', error.message);
+      }
+    }
+  }
 
-    // Listen for Transfer events (for secondary sales / transfers)
-    this.contract.on('Transfer', async (from, to, tokenId, event) => {
-      // Skip mint transfers (from zero address)
-      if (from === ethers.ZeroAddress) return;
+  async pollNFTMintedEvents(fromBlock, toBlock) {
+    try {
+      const filter = this.contract.filters.NFTMinted();
+      const events = await this.contract.queryFilter(filter, fromBlock, toBlock);
 
-      console.log(`[Event] Transfer: tokenId=${tokenId}, from=${from}, to=${to}`);
+      for (const event of events) {
+        const [requestId, recipient, price, tokenId, hostess, affiliate, affiliate2] = event.args;
+        this.handleMintComplete(requestId, recipient, price, tokenId, hostess, affiliate, affiliate2, event);
+      }
+    } catch (error) {
+      // Suppress rate limit errors
+      if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
+        console.error('[EventListener] NFTMinted poll error:', error.message);
+      }
+    }
+  }
 
-      this.db.updateNFTOwner(Number(tokenId), to);
-      this.ws.broadcast({
-        type: 'NFT_TRANSFERRED',
-        data: {
-          tokenId: tokenId.toString(),
-          from,
-          to,
-          txHash: event.log.transactionHash
-        }
-      });
-    });
+  async pollTransferEvents(fromBlock, toBlock) {
+    try {
+      const filter = this.contract.filters.Transfer();
+      const events = await this.contract.queryFilter(filter, fromBlock, toBlock);
 
-    // Handle provider errors
-    this.provider.on('error', (error) => {
-      console.error('[EventListener] Provider error:', error);
-      this.handleDisconnect();
-    });
+      for (const event of events) {
+        const [from, to, tokenId] = event.args;
 
-    this.isConnected = true;
-    this.reconnectAttempts = 0;
-    console.log('[EventListener] Started listening for contract events');
+        // Skip mint transfers (from zero address)
+        if (from === ethers.ZeroAddress) continue;
+
+        console.log(`[Event] Transfer: tokenId=${tokenId}, from=${from}, to=${to}`);
+
+        this.db.updateNFTOwner(Number(tokenId), to);
+        this.ws.broadcast({
+          type: 'NFT_TRANSFERRED',
+          data: {
+            tokenId: tokenId.toString(),
+            from,
+            to,
+            txHash: event.transactionHash
+          }
+        });
+      }
+    } catch (error) {
+      // Suppress rate limit errors
+      if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
+        console.error('[EventListener] Transfer poll error:', error.message);
+      }
+    }
   }
 
   handleMintComplete(requestId, recipient, price, tokenId, hostess, affiliate, affiliate2, event) {
@@ -122,7 +197,7 @@ class EventListener {
       hostessIndex,
       hostessName,
       mintPrice: priceStr,
-      mintTxHash: event.log.transactionHash,
+      mintTxHash: event.transactionHash,
       affiliate,
       affiliate2
     });
@@ -134,8 +209,8 @@ class EventListener {
       hostessIndex,
       hostessName,
       price: priceStr,
-      txHash: event.log.transactionHash,
-      blockNumber: event.log.blockNumber,
+      txHash: event.transactionHash,
+      blockNumber: event.blockNumber,
       timestamp: Math.floor(Date.now() / 1000),
       affiliate,
       affiliate2
@@ -148,7 +223,7 @@ class EventListener {
         tier: 1,
         affiliate,
         earnings: tier1Earnings,
-        txHash: event.log.transactionHash
+        txHash: event.transactionHash
       });
     }
 
@@ -158,7 +233,7 @@ class EventListener {
         tier: 2,
         affiliate: affiliate2,
         earnings: tier2Earnings,
-        txHash: event.log.transactionHash
+        txHash: event.transactionHash
       });
     }
 
@@ -179,7 +254,7 @@ class EventListener {
         hostessImage: hostessData?.image,
         price: priceStr,
         priceETH: ethers.formatEther(price),
-        txHash: event.log.transactionHash,
+        txHash: event.transactionHash,
         affiliate,
         affiliate2,
         tier1Earnings,
@@ -318,51 +393,13 @@ class EventListener {
 
       this.lastKnownSupply = supply;
     } catch (error) {
-      console.error('[Fallback] Supply check error:', error);
-    }
-  }
-
-  /**
-   * HEALTH CHECK & RECONNECTION
-   */
-  startHealthCheck() {
-    this.healthCheckInterval = setInterval(async () => {
-      try {
-        await this.provider.getBlockNumber();
-        if (!this.isConnected) {
-          console.log('[EventListener] Reconnected to provider');
-          this.setupEventListeners();
-        }
-      } catch (error) {
-        console.error('[EventListener] Health check failed');
-        this.handleDisconnect();
-      }
-    }, 30000); // Check every 30 seconds
-  }
-
-  handleDisconnect() {
-    this.isConnected = false;
-    this.contract.removeAllListeners();
-
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 60000);
-      console.log(`[EventListener] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-
-      setTimeout(() => {
-        this.provider = new ethers.JsonRpcProvider(config.RPC_URL);
-        this.contract = new ethers.Contract(config.CONTRACT_ADDRESS, config.CONTRACT_ABI, this.provider);
-        this.setupEventListeners();
-      }, delay);
-    } else {
-      console.error('[EventListener] Max reconnection attempts reached');
+      console.error('[Fallback] Supply check error:', error.message);
     }
   }
 
   stop() {
-    this.contract.removeAllListeners();
+    if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.fallbackInterval) clearInterval(this.fallbackInterval);
-    if (this.healthCheckInterval) clearInterval(this.healthCheckInterval);
     console.log('[EventListener] Stopped');
   }
 }

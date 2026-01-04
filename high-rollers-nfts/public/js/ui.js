@@ -201,7 +201,7 @@ const UI = {
         <td class="p-3">
           <div class="flex items-center gap-3">
             <img src="${thumbnailUrl}" alt="${sale.hostess_name}" class="w-12 h-12 rounded-lg object-cover">
-            <span>#${sale.token_id}</span>
+            <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${sale.token_id}" target="_blank" class="text-purple-400 hover:underline cursor-pointer">#${sale.token_id}</a>
           </div>
         </td>
         <td class="p-3">
@@ -238,7 +238,7 @@ const UI = {
         <td class="p-3">
           <div class="flex items-center gap-3">
             <img src="${thumbnailUrl}" alt="" class="w-12 h-12 rounded-lg object-cover">
-            <span>#${earning.token_id}</span>
+            <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${earning.token_id}" target="_blank" class="text-purple-400 hover:underline cursor-pointer">#${earning.token_id}</a>
           </div>
         </td>
         <td class="p-3">

@@ -129,13 +129,32 @@ async function importData() {
 
   console.log(`Imported ${affiliateImported} affiliate earnings`);
 
+  // Recalculate hostess counts from sales (more reliable than nfts table)
+  console.log('\nRecalculating hostess counts from sales...');
+  const hostessCounts = db.prepare(`
+    SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+  `).all();
+
+  // Reset all to 0 first
+  db.prepare('UPDATE hostess_counts SET count = 0').run();
+
+  // Set actual counts
+  const updateCount = db.prepare('UPDATE hostess_counts SET count = ? WHERE hostess_index = ?');
+  hostessCounts.forEach(row => {
+    updateCount.run(row.count, row.hostess_index);
+    const hostess = HOSTESS_MAP[row.hostess_index];
+    console.log(`  ${hostess?.name || `Index ${row.hostess_index}`}: ${row.count}`);
+  });
+
   // Verify
   const salesCount = db.prepare('SELECT COUNT(*) as count FROM sales').get();
   const affiliateCount = db.prepare('SELECT COUNT(*) as count FROM affiliate_earnings').get();
+  const totalHostess = db.prepare('SELECT SUM(count) as total FROM hostess_counts').get();
 
   console.log('\nFinal counts:');
   console.log(`  Sales: ${salesCount.count}`);
   console.log(`  Affiliate earnings: ${affiliateCount.count}`);
+  console.log(`  Total hostess counts: ${totalHostess.total}`);
 
   db.close();
 }

@@ -606,8 +606,16 @@ class HighRollersApp {
       } else {
         tbody.innerHTML = data.earningsPerNFT.map(e => `
           <tr class="border-t border-gray-600">
-            <td class="py-2">${UI.truncateAddress(e.buyer_address)}</td>
-            <td class="py-2">#${e.token_id}</td>
+            <td class="py-2">
+              <a href="${CONFIG.EXPLORER_URL}/address/${e.buyer_address}" target="_blank" class="text-purple-400 hover:underline cursor-pointer">
+                ${UI.truncateAddress(e.buyer_address)}
+              </a>
+            </td>
+            <td class="py-2">
+              <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${e.token_id}" target="_blank" class="text-purple-400 hover:underline cursor-pointer">
+                #${e.token_id}
+              </a>
+            </td>
             <td class="py-2 text-green-400">${UI.formatETH(e.earnings)} ETH</td>
           </tr>
         `).join('');

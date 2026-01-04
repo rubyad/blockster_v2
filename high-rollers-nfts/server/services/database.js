@@ -271,6 +271,25 @@ class DatabaseService {
     return this.getAllHostessCounts();
   }
 
+  // Recalculate hostess counts from sales table (more reliable than nfts for imported data)
+  recalculateHostessCountsFromSales() {
+    const counts = this.db.prepare(`
+      SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+    `).all();
+
+    // Reset all to 0 first
+    this.db.prepare('UPDATE hostess_counts SET count = 0').run();
+
+    // Set actual counts
+    const stmt = this.db.prepare('UPDATE hostess_counts SET count = ? WHERE hostess_index = ?');
+    counts.forEach(row => {
+      stmt.run(row.count, row.hostess_index);
+    });
+
+    console.log('[Database] Recalculated hostess counts from sales table');
+    return this.getAllHostessCounts();
+  }
+
   // Affiliate Operations
   insertAffiliateEarning(data) {
     const stmt = this.db.prepare(`
@@ -313,7 +332,7 @@ class DatabaseService {
       FROM affiliate_earnings ae
       LEFT JOIN sales s ON ae.token_id = s.token_id
       WHERE ae.affiliate = ?
-      ORDER BY ae.timestamp DESC
+      ORDER BY s.timestamp DESC, ae.token_id DESC
     `).all(addr);
 
     return {
@@ -332,10 +351,10 @@ class DatabaseService {
 
   getAllAffiliateEarnings(limit = 100, offset = 0) {
     return this.db.prepare(`
-      SELECT ae.*, n.hostess_name, n.hostess_index
+      SELECT ae.*, s.hostess_name, s.hostess_index, s.timestamp as sale_timestamp
       FROM affiliate_earnings ae
-      LEFT JOIN nfts n ON ae.token_id = n.token_id
-      ORDER BY ae.timestamp DESC
+      LEFT JOIN sales s ON ae.token_id = s.token_id
+      ORDER BY s.timestamp DESC, ae.token_id DESC
       LIMIT ? OFFSET ?
     `).all(limit, offset);
   }

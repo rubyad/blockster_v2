@@ -6,44 +6,63 @@ class OwnerSyncService {
     this.contractService = contractService;
     this.isRunning = false;
     this.lastSyncedTokenId = 0;
+    this.isSyncing = false;
   }
 
-  start() {
+  async start() {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    // Full sync every 5 minutes
-    this.fullSyncInterval = setInterval(() => {
-      this.syncAllOwners();
-    }, config.OWNER_SYNC_INTERVAL_MS);
+    // Get current supply to track new mints only
+    try {
+      const totalSupply = await this.contractService.getTotalSupply();
+      this.lastSyncedTokenId = Number(totalSupply);
+      console.log(`[OwnerSync] Starting at token ${this.lastSyncedTokenId}`);
+    } catch (error) {
+      console.error('[OwnerSync] Failed to get initial supply:', error.message);
+      this.lastSyncedTokenId = 2339; // Known total, skip initial sync
+    }
 
-    // Quick check for new mints every 30 seconds
+    // Only check for new mints every 60 seconds (not 30 to reduce load)
     this.quickSyncInterval = setInterval(() => {
       this.syncRecentMints();
-    }, config.POLL_INTERVAL_MS);
+    }, 60000);
 
-    // Initial sync on startup
-    this.syncAllOwners();
+    // Full sync every 30 minutes (not 5 to reduce load), but only if needed
+    // This is mainly for catching ownership transfers
+    this.fullSyncInterval = setInterval(() => {
+      // Only run full sync if there are NFTs that might need owner updates
+      // Skip if we haven't synced any NFTs yet
+      if (this.lastSyncedTokenId > 0) {
+        this.syncAllOwners();
+      }
+    }, 30 * 60 * 1000);
 
-    console.log('[OwnerSync] Started owner polling service');
+    console.log('[OwnerSync] Started (minimal mode - syncs new mints only)');
   }
 
   /**
    * Full sync: Update all NFT owners in batches
-   * Runs every 5 minutes to catch any missed transfers
-   * Uses small batches with delays to stay under RPC rate limits (100/sec)
+   * Uses very small batches with long delays to stay way under RPC rate limits
+   * This is for catching ownership transfers, not initial population
    */
   async syncAllOwners() {
+    if (this.isSyncing) {
+      console.log('[OwnerSync] Sync already in progress, skipping');
+      return;
+    }
+
+    this.isSyncing = true;
+
     try {
       const totalSupply = await this.contractService.getTotalSupply();
       const total = Number(totalSupply);
 
-      console.log(`[OwnerSync] Starting full sync of ${total} NFTs`);
+      console.log(`[OwnerSync] Starting owner sync of ${total} NFTs`);
 
-      // Small batch size to stay under rate limits (each token = 2 calls)
-      const batchSize = 20;
+      // Very small batch size - 5 tokens per batch = 10 calls
+      const batchSize = 5;
       let updated = 0;
-      let errors = 0;
 
       for (let i = 1; i <= total; i += batchSize) {
         const batch = [];
@@ -52,62 +71,44 @@ class OwnerSyncService {
         }
 
         try {
-          // Fetch owners in parallel with error handling per call
+          // Fetch owners with error handling per call
           const owners = await Promise.all(
             batch.map(tokenId =>
               this.contractService.getOwnerOf(tokenId).catch(() => null)
             )
           );
 
-          // Fetch hostess indices for new NFTs
-          const hostessIndices = await Promise.all(
-            batch.map(tokenId =>
-              this.contractService.getHostessIndex(tokenId).catch(() => null)
-            )
-          );
-
-          // Update database
+          // Update database (owner changes only)
           batch.forEach((tokenId, index) => {
-            if (owners[index] && hostessIndices[index] !== null) {
-              const hostessIndex = Number(hostessIndices[index]);
-              const hostessData = config.HOSTESSES[hostessIndex];
-
-              this.db.upsertNFT({
-                tokenId,
-                owner: owners[index],
-                hostessIndex,
-                hostessName: hostessData?.name || 'Unknown'
-              });
+            if (owners[index]) {
+              this.db.updateNFTOwner(tokenId, owners[index]);
               updated++;
             }
           });
         } catch (batchError) {
-          errors++;
-          // Continue with next batch instead of failing entirely
+          // Continue with next batch
         }
 
-        // Rate limiting: 500ms delay = ~40 calls/sec (well under 100/sec limit)
-        await this.sleep(500);
+        // Very slow: 2 second delay between batches = ~5 calls/sec max
+        await this.sleep(2000);
 
-        // Progress logging every 200 tokens
-        if ((i - 1) % 200 === 0) {
+        // Progress logging every 500 tokens
+        if ((i - 1) % 500 === 0 && i > 1) {
           console.log(`[OwnerSync] Progress: ${Math.min(i + batchSize - 1, total)}/${total}`);
         }
       }
 
-      // Recalculate hostess counts after full sync
-      this.db.recalculateHostessCounts();
-
-      console.log(`[OwnerSync] Full sync complete: ${updated} NFTs updated, ${errors} batch errors`);
-      this.lastSyncedTokenId = total;
+      console.log(`[OwnerSync] Owner sync complete: ${updated} NFTs checked`);
     } catch (error) {
-      console.error('[OwnerSync] Full sync failed:', error.message);
+      console.error('[OwnerSync] Owner sync failed:', error.message);
+    } finally {
+      this.isSyncing = false;
     }
   }
 
   /**
    * Quick sync: Only check for new mints since last check
-   * Runs every 30 seconds
+   * Runs every 60 seconds
    */
   async syncRecentMints() {
     try {
@@ -117,7 +118,7 @@ class OwnerSyncService {
       if (total > this.lastSyncedTokenId) {
         console.log(`[OwnerSync] New mints detected: ${this.lastSyncedTokenId} -> ${total}`);
 
-        // Sync new tokens
+        // Sync new tokens one at a time with delays
         for (let tokenId = this.lastSyncedTokenId + 1; tokenId <= total; tokenId++) {
           try {
             const owner = await this.contractService.getOwnerOf(tokenId);
@@ -131,7 +132,26 @@ class OwnerSyncService {
                 hostessIndex: Number(hostessIndex),
                 hostessName: hostessData?.name || 'Unknown'
               });
+
+              // Also add to sales if not exists
+              if (!this.db.saleExists(`0x${tokenId.toString(16).padStart(64, '0')}`)) {
+                this.db.insertSale({
+                  tokenId,
+                  buyer: owner,
+                  hostessIndex: Number(hostessIndex),
+                  hostessName: hostessData?.name || 'Unknown',
+                  price: config.MINT_PRICE,
+                  txHash: `0x${tokenId.toString(16).padStart(64, '0')}`,
+                  blockNumber: 0,
+                  timestamp: Math.floor(Date.now() / 1000)
+                });
+              }
+
+              this.db.incrementHostessCount(Number(hostessIndex));
             }
+
+            // 1 second delay between each new mint
+            await this.sleep(1000);
           } catch (error) {
             console.error(`[OwnerSync] Failed to sync token ${tokenId}:`, error.message);
           }
@@ -140,12 +160,15 @@ class OwnerSyncService {
         this.lastSyncedTokenId = total;
       }
     } catch (error) {
-      console.error('[OwnerSync] Quick sync failed:', error);
+      // Don't spam logs for rate limit errors
+      if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
+        console.error('[OwnerSync] Quick sync failed:', error.message);
+      }
     }
   }
 
   /**
-   * Sync a specific wallet's NFTs
+   * Sync a specific wallet's NFTs (on-demand only)
    */
   async syncWalletNFTs(walletAddress) {
     try {
@@ -162,11 +185,14 @@ class OwnerSyncService {
           hostessIndex: Number(hostessIndex),
           hostessName: hostessData?.name || 'Unknown'
         });
+
+        // Small delay between calls
+        await this.sleep(200);
       }
 
       return tokenIds.map(id => Number(id));
     } catch (error) {
-      console.error(`[OwnerSync] Failed to sync wallet ${walletAddress}:`, error);
+      console.error(`[OwnerSync] Failed to sync wallet ${walletAddress}:`, error.message);
       return [];
     }
   }

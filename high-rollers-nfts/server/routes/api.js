@@ -9,7 +9,16 @@ module.exports = (db, contractService, ownerSync) => {
   router.get('/stats', async (req, res) => {
     try {
       const stats = await contractService.getCollectionStats();
-      const hostessCounts = db.getAllHostessCounts();
+
+      // Calculate hostess counts directly from sales table (more accurate than hostess_counts table)
+      const salesCounts = db.db.prepare(`
+        SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+      `).all();
+
+      const hostessCounts = {};
+      salesCounts.forEach(row => {
+        hostessCounts[row.hostess_index] = row.count;
+      });
 
       res.json({
         ...stats,
@@ -28,7 +37,15 @@ module.exports = (db, contractService, ownerSync) => {
   // Get all hostesses with counts
   router.get('/hostesses', (req, res) => {
     try {
-      const hostessCounts = db.getAllHostessCounts();
+      // Calculate counts directly from sales table
+      const salesCounts = db.db.prepare(`
+        SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+      `).all();
+
+      const hostessCounts = {};
+      salesCounts.forEach(row => {
+        hostessCounts[row.hostess_index] = row.count;
+      });
 
       const hostesses = config.HOSTESSES.map(h => ({
         ...h,
@@ -302,6 +319,126 @@ module.exports = (db, contractService, ownerSync) => {
         hasCustomAffiliate: !!affiliate
       });
     } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Import sales data from CSV (admin endpoint)
+  router.post('/import-sales-csv', express.text({ type: '*/*', limit: '10mb' }), (req, res) => {
+    try {
+      const csvContent = req.body;
+      if (!csvContent || typeof csvContent !== 'string') {
+        return res.status(400).json({ error: 'No CSV content provided' });
+      }
+
+      const lines = csvContent.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+
+      // Hostess mapping
+      const HOSTESS_MAP = {
+        0: 'Penelope Fatale',
+        1: 'Mia Siren',
+        2: 'Cleo Enchante',
+        3: 'Sophia Spark',
+        4: 'Luna Mirage',
+        5: 'Aurora Seductra',
+        6: 'Scarlett Ember',
+        7: 'Vivienne Allure'
+      };
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx];
+        });
+
+        const tokenId = parseInt(row.id);
+        const txHash = `0x${tokenId.toString(16).padStart(64, '0')}`;
+
+        // Skip if already exists
+        if (db.saleExists(txHash)) {
+          skipped++;
+          continue;
+        }
+
+        const girlType = parseInt(row.girl_type);
+        const hostessName = HOSTESS_MAP[girlType] || 'Unknown';
+        const mintedAt = parseInt(row.minted_at) / 1000000; // microseconds to seconds
+
+        db.insertSale({
+          tokenId,
+          buyer: row.buyer.toLowerCase(),
+          hostessIndex: girlType,
+          hostessName,
+          price: row.price.trim(),
+          txHash,
+          blockNumber: 0,
+          timestamp: Math.floor(mintedAt),
+          affiliate: row.affiliate_1 && row.affiliate_1 !== '' ? row.affiliate_1.toLowerCase() : null,
+          affiliate2: row.affiliate_2 && row.affiliate_2 !== '' ? row.affiliate_2.toLowerCase() : null
+        });
+        imported++;
+      }
+
+      console.log(`[API] Imported ${imported} sales, skipped ${skipped} existing`);
+      res.json({ success: true, imported, skipped, total: lines.length - 1 });
+    } catch (error) {
+      console.error('[API] Import CSV error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Import affiliate earnings data from CSV (admin endpoint)
+  router.post('/import-affiliates-csv', express.text({ type: '*/*', limit: '10mb' }), (req, res) => {
+    try {
+      const csvContent = req.body;
+      if (!csvContent || typeof csvContent !== 'string') {
+        return res.status(400).json({ error: 'No CSV content provided' });
+      }
+
+      const lines = csvContent.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx];
+        });
+
+        const tokenId = parseInt(row.token_id);
+        const tier = parseInt(row.tier);
+        const affiliate = row.affiliate;
+        const payout = row.payout.trim();
+        const paidAt = parseInt(row.paid_at) / 1000000; // microseconds to seconds
+        const txHash = `0x${tokenId.toString(16).padStart(64, '0')}`;
+
+        try {
+          db.insertAffiliateEarning({
+            tokenId,
+            tier,
+            affiliate: affiliate.toLowerCase(),
+            earnings: payout,
+            txHash
+          });
+          imported++;
+        } catch (err) {
+          // Skip duplicates
+          skipped++;
+        }
+      }
+
+      console.log(`[API] Imported ${imported} affiliate earnings, skipped ${skipped}`);
+      res.json({ success: true, imported, skipped, total: lines.length - 1 });
+    } catch (error) {
+      console.error('[API] Import affiliates CSV error:', error);
       res.status(500).json({ error: error.message });
     }
   });
