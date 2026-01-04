@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="trust-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0500ff"/>
+      <stop offset="100%" style="stop-color:#0052ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#trust-gradient)"/>
+  <path fill="#fff" d="M128 32c-48 0-80 24-80 24v88c0 48 80 80 80 80s80-32 80-80V56s-32-24-80-24zm48 108c0 32-48 56-48 56s-48-24-48-56V76s24-16 48-16 48 16 48 16z"/>
+</svg>

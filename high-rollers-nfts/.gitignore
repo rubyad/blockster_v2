@@ -1,0 +1,13 @@
+# Local database files (production uses Fly.io volume)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Environment
+.env
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
