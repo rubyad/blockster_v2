@@ -47,8 +47,13 @@ class HighRollersApp {
 
   async updateWalletBalance() {
     if (!walletService.isConnected()) return;
-    const balance = await walletService.getBalance();
-    document.getElementById('wallet-balance').textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+    try {
+      const balance = await walletService.getBalance();
+      console.log('[App] Updated wallet balance:', balance);
+      document.getElementById('wallet-balance').textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+    } catch (error) {
+      console.error('[App] Failed to update wallet balance:', error);
+    }
   }
 
   // ==================== Tab Navigation ====================
@@ -650,8 +655,10 @@ class HighRollersApp {
       UI.showToast('Withdrawal successful!', 'success');
 
       // Refresh stats and wallet balance
+      console.log('[App] Refreshing affiliate stats and wallet balance after withdrawal');
       await this.loadMyAffiliateStats();
       await this.updateWalletBalance();
+      console.log('[App] Wallet balance update complete');
     } catch (error) {
       console.error('Withdrawal failed:', error);
       UI.showToast(error.message || 'Withdrawal failed', 'error');
