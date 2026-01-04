@@ -170,7 +170,7 @@ const UI = {
     const imageUrl = ImageKit.getHostessImage(nft.hostess_index, 'card');
 
     return `
-      <div class="nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer">
+      <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.token_id}" target="_blank" class="nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer block hover:ring-2 hover:ring-purple-500 transition-all">
         <div class="aspect-square bg-gray-700">
           <img
             src="${imageUrl}"
@@ -186,7 +186,7 @@ const UI = {
             ${CONFIG.HOSTESSES[nft.hostess_index]?.multiplier || 0}x
           </span>
         </div>
-      </div>
+      </a>
     `;
   },
 

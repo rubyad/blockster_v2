@@ -225,6 +225,11 @@ class DatabaseService {
     return !!result;
   }
 
+  saleExistsForToken(tokenId) {
+    const result = this.db.prepare('SELECT 1 FROM sales WHERE token_id = ?').get(tokenId);
+    return !!result;
+  }
+
   // Hostess Counts
   incrementHostessCount(hostessIndex) {
     const stmt = this.db.prepare(`

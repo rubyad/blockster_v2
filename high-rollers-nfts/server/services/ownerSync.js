@@ -133,8 +133,8 @@ class OwnerSyncService {
                 hostessName: hostessData?.name || 'Unknown'
               });
 
-              // Also add to sales if not exists
-              if (!this.db.saleExists(`0x${tokenId.toString(16).padStart(64, '0')}`)) {
+              // Also add to sales if not exists (check by token_id to avoid duplicates with real tx_hash from EventListener)
+              if (!this.db.saleExistsForToken(tokenId)) {
                 this.db.insertSale({
                   tokenId,
                   buyer: owner,
@@ -145,9 +145,8 @@ class OwnerSyncService {
                   blockNumber: 0,
                   timestamp: Math.floor(Date.now() / 1000)
                 });
+                this.db.incrementHostessCount(Number(hostessIndex));
               }
-
-              this.db.incrementHostessCount(Number(hostessIndex));
             }
 
             // 1 second delay between each new mint

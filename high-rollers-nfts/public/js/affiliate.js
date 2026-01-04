@@ -135,7 +135,7 @@ class AffiliateService {
     const contract = walletService.getContract();
 
     // Execute withdrawal
-    const tx = await contract.withdrawAffiliateBalance();
+    const tx = await contract.withdrawFromAffiliate();
 
     return {
       txHash: tx.hash,

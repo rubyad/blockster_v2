@@ -97,7 +97,7 @@ const CONFIG = {
   CONTRACT_ABI: [
     'function requestNFT() payable returns (uint256 requestId)',
     'function linkAffiliate(address buyer, address affiliate) returns (address)',
-    'function withdrawAffiliateBalance() external',
+    'function withdrawFromAffiliate() external returns (bool)',
     'function totalSupply() view returns (uint256)',
     'function ownerOf(uint256 tokenId) view returns (address)',
     'function s_tokenIdToHostess(uint256 tokenId) view returns (uint256)',
