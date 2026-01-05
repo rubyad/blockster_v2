@@ -24,11 +24,112 @@ class WalletService {
   }
 
   /**
+   * Detect if user is on mobile device
+   */
+  isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  /**
+   * Check if we're inside a wallet's in-app browser
+   */
+  isInWalletBrowser() {
+    return !!window.ethereum;
+  }
+
+  /**
+   * Get deep link URL for opening in MetaMask mobile app
+   */
+  getMetaMaskDeepLink() {
+    // Get current URL with any referral params
+    const currentUrl = window.location.href;
+    // MetaMask deep link format: metamask://dapp/domain.com/path
+    // Using the universal link format which works better on iOS
+    return `https://metamask.app.link/dapp/${currentUrl.replace(/^https?:\/\//, '')}`;
+  }
+
+  /**
+   * Get deep link URL for Coinbase Wallet mobile app
+   */
+  getCoinbaseDeepLink() {
+    const currentUrl = window.location.href;
+    return `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(currentUrl)}`;
+  }
+
+  /**
+   * Get deep link URL for Trust Wallet mobile app
+   */
+  getTrustDeepLink() {
+    const currentUrl = window.location.href;
+    return `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`;
+  }
+
+  /**
+   * Handle mobile wallet connection via deep links
+   * Opens the wallet app which will load this site in its in-app browser
+   */
+  handleMobileConnect(walletType) {
+    let deepLink;
+    let walletName;
+
+    switch (walletType) {
+      case 'metamask':
+        deepLink = this.getMetaMaskDeepLink();
+        walletName = 'MetaMask';
+        break;
+      case 'coinbase':
+        deepLink = this.getCoinbaseDeepLink();
+        walletName = 'Coinbase Wallet';
+        break;
+      case 'trust':
+        deepLink = this.getTrustDeepLink();
+        walletName = 'Trust Wallet';
+        break;
+      default:
+        // Default to MetaMask for unknown wallet types on mobile
+        deepLink = this.getMetaMaskDeepLink();
+        walletName = 'MetaMask';
+    }
+
+    // Redirect to wallet app - this will open the wallet's in-app browser
+    console.log(`[Wallet] Opening ${walletName} app with deep link:`, deepLink);
+    window.location.href = deepLink;
+
+    // Return a pending promise that never resolves (page will redirect)
+    // This prevents the UI from showing errors
+    return new Promise(() => {});
+  }
+
+  /**
    * Get all available wallets for UI display
+   * On mobile without window.ethereum, returns wallets that support deep linking
    */
   getAvailableWallets() {
     const available = [];
     const ethereum = window.ethereum;
+
+    // On mobile without a wallet browser, show wallets with deep link support
+    if (!ethereum && this.isMobile()) {
+      available.push({
+        type: 'metamask',
+        ...this.walletConfigs.metamask,
+        provider: null,
+        isMobileDeepLink: true
+      });
+      available.push({
+        type: 'coinbase',
+        ...this.walletConfigs.coinbase,
+        provider: null,
+        isMobileDeepLink: true
+      });
+      available.push({
+        type: 'trust',
+        ...this.walletConfigs.trust,
+        provider: null,
+        isMobileDeepLink: true
+      });
+      return available;
+    }
 
     if (!ethereum) return available;
 
@@ -69,10 +170,16 @@ class WalletService {
    * Connect to a specific wallet type
    */
   async connectWallet(walletType) {
+    // Handle mobile deep linking when no wallet provider is available
+    if (this.isMobile() && !this.isInWalletBrowser()) {
+      return this.handleMobileConnect(walletType);
+    }
+
     const wallets = this.getAvailableWallets();
     const wallet = wallets.find(w => w.type === walletType) || wallets[0];
 
     if (!wallet) {
+      // On desktop, suggest installing a wallet
       throw new Error('No wallet found. Please install MetaMask or another Web3 wallet.');
     }
 

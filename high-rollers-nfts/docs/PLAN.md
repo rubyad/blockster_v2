@@ -1613,55 +1613,62 @@ primary_region = "fra"  # Frankfurt, Germany (nearest to Austria)
 
 ## Implementation Checklist
 
+> **Status: ✅ FULLY IMPLEMENTED** (January 4, 2026)
+
 ### Phase 1: Setup
-- [ ] Create project directory structure
-- [ ] Initialize npm project
-- [ ] Install dependencies
-- [ ] Create configuration file with APP_MAX_SUPPLY = 2700
-- [ ] Define contract ABI
+- [x] Create project directory structure
+- [x] Initialize npm project
+- [x] Install dependencies
+- [x] Create configuration file with APP_MAX_SUPPLY = 2700
+- [x] Define contract ABI
 
 ### Phase 2: Server
-- [ ] Implement SQLite database schema
-- [ ] Create ContractService
-- [ ] Create EventListener with fallback polling
-- [ ] Create DataSyncService
-- [ ] Implement API routes with remaining count
-- [ ] Set up WebSocket server
-- [ ] Create main server entry point
+- [x] Implement SQLite database schema
+- [x] Create ContractService
+- [x] Create EventListener with fallback polling
+- [x] Create DataSyncService (OwnerSync)
+- [x] Implement API routes with remaining count
+- [x] Set up WebSocket server
+- [x] Create main server entry point
+- [x] Implement server-side affiliate linking with affiliateLinker wallet
+- [x] Add nonce retry mechanism for concurrent affiliate linking
+- [x] Implement upsertSale() to prevent duplicate sales entries
 
 ### Phase 3: Frontend
-- [ ] Create HTML structure with tab navigation
-- [ ] Implement MetaMask-specific wallet detection
-- [ ] Implement minting functionality with fallback polling
-- [ ] Implement affiliate link tracking
-- [ ] Create UI manager with tab switching
-- [ ] Create affiliate tab with referral link
-- [ ] Main app initialization
-- [ ] Real-time updates via WebSocket
+- [x] Create HTML structure with tab navigation
+- [x] Implement multi-wallet detection (MetaMask, Coinbase, Rabby, Trust, Brave)
+- [x] Implement minting functionality with fallback polling
+- [x] Implement affiliate link tracking (localStorage + server-side linking)
+- [x] Create UI manager with tab switching
+- [x] Create affiliate tab with referral link
+- [x] Main app initialization
+- [x] Real-time updates via WebSocket
 
 ### Phase 4: Testing
-- [ ] Test MetaMask detection vs other wallets
-- [ ] Test affiliate link flow
-- [ ] Test event listener fallback
-- [ ] Test sold out state at 2700
-- [ ] Run distribution analysis script
+- [x] Test multi-wallet detection
+- [x] Test affiliate link flow
+- [x] Test event listener fallback
+- [x] Test sold out state at 2700
+- [x] Run distribution analysis script
 
 ### Phase 5: Deployment
-- [ ] Set up environment variables
-- [ ] Test locally
-- [ ] Deploy to Fly.io
-- [ ] Verify all functionality
+- [x] Set up environment variables (AFFILIATE_LINKER_PRIVATE_KEY)
+- [x] Test locally
+- [x] Deploy to Fly.io (app: high-rollers-nfts)
+- [x] Verify all functionality
+- [x] Create cleanup script for duplicate sales
 
 ---
 
 ## Security Considerations
 
-1. **No Private Keys**: Server only reads from contract, never writes
-2. **User Transactions**: All minting done via user's MetaMask
+1. **affiliateLinker Private Key**: Server uses `AFFILIATE_LINKER_PRIVATE_KEY` env var to call `linkAffiliate()` on-chain (stored securely in Fly.io secrets)
+2. **User Transactions**: All minting done via user's wallet (MetaMask, Coinbase, etc.)
 3. **Rate Limiting**: Implement rate limiting on API endpoints
 4. **Input Validation**: Validate all user inputs
 5. **CORS**: Configure appropriate CORS settings for production
 6. **Affiliate Validation**: Validate affiliate addresses before storing
+7. **Nonce Retry**: 3-attempt retry with 2-second delay for concurrent affiliate linking
 
 ## Performance Optimizations
 
