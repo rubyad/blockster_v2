@@ -117,14 +117,23 @@ DB_PATH=/data/highrollers.db   # Database path (default: ./data/highrollers.db)
 
 ### Public Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/stats` | Collection stats, hostess counts, remaining supply |
-| GET | `/api/hostesses` | All hostesses with mint counts |
-| GET | `/api/sales` | Recent sales (paginated: `?limit=50&offset=0`) |
-| GET | `/api/nfts/:owner` | NFTs owned by address |
-| GET | `/api/affiliates/:address` | Affiliate earnings and referrals |
-| GET | `/api/buyer-affiliate/:buyer` | Get buyer's linked affiliate |
+| Method | Endpoint | Description | Data Source |
+|--------|----------|-------------|-------------|
+| GET | `/api/stats` | Collection stats, hostess counts, remaining supply | `nfts` table |
+| GET | `/api/hostesses` | All hostesses with mint counts | `nfts` table |
+| GET | `/api/sales` | Recent sales (paginated: `?limit=50&offset=0`) | `sales` table |
+| GET | `/api/nfts/:owner` | NFTs owned by address | `nfts` table |
+| GET | `/api/affiliates/:address` | Affiliate earnings and referrals | `affiliate_earnings` table |
+| GET | `/api/buyer-affiliate/:buyer` | Get buyer's linked affiliate | `buyer_affiliates` table |
+
+#### Data Source: `nfts` vs `sales` Tables
+
+- **`nfts` table**: Ground truth for NFT ownership and counts. Synced directly from Arbitrum contract via `OwnerSyncService`.
+- **`sales` table**: Historical transaction records (who bought, when, tx hash, affiliates). May have gaps if events were missed.
+
+**Important**: `/api/stats` and `/api/hostesses` query from the `nfts` table to ensure accurate counts. The `sales` table is only used for historical transaction display.
+
+**Fix (Jan 5, 2026)**: Changed `/api/stats` and `/api/hostesses` from querying `sales` table to `nfts` table. This fixed a bug where token ID 1942 (Cleo Enchante) was missing from `sales` but present in `nfts`, causing incorrect counts (2,340 vs 2,341).
 
 ### Protected Endpoints
 
@@ -338,19 +347,24 @@ event NFTMinted(uint256 requestId, address recipient, uint256 currentPrice, uint
 event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
 ```
 
-## NFT Distribution Analysis (Jan 2026)
+## NFT Distribution Analysis (Jan 5, 2026)
 
-| Type | Expected % | Actual Count | Actual % |
-|------|------------|--------------|----------|
-| Penelope Fatale | 0.5% | 9 | 0.38% |
-| Mia Siren | 1.0% | 21 | 0.90% |
-| Cleo Enchante | 3.5% | 113 | 4.83% |
-| Sophia Spark | 7.5% | 149 | 6.37% |
-| Luna Mirage | 12.5% | 274 | 11.71% |
-| Aurora Seductra | 25.0% | 580 | 24.80% |
-| Scarlett Ember | 25.0% | 577 | 24.67% |
-| Vivienne Allure | 25.0% | 616 | 26.34% |
-| **Total** | - | **2,339** | 100% |
+| Type | Expected % | Actual Count | Actual % | Multiplier | Total Points |
+|------|------------|--------------|----------|------------|--------------|
+| Penelope Fatale | 0.5% | 9 | 0.38% | 100x | 900 |
+| Mia Siren | 1.0% | 21 | 0.90% | 90x | 1,890 |
+| Cleo Enchante | 3.5% | 114 | 4.87% | 80x | 9,120 |
+| Sophia Spark | 7.5% | 149 | 6.37% | 70x | 10,430 |
+| Luna Mirage | 12.5% | 274 | 11.70% | 60x | 16,440 |
+| Aurora Seductra | 25.0% | 581 | 24.82% | 50x | 29,050 |
+| Scarlett Ember | 25.0% | 577 | 24.65% | 40x | 23,080 |
+| Vivienne Allure | 25.0% | 616 | 26.32% | 30x | 18,480 |
+| **Total** | - | **2,341** | 100% | - | **109,390** |
+
+> **Data Source**: Verified from Arbitrum contract `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD`.
+> Query: `s_tokenIdToHostess(tokenId)` for each token 1-2341.
+
+**Total Multiplier Points (109,390)**: Used for proportional revenue distribution. Higher multiplier NFTs earn larger shares of the reward pool.
 
 **Note**: First 1060 NFTs were airdrops to Digitex holders (may have different distribution than random mints).
 
@@ -369,4 +383,4 @@ Transform examples:
 
 ---
 
-*Last updated: January 4, 2026*
+*Last updated: January 5, 2026*

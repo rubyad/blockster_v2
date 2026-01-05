@@ -10,13 +10,13 @@ module.exports = (db, contractService, ownerSync) => {
     try {
       const stats = await contractService.getCollectionStats();
 
-      // Calculate hostess counts directly from sales table (more accurate than hostess_counts table)
-      const salesCounts = db.db.prepare(`
-        SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+      // Calculate hostess counts from nfts table (ground truth - synced from Arbitrum contract)
+      const nftCounts = db.db.prepare(`
+        SELECT hostess_index, COUNT(*) as count FROM nfts GROUP BY hostess_index
       `).all();
 
       const hostessCounts = {};
-      salesCounts.forEach(row => {
+      nftCounts.forEach(row => {
         hostessCounts[row.hostess_index] = row.count;
       });
 
@@ -37,13 +37,13 @@ module.exports = (db, contractService, ownerSync) => {
   // Get all hostesses with counts
   router.get('/hostesses', (req, res) => {
     try {
-      // Calculate counts directly from sales table
-      const salesCounts = db.db.prepare(`
-        SELECT hostess_index, COUNT(*) as count FROM sales GROUP BY hostess_index
+      // Calculate counts from nfts table (ground truth - synced from Arbitrum contract)
+      const nftCounts = db.db.prepare(`
+        SELECT hostess_index, COUNT(*) as count FROM nfts GROUP BY hostess_index
       `).all();
 
       const hostessCounts = {};
-      salesCounts.forEach(row => {
+      nftCounts.forEach(row => {
         hostessCounts[row.hostess_index] = row.count;
       });
 
