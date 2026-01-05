@@ -114,6 +114,83 @@ class DatabaseService {
       )
     `);
 
+    // NFT earnings table - tracks revenue sharing earnings per NFT
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS nft_earnings (
+        token_id INTEGER PRIMARY KEY,
+        total_earned TEXT DEFAULT '0',
+        pending_amount TEXT DEFAULT '0',
+        last_24h_earned TEXT DEFAULT '0',
+        apy_basis_points INTEGER DEFAULT 0,
+        last_synced INTEGER DEFAULT 0,
+        FOREIGN KEY (token_id) REFERENCES nfts(token_id)
+      )
+    `);
+
+    // Reward events table - records each RewardReceived event from NFTRewarder
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS reward_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        commitment_hash TEXT NOT NULL,
+        amount TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        block_number INTEGER NOT NULL,
+        tx_hash TEXT UNIQUE NOT NULL
+      )
+    `);
+
+    // Reward withdrawals table - records RewardClaimed events
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS reward_withdrawals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_address TEXT NOT NULL,
+        amount TEXT NOT NULL,
+        token_ids TEXT NOT NULL,
+        tx_hash TEXT UNIQUE NOT NULL,
+        timestamp INTEGER NOT NULL
+      )
+    `);
+
+    // Global revenue stats cache
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS global_revenue_stats (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        total_rewards_received TEXT DEFAULT '0',
+        total_rewards_distributed TEXT DEFAULT '0',
+        rewards_last_24h TEXT DEFAULT '0',
+        overall_apy_basis_points INTEGER DEFAULT 0,
+        last_updated INTEGER DEFAULT 0
+      )
+    `);
+
+    // Initialize global revenue stats if empty
+    const statsExist = this.db.prepare('SELECT COUNT(*) as c FROM global_revenue_stats').get();
+    if (statsExist.c === 0) {
+      this.db.prepare('INSERT INTO global_revenue_stats (id) VALUES (1)').run();
+    }
+
+    // Per-hostess revenue stats cache
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS hostess_revenue_stats (
+        hostess_index INTEGER PRIMARY KEY,
+        nft_count INTEGER DEFAULT 0,
+        total_points INTEGER DEFAULT 0,
+        share_basis_points INTEGER DEFAULT 0,
+        last_24h_per_nft TEXT DEFAULT '0',
+        apy_basis_points INTEGER DEFAULT 0,
+        last_updated INTEGER DEFAULT 0
+      )
+    `);
+
+    // Initialize hostess revenue stats if empty
+    const hostessStatsExist = this.db.prepare('SELECT COUNT(*) as c FROM hostess_revenue_stats').get();
+    if (hostessStatsExist.c === 0) {
+      const insertHostessStats = this.db.prepare('INSERT INTO hostess_revenue_stats (hostess_index) VALUES (?)');
+      for (let i = 0; i < 8; i++) {
+        insertHostessStats.run(i);
+      }
+    }
+
     // Create indexes
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_nfts_owner ON nfts(owner);
@@ -123,6 +200,9 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_sales_buyer ON sales(buyer);
       CREATE INDEX IF NOT EXISTS idx_affiliate_earnings_affiliate ON affiliate_earnings(affiliate);
       CREATE INDEX IF NOT EXISTS idx_affiliate_earnings_tier ON affiliate_earnings(tier);
+      CREATE INDEX IF NOT EXISTS idx_reward_events_timestamp ON reward_events(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_reward_withdrawals_user ON reward_withdrawals(user_address);
+      CREATE INDEX IF NOT EXISTS idx_nft_earnings_pending ON nft_earnings(pending_amount);
     `);
 
     console.log('[Database] Schema initialized');
@@ -464,10 +544,301 @@ class DatabaseService {
     return !!result;
   }
 
+  // ==========================================
+  // NFT Revenue Sharing Operations
+  // ==========================================
+
+  /**
+   * Get total rewards received since a specific timestamp
+   * Used to calculate global 24h rewards for proportional distribution
+   * @param {number} sinceTimestamp - Unix timestamp (seconds)
+   * @returns {string} Total rewards in wei
+   */
+  getRewardsSince(sinceTimestamp) {
+    // Sum amounts as BigInt in JS to avoid SQLite integer overflow
+    // (wei amounts can exceed SQLite's 2^63 limit)
+    const rows = this.db.prepare(`
+      SELECT amount FROM reward_events WHERE timestamp >= ?
+    `).all(sinceTimestamp);
+
+    let total = 0n;
+    for (const row of rows) {
+      total += BigInt(row.amount || '0');
+    }
+    return total.toString();
+  }
+
+  /**
+   * Insert a new reward event (called by RewardEventListener when RewardReceived emitted)
+   */
+  insertRewardEvent(data) {
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO reward_events (commitment_hash, amount, timestamp, block_number, tx_hash)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      data.commitmentHash,
+      data.amount,
+      data.timestamp,
+      data.blockNumber,
+      data.txHash
+    );
+  }
+
+  /**
+   * Get recent reward events for display
+   */
+  getRewardEvents(limit = 50, offset = 0) {
+    return this.db.prepare(`
+      SELECT * FROM reward_events ORDER BY timestamp DESC LIMIT ? OFFSET ?
+    `).all(limit, offset);
+  }
+
+  /**
+   * Get total reward events count
+   */
+  getRewardEventsCount() {
+    const result = this.db.prepare('SELECT COUNT(*) as count FROM reward_events').get();
+    return result.count;
+  }
+
+  /**
+   * Update NFT earnings (called by EarningsSyncService)
+   */
+  updateNFTEarnings(tokenId, data) {
+    const stmt = this.db.prepare(`
+      INSERT INTO nft_earnings (token_id, total_earned, pending_amount, last_24h_earned, apy_basis_points, last_synced)
+      VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+      ON CONFLICT(token_id) DO UPDATE SET
+        total_earned = excluded.total_earned,
+        pending_amount = excluded.pending_amount,
+        last_24h_earned = excluded.last_24h_earned,
+        apy_basis_points = excluded.apy_basis_points,
+        last_synced = strftime('%s', 'now')
+    `);
+    return stmt.run(
+      tokenId,
+      data.totalEarned,
+      data.pendingAmount,
+      data.last24hEarned,
+      data.apyBasisPoints
+    );
+  }
+
+  /**
+   * Bulk update last_24h_earned and apy_basis_points for all NFTs of a hostess type
+   * Used when global 24h changes mid-sync
+   */
+  updateNFTLast24hByHostess(hostessIndex, last24hEarned, apyBasisPoints) {
+    const stmt = this.db.prepare(`
+      UPDATE nft_earnings
+      SET last_24h_earned = ?, apy_basis_points = ?, last_synced = strftime('%s', 'now')
+      WHERE token_id IN (SELECT token_id FROM nfts WHERE hostess_index = ?)
+    `);
+    return stmt.run(last24hEarned, apyBasisPoints, hostessIndex);
+  }
+
+  /**
+   * Get earnings for a specific NFT
+   */
+  getNFTEarnings(tokenId) {
+    return this.db.prepare(`
+      SELECT ne.*, n.owner, n.hostess_index, n.hostess_name
+      FROM nft_earnings ne
+      JOIN nfts n ON ne.token_id = n.token_id
+      WHERE ne.token_id = ?
+    `).get(tokenId);
+  }
+
+  /**
+   * Get earnings for all NFTs owned by a specific address
+   */
+  getNFTEarningsByOwner(owner) {
+    return this.db.prepare(`
+      SELECT ne.*, n.owner, n.hostess_index, n.hostess_name
+      FROM nfts n
+      LEFT JOIN nft_earnings ne ON n.token_id = ne.token_id
+      WHERE n.owner = ?
+      ORDER BY n.token_id ASC
+    `).all(owner.toLowerCase());
+  }
+
+  /**
+   * Get all NFT earnings with owner info (for batch sync)
+   */
+  getAllNFTEarnings() {
+    return this.db.prepare(`
+      SELECT n.token_id, n.owner, n.hostess_index, n.hostess_name,
+             COALESCE(ne.total_earned, '0') as total_earned,
+             COALESCE(ne.pending_amount, '0') as pending_amount,
+             COALESCE(ne.last_24h_earned, '0') as last_24h_earned,
+             COALESCE(ne.apy_basis_points, 0) as apy_basis_points,
+             ne.last_synced
+      FROM nfts n
+      LEFT JOIN nft_earnings ne ON n.token_id = ne.token_id
+      ORDER BY n.token_id ASC
+    `).all();
+  }
+
+  /**
+   * Record a reward withdrawal (RewardClaimed event)
+   */
+  recordRewardWithdrawal(data) {
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO reward_withdrawals (user_address, amount, token_ids, tx_hash, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      data.userAddress.toLowerCase(),
+      data.amount,
+      data.tokenIds,  // JSON string array
+      data.txHash,
+      data.timestamp
+    );
+  }
+
+  /**
+   * Get withdrawals for a specific user
+   */
+  getRewardWithdrawals(userAddress, limit = 50) {
+    return this.db.prepare(`
+      SELECT * FROM reward_withdrawals
+      WHERE user_address = ?
+      ORDER BY timestamp DESC
+      LIMIT ?
+    `).all(userAddress.toLowerCase(), limit);
+  }
+
+  /**
+   * Reset pending amount to 0 for a specific NFT (after claim)
+   */
+  resetNFTPending(tokenId) {
+    const stmt = this.db.prepare(`
+      UPDATE nft_earnings SET pending_amount = '0', last_synced = strftime('%s', 'now')
+      WHERE token_id = ?
+    `);
+    return stmt.run(tokenId);
+  }
+
+  /**
+   * Get global revenue stats
+   */
+  getGlobalRevenueStats() {
+    return this.db.prepare('SELECT * FROM global_revenue_stats WHERE id = 1').get();
+  }
+
+  /**
+   * Update global revenue stats
+   */
+  updateGlobalRevenueStats(data) {
+    const stmt = this.db.prepare(`
+      UPDATE global_revenue_stats SET
+        total_rewards_received = ?,
+        total_rewards_distributed = ?,
+        rewards_last_24h = ?,
+        overall_apy_basis_points = ?,
+        last_updated = strftime('%s', 'now')
+      WHERE id = 1
+    `);
+    return stmt.run(
+      data.totalRewardsReceived,
+      data.totalRewardsDistributed,
+      data.rewardsLast24h,
+      data.overallAPY
+    );
+  }
+
+  /**
+   * Get all hostess revenue stats
+   */
+  getAllHostessRevenueStats() {
+    return this.db.prepare(`
+      SELECT * FROM hostess_revenue_stats ORDER BY hostess_index
+    `).all();
+  }
+
+  /**
+   * Update hostess revenue stats
+   */
+  updateHostessRevenueStats(hostessIndex, data) {
+    const stmt = this.db.prepare(`
+      UPDATE hostess_revenue_stats SET
+        nft_count = ?,
+        total_points = ?,
+        share_basis_points = ?,
+        last_24h_per_nft = ?,
+        apy_basis_points = ?,
+        last_updated = strftime('%s', 'now')
+      WHERE hostess_index = ?
+    `);
+    return stmt.run(
+      data.nftCount,
+      data.totalPoints,
+      data.shareBasisPoints,
+      data.last24hPerNft,
+      data.apyBasisPoints,
+      hostessIndex
+    );
+  }
+
+  /**
+   * Get total multiplier points across all registered NFTs
+   */
+  getTotalMultiplierPoints() {
+    const MULTIPLIERS = [100, 90, 80, 70, 60, 50, 40, 30];
+    const result = this.db.prepare(`
+      SELECT hostess_index, COUNT(*) as count FROM nfts GROUP BY hostess_index
+    `).all();
+
+    let total = 0;
+    result.forEach(row => {
+      total += row.count * MULTIPLIERS[row.hostess_index];
+    });
+    return total;
+  }
+
+  /**
+   * Recalculate and update all hostess revenue stats
+   */
+  recalculateHostessRevenueStats() {
+    const MULTIPLIERS = [100, 90, 80, 70, 60, 50, 40, 30];
+    const totalPoints = this.getTotalMultiplierPoints();
+
+    const counts = this.db.prepare(`
+      SELECT hostess_index, COUNT(*) as count FROM nfts GROUP BY hostess_index
+    `).all();
+
+    const stmt = this.db.prepare(`
+      UPDATE hostess_revenue_stats SET
+        nft_count = ?,
+        total_points = ?,
+        share_basis_points = ?,
+        last_updated = strftime('%s', 'now')
+      WHERE hostess_index = ?
+    `);
+
+    // Reset all to 0
+    for (let i = 0; i < 8; i++) {
+      stmt.run(0, 0, 0, i);
+    }
+
+    // Update actual values
+    counts.forEach(row => {
+      const multiplier = MULTIPLIERS[row.hostess_index];
+      const points = row.count * multiplier;
+      const shareBp = totalPoints > 0 ? Math.round((points / totalPoints) * 10000) : 0;
+      stmt.run(row.count, points, shareBp, row.hostess_index);
+    });
+
+    console.log('[Database] Recalculated hostess revenue stats');
+    return this.getAllHostessRevenueStats();
+  }
+
   // Utility
   close() {
     this.db.close();
   }
 }
+
 
 module.exports = DatabaseService;

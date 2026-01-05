@@ -136,13 +136,19 @@ const UI = {
 
   /**
    * Render hostess card for gallery
+   * @param {Object} hostess - Hostess config data
+   * @param {number} count - Number minted
+   * @param {Object} revenueStats - Revenue stats for this hostess type (optional)
    */
-  renderHostessCard(hostess, count = 0) {
+  renderHostessCard(hostess, count = 0, revenueStats = null) {
     const imageUrl = ImageKit.getOptimizedUrl(hostess.image, 'card');
+
+    // 24h earnings display
+    const last24hDisplay = revenueStats?.last24HPerNFT ? parseFloat(revenueStats.last24HPerNFT).toFixed(2) : '0';
 
     return `
       <div class="hostess-card bg-gray-800 rounded-lg overflow-hidden">
-        <div class="aspect-square bg-gray-700">
+        <div class="aspect-square bg-gray-700 relative">
           <img
             src="${imageUrl}"
             alt="${hostess.name}"
@@ -151,13 +157,18 @@ const UI = {
           />
         </div>
         <div class="p-4">
-          <h3 class="font-bold text-lg">${hostess.name}</h3>
-          <div class="flex justify-between items-center mt-2">
-            <span class="text-sm px-2 py-1 rounded ${this.getRarityClass(hostess.rarity)}">${hostess.rarity}</span>
-            <span class="text-yellow-400 font-bold">${hostess.multiplier}x</span>
+          <h3 class="font-bold text-lg text-center">${hostess.name}</h3>
+          <div class="text-center mt-3">
+            <p class="text-2xl font-bold text-green-400 flex items-center justify-center gap-1">
+              <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5">
+              ${last24hDisplay} ROGUE
+            </p>
+            <p class="text-gray-400 text-xs mt-1">Last 24h Earnings per NFT</p>
           </div>
-          <p class="text-gray-400 text-sm mt-2">${hostess.description}</p>
-          <p class="text-gray-500 text-xs mt-2">Minted: ${this.formatNumber(count)}</p>
+          <div class="flex justify-between items-center mt-4 text-sm">
+            <span class="text-gray-400">Rarity: <span class="text-white">${hostess.rarity}</span></span>
+            <span class="text-gray-400">Minted: <span class="text-white">${this.formatNumber(count)}</span></span>
+          </div>
         </div>
       </div>
     `;
@@ -165,9 +176,44 @@ const UI = {
 
   /**
    * Render NFT card for My NFTs grid
+   * @param {Object} nft - NFT data
+   * @param {Object} earnings - Earnings data for this NFT (optional)
    */
-  renderNFTCard(nft) {
+  renderNFTCard(nft, earnings = null) {
     const imageUrl = ImageKit.getHostessImage(nft.hostess_index, 'card');
+
+    // Earnings display (pending, 24h, total)
+    let earningsDisplay = '';
+    if (earnings) {
+      const pendingAmount = parseFloat(earnings.pendingAmount || 0);
+      const last24h = parseFloat(earnings.last24Hours || 0);
+      const totalEarned = parseFloat(earnings.totalEarned || 0);
+
+      // Get USD values from priceService if available
+      const pendingUsd = window.priceService ? window.priceService.formatUsd(pendingAmount) : '';
+      const last24hUsd = window.priceService ? window.priceService.formatUsd(last24h) : '';
+      const totalUsd = window.priceService ? window.priceService.formatUsd(totalEarned) : '';
+
+      earningsDisplay = `
+        <div class="mt-2 pt-2 border-t border-gray-700 text-xs">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Pending:</span>
+            <span class="text-green-400 font-bold">${pendingAmount.toFixed(2)} ROGUE</span>
+          </div>
+          ${pendingUsd ? `<div class="text-right text-gray-500 text-xs">${pendingUsd}</div>` : ''}
+          <div class="flex justify-between items-center mt-1">
+            <span class="text-gray-400">24h:</span>
+            <span class="text-purple-400">${last24h.toFixed(2)} ROGUE</span>
+          </div>
+          ${last24hUsd ? `<div class="text-right text-gray-500 text-xs">${last24hUsd}</div>` : ''}
+          <div class="flex justify-between items-center mt-1">
+            <span class="text-gray-400">Total:</span>
+            <span class="text-white">${totalEarned.toFixed(2)} ROGUE</span>
+          </div>
+          ${totalUsd ? `<div class="text-right text-gray-500 text-xs">${totalUsd}</div>` : ''}
+        </div>
+      `;
+    }
 
     return `
       <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.token_id}" target="_blank" class="nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer block hover:ring-2 hover:ring-purple-500 transition-all">
@@ -185,6 +231,7 @@ const UI = {
           <span class="text-xs px-2 py-0.5 rounded mt-1 inline-block ${this.getRarityClass(nft.hostessRarity || CONFIG.HOSTESSES[nft.hostess_index]?.rarity)}">
             ${CONFIG.HOSTESSES[nft.hostess_index]?.multiplier || 0}x
           </span>
+          ${earningsDisplay}
         </div>
       </a>
     `;
@@ -253,26 +300,6 @@ const UI = {
         </td>
         <td class="p-3 text-green-400">${earning.earningsETH || this.formatETH(earning.earnings)} ETH</td>
       </tr>
-    `;
-  },
-
-  /**
-   * Render rarity card for mint page
-   */
-  renderRarityCard(hostess) {
-    const imageUrl = ImageKit.getOptimizedUrl(hostess.image, 'card');
-
-    return `
-      <div class="bg-gray-700 rounded-lg p-4 flex items-center gap-4">
-        <img src="${imageUrl}" alt="${hostess.name}" class="w-20 h-20 rounded-lg object-cover">
-        <div>
-          <p class="font-bold">${hostess.name}</p>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="text-sm px-2 py-1 rounded ${this.getRarityClass(hostess.rarity)}">${hostess.rarity}</span>
-            <span class="text-yellow-400 font-bold">${hostess.multiplier}x</span>
-          </div>
-        </div>
-      </div>
     `;
   }
 };

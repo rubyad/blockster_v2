@@ -1,8 +1,106 @@
 # NFT Revenue Sharing from ROGUE Betting - Implementation Plan
 
 **Date**: January 4, 2026
-**Status**: Planning
+**Last Updated**: January 5, 2026
+**Status**: 🟢 LIVE - Revenue Sharing Active
 **Objective**: Enable High Rollers NFTs on Arbitrum One to receive real-time revenue sharing from ROGUE betting on BUX Booster (Rogue Chain).
+
+---
+
+## Implementation Progress
+
+### ✅ Phase 0: Price Endpoints (Complete)
+- Added `/api/prices` and `/api/prices/:symbol` endpoints to Blockster main app
+- PriceTracker GenServer polls CoinGecko every 10 minutes
+- Cached in Mnesia for fast access
+
+### ✅ Phase 1: Smart Contracts (Complete)
+- **NFTRewarder.sol** deployed to Rogue Chain Mainnet
+- **ROGUEBankroll.sol V7** deployed and LIVE with NFT rewards integration
+- All 45 unit tests passing
+
+### ✅ Phase 1.5: NFT Registration (Complete - Jan 5, 2026)
+- ✅ Registered all 2,341 NFTs with current owners from Arbitrum
+- ✅ Fixed hostess index mismatch for tokens #1, #2, #3 (upgraded contract to add fixHostessIndex)
+- ✅ Verified totalMultiplierPoints = 109,390
+- ✅ Called `setNFTRewarder()` on ROGUEBankroll
+- ✅ Called `setNFTRewardBasisPoints(20)` (0.2% of losing bets)
+- **NFT revenue sharing is now LIVE!**
+
+### ✅ Phase 2: Backend Services (Complete - Jan 5, 2026)
+- [x] **PriceService** - polls CoinGecko every 10 min for ROGUE/ETH prices (with Blockster API fallback)
+- [x] **RewardEventListener** - polls NFTRewarder for RewardReceived/RewardClaimed events
+- [x] **EarningsSyncService** - batch syncs NFT earnings, calculates 24h and APY off-chain
+- [x] **AdminTxQueue** - serialized transaction queue for admin wallet operations (registerNFT, updateOwnership, withdrawTo)
+- [x] Database schema for revenue tracking (nft_earnings, reward_events, reward_withdrawals, global_revenue_stats, hostess_revenue_stats)
+- [x] API endpoints: `/api/revenues/stats`, `/api/revenues/nft/:tokenId`, `/api/revenues/user/:address`, `/api/revenues/history`, `/api/revenues/prices`
+- [x] WebSocket broadcasts for REWARD_RECEIVED, REWARD_CLAIMED, PRICE_UPDATE events
+- [x] Auto-registration of new NFTs via EventListener (calls registerNFT on Rogue Chain when NFTMinted on Arbitrum)
+- [x] Auto-ownership sync via EventListener (calls updateOwnership on Rogue Chain when Transfer on Arbitrum)
+- [x] Graceful shutdown handling for all services
+
+### ✅ Phase 3: Frontend UI (Complete - Jan 5, 2026)
+- [x] **Revenues tab** with full navigation integration
+- [x] **Global stats header** - Total Rewards, 24h, APY, Total Distributed with USD values
+- [x] **Per-Hostess Type Stats table** - Shows all 8 types with multiplier, count, share %, 24h/NFT, APY
+- [x] **My Revenue Section** - Aggregated earnings for connected wallet (total, pending, 24h, APY)
+- [x] **Per-NFT earnings table** - Individual NFT breakdown with Roguescan verification links
+- [x] **Withdraw All button** - Server-side withdrawal via NFTRewarder.withdrawTo()
+- [x] **Recent Rewards table** - Real-time reward event history
+- [x] **APY/24h badges on Gallery tab** - Revenue overlays on hostess type cards
+- [x] **Earnings on My NFTs tab** - Pending, 24h, total earned with USD values on each NFT card
+- [x] **PriceService** - Client-side ROGUE/USD price formatting
+- [x] **WebSocket handlers** - Real-time PRICE_UPDATE, REWARD_RECEIVED, REWARD_CLAIMED events
+
+### ⏳ Phase 4: Testing (Pending)
+- [ ] End-to-end reward distribution test
+- [ ] Ownership sync test
+- [ ] Withdrawal flow test
+
+---
+
+## Deployed Contracts
+
+| Contract | Network | Address | Type |
+|----------|---------|---------|------|
+| **NFTRewarder** | Rogue Chain | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | UUPS Proxy |
+| NFTRewarder Impl V1 | Rogue Chain | `0x9bBA800ed188d1b7f8Ee6c33d1497B012Be1Ea93` | Implementation |
+| NFTRewarder Impl V2 | Rogue Chain | `0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240` | Implementation (current) |
+| ROGUEBankroll | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy |
+| High Rollers NFT | Arbitrum | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | ERC-721 |
+
+### NFTRewarder Configuration (LIVE)
+
+| Setting | Value |
+|---------|-------|
+| Owner | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` |
+| Admin | `0xa86256423DdAf710295f1E64fDE09a72Bed65113` |
+| ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` |
+| Total Registered NFTs | **2,341** |
+| Total Multiplier Points | **109,390** |
+
+### ROGUEBankroll NFT Rewards Configuration (LIVE)
+
+| Setting | Value | TX Hash |
+|---------|-------|---------|
+| NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | `0x0975d8ceaab1ac89b64b85bb70b8a044772074218beb063d1d4f06d594501686` |
+| NFTRewardBasisPoints | 20 (0.2%) | `0xd5a2ba7f3536d8db7b12d1010a274452584ffb63107dc66c3e975968b72b4843` |
+
+### ROGUEBankroll V7 Changes (Deployed)
+
+New state variables added (preserving storage layout):
+- `nftRewarder` - Address of NFTRewarder contract (default: address(0) = disabled)
+- `nftRewardBasisPoints` - Reward rate (20 = 0.2% of losing bets)
+- `totalNFTRewardsPaid` - Running total of rewards sent
+
+New functions:
+- `setNFTRewarder(address)` - Enable/disable NFT rewards
+- `setNFTRewardBasisPoints(uint256)` - Set reward rate
+- `getNFTRewarder()`, `getNFTRewardBasisPoints()`, `getTotalNFTRewardsPaid()`
+
+Modified functions:
+- `settleBuxBoosterLosingBet()` - Now calls `_sendNFTReward()` after settlement
+- `_sendNFTReward()` - Internal helper that updates HouseBalance accounting
 
 ---
 
@@ -2943,88 +3041,180 @@ function createNFTRevenueRow(nft) {
 
 #### 5. Real-Time WebSocket Updates
 
+**Architecture Overview:**
+
+The revenue stats update in real-time using a push-based WebSocket architecture. The key insight is that **global stats and hostess stats are pushed directly from the server** every 10 seconds, eliminating API re-fetching and ensuring all UI elements update simultaneously.
+
+**Data Flow:**
+```
+EarningsSyncService (10s interval)
+    ↓
+Syncs 2,341 NFTs in ~7 seconds (batches of 100)
+    ↓
+Broadcasts EARNINGS_SYNCED via WebSocket
+    ↓
+Frontend receives and renders immediately (no API calls)
+```
+
+**WebSocket Message Types:**
+
+| Message Type | Trigger | Data | Frontend Action |
+|--------------|---------|------|-----------------|
+| `EARNINGS_SYNCED` | Every 10s after sync completes | Global stats + all 8 hostess stats | Direct render (no API fetch) |
+| `REWARD_RECEIVED` | New reward from losing bet | Amount, txHash, timestamp | Toast notification, add to history |
+| `REWARD_CLAIMED` | User claims rewards | User, amount, txHash | Refresh user earnings if connected |
+| `PRICE_UPDATE` | Every 10 min from CoinGecko | ROGUE/ETH prices | Re-render with new USD values |
+
+**Key Implementation - `handleEarningsSynced()`:**
+
+This is the critical function that enables instant, synchronized updates. It transforms WebSocket data directly instead of re-fetching from the API.
+
 ```javascript
 // public/js/revenues.js
 
-class RevenueService {
-  constructor(websocket) {
-    this.ws = websocket;
-    this.listeners = [];
+handleEarningsSynced(data) {
+  console.log('[Revenues] Earnings synced, updating UI from WebSocket data...');
 
-    // Handle WebSocket messages
-    websocket.on('REWARD_RECEIVED', (data) => {
-      this.handleRewardReceived(data);
-    });
-
-    websocket.on('REWARD_CLAIMED', (data) => {
-      this.handleRewardClaimed(data);
-    });
-  }
-
-  handleRewardReceived(data) {
-    // Update global stats display
-    this.updateGlobalStats();
-
-    // Add to recent events table
-    this.prependRewardEvent(data);
-
-    // Update per-hostess stats
-    this.updateHostessStats();
-
-    // If user is connected, update their earnings
-    if (walletService.address) {
-      this.updateMyEarnings();
+  // Transform WebSocket data to match globalStats format expected by renderGlobalStats()
+  // WebSocket sends raw wei strings, need to convert to ROGUE format
+  const formatWei = (wei) => {
+    if (!wei || wei === '0') return '0';
+    try {
+      const value = BigInt(wei);
+      const whole = value / BigInt(1e18);
+      const fraction = value % BigInt(1e18);
+      const fractionStr = fraction.toString().padStart(18, '0').slice(0, 4);
+      return `${whole}.${fractionStr}`.replace(/\.?0+$/, '') || '0';
+    } catch {
+      return '0';
     }
+  };
 
-    // Flash animation on stats cards
-    this.flashNewReward(data.amount);
-  }
+  // Update global stats directly from WebSocket data (NO API FETCH)
+  this.globalStats = {
+    totalRewardsReceived: formatWei(data.totalRewardsReceived),
+    totalRewardsDistributed: formatWei(data.totalRewardsDistributed),
+    rewardsLast24Hours: formatWei(data.rewardsLast24h),
+    overallAPY: (data.overallAPY || 0) / 100, // Convert basis points to percentage
+    hostessTypes: (data.hostessStats || []).map(h => ({
+      index: h.hostess_index,
+      name: ['Penelope Fatale', 'Mia Siren', 'Cleo Enchante', 'Sophia Spark',
+             'Luna Mirage', 'Aurora Seductra', 'Scarlett Ember', 'Vivienne Allure'][h.hostess_index],
+      multiplier: [100, 90, 80, 70, 60, 50, 40, 30][h.hostess_index],
+      nftCount: h.nft_count,
+      totalPoints: h.total_points,
+      sharePercent: (h.share_basis_points || 0) / 100,
+      last24HPerNFT: formatWei(h.last_24h_per_nft),
+      apy: (h.apy_basis_points || 0) / 100
+    })),
+    lastUpdated: data.timestamp
+  };
 
-  handleRewardClaimed(data) {
-    // Update global distributed amount
-    this.updateGlobalStats();
+  // Re-render global stats and hostess table IMMEDIATELY (synchronous)
+  this.renderGlobalStats();
+  this.renderHostessTable();
 
-    // If it's the current user, update their pending balance
-    if (walletService.address?.toLowerCase() === data.user.toLowerCase()) {
-      this.updateMyEarnings();
-    }
-  }
-
-  async loadRevenueData() {
-    const [globalStats, history] = await Promise.all([
-      fetch('/api/revenues/stats').then(r => r.json()),
-      fetch('/api/revenues/history?limit=20').then(r => r.json())
-    ]);
-
-    this.renderGlobalStats(globalStats);
-    this.renderHostessTable(globalStats.hostessTypes);
-    this.renderRecentEvents(history.events);
-
-    if (walletService.address) {
-      const userEarnings = await fetch(`/api/revenues/user/${walletService.address}`).then(r => r.json());
-      this.renderMyEarnings(userEarnings);
-    }
-  }
-
-  async withdraw() {
-    if (!walletService.signer) {
-      throw new Error('Please connect your wallet');
-    }
-
-    const rewarderContract = new ethers.Contract(
-      NFT_REWARDER_ADDRESS,
-      ['function claimAll() external returns (uint256)'],
-      walletService.signer
-    );
-
-    const tx = await rewarderContract.claimAll();
-    await tx.wait();
-
-    // Refresh earnings display
-    await this.updateMyEarnings();
+  // User earnings still need API fetch (per-user NFT data not in broadcast)
+  // Only fetch if wallet connected AND on revenues tab
+  const revenuesTab = document.getElementById('tab-revenues');
+  if (walletService.isConnected() && revenuesTab && !revenuesTab.classList.contains('hidden')) {
+    this.fetchUserEarnings(walletService.address);
   }
 }
 ```
+
+**Why This Approach?**
+
+1. **No Timing Issues**: All global stats and hostess stats come from the same WebSocket message, so they update at exactly the same moment.
+
+2. **No Wasted API Calls**: Previously, receiving `EARNINGS_SYNCED` triggered `fetchGlobalStats()` and `fetchUserEarnings()` API calls, which:
+   - Added network latency (race conditions between different stats)
+   - Wasted server resources
+   - Could return slightly different data if another sync started mid-request
+
+3. **Efficient**: The WebSocket payload includes all the data needed for global and hostess stats rendering.
+
+**WebSocket Data Format (from server):**
+
+```javascript
+// earningsSyncService.js broadcasts:
+{
+  type: 'EARNINGS_SYNCED',
+  data: {
+    totalRewardsReceived: '1800000000000000000000',  // wei string
+    totalRewardsDistributed: '0',                    // wei string
+    rewardsLast24h: '1800000000000000000000',        // wei string
+    overallAPY: 684,                                 // basis points (6.84%)
+    hostessStats: [
+      {
+        hostess_index: 0,
+        nft_count: 9,
+        total_points: 900,
+        share_basis_points: 82,  // 0.82%
+        last_24h_per_nft: '1645919736842105263',  // wei string
+        apy_basis_points: 622   // 6.22%
+      },
+      // ... 7 more hostess types
+    ],
+    timestamp: 1736095200000
+  }
+}
+```
+
+**Other WebSocket Handlers:**
+
+```javascript
+handleRewardReceived(data) {
+  // Add to local history array (prepend)
+  this.rewardHistory.unshift({
+    amount: data.amount,
+    timestamp: data.timestamp,
+    txHash: data.txHash
+  });
+  if (this.rewardHistory.length > 50) {
+    this.rewardHistory = this.rewardHistory.slice(0, 50);
+  }
+  this.renderRewardHistory();
+
+  // Toast notification - stats will auto-update via EARNINGS_SYNCED
+  UI.showToast(`New reward: ${this.formatRogue(data.amount)} ROGUE distributed to NFT holders!`, 'info');
+}
+
+handleRewardClaimed(data) {
+  // If connected user claimed, refresh their earnings
+  if (walletService.isConnected() &&
+      data.user.toLowerCase() === walletService.address.toLowerCase()) {
+    this.fetchUserEarnings(walletService.address);
+  }
+  // Global stats will update via next EARNINGS_SYNCED (no separate fetch)
+}
+
+handlePriceUpdate(data) {
+  this.priceService.updatePrices(data);
+  // Re-render with new USD values (same stats, different prices)
+  this.renderGlobalStats();
+  if (this.userEarnings) {
+    this.renderUserEarnings();
+  }
+  this.renderRewardHistory();
+}
+```
+
+**Mid-Sync Correction:**
+
+If a reward arrives during the ~7 second batch sync, the server detects this and updates all NFT earnings before broadcasting:
+
+```javascript
+// earningsSyncService.js
+const finalGlobal24hWei = BigInt(this.db.getRewardsSince(oneDayAgo) || '0');
+
+if (finalGlobal24hWei !== global24hWei) {
+  console.log(`[EarningsSync] Rewards changed during sync (${ethers.formatEther(global24hWei)} → ${ethers.formatEther(finalGlobal24hWei)}), updating per-NFT 24h`);
+  this.updateAllNFTLast24h(finalGlobal24hWei, totalMultiplierPoints, nftValueInRogueWei);
+}
+```
+
+This ensures the broadcast always contains consistent, up-to-date data.
 
 ---
 
@@ -3066,27 +3256,27 @@ If NFT earns 100 ROGUE in 24h:
 
 ## Deployment Checklist
 
-### Phase 0: Prerequisites (Blockster Main App)
+### ✅ Phase 0: Prerequisites (Blockster Main App) - COMPLETE
 
-1. [ ] Add `/api/prices/:symbol` endpoint to Blockster (see Section 5a)
-2. [ ] Deploy Blockster with price endpoint
-3. [ ] Verify endpoints return prices:
+1. [x] Add `/api/prices/:symbol` endpoint to Blockster (see Section 5a)
+2. [x] Deploy Blockster with price endpoint
+3. [x] Verify endpoints return prices:
    - `curl https://blockster-v2.fly.dev/api/prices/ROGUE`
    - `curl https://blockster-v2.fly.dev/api/prices/ETH`
 
-### Phase 1: Smart Contracts
+### ✅ Phase 1: Smart Contracts - COMPLETE
 
-4. [ ] Create `NFTRewarder.sol` in `contracts/bux-booster-game/contracts/`
-5. [ ] Write comprehensive tests for NFTRewarder
-6. [ ] Test multiplier-weighted distribution with edge cases
-7. [ ] Modify `ROGUEBankroll.sol` for V7 upgrade
-8. [ ] Test NFT reward sending in `settleBuxBoosterLosingBet`
-9. [ ] Deploy NFTRewarder to Rogue Chain Mainnet
-10. [ ] Deploy ROGUEBankroll V7 upgrade (but do NOT call setNFTRewarder yet!)
-11. [ ] Verify all contracts on Roguescan
-12. [ ] Set admin address on NFTRewarder: `setAdmin(serverWalletAddress)`
+4. [x] Create `NFTRewarder.sol` in `contracts/bux-booster-game/contracts/`
+5. [x] Write comprehensive tests for NFTRewarder
+6. [x] Test multiplier-weighted distribution with edge cases
+7. [x] Modify `ROGUEBankroll.sol` for V7 upgrade
+8. [x] Test NFT reward sending in `settleBuxBoosterLosingBet`
+9. [x] Deploy NFTRewarder to Rogue Chain Mainnet (`0x96aB9560f1407586faE2b69Dc7f38a59BEACC594`)
+10. [x] Deploy ROGUEBankroll V7 upgrade
+11. [x] Verify all contracts on Roguescan
+12. [x] Set admin address on NFTRewarder: `setAdmin(0xa86256423DdAf710295f1E64fDE09a72Bed65113)`
 
-### Phase 1.5: Initial NFT Registration (BEFORE enabling rewards)
+### ✅ Phase 1.5: Initial NFT Registration - COMPLETE (Jan 5, 2026)
 
 **CRITICAL**: All 2,341 NFTs must be registered before calling `setNFTRewarder()` on ROGUEBankroll.
 Otherwise early rewards will be incorrectly distributed (fewer multiplier points = higher per-NFT payouts).
@@ -3099,97 +3289,106 @@ Otherwise early rewards will be incorrectly distributed (fewer multiplier points
 | `hostess_index` | 0-7 (Penelope=0, Vivienne=7) |
 | `owner` | Current owner address |
 
-**Registration Script** (`scripts/register-all-nfts.js`):
+**Registration Script** (`contracts/bux-booster-game/scripts/register-all-nfts.js`):
 
-```javascript
-const { ethers } = require('ethers');
-const Database = require('better-sqlite3');
-
-const BATCH_SIZE = 200;  // ~200 NFTs per tx to stay under gas limit
-const db = new Database('/data/highrollers.db');
-
-async function registerAllNFTs() {
-  const provider = new ethers.JsonRpcProvider(process.env.ROGUE_RPC_URL);
-  const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
-
-  const rewarder = new ethers.Contract(
-    process.env.NFT_REWARDER_ADDRESS,
-    ['function batchRegisterNFTs(uint256[] tokenIds, uint8[] hostessIndices, address[] owners) external',
-     'function totalRegisteredNFTs() view returns (uint256)',
-     'function totalMultiplierPoints() view returns (uint256)'],
-    wallet
-  );
-
-  // Get all NFTs from database
-  const nfts = db.prepare('SELECT token_id, hostess_index, owner FROM nfts ORDER BY token_id').all();
-  console.log(`Found ${nfts.length} NFTs to register`);
-
-  // Register in batches
-  for (let i = 0; i < nfts.length; i += BATCH_SIZE) {
-    const batch = nfts.slice(i, i + BATCH_SIZE);
-
-    const tokenIds = batch.map(n => n.token_id);
-    const hostessIndices = batch.map(n => n.hostess_index);
-    const owners = batch.map(n => n.owner);
-
-    console.log(`Registering batch ${Math.floor(i/BATCH_SIZE) + 1}: tokens ${tokenIds[0]}-${tokenIds[tokenIds.length-1]}`);
-
-    const tx = await rewarder.batchRegisterNFTs(tokenIds, hostessIndices, owners);
-    const receipt = await tx.wait();
-    console.log(`  TX: ${tx.hash} (gas: ${receipt.gasUsed})`);
-  }
-
-  // Verify
-  const totalNFTs = await rewarder.totalRegisteredNFTs();
-  const totalPoints = await rewarder.totalMultiplierPoints();
-  console.log(`\nRegistration complete:`);
-  console.log(`  Total NFTs: ${totalNFTs} (expected: 2341)`);
-  console.log(`  Total Points: ${totalPoints} (expected: 109390)`);
-}
-
-registerAllNFTs();
-```
+Uses Hardhat with `rogueMainnetAdmin` network to run as admin wallet. Batch size reduced to 25 due to Rogue Chain block gas limit.
 
 **Checklist:**
 
-13. [ ] Create `scripts/register-all-nfts.js` registration script
-14. [ ] Run registration script: `node scripts/register-all-nfts.js`
-    - Expected: ~12 transactions (2341 ÷ 200 = 12 batches)
-    - Verify output: `totalRegisteredNFTs = 2341`, `totalMultiplierPoints = 109390`
-15. [ ] Verify on Roguescan: query `totalRegisteredNFTs()` and `totalMultiplierPoints()`
-16. [ ] ONLY AFTER verification: Call `setNFTRewarder(NFTRewarderAddress)` on ROGUEBankroll
+13. [x] Create `scripts/register-all-nfts.js` registration script
+14. [x] Run registration script: `npx hardhat run scripts/register-all-nfts.js --network rogueMainnetAdmin`
+    - Actual: 94 transactions (2341 ÷ 25 = 94 batches, gas limit required smaller batches)
+    - Result: `totalRegisteredNFTs = 2341`, `totalMultiplierPoints = 109390`
+15. [x] Fixed hostess index mismatch for tokens #1, #2, #3 (were 7, should be 5)
+    - Upgraded NFTRewarder to V2 to add `fixHostessIndex()` function
+    - TX: `0x5a8ae9122f4f24e1dc393387f5d280a824b9f9a4834a13171102cf156207e13e`
+16. [x] Verified on Roguescan: `totalRegisteredNFTs() = 2341`, `totalMultiplierPoints() = 109390`
+17. [x] Called `setNFTRewarder(0x96aB9560f1407586faE2b69Dc7f38a59BEACC594)` on ROGUEBankroll
+    - TX: `0x0975d8ceaab1ac89b64b85bb70b8a044772074218beb063d1d4f06d594501686`
+18. [x] Called `setNFTRewardBasisPoints(20)` on ROGUEBankroll (0.2% of losing bets)
+    - TX: `0xd5a2ba7f3536d8db7b12d1010a274452584ffb63107dc66c3e975968b72b4843`
 
-### Phase 2: Backend Services
+**🎉 NFT REVENUE SHARING IS NOW LIVE!**
 
-17. [ ] Create database migrations for new tables
-18. [ ] Implement PriceService (polls Blockster API every 10 min for ROGUE + ETH)
-19. [ ] Implement RewardEventListener service
-20. [ ] Create /api/revenues/* endpoints
-21. [ ] Create /api/prices endpoint (ROGUE + ETH for APY calculation)
-22. [ ] Add WebSocket broadcast for reward and price events
-23. [ ] Test full flow: bet → lose → reward → display
+### ✅ Phase 2: Backend Services - COMPLETE (Jan 5, 2026)
 
-### Phase 3: Frontend
+19. [x] Create database migrations for new tables (nft_earnings, reward_events, reward_withdrawals, global_revenue_stats, hostess_revenue_stats)
+20. [x] Implement PriceService (polls Blockster API every 10 min for ROGUE + ETH)
+    - File: `server/services/priceService.js`
+    - Broadcasts PRICE_UPDATE via WebSocket
+21. [x] Implement RewardEventListener service
+    - File: `server/services/rewardEventListener.js`
+    - Polls NFTRewarder contract every 10s for RewardReceived/RewardClaimed events
+    - Broadcasts REWARD_RECEIVED and REWARD_CLAIMED via WebSocket
+22. [x] Implement EarningsSyncService
+    - File: `server/services/earningsSyncService.js`
+    - Batch syncs 2,341 NFTs every **10 seconds** (batches of 100, ~7s total)
+    - Calculates 24h earnings and APY off-chain using proportional distribution formula
+    - **Broadcasts `EARNINGS_SYNCED` via WebSocket** with all global + hostess stats
+    - Frontend renders directly from WebSocket data (no API re-fetch)
+    - Mid-sync correction: detects if rewards arrive during sync, updates all NFTs before broadcast
+23. [x] Create /api/revenues/* endpoints
+    - File: `server/routes/revenues.js`
+    - `GET /api/revenues/stats` - Global stats + per-hostess breakdown
+    - `GET /api/revenues/nft/:tokenId` - Individual NFT earnings
+    - `GET /api/revenues/user/:address` - All NFT earnings for a user
+    - `GET /api/revenues/history` - Recent reward events
+    - `GET /api/revenues/withdrawals/:address` - User's withdrawal history
+24. [x] Create /api/revenues/prices endpoints
+    - `GET /api/revenues/prices` - ROGUE + ETH prices
+    - `GET /api/revenues/prices/nft-value` - NFT value in ROGUE/USD
+25. [x] Add WebSocket broadcast for reward and price events
+26. [x] Integrate services in server/index.js with graceful shutdown
+27. [x] Create AdminTxQueue for serialized admin wallet transactions
+    - File: `server/services/adminTxQueue.js`
+    - Singleton queue that processes registerNFT, updateOwnership, withdrawTo sequentially
+    - Prevents nonce conflicts when multiple admin operations occur simultaneously
+    - Uses `ADMIN_PRIVATE_KEY` from environment (`.env` for local dev, Fly secret for production)
+28. [x] Auto-register new NFTs in NFTRewarder when minted on Arbitrum
+    - EventListener detects `NFTMinted` events on Arbitrum
+    - Calls `adminTxQueue.registerNFT()` to register in NFTRewarder on Rogue Chain
+    - Broadcasts `NFT_REGISTERED_FOR_REWARDS` via WebSocket
+29. [x] Auto-update ownership in NFTRewarder when transferred on Arbitrum
+    - EventListener detects `Transfer` events on Arbitrum (non-mint transfers)
+    - Calls `adminTxQueue.updateOwnership()` to update in NFTRewarder on Rogue Chain
+    - Broadcasts `NFT_OWNERSHIP_UPDATED_FOR_REWARDS` via WebSocket
 
-24. [ ] Add client-side PriceService for USD formatting
-25. [ ] Add Revenues tab to navigation
-26. [ ] Create revenues tab UI with all sections and USD values
-27. [ ] Add real-time WebSocket updates (rewards + prices)
-28. [ ] Update My NFTs tab with earnings display and USD values
-29. [ ] Update Gallery tab with APY badges and USD values
-30. [ ] Implement withdraw functionality
-31. [ ] Add APY calculation and display
-32. [ ] Test responsive design
+### ✅ Phase 3: Frontend - COMPLETE (Jan 5, 2026)
 
-### Phase 4: Testing & Monitoring
+30. [x] Add client-side PriceService for USD formatting (`public/js/revenues.js`)
+31. [x] Add Revenues tab to navigation (`public/index.html`)
+32. [x] Create revenues tab UI with all sections and USD values
+33. [x] Add real-time WebSocket updates (`public/js/app.js`, `public/js/revenues.js`)
+    - `EARNINGS_SYNCED`: Direct render from WebSocket data (no API fetch)
+    - `REWARD_RECEIVED`: Toast + prepend to history
+    - `REWARD_CLAIMED`: Refresh user earnings if connected
+    - `PRICE_UPDATE`: Re-render with new USD values
+34. [x] Update My NFTs tab with earnings display and USD values (`public/js/ui.js`)
+35. [x] Update Gallery tab with APY badges and USD values (`public/js/ui.js`)
+36. [x] Implement withdraw functionality (`server/routes/revenues.js`)
+37. [x] Add APY calculation and display
+38. [x] Test responsive design
 
-33. [ ] End-to-end test with real ROGUE bets
-34. [ ] Verify proportional distribution across multipliers
-35. [ ] Test withdrawal flow
-36. [ ] Verify USD values update when price changes
-37. [ ] Monitor gas costs for reward sending
-38. [ ] Set up alerts for failed reward sends
-39. [ ] Document troubleshooting procedures
+**Files Created/Modified:**
+- `public/index.html` - Added Revenues tab button and complete tab HTML structure
+- `public/js/config.js` - Added Rogue Chain config (chain ID, explorer, NFTRewarder address)
+- `public/js/revenues.js` - NEW: PriceService and RevenueService classes
+- `public/js/ui.js` - Updated renderHostessCard() and renderNFTCard() with revenue displays
+- `public/js/app.js` - Added revenues route, loadRevenues(), WebSocket handlers
+- `server/routes/revenues.js` - Added POST /api/revenues/withdraw endpoint (uses AdminTxQueue)
+- `server/services/adminTxQueue.js` - NEW: Serialized transaction queue for admin operations
+- `server/services/eventListener.js` - Added registerNFTOnRogueChain() and updateOwnershipOnRogueChain()
+- `server/config.js` - Added ADMIN_PRIVATE_KEY and admin functions to NFT_REWARDER_ABI
+
+### ⏳ Phase 4: Testing & Monitoring - PENDING
+
+39. [ ] End-to-end test with real ROGUE bets
+40. [ ] Verify proportional distribution across multipliers
+41. [ ] Test withdrawal flow
+42. [ ] Verify USD values update when price changes
+43. [ ] Monitor gas costs for reward sending
+44. [ ] Set up alerts for failed reward sends
+45. [ ] Document troubleshooting procedures
 
 ---
 

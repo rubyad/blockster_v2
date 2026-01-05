@@ -8,6 +8,11 @@ const CONFIG = {
   RPC_URL: 'https://arb1.arbitrum.io/rpc',
   EXPLORER_URL: 'https://arbiscan.io',
 
+  // Rogue Chain (for NFT Revenues)
+  ROGUE_CHAIN_ID: 560013,
+  ROGUE_EXPLORER_URL: 'https://roguescan.io',
+  NFT_REWARDER_ADDRESS: '0x96aB9560f1407586faE2b69Dc7f38a59BEACC594',
+
   // Contract
   CONTRACT_ADDRESS: '0x7176d2edd83aD037bd94b7eE717bd9F661F560DD',
   MINT_PRICE: '320000000000000000', // 0.32 ETH in wei

@@ -1,10 +1,24 @@
 require('dotenv').config();
 
 module.exports = {
-  // Arbitrum One
+  // Arbitrum One (NFT contract chain)
   CHAIN_ID: 42161,
   CHAIN_NAME: 'Arbitrum One',
   RPC_URL: process.env.ARBITRUM_RPC_URL || 'https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d',
+
+  // Rogue Chain (Revenue sharing chain)
+  ROGUE_CHAIN_ID: 560013,
+  ROGUE_CHAIN_NAME: 'Rogue Chain',
+  ROGUE_RPC_URL: process.env.ROGUE_RPC_URL || 'https://rpc.roguechain.io/rpc',
+
+  // NFTRewarder contract on Rogue Chain
+  NFT_REWARDER_ADDRESS: '0x96aB9560f1407586faE2b69Dc7f38a59BEACC594',
+
+  // ROGUEBankroll contract on Rogue Chain
+  ROGUE_BANKROLL_ADDRESS: '0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd',
+
+  // Blockster API for price data
+  BLOCKSTER_API_URL: process.env.BLOCKSTER_API_URL || 'https://blockster-v2.fly.dev/api/prices',
 
   // Contract
   CONTRACT_ADDRESS: '0x7176d2edd83aD037bd94b7eE717bd9F661F560DD',
@@ -21,6 +35,11 @@ module.exports = {
   // Affiliate linker wallet (authorized to call linkAffiliate on contract)
   AFFILIATE_LINKER_ADDRESS: '0x01436e73C4B4df2FEDA37f967C8eca1E510a7E73',
   AFFILIATE_LINKER_PRIVATE_KEY: process.env.AFFILIATE_LINKER_PRIVATE_KEY,
+
+  // Admin wallet for NFTRewarder on Rogue Chain
+  // Used for: registerNFT, updateOwnership, withdrawTo
+  // Set in .env for local dev, Fly secret for production
+  ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY,
 
   // Affiliate percentages
   TIER1_PERCENTAGE: 20, // 20% = 0.064 ETH per mint
@@ -132,5 +151,36 @@ module.exports = {
     'event NFTRequested(uint256 requestId, address sender, uint256 currentPrice, uint256 tokenId)',
     'event NFTMinted(uint256 requestId, address recipient, uint256 currentPrice, uint256 tokenId, uint8 hostess, address affiliate, address affiliate2)',
     'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
+  ],
+
+  // NFTRewarder ABI (Rogue Chain)
+  NFT_REWARDER_ABI: [
+    // Events
+    'event RewardReceived(bytes32 indexed betId, uint256 amount, uint256 timestamp)',
+    'event RewardClaimed(address indexed user, uint256 amount, uint256[] tokenIds)',
+
+    // Read functions
+    'function totalRewardsReceived() view returns (uint256)',
+    'function totalRewardsDistributed() view returns (uint256)',
+    'function totalRegisteredNFTs() view returns (uint256)',
+    'function totalMultiplierPoints() view returns (uint256)',
+    'function accRewardPerPoint() view returns (uint256)',
+
+    // Get earnings for single NFT
+    'function getNFTEarnings(uint256 tokenId) view returns (uint256 totalEarned, uint256 pendingAmount, uint8 hostessIndex)',
+
+    // Get earnings for batch of NFTs (returns 3 separate arrays, not tuple array)
+    'function getBatchNFTEarnings(uint256[] tokenIds) view returns (uint256[] totalEarned, uint256[] pendingAmounts, uint8[] hostessIndices)',
+
+    // Get pending rewards for a user's NFTs
+    'function getPendingRewards(address user, uint256[] tokenIds) view returns (uint256)',
+
+    // Claim rewards
+    'function claimRewards(uint256[] tokenIds) external',
+
+    // Admin functions (require admin role)
+    'function registerNFT(uint256 tokenId, uint8 hostessIndex, address owner) external',
+    'function updateOwnership(uint256 tokenId, address newOwner) external',
+    'function withdrawTo(uint256[] tokenIds, address recipient) external returns (uint256 amount)'
   ]
 };

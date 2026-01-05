@@ -13,6 +13,12 @@ const OwnerSyncService = require('./services/ownerSync');
 const WebSocketServer = require('./routes/websocket');
 const createApiRoutes = require('./routes/api');
 
+// NFT Revenue Sharing services
+const PriceService = require('./services/priceService');
+const RewardEventListener = require('./services/rewardEventListener');
+const EarningsSyncService = require('./services/earningsSyncService');
+const createRevenueRoutes = require('./routes/revenues');
+
 // Initialize services
 const db = new DatabaseService();
 const contractService = new ContractService();
@@ -24,11 +30,16 @@ const server = http.createServer(app);
 // Initialize WebSocket server
 const wsServer = new WebSocketServer(server);
 
-// Initialize event listener
+// Initialize event listener (Arbitrum NFT events)
 const eventListener = new EventListener(contractService, db, wsServer);
 
 // Initialize owner sync service
 const ownerSync = new OwnerSyncService(db, contractService);
+
+// Initialize NFT Revenue Sharing services (Rogue Chain)
+const priceService = new PriceService(wsServer, config);
+const rewardEventListener = new RewardEventListener(db, wsServer, config);
+const earningsSyncService = new EarningsSyncService(db, priceService, config, wsServer);
 
 // Middleware
 app.use(cors());
@@ -39,6 +50,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // API routes
 app.use('/api', createApiRoutes(db, contractService, ownerSync));
+
+// Revenue sharing API routes
+app.use('/api/revenues', createRevenueRoutes(db, priceService));
 
 // Handle client-side routing - serve index.html for all non-API routes
 app.get('*', (req, res) => {
@@ -59,34 +73,40 @@ server.listen(config.PORT, () => {
   console.log(`[Server] Contract: ${config.CONTRACT_ADDRESS}`);
   console.log(`[Server] Network: ${config.CHAIN_NAME} (Chain ID: ${config.CHAIN_ID})`);
 
-  // Start background services
+  // Start background services (Arbitrum)
   eventListener.start();
   ownerSync.start();
+
+  // Start NFT Revenue Sharing services (Rogue Chain)
+  priceService.start();
+  rewardEventListener.start();
+  earningsSyncService.start();
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('[Server] SIGTERM received, shutting down...');
-  eventListener.stop();
-  ownerSync.stop();
-  wsServer.close();
-  db.close();
-  server.close(() => {
-    console.log('[Server] Server closed');
-    process.exit(0);
-  });
-});
+function gracefulShutdown(signal) {
+  console.log(`[Server] ${signal} received, shutting down...`);
 
-process.on('SIGINT', () => {
-  console.log('[Server] SIGINT received, shutting down...');
+  // Stop Arbitrum services
   eventListener.stop();
   ownerSync.stop();
+
+  // Stop Rogue Chain services
+  priceService.stop();
+  rewardEventListener.stop();
+  earningsSyncService.stop();
+
+  // Close connections
   wsServer.close();
   db.close();
+
   server.close(() => {
     console.log('[Server] Server closed');
     process.exit(0);
   });
-});
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = { app, server };

@@ -26,13 +26,15 @@ class HighRollersApp {
     this.setupWalletUI();
     this.setupMintUI();
     this.setupAffiliateUI();
+    this.setupRevenuesUI();
 
     // Connect to WebSocket
     this.connectWebSocket();
 
     // Load initial data
     await this.loadStats();
-    this.renderRarityGrid();
+    this.loadHostessGallery();
+    this.loadMintRevenueStats();
 
     // Wait for wallet auto-connect to complete before handling routes
     // This ensures "My NFTs" tab works correctly on page load
@@ -78,7 +80,9 @@ class HighRollersApp {
     });
 
     document.getElementById('hero-gallery-btn')?.addEventListener('click', () => {
-      this.switchTab('gallery');
+      // Scroll to the hostess gallery section on the mint tab
+      this.switchTab('mint');
+      document.getElementById('hostess-gallery')?.scrollIntoView({ behavior: 'smooth' });
     });
 
     // Handle browser back/forward
@@ -112,7 +116,7 @@ class HighRollersApp {
 
   handleRoute() {
     const path = window.location.pathname.slice(1) || 'mint';
-    const validTabs = ['mint', 'gallery', 'sales', 'affiliates', 'my-nfts'];
+    const validTabs = ['mint', 'gallery', 'sales', 'affiliates', 'my-nfts', 'revenues'];
     const tabName = validTabs.includes(path) ? path : 'mint';
     this.switchTab(tabName);
   }
@@ -128,8 +132,8 @@ class HighRollersApp {
       case 'my-nfts':
         this.loadMyNFTs();
         break;
-      case 'gallery':
-        this.loadHostessGallery();
+      case 'revenues':
+        this.loadRevenues();
         break;
     }
   }
@@ -200,6 +204,8 @@ class HighRollersApp {
     const myNftsTab = document.getElementById('my-nfts-tab');
     const affiliateConnectPrompt = document.getElementById('affiliate-connect-prompt');
     const myReferralSection = document.getElementById('my-referral-section');
+    const revenueConnectPrompt = document.getElementById('revenue-connect-prompt');
+    const myRevenueSection = document.getElementById('my-revenue-section');
 
     if (result) {
       connectBtn?.classList.add('hidden');
@@ -208,6 +214,7 @@ class HighRollersApp {
       myNftsTab?.classList.remove('hidden');
       affiliateConnectPrompt?.classList.add('hidden');
       myReferralSection?.classList.remove('hidden');
+      revenueConnectPrompt?.classList.add('hidden');
 
       document.getElementById('wallet-logo').src = walletService.getWalletLogo();
       document.getElementById('wallet-address').textContent = UI.truncateAddress(result.address);
@@ -222,6 +229,11 @@ class HighRollersApp {
 
       // Load affiliate stats
       this.loadMyAffiliateStats();
+
+      // Load revenue earnings if on revenues tab
+      if (this.currentTab === 'revenues') {
+        revenueService.fetchUserEarnings(result.address);
+      }
     } else {
       connectBtn?.classList.remove('hidden');
       walletInfo?.classList.add('hidden');
@@ -229,6 +241,11 @@ class HighRollersApp {
       myNftsTab?.classList.add('hidden');
       affiliateConnectPrompt?.classList.remove('hidden');
       myReferralSection?.classList.add('hidden');
+      revenueConnectPrompt?.classList.remove('hidden');
+      myRevenueSection?.classList.add('hidden');
+
+      // Reset revenue UI
+      revenueService.resetUserUI();
     }
   }
 
@@ -350,15 +367,6 @@ class HighRollersApp {
     }
   }
 
-  renderRarityGrid() {
-    const grid = document.getElementById('rarity-grid');
-    if (!grid) return;
-
-    grid.innerHTML = CONFIG.HOSTESSES.map(hostess =>
-      UI.renderRarityCard(hostess)
-    ).join('');
-  }
-
   async loadHostessGallery() {
     const gallery = document.getElementById('hostess-gallery');
     if (!gallery) return;
@@ -366,9 +374,71 @@ class HighRollersApp {
     // Get counts from stats
     const counts = this.stats?.hostessCounts || {};
 
+    // Fetch revenue stats for APY/24h badges
+    let hostessRevenueStats = {};
+    try {
+      const response = await fetch(`${CONFIG.API_BASE}/revenues/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        // Convert hostessTypes array to object keyed by index
+        if (data.hostessTypes) {
+          data.hostessTypes.forEach(h => {
+            hostessRevenueStats[h.index] = h;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load revenue stats for gallery:', error);
+    }
+
     gallery.innerHTML = CONFIG.HOSTESSES.map(hostess =>
-      UI.renderHostessCard(hostess, counts[hostess.index] || 0)
+      UI.renderHostessCard(hostess, counts[hostess.index] || 0, hostessRevenueStats[hostess.index])
     ).join('');
+  }
+
+  /**
+   * Load and display revenue stats on the mint tab
+   */
+  async loadMintRevenueStats() {
+    try {
+      const response = await fetch(`${CONFIG.API_BASE}/revenues/stats`);
+      if (!response.ok) return;
+
+      const stats = await response.json();
+
+      // Get ROGUE price for USD conversion
+      let roguePrice = 0;
+      try {
+        const priceResponse = await fetch(`${CONFIG.API_BASE}/revenues/prices`);
+        if (priceResponse.ok) {
+          const prices = await priceResponse.json();
+          roguePrice = prices.rogue?.usdPrice || 0;
+        }
+      } catch (e) {
+        console.error('Failed to fetch ROGUE price:', e);
+      }
+
+      const formatUsd = (amount) => {
+        const usd = parseFloat(amount || 0) * roguePrice;
+        return `$${usd.toFixed(2)}`;
+      };
+
+      // Update mint tab revenue stats
+      const totalRewards = parseFloat(stats.totalRewardsReceived || 0);
+      const last24h = parseFloat(stats.rewardsLast24Hours || 0);
+      const apy = stats.overallAPY || 0;
+
+      document.getElementById('mint-total-rewards').textContent = `${totalRewards.toFixed(2)} ROGUE`;
+      document.getElementById('mint-total-rewards-usd').textContent = formatUsd(totalRewards);
+
+      document.getElementById('mint-last-24h-rewards').textContent = `${last24h.toFixed(2)} ROGUE`;
+      document.getElementById('mint-last-24h-rewards-usd').textContent = formatUsd(last24h);
+
+      document.getElementById('mint-overall-apy').textContent = `${apy.toFixed(2)}%`;
+
+    } catch (error) {
+      console.error('Failed to load mint revenue stats:', error);
+    }
   }
 
   async loadSales() {
@@ -471,8 +541,24 @@ class HighRollersApp {
     grid.innerHTML = '';
 
     try {
-      const response = await fetch(`${CONFIG.API_BASE}/nfts/${walletService.address}`);
-      const nfts = await response.json();
+      // Fetch NFTs and earnings in parallel
+      const [nftsResponse, earningsResponse] = await Promise.all([
+        fetch(`${CONFIG.API_BASE}/nfts/${walletService.address}`),
+        fetch(`${CONFIG.API_BASE}/revenues/user/${walletService.address}`)
+      ]);
+
+      const nfts = await nftsResponse.json();
+
+      // Build earnings map by tokenId
+      let earningsMap = {};
+      if (earningsResponse.ok) {
+        const earningsData = await earningsResponse.json();
+        if (earningsData.nfts) {
+          earningsData.nfts.forEach(e => {
+            earningsMap[e.tokenId] = e;
+          });
+        }
+      }
 
       loading?.classList.add('hidden');
 
@@ -481,11 +567,43 @@ class HighRollersApp {
         return;
       }
 
-      grid.innerHTML = nfts.map(nft => UI.renderNFTCard(nft)).join('');
+      grid.innerHTML = nfts.map(nft =>
+        UI.renderNFTCard(nft, earningsMap[nft.token_id])
+      ).join('');
     } catch (error) {
       console.error('Failed to load NFTs:', error);
       loading.textContent = 'Failed to load NFTs';
     }
+  }
+
+  // ==================== Revenues ====================
+
+  async loadRevenues() {
+    // Initialize revenue service if needed
+    await revenueService.init();
+
+    // Always load global stats and history
+    await Promise.all([
+      revenueService.fetchGlobalStats(),
+      revenueService.fetchRewardHistory()
+    ]);
+
+    // Load user earnings if wallet connected
+    if (walletService.isConnected()) {
+      await revenueService.fetchUserEarnings(walletService.address);
+    } else {
+      revenueService.resetUserUI();
+    }
+  }
+
+  setupRevenuesUI() {
+    // Connect button in revenues tab
+    const revenueConnectBtn = document.getElementById('revenue-connect-btn');
+    revenueConnectBtn?.addEventListener('click', () => this.showWalletModal());
+
+    // Withdraw button
+    const withdrawRevenuesBtn = document.getElementById('withdraw-revenues-btn');
+    withdrawRevenuesBtn?.addEventListener('click', () => revenueService.withdraw());
   }
 
   // ==================== Affiliate UI ====================
@@ -738,6 +856,24 @@ class HighRollersApp {
 
       case 'NFT_TRANSFERRED':
         // Could update ownership display
+        break;
+
+      // Revenue events
+      case 'PRICE_UPDATE':
+        revenueService.handlePriceUpdate(message.data);
+        break;
+
+      case 'REWARD_RECEIVED':
+        revenueService.handleRewardReceived(message.data);
+        break;
+
+      case 'REWARD_CLAIMED':
+        revenueService.handleRewardClaimed(message.data);
+        break;
+
+      case 'EARNINGS_SYNCED':
+        // Backend completed sync - refresh all stats for all users
+        revenueService.handleEarningsSynced(message.data);
         break;
     }
   }

@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const config = require('../config');
+const adminTxQueue = require('./adminTxQueue');
 
 class EventListener {
   constructor(contractService, database, websocketServer) {
@@ -165,12 +166,42 @@ class EventListener {
             txHash: event.transactionHash
           }
         });
+
+        // Update ownership in NFTRewarder on Rogue Chain (async, don't block)
+        this.updateOwnershipOnRogueChain(Number(tokenId), to);
       }
     } catch (error) {
       // Suppress rate limit errors
       if (!error.message?.includes('rate limit') && !error.message?.includes('coalesce')) {
         console.error('[EventListener] Transfer poll error:', error.message);
       }
+    }
+  }
+
+  /**
+   * Update NFT ownership in the NFTRewarder contract on Rogue Chain
+   * This ensures rewards go to the correct owner after a transfer
+   *
+   * @param {number} tokenId - NFT token ID
+   * @param {string} newOwner - New owner wallet address
+   */
+  async updateOwnershipOnRogueChain(tokenId, newOwner) {
+    try {
+      const receipt = await adminTxQueue.updateOwnership(tokenId, newOwner);
+      console.log(`[EventListener] Updated ownership for NFT #${tokenId} on Rogue Chain: ${receipt.hash}`);
+
+      // Broadcast ownership update success
+      this.ws.broadcast({
+        type: 'NFT_OWNERSHIP_UPDATED_FOR_REWARDS',
+        data: {
+          tokenId,
+          newOwner,
+          txHash: receipt.hash
+        }
+      });
+    } catch (error) {
+      console.error(`[EventListener] Failed to update ownership for NFT #${tokenId} on Rogue Chain:`, error.message);
+      // Don't throw - this is non-critical and can be retried manually
     }
   }
 
@@ -261,6 +292,38 @@ class EventListener {
         tier2Earnings
       }
     });
+
+    // Register NFT in NFTRewarder on Rogue Chain (async, don't block)
+    this.registerNFTOnRogueChain(Number(tokenId), hostessIndex, recipient);
+  }
+
+  /**
+   * Register a newly minted NFT in the NFTRewarder contract on Rogue Chain
+   * This enables the NFT to receive revenue sharing rewards
+   *
+   * @param {number} tokenId - NFT token ID
+   * @param {number} hostessIndex - Hostess type (0-7)
+   * @param {string} owner - Owner wallet address
+   */
+  async registerNFTOnRogueChain(tokenId, hostessIndex, owner) {
+    try {
+      const receipt = await adminTxQueue.registerNFT(tokenId, hostessIndex, owner);
+      console.log(`[EventListener] Registered NFT #${tokenId} on Rogue Chain: ${receipt.hash}`);
+
+      // Broadcast registration success
+      this.ws.broadcast({
+        type: 'NFT_REGISTERED_FOR_REWARDS',
+        data: {
+          tokenId,
+          hostessIndex,
+          owner,
+          txHash: receipt.hash
+        }
+      });
+    } catch (error) {
+      console.error(`[EventListener] Failed to register NFT #${tokenId} on Rogue Chain:`, error.message);
+      // Don't throw - this is non-critical and can be retried manually
+    }
   }
 
   /**
