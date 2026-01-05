@@ -8,6 +8,8 @@ class WalletService {
     this.walletType = null;
     this.onConnectCallbacks = [];
     this.onDisconnectCallbacks = [];
+    this.autoConnectComplete = false;
+    this.autoConnectPromise = null;
 
     // Wallet configurations with logos
     this.walletConfigs = {
@@ -20,7 +22,15 @@ class WalletService {
     };
 
     // Check for existing connection on page load
-    this.checkExistingConnection();
+    this.autoConnectPromise = this.checkExistingConnection();
+  }
+
+  /**
+   * Wait for auto-connect to complete before proceeding
+   */
+  async waitForAutoConnect() {
+    if (this.autoConnectComplete) return;
+    await this.autoConnectPromise;
   }
 
   /**
@@ -261,6 +271,9 @@ class WalletService {
         localStorage.removeItem('walletType');
       }
     }
+
+    // Mark auto-connect as complete so app can proceed with routing
+    this.autoConnectComplete = true;
   }
 
   handleAccountsChanged(accounts) {

@@ -12,6 +12,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - Always stay on the current branch unless the user specifically tells you to change branches
 > - Wait for explicit "commit", "push", "git add", or "deploy" commands from the user before making git operations
 >
+> **CRITICAL RPC RULES**:
+> - NEVER use public RPC endpoints (like `https://arb1.arbitrum.io/rpc`) for scripts or server code
+> - Always use the project's configured RPC URL from config files (e.g., `server/config.js` for high-rollers-nfts)
+> - Public endpoints are ONLY acceptable for user-facing frontend code where the user connects their own wallet
+> - High Rollers NFT uses QuickNode: check `high-rollers-nfts/server/config.js` for the correct RPC_URL
+>
 > **DEVELOPMENT WORKFLOW**:
 > - DO NOT restart node1/node2 after every code fix - Elixir hot reloads most changes automatically
 > - Only restart nodes when explicitly asked, or when changing supervision tree/application config
@@ -233,6 +239,41 @@ end
 
 **Current local GenServers**:
 - `HubLogoCache` - manages local ETS table for fast lookups
+
+#### GlobalSingleton: Safe Global Registration (Rolling Deploys)
+
+**Problem**: When using raw `{:global, Name}` registration, Erlang's default behavior during name conflicts is to **kill one of the processes**. This causes crashes during rolling deploys when a new node tries to register a global name that already exists on another node.
+
+**Solution**: Use `BlocksterV2.GlobalSingleton` module which provides:
+1. Custom conflict resolver that keeps existing process, rejects new one (no killing)
+2. Distributed `Process.alive?` check using RPC for remote PIDs
+3. Clean handling when existing process is dead (unregisters and starts fresh)
+
+**Usage Pattern**:
+```elixir
+def start_link(opts) do
+  case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+    {:ok, pid} -> {:ok, pid}
+    {:already_registered, _pid} -> :ignore
+  end
+end
+```
+
+**GenServers Using GlobalSingleton**:
+- `MnesiaInitializer` - with special handling to initialize Mnesia locally when returning `:ignore`
+- `PriceTracker` - external API polling
+- `BuxBoosterBetSettler` - periodic background task
+- `TimeTracker` - user activity tracking
+
+**Log Messages** (expected during rolling deploys):
+```
+[GlobalSingleton] BlocksterV2.PriceTracker already running on node1@hostname
+[GlobalSingleton] Name conflict for BlocksterV2.MnesiaInitializer: keeping #PID<X.Y.Z> on node1, rejecting #PID<A.B.C> on node2
+```
+
+**Important**: GlobalSingleton handles remote PIDs correctly using `:rpc.call/4` because `Process.alive?/1` only works for local PIDs.
+
+See `docs/mnesia_setup.md` for complete documentation.
 
 #### Mnesia Best Practices
 - **Always use dirty operations** (`dirty_read`, `dirty_write`, `dirty_delete`, `dirty_index_read`) instead of transactions for performance
@@ -2026,3 +2067,62 @@ PriceTracker.refresh_prices()
 1. Get the error signature: `keccak256(toBytes('ErrorName()'))).slice(0, 10)`
 2. Add to `CONTRACT_ERROR_MESSAGES` in `bux_booster_onchain.js`
 3. For common validation errors, also add server-side check in `handle_event("start_game", ...)`
+
+### GlobalSingleton for Safe Rolling Deploys (Jan 2, 2026)
+
+**Problem**: During rolling deploys on Fly.io, when a new machine starts and joins the cluster, global GenServers would cause crashes. Erlang's default behavior for `:global.register_name/2` name conflicts is to **kill one of the processes**, which interrupted Mnesia table synchronization and caused cascading failures.
+
+**Error Pattern**:
+```
+[error] GenServer {:global, BlocksterV2.MnesiaInitializer} terminating
+** (stop) exited in: :global.register_name(BlocksterV2.MnesiaInitializer, #PID<0.1234.0>)
+```
+
+**Solution**: Created `BlocksterV2.GlobalSingleton` module that:
+1. Uses `:global.register_name/3` with a custom conflict resolver
+2. Keeps the existing process running, returns `:ignore` for the new one
+3. Handles distributed `Process.alive?` check via RPC (since `Process.alive?/1` only works locally)
+
+**Key Code** ([lib/blockster_v2/global_singleton.ex](lib/blockster_v2/global_singleton.ex)):
+```elixir
+# Custom conflict resolver - keeps existing, rejects new
+def resolve_conflict(name, pid1, pid2) do
+  Logger.info("[GlobalSingleton] Name conflict for #{inspect(name)}: keeping #{inspect(pid1)}, rejecting #{inspect(pid2)}")
+  pid1  # Return existing process, don't kill either
+end
+
+# Distributed Process.alive? check using RPC
+defp process_alive_distributed?(pid) do
+  if node(pid) == node() do
+    Process.alive?(pid)
+  else
+    case :rpc.call(node(pid), Process, :alive?, [pid], 5000) do
+      true -> true
+      false -> false
+      {:badrpc, _} -> false  # Node unreachable
+    end
+  end
+end
+```
+
+**Updated GenServers**:
+- `MnesiaInitializer` - special handling to initialize Mnesia locally when returning `:ignore`
+- `PriceTracker` - returns `:ignore` when already running on another node
+- `BuxBoosterBetSettler` - returns `:ignore` when already running on another node
+- `TimeTracker` - returns `:ignore` when already running on another node
+
+**Expected Logs** (during successful rolling deploy):
+```
+[GlobalSingleton] BlocksterV2.PriceTracker already running on node1@hostname
+[GlobalSingleton] Name conflict for BlocksterV2.MnesiaInitializer: keeping #PID<X.Y.Z> on node1, rejecting #PID<A.B.C> on node2
+[MnesiaInitializer] Successfully joined cluster and synced tables
+```
+
+**Files Changed**:
+- [lib/blockster_v2/global_singleton.ex](lib/blockster_v2/global_singleton.ex) - NEW FILE
+- [lib/blockster_v2/mnesia_initializer.ex](lib/blockster_v2/mnesia_initializer.ex) - Updated start_link
+- [lib/blockster_v2/price_tracker.ex](lib/blockster_v2/price_tracker.ex) - Updated start_link
+- [lib/blockster_v2/time_tracker.ex](lib/blockster_v2/time_tracker.ex) - Updated start_link
+- [lib/blockster_v2/bux_booster_bet_settler.ex](lib/blockster_v2/bux_booster_bet_settler.ex) - Updated start_link
+
+**Documentation**: See [docs/mnesia_setup.md](docs/mnesia_setup.md#globalsingleton-safe-global-genserver-registration) for complete details.

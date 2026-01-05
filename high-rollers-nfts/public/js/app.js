@@ -34,6 +34,10 @@ class HighRollersApp {
     await this.loadStats();
     this.renderRarityGrid();
 
+    // Wait for wallet auto-connect to complete before handling routes
+    // This ensures "My NFTs" tab works correctly on page load
+    await walletService.waitForAutoConnect();
+
     // Handle initial route
     this.handleRoute();
 

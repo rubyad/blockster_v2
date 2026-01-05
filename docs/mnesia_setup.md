@@ -949,3 +949,127 @@ Key functions added:
 3. **Dead nodes block migration** - Must manually remove dead nodes from schema
 4. **Falls back to data loss** - If all migration attempts fail, table is recreated empty
 5. **No automatic backups** - Must manually backup before schema changes
+
+---
+
+## GlobalSingleton: Safe Global GenServer Registration
+
+### The Problem
+
+When using `{:global, __MODULE__}` for GenServer registration across a cluster, Erlang's default behavior during a name conflict is to **kill one of the processes**. This happens during:
+- Rolling deploys (new node starts while old node is still running)
+- Node reconnections after network partitions
+- Mnesia table synchronization
+
+Example crash log before the fix:
+```
+global: Name conflict terminating {BlocksterV2.PriceTracker, #PID<52425.2281.0>}
+global: Name conflict terminating {BlocksterV2.MnesiaInitializer, #PID<52425.2272.0>}
+```
+
+When the MnesiaInitializer process is killed during table copying, it interrupts the Mnesia table sync and can cause data corruption or node crashes.
+
+### The Solution: GlobalSingleton Module
+
+**File:** `lib/blockster_v2/global_singleton.ex`
+
+The `GlobalSingleton` module provides a custom conflict resolution strategy that:
+1. Checks if a global name is already registered before starting
+2. Uses RPC to verify if remote processes are alive
+3. Provides a custom conflict resolver that keeps existing processes alive
+
+```elixir
+defmodule BlocksterV2.GlobalSingleton do
+  def start_link(module, opts) do
+    case :global.whereis_name(module) do
+      :undefined ->
+        # No existing process, try to register
+        do_start_link(module, opts)
+
+      existing_pid ->
+        # Process already exists globally - check if it's alive
+        if process_alive_distributed?(existing_pid) do
+          {:already_registered, existing_pid}
+        else
+          :global.unregister_name(module)
+          do_start_link(module, opts)
+        end
+    end
+  end
+
+  # Custom conflict resolver - keeps existing process, doesn't kill anything
+  def resolve_conflict(name, pid1, pid2) do
+    Logger.info("[GlobalSingleton] Name conflict for #{inspect(name)}: keeping #{inspect(pid1)}, rejecting #{inspect(pid2)}")
+    pid1  # Return existing process
+  end
+end
+```
+
+### GenServers Using GlobalSingleton
+
+The following GenServers use GlobalSingleton for safe cluster-wide singleton behavior:
+
+| GenServer | Purpose | Why Global? |
+|-----------|---------|-------------|
+| `MnesiaInitializer` | Initializes Mnesia tables | Only one node should run the primary initializer |
+| `PriceTracker` | Polls CoinGecko API | Saves API quota, prevents duplicate calls |
+| `TimeTracker` | Tracks user reading time | Serializes writes to Mnesia |
+| `BuxBoosterBetSettler` | Settles stuck bets | Prevents duplicate settlement attempts |
+
+### Usage Pattern
+
+```elixir
+def start_link(opts) do
+  case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+    {:ok, pid} ->
+      {:ok, pid}
+
+    {:already_registered, _pid} ->
+      # Another node already has this GenServer running
+      # Return :ignore so supervisor doesn't fail
+      :ignore
+  end
+end
+```
+
+### Logs During Normal Operation
+
+When a second node joins the cluster, you'll see:
+```
+[info] [GlobalSingleton] BlocksterV2.MnesiaInitializer already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.PriceTracker already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.TimeTracker already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.BuxBoosterBetSettler already running on node1@hostname
+```
+
+If a race condition occurs (both nodes register simultaneously):
+```
+[info] [GlobalSingleton] Name conflict for BlocksterV2.PriceTracker: keeping #PID<52429.2279.0> on node2, rejecting #PID<0.2273.0> on node1
+```
+
+### Key Difference from Raw `{:global, Name}`
+
+| Behavior | Raw `{:global, Name}` | GlobalSingleton |
+|----------|----------------------|-----------------|
+| Name conflict | Kills one process | Keeps both alive, rejects registration |
+| During Mnesia sync | Crashes, data loss possible | Safe, sync continues |
+| Log message | `global: Name conflict terminating` | `[GlobalSingleton] Name conflict: keeping ... rejecting ...` |
+| Node restart needed | Often yes | No |
+
+### Distributed Process.alive? Check
+
+`Process.alive?/1` only works for local PIDs. GlobalSingleton uses RPC to check remote processes:
+
+```elixir
+defp process_alive_distributed?(pid) do
+  if node(pid) == node() do
+    Process.alive?(pid)
+  else
+    case :rpc.call(node(pid), Process, :alive?, [pid], 5000) do
+      true -> true
+      false -> false
+      {:badrpc, _} -> false  # Node unreachable
+    end
+  end
+end
+```
