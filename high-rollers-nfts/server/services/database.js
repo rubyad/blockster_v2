@@ -230,6 +230,39 @@ class DatabaseService {
     return !!result;
   }
 
+  /**
+   * Upsert sale - if sale exists with fake tx_hash (from OwnerSync), update it with real data
+   * This ensures EventListener's real tx_hash takes priority over OwnerSync's fake hash
+   */
+  upsertSale(data) {
+    const existing = this.db.prepare('SELECT tx_hash FROM sales WHERE token_id = ?').get(data.tokenId);
+
+    if (existing) {
+      // If existing record has a fake tx_hash (from OwnerSync), update it with real data
+      if (existing.tx_hash && existing.tx_hash.startsWith('sync_owner_')) {
+        const updateStmt = this.db.prepare(`
+          UPDATE sales
+          SET tx_hash = ?, block_number = ?, affiliate = ?, affiliate2 = ?
+          WHERE token_id = ?
+        `);
+        console.log(`[DB] Updating sale for token ${data.tokenId} with real tx_hash`);
+        return updateStmt.run(
+          data.txHash,
+          data.blockNumber,
+          data.affiliate?.toLowerCase(),
+          data.affiliate2?.toLowerCase(),
+          data.tokenId
+        );
+      }
+      // Otherwise, sale already exists with real data, skip
+      console.log(`[DB] Sale for token ${data.tokenId} already exists with real tx_hash, skipping`);
+      return { changes: 0 };
+    }
+
+    // No existing sale, insert new
+    return this.insertSale(data);
+  }
+
   // Hostess Counts
   incrementHostessCount(hostessIndex) {
     const stmt = this.db.prepare(`
@@ -298,7 +331,7 @@ class DatabaseService {
   // Affiliate Operations
   insertAffiliateEarning(data) {
     const stmt = this.db.prepare(`
-      INSERT INTO affiliate_earnings (token_id, tier, affiliate, earnings, tx_hash)
+      INSERT OR IGNORE INTO affiliate_earnings (token_id, tier, affiliate, earnings, tx_hash)
       VALUES (?, ?, ?, ?, ?)
     `);
     return stmt.run(

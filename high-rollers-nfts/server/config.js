@@ -18,6 +18,10 @@ module.exports = {
   // Default affiliate (fallback)
   DEFAULT_AFFILIATE: '0xb91b270212F0F7504ECBa6Ff1d9c1f58DfcEEa14',
 
+  // Affiliate linker wallet (authorized to call linkAffiliate on contract)
+  AFFILIATE_LINKER_ADDRESS: '0x01436e73C4B4df2FEDA37f967C8eca1E510a7E73',
+  AFFILIATE_LINKER_PRIVATE_KEY: process.env.AFFILIATE_LINKER_PRIVATE_KEY,
+
   // Affiliate percentages
   TIER1_PERCENTAGE: 20, // 20% = 0.064 ETH per mint
   TIER2_PERCENTAGE: 5,  // 5% = 0.016 ETH per mint

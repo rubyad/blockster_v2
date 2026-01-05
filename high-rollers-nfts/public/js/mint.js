@@ -21,20 +21,9 @@ class MintService {
 
     const contract = walletService.getContract();
 
-    // Get affiliate from server (permanent link) or localStorage
-    const affiliate = await affiliateService.getAffiliateForBuyer(walletService.address);
-
-    // Link affiliate on-chain before minting
-    // This ensures the affiliate gets credit for this mint
-    try {
-      console.log(`[Mint] Linking affiliate: ${affiliate}`);
-      const linkTx = await contract.linkAffiliate(walletService.address, affiliate);
-      await linkTx.wait();
-      console.log('[Mint] Affiliate linked successfully');
-    } catch (error) {
-      // Might fail if already linked - that's OK
-      console.log('[Mint] Affiliate link skipped (may already be linked):', error.message);
-    }
+    // Note: Affiliate linking is now handled server-side when wallet connects
+    // The server calls linkAffiliate using the affiliateLinker wallet
+    // This ensures proper on-chain linking with the authorized wallet
 
     // Send mint transaction
     const tx = await contract.requestNFT({

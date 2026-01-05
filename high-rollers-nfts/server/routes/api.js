@@ -266,7 +266,8 @@ module.exports = (db, contractService, ownerSync) => {
   });
 
   // Link buyer to affiliate (permanent association)
-  router.post('/link-affiliate', (req, res) => {
+  // This calls the smart contract using the affiliateLinker wallet
+  router.post('/link-affiliate', async (req, res) => {
     try {
       const { buyer, affiliate } = req.body;
 
@@ -278,24 +279,61 @@ module.exports = (db, contractService, ownerSync) => {
         return res.status(400).json({ error: 'Invalid address format' });
       }
 
-      // Check if buyer already has an affiliate
+      // Check if buyer already has an affiliate in our database
       const existingAffiliate = db.getBuyerAffiliate(buyer);
       if (existingAffiliate) {
         // Return the existing affiliate - first referrer always wins
         return res.json({
           success: true,
           affiliate: existingAffiliate,
-          isNew: false
+          isNew: false,
+          onChain: false
         });
       }
 
-      // Link buyer to new affiliate
+      // Link buyer to affiliate on-chain using the affiliateLinker wallet
+      // Retry up to 3 times to handle nonce conflicts from concurrent requests
+      let onChainSuccess = false;
+      if (config.AFFILIATE_LINKER_PRIVATE_KEY) {
+        const provider = new ethers.JsonRpcProvider(config.RPC_URL);
+        const affiliateLinkerWallet = new ethers.Wallet(config.AFFILIATE_LINKER_PRIVATE_KEY, provider);
+        const contract = new ethers.Contract(config.CONTRACT_ADDRESS, config.CONTRACT_ABI, affiliateLinkerWallet);
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`[API] Linking affiliate on-chain (attempt ${attempt}): buyer=${buyer}, affiliate=${affiliate}`);
+            const tx = await contract.linkAffiliate(buyer, affiliate);
+            await tx.wait();
+            console.log(`[API] On-chain affiliate link successful: tx=${tx.hash}`);
+            onChainSuccess = true;
+            break;
+          } catch (onChainError) {
+            const isNonceError = onChainError.message?.toLowerCase().includes('nonce') ||
+                                 onChainError.message?.toLowerCase().includes('replacement');
+
+            if (isNonceError && attempt < 3) {
+              console.log(`[API] Nonce conflict, retrying in 2 seconds... (attempt ${attempt}/3)`);
+              await new Promise(r => setTimeout(r, 2000));
+              continue;
+            }
+
+            // Log but don't fail - still save to database
+            console.error('[API] On-chain affiliate link failed:', onChainError.message);
+            break;
+          }
+        }
+      } else {
+        console.warn('[API] AFFILIATE_LINKER_PRIVATE_KEY not set - skipping on-chain link');
+      }
+
+      // Link buyer to new affiliate in database
       db.linkBuyerToAffiliate(buyer, affiliate);
 
       res.json({
         success: true,
         affiliate: affiliate.toLowerCase(),
-        isNew: true
+        isNew: true,
+        onChain: onChainSuccess
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

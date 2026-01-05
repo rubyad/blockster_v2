@@ -202,8 +202,8 @@ class EventListener {
       affiliate2
     });
 
-    // Store sale
-    this.db.insertSale({
+    // Store sale (upsert to update if OwnerSync created with fake tx_hash first)
+    this.db.upsertSale({
       tokenId: Number(tokenId),
       buyer: recipient,
       hostessIndex,
