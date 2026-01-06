@@ -1078,15 +1078,9 @@ defmodule BlocksterV2.EngagementTracker do
         {:ok, aggregate_balance}
     end
 
-    # Broadcast aggregate from user_bux_balances (the authoritative source)
-    aggregate = get_user_bux_balance(user_id)
-    BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
-
-    # Also broadcast individual token balances for dropdown updates
-    token_balances = get_user_token_balances(user_id)
-    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, token_balances)
-
-    {:ok, aggregate}
+    # NOTE: Broadcast removed - caller (sync_user_balances) handles broadcasting once at the end
+    # to avoid multiple redundant broadcasts during batch updates
+    {:ok, aggregate_balance}
   rescue
     e ->
       Logger.error("[EngagementTracker] Error updating user bux balance: #{inspect(e)}")
@@ -1270,10 +1264,13 @@ defmodule BlocksterV2.EngagementTracker do
   5: bux_balance
   6-15: deprecated hub token fields (kept for backward compatibility)
   """
-  def update_user_token_balance(user_id, wallet_address, token, balance) do
+  def update_user_token_balance(user_id, wallet_address, token, balance, opts \\ []) do
     # Handle ROGUE separately (native token, stored in separate table)
+    broadcast = Keyword.get(opts, :broadcast, true)
+
     if token == "ROGUE" do
-      update_user_rogue_balance(user_id, wallet_address, balance)
+      # ROGUE balance update - broadcast disabled here, caller handles it
+      update_user_rogue_balance(user_id, wallet_address, balance, :rogue_chain)
     else
       now = System.system_time(:second)
       field_index = Map.get(@token_field_indices, token)
@@ -1292,10 +1289,11 @@ defmodule BlocksterV2.EngagementTracker do
           record = create_new_balance_record(user_id, wallet_address, now, token, balance_float)
           :mnesia.dirty_write(record)
           Logger.info("[EngagementTracker] Created user_bux_balances for user #{user_id}: #{token}=#{balance_float}")
-          # Broadcast both aggregate balance and token_balances map (for header display)
-          BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, balance_float)
-          # Also broadcast token_balances with just BUX (since only BUX is rewarded now)
-          BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
+          # Broadcast if enabled (disabled during batch sync to avoid redundant updates)
+          if broadcast do
+            BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, balance_float)
+            BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
+          end
           {:ok, balance_float}
 
         [existing] ->
@@ -1311,10 +1309,11 @@ defmodule BlocksterV2.EngagementTracker do
 
           :mnesia.dirty_write(updated)
           Logger.info("[EngagementTracker] Updated user_bux_balances for user #{user_id}: #{token}=#{balance_float}, aggregate=#{aggregate}")
-          # Broadcast both aggregate balance and token_balances map (for header display)
-          BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
-          # Also broadcast token_balances with just BUX (since only BUX is rewarded now)
-          BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
+          # Broadcast if enabled (disabled during batch sync to avoid redundant updates)
+          if broadcast do
+            BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
+            BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => balance_float})
+          end
           {:ok, balance_float}
       end
       end
@@ -1457,11 +1456,8 @@ defmodule BlocksterV2.EngagementTracker do
         {:ok, balance_float}
     end
 
-    # Broadcast updated balances to all LiveViews (same as BUX token updates)
-    # This ensures ROGUE balance updates trigger UI refresh
-    all_balances = get_user_token_balances(user_id)
-    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, all_balances)
-
+    # NOTE: Broadcast removed - caller (sync_user_balances) handles broadcasting once at the end
+    # to avoid multiple redundant broadcasts during batch updates
     result
   rescue
     error ->
@@ -1483,7 +1479,6 @@ defmodule BlocksterV2.EngagementTracker do
         0.0
 
       [record] ->
-        Logger.info("[EngagementTracker] user_bux_balances record for user #{user_id}: BUX=#{elem(record, 5)}")
         elem(record, 5) || 0.0
     end
 

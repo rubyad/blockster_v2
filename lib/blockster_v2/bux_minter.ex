@@ -219,9 +219,9 @@ defmodule BlocksterV2.BuxMinter do
         bux_balance = Map.get(filtered_balances, "BUX", 0)
         Logger.info("[BuxMinter] Syncing balances for user #{user_id}: BUX=#{bux_balance}")
 
-        # Update BUX and ROGUE balances in Mnesia
+        # Update BUX and ROGUE balances in Mnesia (broadcast: false to avoid redundant broadcasts)
         Enum.each(filtered_balances, fn {token, balance} ->
-          EngagementTracker.update_user_token_balance(user_id, wallet_address, token, balance)
+          EngagementTracker.update_user_token_balance(user_id, wallet_address, token, balance, broadcast: false)
         end)
 
         # Update the BUX balance in user_bux_points for backward compatibility
