@@ -4,6 +4,11 @@
     {
       "address": "0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B",
       "kind": "uups"
+    },
+    {
+      "address": "0x96aB9560f1407586faE2b69Dc7f38a59BEACC594",
+      "txHash": "0x87e0997e1df9e359fd953670fa9237950f591e98acdc7d4a9bf7c267761cea44",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -812,6 +817,218 @@
           "t_uint32": {
             "label": "uint32",
             "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "84db690a3a0ef1d633510c71234935d2ea42b81431cac1a2faf1c4fc56359ac3": {
+      "address": "0x9bBA800ed188d1b7f8Ee6c33d1497B012Be1Ea93",
+      "txHash": "0x662f06aa1e108dae8e8634e50e1635aff429e0f00d4aa87366f1f0b83d1676dc",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/NFTRewarder.sol:46"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/NFTRewarder.sol:47"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/NFTRewarder.sol:130"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "contracts/NFTRewarder.sol:187"
+          },
+          {
+            "label": "admin",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:324"
+          },
+          {
+            "label": "rogueBankroll",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:325"
+          },
+          {
+            "label": "nftMetadata",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_uint256,t_struct(NFTMetadata)620_storage)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:328"
+          },
+          {
+            "label": "totalRegisteredNFTs",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:329"
+          },
+          {
+            "label": "totalMultiplierPoints",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:330"
+          },
+          {
+            "label": "ownerTokenIds",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:333"
+          },
+          {
+            "label": "tokenIdToOwnerIndex",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:334"
+          },
+          {
+            "label": "totalRewardsReceived",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:337"
+          },
+          {
+            "label": "totalRewardsDistributed",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:338"
+          },
+          {
+            "label": "rewardsPerMultiplierPoint",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_uint256",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:339"
+          },
+          {
+            "label": "nftRewardDebt",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:342"
+          },
+          {
+            "label": "nftClaimedRewards",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:343"
+          },
+          {
+            "label": "userTotalClaimed",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "NFTRewarder",
+            "src": "contracts/NFTRewarder.sol:346"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_uint256)dyn_storage)": {
+            "label": "mapping(address => uint256[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(NFTMetadata)620_storage)": {
+            "label": "mapping(uint256 => struct NFTRewarder.NFTMetadata)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(NFTMetadata)620_storage": {
+            "label": "struct NFTRewarder.NFTMetadata",
+            "members": [
+              {
+                "label": "hostessIndex",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "registered",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 2,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
           },
           "t_uint64": {
             "label": "uint64",

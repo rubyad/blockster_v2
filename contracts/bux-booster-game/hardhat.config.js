@@ -22,6 +22,15 @@ module.exports = {
       gasPrice: 1000000000000,  // 1000 gwei - Rogue Chain base fee
       timeout: 120000,
       httpHeaders: {}
+    },
+    rogueMainnetAdmin: {
+      url: "https://rpc.roguechain.io/rpc",
+      chainId: 560013,
+      accounts: process.env.ADMIN_PRIVATE_KEY ? [process.env.ADMIN_PRIVATE_KEY] : [],
+      gas: 5000000,
+      gasPrice: 1000000000000,  // 1000 gwei - Rogue Chain base fee
+      timeout: 120000,
+      httpHeaders: {}
     }
   }
 };

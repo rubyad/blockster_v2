@@ -18,6 +18,11 @@ defmodule BlocksterV2Web.Router do
     plug BlocksterV2Web.Plugs.AuthPlug
   end
 
+  # Public API endpoints (no auth required)
+  pipeline :public_api do
+    plug :accepts, ["json"]
+  end
+
   scope "/", BlocksterV2Web do
     pipe_through :browser
 
@@ -108,6 +113,16 @@ defmodule BlocksterV2Web.Router do
     post "/auth/email/verify", AuthController, :verify_email
     post "/auth/logout", AuthController, :logout
     get "/auth/me", AuthController, :me
+  end
+
+  # Public API endpoints (no authentication required)
+  # Used by high-rollers-nfts app for price data
+  scope "/api", BlocksterV2Web do
+    pipe_through :public_api
+
+    # Token prices (from PriceTracker / CoinGecko cache)
+    get "/prices", PriceController, :index
+    get "/prices/:symbol", PriceController, :show
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

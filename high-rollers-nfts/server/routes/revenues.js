@@ -328,7 +328,7 @@ module.exports = (db, priceService) => {
       console.log(`[Revenues] Withdrawal confirmed: ${receipt.hash}`);
 
       // Record the withdrawal
-      db.insertRewardWithdrawal({
+      db.recordRewardWithdrawal({
         userAddress: address.toLowerCase(),
         amount: totalPendingWei.toString(),
         tokenIds: JSON.stringify(tokenIdsWithPending),

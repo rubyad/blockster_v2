@@ -2,7 +2,7 @@
 
 A standalone Node.js application for the Rogue High Rollers NFT collection on Arbitrum One. Users connect their wallet, mint NFTs for 0.32 ETH, and see real-time updates of their minted NFT type (determined by Chainlink VRF).
 
-**Key Value Proposition**: High Rollers NFTs earn a share of every winning bet on the platform - passive income forever.
+**Key Value Proposition**: High Rollers NFTs earn a share of ROGUE betting losses on BUX Booster - passive income proportional to NFT rarity. 🟢 **Revenue sharing is LIVE!**
 
 ## Smart Contract Details
 
@@ -73,24 +73,30 @@ high-rollers-nfts/
 │   ├── index.js              # Express server entry point
 │   ├── config.js             # Network, contract config, hostess data
 │   ├── routes/
-│   │   └── api.js            # REST API endpoints
+│   │   ├── api.js            # REST API endpoints
+│   │   └── revenues.js       # Revenue sharing API endpoints
 │   └── services/
 │       ├── database.js       # SQLite operations
 │       ├── contractService.js # Contract read operations
-│       ├── eventListener.js  # Blockchain event polling
+│       ├── eventListener.js  # Blockchain event polling + NFT registration
 │       ├── ownerSync.js      # NFT ownership sync service
-│       └── websocket.js      # WebSocket server for real-time updates
+│       ├── websocket.js      # WebSocket server for real-time updates
+│       ├── adminTxQueue.js   # Serialized admin tx queue (Rogue Chain)
+│       ├── priceService.js   # ROGUE/ETH price fetching
+│       ├── rewardEventListener.js  # Reward event polling (Rogue Chain)
+│       └── earningsSyncService.js  # NFT earnings sync + APY calculation
 ├── public/
 │   ├── index.html            # Main HTML page with tab navigation
 │   ├── css/
 │   │   └── styles.css        # Tailwind CSS styling
 │   └── js/
 │       ├── app.js            # Main application logic + routing
-│       ├── config.js         # Frontend configuration
+│       ├── config.js         # Frontend configuration (+ Rogue Chain config)
 │       ├── wallet.js         # Multi-wallet connection (MetaMask, Coinbase, etc.)
 │       ├── mint.js           # Minting functionality with fallback polling
 │       ├── affiliate.js      # Affiliate tracking & referral links
-│       └── ui.js             # UI updates & rendering
+│       ├── ui.js             # UI updates & rendering (+ revenue displays)
+│       └── revenues.js       # Revenue service + price formatting
 ├── data/
 │   └── highrollers.db        # SQLite database
 ├── docs/
@@ -236,10 +242,11 @@ Tab-based navigation with URL routing:
 | Tab | Route | Description |
 |-----|-------|-------------|
 | Mint | `/` or `/mint` | Main minting interface with countdown to 2700 |
-| Gallery | `/gallery` | All 8 NFT types with mint counts |
+| Gallery | `/gallery` | All 8 NFT types with mint counts + APY/24h badges |
 | Sales | `/sales` | Live sales table with real-time updates |
 | Affiliates | `/affiliates` | Affiliate earnings table & user's referral link |
-| My NFTs | `/my-nfts` | User's owned NFTs (requires wallet connection) |
+| My NFTs | `/my-nfts` | User's owned NFTs with earnings display |
+| Revenues | `/revenues` | 🟢 **NEW**: Revenue sharing stats, earnings, withdrawals |
 
 ## Multi-Wallet Support
 
@@ -346,6 +353,56 @@ event NFTRequested(uint256 requestId, address sender, uint256 currentPrice, uint
 event NFTMinted(uint256 requestId, address recipient, uint256 currentPrice, uint256 tokenId, uint8 hostess, address affiliate, address affiliate2)
 event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
 ```
+
+## NFT Revenue Sharing (🟢 LIVE - Jan 5, 2026)
+
+High Rollers NFTs earn passive income from ROGUE betting on BUX Booster. When players lose ROGUE bets, 0.2% of the wager is distributed to NFT holders proportionally based on their multiplier.
+
+### Revenue Sharing Contracts (Rogue Chain)
+
+| Contract | Address | Status |
+|----------|---------|--------|
+| NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | ✅ LIVE |
+| ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | ✅ LIVE |
+
+### How Revenue Sharing Works
+
+1. Player loses a ROGUE bet on BUX Booster
+2. ROGUEBankroll sends 0.2% of the wager to NFTRewarder
+3. NFTRewarder distributes rewards proportionally by multiplier
+4. NFT holders can view earnings and withdraw via the Revenues tab
+
+### Backend Services
+
+| Service | Interval | Purpose |
+|---------|----------|---------|
+| PriceService | 10 min | ROGUE/ETH prices (Blockster API primary, CoinGecko fallback) |
+| RewardEventListener | 10 sec | Polls for RewardReceived/RewardClaimed events |
+| EarningsSyncService | 30 sec | Syncs NFT earnings, calculates 24h and APY |
+| AdminTxQueue | On-demand | Serializes admin transactions (registerNFT, updateOwnership, withdrawTo) |
+
+### Revenue API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/revenues/stats` | Global stats + per-hostess breakdown |
+| `GET /api/revenues/nft/:tokenId` | Individual NFT earnings |
+| `GET /api/revenues/user/:address` | All NFT earnings for a wallet |
+| `GET /api/revenues/history` | Recent reward events |
+| `GET /api/revenues/prices` | ROGUE + ETH prices |
+| `POST /api/revenues/withdraw` | Withdraw pending rewards |
+
+### Environment Variables (Revenue Sharing)
+
+```bash
+ADMIN_PRIVATE_KEY=    # Admin wallet for NFTRewarder operations
+```
+
+### Documentation
+
+See [nft_revenues.md](nft_revenues.md) for complete implementation details.
+
+---
 
 ## NFT Distribution Analysis (Jan 5, 2026)
 

@@ -29,6 +29,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - If Mnesia tables are missing, the issue is usually in the GenServer startup order or global registration
 > - When a new Mnesia table is added, both nodes must be restarted to create the table - this happens automatically on restart
 > - If PriceTracker or other global GenServers fail with "table doesn't exist", check if the GenServer started before MnesiaInitializer finished
+>
+> **CRITICAL SECURITY RULES**:
+> - NEVER read, open, or access any `.env` file in any directory - these contain private keys and secrets
+> - NEVER read `.env.example` files to infer what secrets exist
+> - Environment variables are configured via `.env` for local dev and Fly secrets for production - never inspect these
+> - If you need to know what env vars a service uses, check the config file (e.g., `config.js`) not the `.env` file
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -2126,3 +2132,113 @@ end
 - [lib/blockster_v2/bux_booster_bet_settler.ex](lib/blockster_v2/bux_booster_bet_settler.ex) - Updated start_link
 
 **Documentation**: See [docs/mnesia_setup.md](docs/mnesia_setup.md#globalsingleton-safe-global-genserver-registration) for complete details.
+
+### NFT Revenue Sharing System (Jan 5, 2026) - 🟢 LIVE
+
+**Status**: Revenue sharing is LIVE. When a player loses a ROGUE bet on BUX Booster, 20 basis points (0.2%) of the wager is distributed to NFT holders proportionally based on their NFT multipliers.
+
+**Smart Contracts Deployed**:
+
+| Contract | Network | Address | Type | Status |
+|----------|---------|---------|------|--------|
+| **NFTRewarder** | Rogue Chain | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | UUPS Proxy | ✅ LIVE |
+| NFTRewarder Impl V2 | Rogue Chain | `0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240` | Implementation | Current |
+| ROGUEBankroll V7 | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy | ✅ LIVE |
+| High Rollers NFT | Arbitrum | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | ERC-721 | Source |
+
+**Live Configuration**:
+| Setting | Value | TX Hash |
+|---------|-------|---------|
+| NFTRewarder → ROGUEBankroll | Set | `0x0975d8ceaab1ac89b64b85bb70b8a044772074218beb063d1d4f06d594501686` |
+| NFTRewardBasisPoints | 20 (0.2%) | `0xd5a2ba7f3536d8db7b12d1010a274452584ffb63107dc66c3e975968b72b4843` |
+| Total Registered NFTs | 2,341 | Batch registered |
+| Total Multiplier Points | 109,390 | Verified |
+
+**NFT Multipliers** (weighted reward distribution):
+| NFT Type | Count | Multiplier | Total Points | Share % |
+|----------|-------|------------|--------------|---------|
+| Penelope Fatale | 9 | 100x | 900 | 0.82% |
+| Mia Siren | 21 | 90x | 1,890 | 1.73% |
+| Cleo Enchante | 114 | 80x | 9,120 | 8.34% |
+| Sophia Spark | 149 | 70x | 10,430 | 9.53% |
+| Luna Mirage | 274 | 60x | 16,440 | 15.03% |
+| Aurora Seductra | 581 | 50x | 29,050 | 26.56% |
+| Scarlett Ember | 577 | 40x | 23,080 | 21.10% |
+| Vivienne Allure | 616 | 30x | 18,480 | 16.89% |
+| **TOTAL** | **2,341** | - | **109,390** | **100%** |
+
+**Phase 2 Backend Services** (Complete - Jan 5, 2026):
+
+| Service | File | Interval | Purpose |
+|---------|------|----------|---------|
+| **PriceService** | `server/services/priceService.js` | 10 min | Polls CoinGecko for ROGUE/ETH prices (Blockster API fallback) |
+| **RewardEventListener** | `server/services/rewardEventListener.js` | 10 sec | Polls NFTRewarder for RewardReceived/RewardClaimed events |
+| **EarningsSyncService** | `server/services/earningsSyncService.js` | 30 sec | Batch syncs NFT earnings, calculates 24h and APY off-chain |
+| **AdminTxQueue** | `server/services/adminTxQueue.js` | On-demand | Serializes admin wallet txs (registerNFT, updateOwnership, withdrawTo) |
+
+**New Database Tables** (`server/services/database.js`):
+- `nft_earnings` - per-NFT earnings tracking (total_earned, pending_amount, last_24h_earned, apy_basis_points)
+- `reward_events` - RewardReceived event history
+- `reward_withdrawals` - RewardClaimed event history
+- `global_revenue_stats` - cached global stats
+- `hostess_revenue_stats` - per-hostess type stats
+
+**API Endpoints** (`server/routes/revenues.js`):
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/revenues/stats` | Global stats + per-hostess breakdown |
+| `GET /api/revenues/nft/:tokenId` | Individual NFT earnings |
+| `GET /api/revenues/user/:address` | All NFT earnings for a user |
+| `GET /api/revenues/history` | Recent reward events |
+| `GET /api/revenues/prices` | ROGUE + ETH prices |
+| `GET /api/revenues/prices/nft-value` | NFT value in ROGUE/USD |
+| `POST /api/revenues/recalculate-stats` | Admin: recalculate stats |
+
+**WebSocket Broadcasts**:
+- `REWARD_RECEIVED` - Real-time reward notifications
+- `REWARD_CLAIMED` - Real-time claim notifications
+- `PRICE_UPDATE` - Price changes every 10 min
+- `NFT_REGISTERED_FOR_REWARDS` - New NFT registered in NFTRewarder
+- `NFT_OWNERSHIP_UPDATED_FOR_REWARDS` - NFT ownership updated in NFTRewarder
+
+**Verified Working** (Jan 5, 2026):
+- ✅ PriceService fetching from CoinGecko: ROGUE $0.00009683, ETH $3,157.55
+- ✅ NFT value calculation: ~10.4M ROGUE (~$1,010 USD at 0.32 ETH)
+- ✅ User portfolio endpoint returning 65 NFTs with earnings data
+- ✅ Stats endpoint returning all 8 hostess types with correct counts
+- ✅ EarningsSyncService syncing 2,341 NFTs in batches of 100
+
+**Phase 3 Frontend UI** (Complete - Jan 5, 2026):
+
+| Feature | File | Description |
+|---------|------|-------------|
+| Revenues Tab | `public/index.html` | Full navigation integration with tab button |
+| Global Stats Header | `public/index.html` | Total Rewards, 24h, APY, Distributed with USD |
+| Per-Hostess Stats Table | `public/index.html` | All 8 types with multiplier, count, share %, APY |
+| My Revenue Section | `public/index.html` | Aggregated earnings for connected wallet |
+| Per-NFT Earnings Table | `public/index.html` | Roguescan verification links |
+| Withdraw All Button | `server/routes/revenues.js` | POST /api/revenues/withdraw endpoint |
+| APY/24h Badges | `public/js/ui.js` | Gallery tab hostess card overlays |
+| NFT Earnings Display | `public/js/ui.js` | My NFTs tab pending/24h/total with USD |
+| PriceService | `public/js/revenues.js` | Client-side ROGUE/USD formatting |
+| RevenueService | `public/js/revenues.js` | Fetch stats, earnings, history, withdrawal |
+| WebSocket Handlers | `public/js/app.js` | PRICE_UPDATE, REWARD_RECEIVED, REWARD_CLAIMED |
+| Rogue Chain Config | `public/js/config.js` | Chain ID, explorer URL, NFTRewarder address |
+
+**Admin Wallet Operations** (via AdminTxQueue):
+- `ADMIN_PRIVATE_KEY` - Set in `.env` for local dev, Fly secret for production
+- All admin operations are serialized through AdminTxQueue to prevent nonce conflicts
+- EventListener auto-registers new NFTs when `NFTMinted` detected on Arbitrum
+- EventListener auto-updates ownership when `Transfer` detected on Arbitrum
+- Withdrawal endpoint uses AdminTxQueue for `withdrawTo()` calls
+
+**Phase 4 - Production Testing** (Complete - Jan 5, 2026):
+- ✅ End-to-end reward distribution verified (ROGUEBankroll → NFTRewarder → user wallet)
+- ✅ Withdrawal flow tested via `/api/revenues/withdraw` endpoint
+- ✅ Historical event backfill implemented (reward_events table populated on deploy)
+- ✅ 24h earnings calculation working (2200+ ROGUE in last 24h)
+- ✅ Price service integration (Blockster API primary, CoinGecko fallback)
+
+**System is fully functional in production!**
+
+**Documentation**: See [high-rollers-nfts/docs/nft_revenues.md](high-rollers-nfts/docs/nft_revenues.md) for complete implementation plan.

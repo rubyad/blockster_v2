@@ -140,14 +140,24 @@ defmodule BlocksterV2.PriceTracker do
   def handle_info(:wait_for_mnesia, state) do
     attempts = Map.get(state, :mnesia_wait_attempts, 0)
 
-    if table_ready?(:token_prices) do
-      Logger.info("[PriceTracker] Mnesia table ready, starting price fetcher")
-      send(self(), :fetch_prices)
-      {:noreply, %{state | mnesia_ready: true}}
-    else
-      Logger.info("[PriceTracker] Waiting for Mnesia token_prices table... (attempt #{attempts + 1})")
-      Process.send_after(self(), :wait_for_mnesia, 2000)
-      {:noreply, Map.put(state, :mnesia_wait_attempts, attempts + 1)}
+    # First check if we're still the global owner - another node might have started first
+    case :global.whereis_name(__MODULE__) do
+      pid when pid == self() ->
+        # We are the global owner - proceed with initialization
+        if table_ready?(:token_prices) do
+          Logger.info("[PriceTracker] Mnesia table ready, starting price fetcher")
+          send(self(), :fetch_prices)
+          {:noreply, %{state | mnesia_ready: true}}
+        else
+          Logger.info("[PriceTracker] Waiting for Mnesia token_prices table... (attempt #{attempts + 1})")
+          Process.send_after(self(), :wait_for_mnesia, 2000)
+          {:noreply, Map.put(state, :mnesia_wait_attempts, attempts + 1)}
+        end
+
+      other_pid ->
+        # Another node became the global owner - stop this instance
+        Logger.info("[PriceTracker] Another instance is now the global owner (#{inspect(other_pid)}), stopping")
+        {:stop, :normal, state}
     end
   end
 
@@ -173,15 +183,32 @@ defmodule BlocksterV2.PriceTracker do
 
   @impl true
   def handle_info(:fetch_prices, state) do
-    fetch_and_store_prices()
-    schedule_next_fetch()
-    {:noreply, %{state | last_fetch: System.system_time(:second), fetch_count: state.fetch_count + 1}}
+    # Check if we're still the global owner - another node might have taken over
+    case :global.whereis_name(__MODULE__) do
+      pid when pid == self() ->
+        fetch_and_store_prices()
+        schedule_next_fetch()
+        {:noreply, %{state | last_fetch: System.system_time(:second), fetch_count: state.fetch_count + 1}}
+
+      other_pid ->
+        # Another node is now the global owner - stop this instance
+        Logger.info("[PriceTracker] Another instance is now the global owner (#{inspect(other_pid)}), stopping")
+        {:stop, :normal, state}
+    end
   end
 
   @impl true
   def handle_cast(:fetch_prices, state) do
-    fetch_and_store_prices()
-    {:noreply, %{state | last_fetch: System.system_time(:second), fetch_count: state.fetch_count + 1}}
+    # Check if we're still the global owner
+    case :global.whereis_name(__MODULE__) do
+      pid when pid == self() ->
+        fetch_and_store_prices()
+        {:noreply, %{state | last_fetch: System.system_time(:second), fetch_count: state.fetch_count + 1}}
+
+      _other_pid ->
+        # Not the owner, ignore
+        {:noreply, state}
+    end
   end
 
   # --- Private Functions ---

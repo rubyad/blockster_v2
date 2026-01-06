@@ -33,18 +33,82 @@ class RewardEventListener {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    // Get current block number to start polling from
+    // Get current block number
     try {
       this.lastProcessedBlock = await this.rogueProvider.getBlockNumber();
-      console.log(`[RewardListener] Starting from block ${this.lastProcessedBlock}`);
+      console.log(`[RewardListener] Current block: ${this.lastProcessedBlock}`);
     } catch (error) {
       console.error('[RewardListener] Failed to get block number:', error.message);
       this.lastProcessedBlock = 0;
     }
 
+    // Backfill historical events before starting regular polling
+    // This ensures the reward_events table has data for 24h calculations
+    await this.backfillHistoricalEvents();
+
     // Start polling for events (NOT using contract.on() due to RPC filter issues)
     this.startEventPolling();
     console.log('[RewardListener] Started (using polling mode, 10s interval)');
+  }
+
+  /**
+   * Backfill historical RewardReceived events on startup
+   * Fetches all events from contract creation to populate the reward_events table
+   * This is necessary because the database starts fresh after each deploy
+   */
+  async backfillHistoricalEvents() {
+    try {
+      // NFTRewarder was deployed around block 109350000 (early Jan 2026)
+      // Use a safe starting block that's definitely before deployment
+      const deployBlock = 109350000;
+      const currentBlock = this.lastProcessedBlock;
+
+      console.log(`[RewardListener] Backfilling historical events from block ${deployBlock} to ${currentBlock}`);
+
+      // Query in chunks of 10000 blocks to avoid RPC limits
+      const chunkSize = 10000;
+      let totalEvents = 0;
+
+      for (let fromBlock = deployBlock; fromBlock < currentBlock; fromBlock += chunkSize) {
+        const toBlock = Math.min(fromBlock + chunkSize - 1, currentBlock);
+
+        try {
+          const filter = this.rewarderContract.filters.RewardReceived();
+          const events = await this.rewarderContract.queryFilter(filter, fromBlock, toBlock);
+
+          for (const event of events) {
+            const [betId, amount, timestamp] = event.args;
+
+            // Insert without broadcasting (historical data)
+            this.db.insertRewardEvent({
+              commitmentHash: betId.toString(),
+              amount: amount.toString(),
+              timestamp: Number(timestamp),
+              blockNumber: event.blockNumber,
+              txHash: event.transactionHash
+            });
+          }
+
+          totalEvents += events.length;
+
+          if (events.length > 0) {
+            console.log(`[RewardListener] Backfill: found ${events.length} events in blocks ${fromBlock}-${toBlock}`);
+          }
+
+          // Small delay to avoid RPC rate limits
+          await new Promise(r => setTimeout(r, 100));
+
+        } catch (chunkError) {
+          console.error(`[RewardListener] Backfill chunk ${fromBlock}-${toBlock} error:`, chunkError.message);
+          // Continue with next chunk
+        }
+      }
+
+      console.log(`[RewardListener] Backfill complete: ${totalEvents} total RewardReceived events`);
+    } catch (error) {
+      console.error('[RewardListener] Backfill failed:', error.message);
+      // Continue without backfill - polling will catch new events
+    }
   }
 
   /**

@@ -961,6 +961,17 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
 
     BuxBoosterAccounting public buxBoosterAccounting;
 
+    // V7: NFT Rewards Integration
+    // NFTRewarder contract that receives portion of losing bets
+    // Set to address(0) by default - rewards are disabled until explicitly enabled
+    address public nftRewarder;
+
+    // Reward rate in basis points (20 = 0.2% of losing bet goes to NFT holders)
+    uint256 public nftRewardBasisPoints;
+
+    // Total ROGUE paid to NFT holders all-time
+    uint256 public totalNFTRewardsPaid;
+
     event Payout(uint256 betId, address winner, uint256 payout, uint256 wagerCurrency, uint256 exitSerialNumber);
     event ROGUEPayout(uint256 betId, address winner, uint256 payout);
     event ROGUEPayoutFailed(uint256 betId, address winner, uint256 payout);
@@ -1018,6 +1029,26 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         address indexed winner,
         bytes32 indexed commitmentHash,
         uint256 payout
+    );
+
+    // V7: NFT Rewards events
+    event NFTRewardSent(
+        bytes32 indexed commitmentHash,
+        uint256 rewardAmount,
+        uint256 wagerAmount
+    );
+    event NFTRewardFailed(
+        bytes32 indexed commitmentHash,
+        uint256 rewardAmount,
+        string reason
+    );
+    event NFTRewarderChanged(
+        address indexed previousRewarder,
+        address indexed newRewarder
+    );
+    event NFTRewardBasisPointsChanged(
+        uint256 previousBasisPoints,
+        uint256 newBasisPoints
     );
 
     function setMinimumBetSize(uint256 _minimumBetSize) external onlyOwner {
@@ -1122,32 +1153,32 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         players[winner].betCount += 1;
         players[winner].rogue_winnings += (payout / 2);
 
-        try NFTROGUEPayer(payable(nftRoguePayer)).sendRewardFromPayerToNFTRewarder((payout / 10000)) {
-            emit NFTROGUEPayerCalled((payout / 10000));
-        } catch {
-            emit NFTROGUEPayerCallFailed((payout / 10000));
-            // convert this to try / catch external call
-            (bool sent2,) = payable(winner).call{value: payout}("");
-            if (sent2) {
-                hb.actual_balance = address(this).balance;
-                houseBalance = hb;
-                emit Payout(betID, winner, payout, 6, serialNumber);
-                emit ROGUEPayout(betID, winner, payout);
-            } else {
-                players[winner].rogue_balance += payout;
-                hb.actual_balance = address(this).balance;
-                houseBalance = hb;
-                emit Payout(betID, winner, payout, 6, serialNumber);
-                emit ROGUEPayoutFailed(betID, winner, payout);
-            }
-            try RogueBotsBetSettler(rogueBotsBetSettler).settleWinningBet(winner, (payout / 2), rogueTrader) {
-                emit RogueBotsBetSettlerCalled(winner, (payout / 2), rogueTrader);
-            } catch {
-                emit RogueBotsBetSettlerCallFailed(winner, (payout / 2), rogueTrader);   
-                return true;       
-            }
-            return true;
-        }
+        // try NFTROGUEPayer(payable(nftRoguePayer)).sendRewardFromPayerToNFTRewarder((payout / 10000)) {
+        //     emit NFTROGUEPayerCalled((payout / 10000));
+        // } catch {
+        //     emit NFTROGUEPayerCallFailed((payout / 10000));
+        //     // convert this to try / catch external call
+        //     (bool sent2,) = payable(winner).call{value: payout}("");
+        //     if (sent2) {
+        //         hb.actual_balance = address(this).balance;
+        //         houseBalance = hb;
+        //         emit Payout(betID, winner, payout, 6, serialNumber);
+        //         emit ROGUEPayout(betID, winner, payout);
+        //     } else {
+        //         players[winner].rogue_balance += payout;
+        //         hb.actual_balance = address(this).balance;
+        //         houseBalance = hb;
+        //         emit Payout(betID, winner, payout, 6, serialNumber);
+        //         emit ROGUEPayoutFailed(betID, winner, payout);
+        //     }
+        //     try RogueBotsBetSettler(rogueBotsBetSettler).settleWinningBet(winner, (payout / 2), rogueTrader) {
+        //         emit RogueBotsBetSettlerCalled(winner, (payout / 2), rogueTrader);
+        //     } catch {
+        //         emit RogueBotsBetSettlerCallFailed(winner, (payout / 2), rogueTrader);   
+        //         return true;       
+        //     }
+        //     return true;
+        // }
 
         (bool sent,) = payable(winner).call{value: payout}("");
         if (sent) {
@@ -1328,6 +1359,98 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         return buxBoosterGame;
     }
 
+    // ============ V7: NFT Rewards Functions ============
+
+    /**
+     * @notice Set the NFTRewarder contract address (owner only)
+     * @dev Setting to address(0) disables NFT rewards
+     *      IMPORTANT: All NFTs must be registered in NFTRewarder BEFORE calling this
+     * @param _nftRewarder Address of NFTRewarder contract (or address(0) to disable)
+     */
+    function setNFTRewarder(address _nftRewarder) external onlyOwner {
+        emit NFTRewarderChanged(nftRewarder, _nftRewarder);
+        nftRewarder = _nftRewarder;
+    }
+
+    /**
+     * @notice Get the NFTRewarder contract address
+     * @return Address of NFTRewarder contract (or address(0) if disabled)
+     */
+    function getNFTRewarder() external view returns (address) {
+        return nftRewarder;
+    }
+
+    /**
+     * @notice Set the NFT reward rate in basis points (owner only)
+     * @dev 20 basis points = 0.2% of losing bets go to NFT holders
+     * @param _basisPoints New basis points value (e.g., 20 for 0.2%)
+     */
+    function setNFTRewardBasisPoints(uint256 _basisPoints) external onlyOwner {
+        require(_basisPoints <= 1000, "Basis points cannot exceed 10%");
+        emit NFTRewardBasisPointsChanged(nftRewardBasisPoints, _basisPoints);
+        nftRewardBasisPoints = _basisPoints;
+    }
+
+    /**
+     * @notice Get the current NFT reward rate in basis points
+     * @return Current basis points value
+     */
+    function getNFTRewardBasisPoints() external view returns (uint256) {
+        return nftRewardBasisPoints;
+    }
+
+    /**
+     * @notice Get total ROGUE paid to NFT holders all-time
+     * @return Total amount paid to NFTRewarder
+     */
+    function getTotalNFTRewardsPaid() external view returns (uint256) {
+        return totalNFTRewardsPaid;
+    }
+
+    /**
+     * @dev Internal helper to send NFT rewards
+     * @param commitmentHash Bet identifier for event tracking
+     * @param wagerAmount Original wager amount
+     */
+    function _sendNFTReward(bytes32 commitmentHash, uint256 wagerAmount) private {
+        // Skip if rewards not enabled (nftRewarder is address(0) or rate is 0)
+        if (nftRewarder == address(0) || nftRewardBasisPoints == 0) {
+            return;
+        }
+
+        // Calculate reward: wagerAmount * basisPoints / 10000
+        uint256 rewardAmount = (wagerAmount * nftRewardBasisPoints) / 10000;
+
+        if (rewardAmount == 0) {
+            return;
+        }
+
+        // Interface for NFTRewarder.receiveReward
+        // receiveReward(bytes32 betId) external payable
+        (bool success, ) = nftRewarder.call{value: rewardAmount}(
+            abi.encodeWithSignature("receiveReward(bytes32)", commitmentHash)
+        );
+
+        if (success) {
+            totalNFTRewardsPaid += rewardAmount;
+
+            // Update HouseBalance to reflect ROGUE leaving the contract
+            // This keeps pool token price accurate
+            houseBalance.total_balance -= rewardAmount;
+            houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+            houseBalance.actual_balance = address(this).balance;
+            // Recalculate pool token price based on available balance (excluding unsettled bets)
+            if (houseBalance.pool_token_supply > 0) {
+                houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
+            }
+
+            emit NFTRewardSent(commitmentHash, rewardAmount, wagerAmount);
+        } else {
+            // Don't revert - NFT rewards are non-critical
+            emit NFTRewardFailed(commitmentHash, rewardAmount, "Call failed");
+        }
+    }
+
     /**
      * @notice Update house balance when BuxBooster bet is placed
      * @dev Called by BuxBoosterGame contract with ROGUE sent as msg.value
@@ -1505,6 +1628,10 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         // Update global accounting
         buxBoosterAccounting.totalLosses++;
         buxBoosterAccounting.totalHouseProfit += int256(wagerAmount);  // House wins when player loses
+
+        // V7: Send NFT rewards (portion of losing bet to NFT holders)
+        // This is non-blocking - failure won't revert the bet settlement
+        _sendNFTReward(commitmentHash, wagerAmount);
 
         // Emit BuxBooster-specific events (split to avoid stack too deep)
         emit BuxBoosterLosingBet(player, commitmentHash, wagerAmount);
