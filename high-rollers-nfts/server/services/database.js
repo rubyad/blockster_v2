@@ -333,6 +333,49 @@ class DatabaseService {
     return result.count;
   }
 
+  getMaxTokenId() {
+    const result = this.db.prepare('SELECT MAX(token_id) as max_id FROM nfts').get();
+    return result?.max_id || 0;
+  }
+
+  getMissingSalesTokens() {
+    const results = this.db.prepare(`
+      SELECT n.token_id FROM nfts n
+      LEFT JOIN sales s ON n.token_id = s.token_id
+      WHERE s.token_id IS NULL
+      ORDER BY n.token_id
+    `).all();
+    return results.map(r => r.token_id);
+  }
+
+  getSalesMissingAffiliates() {
+    // Find sales that either:
+    // 1. Have NULL affiliate in sales table, OR
+    // 2. Don't have corresponding affiliate_earnings records
+    return this.db.prepare(`
+      SELECT DISTINCT s.token_id, s.buyer, s.tx_hash, s.affiliate
+      FROM sales s
+      LEFT JOIN affiliate_earnings ae ON s.token_id = ae.token_id
+      WHERE s.affiliate IS NULL OR ae.token_id IS NULL
+      ORDER BY s.token_id
+    `).all();
+  }
+
+  updateSaleAffiliates(tokenId, affiliate, affiliate2) {
+    const stmt = this.db.prepare(`
+      UPDATE sales SET affiliate = ?, affiliate2 = ?
+      WHERE token_id = ?
+    `);
+    return stmt.run(affiliate?.toLowerCase(), affiliate2?.toLowerCase(), tokenId);
+  }
+
+  affiliateEarningExists(tokenId, tier) {
+    const result = this.db.prepare(
+      'SELECT 1 FROM affiliate_earnings WHERE token_id = ? AND tier = ?'
+    ).get(tokenId, tier);
+    return !!result;
+  }
+
   // Sales Operations
   insertSale(data) {
     const stmt = this.db.prepare(`
@@ -355,7 +398,7 @@ class DatabaseService {
 
   getSales(limit = 50, offset = 0) {
     return this.db.prepare(`
-      SELECT * FROM sales ORDER BY timestamp DESC LIMIT ? OFFSET ?
+      SELECT * FROM sales ORDER BY token_id DESC LIMIT ? OFFSET ?
     `).all(limit, offset);
   }
 
@@ -537,7 +580,7 @@ class DatabaseService {
       SELECT ae.*, s.hostess_name, s.hostess_index, s.timestamp as sale_timestamp
       FROM affiliate_earnings ae
       LEFT JOIN sales s ON ae.token_id = s.token_id
-      ORDER BY s.timestamp DESC, ae.token_id DESC
+      ORDER BY ae.token_id DESC
       LIMIT ? OFFSET ?
     `).all(limit, offset);
   }

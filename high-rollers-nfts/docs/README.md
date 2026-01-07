@@ -147,6 +147,7 @@ DB_PATH=/data/highrollers.db   # Database path (default: ./data/highrollers.db)
 |--------|----------|-------------|
 | POST | `/api/link-affiliate` | Link buyer to affiliate (on-chain + DB) |
 | POST | `/api/sync-historical-events` | Re-sync from blockchain events |
+| POST | `/api/sync-owners` | Trigger full owner sync (catches transfers) |
 | POST | `/api/import-sales-csv` | Import sales from CSV |
 
 ## Database Schema
@@ -216,9 +217,22 @@ CREATE TABLE hostess_counts (
 
 ### OwnerSync Service
 
-- **Quick sync**: Every 5 seconds for new mints
-- **Full sync**: Every 5 minutes for ownership changes
-- Uses `saleExistsForToken()` check before inserting to prevent duplicates
+Enhanced sync service that ensures data consistency across `nfts`, `sales`, and `affiliate_earnings` tables.
+
+**Startup Sequence** (runs once on server start):
+1. `syncMissingSales()` - Finds NFTs in `nfts` table but not in `sales`, fetches affiliate info from contract, inserts complete records
+2. `syncMissingAffiliates()` - Finds sales with NULL affiliate or missing `affiliate_earnings` records, fetches from contract
+3. `syncAllOwners()` - Updates all NFT owners to catch any ownership transfers
+
+**Periodic Sync**:
+- **Quick sync**: Every 30 seconds for new mints (includes affiliate info)
+- **Full sync**: Every 10 minutes for ownership transfers
+
+**Key Features**:
+- Compares `nfts` table max token ID vs on-chain `totalSupply()` to detect new mints
+- Uses `getBuyerInfo(address)` contract call to fetch affiliate addresses
+- Calculates affiliate earnings (20% tier 1, 5% tier 2) from mint price
+- Logs all sync activity for debugging
 
 ### Duplicate Prevention
 
@@ -227,6 +241,293 @@ CREATE TABLE hostess_counts (
 | Sales | `upsertSale()` - updates fake tx_hash with real one |
 | Affiliate Earnings | `INSERT OR IGNORE` |
 | Buyer Links | Primary key on buyer address |
+
+---
+
+## NFT Sync Systems - Complete Technical Breakdown
+
+The High Rollers NFT app uses **three independent sync services** that work together to ensure data consistency:
+
+| Service | Network | Purpose | Interval |
+|---------|---------|---------|----------|
+| **EventListener** | Arbitrum | Real-time mints & transfers | 30s polling |
+| **OwnerSync** | Arbitrum | Fallback ownership sync + data consistency | 30s quick / 10m full |
+| **RewardListener** | Rogue Chain | Revenue sharing events | 10s polling |
+
+### 1. EventListener (Primary Real-Time System)
+
+**File**: `server/services/eventListener.js`
+**Network**: Arbitrum One (Chain ID: 42161)
+
+EventListener polls for blockchain events every **30 seconds** instead of using WebSocket subscriptions (which cause "filter not found" errors on Arbitrum RPC).
+
+#### Events Watched
+
+| Event | Description | Action |
+|-------|-------------|--------|
+| `NFTRequested` | User initiated mint (VRF pending) | Store pending mint, broadcast to UI |
+| `NFTMinted` | Chainlink VRF completed, NFT created | Insert into `nfts`, `sales`, `affiliate_earnings` tables |
+| `Transfer` | NFT transferred (non-mint) | Update owner in `nfts`, trigger Rogue Chain ownership update |
+
+#### Polling Flow (every 30s)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    EVENT LISTENER POLLING CYCLE                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. Get current block number from Arbitrum RPC                       │
+│                                                                      │
+│  2. If new blocks since last check:                                  │
+│     ├── Query NFTRequested events (fromBlock → currentBlock)         │
+│     │   └── Store in pendingMints Map + broadcast MINT_REQUESTED     │
+│     │                                                                │
+│     ├── Query NFTMinted events                                       │
+│     │   └── handleMintComplete():                                    │
+│     │       ├── Insert into nfts table                               │
+│     │       ├── Insert into sales table (upsert)                     │
+│     │       ├── Insert affiliate_earnings (tier 1 & 2)               │
+│     │       ├── Broadcast NFT_MINTED to WebSocket clients            │
+│     │       └── registerNFTOnRogueChain() (async)                    │
+│     │                                                                │
+│     └── Query Transfer events (exclude mints)                        │
+│         └── Update owner in nfts table                               │
+│         └── updateOwnershipOnRogueChain() (async)                    │
+│                                                                      │
+│  3. Update lastProcessedBlock                                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Fallback Polling (every 5s)
+
+Catches missed events by:
+
+1. **checkPendingMints()**: If a mint has been pending >60s, queries contract directly via `ownerOf(tokenId)` to check if it completed
+2. **checkSupplyChanges()**: Compares on-chain `totalSupply()` vs `lastKnownSupply` to detect missed mints
+
+#### Cross-Chain Actions
+
+When an NFT is minted or transferred, EventListener triggers actions on Rogue Chain:
+
+| Arbitrum Event | Rogue Chain Action |
+|----------------|-------------------|
+| NFTMinted | `registerNFT(tokenId, hostessIndex, owner)` on NFTRewarder |
+| Transfer | `updateOwnership(tokenId, newOwner)` on NFTRewarder |
+
+These are executed via `adminTxQueue` to serialize transactions and prevent nonce conflicts.
+
+### 2. OwnerSync Service (Fallback & Data Consistency)
+
+**File**: `server/services/ownerSync.js`
+**Network**: Arbitrum One
+
+OwnerSync is a **safety net** that:
+1. Catches any mints/transfers EventListener missed
+2. Ensures data consistency across `nfts`, `sales`, and `affiliate_earnings` tables
+3. Keeps special NFTs (2340+) and their time rewards in sync
+
+#### Startup Sequence (runs once on server start)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     OWNERSYNC STARTUP SEQUENCE                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. Get on-chain totalSupply() and DB max token_id                   │
+│     └── Log: "On-chain supply: 2342, DB max token: 2342"             │
+│                                                                      │
+│  2. syncMissingSales() - Data consistency fix                        │
+│     └── SELECT from nfts LEFT JOIN sales WHERE sales.token_id IS NULL│
+│     └── For each missing token:                                      │
+│         ├── Fetch hostessIndex, owner from Arbitrum contract         │
+│         ├── Fetch affiliate, affiliate2 via getBuyerInfo(owner)      │
+│         ├── Insert into sales table                                  │
+│         └── Insert into affiliate_earnings (tier 1 & 2)              │
+│                                                                      │
+│  3. syncMissingAffiliates() - Fix incomplete affiliate data          │
+│     └── SELECT sales with NULL affiliate OR missing affiliate_earnings│
+│     └── For each:                                                    │
+│         ├── Fetch affiliate info from contract                       │
+│         ├── Update sales.affiliate, sales.affiliate2                 │
+│         └── Insert missing affiliate_earnings records                │
+│                                                                      │
+│  4. If dbMaxToken < onChainSupply:                                   │
+│     └── syncRecentMints() - Add missing NFTs to nfts table           │
+│                                                                      │
+│  5. syncSpecialNFTOwners() - Quick sync for tokens 2340+             │
+│     └── For each special NFT:                                        │
+│         ├── Get on-chain owner via getOwnerOf(tokenId)               │
+│         ├── Update nfts table if owner changed                       │
+│         └── ALWAYS update time_reward_nfts table (may be stale)      │
+│                                                                      │
+│  6. syncAllOwners() - Background full sync (non-blocking)            │
+│     └── Takes ~15 minutes, updates all 2342 NFTs                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Periodic Sync Intervals
+
+| Method | Interval | Purpose |
+|--------|----------|---------|
+| `syncRecentMints()` | 30 seconds | Detect new mints via totalSupply() comparison |
+| `syncAllOwners()` | 10 minutes | Full owner sync for all NFTs |
+
+#### Quick Sync (`syncRecentMints`) - Every 30s
+
+```javascript
+// Compare lastSyncedTokenId vs current totalSupply
+if (total > this.lastSyncedTokenId) {
+  // New mints detected! Sync tokens from lastSyncedTokenId+1 to total
+  for (let tokenId = this.lastSyncedTokenId + 1; tokenId <= total; tokenId++) {
+    // Get owner, hostessIndex from Arbitrum contract
+    // Get affiliate info via getBuyerInfo(owner)
+    // Insert into nfts, sales, affiliate_earnings tables
+  }
+  this.lastSyncedTokenId = total;
+}
+```
+
+#### Full Sync (`syncAllOwners`) - Every 10 minutes
+
+- Batches of 5 tokens per RPC call
+- 2 second delay between batches (rate limit protection)
+- Updates all NFT owners in `nfts` table
+- Takes ~15 minutes to complete
+
+#### Special NFT Sync (`syncSpecialNFTOwners`) - On startup only
+
+- Specifically targets tokens 2340+ (time reward NFTs)
+- Much faster than full sync (~1s for 3 NFTs)
+- Updates BOTH `nfts` and `time_reward_nfts` tables
+- Runs before starting background full sync
+
+### 3. RewardEventListener (Rogue Chain)
+
+**File**: `server/services/rewardEventListener.js`
+**Network**: Rogue Chain (560013)
+
+Watches NFTRewarder contract for revenue sharing events when BUX Booster bets are lost.
+
+#### Events Watched
+
+| Event | Description | Action |
+|-------|-------------|--------|
+| `RewardReceived` | ROGUEBankroll sent rewards to NFTRewarder | Store in `reward_events`, broadcast |
+| `RewardClaimed` | User withdrew pending rewards | Store in `reward_withdrawals`, reset pending |
+
+#### Polling Flow (every 10s)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                  REWARD LISTENER POLLING CYCLE                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. Get current block from Rogue Chain RPC                           │
+│                                                                      │
+│  2. Query RewardReceived events (fromBlock → currentBlock)           │
+│     └── For each event:                                              │
+│         ├── Insert into reward_events table                          │
+│         └── Broadcast REWARD_RECEIVED via WebSocket                  │
+│                                                                      │
+│  3. Query RewardClaimed events                                       │
+│     └── For each event:                                              │
+│         ├── Insert into reward_withdrawals table                     │
+│         ├── Reset pending amounts for claimed NFTs                   │
+│         └── Broadcast REWARD_CLAIMED via WebSocket                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Historical Backfill (on startup)
+
+On server start, backfills all historical `RewardReceived` events from block 109350000 (contract deployment) to current block. This ensures 24h calculations are accurate after server restarts.
+
+### 4. Database Tables Updated by Sync Systems
+
+| Table | EventListener | OwnerSync | RewardListener |
+|-------|--------------|-----------|----------------|
+| `nfts` | ✅ Insert/Update | ✅ Upsert/Update | - |
+| `sales` | ✅ Upsert | ✅ Insert | - |
+| `affiliate_earnings` | ✅ Insert | ✅ Insert | - |
+| `pending_mints` | ✅ Insert/Delete | - | - |
+| `time_reward_nfts` | - | ✅ Update owner | - |
+| `reward_events` | - | - | ✅ Insert |
+| `reward_withdrawals` | - | - | ✅ Insert |
+
+### 5. Timing Summary
+
+| Service | Method | Interval | Duration |
+|---------|--------|----------|----------|
+| EventListener | Event polling | 30s | ~1s |
+| EventListener | Fallback polling | 5s | ~1s |
+| OwnerSync | syncRecentMints | 30s | ~1s per new mint |
+| OwnerSync | syncAllOwners | 10 min | ~15 min |
+| OwnerSync | syncSpecialNFTOwners | Startup only | ~1s |
+| RewardListener | Event polling | 10s | ~1s |
+
+### 6. Data Flow Diagram
+
+```
+                    ARBITRUM ONE                              ROGUE CHAIN
+                    ────────────                              ───────────
+┌──────────────────────────────────────┐          ┌──────────────────────────────┐
+│         HIGH ROLLERS NFT             │          │        NFT REWARDER          │
+│         (ERC-721 Contract)           │          │        (UUPS Proxy)          │
+├──────────────────────────────────────┤          ├──────────────────────────────┤
+│                                      │          │                              │
+│  Events:                             │   ───►   │  registerNFT()               │
+│  - NFTRequested                      │ Async    │  updateOwnership()           │
+│  - NFTMinted                         │ Calls    │                              │
+│  - Transfer                          │          │  Events:                     │
+│                                      │          │  - RewardReceived            │
+└───────────────┬──────────────────────┘          │  - RewardClaimed             │
+                │                                 └──────────────┬───────────────┘
+                │ Polling (30s)                                  │ Polling (10s)
+                ▼                                                ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                              NODE.JS SERVER                                    │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  ┌─────────────────┐   ┌──────────────────┐   ┌────────────────────────────┐  │
+│  │  EventListener  │   │   OwnerSync      │   │    RewardEventListener     │  │
+│  │                 │   │                  │   │                            │  │
+│  │ • 30s event poll│   │ • 30s quick sync │   │ • 10s event poll           │  │
+│  │ • 5s fallback   │   │ • 10m full sync  │   │ • Startup backfill         │  │
+│  │ • Triggers      │   │ • Startup data   │   │                            │  │
+│  │   Rogue calls   │   │   consistency    │   │                            │  │
+│  └────────┬────────┘   └────────┬─────────┘   └──────────────┬─────────────┘  │
+│           │                     │                            │                 │
+│           └─────────────────────┼────────────────────────────┘                 │
+│                                 ▼                                              │
+│                     ┌──────────────────────┐                                   │
+│                     │    SQLite Database   │                                   │
+│                     │    (highrollers.db)  │                                   │
+│                     ├──────────────────────┤                                   │
+│                     │ • nfts               │                                   │
+│                     │ • sales              │                                   │
+│                     │ • affiliate_earnings │                                   │
+│                     │ • time_reward_nfts   │                                   │
+│                     │ • reward_events      │                                   │
+│                     │ • reward_withdrawals │                                   │
+│                     └──────────────────────┘                                   │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7. Why Multiple Systems?
+
+| Challenge | Solution |
+|-----------|----------|
+| RPC "filter not found" errors | Use `queryFilter()` polling instead of `contract.on()` |
+| Missed events due to RPC issues | OwnerSync fallback compares DB vs on-chain supply |
+| Data inconsistency (nfts exists but not in sales) | `syncMissingSales()` at startup |
+| Missing affiliate data | `syncMissingAffiliates()` at startup |
+| Stale owners after transfers | Full sync every 10 min + special NFT quick sync |
+| Time reward owners out of sync | `syncSpecialNFTOwners()` updates `time_reward_nfts` table |
+
+---
 
 ### Nonce Conflict Handling
 

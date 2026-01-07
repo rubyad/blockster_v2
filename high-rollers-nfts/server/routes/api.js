@@ -723,5 +723,27 @@ module.exports = (db, contractService, ownerSync) => {
     }
   });
 
+  // Trigger full owner sync (catches ownership transfers)
+  router.post('/sync-owners', async (req, res) => {
+    try {
+      console.log('[API] Manual owner sync triggered');
+
+      // Run sync in background, respond immediately
+      ownerSync.syncAllOwners().then(() => {
+        console.log('[API] Manual owner sync complete');
+      }).catch(err => {
+        console.error('[API] Manual owner sync failed:', err.message);
+      });
+
+      res.json({
+        success: true,
+        message: 'Owner sync started in background'
+      });
+    } catch (error) {
+      console.error('[API] Owner sync error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 };

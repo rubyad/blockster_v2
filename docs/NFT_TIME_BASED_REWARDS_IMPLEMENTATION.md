@@ -70,6 +70,7 @@
 - [x] Phase 6: Latest Payouts Table UI clarifications ✅ (Jan 6, 2026)
 - [x] Phase 7: WebSocket broadcasts for SPECIAL_NFT_STARTED and TIME_REWARD_CLAIMED ✅ (Jan 6, 2026)
 - [x] V4 Bug Fix: pendingTimeReward() division error ✅ (Jan 6, 2026)
+- [x] Data Consistency: OwnerSyncService now syncs missing sales/affiliates on startup ✅ (Jan 7, 2026)
 
 ### V4 Bug Fix (January 6, 2026)
 
@@ -124,6 +125,53 @@ The `ratePerSecond` is stored in wei (e.g., `1.062454e18` for Aurora). Multiplyi
 - Updated `NFT_REWARDER_IMPL_ADDRESS` in `high-rollers-nfts/public/js/config.js`
 - Added `getUserPortfolioStats: '0xd8824b05'` to `NFT_REWARDER_SELECTORS`
 - Updated top box links in `revenues.js` to use this new function for deep linking
+
+### Data Consistency Fix (January 7, 2026)
+
+**Problem**: The app was not picking up latest NFT mints and ownership transfers. Specifically:
+- Token #2342 was missing from the `nfts` table
+- Tokens #2340, #2341 ownership not updated after transfers
+- Tokens #1942, #2340, #2341 were in `nfts` table but missing from `sales` table
+- Tokens #2340, #2341, #2342 were missing affiliate earnings records
+
+**Root Cause**: The `OwnerSyncService` had several issues:
+1. **Off-by-one bug**: Started sync at `totalSupply` (2342) instead of checking from DB max token (2341), so token 2342 was never synced
+2. **No startup data consistency checks**: Missing tokens in related tables were never detected
+3. **Full sync only ran every 30 minutes**: Too slow to catch recent transfers
+
+**Solution**: Comprehensive startup data consistency checks added to `OwnerSyncService`:
+
+1. **On startup**, service now:
+   - Gets on-chain supply and compares to DB max token
+   - Syncs any missing tokens to `nfts` table
+   - Runs `syncMissingSales()` - finds tokens in `nfts` but not in `sales`, fetches affiliate info from contract
+   - Runs `syncMissingAffiliates()` - finds sales with NULL affiliate or missing `affiliate_earnings` records
+   - Runs full owner sync for recent transfers
+
+2. **New database methods** (`server/services/database.js`):
+   - `getMaxTokenId()` - returns highest token_id in nfts table
+   - `getMissingSalesTokens()` - LEFT JOIN to find tokens in nfts but not sales
+   - `getSalesMissingAffiliates()` - finds sales with missing affiliate data
+   - `updateSaleAffiliates(tokenId, affiliate, affiliate2)` - updates sale with affiliate addresses
+   - `affiliateEarningExists(tokenId, tier)` - checks if affiliate earning record exists
+
+3. **New API endpoint** (`server/routes/api.js`):
+   - `POST /api/sync-owners` - triggers manual full owner sync (runs in background)
+
+4. **Interval changes**:
+   - Quick sync (new mints): Every 30 seconds
+   - Full owner sync: Every 10 minutes (was 30 minutes)
+
+**Files Modified**:
+- `server/services/ownerSync.js` - Added `syncMissingSales()`, `syncMissingAffiliates()`, updated startup sequence
+- `server/services/database.js` - Added 5 new methods
+- `server/routes/api.js` - Added `/api/sync-owners` endpoint
+
+**Result**: App now automatically syncs:
+- Missing NFTs from `nfts` table
+- Missing sales records from `sales` table
+- Missing affiliate info (both in `sales` and `affiliate_earnings` tables)
+- Ownership transfers via full sync every 10 minutes
 
 ### Mint Tab Real-Time Updates (January 6, 2026)
 

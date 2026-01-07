@@ -32,6 +32,7 @@
 - [x] **RewardEventListener** - polls NFTRewarder for RewardReceived/RewardClaimed events
 - [x] **EarningsSyncService** - batch syncs NFT earnings, calculates 24h and APY off-chain
 - [x] **AdminTxQueue** - serialized transaction queue for admin wallet operations (registerNFT, updateOwnership, withdrawTo)
+- [x] **OwnerSyncService** - enhanced sync with data consistency checks (see Data Consistency section below)
 - [x] Database schema for revenue tracking (nft_earnings, reward_events, reward_withdrawals, global_revenue_stats, hostess_revenue_stats)
 - [x] API endpoints: `/api/revenues/stats`, `/api/revenues/nft/:tokenId`, `/api/revenues/user/:address`, `/api/revenues/history`, `/api/revenues/prices`
 - [x] WebSocket broadcasts for REWARD_RECEIVED, REWARD_CLAIMED, PRICE_UPDATE events
@@ -60,6 +61,55 @@
 - [x] Price service integration - Blockster API primary, CoinGecko fallback
 
 **System is fully functional in production!**
+
+---
+
+## Data Consistency (Jan 7, 2026)
+
+The OwnerSyncService ensures data consistency across three tables: `nfts`, `sales`, and `affiliate_earnings`.
+
+### Problem Solved
+
+Previously, if the server was offline during mints, tokens could end up in the `nfts` table (via later sync) but missing from `sales` and `affiliate_earnings` tables. This caused:
+- Missing sales records in the Sales tab
+- Missing affiliate earnings in the Affiliates tab
+- Incorrect total counts
+
+### Solution: Startup Data Consistency Checks
+
+On server startup, OwnerSyncService now runs these checks sequentially:
+
+1. **`syncMissingSales()`** - Finds tokens in `nfts` but not in `sales`
+   - Fetches hostess index and owner from Arbitrum contract
+   - Fetches affiliate info via `getBuyerInfo(owner)` contract call
+   - Inserts complete sale record with affiliates
+   - Inserts affiliate earnings records (20% tier 1, 5% tier 2)
+
+2. **`syncMissingAffiliates()`** - Finds sales with NULL affiliate or missing `affiliate_earnings`
+   - Fetches affiliate info from contract
+   - Updates sale record with affiliate addresses
+   - Inserts missing affiliate earnings
+
+3. **`syncAllOwners()`** - Full ownership sync (catches transfers)
+   - Iterates all tokens in batches of 5
+   - Updates `nfts.owner` from on-chain `ownerOf()`
+
+### New Database Methods
+
+| Method | Purpose |
+|--------|---------|
+| `getMaxTokenId()` | Get highest token ID in `nfts` table |
+| `getMissingSalesTokens()` | Find tokens in `nfts` but not in `sales` |
+| `getSalesMissingAffiliates()` | Find sales with NULL affiliate or missing earnings |
+| `updateSaleAffiliates()` | Update affiliate columns on a sale |
+| `affiliateEarningExists()` | Check if earnings record exists for token+tier |
+
+### API Endpoint
+
+```bash
+# Manually trigger full owner sync
+curl -X POST http://localhost:3001/api/sync-owners
+```
 
 ---
 
