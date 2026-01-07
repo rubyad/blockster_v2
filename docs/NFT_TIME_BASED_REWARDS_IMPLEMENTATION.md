@@ -3322,5 +3322,243 @@ Since actual mint distribution depends on Chainlink VRF randomness:
 
 ---
 
+## Appendix D: Wallet Network Switching
+
+The High Rollers NFT frontend automatically switches the user's wallet between **Arbitrum One** (for minting) and **Rogue Chain** (for revenues) depending on which tab is active.
+
+### Network Configuration (`public/js/config.js`)
+
+```javascript
+const CONFIG = {
+  // Arbitrum One (for NFT minting)
+  CHAIN_ID: 42161,
+  CHAIN_ID_HEX: '0xa4b1',
+  CHAIN_NAME: 'Arbitrum One',
+  RPC_URL: 'https://arb1.arbitrum.io/rpc',
+  EXPLORER_URL: 'https://arbiscan.io',
+
+  // Rogue Chain (for NFT Revenues)
+  ROGUE_CHAIN_ID: 560013,
+  ROGUE_CHAIN_ID_HEX: '0x88b8d',  // IMPORTANT: 560013 = 0x88b8d (not 0x88b0d)
+  ROGUE_CHAIN_NAME: 'Rogue Chain',
+  ROGUE_RPC_URL: 'https://rpc.roguechain.io/rpc',
+  ROGUE_EXPLORER_URL: 'https://roguescan.io',
+  ROGUE_CURRENCY: { name: 'ROGUE', symbol: 'ROGUE', decimals: 18 },
+  NFT_REWARDER_ADDRESS: '0x96aB9560f1407586faE2b69Dc7f38a59BEACC594',
+};
+```
+
+### WalletService Methods (`public/js/wallet.js`)
+
+#### `switchToArbitrum(provider)`
+
+Switches the user's wallet to Arbitrum One network. Used when the Mint tab is active.
+
+```javascript
+async switchToArbitrum(provider) {
+  provider = provider || window.ethereum;
+  if (!provider) return;
+
+  try {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: CONFIG.CHAIN_ID_HEX }]
+    });
+  } catch (error) {
+    if (error.code === 4902) {
+      // Chain not added - add it first
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: CONFIG.CHAIN_ID_HEX,
+          chainName: 'Arbitrum One',
+          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+          rpcUrls: [CONFIG.RPC_URL],
+          blockExplorerUrls: [CONFIG.EXPLORER_URL]
+        }]
+      });
+    } else if (error.code === 4001) {
+      // User rejected - that's okay
+      console.log('User rejected network switch to Arbitrum');
+      return;
+    } else if (error.code === -32002) {
+      // Request already pending
+      console.log('Network switch request already pending');
+      return;
+    } else {
+      throw error;
+    }
+  }
+
+  // Update provider after switch
+  if (this.address) {
+    this.provider = new ethers.BrowserProvider(provider);
+    this.signer = await this.provider.getSigner();
+  }
+  this.currentChain = 'arbitrum';
+}
+```
+
+#### `switchToRogueChain(provider)`
+
+Switches the user's wallet to Rogue Chain network. Used for Gallery, My NFTs, and Revenues tabs.
+
+```javascript
+async switchToRogueChain(provider) {
+  provider = provider || window.ethereum;
+  if (!provider) return;
+
+  try {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: CONFIG.ROGUE_CHAIN_ID_HEX }]
+    });
+  } catch (error) {
+    if (error.code === 4902) {
+      // Chain not added - add it first
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: CONFIG.ROGUE_CHAIN_ID_HEX,
+          chainName: CONFIG.ROGUE_CHAIN_NAME,
+          nativeCurrency: CONFIG.ROGUE_CURRENCY,
+          rpcUrls: [CONFIG.ROGUE_RPC_URL],
+          blockExplorerUrls: [CONFIG.ROGUE_EXPLORER_URL]
+        }]
+      });
+    } else if (error.code === 4001) {
+      console.log('User rejected network switch to Rogue Chain');
+      return;
+    } else if (error.code === -32002) {
+      console.log('Network switch request already pending');
+      return;
+    } else {
+      throw error;
+    }
+  }
+
+  if (this.address) {
+    this.provider = new ethers.BrowserProvider(provider);
+    this.signer = await this.provider.getSigner();
+  }
+  this.currentChain = 'rogue';
+}
+```
+
+#### `switchNetwork(targetChain)`
+
+Generic method to switch between networks:
+
+```javascript
+async switchNetwork(targetChain) {
+  if (!window.ethereum || !this.address) return;
+
+  if (targetChain === 'arbitrum') {
+    await this.switchToArbitrum();
+  } else if (targetChain === 'rogue') {
+    await this.switchToRogueChain();
+  }
+}
+```
+
+#### `getROGUEBalance()` and `refreshROGUEBalance()`
+
+Fetches ROGUE balance using the Rogue Chain RPC directly (without requiring wallet to be on that network):
+
+```javascript
+async getROGUEBalance() {
+  if (!this.address) return '0';
+  try {
+    const rogueProvider = new ethers.JsonRpcProvider(CONFIG.ROGUE_RPC_URL);
+    const balance = await rogueProvider.getBalance(this.address);
+    this.rogueBalance = ethers.formatEther(balance);
+    return this.rogueBalance;
+  } catch (error) {
+    console.error('Failed to get ROGUE balance:', error);
+    return '0';
+  }
+}
+
+async refreshROGUEBalance() {
+  const balance = await this.getROGUEBalance();
+  this.onBalanceUpdateCallbacks.forEach(cb => cb());
+  return balance;
+}
+```
+
+### Tab-Based Network Switching (`public/js/app.js`)
+
+The `showTab()` function automatically switches networks based on which tab is activated:
+
+```javascript
+async showTab(tabName, skipNavUpdate = false) {
+  // ... tab switching logic ...
+
+  // Switch network based on tab
+  if (window.walletService && window.walletService.isConnected()) {
+    if (tabName === 'mint') {
+      // Mint tab needs Arbitrum for NFT contract
+      await window.walletService.switchNetwork('arbitrum');
+    } else {
+      // Gallery, My NFTs, Revenues tabs need Rogue Chain
+      await window.walletService.switchNetwork('rogue');
+    }
+  }
+}
+```
+
+### Balance Display Based on Chain
+
+The wallet button shows different balances based on the current chain:
+
+| Tab | Network | Balance Displayed | Logo |
+|-----|---------|-------------------|------|
+| Mint | Arbitrum | ETH balance | Arbitrum logo |
+| Gallery | Rogue Chain | ROGUE balance | Rogue logo |
+| My NFTs | Rogue Chain | ROGUE balance | Rogue logo |
+| Revenues | Rogue Chain | ROGUE balance | Rogue logo |
+
+### Error Codes Reference
+
+| Code | Meaning | Handling |
+|------|---------|----------|
+| `4902` | Chain not added to wallet | Call `wallet_addEthereumChain` to add it |
+| `4001` | User rejected the switch | Log and continue (non-blocking) |
+| `-32002` | Request already pending in wallet | Log and continue (non-blocking) |
+
+### Chain ID Validation
+
+**IMPORTANT**: Rogue Chain ID is `560013`, which in hex is `0x88b8d`:
+
+```javascript
+// CORRECT
+560013 → 0x88b8d
+
+// WRONG (common mistake)
+560013 → 0x88b0d  // Missing the 8!
+```
+
+Verify with: `(560013).toString(16)` → `"88b8d"`
+
+### Database Sync Warning
+
+When withdrawing time rewards, the **on-chain `lastClaimTime`** is the source of truth, not the local database. If you withdraw from the same wallet on multiple servers (e.g., production and local), the local database's `lastClaimTime` will be stale.
+
+**Symptoms**: Frontend shows higher pending amount than actually received.
+
+**Solution**: Sync time reward data from blockchain:
+```bash
+curl -X POST http://localhost:3000/api/revenues/time-rewards/sync \
+  -H "Content-Type: application/json" \
+  -d '{"tokenIds": [2341]}'
+```
+
+Or run the full sync script:
+```bash
+node server/scripts/sync-time-rewards.js
+```
+
+---
+
 *Document created: January 6, 2026*
-*Last updated: January 6, 2026 - Phase 4 Complete*
+*Last updated: January 7, 2026 - Added Appendix D: Wallet Network Switching*

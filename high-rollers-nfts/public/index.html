@@ -23,7 +23,11 @@
         <div id="wallet-info" class="hidden items-center gap-3 bg-gray-700 px-4 py-2 rounded-lg">
           <img id="wallet-logo" src="" alt="" class="w-6 h-6">
           <span id="wallet-address" class="text-gray-300 font-mono"></span>
-          <span id="wallet-balance" class="text-green-400 font-bold"></span>
+          <div class="flex items-baseline gap-1.5">
+            <img id="chain-logo" src="" alt="" class="w-4 h-4 self-center">
+            <span id="wallet-balance" class="text-green-400 font-bold"></span>
+            <span id="wallet-currency" class="text-gray-400 text-sm"></span>
+          </div>
           <button id="disconnect-btn" class="text-gray-400 hover:text-white ml-2 cursor-pointer">
             ✕
           </button>

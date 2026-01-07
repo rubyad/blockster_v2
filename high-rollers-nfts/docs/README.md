@@ -362,7 +362,8 @@ High Rollers NFTs earn passive income from ROGUE betting on BUX Booster. When pl
 
 | Contract | Address | Status |
 |----------|---------|--------|
-| NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | ✅ LIVE |
+| NFTRewarder Proxy | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | ✅ LIVE |
+| NFTRewarder V5 Impl | `0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb` | Current |
 | ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | ✅ LIVE |
 
 ### How Revenue Sharing Works
@@ -379,18 +380,19 @@ High Rollers NFTs earn passive income from ROGUE betting on BUX Booster. When pl
 | PriceService | 10 min | ROGUE/ETH prices (Blockster API primary, CoinGecko fallback) |
 | RewardEventListener | 10 sec | Polls for RewardReceived/RewardClaimed events |
 | EarningsSyncService | 30 sec | Syncs NFT earnings, calculates 24h and APY |
-| AdminTxQueue | On-demand | Serializes admin transactions (registerNFT, updateOwnership, withdrawTo) |
+| AdminTxQueue | On-demand | Serializes admin transactions (registerNFT, updateOwnership, withdrawTo, claimTimeRewards) |
+| TimeRewardTracker | On-demand | Tracks special NFT time rewards locally (zero blockchain calls) |
 
 ### Revenue API Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/revenues/stats` | Global stats + per-hostess breakdown |
+| `GET /api/revenues/stats` | Global stats + per-hostess breakdown (combined revenue + time rewards) |
 | `GET /api/revenues/nft/:tokenId` | Individual NFT earnings |
 | `GET /api/revenues/user/:address` | All NFT earnings for a wallet |
 | `GET /api/revenues/history` | Recent reward events |
 | `GET /api/revenues/prices` | ROGUE + ETH prices |
-| `POST /api/revenues/withdraw` | Withdraw pending rewards |
+| `POST /api/revenues/withdraw` | Withdraw pending rewards (revenue + time) |
 
 ### Environment Variables (Revenue Sharing)
 
@@ -401,6 +403,149 @@ ADMIN_PRIVATE_KEY=    # Admin wallet for NFTRewarder operations
 ### Documentation
 
 See [nft_revenues.md](nft_revenues.md) for complete implementation details.
+
+---
+
+## Time-Based Rewards (🟢 LIVE - Jan 6, 2026)
+
+**Special NFTs** (token IDs 2340-2700) earn additional time-based ROGUE rewards over a 180-day period. This is **separate from** revenue sharing - special NFTs earn both!
+
+### Key Numbers
+
+| Property | Value |
+|----------|-------|
+| Total ROGUE Pool | 5,614,272,000 ROGUE |
+| NFT Range | Token IDs 2340-2700 (361 NFTs) |
+| Distribution Period | 180 days per NFT |
+| ROGUE per NFT (average) | ~15,552,000 ROGUE |
+| USD Value per NFT | ~$1,024 (at $0.0001/ROGUE) |
+| ETH Equivalent | ~0.32 ETH per NFT |
+
+### Per-Hostess ROGUE Rates
+
+| Multiplier | Hostess | ROGUE/Day | ROGUE/180 Days | Rate/Second |
+|------------|---------|-----------|----------------|-------------|
+| 100x | Penelope Fatale | 183,580 | 33,044,567 | 2.125 |
+| 90x | Mia Siren | 165,222 | 29,740,111 | 1.912 |
+| 80x | Cleo Enchante | 146,864 | 26,435,654 | 1.700 |
+| 70x | Sophia Spark | 128,506 | 23,131,197 | 1.487 |
+| 60x | Luna Mirage | 110,148 | 19,826,740 | 1.275 |
+| 50x | Aurora Seductra | 91,790 | 16,522,284 | 1.062 |
+| 40x | Scarlett Ember | 73,432 | 13,217,827 | 0.850 |
+| 30x | Vivienne Allure | 55,074 | 9,913,370 | 0.637 |
+
+### How Time Rewards Work
+
+1. User mints NFT on Arbitrum (Chainlink VRF determines type)
+2. EventListener detects `NFTMinted` event
+3. Server calls `registerNFT()` on NFTRewarder (Rogue Chain)
+4. **180-day countdown starts at `block.timestamp`**
+5. NFT earns ROGUE every second based on hostess type
+6. User can claim anytime; unclaimed rewards accumulate
+7. After 180 days, time rewards stop but revenue sharing continues
+
+### Time Reward API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/revenues/time-rewards/stats` | GET | Global time reward pool statistics |
+| `/api/revenues/time-rewards/nft/:tokenId` | GET | Single NFT time reward info |
+| `/api/revenues/time-rewards/user/:address` | GET | All time rewards for wallet |
+| `/api/revenues/time-rewards/static-data` | GET | Static data for client calculations (cacheable) |
+| `/api/revenues/time-rewards/claim` | POST | Claim time rewards |
+| `/api/revenues/time-rewards/sync` | POST | Sync from blockchain (admin) |
+
+### Real-Time Counter (TimeRewardCounter)
+
+The frontend displays real-time counting earnings with **zero database queries**:
+
+- `public/js/timeRewardCounter.js` - Client-side counter class
+- 8 hardcoded rates matching contract exactly
+- 1-second UI update loop
+- Methods: `initialize()`, `getPending()`, `getTotals()`, `get24hEarnings()`
+
+### Special NFT Visual Treatment
+
+- Golden animated glow border (CSS `.special-nft-glow`)
+- "⭐ SPECIAL" badge on card
+- Sorted by token_id descending (newest first)
+- Time remaining display (days/hours/minutes)
+
+### Combined Withdrawals
+
+The withdraw button claims **both** revenue sharing AND time rewards in one transaction.
+
+### Documentation
+
+See `/docs/NFT_TIME_BASED_REWARDS_IMPLEMENTATION.md` in the main blockster_v2 repo for complete implementation details.
+
+---
+
+## Wallet Network Switching (Multi-Chain Support)
+
+The frontend automatically switches between **Arbitrum One** (for minting) and **Rogue Chain** (for revenues) based on the active tab.
+
+### Network Configuration
+
+| Property | Arbitrum One | Rogue Chain |
+|----------|--------------|-------------|
+| Chain ID | 42161 | 560013 |
+| Chain ID Hex | `0xa4b1` | `0x88b8d` |
+| RPC URL | `https://arb1.arbitrum.io/rpc` | `https://rpc.roguechain.io/rpc` |
+| Explorer | `https://arbiscan.io` | `https://roguescan.io` |
+| Currency | ETH | ROGUE |
+
+> **Important**: Rogue Chain ID `560013` = `0x88b8d` (not `0x88b0d`). Verify with `(560013).toString(16)`.
+
+### Tab-Based Switching
+
+| Tab | Network | Balance Displayed |
+|-----|---------|-------------------|
+| Mint | Arbitrum | ETH |
+| Gallery | Rogue Chain | ROGUE |
+| My NFTs | Rogue Chain | ROGUE |
+| Revenues | Rogue Chain | ROGUE |
+
+### WalletService Methods
+
+```javascript
+// Switch to Arbitrum (Mint tab)
+await window.walletService.switchToArbitrum();
+
+// Switch to Rogue Chain (other tabs)
+await window.walletService.switchToRogueChain();
+
+// Generic switch
+await window.walletService.switchNetwork('arbitrum' | 'rogue');
+
+// Get ROGUE balance (uses Rogue RPC directly, no wallet switch needed)
+const balance = await window.walletService.getROGUEBalance();
+```
+
+### Error Handling
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| `4902` | Chain not added to wallet | Auto-add via `wallet_addEthereumChain` |
+| `4001` | User rejected switch | Log and continue (non-blocking) |
+| `-32002` | Request pending in wallet | Log and continue (non-blocking) |
+
+### Database Sync Warning
+
+When withdrawing time rewards, the **on-chain `lastClaimTime`** is the source of truth. If you withdraw from the same wallet on both production and local servers, the local database will have stale data.
+
+**Symptoms**: Frontend shows higher pending than actually received.
+
+**Solution**:
+```bash
+# Sync specific NFT
+curl -X POST http://localhost:3000/api/revenues/time-rewards/sync \
+  -H "Content-Type: application/json" \
+  -d '{"tokenIds": [2341]}'
+
+# Or run full sync
+node server/scripts/sync-time-rewards.js
+```
 
 ---
 
@@ -440,4 +585,4 @@ Transform examples:
 
 ---
 
-*Last updated: January 5, 2026*
+*Last updated: January 7, 2026 - Added Time-Based Rewards & Wallet Network Switching*

@@ -587,6 +587,11 @@ class RevenueService {
         UI.showToast(`Withdrawal successful! ${this.formatRogue(totalWithdrawn)} ROGUE sent`, 'success');
         // Show success button with links to all transactions
         this.showWithdrawSuccess(btn, txHashes);
+
+        // Refresh ROGUE balance in wallet display (after a short delay for blockchain confirmation)
+        setTimeout(() => {
+          walletService.refreshROGUEBalance();
+        }, 2000);
       } else {
         throw new Error('No rewards to withdraw');
       }

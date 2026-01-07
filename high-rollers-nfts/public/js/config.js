@@ -10,7 +10,11 @@ const CONFIG = {
 
   // Rogue Chain (for NFT Revenues)
   ROGUE_CHAIN_ID: 560013,
+  ROGUE_CHAIN_ID_HEX: '0x88b8d',
+  ROGUE_CHAIN_NAME: 'Rogue Chain',
+  ROGUE_RPC_URL: 'https://rpc.roguechain.io/rpc',
   ROGUE_EXPLORER_URL: 'https://roguescan.io',
+  ROGUE_CURRENCY: { name: 'ROGUE', symbol: 'ROGUE', decimals: 18 },
   NFT_REWARDER_ADDRESS: '0x96aB9560f1407586faE2b69Dc7f38a59BEACC594',
   NFT_REWARDER_IMPL_ADDRESS: '0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb',
 

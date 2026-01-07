@@ -6,8 +6,11 @@ class WalletService {
     this.signer = null;
     this.address = null;
     this.walletType = null;
+    this.currentChain = 'arbitrum';
+    this.rogueBalance = '0';
     this.onConnectCallbacks = [];
     this.onDisconnectCallbacks = [];
+    this.onBalanceUpdateCallbacks = [];
     this.autoConnectComplete = false;
     this.autoConnectPromise = null;
 
@@ -232,12 +235,16 @@ class WalletService {
   }
 
   async switchToArbitrum(provider) {
+    provider = provider || window.ethereum;
+    if (!provider) return;
+
     try {
       await provider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: CONFIG.CHAIN_ID_HEX }]
       });
     } catch (error) {
+      // 4902 = chain not added to wallet, need to add it first
       if (error.code === 4902) {
         await provider.request({
           method: 'wallet_addEthereumChain',
@@ -249,10 +256,82 @@ class WalletService {
             blockExplorerUrls: [CONFIG.EXPLORER_URL]
           }]
         });
+      } else if (error.code === 4001) {
+        // User rejected the switch - that's okay, don't throw
+        console.log('User rejected network switch to Arbitrum');
+        return;
+      } else if (error.code === -32002) {
+        // Request already pending in wallet
+        console.log('Network switch request already pending');
+        return;
       } else {
         throw error;
       }
     }
+
+    // Update provider after switch
+    if (this.address) {
+      this.provider = new ethers.BrowserProvider(provider);
+      this.signer = await this.provider.getSigner();
+    }
+    this.currentChain = 'arbitrum';
+  }
+
+  async switchToRogueChain(provider) {
+    provider = provider || window.ethereum;
+    if (!provider) return;
+
+    try {
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: CONFIG.ROGUE_CHAIN_ID_HEX }]
+      });
+    } catch (error) {
+      // 4902 = chain not added to wallet, need to add it first
+      if (error.code === 4902) {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: CONFIG.ROGUE_CHAIN_ID_HEX,
+            chainName: CONFIG.ROGUE_CHAIN_NAME,
+            nativeCurrency: CONFIG.ROGUE_CURRENCY,
+            rpcUrls: [CONFIG.ROGUE_RPC_URL],
+            blockExplorerUrls: [CONFIG.ROGUE_EXPLORER_URL]
+          }]
+        });
+      } else if (error.code === 4001) {
+        // User rejected the switch - that's okay, don't throw
+        console.log('User rejected network switch to Rogue Chain');
+        return;
+      } else if (error.code === -32002) {
+        // Request already pending in wallet
+        console.log('Network switch request already pending');
+        return;
+      } else {
+        throw error;
+      }
+    }
+
+    // Update provider after switch
+    if (this.address) {
+      this.provider = new ethers.BrowserProvider(provider);
+      this.signer = await this.provider.getSigner();
+    }
+    this.currentChain = 'rogue';
+  }
+
+  async switchNetwork(targetChain) {
+    if (!window.ethereum || !this.address) return;
+
+    if (targetChain === 'arbitrum') {
+      await this.switchToArbitrum();
+    } else if (targetChain === 'rogue') {
+      await this.switchToRogueChain();
+    }
+  }
+
+  getCurrentChain() {
+    return this.currentChain || 'arbitrum';
   }
 
   async checkExistingConnection() {
@@ -285,8 +364,16 @@ class WalletService {
     }
   }
 
-  handleChainChanged() {
-    window.location.reload();
+  handleChainChanged(chainId) {
+    // Update current chain based on chainId
+    const chainIdHex = typeof chainId === 'string' ? chainId : `0x${chainId.toString(16)}`;
+    if (chainIdHex.toLowerCase() === CONFIG.CHAIN_ID_HEX.toLowerCase()) {
+      this.currentChain = 'arbitrum';
+    } else if (chainIdHex.toLowerCase() === CONFIG.ROGUE_CHAIN_ID_HEX.toLowerCase()) {
+      this.currentChain = 'rogue';
+    }
+    // Notify listeners of balance update (chain changed means balance display may change)
+    this.onBalanceUpdateCallbacks.forEach(cb => cb());
   }
 
   disconnect() {
@@ -294,6 +381,8 @@ class WalletService {
     this.signer = null;
     this.address = null;
     this.walletType = null;
+    this.currentChain = 'arbitrum';
+    this.rogueBalance = '0';
     localStorage.removeItem('walletConnected');
     localStorage.removeItem('walletType');
     this.onDisconnectCallbacks.forEach(cb => cb());
@@ -315,6 +404,10 @@ class WalletService {
     this.onDisconnectCallbacks.push(callback);
   }
 
+  onBalanceUpdate(callback) {
+    this.onBalanceUpdateCallbacks.push(callback);
+  }
+
   isConnected() {
     return !!this.address;
   }
@@ -323,6 +416,26 @@ class WalletService {
     if (!this.provider || !this.address) return '0';
     const balance = await this.provider.getBalance(this.address);
     return ethers.formatEther(balance);
+  }
+
+  async getROGUEBalance() {
+    if (!this.address) return '0';
+    try {
+      // Use Rogue Chain RPC directly to get balance
+      const rogueProvider = new ethers.JsonRpcProvider(CONFIG.ROGUE_RPC_URL);
+      const balance = await rogueProvider.getBalance(this.address);
+      this.rogueBalance = ethers.formatEther(balance);
+      return this.rogueBalance;
+    } catch (error) {
+      console.error('Failed to get ROGUE balance:', error);
+      return '0';
+    }
+  }
+
+  async refreshROGUEBalance() {
+    const balance = await this.getROGUEBalance();
+    this.onBalanceUpdateCallbacks.forEach(cb => cb());
+    return balance;
   }
 
   getContract() {

@@ -56,7 +56,9 @@ class HighRollersApp {
     try {
       const balance = await walletService.getBalance();
       console.log('[App] Updated wallet balance:', balance);
-      document.getElementById('wallet-balance').textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+      document.getElementById('wallet-balance').textContent = parseFloat(balance).toFixed(4);
+      const currencyEl = document.getElementById('wallet-currency');
+      if (currencyEl) currencyEl.textContent = 'ETH';
     } catch (error) {
       console.error('[App] Failed to update wallet balance:', error);
     }
@@ -110,8 +112,25 @@ class HighRollersApp {
       panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`);
     });
 
+    // Switch network based on tab (mint = Arbitrum, others = Rogue Chain)
+    this.switchNetworkForTab(tabName);
+
     // Load data for the tab
     this.onTabChange(tabName);
+  }
+
+  async switchNetworkForTab(tabName) {
+    if (!walletService.isConnected()) return;
+
+    const targetChain = tabName === 'mint' ? 'arbitrum' : 'rogue';
+
+    try {
+      await walletService.switchNetwork(targetChain);
+      await this.updateBalanceDisplay();
+    } catch (error) {
+      // User rejected network switch - that's okay
+      console.log('Network switch cancelled:', error.message);
+    }
   }
 
   handleRoute() {
@@ -176,6 +195,11 @@ class HighRollersApp {
     walletService.onDisconnect(() => {
       this.updateWalletUI(null);
     });
+
+    // Balance update callback (for ROGUE balance refresh after withdraw)
+    walletService.onBalanceUpdate(() => {
+      this.updateBalanceDisplay();
+    });
   }
 
   showWalletModal() {
@@ -219,9 +243,11 @@ class HighRollersApp {
       document.getElementById('wallet-logo').src = walletService.getWalletLogo();
       document.getElementById('wallet-address').textContent = UI.truncateAddress(result.address);
 
-      // Update balance
-      const balance = await walletService.getBalance();
-      document.getElementById('wallet-balance').textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+      // Update balance based on current tab
+      await this.updateBalanceDisplay();
+
+      // Pre-fetch ROGUE balance for other tabs
+      walletService.getROGUEBalance();
 
       // Update affiliate referral link
       document.getElementById('referral-link').value =
@@ -255,6 +281,39 @@ class HighRollersApp {
       // Clear wallet from time reward counter
       if (window.timeRewardCounter) {
         window.timeRewardCounter.setMyWallet(null);
+      }
+    }
+  }
+
+  async updateBalanceDisplay() {
+    if (!walletService.isConnected()) return;
+
+    const balanceEl = document.getElementById('wallet-balance');
+    const currencyEl = document.getElementById('wallet-currency');
+    const chainLogoEl = document.getElementById('chain-logo');
+    if (!balanceEl) return;
+
+    if (this.currentTab === 'mint') {
+      // Show ETH balance on mint tab (Arbitrum)
+      const balance = await walletService.getBalance();
+      balanceEl.textContent = parseFloat(balance).toFixed(4);
+      if (currencyEl) currencyEl.textContent = 'ETH';
+      if (chainLogoEl) {
+        chainLogoEl.src = 'https://ik.imagekit.io/blockster/arbitrum-logo.png';
+        chainLogoEl.alt = 'Arbitrum';
+      }
+    } else {
+      // Show ROGUE balance on other tabs (Rogue Chain)
+      const balance = await walletService.getROGUEBalance();
+      const formatted = parseFloat(balance).toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      balanceEl.textContent = formatted;
+      if (currencyEl) currencyEl.textContent = 'ROGUE';
+      if (chainLogoEl) {
+        chainLogoEl.src = 'https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png';
+        chainLogoEl.alt = 'Rogue Chain';
       }
     }
   }
