@@ -178,9 +178,23 @@ class DatabaseService {
         share_basis_points INTEGER DEFAULT 0,
         last_24h_per_nft TEXT DEFAULT '0',
         apy_basis_points INTEGER DEFAULT 0,
+        time_24h_per_nft TEXT DEFAULT '0',
+        time_apy_basis_points INTEGER DEFAULT 0,
+        special_nft_count INTEGER DEFAULT 0,
         last_updated INTEGER DEFAULT 0
       )
     `);
+
+    // Add new time reward columns if they don't exist (for existing databases)
+    try {
+      this.db.exec(`ALTER TABLE hostess_revenue_stats ADD COLUMN time_24h_per_nft TEXT DEFAULT '0'`);
+    } catch (e) { /* Column exists */ }
+    try {
+      this.db.exec(`ALTER TABLE hostess_revenue_stats ADD COLUMN time_apy_basis_points INTEGER DEFAULT 0`);
+    } catch (e) { /* Column exists */ }
+    try {
+      this.db.exec(`ALTER TABLE hostess_revenue_stats ADD COLUMN special_nft_count INTEGER DEFAULT 0`);
+    } catch (e) { /* Column exists */ }
 
     // Initialize hostess revenue stats if empty
     const hostessStatsExist = this.db.prepare('SELECT COUNT(*) as c FROM hostess_revenue_stats').get();
@@ -189,6 +203,54 @@ class DatabaseService {
       for (let i = 0; i < 8; i++) {
         insertHostessStats.run(i);
       }
+    }
+
+    // ============ Time-Based Rewards Tables (Phase 3) ============
+
+    // Time reward NFTs table - tracks special NFTs (2340-2700) with time rewards
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS time_reward_nfts (
+        token_id INTEGER PRIMARY KEY,
+        hostess_index INTEGER NOT NULL,
+        owner TEXT NOT NULL,
+        start_time INTEGER DEFAULT 0,
+        last_claim_time INTEGER DEFAULT 0,
+        total_earned REAL DEFAULT 0,
+        total_claimed REAL DEFAULT 0,
+        is_special INTEGER DEFAULT 1,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    `);
+
+    // Time reward claims table - records each claim transaction
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS time_reward_claims (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token_id INTEGER NOT NULL,
+        recipient TEXT NOT NULL,
+        amount REAL NOT NULL,
+        tx_hash TEXT,
+        claimed_at INTEGER DEFAULT (strftime('%s', 'now')),
+        FOREIGN KEY (token_id) REFERENCES time_reward_nfts(token_id)
+      )
+    `);
+
+    // Time reward global stats table - pool tracking
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS time_reward_global_stats (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        pool_deposited TEXT DEFAULT '0',
+        pool_remaining TEXT DEFAULT '0',
+        pool_claimed TEXT DEFAULT '0',
+        nfts_started INTEGER DEFAULT 0,
+        last_updated INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    `);
+
+    // Initialize time reward global stats row if empty
+    const timeStatsExist = this.db.prepare('SELECT COUNT(*) as c FROM time_reward_global_stats').get();
+    if (timeStatsExist.c === 0) {
+      this.db.prepare('INSERT INTO time_reward_global_stats (id, pool_deposited, pool_remaining) VALUES (1, \'4500000000\', \'4500000000\')').run();
     }
 
     // Create indexes
@@ -203,6 +265,9 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_reward_events_timestamp ON reward_events(timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_reward_withdrawals_user ON reward_withdrawals(user_address);
       CREATE INDEX IF NOT EXISTS idx_nft_earnings_pending ON nft_earnings(pending_amount);
+      CREATE INDEX IF NOT EXISTS idx_time_reward_nfts_owner ON time_reward_nfts(owner);
+      CREATE INDEX IF NOT EXISTS idx_time_reward_nfts_hostess ON time_reward_nfts(hostess_index);
+      CREATE INDEX IF NOT EXISTS idx_time_reward_claims_token ON time_reward_claims(token_id);
     `);
 
     console.log('[Database] Schema initialized');
@@ -759,6 +824,7 @@ class DatabaseService {
 
   /**
    * Update hostess revenue stats
+   * Stores both revenue sharing and time reward values separately
    */
   updateHostessRevenueStats(hostessIndex, data) {
     const stmt = this.db.prepare(`
@@ -768,6 +834,9 @@ class DatabaseService {
         share_basis_points = ?,
         last_24h_per_nft = ?,
         apy_basis_points = ?,
+        time_24h_per_nft = ?,
+        time_apy_basis_points = ?,
+        special_nft_count = ?,
         last_updated = strftime('%s', 'now')
       WHERE hostess_index = ?
     `);
@@ -775,8 +844,11 @@ class DatabaseService {
       data.nftCount,
       data.totalPoints,
       data.shareBasisPoints,
-      data.last24hPerNft,
-      data.apyBasisPoints,
+      data.last24hPerNft || '0',
+      data.apyBasisPoints || 0,
+      data.time24hPerNft || '0',
+      data.timeApyBasisPoints || 0,
+      data.specialNftCount || 0,
       hostessIndex
     );
   }
@@ -832,6 +904,177 @@ class DatabaseService {
 
     console.log('[Database] Recalculated hostess revenue stats');
     return this.getAllHostessRevenueStats();
+  }
+
+  // ==========================================
+  // Time-Based Rewards Operations (Phase 3)
+  // ==========================================
+
+  /**
+   * Insert or update a time reward NFT record
+   */
+  insertTimeRewardNFT(data) {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO time_reward_nfts
+      (token_id, hostess_index, owner, start_time, last_claim_time, total_earned, total_claimed)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      data.tokenId,
+      data.hostessIndex,
+      data.owner.toLowerCase(),
+      data.startTime,
+      data.lastClaimTime,
+      data.totalEarned || 0,
+      data.totalClaimed || 0
+    );
+  }
+
+  /**
+   * Get time reward info for a specific NFT
+   */
+  getTimeRewardNFT(tokenId) {
+    return this.db.prepare(`
+      SELECT * FROM time_reward_nfts WHERE token_id = ?
+    `).get(tokenId);
+  }
+
+  /**
+   * Update after a successful claim
+   */
+  updateTimeRewardClaim(tokenId, claimedAmount, claimTime) {
+    const stmt = this.db.prepare(`
+      UPDATE time_reward_nfts
+      SET last_claim_time = ?,
+          total_earned = total_earned + ?,
+          total_claimed = total_claimed + ?
+      WHERE token_id = ?
+    `);
+    return stmt.run(claimTime, claimedAmount, claimedAmount, tokenId);
+  }
+
+  /**
+   * Update owner of a time reward NFT (after transfer)
+   */
+  updateTimeRewardNFTOwner(tokenId, newOwner) {
+    const stmt = this.db.prepare(`
+      UPDATE time_reward_nfts SET owner = ? WHERE token_id = ?
+    `);
+    return stmt.run(newOwner.toLowerCase(), tokenId);
+  }
+
+  /**
+   * Get all special NFTs owned by an address
+   */
+  getOwnerSpecialNFTs(owner) {
+    return this.db.prepare(`
+      SELECT tr.*, n.hostess_name
+      FROM time_reward_nfts tr
+      LEFT JOIN nfts n ON tr.token_id = n.token_id
+      WHERE tr.owner = ?
+      ORDER BY tr.token_id ASC
+    `).all(owner.toLowerCase());
+  }
+
+  /**
+   * Get all time reward NFTs (for static data endpoint)
+   */
+  getAllTimeRewardNFTs() {
+    return this.db.prepare(`
+      SELECT token_id as tokenId,
+             hostess_index as hostessIndex,
+             start_time as startTime,
+             last_claim_time as lastClaimTime,
+             owner,
+             total_earned as totalEarned,
+             total_claimed as totalClaimed
+      FROM time_reward_nfts
+      WHERE start_time > 0
+      ORDER BY token_id ASC
+    `).all();
+  }
+
+  /**
+   * Get special NFTs by hostess type
+   */
+  getSpecialNFTsByHostess(hostessIndex) {
+    return this.db.prepare(`
+      SELECT * FROM time_reward_nfts WHERE hostess_index = ? AND start_time > 0
+    `).all(hostessIndex);
+  }
+
+  /**
+   * Get time reward global stats
+   */
+  getTimeRewardGlobalStats() {
+    return this.db.prepare(`
+      SELECT * FROM time_reward_global_stats WHERE id = 1
+    `).get();
+  }
+
+  /**
+   * Update time reward global stats
+   */
+  updateTimeRewardGlobalStats(stats) {
+    const stmt = this.db.prepare(`
+      UPDATE time_reward_global_stats
+      SET pool_deposited = ?,
+          pool_remaining = ?,
+          pool_claimed = ?,
+          nfts_started = ?,
+          last_updated = strftime('%s', 'now')
+      WHERE id = 1
+    `);
+    return stmt.run(
+      stats.poolDeposited?.toString() || '0',
+      stats.poolRemaining?.toString() || '0',
+      stats.poolClaimed?.toString() || '0',
+      stats.nftsStarted || 0
+    );
+  }
+
+  /**
+   * Record a time reward claim transaction
+   */
+  recordTimeRewardClaim(data) {
+    const stmt = this.db.prepare(`
+      INSERT INTO time_reward_claims (token_id, recipient, amount, tx_hash)
+      VALUES (?, ?, ?, ?)
+    `);
+    return stmt.run(
+      data.tokenId,
+      data.recipient.toLowerCase(),
+      data.amount,
+      data.txHash
+    );
+  }
+
+  /**
+   * Get claim history for a specific NFT
+   */
+  getTimeRewardClaimsForNFT(tokenId) {
+    return this.db.prepare(`
+      SELECT * FROM time_reward_claims WHERE token_id = ? ORDER BY claimed_at DESC
+    `).all(tokenId);
+  }
+
+  /**
+   * Get claim history for a user
+   */
+  getTimeRewardClaimsForUser(recipient) {
+    return this.db.prepare(`
+      SELECT * FROM time_reward_claims WHERE recipient = ? ORDER BY claimed_at DESC
+    `).all(recipient.toLowerCase());
+  }
+
+  /**
+   * Count special NFTs started
+   */
+  countSpecialNFTsStarted() {
+    const result = this.db.prepare(`
+      SELECT COUNT(*) as count FROM time_reward_nfts WHERE start_time > 0
+    `).get();
+    return result.count;
   }
 
   // Utility

@@ -20,15 +20,20 @@ const HOSTESS_NAMES = [
 ];
 
 class EarningsSyncService {
-  constructor(db, priceService, config, websocket = null) {
+  constructor(db, priceService, config, websocket = null, timeRewardTracker = null) {
     this.db = db;
     this.priceService = priceService;
     this.config = config;
     this.ws = websocket;
+    this.timeRewardTracker = timeRewardTracker;
     this.batchSize = 100;  // Fetch 100 NFTs per batch
     this.syncIntervalMs = 10000;  // 10 seconds between full syncs (for real-time updates)
     this.syncInterval = null;
     this.isRunning = false;
+
+    // Special NFT constants
+    this.SPECIAL_NFT_START_ID = 2340;
+    this.SPECIAL_NFT_END_ID = 2700;
 
     this.rogueProvider = new ethers.JsonRpcProvider(config.ROGUE_RPC_URL);
     this.rewarderContract = new ethers.Contract(
@@ -36,6 +41,20 @@ class EarningsSyncService {
       config.NFT_REWARDER_ABI,
       this.rogueProvider
     );
+  }
+
+  /**
+   * Set TimeRewardTracker reference (for combined earnings calculations)
+   */
+  setTimeRewardTracker(tracker) {
+    this.timeRewardTracker = tracker;
+  }
+
+  /**
+   * Check if a token ID is a special NFT (has time rewards)
+   */
+  isSpecialNFT(tokenId) {
+    return tokenId >= this.SPECIAL_NFT_START_ID && tokenId <= this.SPECIAL_NFT_END_ID;
   }
 
   /**
@@ -250,31 +269,58 @@ class EarningsSyncService {
       // First recalculate counts
       this.db.recalculateHostessRevenueStats();
 
+      // Get time reward 24h per hostess (for combined calculations)
+      const hostessTime24h = this.getHostessTime24h();
+
       // Then update 24h and APY for each hostess type
       const hostessStats = this.db.getAllHostessRevenueStats();
 
       for (const stats of hostessStats) {
-        const multiplier = BigInt(MULTIPLIERS[stats.hostess_index]);
+        const hostessIndex = stats.hostess_index;
+        const multiplier = BigInt(MULTIPLIERS[hostessIndex]);
 
-        // Calculate 24h per NFT for this hostess type
-        let last24hPerNft = 0n;
+        // ========== Revenue Sharing 24h/APY ==========
+        let revenue24hPerNft = 0n;
         if (totalMultiplierPoints > 0n) {
-          last24hPerNft = (global24hWei * multiplier) / totalMultiplierPoints;
+          revenue24hPerNft = (global24hWei * multiplier) / totalMultiplierPoints;
         }
 
-        // Calculate APY
-        let apyBasisPoints = 0;
+        let revenueApyBasisPoints = 0;
         if (nftValueInRogueWei > 0n) {
-          const annualProjection = last24hPerNft * 365n;
-          apyBasisPoints = Number((annualProjection * 10000n) / nftValueInRogueWei);
+          const annualProjection = revenue24hPerNft * 365n;
+          revenueApyBasisPoints = Number((annualProjection * 10000n) / nftValueInRogueWei);
         }
 
-        this.db.updateHostessRevenueStats(stats.hostess_index, {
+        // ========== Time Rewards 24h/APY (for special NFTs only) ==========
+        let time24hPerNft = 0n;
+        let timeApyBasisPoints = 0;
+
+        // Count how many special NFTs of this hostess type exist
+        const specialNFTs = this.db.getSpecialNFTsByHostess(hostessIndex);
+        const specialCount = specialNFTs.length;
+
+        if (specialCount > 0 && this.timeRewardTracker) {
+          // Time 24h per NFT (same for all NFTs of this hostess type since rate is constant)
+          const totalHostessTime24h = BigInt(hostessTime24h[hostessIndex] || '0');
+          time24hPerNft = specialCount > 0 ? totalHostessTime24h / BigInt(specialCount) : 0n;
+
+          // Time APY (based on 180-day earning rate annualized)
+          timeApyBasisPoints = this.calculateTimeAPY(hostessIndex, nftValueInRogueWei);
+        }
+
+        // Store revenue and time values separately
+        // UI/API will calculate combined totals when needed
+        this.db.updateHostessRevenueStats(hostessIndex, {
           nftCount: stats.nft_count,
           totalPoints: stats.total_points,
           shareBasisPoints: stats.share_basis_points,
-          last24hPerNft: last24hPerNft.toString(),
-          apyBasisPoints: apyBasisPoints
+          // Revenue sharing values
+          last24hPerNft: revenue24hPerNft.toString(),
+          apyBasisPoints: revenueApyBasisPoints,
+          // Time reward values (for special NFTs)
+          time24hPerNft: time24hPerNft.toString(),
+          timeApyBasisPoints: timeApyBasisPoints,
+          specialNftCount: specialCount
         });
       }
     } catch (error) {
@@ -284,6 +330,119 @@ class EarningsSyncService {
 
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Calculate time-based 24h earnings for an NFT
+   * Time rewards are constant rate, so 24h = rate × 86400 (if within active period)
+   *
+   * @param tokenId NFT token ID
+   * @param hostessIndex Hostess type (0-7)
+   * @returns 24h earnings in wei (BigInt string)
+   */
+  calculateTime24hEarnings(tokenId, hostessIndex) {
+    if (!this.timeRewardTracker || !this.isSpecialNFT(tokenId)) {
+      return '0';
+    }
+
+    const nft = this.db.getTimeRewardNFT(tokenId);
+    if (!nft || !nft.start_time) return '0';
+
+    const now = Math.floor(Date.now() / 1000);
+    const oneDayAgo = now - 86400;
+    const endTime = nft.start_time + (180 * 24 * 60 * 60);  // 180 days
+
+    // Calculate overlap between [startTime, endTime] and [oneDayAgo, now]
+    const windowStart = Math.max(nft.start_time, oneDayAgo);
+    const windowEnd = Math.min(endTime, now);
+
+    if (windowEnd <= windowStart) return '0';
+
+    const secondsInWindow = windowEnd - windowStart;
+    const rateWei = this.timeRewardTracker.getRatePerSecondWei(hostessIndex);
+
+    // earnings = rate × seconds
+    const earnings = (rateWei * BigInt(secondsInWindow)) / BigInt(1e18);
+    return earnings.toString();
+  }
+
+  /**
+   * Get time reward pending amount for an NFT (in wei string)
+   */
+  getTimePending(tokenId) {
+    if (!this.timeRewardTracker || !this.isSpecialNFT(tokenId)) {
+      return '0';
+    }
+
+    const timeReward = this.timeRewardTracker.calculatePendingReward(tokenId);
+    return timeReward.pendingWei || '0';
+  }
+
+  /**
+   * Get total time reward earned (pending + claimed) for an NFT (in wei string)
+   */
+  getTimeTotalEarned(tokenId) {
+    if (!this.timeRewardTracker || !this.isSpecialNFT(tokenId)) {
+      return '0';
+    }
+
+    const nft = this.db.getTimeRewardNFT(tokenId);
+    if (!nft || !nft.start_time) return '0';
+
+    const timeReward = this.timeRewardTracker.calculatePendingReward(tokenId);
+    // totalEarned = pending + claimed
+    const totalWei = BigInt(Math.floor(timeReward.totalEarned * 1e18));
+    return totalWei.toString();
+  }
+
+  /**
+   * Calculate time-based APY for a hostess type
+   * Formula: (totalFor180Days × 365/180) / nftValue × 10000 (basis points)
+   *
+   * @param hostessIndex Hostess type (0-7)
+   * @param nftValueInRogueWei NFT value in wei
+   * @returns APY in basis points (10000 = 100%)
+   */
+  calculateTimeAPY(hostessIndex, nftValueInRogueWei) {
+    if (!this.timeRewardTracker || nftValueInRogueWei === 0n) {
+      return 0;
+    }
+
+    const rateWei = this.timeRewardTracker.getRatePerSecondWei(hostessIndex);
+    const duration = BigInt(180 * 24 * 60 * 60);  // 180 days in seconds
+
+    // Total for 180 days
+    const totalFor180Days = (rateWei * duration) / BigInt(1e18);
+
+    // Annualize: × 365/180 ≈ × 2.0278
+    const annualized = (totalFor180Days * 365n) / 180n;
+
+    // APY = annualized / nftValue × 10000
+    const apyBasisPoints = Number((annualized * 10000n * BigInt(1e18)) / nftValueInRogueWei);
+    return apyBasisPoints;
+  }
+
+  /**
+   * Get global time reward 24h earnings (sum across all special NFTs)
+   */
+  getGlobalTime24h() {
+    if (!this.timeRewardTracker) return '0';
+
+    const { global } = this.timeRewardTracker.get24hEarnings();
+    return BigInt(Math.floor(global * 1e18)).toString();
+  }
+
+  /**
+   * Get time reward 24h earnings per hostess type
+   * Returns array of BigInt strings indexed by hostess (0-7)
+   */
+  getHostessTime24h() {
+    if (!this.timeRewardTracker) {
+      return new Array(8).fill('0');
+    }
+
+    const { hostess } = this.timeRewardTracker.get24hEarnings();
+    return hostess.map(h => BigInt(Math.floor(h * 1e18)).toString());
   }
 
   stop() {

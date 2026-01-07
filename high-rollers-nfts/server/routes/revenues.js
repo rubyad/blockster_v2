@@ -21,8 +21,19 @@ function formatROGUE(weiAmount) {
   return ethers.formatEther(weiAmount);
 }
 
+// TimeRewardTracker will be set by setTimeRewardTracker()
+let timeRewardTracker = null;
+
 module.exports = (db, priceService) => {
   const router = express.Router();
+
+  /**
+   * Set the TimeRewardTracker service (called from index.js after initialization)
+   */
+  router.setTimeRewardTracker = (tracker) => {
+    timeRewardTracker = tracker;
+    console.log('[Revenues] TimeRewardTracker attached');
+  };
 
   // GET /api/revenues/stats - Global revenue statistics
   router.get('/stats', (req, res) => {
@@ -30,21 +41,65 @@ module.exports = (db, priceService) => {
       const stats = db.getGlobalRevenueStats();
       const hostessStats = db.getAllHostessRevenueStats();
 
+      // Get global time reward stats for combined totals
+      let timeRewardTotal = '0';
+      let timeReward24h = '0';
+      if (timeRewardTracker) {
+        const timeStats = timeRewardTracker.getGlobalStats();
+        // Total earned = pool deposited - pool remaining
+        const totalTimeEarned = (timeStats.totalPoolDeposited - timeStats.totalPoolRemaining) * 1e18;
+        timeRewardTotal = BigInt(Math.floor(totalTimeEarned)).toString();
+
+        // Get 24h time rewards
+        const { global: global24h } = timeRewardTracker.get24hEarnings();
+        timeReward24h = BigInt(Math.floor(global24h * 1e18)).toString();
+      }
+
+      // Calculate combined totals (revenue + time rewards)
+      const revenueTotal = BigInt(stats?.total_rewards_received || '0');
+      const revenue24h = BigInt(stats?.rewards_last_24h || '0');
+      const combinedTotal = revenueTotal + BigInt(timeRewardTotal);
+      const combined24h = revenue24h + BigInt(timeReward24h);
+
       res.json({
+        // Revenue sharing only (for backwards compatibility)
         totalRewardsReceived: formatROGUE(stats?.total_rewards_received),
         totalRewardsDistributed: formatROGUE(stats?.total_rewards_distributed),
         rewardsLast24Hours: formatROGUE(stats?.rewards_last_24h),
+        // Time rewards only
+        timeRewardsTotal: formatROGUE(timeRewardTotal),
+        timeRewards24Hours: formatROGUE(timeReward24h),
+        // Combined totals (revenue + time)
+        combinedTotal: formatROGUE(combinedTotal.toString()),
+        combined24Hours: formatROGUE(combined24h.toString()),
         overallAPY: (stats?.overall_apy_basis_points || 0) / 100, // Convert to percentage
-        hostessTypes: hostessStats.map(h => ({
-          index: h.hostess_index,
-          name: HOSTESS_NAMES[h.hostess_index],
-          multiplier: MULTIPLIERS[h.hostess_index],
-          nftCount: h.nft_count,
-          totalPoints: h.total_points,
-          sharePercent: (h.share_basis_points || 0) / 100,
-          last24HPerNFT: formatROGUE(h.last_24h_per_nft),
-          apy: (h.apy_basis_points || 0) / 100
-        })),
+        hostessTypes: hostessStats.map(h => {
+          const revenueApy = (h.apy_basis_points || 0) / 100;
+          const timeApy = (h.time_apy_basis_points || 0) / 100;
+          const revenueLast24h = formatROGUE(h.last_24h_per_nft);
+          const timeLast24h = formatROGUE(h.time_24h_per_nft);
+
+          return {
+            index: h.hostess_index,
+            name: HOSTESS_NAMES[h.hostess_index],
+            multiplier: MULTIPLIERS[h.hostess_index],
+            nftCount: h.nft_count,
+            totalPoints: h.total_points,
+            sharePercent: (h.share_basis_points || 0) / 100,
+            // Revenue sharing stats
+            last24HPerNFT: revenueLast24h,
+            apy: revenueApy,
+            // Time reward stats (special NFTs only)
+            specialNftCount: h.special_nft_count || 0,
+            timeLast24HPerNFT: timeLast24h,
+            timeApy: timeApy,
+            // Combined totals
+            combinedLast24HPerNFT: formatROGUE(
+              (BigInt(h.last_24h_per_nft || '0') + BigInt(h.time_24h_per_nft || '0')).toString()
+            ),
+            combinedApy: revenueApy + timeApy
+          };
+        }),
         lastUpdated: stats?.last_updated || 0
       });
     } catch (error) {
@@ -349,6 +404,239 @@ module.exports = (db, priceService) => {
       res.status(500).json({
         error: error.reason || error.message || 'Withdrawal failed'
       });
+    }
+  });
+
+  // ============ Time-Based Rewards Endpoints (Phase 3) ============
+
+  /**
+   * GET /api/revenues/time-rewards/stats
+   * Get global time reward statistics
+   */
+  router.get('/time-rewards/stats', (req, res) => {
+    try {
+      if (!timeRewardTracker) {
+        return res.status(503).json({ error: 'Time reward service not available' });
+      }
+
+      const stats = timeRewardTracker.getGlobalStats();
+      const earnings24h = timeRewardTracker.get24hEarnings();
+
+      res.json({
+        ...stats,
+        global24h: earnings24h.global,
+        hostess24h: earnings24h.hostess.map((amount, index) => ({
+          hostessIndex: index,
+          hostessName: HOSTESS_NAMES[index],
+          amount24h: amount
+        }))
+      });
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/stats error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/revenues/time-rewards/nft/:tokenId
+   * Get time reward info for a specific NFT
+   */
+  router.get('/time-rewards/nft/:tokenId', (req, res) => {
+    try {
+      if (!timeRewardTracker) {
+        return res.status(503).json({ error: 'Time reward service not available' });
+      }
+
+      const tokenId = parseInt(req.params.tokenId);
+
+      if (isNaN(tokenId) || tokenId < 1) {
+        return res.status(400).json({ error: 'Invalid token ID' });
+      }
+
+      const info = timeRewardTracker.calculatePendingReward(tokenId);
+
+      // Get NFT metadata for hostess name
+      const nft = db.getNFT(tokenId);
+
+      res.json({
+        tokenId,
+        hostessName: nft?.hostess_name || HOSTESS_NAMES[info.hostessIndex] || 'Unknown',
+        hostessIndex: nft?.hostess_index,
+        ...info
+      });
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/nft/:tokenId error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/revenues/time-rewards/user/:address
+   * Get time reward info for all special NFTs owned by a wallet
+   */
+  router.get('/time-rewards/user/:address', (req, res) => {
+    try {
+      if (!timeRewardTracker) {
+        return res.status(503).json({ error: 'Time reward service not available' });
+      }
+
+      const address = req.params.address;
+
+      if (!ethers.isAddress(address)) {
+        return res.status(400).json({ error: 'Invalid address' });
+      }
+
+      const stats = timeRewardTracker.getWalletTimeRewardStats(address);
+
+      res.json({
+        address: address.toLowerCase(),
+        ...stats,
+        nfts: stats.nfts.map(nft => ({
+          tokenId: nft.token_id,
+          hostessName: nft.hostess_name || HOSTESS_NAMES[nft.hostess_index],
+          hostessIndex: nft.hostess_index,
+          owner: nft.owner,
+          ...nft.timeReward
+        }))
+      });
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/user/:address error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/revenues/time-rewards/static-data
+   * Returns ONLY static NFT data - no calculations
+   * Client calculates everything from this + hardcoded constants
+   * Response is cacheable - data only changes on mint/claim events
+   */
+  router.get('/time-rewards/static-data', (req, res) => {
+    try {
+      // Single database query - no joins, no calculations
+      const nfts = db.getAllTimeRewardNFTs();
+
+      // Cache for 60 seconds (data rarely changes)
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(nfts);
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/static-data error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/revenues/time-rewards/claim
+   * Claim time-based rewards for user's special NFTs
+   * Body: { tokenIds: number[], recipient: string }
+   */
+  router.post('/time-rewards/claim', async (req, res) => {
+    try {
+      if (!timeRewardTracker) {
+        return res.status(503).json({ error: 'Time reward service not available' });
+      }
+
+      const { tokenIds, recipient } = req.body;
+
+      if (!tokenIds || !Array.isArray(tokenIds) || tokenIds.length === 0) {
+        return res.status(400).json({ error: 'tokenIds array required' });
+      }
+
+      if (!recipient || !ethers.isAddress(recipient)) {
+        return res.status(400).json({ error: 'Valid recipient address required' });
+      }
+
+      // Calculate total pending before claiming
+      let totalPending = 0;
+      const validTokenIds = [];
+
+      for (const tokenId of tokenIds) {
+        const info = timeRewardTracker.calculatePendingReward(tokenId);
+        if (info.hasStarted && info.pending > 0) {
+          totalPending += info.pending;
+          validTokenIds.push(tokenId);
+        }
+      }
+
+      if (validTokenIds.length === 0) {
+        return res.status(400).json({ error: 'No pending time rewards to claim' });
+      }
+
+      console.log(`[Revenues] Time rewards claim request: ${validTokenIds.length} NFTs, total: ${totalPending.toFixed(2)} ROGUE to ${recipient}`);
+
+      // Queue the claim transaction via admin wallet
+      const receipt = await adminTxQueue.claimTimeRewards(validTokenIds, recipient);
+      console.log(`[Revenues] Time rewards claim confirmed: ${receipt.hash}`);
+
+      // Update local database after successful claim
+      for (const tokenId of validTokenIds) {
+        const info = timeRewardTracker.calculatePendingReward(tokenId);
+        timeRewardTracker.updateAfterClaim(tokenId, info.pending);
+
+        // Record claim in claims table
+        db.recordTimeRewardClaim({
+          tokenId,
+          recipient,
+          amount: info.pending,
+          txHash: receipt.hash
+        });
+      }
+
+      // Broadcast TIME_REWARD_CLAIMED event to all connected clients
+      timeRewardTracker.broadcastTimeRewardClaimed({
+        tokenIds: validTokenIds,
+        recipient,
+        totalAmount: totalPending,
+        txHash: receipt.hash
+      });
+
+      res.json({
+        success: true,
+        txHash: receipt.hash,
+        amount: totalPending,
+        tokenIds: validTokenIds,
+        recipient
+      });
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/claim error:', error);
+      res.status(500).json({
+        error: error.reason || error.message || 'Time reward claim failed'
+      });
+    }
+  });
+
+  /**
+   * POST /api/revenues/time-rewards/sync
+   * Sync time reward data from blockchain (admin/recovery)
+   * Body: { tokenIds?: number[] } - if empty, syncs pool stats only
+   */
+  router.post('/time-rewards/sync', async (req, res) => {
+    try {
+      if (!timeRewardTracker) {
+        return res.status(503).json({ error: 'Time reward service not available' });
+      }
+
+      const { tokenIds } = req.body;
+      const results = { poolStats: false, nfts: [] };
+
+      // Always sync pool stats
+      results.poolStats = await timeRewardTracker.syncPoolStatsFromBlockchain();
+
+      // Sync specific NFTs if provided
+      if (tokenIds && Array.isArray(tokenIds)) {
+        for (const tokenId of tokenIds) {
+          const success = await timeRewardTracker.syncFromBlockchain(tokenId);
+          results.nfts.push({ tokenId, success });
+        }
+      }
+
+      res.json({
+        success: true,
+        ...results
+      });
+    } catch (error) {
+      console.error('[Revenues] /time-rewards/sync error:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 

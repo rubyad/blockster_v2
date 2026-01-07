@@ -35,7 +35,7 @@
     <section class="relative h-96 overflow-hidden bg-gradient-to-r from-purple-900 to-pink-900">
       <div class="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-transparent"></div>
 
-      <div class="relative container mx-auto px-6 h-full flex items-center">
+      <div class="relative container mx-auto px-6 h-full flex items-center justify-between">
         <div class="max-w-xl">
           <h1 class="text-5xl font-bold mb-4">
             DeFi Gambling Revenues
@@ -44,7 +44,7 @@
             Real-Time Revenue Sharing
           </p>
           <p class="text-lg text-gray-300 mb-8">
-            High Rollers NFTs earn a share of every winning bet on <a href="https://blockster-v2.fly.dev/play" target="_blank" class="text-blue-500 hover:underline cursor-pointer">Blockster</a> - mint your NFT to earn passive income forever.
+            High Rollers NFTs earn 0.2% of every losing $ROGUE bet on <a href="https://blockster-v2.fly.dev/play" target="_blank" class="text-blue-500 hover:underline cursor-pointer">Blockster</a> - mint now to earn passive DeFi income forever.
           </p>
           <div class="flex gap-4">
             <button id="hero-mint-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-8 py-3 rounded-lg text-lg font-bold cursor-pointer transition-all">
@@ -53,6 +53,30 @@
             <a href="https://www.coingecko.com/en/coins/rogue" target="_blank" class="border border-purple-500 hover:bg-purple-500/20 px-8 py-3 rounded-lg text-lg font-bold cursor-pointer transition-all inline-flex items-center gap-2">
               <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5"> $ROGUE Token
             </a>
+          </div>
+        </div>
+
+        <!-- Special NFTs Feature Box -->
+        <div class="hidden lg:block max-w-sm">
+          <div class="bg-gradient-to-br from-yellow-500/20 to-amber-500/10 border border-yellow-500/50 rounded-xl p-6 backdrop-blur-sm">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-2xl">⭐</span>
+              <h3 class="text-xl font-bold text-yellow-400">Special NFTs #2340-2700</h3>
+            </div>
+            <ul class="space-y-3 text-gray-200">
+              <li class="flex items-start gap-3">
+                <span class="text-yellow-400 mt-0.5">✓</span>
+                <span><strong class="text-yellow-300">Guaranteed Time Rewards</strong> - Earn ROGUE every second for 180 days, regardless of betting activity</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="text-yellow-400 mt-0.5">✓</span>
+                <span><strong class="text-yellow-300">Betting Revenue Share</strong> - Also earn from every losing bet on top of time rewards</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="text-yellow-400 mt-0.5">✓</span>
+                <span><strong class="text-yellow-300">Limited Number</strong> - Only <span id="hero-special-remaining" class="font-bold">-</span> special NFTs left!</span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -127,16 +151,16 @@
             </div>
             <div class="bg-gray-800 p-4 rounded-lg">
               <h3 class="text-gray-400 text-sm">Total Rewards Received</h3>
-              <p id="mint-total-rewards" class="text-2xl font-bold text-green-400 flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5">0 ROGUE</p>
+              <p id="mint-total-rewards" class="text-2xl font-bold text-green-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
               <p id="mint-total-rewards-usd" class="text-sm text-gray-500">$0.00</p>
             </div>
             <div class="bg-gray-800 p-4 rounded-lg">
               <h3 class="text-gray-400 text-sm">Last 24 Hours</h3>
-              <p id="mint-last-24h-rewards" class="text-2xl font-bold text-yellow-400 flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5">0 ROGUE</p>
+              <p id="mint-last-24h-rewards" class="text-2xl font-bold text-yellow-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
               <p id="mint-last-24h-rewards-usd" class="text-sm text-gray-500">$0.00</p>
             </div>
             <div class="bg-gray-800 p-4 rounded-lg">
-              <h3 class="text-gray-400 text-sm">Overall APY</h3>
+              <h3 class="text-gray-400 text-sm">APY of Special NFTs</h3>
               <p id="mint-overall-apy" class="text-2xl font-bold text-purple-400">0%</p>
             </div>
           </section>
@@ -366,34 +390,67 @@
             <h2 class="text-xl font-bold mb-4">My NFT Earnings</h2>
 
             <!-- Aggregated Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div class="bg-gray-700 p-4 rounded-lg">
                 <h4 class="text-gray-400 text-sm">Total Earned</h4>
-                <a id="my-total-earned-link" href="#" target="_blank" class="text-xl font-bold text-green-400 hover:underline cursor-pointer flex items-center gap-1">
-                  <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4"><span id="my-total-earned">0 ROGUE</span> <span class="text-sm">↗</span>
+                <a id="my-total-earned-link" href="#" target="_blank" class="text-xl font-bold text-green-400 hover:underline cursor-pointer flex items-baseline gap-1">
+                  <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center"><span id="my-total-earned">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></span> <span class="text-sm">↗</span>
                 </a>
                 <p id="my-total-earned-usd" class="text-sm text-gray-500">$0.00</p>
               </div>
               <div class="bg-gray-700 p-4 rounded-lg">
                 <h4 class="text-gray-400 text-sm">Pending Balance</h4>
-                <a id="my-pending-link" href="#" target="_blank" class="text-xl font-bold text-yellow-400 hover:underline cursor-pointer flex items-center gap-1">
-                  <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4"><span id="my-pending">0 ROGUE</span> <span class="text-sm">↗</span>
+                <a id="my-pending-link" href="#" target="_blank" class="text-xl font-bold text-yellow-400 hover:underline cursor-pointer flex items-baseline gap-1">
+                  <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center"><span id="my-pending">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></span> <span class="text-sm">↗</span>
                 </a>
                 <p id="my-pending-usd" class="text-sm text-gray-500">$0.00</p>
               </div>
               <div class="bg-gray-700 p-4 rounded-lg">
                 <h4 class="text-gray-400 text-sm">Last 24 Hours</h4>
-                <p id="my-last-24h" class="text-xl font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4">0 ROGUE</p>
+                <p id="my-last-24h" class="text-xl font-bold flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
                 <p id="my-last-24h-usd" class="text-sm text-gray-500">$0.00</p>
-              </div>
-              <div class="bg-gray-700 p-4 rounded-lg">
-                <h4 class="text-gray-400 text-sm">My Portfolio APY</h4>
-                <p id="my-apy" class="text-xl font-bold text-purple-400">0%</p>
               </div>
               <div class="bg-gray-700 p-4 rounded-lg flex flex-col justify-center">
                 <button id="withdraw-revenues-btn" class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 py-3 px-6 rounded-lg font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                   Withdraw All
                 </button>
+              </div>
+            </div>
+
+            <!-- Special NFTs Time Rewards Section (hidden if user has no special NFTs) -->
+            <div id="special-nfts-section" class="mb-6 hidden">
+              <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/30 border border-amber-500/50 p-4 rounded-lg">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="text-xl">⭐</span>
+                  <h3 class="font-bold text-amber-400">Special NFTs (<span id="special-nfts-count">0</span>) - Time-Based Rewards</h3>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                  <div>
+                    <p class="text-gray-400">Total Earned</p>
+                    <p id="my-time-rewards-total" class="text-lg font-bold text-green-400 flex items-baseline gap-1">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+                    <p id="my-time-rewards-total-usd" class="text-xs text-gray-500">$0.00</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-400">Pending</p>
+                    <p id="my-time-rewards-pending" class="text-lg font-bold text-yellow-400 flex items-baseline gap-1">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+                    <p id="my-time-rewards-pending-usd" class="text-xs text-gray-500">$0.00</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-400">24h</p>
+                    <p id="my-time-rewards-24h" class="text-lg font-bold text-purple-400 flex items-baseline gap-1">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+                    <p id="my-time-rewards-24h-usd" class="text-xs text-gray-500">$0.00</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-400">180d Total</p>
+                    <p id="special-nfts-180d" class="text-lg font-bold text-white flex items-baseline gap-1">0 <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+                    <p id="special-nfts-180d-usd" class="text-xs text-gray-500">$0.00</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-400">APY</p>
+                    <p id="my-special-nfts-apy" class="text-lg font-bold text-purple-400">0%</p>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-3">Special NFTs (#2340-2700) earn additional time-based rewards for 180 days from registration.</p>
               </div>
             </div>
 
@@ -409,7 +466,6 @@
                     <th class="p-2 text-left">Total Earned</th>
                     <th class="p-2 text-left">Pending</th>
                     <th class="p-2 text-left">24h</th>
-                    <th class="p-2 text-left">APY</th>
                   </tr>
                 </thead>
                 <tbody id="my-nft-revenues-table">
@@ -430,7 +486,10 @@
 
           <!-- Recent Reward Events -->
           <section class="mb-8">
-            <h2 class="text-xl font-bold mb-4">Latest Payouts To NFTs</h2>
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-bold">Latest Payouts To NFTs</h2>
+              <span class="text-xs text-gray-500">From BUX Booster game losses only</span>
+            </div>
             <div class="bg-gray-800 rounded-lg overflow-hidden">
               <div id="rewards-scroll-container" class="max-h-[400px] overflow-y-auto overflow-x-auto">
                 <table class="w-full min-w-[500px]">
@@ -454,6 +513,9 @@
                 No rewards yet. Rewards are distributed when players lose <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 inline">ROGUE bets on BUX Booster.
               </div>
             </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Time-based rewards for special NFTs (#2340-2700) accrue automatically and are not shown here.
+            </p>
           </section>
 
         </div>
@@ -532,6 +594,7 @@
   <script src="/js/mint.js"></script>
   <script src="/js/ui.js"></script>
   <script src="/js/revenues.js"></script>
+  <script src="/js/timeRewardCounter.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

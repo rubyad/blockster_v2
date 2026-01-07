@@ -69,7 +69,9 @@
 |----------|---------|---------|------|
 | **NFTRewarder** | Rogue Chain | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | UUPS Proxy |
 | NFTRewarder Impl V1 | Rogue Chain | `0x9bBA800ed188d1b7f8Ee6c33d1497B012Be1Ea93` | Implementation |
-| NFTRewarder Impl V2 | Rogue Chain | `0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240` | Implementation (current) |
+| NFTRewarder Impl V2 | Rogue Chain | `0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240` | Implementation |
+| NFTRewarder Impl V3 | Rogue Chain | `0xd0d97034E6ebf0A839F9EDbE213eb0B26B8f9Ef6` | Implementation |
+| NFTRewarder Impl V4 | Rogue Chain | `0xD41D2BD654cD15d691bD7037b0bA8050477D1386` | Implementation (current) |
 | ROGUEBankroll | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy |
 | High Rollers NFT | Arbitrum | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | ERC-721 |
 
@@ -105,6 +107,32 @@ New functions:
 Modified functions:
 - `settleBuxBoosterLosingBet()` - Now calls `_sendNFTReward()` after settlement
 - `_sendNFTReward()` - Internal helper that updates HouseBalance accounting
+
+### NFTRewarder V4 Upgrade (Jan 6, 2026) - Time Reward Calculation Bug Fix
+
+**Bug**: `pendingTimeReward()` was incorrectly dividing by `1e18`:
+```solidity
+// WRONG - was dividing when it shouldn't
+pending = (ratePerSecond * timeElapsed) / 1e18;
+
+// CORRECT - ratePerSecond is already in wei, so just multiply
+pending = ratePerSecond * timeElapsed;
+```
+
+The `ratePerSecond` is stored in wei (e.g., `1.062454e18` for Aurora). Multiplying by `timeElapsed` (seconds) gives wei directly. The division by `1e18` made pending ~1e18 times smaller than it should be.
+
+**Impact**: Token 2341 showed `0.000000000000018 ROGUE` pending instead of `18,424 ROGUE`.
+
+**Files Fixed** (4 locations in NFTRewarder.sol):
+- Line 599: `pendingTimeReward()` - removed `/1e18`
+- Line 1289: `getTimeRewardInfo()` totalFor180Days - removed `/1e18`
+- Line 1341: `getEarningsBreakdown()` pendingNow - removed `/1e18`
+- Line 1350: `getEarningsBreakdown()` totalAllocation - removed `/1e18`
+
+**Deployment**:
+- New Implementation: `0xD41D2BD654cD15d691bD7037b0bA8050477D1386`
+- Upgrade TX: `0x6c8dbabb9c213cf33df2eb45971d5b67f25f12eb491e6c6a010917b24a8bdc91`
+- Script: `scripts/upgrade-nftrewarder-v4.js`
 
 ---
 

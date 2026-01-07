@@ -114,20 +114,55 @@ class RevenueService {
   }
 
   /**
-   * Fetch user earnings for connected wallet
+   * Fetch user earnings for connected wallet (revenue sharing + time rewards)
    */
   async fetchUserEarnings(address) {
     try {
-      const response = await fetch(`${CONFIG.API_BASE}/revenues/user/${address}`);
-      if (response.ok) {
-        this.userEarnings = await response.json();
+      // Fetch both revenue sharing and time rewards in parallel
+      const [revenueResponse, timeRewardsResponse] = await Promise.all([
+        fetch(`${CONFIG.API_BASE}/revenues/user/${address}`),
+        fetch(`${CONFIG.API_BASE}/revenues/time-rewards/user/${address}`)
+      ]);
+
+      if (revenueResponse.ok) {
+        this.userEarnings = await revenueResponse.json();
         this.renderUserEarnings();
-        return this.userEarnings;
       }
+
+      // Handle time rewards separately
+      if (timeRewardsResponse.ok) {
+        this.userTimeRewards = await timeRewardsResponse.json();
+        this.renderSpecialNFTsSection();
+      }
+
+      return this.userEarnings;
     } catch (error) {
       console.error('[Revenues] Failed to fetch user earnings:', error);
     }
     return null;
+  }
+
+  /**
+   * Render the special NFTs time rewards section
+   */
+  renderSpecialNFTsSection() {
+    const section = document.getElementById('special-nfts-section');
+    if (!section) return;
+
+    const data = this.userTimeRewards;
+    if (!data || !data.nfts || data.nfts.length === 0) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    // Show the section
+    section.classList.remove('hidden');
+
+    // Update NFT count in header
+    document.getElementById('special-nfts-count').textContent = data.nftCount || data.nfts.length;
+
+    // TimeRewardCounter handles all value updates via updateSpecialNFTsSection() every second
+    window.timeRewardCounter?.updateMySpecialNFTsAPY();
   }
 
   /**
@@ -150,6 +185,7 @@ class RevenueService {
 
   /**
    * Render global stats to the UI (mint tab)
+   * Only updates data attributes - TimeRewardCounter handles display with combined values
    */
   renderGlobalStats() {
     if (!this.globalStats) return;
@@ -157,25 +193,42 @@ class RevenueService {
     const stats = this.globalStats;
 
     // Total Rewards Received (mint tab)
+    // Store revenue-only value in data attribute, TimeRewardCounter adds time rewards
     const totalRewardsEl = document.getElementById('mint-total-rewards');
     if (totalRewardsEl) {
-      totalRewardsEl.textContent = `${this.formatRogue(stats.totalRewardsReceived)} ROGUE`;
-      document.getElementById('mint-total-rewards-usd').textContent =
-        this.priceService.formatUsd(stats.totalRewardsReceived);
+      totalRewardsEl.dataset.revenueTotal = stats.totalRewardsReceived || '0';
+      // Only set content if TimeRewardCounter hasn't initialized yet
+      if (!window.timeRewardCounter?.initialized) {
+        // No decimal places for mint tab boxes
+        const totalNum = parseFloat(stats.totalRewardsReceived || 0);
+        totalRewardsEl.innerHTML = `${Math.floor(totalNum).toLocaleString('en-US')} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+        document.getElementById('mint-total-rewards-usd').textContent =
+          this.priceService.formatUsd(stats.totalRewardsReceived);
+      }
     }
 
     // Last 24 Hours (mint tab)
     const last24hEl = document.getElementById('mint-last-24h-rewards');
     if (last24hEl) {
-      last24hEl.textContent = `${this.formatRogue(stats.rewardsLast24Hours)} ROGUE`;
-      document.getElementById('mint-last-24h-rewards-usd').textContent =
-        this.priceService.formatUsd(stats.rewardsLast24Hours);
+      last24hEl.dataset.revenue24h = stats.rewardsLast24Hours || '0';
+      // Only set content if TimeRewardCounter hasn't initialized yet
+      if (!window.timeRewardCounter?.initialized) {
+        // No decimal places for mint tab boxes
+        const last24hNum = parseFloat(stats.rewardsLast24Hours || 0);
+        last24hEl.innerHTML = `${Math.floor(last24hNum).toLocaleString('en-US')} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+        document.getElementById('mint-last-24h-rewards-usd').textContent =
+          this.priceService.formatUsd(stats.rewardsLast24Hours);
+      }
     }
 
-    // Overall APY (mint tab)
+    // Overall APY (mint tab) - use client-side calculation for special NFTs
     const apyEl = document.getElementById('mint-overall-apy');
     if (apyEl) {
-      apyEl.textContent = `${(stats.overallAPY || 0).toFixed(2)}%`;
+      if (window.timeRewardCounter?.initialized) {
+        window.timeRewardCounter.updateAPY();
+      } else {
+        apyEl.textContent = `${(stats.overallAPY || 0).toFixed(2)}%`;
+      }
     }
   }
 
@@ -186,45 +239,58 @@ class RevenueService {
     if (!this.userEarnings) return;
 
     const earnings = this.userEarnings;
-    const rewarderUrl = `${CONFIG.ROGUE_EXPLORER_URL}/address/${CONFIG.NFT_REWARDER_ADDRESS}?tab=read_write_proxy&source_address=0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240#0x93c8949f`;
+    // Link to getUserPortfolioStats function - shows combined totals for all user NFTs (revenue + time rewards)
+    const rewarderUrl = `${CONFIG.ROGUE_EXPLORER_URL}/address/${CONFIG.NFT_REWARDER_ADDRESS}?tab=read_write_proxy&source_address=${CONFIG.NFT_REWARDER_IMPL_ADDRESS}#${CONFIG.NFT_REWARDER_SELECTORS.getUserPortfolioStats}`;
 
     // Show the my-revenue-section, hide connect prompt
     document.getElementById('my-revenue-section')?.classList.remove('hidden');
     document.getElementById('revenue-connect-prompt')?.classList.add('hidden');
 
-    // Total Earned with verification link
-    document.getElementById('my-total-earned').textContent =
-      `${this.formatRogue(earnings.totalEarned)} ROGUE`;
-    document.getElementById('my-total-earned-usd').textContent =
-      this.priceService.formatUsd(earnings.totalEarned);
-    document.getElementById('my-total-earned-link').href = rewarderUrl;
+    // Store revenue values in data attributes for TimeRewardCounter to combine
+    // TimeRewardCounter will update the display with combined values every second
+    const totalEarnedEl = document.getElementById('my-total-earned');
+    const pendingEl = document.getElementById('my-pending');
+    const last24hEl = document.getElementById('my-last-24h');
 
-    // Pending Balance with verification link
-    document.getElementById('my-pending').textContent =
-      `${this.formatRogue(earnings.totalPending)} ROGUE`;
-    document.getElementById('my-pending-usd').textContent =
-      this.priceService.formatUsd(earnings.totalPending);
+    // Store revenue-only values in data attributes
+    totalEarnedEl.dataset.revenueTotal = earnings.totalEarned;
+    pendingEl.dataset.revenuePending = earnings.totalPending;
+    last24hEl.dataset.revenue24h = earnings.totalLast24Hours;
+
+    // Check if user owns any special NFTs (token IDs 2340-2700)
+    const hasSpecialNFTs = earnings.nfts?.some(nft => nft.tokenId >= 2340 && nft.tokenId <= 2700);
+
+    if (hasSpecialNFTs && window.timeRewardCounter?.initialized) {
+      // TimeRewardCounter will update BOTH ROGUE and USD values with combined amounts
+      // Don't set anything here - let timeRewardCounter handle everything
+      window.timeRewardCounter.updateUI();
+    } else {
+      // No special NFTs - show revenue-only values (ROGUE and USD)
+      totalEarnedEl.innerHTML = `${this.formatRogue(earnings.totalEarned)} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+      pendingEl.innerHTML = `${this.formatRogue(earnings.totalPending)} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+      last24hEl.innerHTML = `${this.formatRogue(earnings.totalLast24Hours)} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+
+      // USD values for revenue-only users
+      document.getElementById('my-total-earned-usd').textContent =
+        this.priceService.formatUsd(earnings.totalEarned);
+      document.getElementById('my-pending-usd').textContent =
+        this.priceService.formatUsd(earnings.totalPending);
+      document.getElementById('my-last-24h-usd').textContent =
+        this.priceService.formatUsd(earnings.totalLast24Hours);
+    }
+
+    // Verification links
+    document.getElementById('my-total-earned-link').href = rewarderUrl;
     document.getElementById('my-pending-link').href = rewarderUrl;
 
-    // Last 24 Hours
-    document.getElementById('my-last-24h').textContent =
-      `${this.formatRogue(earnings.totalLast24Hours)} ROGUE`;
-    document.getElementById('my-last-24h-usd').textContent =
-      this.priceService.formatUsd(earnings.totalLast24Hours);
-
-    // Portfolio APY
-    document.getElementById('my-apy').textContent =
-      `${(earnings.overallAPY || 0).toFixed(2)}%`;
-
-    // Enable/disable withdraw button - reset to original state if we have new pending
+    // Enable/disable withdraw button - but preserve success state with TX links
     const withdrawBtn = document.getElementById('withdraw-revenues-btn');
-    const hasPending = parseFloat(earnings.totalPending) > 0;
 
-    // If there's new pending balance, reset button to allow another withdrawal
-    if (hasPending && this.lastWithdrawTxHash) {
-      this.resetWithdrawButton();
-    } else if (!this.lastWithdrawTxHash) {
-      // Only update disabled state if not in success state
+    // Only update button state if not showing success TX links
+    if (!this.lastWithdrawTxHashes) {
+      const revenuePending = parseFloat(earnings.totalPending) > 0;
+      const timeRewardsPending = (window.timeRewardCounter?.getTotals()?.myPending || 0) > 0;
+      const hasPending = revenuePending || timeRewardsPending;
       withdrawBtn.disabled = !hasPending;
     }
 
@@ -234,6 +300,7 @@ class RevenueService {
 
   /**
    * Render user's per-NFT earnings table
+   * Uses incremental updates to prevent flickering on special NFT rows
    */
   renderUserNFTTable() {
     if (!this.userEarnings?.nfts) return;
@@ -252,39 +319,153 @@ class RevenueService {
       return;
     }
 
-    tbody.innerHTML = this.userEarnings.nfts.map(nft => {
-      const verifyUrl = `${CONFIG.ROGUE_EXPLORER_URL}/address/${CONFIG.NFT_REWARDER_ADDRESS}?tab=read_write_proxy&source_address=0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240#0x9a3b5a1d`;
+    // Sort by tokenId descending (newest at top)
+    const sortedNfts = [...this.userEarnings.nfts].sort((a, b) => b.tokenId - a.tokenId);
 
-      return `
-        <tr class="border-t border-gray-600 hover:bg-gray-600/50">
-          <td class="p-2">
-            <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.tokenId}"
-               target="_blank"
-               class="text-purple-400 hover:underline cursor-pointer">
-              #${nft.tokenId}
-            </a>
-          </td>
-          <td class="p-2">${nft.hostessName}</td>
-          <td class="p-2 text-yellow-400">${nft.multiplier}x</td>
-          <td class="p-2">
-            <a href="${verifyUrl}" target="_blank" class="text-green-400 hover:underline cursor-pointer">
-              ${this.formatRogue(nft.totalEarned)} <span class="text-xs">↗</span>
-            </a>
-            <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.totalEarned)}</span>
-          </td>
-          <td class="p-2">
-            <a href="${verifyUrl}" target="_blank" class="text-yellow-400 hover:underline cursor-pointer">
-              ${this.formatRogue(nft.pendingAmount)} <span class="text-xs">↗</span>
-            </a>
-            <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.pendingAmount)}</span>
-          </td>
-          <td class="p-2">
-            <span>${this.formatRogue(nft.last24Hours)}</span>
-            <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.last24Hours)}</span>
-          </td>
-          <td class="p-2 text-purple-400">${nft.apy.toFixed(2)}%</td>
-        </tr>
-      `;
+    // Check if we have time reward data to merge
+    const timeRewardsMap = {};
+    if (this.userTimeRewards?.nfts) {
+      this.userTimeRewards.nfts.forEach(tr => {
+        timeRewardsMap[tr.tokenId] = tr;
+      });
+    }
+
+    // Check if table already has rows - if so, only update data attributes (no DOM rebuild)
+    const existingRows = tbody.querySelectorAll('tr[data-nft-row]');
+    if (existingRows.length > 0) {
+      // Update mode: just update data attributes, timeRewardCounter handles display
+      sortedNfts.forEach(nft => {
+        const row = tbody.querySelector(`tr[data-nft-row="${nft.tokenId}"]`);
+        if (row) {
+          // Update data attributes with new revenue values
+          const totalEl = row.querySelector('[data-table-total-earned]');
+          const pendingEl = row.querySelector('[data-table-pending]');
+          const h24El = row.querySelector('[data-table-24h]');
+
+          if (totalEl) totalEl.dataset.revenueTotal = nft.totalEarned || 0;
+          if (pendingEl) pendingEl.dataset.revenuePending = nft.pendingAmount || 0;
+          if (h24El) h24El.dataset.revenue24h = nft.last24Hours || 0;
+
+          // For non-special NFTs, also update the displayed text
+          const isSpecial = nft.tokenId >= 2340 && nft.tokenId <= 2700;
+          if (!isSpecial) {
+            if (totalEl) totalEl.textContent = this.formatRogue(nft.totalEarned);
+            if (pendingEl) pendingEl.textContent = this.formatRogue(nft.pendingAmount);
+            if (h24El) h24El.textContent = this.formatRogue(nft.last24Hours);
+          }
+        }
+      });
+      return; // Skip full rebuild
+    }
+
+    // Initial render: build the full table
+    tbody.innerHTML = sortedNfts.map(nft => {
+      const isSpecial = nft.tokenId >= 2340 && nft.tokenId <= 2700;
+      // Special NFTs link to getEarningsBreakdown (time rewards), regular NFTs link to rewardInfo (revenue share)
+      const verifySelector = isSpecial ? CONFIG.NFT_REWARDER_SELECTORS.getEarningsBreakdown : CONFIG.NFT_REWARDER_SELECTORS.getNFTEarnings;
+      const verifyUrl = `${CONFIG.ROGUE_EXPLORER_URL}/address/${CONFIG.NFT_REWARDER_ADDRESS}?tab=read_write_proxy&source_address=${CONFIG.NFT_REWARDER_IMPL_ADDRESS}#${verifySelector}`;
+      const timeReward = timeRewardsMap[nft.tokenId];
+
+      // For special NFTs with time rewards, add data attributes for real-time updates
+      // Time rewards are added ON TOP of revenue sharing earnings
+      const revenueTotalEarned = nft.totalEarned || 0;
+      const revenuePending = nft.pendingAmount || 0;
+      const revenue24h = nft.last24Hours || 0;
+
+      if (isSpecial && timeReward?.hasStarted) {
+        // Special NFT with time rewards - calculate combined values for initial render
+        // TimeRewardCounter will update these every second via data attributes
+        const now = Math.floor(Date.now() / 1000);
+        const oneDayAgo = now - 86400;
+
+        // Get time reward data from timeRewardCounter if available
+        const trc = window.timeRewardCounter;
+        const nftData = trc?.nfts?.get(nft.tokenId);
+
+        let combinedTotal = revenueTotalEarned;
+        let combinedPending = revenuePending;
+        let combined24h = revenue24h;
+
+        if (nftData && trc) {
+          const rate = trc.RATES[nftData.hostessIndex];
+          const effectiveNow = Math.min(now, nftData.endTime);
+
+          // Time total = everything since start
+          const timeTotal = Math.max(0, effectiveNow - nftData.startTime) * rate;
+          combinedTotal = revenueTotalEarned + timeTotal;
+
+          // Time pending = since last claim
+          const timePending = Math.max(0, effectiveNow - nftData.lastClaimTime) * rate;
+          combinedPending = revenuePending + timePending;
+
+          // Time 24h = overlap with last 24 hours
+          const windowStart = Math.max(nftData.startTime, oneDayAgo);
+          const windowEnd = Math.min(nftData.endTime, now);
+          const time24h = windowEnd > windowStart ? (windowEnd - windowStart) * rate : 0;
+          combined24h = revenue24h + time24h;
+        }
+
+        return `
+          <tr class="border-t border-gray-600 hover:bg-gray-600/50 bg-gradient-to-r from-amber-900/20 to-transparent" data-nft-row="${nft.tokenId}">
+            <td class="p-2">
+              <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.tokenId}"
+                 target="_blank"
+                 class="text-purple-400 hover:underline cursor-pointer">
+                #${nft.tokenId} ⭐
+              </a>
+            </td>
+            <td class="p-2">${nft.hostessName}</td>
+            <td class="p-2 text-yellow-400">${nft.multiplier}x</td>
+            <td class="p-2">
+              <a href="${verifyUrl}" target="_blank" class="text-green-400 hover:underline cursor-pointer">
+                <span data-table-total-earned="${nft.tokenId}" data-revenue-total="${revenueTotalEarned}">${this.formatRogue(combinedTotal)}</span> <span class="text-xs">↗</span>
+              </a>
+              <span class="text-gray-500 text-xs block" data-table-total-earned-usd="${nft.tokenId}">${this.priceService.formatUsd(combinedTotal)}</span>
+            </td>
+            <td class="p-2">
+              <a href="${verifyUrl}" target="_blank" class="text-yellow-400 hover:underline cursor-pointer">
+                <span data-table-pending="${nft.tokenId}" data-revenue-pending="${revenuePending}">${this.formatRogue(combinedPending)}</span> <span class="text-xs">↗</span>
+              </a>
+              <span class="text-gray-500 text-xs block" data-table-pending-usd="${nft.tokenId}">${this.priceService.formatUsd(combinedPending)}</span>
+            </td>
+            <td class="p-2">
+              <span data-table-24h="${nft.tokenId}" data-revenue-24h="${revenue24h}">${this.formatRogue(combined24h)}</span>
+              <span class="text-gray-500 text-xs block" data-table-24h-usd="${nft.tokenId}">${this.priceService.formatUsd(combined24h)}</span>
+            </td>
+          </tr>
+        `;
+      } else {
+        // Regular NFT - static rendering with data attributes for incremental updates
+        return `
+          <tr class="border-t border-gray-600 hover:bg-gray-600/50" data-nft-row="${nft.tokenId}">
+            <td class="p-2">
+              <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.tokenId}"
+                 target="_blank"
+                 class="text-purple-400 hover:underline cursor-pointer">
+                #${nft.tokenId}
+              </a>
+            </td>
+            <td class="p-2">${nft.hostessName}</td>
+            <td class="p-2 text-yellow-400">${nft.multiplier}x</td>
+            <td class="p-2">
+              <a href="${verifyUrl}" target="_blank" class="text-green-400 hover:underline cursor-pointer">
+                <span data-table-total-earned="${nft.tokenId}" data-revenue-total="${revenueTotalEarned}">${this.formatRogue(nft.totalEarned)}</span> <span class="text-xs">↗</span>
+              </a>
+              <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.totalEarned)}</span>
+            </td>
+            <td class="p-2">
+              <a href="${verifyUrl}" target="_blank" class="text-yellow-400 hover:underline cursor-pointer">
+                <span data-table-pending="${nft.tokenId}" data-revenue-pending="${revenuePending}">${this.formatRogue(nft.pendingAmount)}</span> <span class="text-xs">↗</span>
+              </a>
+              <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.pendingAmount)}</span>
+            </td>
+            <td class="p-2">
+              <span data-table-24h="${nft.tokenId}" data-revenue-24h="${revenue24h}">${this.formatRogue(nft.last24Hours)}</span>
+              <span class="text-gray-500 text-xs block">${this.priceService.formatUsd(nft.last24Hours)}</span>
+            </td>
+          </tr>
+        `;
+      }
     }).join('');
   }
 
@@ -325,7 +506,7 @@ class RevenueService {
   }
 
   /**
-   * Handle withdrawal request
+   * Handle withdrawal request - withdraws BOTH revenue sharing AND time-based rewards
    */
   async withdraw() {
     if (this.isWithdrawing) return;
@@ -344,27 +525,71 @@ class RevenueService {
       }
 
       const address = walletService.address;
+      const txHashes = [];
+      let totalWithdrawn = 0;
 
-      // Call withdraw endpoint
-      const response = await fetch(`${CONFIG.API_BASE}/revenues/withdraw`, {
+      // 1. Withdraw revenue sharing rewards
+      const revenueResponse = await fetch(`${CONFIG.API_BASE}/revenues/withdraw`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address })
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Withdrawal failed');
+      if (revenueResponse.ok) {
+        const revenueResult = await revenueResponse.json();
+        txHashes.push(revenueResult.txHash);
+        totalWithdrawn += parseFloat(revenueResult.amount) || 0;
+        console.log(`[Revenues] Revenue sharing withdrawn: ${revenueResult.amount} ROGUE`);
+      } else {
+        // Log but don't fail - might just have no revenue pending
+        const error = await revenueResponse.json();
+        console.log('[Revenues] Revenue sharing withdraw skipped:', error.error);
       }
 
-      const result = await response.json();
+      // 2. Check and withdraw time-based rewards (special NFTs only)
+      btn.textContent = 'Claiming time rewards...';
 
-      UI.showToast(`Withdrawal successful! ${this.formatRogue(result.amount)} ROGUE sent`, 'success');
+      const timeRewardsResponse = await fetch(`${CONFIG.API_BASE}/revenues/time-rewards/user/${address}`);
+      if (timeRewardsResponse.ok) {
+        const timeRewardsData = await timeRewardsResponse.json();
 
-      // Show success button with link to transaction
-      this.showWithdrawSuccess(btn, result.txHash);
+        // Get special NFTs with pending rewards
+        const specialTokenIds = (timeRewardsData.nfts || [])
+          .filter(nft => nft.hasStarted && nft.pending > 0)
+          .map(nft => nft.tokenId);
+
+        if (specialTokenIds.length > 0) {
+          const timeClaimResponse = await fetch(`${CONFIG.API_BASE}/revenues/time-rewards/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokenIds: specialTokenIds, recipient: address })
+          });
+
+          if (timeClaimResponse.ok) {
+            const timeResult = await timeClaimResponse.json();
+            txHashes.push(timeResult.txHash);
+            totalWithdrawn += parseFloat(timeResult.amount) || 0;
+            console.log(`[Revenues] Time rewards claimed: ${timeResult.amount} ROGUE`);
+
+            // Update local time reward counter
+            if (window.timeRewardCounter) {
+              window.timeRewardCounter.onClaimed(specialTokenIds);
+            }
+          } else {
+            const error = await timeClaimResponse.json();
+            console.log('[Revenues] Time rewards claim skipped:', error.error);
+          }
+        }
+      }
+
+      // Show results
+      if (txHashes.length > 0) {
+        UI.showToast(`Withdrawal successful! ${this.formatRogue(totalWithdrawn)} ROGUE sent`, 'success');
+        // Show success button with links to all transactions
+        this.showWithdrawSuccess(btn, txHashes);
+      } else {
+        throw new Error('No rewards to withdraw');
+      }
 
       // Refresh user earnings
       await this.fetchUserEarnings(address);
@@ -381,30 +606,38 @@ class RevenueService {
   }
 
   /**
-   * Show success state on withdraw button with link to transaction
+   * Show success state on withdraw button with link(s) to transaction(s)
+   * @param {HTMLElement} btn - The withdraw button element
+   * @param {string|string[]} txHashes - Single tx hash or array of tx hashes
    */
-  showWithdrawSuccess(btn, txHash) {
-    const txUrl = `${CONFIG.ROGUE_EXPLORER_URL}/tx/${txHash}?tab=logs`;
+  showWithdrawSuccess(btn, txHashes) {
+    // Normalize to array
+    const hashes = Array.isArray(txHashes) ? txHashes : [txHashes];
 
-    // Replace button with success link
-    btn.className = 'bg-gradient-to-r from-green-500 to-emerald-500 py-3 px-6 rounded-lg font-bold cursor-pointer transition-all flex items-center justify-center gap-2';
+    // Store the success state - prevents button from being reset
+    this.lastWithdrawTxHashes = hashes;
+
+    // Replace button with success message and explicit TX links
+    btn.className = 'bg-gradient-to-r from-green-500 to-emerald-500 py-3 px-6 rounded-lg font-bold transition-all flex items-center justify-center gap-2';
+    btn.disabled = true;
+    btn.onclick = null;
+
+    // Build TX links HTML
+    const txLinks = hashes.map((hash, i) => {
+      const label = hashes.length === 1 ? 'View TX' : `TX ${i + 1}`;
+      return `<a href="${CONFIG.ROGUE_EXPLORER_URL}/tx/${hash}?tab=logs" target="_blank" class="underline hover:text-white">${label}</a>`;
+    }).join(' · ');
+
     btn.innerHTML = `
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
       </svg>
-      Success! View TX
+      Success! ${txLinks}
     `;
-    btn.disabled = false;
-
-    // Make the button a link
-    btn.onclick = () => window.open(txUrl, '_blank');
-
-    // Store the success state
-    this.lastWithdrawTxHash = txHash;
   }
 
   /**
-   * Reset withdraw button to original state
+   * Reset withdraw button to original state (called on tab switch or page reload)
    */
   resetWithdrawButton() {
     const btn = document.getElementById('withdraw-revenues-btn');
@@ -414,11 +647,13 @@ class RevenueService {
     btn.innerHTML = 'Withdraw All';
     btn.onclick = () => this.withdraw();
 
-    // Re-evaluate disabled state based on pending amount
-    const hasPending = this.userEarnings && parseFloat(this.userEarnings.totalPending) > 0;
+    // Re-evaluate disabled state based on pending amount (revenue sharing + time rewards)
+    const revenuePending = this.userEarnings && parseFloat(this.userEarnings.totalPending) > 0;
+    const timeRewardsPending = (window.timeRewardCounter?.getTotals()?.myPending || 0) > 0;
+    const hasPending = revenuePending || timeRewardsPending;
     btn.disabled = !hasPending;
 
-    this.lastWithdrawTxHash = null;
+    this.lastWithdrawTxHashes = null;
   }
 
   /**
@@ -570,5 +805,6 @@ class RevenueService {
   }
 }
 
-// Create global instance
+// Create global instance (attached to window for access from timeRewardCounter)
 const revenueService = new RevenueService();
+window.revenueService = revenueService;

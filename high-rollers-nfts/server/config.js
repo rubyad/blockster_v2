@@ -158,6 +158,7 @@ module.exports = {
     // Events
     'event RewardReceived(bytes32 indexed betId, uint256 amount, uint256 timestamp)',
     'event RewardClaimed(address indexed user, uint256 amount, uint256[] tokenIds)',
+    'event TimeRewardClaimed(address indexed user, uint256 amount, uint256[] tokenIds)',
 
     // Read functions
     'function totalRewardsReceived() view returns (uint256)',
@@ -181,6 +182,12 @@ module.exports = {
     // Admin functions (require admin role)
     'function registerNFT(uint256 tokenId, uint8 hostessIndex, address owner) external',
     'function updateOwnership(uint256 tokenId, address newOwner) external',
-    'function withdrawTo(uint256[] tokenIds, address recipient) external returns (uint256 amount)'
+    'function withdrawTo(uint256[] tokenIds, address recipient) external returns (uint256 amount)',
+
+    // Time-based rewards (Phase 3)
+    'function getTimeRewardInfo(uint256 tokenId) view returns (uint256 startTime, uint256 endTime, uint256 pending, uint256 claimed, uint256 ratePerSecond, uint256 timeRemaining, uint256 totalFor180Days, bool isActive)',
+    'function getTimeRewardPoolStats() view returns (uint256 deposited, uint256 remaining, uint256 claimed, uint256 specialNFTs)',
+    'function claimTimeRewards(uint256[] tokenIds, address recipient) external returns (uint256 amount)',
+    'function nftMetadata(uint256 tokenId) view returns (uint8 hostessIndex, bool registered, address owner)'
   ]
 };

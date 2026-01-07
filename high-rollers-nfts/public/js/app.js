@@ -234,6 +234,11 @@ class HighRollersApp {
       if (this.currentTab === 'revenues') {
         revenueService.fetchUserEarnings(result.address);
       }
+
+      // Update time reward counter with wallet address
+      if (window.timeRewardCounter) {
+        window.timeRewardCounter.setMyWallet(result.address);
+      }
     } else {
       connectBtn?.classList.remove('hidden');
       walletInfo?.classList.add('hidden');
@@ -246,6 +251,11 @@ class HighRollersApp {
 
       // Reset revenue UI
       revenueService.resetUserUI();
+
+      // Clear wallet from time reward counter
+      if (window.timeRewardCounter) {
+        window.timeRewardCounter.setMyWallet(null);
+      }
     }
   }
 
@@ -348,6 +358,13 @@ class HighRollersApp {
         UI.formatNumber(this.stats.totalMinted);
       document.getElementById('remaining').textContent =
         UI.formatNumber(this.stats.remaining);
+
+      // Update special NFTs remaining in hero box (2340-2700 = 361 total)
+      const specialRemaining = Math.max(0, 2700 - this.stats.totalMinted);
+      const heroSpecialEl = document.getElementById('hero-special-remaining');
+      if (heroSpecialEl) {
+        heroSpecialEl.textContent = specialRemaining;
+      }
       document.getElementById('current-price').textContent =
         `${this.stats.currentPriceETH} ETH`;
 
@@ -367,37 +384,26 @@ class HighRollersApp {
     }
   }
 
-  async loadHostessGallery() {
+  loadHostessGallery(roguePrice = 0) {
     const gallery = document.getElementById('hostess-gallery');
     if (!gallery) return;
 
     // Get counts from stats
     const counts = this.stats?.hostessCounts || {};
 
-    // Fetch revenue stats for APY/24h badges
-    let hostessRevenueStats = {};
-    try {
-      const response = await fetch(`${CONFIG.API_BASE}/revenues/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        // Convert hostessTypes array to object keyed by index
-        if (data.hostessTypes) {
-          data.hostessTypes.forEach(h => {
-            hostessRevenueStats[h.index] = h;
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load revenue stats for gallery:', error);
-    }
+    // Use passed price, or try to get from priceService
+    const price = roguePrice || window.revenueService?.priceService?.roguePrice || 0;
 
+    // Render cards with hardcoded 24h time reward rates (no API call needed)
     gallery.innerHTML = CONFIG.HOSTESSES.map(hostess =>
-      UI.renderHostessCard(hostess, counts[hostess.index] || 0, hostessRevenueStats[hostess.index])
+      UI.renderHostessCard(hostess, counts[hostess.index] || 0, price)
     ).join('');
   }
 
   /**
    * Load and display revenue stats on the mint tab
+   * Shows combined totals (revenue sharing + time rewards)
+   * TimeRewardCounter handles real-time updates every second
    */
   async loadMintRevenueStats() {
     try {
@@ -413,6 +419,14 @@ class HighRollersApp {
         if (priceResponse.ok) {
           const prices = await priceResponse.json();
           roguePrice = prices.rogue?.usdPrice || 0;
+          // Update priceService so TimeRewardCounter can access the price
+          if (window.revenueService?.priceService) {
+            window.revenueService.priceService.updatePrices(prices);
+            // Update APY now that prices are available (time rewards APY depends on NFT price in ROGUE)
+            window.timeRewardCounter?.updateAPY();
+          }
+          // Re-render hostess gallery now that we have the price for USD values
+          this.loadHostessGallery(roguePrice);
         }
       } catch (e) {
         console.error('Failed to fetch ROGUE price:', e);
@@ -423,22 +437,56 @@ class HighRollersApp {
         return `$${usd.toFixed(2)}`;
       };
 
-      // Update mint tab revenue stats
-      const totalRewards = parseFloat(stats.totalRewardsReceived || 0);
-      const last24h = parseFloat(stats.rewardsLast24Hours || 0);
+      // Store revenue-only values in data attributes for TimeRewardCounter
+      const totalEl = document.getElementById('mint-total-rewards');
+      const last24hEl = document.getElementById('mint-last-24h-rewards');
+
+      totalEl.dataset.revenueTotal = stats.totalRewardsReceived || '0';
+      last24hEl.dataset.revenue24h = stats.rewardsLast24Hours || '0';
+
+      // Display combined values from API (already includes time rewards)
+      // TimeRewardCounter will update these in real-time
+      const combinedTotal = parseFloat(stats.combinedTotal || stats.totalRewardsReceived || 0);
+      const combined24h = parseFloat(stats.combined24Hours || stats.rewardsLast24Hours || 0);
       const apy = stats.overallAPY || 0;
 
-      document.getElementById('mint-total-rewards').textContent = `${totalRewards.toFixed(2)} ROGUE`;
-      document.getElementById('mint-total-rewards-usd').textContent = formatUsd(totalRewards);
+      totalEl.innerHTML = `${Math.floor(combinedTotal).toLocaleString('en-US')} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+      document.getElementById('mint-total-rewards-usd').textContent = formatUsd(combinedTotal);
 
-      document.getElementById('mint-last-24h-rewards').textContent = `${last24h.toFixed(2)} ROGUE`;
-      document.getElementById('mint-last-24h-rewards-usd').textContent = formatUsd(last24h);
+      last24hEl.innerHTML = `${Math.floor(combined24h).toLocaleString('en-US')} <span class="text-sm text-gray-400 font-normal">ROGUE</span>`;
+      document.getElementById('mint-last-24h-rewards-usd').textContent = formatUsd(combined24h);
 
-      document.getElementById('mint-overall-apy').textContent = `${apy.toFixed(2)}%`;
+      // APY is calculated client-side based on time rewards for special NFTs
+      // Use client calculation if timeRewardCounter is ready, otherwise fall back to server APY
+      if (window.timeRewardCounter?.initialized) {
+        window.timeRewardCounter.updateAPY();
+      } else {
+        document.getElementById('mint-overall-apy').textContent = `${apy.toFixed(2)}%`;
+      }
 
     } catch (error) {
       console.error('Failed to load mint revenue stats:', error);
     }
+  }
+
+  /**
+   * Format ROGUE amount for display (with abbreviations for large numbers)
+   */
+  formatRogue(amount) {
+    if (!amount) return '0';
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '0';
+
+    if (num >= 1_000_000) {
+      return `${(num / 1_000_000).toFixed(2)}M`;
+    } else if (num >= 1_000) {
+      return `${(num / 1_000).toFixed(2)}k`;
+    } else if (num >= 1) {
+      return num.toFixed(2);
+    } else if (num > 0) {
+      return num.toFixed(6);
+    }
+    return '0';
   }
 
   async loadSales() {
@@ -541,10 +589,11 @@ class HighRollersApp {
     grid.innerHTML = '';
 
     try {
-      // Fetch NFTs and earnings in parallel
-      const [nftsResponse, earningsResponse] = await Promise.all([
+      // Fetch NFTs, earnings, and time rewards in parallel
+      const [nftsResponse, earningsResponse, timeRewardsResponse] = await Promise.all([
         fetch(`${CONFIG.API_BASE}/nfts/${walletService.address}`),
-        fetch(`${CONFIG.API_BASE}/revenues/user/${walletService.address}`)
+        fetch(`${CONFIG.API_BASE}/revenues/user/${walletService.address}`),
+        fetch(`${CONFIG.API_BASE}/revenues/time-rewards/user/${walletService.address}`)
       ]);
 
       const nfts = await nftsResponse.json();
@@ -560,6 +609,17 @@ class HighRollersApp {
         }
       }
 
+      // Build time rewards map by tokenId (for special NFTs)
+      let timeRewardsMap = {};
+      if (timeRewardsResponse.ok) {
+        const timeRewardsData = await timeRewardsResponse.json();
+        if (timeRewardsData.nfts) {
+          timeRewardsData.nfts.forEach(t => {
+            timeRewardsMap[t.tokenId] = t;
+          });
+        }
+      }
+
       loading?.classList.add('hidden');
 
       if (nfts.length === 0) {
@@ -567,7 +627,19 @@ class HighRollersApp {
         return;
       }
 
-      grid.innerHTML = nfts.map(nft =>
+      // Sort by token_id descending (newest/highest ID first)
+      nfts.sort((a, b) => b.token_id - a.token_id);
+
+      // Merge time reward data into NFT objects for special NFTs
+      const nftsWithTimeRewards = nfts.map(nft => {
+        const timeReward = timeRewardsMap[nft.token_id];
+        if (timeReward) {
+          return { ...nft, timeReward };
+        }
+        return nft;
+      });
+
+      grid.innerHTML = nftsWithTimeRewards.map(nft =>
         UI.renderNFTCard(nft, earningsMap[nft.token_id])
       ).join('');
     } catch (error) {
@@ -579,6 +651,9 @@ class HighRollersApp {
   // ==================== Revenues ====================
 
   async loadRevenues() {
+    // Reset withdraw button state when entering tab (clears success TX links)
+    revenueService.resetWithdrawButton();
+
     // Initialize revenue service if needed
     await revenueService.init();
 
@@ -861,6 +936,8 @@ class HighRollersApp {
       // Revenue events
       case 'PRICE_UPDATE':
         revenueService.handlePriceUpdate(message.data);
+        // Update APY since it depends on NFT price in ROGUE
+        window.timeRewardCounter?.updateAPY();
         break;
 
       case 'REWARD_RECEIVED':
@@ -875,11 +952,47 @@ class HighRollersApp {
         // Backend completed sync - refresh all stats for all users
         revenueService.handleEarningsSynced(message.data);
         break;
+
+      // Time reward events
+      case 'SPECIAL_NFT_STARTED':
+        // A new special NFT (2340-2700) has been registered with time rewards
+        console.log('[WebSocket] Special NFT started:', message.data);
+        // Refresh stats to show updated special NFT counts
+        this.loadStats();
+        // Update APY since new special NFT affects average multiplier
+        window.timeRewardCounter?.updateAPY();
+        // If it's our NFT, reload my NFTs section
+        if (walletService.isConnected() &&
+            message.data.owner?.toLowerCase() === walletService.address?.toLowerCase()) {
+          this.loadMyNFTs(walletService.address);
+        }
+        break;
+
+      case 'TIME_REWARD_CLAIMED':
+        // Time rewards were claimed - refresh earnings if it's our wallet
+        console.log('[WebSocket] Time reward claimed:', message.data);
+        if (walletService.isConnected() &&
+            message.data.recipient?.toLowerCase() === walletService.address?.toLowerCase()) {
+          // Reload earnings to show updated balances
+          revenueService.fetchUserEarnings(walletService.address);
+          // Update time reward counter to reflect claim
+          if (window.timeRewardCounter) {
+            window.timeRewardCounter.onClaimed(message.data.tokenIds);
+          }
+        }
+        break;
     }
   }
 }
 
 // Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   window.app = new HighRollersApp();
+
+  // Initialize time reward counter (if script is loaded)
+  if (window.timeRewardCounter) {
+    const walletAddress = walletService.isConnected() ? walletService.address : null;
+    await window.timeRewardCounter.initialize(walletAddress);
+    window.timeRewardCounter.start();
+  }
 });

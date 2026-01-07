@@ -83,9 +83,37 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.nft-card:hover {
+.nft-card:hover:not(.special-nft-glow) {
   transform: scale(1.05);
   box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
+}
+
+/* Special NFT animated golden glow - always visible, not just on hover */
+.special-nft-glow {
+  position: relative;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#1f2937, #1f2937) padding-box,
+    linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b) border-box;
+  animation: golden-pulse 2s ease-in-out infinite;
+}
+
+@keyframes golden-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.4),
+                0 0 30px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.6),
+                0 0 50px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* Special NFTs still scale on hover, but have different base state */
+.special-nft-glow:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 35px rgba(251, 191, 36, 0.7),
+              0 0 60px rgba(245, 158, 11, 0.4);
 }
 
 /* Gradient text */

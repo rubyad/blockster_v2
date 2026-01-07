@@ -2142,7 +2142,7 @@ end
 | Contract | Network | Address | Type | Status |
 |----------|---------|---------|------|--------|
 | **NFTRewarder** | Rogue Chain | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | UUPS Proxy | ✅ LIVE |
-| NFTRewarder Impl V2 | Rogue Chain | `0x2634727150cf1B3d4D63Cd4716b9B19Ef1798240` | Implementation | Current |
+| NFTRewarder Impl V4 | Rogue Chain | `0xD41D2BD654cD15d691bD7037b0bA8050477D1386` | Implementation | Current |
 | ROGUEBankroll V7 | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy | ✅ LIVE |
 | High Rollers NFT | Arbitrum | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | ERC-721 | Source |
 
@@ -2240,5 +2240,57 @@ end
 - ✅ Price service integration (Blockster API primary, CoinGecko fallback)
 
 **System is fully functional in production!**
+
+**NFTRewarder V4 Upgrade** (Jan 6, 2026) - Time Reward Calculation Bug Fix:
+
+**Bug**: `pendingTimeReward()` was incorrectly dividing by `1e18`:
+```solidity
+// WRONG - was dividing when it shouldn't
+pending = (ratePerSecond * timeElapsed) / 1e18;
+
+// CORRECT - ratePerSecond is already in wei, so just multiply
+pending = ratePerSecond * timeElapsed;
+```
+
+The `ratePerSecond` is stored in wei (e.g., `1.062454e18` for Aurora). Multiplying by `timeElapsed` (seconds) gives wei directly. The division by `1e18` made pending ~1e18 times smaller than it should be.
+
+**Impact**: Token 2341 showed `0.000000000000018 ROGUE` pending instead of `18,424 ROGUE`.
+
+**Files Fixed** (4 locations in NFTRewarder.sol):
+- Line 599: `pendingTimeReward()` - removed `/1e18`
+- Line 1289: `getTimeRewardInfo()` totalFor180Days - removed `/1e18`
+- Line 1341: `getEarningsBreakdown()` pendingNow - removed `/1e18`
+- Line 1350: `getEarningsBreakdown()` totalAllocation - removed `/1e18`
+
+**Deployment**:
+- New Implementation: `0xD41D2BD654cD15d691bD7037b0bA8050477D1386`
+- Upgrade TX: `0x6c8dbabb9c213cf33df2eb45971d5b67f25f12eb491e6c6a010917b24a8bdc91`
+- Script: `scripts/upgrade-nftrewarder-v4.js`
+
+**NFTRewarder V5 Upgrade** (Jan 6, 2026) - Added getUserPortfolioStats:
+
+**New Function**: `getUserPortfolioStats(address _owner)` - Combined view function for user totals across all NFT types.
+
+**Returns**:
+- `revenuePending` - Total pending revenue share rewards
+- `revenueClaimed` - Total claimed revenue share rewards
+- `timePending` - Total pending time-based rewards (special NFTs)
+- `timeClaimed` - Total claimed time-based rewards
+- `totalPending` - Combined pending (revenue + time)
+- `totalEarned` - Total earned across all reward types
+- `nftCount` - Number of NFTs owned
+- `specialNftCount` - Number of special NFTs (with time rewards)
+
+**Use Case**: Links from "Total Earned" and "Pending Balance" boxes in My Earnings tab now go to this function, showing combined totals instead of just revenue share.
+
+**Deployment**:
+- New Implementation: `0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb`
+- Function Selector: `0xd8824b05`
+- Script: `scripts/upgrade-nftrewarder-v5-manual.js`
+
+**Frontend Updates**:
+- Updated `NFT_REWARDER_IMPL_ADDRESS` in config.js
+- Added `getUserPortfolioStats: '0xd8824b05'` to selectors
+- Updated top box links to use this new function
 
 **Documentation**: See [high-rollers-nfts/docs/nft_revenues.md](high-rollers-nfts/docs/nft_revenues.md) for complete implementation plan.

@@ -138,13 +138,40 @@ const UI = {
    * Render hostess card for gallery
    * @param {Object} hostess - Hostess config data
    * @param {number} count - Number minted
-   * @param {Object} revenueStats - Revenue stats for this hostess type (optional)
+   * @param {number} roguePrice - Current ROGUE price in USD
    */
-  renderHostessCard(hostess, count = 0, revenueStats = null) {
+  renderHostessCard(hostess, count = 0, roguePrice = 0) {
     const imageUrl = ImageKit.getOptimizedUrl(hostess.image, 'card');
 
-    // 24h earnings display
-    const last24hDisplay = revenueStats?.last24HPerNFT ? parseFloat(revenueStats.last24HPerNFT).toFixed(2) : '0';
+    // Time reward rates per second for each hostess type (ROGUE)
+    // These are hardcoded - same as in timeRewardCounter.js
+    const TIME_REWARD_RATES = [
+      2.125029,  // Penelope (100x)
+      1.912007,  // Mia (90x)
+      1.700492,  // Cleo (80x)
+      1.487470,  // Sophia (70x)
+      1.274962,  // Luna (60x)
+      1.062454,  // Aurora (50x)
+      0.849946,  // Scarlett (40x)
+      0.637438,  // Vivienne (30x)
+    ];
+
+    // Calculate total 180-day earnings: rate per second × 180 days in seconds
+    const SECONDS_IN_180_DAYS = 180 * 24 * 60 * 60; // 15,552,000
+    const total180Days = TIME_REWARD_RATES[hostess.index] * SECONDS_IN_180_DAYS;
+
+    // Format with comma delimiters, no decimal places
+    const totalDisplay = Math.floor(total180Days).toLocaleString('en-US');
+
+    // Calculate USD value using passed price or fallback to priceService
+    const price = roguePrice || window.revenueService?.priceService?.roguePrice || 0;
+    const usdValue = total180Days * price;
+    const usdDisplay = usdValue.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
 
     return `
       <div class="hostess-card bg-gray-800 rounded-lg overflow-hidden">
@@ -159,11 +186,14 @@ const UI = {
         <div class="p-4">
           <h3 class="font-bold text-lg text-center">${hostess.name}</h3>
           <div class="text-center mt-3">
-            <p class="text-2xl font-bold text-green-400 flex items-center justify-center gap-1">
-              <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5">
-              ${last24hDisplay} ROGUE
+            <p class="text-2xl font-bold text-green-400 flex items-baseline justify-center gap-1">
+              <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center">
+              ${totalDisplay} <span class="text-sm text-gray-400 font-normal">ROGUE</span>
             </p>
-            <p class="text-gray-400 text-xs mt-1">Last 24h Earnings per NFT</p>
+            <p class="text-gray-400 text-sm">${usdDisplay}</p>
+            <div class="flex flex-col items-center">
+              <span class="text-gray-400 text-xs mt-1 text-center">Minimum earnings in next 180 days on new mints</span>
+            </div>
           </div>
           <div class="flex justify-between items-center mt-4 text-sm">
             <span class="text-gray-400">Rarity: <span class="text-white">${hostess.rarity}</span></span>
@@ -175,48 +205,109 @@ const UI = {
   },
 
   /**
+   * Check if NFT is a special time-reward NFT
+   * @param {number} tokenId - NFT token ID
+   * @returns {boolean}
+   */
+  isSpecialNFT(tokenId) {
+    return tokenId >= 2340 && tokenId <= 2700;
+  },
+
+  /**
    * Render NFT card for My NFTs grid
    * @param {Object} nft - NFT data
    * @param {Object} earnings - Earnings data for this NFT (optional)
    */
   renderNFTCard(nft, earnings = null) {
     const imageUrl = ImageKit.getHostessImage(nft.hostess_index, 'card');
+    const isSpecial = this.isSpecialNFT(nft.token_id);
 
-    // Earnings display (pending, 24h, total)
+    // Card classes - special NFTs get golden animated glow
+    const cardClasses = isSpecial
+      ? 'nft-card special-nft-glow bg-gray-800 rounded-lg overflow-hidden cursor-pointer block transition-all relative'
+      : 'nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer block hover:ring-2 hover:ring-purple-500 transition-all relative';
+
+    // Special badge for time-reward NFTs
+    const specialBadge = isSpecial ? `
+      <div class="absolute top-2 right-2 z-10">
+        <span class="bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs px-2 py-1 rounded-full font-bold shadow-lg">
+          ⭐ SPECIAL
+        </span>
+      </div>
+    ` : '';
+
+    // Revenue sharing earnings display (all NFTs)
     let earningsDisplay = '';
     if (earnings) {
       const pendingAmount = parseFloat(earnings.pendingAmount || 0);
-      const last24h = parseFloat(earnings.last24Hours || 0);
       const totalEarned = parseFloat(earnings.totalEarned || 0);
 
       // Get USD values from priceService if available
       const pendingUsd = window.priceService ? window.priceService.formatUsd(pendingAmount) : '';
-      const last24hUsd = window.priceService ? window.priceService.formatUsd(last24h) : '';
       const totalUsd = window.priceService ? window.priceService.formatUsd(totalEarned) : '';
 
       earningsDisplay = `
         <div class="mt-2 pt-2 border-t border-gray-700 text-xs">
-          <div class="flex justify-between items-center">
+          <p class="text-green-400 font-bold mb-1">🎰 Betting Rewards</p>
+          <div class="flex justify-between items-baseline">
             <span class="text-gray-400">Pending:</span>
-            <span class="text-green-400 font-bold">${pendingAmount.toFixed(2)} ROGUE</span>
+            <span class="text-green-400 font-bold">${pendingAmount.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
           </div>
           ${pendingUsd ? `<div class="text-right text-gray-500 text-xs">${pendingUsd}</div>` : ''}
-          <div class="flex justify-between items-center mt-1">
-            <span class="text-gray-400">24h:</span>
-            <span class="text-purple-400">${last24h.toFixed(2)} ROGUE</span>
-          </div>
-          ${last24hUsd ? `<div class="text-right text-gray-500 text-xs">${last24hUsd}</div>` : ''}
-          <div class="flex justify-between items-center mt-1">
+          <div class="flex justify-between items-baseline mt-1">
             <span class="text-gray-400">Total:</span>
-            <span class="text-white">${totalEarned.toFixed(2)} ROGUE</span>
+            <span class="text-white">${totalEarned.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
           </div>
           ${totalUsd ? `<div class="text-right text-gray-500 text-xs">${totalUsd}</div>` : ''}
         </div>
       `;
     }
 
+    // Time-based rewards section (special NFTs only)
+    let timeRewardsDisplay = '';
+    if (isSpecial && nft.timeReward) {
+      const tr = nft.timeReward;
+      if (tr.hasStarted) {
+        timeRewardsDisplay = `
+          <div class="mt-2 pt-2 border-t border-violet-500/30 text-xs">
+            <p class="text-violet-400 font-bold mb-1">⏱️ Time Rewards</p>
+            <div class="flex justify-between items-baseline">
+              <span class="text-gray-400">Pending:</span>
+              <span class="text-violet-400 font-bold" data-time-reward-token="${nft.token_id}">
+                ${this.formatTimeRewardAmount(tr.pending)} <span class="text-xs text-gray-500 font-normal">ROGUE</span>
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline mt-1">
+              <span class="text-gray-400">Total:</span>
+              <span class="text-violet-300" data-time-reward-total="${nft.token_id}">
+                ${this.formatTimeRewardAmount(tr.totalEarned || 0)} <span class="text-xs text-gray-500 font-normal">ROGUE</span>
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline mt-1">
+              <span class="text-gray-400">Remaining:</span>
+              <span class="text-white font-mono" data-time-remaining-token="${nft.token_id}">
+                ${this.formatTimeRemaining(tr.timeRemaining)}
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline mt-1">
+              <span class="text-gray-400">180d Total:</span>
+              <span class="text-violet-200">${this.formatTimeRewardAmount(tr.totalFor180Days)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+            </div>
+          </div>
+        `;
+      } else {
+        timeRewardsDisplay = `
+          <div class="mt-2 pt-2 border-t border-violet-500/30 text-xs">
+            <p class="text-violet-400 font-bold mb-1">⏱️ Time Rewards</p>
+            <p class="text-gray-400 italic">Not yet started</p>
+          </div>
+        `;
+      }
+    }
+
     return `
-      <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.token_id}" target="_blank" class="nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer block hover:ring-2 hover:ring-purple-500 transition-all">
+      <a href="${CONFIG.EXPLORER_URL}/token/${CONFIG.CONTRACT_ADDRESS}?a=${nft.token_id}" target="_blank" class="${cardClasses}">
+        ${specialBadge}
         <div class="aspect-square bg-gray-700">
           <img
             src="${imageUrl}"
@@ -226,15 +317,46 @@ const UI = {
           />
         </div>
         <div class="p-3">
-          <p class="font-bold text-sm">${nft.hostess_name}</p>
+          <div class="flex justify-between items-center">
+            <p class="font-bold text-sm">${nft.hostess_name}</p>
+            <span class="text-xs px-2 py-0.5 rounded ${this.getRarityClass(nft.hostessRarity || CONFIG.HOSTESSES[nft.hostess_index]?.rarity)}">
+              ${CONFIG.HOSTESSES[nft.hostess_index]?.multiplier || 0}x
+            </span>
+          </div>
           <p class="text-gray-400 text-xs">#${nft.token_id}</p>
-          <span class="text-xs px-2 py-0.5 rounded mt-1 inline-block ${this.getRarityClass(nft.hostessRarity || CONFIG.HOSTESSES[nft.hostess_index]?.rarity)}">
-            ${CONFIG.HOSTESSES[nft.hostess_index]?.multiplier || 0}x
-          </span>
           ${earningsDisplay}
+          ${timeRewardsDisplay}
         </div>
       </a>
     `;
+  },
+
+  /**
+   * Format time reward amount (K/M suffixes for large numbers)
+   */
+  formatTimeRewardAmount(amount) {
+    if (!amount || amount === 0) return '0';
+    if (amount >= 1_000_000) {
+      return (amount / 1_000_000).toFixed(2) + 'M';
+    } else if (amount >= 1_000) {
+      return (amount / 1_000).toFixed(2) + 'K';
+    } else {
+      return amount.toFixed(2);
+    }
+  },
+
+  /**
+   * Format time remaining (days/hours/minutes)
+   */
+  formatTimeRemaining(seconds) {
+    if (!seconds || seconds <= 0) return 'Ended';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${days}d:${pad(hours)}h:${pad(minutes)}m:${pad(secs)}s`;
   },
 
   /**

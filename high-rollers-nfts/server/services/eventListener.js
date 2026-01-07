@@ -23,6 +23,17 @@ class EventListener {
 
     // Polling interval (in ms) - 30 seconds to reduce RPC load
     this.pollIntervalMs = 30000;
+
+    // TimeRewardTracker - set by setTimeRewardTracker()
+    this.timeRewardTracker = null;
+  }
+
+  /**
+   * Set the TimeRewardTracker service (called from index.js after initialization)
+   */
+  setTimeRewardTracker(tracker) {
+    this.timeRewardTracker = tracker;
+    console.log('[EventListener] TimeRewardTracker attached');
   }
 
   async start() {
@@ -199,6 +210,11 @@ class EventListener {
           txHash: receipt.hash
         }
       });
+
+      // Update local time reward tracking if this is a special NFT
+      if (this.timeRewardTracker) {
+        this.timeRewardTracker.updateOwnership(tokenId, newOwner);
+      }
     } catch (error) {
       console.error(`[EventListener] Failed to update ownership for NFT #${tokenId} on Rogue Chain:`, error.message);
       // Don't throw - this is non-critical and can be retried manually
@@ -300,6 +316,7 @@ class EventListener {
   /**
    * Register a newly minted NFT in the NFTRewarder contract on Rogue Chain
    * This enables the NFT to receive revenue sharing rewards
+   * For special NFTs (2340-2700), this also starts time-based rewards automatically
    *
    * @param {number} tokenId - NFT token ID
    * @param {number} hostessIndex - Hostess type (0-7)
@@ -320,6 +337,18 @@ class EventListener {
           txHash: receipt.hash
         }
       });
+
+      // Track time rewards for special NFTs (2340-2700)
+      // The contract automatically starts time rewards in registerNFT()
+      // We just need to track the start time locally for UI calculations
+      if (this.timeRewardTracker && this.timeRewardTracker.isSpecialNFT(tokenId)) {
+        // Get the block timestamp from the registration transaction
+        const block = await this.provider.getBlock(receipt.blockNumber);
+        const blockTimestamp = block ? block.timestamp : Math.floor(Date.now() / 1000);
+
+        // Track the special NFT in local database
+        this.timeRewardTracker.handleNFTRegistered(tokenId, hostessIndex, owner, blockTimestamp);
+      }
     } catch (error) {
       console.error(`[EventListener] Failed to register NFT #${tokenId} on Rogue Chain:`, error.message);
       // Don't throw - this is non-critical and can be retried manually

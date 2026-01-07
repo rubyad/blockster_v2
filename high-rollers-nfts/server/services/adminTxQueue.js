@@ -183,6 +183,23 @@ class AdminTxQueue {
   }
 
   /**
+   * Claim time-based rewards for special NFTs (2340-2700)
+   * Called when a user requests time reward withdrawal
+   *
+   * @param {number[]} tokenIds - Array of special NFT token IDs
+   * @param {string} recipient - Recipient wallet address
+   * @returns {Promise<Object>} Transaction receipt
+   */
+  async claimTimeRewards(tokenIds, recipient) {
+    console.log(`[AdminTxQueue] Queueing claimTimeRewards: ${tokenIds.length} special NFTs to ${recipient}`);
+    return this.enqueue('claimTimeRewards', [tokenIds, recipient], {
+      // Base gas + per-NFT gas for time reward calculation
+      // Time rewards are simpler than revenue sharing (just elapsed time * rate)
+      gasLimit: 600000 + (tokenIds.length * 60000)
+    });
+  }
+
+  /**
    * Get queue status for monitoring
    * @returns {Object} Queue status
    */

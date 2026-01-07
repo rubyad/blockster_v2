@@ -21,10 +21,14 @@ describe("NFTRewarder", function () {
     NFTRewarder = await ethers.getContractFactory("NFTRewarder");
     nftRewarder = await upgrades.deployProxy(
       NFTRewarder,
-      [rogueBankroll.address, admin.address],
+      [],
       { initializer: "initialize" }
     );
     await nftRewarder.waitForDeployment();
+
+    // Set admin and rogueBankroll after deployment
+    await nftRewarder.setAdmin(admin.address);
+    await nftRewarder.setRogueBankroll(rogueBankroll.address);
   });
 
   describe("Initialization", function () {
@@ -46,14 +50,14 @@ describe("NFTRewarder", function () {
     });
 
     it("Should reject zero admin address", async function () {
+      // After deployment, trying to set zero address as admin should fail
       const NFTRewarder2 = await ethers.getContractFactory("NFTRewarder");
+      const rewarder2 = await upgrades.deployProxy(NFTRewarder2, [], { initializer: "initialize" });
+      await rewarder2.waitForDeployment();
+
       await expect(
-        upgrades.deployProxy(
-          NFTRewarder2,
-          [rogueBankroll.address, ethers.ZeroAddress],
-          { initializer: "initialize" }
-        )
-      ).to.be.revertedWithCustomError(NFTRewarder2, "InvalidAddress");
+        rewarder2.setAdmin(ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(rewarder2, "InvalidAddress");
     });
   });
 
@@ -476,6 +480,380 @@ describe("NFTRewarder", function () {
       await expect(
         nftRewarder.connect(rogueBankroll).receiveReward(betId, { value: ethers.parseEther("1.0") })
       ).to.be.revertedWithCustomError(nftRewarder, "NoNFTsRegistered");
+    });
+  });
+
+  // ============ V3: Time-Based Rewards Tests ============
+
+  describe("V3 Initialization", function () {
+    it("Should initialize V3 with correct time reward rates", async function () {
+      await nftRewarder.initializeV3();
+
+      // Check Penelope rate (100x baseline)
+      const penelopeRate = await nftRewarder.timeRewardRatesPerSecond(0);
+      expect(penelopeRate).to.equal(2_125_029_000_000_000_000n);
+
+      // Check Vivienne rate (30x baseline)
+      const vivienneRate = await nftRewarder.timeRewardRatesPerSecond(7);
+      expect(vivienneRate).to.equal(637_438_000_000_000_000n);
+    });
+
+    it("Should emit TimeRewardRatesSet event", async function () {
+      await expect(nftRewarder.initializeV3())
+        .to.emit(nftRewarder, "TimeRewardRatesSet");
+    });
+
+    it("Should not allow reinitializing V3", async function () {
+      await nftRewarder.initializeV3();
+      await expect(nftRewarder.initializeV3())
+        .to.be.revertedWithCustomError(nftRewarder, "InvalidInitialization");
+    });
+  });
+
+  describe("Time Reward Pool Management", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+    });
+
+    it("Should deposit time rewards", async function () {
+      const depositAmount = ethers.parseEther("1000");
+      await nftRewarder.depositTimeRewards({ value: depositAmount });
+
+      expect(await nftRewarder.timeRewardPoolDeposited()).to.equal(depositAmount);
+      expect(await nftRewarder.timeRewardPoolRemaining()).to.equal(depositAmount);
+    });
+
+    it("Should emit TimeRewardDeposited event", async function () {
+      const depositAmount = ethers.parseEther("1000");
+      await expect(nftRewarder.depositTimeRewards({ value: depositAmount }))
+        .to.emit(nftRewarder, "TimeRewardDeposited")
+        .withArgs(depositAmount);
+    });
+
+    it("Should reject zero deposit", async function () {
+      await expect(nftRewarder.depositTimeRewards({ value: 0 }))
+        .to.be.revertedWithCustomError(nftRewarder, "NoRewardsToClaim");
+    });
+
+    it("Should reject non-owner deposit", async function () {
+      await expect(nftRewarder.connect(user1).depositTimeRewards({ value: ethers.parseEther("100") }))
+        .to.be.revertedWithCustomError(nftRewarder, "OwnableUnauthorizedAccount");
+    });
+
+    it("Should withdraw unused pool", async function () {
+      const depositAmount = ethers.parseEther("1000");
+      await nftRewarder.depositTimeRewards({ value: depositAmount });
+
+      const balanceBefore = await ethers.provider.getBalance(owner.address);
+      const tx = await nftRewarder.withdrawUnusedTimeRewardPool();
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      const balanceAfter = await ethers.provider.getBalance(owner.address);
+
+      expect(balanceAfter - balanceBefore + gasUsed).to.equal(depositAmount);
+      expect(await nftRewarder.timeRewardPoolRemaining()).to.equal(0);
+    });
+
+    it("Should reject withdrawal with empty pool", async function () {
+      await expect(nftRewarder.withdrawUnusedTimeRewardPool())
+        .to.be.revertedWithCustomError(nftRewarder, "NoRewardsToClaim");
+    });
+  });
+
+  describe("Special NFT Registration (Auto-Start)", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("100") });
+    });
+
+    it("Should auto-start time rewards for special NFTs (2340-2700)", async function () {
+      // Register a special NFT (token ID 2340)
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address); // Penelope
+
+      const info = await nftRewarder.getTimeRewardInfo(2340);
+      // getTimeRewardInfo returns: startTime, endTime, pending, claimed, ratePerSecond, timeRemaining, totalFor180Days, isActive
+      expect(info[0]).to.be.gt(0); // startTime
+      expect(info[3]).to.equal(0); // claimed (totalClaimed)
+      expect(info[4]).to.equal(2_125_029_000_000_000_000n); // ratePerSecond
+      expect(info[7]).to.equal(true); // isActive
+    });
+
+    it("Should emit TimeRewardStarted event for special NFTs", async function () {
+      await expect(nftRewarder.connect(admin).registerNFT(2340, 0, user1.address))
+        .to.emit(nftRewarder, "TimeRewardStarted");
+    });
+
+    it("Should increment totalSpecialNFTsRegistered", async function () {
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address);
+      expect(await nftRewarder.totalSpecialNFTsRegistered()).to.equal(1);
+
+      await nftRewarder.connect(admin).registerNFT(2341, 1, user1.address);
+      expect(await nftRewarder.totalSpecialNFTsRegistered()).to.equal(2);
+    });
+
+    it("Should NOT auto-start time rewards for regular NFTs", async function () {
+      await nftRewarder.connect(admin).registerNFT(1, 0, user1.address); // Regular NFT
+
+      const info = await nftRewarder.getTimeRewardInfo(1);
+      // getTimeRewardInfo returns: startTime, endTime, pending, claimed, ratePerSecond, timeRemaining, totalFor180Days, isActive
+      expect(info[0]).to.equal(0); // startTime
+      expect(info[4]).to.equal(0); // ratePerSecond
+      expect(info[7]).to.equal(false); // isActive
+    });
+
+    it("Should NOT increment totalSpecialNFTsRegistered for regular NFTs", async function () {
+      await nftRewarder.connect(admin).registerNFT(1, 0, user1.address);
+      expect(await nftRewarder.totalSpecialNFTsRegistered()).to.equal(0);
+    });
+  });
+
+  describe("Pending Time Rewards Calculation", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("1000") });
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address); // Penelope
+    });
+
+    it("Should calculate pending rewards correctly after time passes", async function () {
+      // Advance time by 1 day (86400 seconds)
+      await ethers.provider.send("evm_increaseTime", [86400]);
+      await ethers.provider.send("evm_mine", []);
+
+      const [pending, ratePerSecond, timeRemaining] = await nftRewarder.pendingTimeReward(2340);
+
+      // Expected: 2.125029 * 86400 = 183,602.5056 ROGUE
+      const expectedPending = 2_125_029_000_000_000_000n * 86400n / BigInt(1e18);
+      expect(pending).to.be.closeTo(expectedPending, ethers.parseEther("1"));
+
+      // Rate should be Penelope rate
+      expect(ratePerSecond).to.equal(2_125_029_000_000_000_000n);
+
+      // Time remaining should be ~179 days
+      expect(timeRemaining).to.be.closeTo(180n * 86400n - 86400n, 10);
+    });
+
+    it("Should cap rewards at 180 days", async function () {
+      // Advance time by 200 days
+      await ethers.provider.send("evm_increaseTime", [200 * 86400]);
+      await ethers.provider.send("evm_mine", []);
+
+      const [pending, , timeRemaining] = await nftRewarder.pendingTimeReward(2340);
+
+      // Expected max: 2.125029 * 180 * 86400 = 33,048,449.76 ROGUE
+      const maxPending = 2_125_029_000_000_000_000n * 180n * 86400n / BigInt(1e18);
+      expect(pending).to.be.closeTo(maxPending, ethers.parseEther("100"));
+
+      // Time remaining should be 0
+      expect(timeRemaining).to.equal(0);
+    });
+
+    it("Should return zero for unstarted time rewards", async function () {
+      await nftRewarder.connect(admin).registerNFT(1, 0, user1.address); // Regular NFT
+
+      const [pending, ratePerSecond, timeRemaining] = await nftRewarder.pendingTimeReward(1);
+      expect(pending).to.equal(0);
+      expect(ratePerSecond).to.equal(0);
+      expect(timeRemaining).to.equal(0);
+    });
+  });
+
+  describe("Time Reward Claims", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("10") });
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address);
+    });
+
+    it("Should claim time rewards successfully", async function () {
+      // Advance time by 1 hour (3600 seconds) - small amount to avoid exceeding pool
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+
+      const balanceBefore = await ethers.provider.getBalance(user1.address);
+      await nftRewarder.connect(admin).claimTimeRewards([2340], user1.address);
+      const balanceAfter = await ethers.provider.getBalance(user1.address);
+
+      // Should receive approximately 1 hour of rewards
+      const expectedReward = 2_125_029_000_000_000_000n * 3600n / BigInt(1e18);
+      expect(balanceAfter - balanceBefore).to.be.closeTo(expectedReward, ethers.parseEther("0.1"));
+    });
+
+    it("Should emit TimeRewardClaimed event", async function () {
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+
+      await expect(nftRewarder.connect(admin).claimTimeRewards([2340], user1.address))
+        .to.emit(nftRewarder, "TimeRewardClaimed");
+    });
+
+    it("Should update tracking after claim", async function () {
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+
+      const [pendingBefore] = await nftRewarder.pendingTimeReward(2340);
+      await nftRewarder.connect(admin).claimTimeRewards([2340], user1.address);
+      const [pendingAfter] = await nftRewarder.pendingTimeReward(2340);
+
+      expect(pendingAfter).to.equal(0);
+
+      const info = await nftRewarder.getTimeRewardInfo(2340);
+      // getTimeRewardInfo returns: startTime, endTime, pending, claimed, ratePerSecond, timeRemaining, totalFor180Days, isActive
+      expect(info[3]).to.be.closeTo(pendingBefore, ethers.parseEther("0.1")); // claimed (totalClaimed)
+    });
+
+    it("Should reduce pool remaining after claim", async function () {
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+
+      const poolBefore = await nftRewarder.timeRewardPoolRemaining();
+      await nftRewarder.connect(admin).claimTimeRewards([2340], user1.address);
+      const poolAfter = await nftRewarder.timeRewardPoolRemaining();
+
+      expect(poolAfter).to.be.lt(poolBefore);
+    });
+
+    it("Should reject claim with insufficient pool", async function () {
+      // Withdraw the entire pool first
+      await nftRewarder.withdrawUnusedTimeRewardPool();
+
+      // Deposit a tiny amount
+      await nftRewarder.depositTimeRewards({ value: 1n }); // Just 1 wei
+
+      // Advance time to accumulate rewards
+      await ethers.provider.send("evm_increaseTime", [60]); // 1 minute
+      await ethers.provider.send("evm_mine", []);
+
+      // Even 1 minute at 2.125 rate = ~127.5 wei, but pool only has 1 wei
+      // Pending will be > pool remaining, should fail
+      await expect(nftRewarder.connect(admin).claimTimeRewards([2340], user1.address))
+        .to.be.revertedWithCustomError(nftRewarder, "InsufficientTimeRewardPool");
+    });
+
+    it("Should reject claim for unstarted time reward with NoRewardsToClaim", async function () {
+      await nftRewarder.connect(admin).registerNFT(1, 0, user1.address); // Regular NFT
+
+      // Since time reward isn't started, pending is 0, which triggers NoRewardsToClaim
+      await expect(nftRewarder.connect(admin).claimTimeRewards([1], user1.address))
+        .to.be.revertedWithCustomError(nftRewarder, "NoRewardsToClaim");
+    });
+  });
+
+  describe("WithdrawAll (Combined Revenue + Time Rewards)", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("10") });
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address);
+
+      // Send revenue rewards
+      const betId = ethers.keccak256(ethers.toUtf8Bytes("test-bet"));
+      await nftRewarder.connect(rogueBankroll).receiveReward(betId, { value: ethers.parseEther("1") });
+
+      // Advance time for time rewards (1 hour)
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+    });
+
+    it("Should withdraw both revenue and time rewards", async function () {
+      const balanceBefore = await ethers.provider.getBalance(user1.address);
+      await nftRewarder.connect(admin).withdrawAll([2340], user1.address);
+      const balanceAfter = await ethers.provider.getBalance(user1.address);
+
+      // Should receive revenue + time rewards
+      const receivedAmount = balanceAfter - balanceBefore;
+      expect(receivedAmount).to.be.gt(ethers.parseEther("1")); // More than just revenue
+    });
+
+    it("Should work with only revenue rewards (no time rewards started)", async function () {
+      await nftRewarder.connect(admin).registerNFT(1, 0, user2.address); // Regular NFT
+      const betId2 = ethers.keccak256(ethers.toUtf8Bytes("test-bet-2"));
+      await nftRewarder.connect(rogueBankroll).receiveReward(betId2, { value: ethers.parseEther("1") });
+
+      const balanceBefore = await ethers.provider.getBalance(user2.address);
+      await nftRewarder.connect(admin).withdrawAll([1], user2.address);
+      const balanceAfter = await ethers.provider.getBalance(user2.address);
+
+      expect(balanceAfter - balanceBefore).to.be.gt(0);
+    });
+  });
+
+  describe("Manual Time Reward Start", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("100") });
+      // Register as regular NFT first (simulating pre-registered NFT)
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address);
+    });
+
+    it("Should verify isSpecialNFT function works correctly", async function () {
+      // isSpecialNFT returns (isSpecial, hasStarted)
+      const result2340 = await nftRewarder.isSpecialNFT(2340);
+      expect(result2340[0]).to.equal(true);  // isSpecial
+      expect(result2340[1]).to.equal(true);  // hasStarted (auto-started on register)
+
+      // Register a regular NFT for comparison
+      await nftRewarder.connect(admin).registerNFT(1, 0, user1.address);
+      const result1 = await nftRewarder.isSpecialNFT(1);
+      expect(result1[0]).to.equal(false);  // isSpecial
+      expect(result1[1]).to.equal(false);  // hasStarted
+
+      // Test boundary conditions
+      const result2339 = await nftRewarder.isSpecialNFT(2339);
+      expect(result2339[0]).to.equal(false);  // isSpecial (below range)
+
+      const result2700 = await nftRewarder.isSpecialNFT(2700);
+      expect(result2700[0]).to.equal(true);  // isSpecial (at upper bound)
+
+      const result2701 = await nftRewarder.isSpecialNFT(2701);
+      expect(result2701[0]).to.equal(false);  // isSpecial (above range)
+    });
+  });
+
+  describe("View Functions (V3)", function () {
+    beforeEach(async function () {
+      await nftRewarder.initializeV3();
+      await nftRewarder.depositTimeRewards({ value: ethers.parseEther("10") });
+      await nftRewarder.connect(admin).registerNFT(2340, 0, user1.address);
+      await nftRewarder.connect(admin).registerNFT(2341, 1, user1.address);
+
+      // Send revenue rewards
+      const betId = ethers.keccak256(ethers.toUtf8Bytes("test-bet"));
+      await nftRewarder.connect(rogueBankroll).receiveReward(betId, { value: ethers.parseEther("1") });
+
+      // Advance time (1 hour)
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
+    });
+
+    it("getEarningsBreakdown should return time reward info", async function () {
+      const breakdown = await nftRewarder.getEarningsBreakdown(2340);
+      // Returns: pendingNow, alreadyClaimed, totalEarnedSoFar, futureEarnings, totalAllocation, ratePerSecond, percentComplete, secondsRemaining
+
+      expect(breakdown[0]).to.be.gt(0); // pendingNow - 1 hour of time rewards
+      expect(breakdown[1]).to.equal(0); // alreadyClaimed - nothing claimed yet
+      expect(breakdown[2]).to.be.gt(0); // totalEarnedSoFar
+      expect(breakdown[3]).to.be.gt(0); // futureEarnings - still have time left
+      expect(breakdown[4]).to.be.gt(0); // totalAllocation (180 days worth)
+      expect(breakdown[5]).to.equal(2_125_029_000_000_000_000n); // ratePerSecond (Penelope rate)
+      expect(breakdown[7]).to.be.gt(0); // secondsRemaining
+    });
+
+    it("getOwnerTimeRewardStats should aggregate correctly", async function () {
+      const stats = await nftRewarder.getOwnerTimeRewardStats(user1.address);
+      // Returns: totalPending, totalClaimed, specialNFTCount
+
+      expect(stats[0]).to.be.gt(0); // totalPendingTimeRewards
+      expect(stats[1]).to.equal(0); // totalTimeRewardsClaimed
+      expect(stats[2]).to.equal(2); // specialNFTCount
+    });
+
+    it("getTimeRewardPoolStats should return correct data", async function () {
+      const stats = await nftRewarder.getTimeRewardPoolStats();
+      // Returns: poolDeposited, poolRemaining, poolClaimed, specialNFTsRegistered
+
+      expect(stats[0]).to.equal(ethers.parseEther("10")); // poolDeposited
+      expect(stats[1]).to.equal(ethers.parseEther("10")); // poolRemaining
+      expect(stats[2]).to.equal(0); // poolClaimed
+      expect(stats[3]).to.equal(2); // specialNFTsRegistered
     });
   });
 });

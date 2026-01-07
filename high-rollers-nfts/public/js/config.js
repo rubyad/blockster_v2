@@ -12,6 +12,16 @@ const CONFIG = {
   ROGUE_CHAIN_ID: 560013,
   ROGUE_EXPLORER_URL: 'https://roguescan.io',
   NFT_REWARDER_ADDRESS: '0x96aB9560f1407586faE2b69Dc7f38a59BEACC594',
+  NFT_REWARDER_IMPL_ADDRESS: '0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb',
+
+  // NFTRewarder function selectors for deep linking
+  NFT_REWARDER_SELECTORS: {
+    getEarningsBreakdown: '0x745b6641',  // getEarningsBreakdown(uint256) - special NFT detailed earnings
+    getTimeRewardInfo: '0xb28d8822',     // getTimeRewardInfo(uint256) - time reward info
+    getNFTEarnings: '0x9a3b5a1d',        // getNFTEarnings(uint256) - regular NFT earnings
+    pendingReward: '0x12f7086c',         // pendingReward(uint256) - revenue share pending
+    getUserPortfolioStats: '0xd8824b05', // getUserPortfolioStats(address) - combined totals for all user NFTs
+  },
 
   // Contract
   CONTRACT_ADDRESS: '0x7176d2edd83aD037bd94b7eE717bd9F661F560DD',
