@@ -464,6 +464,15 @@ The frontend displays real-time counting earnings with **zero database queries**
 - 1-second UI update loop
 - Methods: `initialize()`, `getPending()`, `getTotals()`, `get24hEarnings()`
 
+### Live Earnings Updates (My NFTs Tab)
+
+NFT cards on the My NFTs tab auto-update their Betting Rewards (pending + total) when rewards are received:
+
+- Data attributes: `data-nft-pending`, `data-nft-total`, `data-nft-pending-usd`, `data-nft-total-usd`
+- WebSocket event: `EARNINGS_SYNCED` triggers `updateMyNFTsEarnings()` in app.js
+- Update interval: Every ~10 seconds (same as My Earnings tab)
+- No full re-render - only updates affected elements for smooth UX
+
 ### Special NFT Visual Treatment
 
 - Golden animated glow border (CSS `.special-nft-glow`)
@@ -585,4 +594,4 @@ Transform examples:
 
 ---
 
-*Last updated: January 7, 2026 - Added Time-Based Rewards & Wallet Network Switching*
+*Last updated: January 7, 2026 - Live earnings updates on My NFTs tab*

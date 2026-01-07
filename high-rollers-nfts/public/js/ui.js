@@ -243,22 +243,23 @@ const UI = {
       const totalEarned = parseFloat(earnings.totalEarned || 0);
 
       // Get USD values from priceService if available
-      const pendingUsd = window.priceService ? window.priceService.formatUsd(pendingAmount) : '';
-      const totalUsd = window.priceService ? window.priceService.formatUsd(totalEarned) : '';
+      const priceService = window.revenueService?.priceService;
+      const pendingUsd = priceService ? priceService.formatUsd(pendingAmount) : '';
+      const totalUsd = priceService ? priceService.formatUsd(totalEarned) : '';
 
       earningsDisplay = `
-        <div class="mt-2 pt-2 border-t border-gray-700 text-xs">
+        <div class="mt-2 pt-2 border-t border-gray-700 text-xs" data-nft-earnings="${nft.token_id}">
           <p class="text-green-400 font-bold mb-1">🎰 Betting Rewards</p>
           <div class="flex justify-between items-baseline">
             <span class="text-gray-400">Pending:</span>
-            <span class="text-green-400 font-bold">${pendingAmount.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+            <span class="text-green-400 font-bold" data-nft-pending="${nft.token_id}">${pendingAmount.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
           </div>
-          ${pendingUsd ? `<div class="text-right text-gray-500 text-xs">${pendingUsd}</div>` : ''}
+          <div class="text-right text-gray-500 text-xs" data-nft-pending-usd="${nft.token_id}">${pendingUsd}</div>
           <div class="flex justify-between items-baseline mt-1">
             <span class="text-gray-400">Total:</span>
-            <span class="text-white">${totalEarned.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+            <span class="text-white" data-nft-total="${nft.token_id}">${totalEarned.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
           </div>
-          ${totalUsd ? `<div class="text-right text-gray-500 text-xs">${totalUsd}</div>` : ''}
+          <div class="text-right text-gray-500 text-xs" data-nft-total-usd="${nft.token_id}">${totalUsd}</div>
         </div>
       `;
     }

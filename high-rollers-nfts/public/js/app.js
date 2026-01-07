@@ -707,6 +707,57 @@ class HighRollersApp {
     }
   }
 
+  /**
+   * Update NFT card earnings (called when EARNINGS_SYNCED is received)
+   * Updates betting rewards on My NFTs tab without full re-render
+   */
+  async updateMyNFTsEarnings() {
+    if (!walletService.isConnected()) return;
+
+    // Check if My NFTs tab has content to update
+    const grid = document.getElementById('my-nfts-grid');
+    if (!grid || grid.children.length === 0) return;
+
+    try {
+      // Fetch fresh earnings for user's NFTs
+      const earningsResponse = await fetch(`${CONFIG.API_BASE}/revenues/user/${walletService.address}`);
+      if (!earningsResponse.ok) return;
+
+      const earningsData = await earningsResponse.json();
+      if (!earningsData.nfts) return;
+
+      const priceService = window.revenueService?.priceService;
+
+      // Update each NFT card's earnings in place
+      earningsData.nfts.forEach(e => {
+        const pendingEl = document.querySelector(`[data-nft-pending="${e.tokenId}"]`);
+        const totalEl = document.querySelector(`[data-nft-total="${e.tokenId}"]`);
+        const pendingUsdEl = document.querySelector(`[data-nft-pending-usd="${e.tokenId}"]`);
+        const totalUsdEl = document.querySelector(`[data-nft-total-usd="${e.tokenId}"]`);
+
+        const pendingAmount = parseFloat(e.pendingAmount || 0);
+        const totalEarned = parseFloat(e.totalEarned || 0);
+
+        if (pendingEl) {
+          pendingEl.innerHTML = `${pendingAmount.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span>`;
+        }
+        if (totalEl) {
+          totalEl.innerHTML = `${totalEarned.toFixed(2)} <span class="text-xs text-gray-500 font-normal">ROGUE</span>`;
+        }
+        if (pendingUsdEl && priceService) {
+          pendingUsdEl.textContent = priceService.formatUsd(pendingAmount);
+        }
+        if (totalUsdEl && priceService) {
+          totalUsdEl.textContent = priceService.formatUsd(totalEarned);
+        }
+      });
+
+      console.log('[App] Updated My NFTs earnings for', earningsData.nfts.length, 'NFTs');
+    } catch (error) {
+      console.error('[App] Failed to update My NFTs earnings:', error);
+    }
+  }
+
   // ==================== Revenues ====================
 
   async loadRevenues() {
@@ -1010,6 +1061,8 @@ class HighRollersApp {
       case 'EARNINGS_SYNCED':
         // Backend completed sync - refresh all stats for all users
         revenueService.handleEarningsSynced(message.data);
+        // Also update My NFTs tab cards if they're loaded
+        this.updateMyNFTsEarnings();
         break;
 
       // Time reward events
