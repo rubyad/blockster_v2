@@ -536,6 +536,48 @@ When multiple services call `linkAffiliate` simultaneously:
 - Detects nonce errors by checking for "nonce" or "replacement" in error message
 - Still saves to database even if on-chain linking fails
 
+### AdminTxQueue Local Nonce Tracking
+
+The `AdminTxQueue` service handles all admin wallet transactions for NFTRewarder operations (`registerNFT`, `updateOwnership`, `withdrawTo`). To prevent nonce conflicts when multiple events are processed rapidly:
+
+- **Local nonce tracking**: Instead of querying `getNonce()` for each transaction, tracks nonce locally in `this.currentNonce`
+- **Auto-increment**: Increments nonce immediately after sending transaction (before confirmation)
+- **Error recovery**: On nonce errors, resyncs nonce from network and continues
+
+```javascript
+// processQueue() excerpt
+const nonce = this.currentNonce;
+const txResponse = await this.contract[method](...args, { nonce, gasLimit });
+this.currentNonce++;  // Increment immediately after sending
+
+// On nonce error, resync from network
+if (error.message.includes('nonce')) {
+  this.currentNonce = await this.wallet.getNonce();
+}
+```
+
+### EarningsSyncService Mutex
+
+The `EarningsSyncService` syncs NFT earnings from the NFTRewarder contract every 30 seconds. To prevent overlapping sync cycles:
+
+- **Mutex flag**: Uses `this.isSyncing` boolean to skip sync if one is already in progress
+- **30-second interval**: Increased from 10s to prevent overlap on slower networks
+- **Graceful release**: Mutex released in `finally` block to ensure cleanup on errors
+
+```javascript
+async syncAllNFTEarnings() {
+  if (this.isSyncing) return;  // Skip if already syncing
+  this.isSyncing = true;
+  try {
+    // ... sync logic ...
+  } finally {
+    this.isSyncing = false;  // Always release mutex
+  }
+}
+```
+
+---
+
 ## Frontend Navigation
 
 Tab-based navigation with URL routing:

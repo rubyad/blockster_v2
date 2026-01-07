@@ -27,9 +27,10 @@ class EarningsSyncService {
     this.ws = websocket;
     this.timeRewardTracker = timeRewardTracker;
     this.batchSize = 100;  // Fetch 100 NFTs per batch
-    this.syncIntervalMs = 10000;  // 10 seconds between full syncs (for real-time updates)
+    this.syncIntervalMs = 30000;  // 30 seconds between full syncs (was 10s, caused overlapping)
     this.syncInterval = null;
     this.isRunning = false;
+    this.isSyncing = false;  // Mutex to prevent concurrent syncs
 
     // Special NFT constants
     this.SPECIAL_NFT_START_ID = 2340;
@@ -87,6 +88,12 @@ class EarningsSyncService {
    * Server calculates: last24h (from reward_events), APY (from 24h and NFT value)
    */
   async syncAllNFTEarnings() {
+    // Mutex: Skip if already syncing (prevents overlapping syncs)
+    if (this.isSyncing) {
+      return;
+    }
+    this.isSyncing = true;
+
     try {
       const allNFTs = this.db.getAllNFTs(10000, 0);  // Get all NFTs
       const total = allNFTs.length;
@@ -205,6 +212,8 @@ class EarningsSyncService {
       }
     } catch (error) {
       console.error('[EarningsSync] Sync failed:', error.message);
+    } finally {
+      this.isSyncing = false;  // Release mutex
     }
   }
 

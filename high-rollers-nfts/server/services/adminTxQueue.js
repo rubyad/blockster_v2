@@ -23,13 +23,14 @@ class AdminTxQueue {
     this.wallet = null;
     this.contract = null;
     this.initialized = false;
+    this.currentNonce = null;  // Track nonce locally to avoid race conditions
   }
 
   /**
    * Initialize the admin wallet and contract connection
    * Called lazily on first transaction to allow config to load
    */
-  init() {
+  async init() {
     if (this.initialized) return true;
 
     if (!config.ADMIN_PRIVATE_KEY) {
@@ -45,8 +46,10 @@ class AdminTxQueue {
         config.NFT_REWARDER_ABI,
         this.wallet
       );
+      // Get initial nonce from network
+      this.currentNonce = await this.wallet.getNonce();
       this.initialized = true;
-      console.log(`[AdminTxQueue] Initialized with admin wallet: ${this.wallet.address}`);
+      console.log(`[AdminTxQueue] Initialized with admin wallet: ${this.wallet.address}, nonce: ${this.currentNonce}`);
       return true;
     } catch (error) {
       console.error('[AdminTxQueue] Failed to initialize:', error.message);
@@ -83,7 +86,8 @@ class AdminTxQueue {
   async processQueue() {
     if (this.processing || this.queue.length === 0) return;
 
-    if (!this.init()) {
+    const initialized = await this.init();
+    if (!initialized) {
       // Reject all pending transactions if initialization fails
       while (this.queue.length > 0) {
         const tx = this.queue.shift();
@@ -102,8 +106,9 @@ class AdminTxQueue {
       console.log(`[AdminTxQueue] Processing ${method} (waited ${waitTime}ms)`);
 
       try {
-        // Get current nonce to ensure we're using the latest
-        const nonce = await this.wallet.getNonce();
+        // Use local nonce tracking instead of querying network each time
+        // This prevents race conditions when multiple txs are queued rapidly
+        const nonce = this.currentNonce;
 
         // Execute the contract method
         const txResponse = await this.contract[method](...args, {
@@ -112,7 +117,10 @@ class AdminTxQueue {
           gasLimit: options.gasLimit || 200000
         });
 
-        console.log(`[AdminTxQueue] ${method} tx sent: ${txResponse.hash}`);
+        console.log(`[AdminTxQueue] ${method} tx sent: ${txResponse.hash} (nonce: ${nonce})`);
+
+        // Increment local nonce immediately after sending
+        this.currentNonce++;
 
         // Wait for confirmation
         const receipt = await txResponse.wait();
@@ -122,9 +130,15 @@ class AdminTxQueue {
       } catch (error) {
         console.error(`[AdminTxQueue] ${method} failed:`, error.message);
 
-        // Check for specific errors
+        // Check for nonce errors and resync if needed
         if (error.message.includes('nonce')) {
-          console.error('[AdminTxQueue] Nonce error - this should not happen with sequential processing');
+          console.error('[AdminTxQueue] Nonce error - resyncing from network');
+          try {
+            this.currentNonce = await this.wallet.getNonce();
+            console.log(`[AdminTxQueue] Nonce resynced to: ${this.currentNonce}`);
+          } catch (syncError) {
+            console.error('[AdminTxQueue] Failed to resync nonce:', syncError.message);
+          }
         }
 
         reject(error);
