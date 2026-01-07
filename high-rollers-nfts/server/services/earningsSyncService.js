@@ -27,7 +27,7 @@ class EarningsSyncService {
     this.ws = websocket;
     this.timeRewardTracker = timeRewardTracker;
     this.batchSize = 100;  // Fetch 100 NFTs per batch
-    this.syncIntervalMs = 30000;  // 30 seconds between full syncs (was 10s, caused overlapping)
+    this.syncIntervalMs = 60000;  // 60 seconds between full syncs
     this.syncInterval = null;
     this.isRunning = false;
     this.isSyncing = false;  // Mutex to prevent concurrent syncs
