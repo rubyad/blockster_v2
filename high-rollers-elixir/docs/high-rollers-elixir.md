@@ -129,10 +129,9 @@ defmodule HighRollers.Application do
       # 5. Mnesia initialization (after cluster discovery so nodes are connected)
       {HighRollers.MnesiaInitializer, []},
 
-      # 6. Write serializers (after Mnesia, before anything that writes)
-      # CRITICAL: These prevent race conditions on tables with multiple writers
-      {HighRollers.NFTStore, []},           # Serializes hr_nfts writes (including time rewards)
-      {HighRollers.EarningsStore, []},      # Serializes hr_nft_earnings writes
+      # 6. Write serializer (after Mnesia, before anything that writes)
+      # CRITICAL: Prevents race conditions on hr_nfts table with multiple writers
+      {HighRollers.NFTStore, []},           # Serializes hr_nfts writes (including earnings + time rewards)
 
       # 7. Admin transaction queue (global singleton)
       {HighRollers.AdminTxQueue, []},
@@ -167,8 +166,8 @@ end
 |------|-----------------|--------------|----------------|
 | NFT ownership | Arbitrum NFT Contract | `hr_nfts.owner` | ArbitrumEventPoller (Transfer events) |
 | NFT existence | Arbitrum NFT Contract | `hr_nfts` | ArbitrumEventPoller (NFTMinted events) |
-| Revenue earnings | Rogue NFTRewarder | `hr_nft_earnings` | EarningsSyncer (every 60s) |
-| Time reward claims | Rogue NFTRewarder | `hr_time_rewards.last_claim_time` | EarningsSyncer (every 60s) |
+| Revenue earnings | Rogue NFTRewarder | `hr_nfts.total_earned/pending_amount` | EarningsSyncer (every 60s) |
+| Time reward claims | Rogue NFTRewarder | `hr_nfts.time_last_claim` | EarningsSyncer (every 60s) |
 | NFT registration | Rogue NFTRewarder | (no cache) | AdminTxQueue (on mint/transfer) |
 
 **Consistency Guarantees**:
@@ -272,20 +271,17 @@ The system has **multiple layers of protection** to ensure NFTRewarder stays in 
 
 | Table | Serializer GenServer | Writers Routed |
 |-------|---------------------|----------------|
-| `hr_nfts` | `NFTStore` | `ArbitrumEventPoller`, `EarningsSyncer` (time rewards + earnings data) |
-| `hr_nft_earnings` | `EarningsStore` | `EarningsSyncer`, `RogueRewardPoller` |
+| `hr_nfts` | `NFTStore` | `ArbitrumEventPoller`, `EarningsSyncer` (ownership, earnings, time rewards) |
 
 **Append-only tables** (no serialization needed - concurrent inserts are safe):
 - `hr_reward_events` - only inserts, never updates
 - `hr_reward_withdrawals` - only inserts, never updates
-- `hr_sales` - only inserts, never updates
 - `hr_affiliate_earnings` - only inserts, never updates
 
 **Single-writer tables** (no serialization needed):
-- `hr_global_stats` - only `EarningsSyncer` writes
-- `hr_hostess_stats` - only `EarningsSyncer` writes
+- `hr_stats` - only `EarningsSyncer` writes (compound key: :global | {:hostess, N} | :time_rewards)
 - `hr_pending_mints` - only `ArbitrumEventPoller` writes
-- `hr_time_reward_stats` - only `EarningsSyncer` writes
+- `hr_users` - only `AffiliateController` writes
 
 ### Table Definitions
 
@@ -296,7 +292,7 @@ The system has **multiple layers of protection** to ensure NFTRewarder stays in 
 
 ### Table Optimization Summary
 
-**Original**: 16 tables → **Optimized**: 8 tables (50% reduction)
+**Original**: 16 tables → **Optimized**: 9 tables (44% reduction)
 
 | Removed | Merged Into | Reason |
 |---------|-------------|--------|
@@ -534,6 +530,7 @@ end
 **Replaces**: `eventListener.js` AND `ownerSync.js` (backfill logic eliminates need for OwnershipSyncer)
 
 **Key Features**:
+- **Uses GlobalSingleton** for cluster-wide single instance (prevents duplicate polling on multi-server deploy)
 - Persists `last_processed_block` to Mnesia for restart recovery
 - Backfills historical events from deploy block on first run
 - Never misses events even if app is down for hours/days
@@ -548,6 +545,9 @@ defmodule HighRollers.ArbitrumEventPoller do
 
   Uses queryFilter polling (NOT WebSocket subscriptions) because Arbitrum
   RPC providers often drop WebSocket connections.
+
+  Uses GlobalSingleton for cluster-wide single instance - only one node
+  polls Arbitrum at a time, preventing duplicate RPC calls and events.
 
   Polls every 1 second for near-instant UI updates. GenServer state tracks
   `polling: true/false` to prevent overlapping polls - if a poll takes longer
@@ -572,7 +572,10 @@ defmodule HighRollers.ArbitrumEventPoller do
   # ===== Client API =====
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    case HighRollers.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
   end
 
   # ===== Server Callbacks =====
@@ -914,6 +917,11 @@ end
 
 **Replaces**: `rewardEventListener.js`
 
+**Key Features**:
+- **Uses GlobalSingleton** for cluster-wide single instance (prevents duplicate polling on multi-server deploy)
+- Persists `last_processed_block` to Mnesia for restart recovery
+- Backfills historical events from deploy block on first run
+
 ```elixir
 defmodule HighRollers.RogueRewardPoller do
   @moduledoc """
@@ -921,18 +929,32 @@ defmodule HighRollers.RogueRewardPoller do
   - RewardReceived: When ROGUEBankroll sends rewards after losing bets
   - RewardClaimed: When users withdraw their pending rewards
 
-  Polls every 1 second for near-instant UI updates. GenServer mailbox
-  naturally serializes requests - if a poll takes longer than 1s, the
-  next :poll message waits in the mailbox until the current one completes.
+  Uses GlobalSingleton for cluster-wide single instance - only one node
+  polls Rogue Chain at a time, preventing duplicate RPC calls and events.
+
+  Polls every 1 second for near-instant UI updates. GenServer state tracks
+  `polling: true/false` to prevent overlapping polls - if a poll takes longer
+  than 1 second, the next :poll message is skipped until the current completes.
+
+  RESTART RECOVERY:
+  - Persists last_processed_block to Mnesia after each poll
+  - On restart, resumes from last_processed_block (not current block)
+  - First run: backfills from NFTRewarder deploy block
   """
   use GenServer
   require Logger
 
   @poll_interval_ms 1_000  # 1 second - fast polling for real-time UI
+  @max_blocks_per_query 5000  # Rogue Chain is faster, can query more blocks
   @backfill_chunk_size 10_000
+  @poller_state_table :hr_poller_state
+  @deploy_block 109_350_000  # NFTRewarder deploy block on Rogue Chain
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    case HighRollers.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
   end
 
   @impl true
@@ -1081,7 +1103,9 @@ end
 
 **Replaces**: `earningsSyncService.js`
 
-**Key Insight**: 24h earnings per NFT is proportional to global 24h × (nft_multiplier / total_points). This is O(1) calculation, not O(n) contract queries.
+**Key Features**:
+- **Uses GlobalSingleton** for cluster-wide single instance (prevents duplicate syncs on multi-server deploy)
+- 24h earnings per NFT is proportional to global 24h × (nft_multiplier / total_points). This is O(1) calculation, not O(n) contract queries.
 
 ```elixir
 defmodule HighRollers.EarningsSyncer do
@@ -1095,6 +1119,8 @@ defmodule HighRollers.EarningsSyncer do
     nft_24h = global_24h × (nft_multiplier / total_multiplier_points)
 
   This is O(1) - one query for global 24h, then simple multiplication per NFT.
+
+  Uses GlobalSingleton for cluster-wide single instance.
   """
   use GenServer
   require Logger
@@ -1105,7 +1131,10 @@ defmodule HighRollers.EarningsSyncer do
   @multipliers [100, 90, 80, 70, 60, 50, 40, 30]  # Index 0-7
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    case HighRollers.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
   end
 
   @impl true
@@ -2377,133 +2406,7 @@ defmodule HighRollers.NFTStore do
 end
 ```
 
-### 7. EarningsStore (Write Serializer)
-
-**Purpose**: Serialize all writes to `hr_nft_earnings` table to prevent race conditions between EarningsSyncer and RogueRewardPoller
-
-**Why needed**: `EarningsSyncer` updates earnings from contract sync, while `RogueRewardPoller` resets pending amounts after withdrawals. Without serialization, these could overwrite each other's changes.
-
-```elixir
-defmodule HighRollers.EarningsStore do
-  @moduledoc """
-  Serialized write access to the hr_nft_earnings Mnesia table.
-
-  IMPORTANT: All earnings record updates MUST go through this GenServer.
-
-  Writers that use this module:
-  - EarningsSyncer (periodic sync from NFTRewarder contract)
-  - RogueRewardPoller (reset pending after RewardClaimed events)
-  """
-  use GenServer
-  require Logger
-
-  @table :hr_nft_earnings
-
-  # ===== Client API =====
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  @doc "Update NFT earnings (called by EarningsSyncer)"
-  def update(token_id, attrs) do
-    GenServer.call(__MODULE__, {:update, token_id, attrs})
-  end
-
-  @doc "Batch update multiple NFT earnings (more efficient for syncs)"
-  def batch_update(updates) when is_list(updates) do
-    GenServer.call(__MODULE__, {:batch_update, updates}, 60_000)
-  end
-
-  @doc "Reset pending amount to 0 after withdrawal (called by RogueRewardPoller)"
-  def reset_pending(token_id) do
-    GenServer.call(__MODULE__, {:reset_pending, token_id})
-  end
-
-  @doc "Get earnings for a token (read - no serialization needed)"
-  def get(token_id) do
-    case :mnesia.dirty_read({@table, token_id}) do
-      [record] -> earnings_to_map(record)
-      [] -> nil
-    end
-  end
-
-  # ===== Server Callbacks =====
-
-  @impl true
-  def init(_opts) do
-    Logger.info("[EarningsStore] Started - serializing writes to hr_nft_earnings")
-    {:ok, %{}}
-  end
-
-  @impl true
-  def handle_call({:update, token_id, attrs}, _from, state) do
-    record = {@table,
-      token_id,
-      attrs.total_earned,
-      attrs.pending_amount,
-      attrs.last_24h_earned,
-      attrs.apy_basis_points,
-      System.system_time(:second)
-    }
-
-    :mnesia.dirty_write(record)
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:batch_update, updates}, _from, state) do
-    now = System.system_time(:second)
-
-    Enum.each(updates, fn {token_id, attrs} ->
-      record = {@table,
-        token_id,
-        attrs.total_earned,
-        attrs.pending_amount,
-        attrs.last_24h_earned,
-        attrs.apy_basis_points,
-        now
-      }
-      :mnesia.dirty_write(record)
-    end)
-
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:reset_pending, token_id}, _from, state) do
-    result =
-      case :mnesia.dirty_read({@table, token_id}) do
-        [record] ->
-          # Only update pending_amount to "0", preserve other fields
-          updated = put_elem(record, 3, "0")  # pending_amount index
-          updated = put_elem(updated, 6, System.system_time(:second))
-          :mnesia.dirty_write(updated)
-          :ok
-
-        [] ->
-          :ok  # No record to reset, that's fine
-      end
-
-    {:reply, result, state}
-  end
-
-  # ===== Helpers =====
-
-  defp earnings_to_map({@table, token_id, total_earned, pending_amount, last_24h, apy, updated_at}) do
-    %{
-      token_id: token_id,
-      total_earned: total_earned,
-      pending_amount: pending_amount,
-      last_24h_earned: last_24h,
-      apy_basis_points: apy,
-      updated_at: updated_at
-    }
-  end
-end
-```
-
-### 8. Time Reward Operations (via NFTStore)
+### 7. Time Reward Operations (via NFTStore)
 
 **Purpose**: Time reward data is stored in the unified `hr_nfts` table
 
@@ -2854,23 +2757,21 @@ end
 ```elixir
 defmodule HighRollers.Rewards do
   @moduledoc """
-  Mnesia operations for reward events, earnings, and stats.
+  Mnesia operations for reward events, withdrawals, and stats.
+
+  NOTE: NFT earnings updates go through NFTStore GenServer (since earnings
+  fields are now part of the unified hr_nfts table).
   """
 
   @events_table :hr_reward_events
   @withdrawals_table :hr_reward_withdrawals
-  @earnings_table :hr_nft_earnings
-  @global_stats_table :hr_global_stats
-  @hostess_stats_table :hr_hostess_stats
+  @stats_table :hr_stats
 
   # ===== REWARD EVENTS =====
 
   def insert_event(attrs) do
-    # Auto-increment ID
-    id = :mnesia.dirty_update_counter({:hr_counters, :reward_event_id}, 1)
-
+    # Use commitment_hash as natural key (unique bet ID from blockchain event)
     record = {@events_table,
-      id,
       attrs.commitment_hash,
       attrs.amount,
       attrs.timestamp,
@@ -2885,7 +2786,7 @@ defmodule HighRollers.Rewards do
   def get_rewards_since(timestamp) do
     # Sum all amounts where timestamp > given timestamp
     :mnesia.dirty_select(@events_table, [
-      {{@events_table, :_, :_, :"$1", :"$2", :_, :_},
+      {{@events_table, :_, :"$1", :"$2", :_, :_},
        [{:>, :"$2", timestamp}],
        [:"$1"]}
     ])
@@ -2895,8 +2796,8 @@ defmodule HighRollers.Rewards do
   end
 
   def get_events(limit \\ 50, offset \\ 0) do
-    :mnesia.dirty_match_object({@events_table, :_, :_, :_, :_, :_, :_})
-    |> Enum.sort_by(fn record -> elem(record, 1) end, :desc)
+    :mnesia.dirty_match_object({@events_table, :_, :_, :_, :_, :_})
+    |> Enum.sort_by(fn record -> elem(record, 3) end, :desc)  # Sort by timestamp
     |> Enum.drop(offset)
     |> Enum.take(limit)
     |> Enum.map(&event_to_map/1)
@@ -2905,74 +2806,40 @@ defmodule HighRollers.Rewards do
   # ===== WITHDRAWALS =====
 
   def record_withdrawal(attrs) do
-    id = :mnesia.dirty_update_counter({:hr_counters, :withdrawal_id}, 1)
-
+    # Use tx_hash as natural key (unique transaction hash)
     record = {@withdrawals_table,
-      id,
+      attrs.tx_hash,
       String.downcase(attrs.user_address),
       attrs.amount,
       attrs.token_ids,
-      attrs.tx_hash,
       System.system_time(:second)
     }
 
     :mnesia.dirty_write(record)
     :ok
-  end
-
-  # ===== NFT EARNINGS =====
-
-  def update_nft_earnings(token_id, attrs) do
-    record = {@earnings_table,
-      token_id,
-      attrs.total_earned,
-      attrs.pending_amount,
-      attrs.last_24h_earned,
-      attrs.apy_basis_points,
-      System.system_time(:second)
-    }
-
-    :mnesia.dirty_write(record)
-    :ok
-  end
-
-  def get_nft_earnings(token_id) do
-    case :mnesia.dirty_read({@earnings_table, token_id}) do
-      [record] -> earnings_to_map(record)
-      [] -> nil
-    end
-  end
-
-  def reset_nft_pending(token_id) do
-    case :mnesia.dirty_read({@earnings_table, token_id}) do
-      [record] ->
-        updated = put_elem(record, 3, "0")  # pending_amount = "0"
-        updated = put_elem(updated, 6, System.system_time(:second))
-        :mnesia.dirty_write(updated)
-
-      [] ->
-        :ok
-    end
   end
 
   # ===== GLOBAL STATS =====
+  # Uses hr_stats table with compound key :global
 
   def get_global_stats do
-    case :mnesia.dirty_read({@global_stats_table, :global}) do
-      [record] -> global_stats_to_map(record)
+    case :mnesia.dirty_read({@stats_table, :global}) do
+      [{@stats_table, :global, data, _updated_at}] -> data
       [] -> nil
     end
   end
 
   def update_global_stats(attrs) do
-    record = {@global_stats_table,
+    record = {@stats_table,
       :global,
-      attrs.total_rewards_received,
-      attrs.total_rewards_distributed,
-      attrs.rewards_last_24h,
-      attrs.overall_apy_basis_points,
-      attrs.total_nfts,
-      attrs.total_multiplier_points,
+      %{
+        total_rewards_received: attrs.total_rewards_received,
+        total_rewards_distributed: attrs.total_rewards_distributed,
+        rewards_last_24h: attrs.rewards_last_24h,
+        overall_apy_basis_points: attrs.overall_apy_basis_points,
+        total_nfts: attrs.total_nfts,
+        total_multiplier_points: attrs.total_multiplier_points
+      },
       System.system_time(:second)
     }
 
@@ -2981,18 +2848,21 @@ defmodule HighRollers.Rewards do
   end
 
   # ===== HOSTESS STATS =====
+  # Uses hr_stats table with compound key {:hostess, 0-7}
 
   def update_hostess_stats(hostess_index, attrs) do
-    record = {@hostess_stats_table,
-      hostess_index,
-      attrs.nft_count,
-      attrs.total_points,
-      attrs.share_basis_points,
-      attrs.last_24h_per_nft,
-      attrs.apy_basis_points,
-      attrs.time_24h_per_nft,
-      attrs.time_apy_basis_points,
-      attrs.special_nft_count,
+    record = {@stats_table,
+      {:hostess, hostess_index},
+      %{
+        nft_count: attrs.nft_count,
+        total_points: attrs.total_points,
+        share_basis_points: attrs.share_basis_points,
+        last_24h_per_nft: attrs.last_24h_per_nft,
+        apy_basis_points: attrs.apy_basis_points,
+        time_24h_per_nft: attrs.time_24h_per_nft,
+        time_apy_basis_points: attrs.time_apy_basis_points,
+        special_nft_count: attrs.special_nft_count
+      },
       System.system_time(:second)
     }
 
@@ -3002,18 +2872,45 @@ defmodule HighRollers.Rewards do
 
   def get_all_hostess_stats do
     Enum.map(0..7, fn index ->
-      case :mnesia.dirty_read({@hostess_stats_table, index}) do
-        [record] -> hostess_stats_to_map(record)
-        [] -> %{hostess_index: index}
+      case :mnesia.dirty_read({@stats_table, {:hostess, index}}) do
+        [{@stats_table, {:hostess, ^index}, data, _updated_at}] ->
+          Map.put(data, :hostess_index, index)
+        [] ->
+          %{hostess_index: index}
       end
     end)
   end
 
+  # ===== TIME REWARD STATS =====
+  # Uses hr_stats table with compound key :time_rewards
+
+  def get_time_reward_stats do
+    case :mnesia.dirty_read({@stats_table, :time_rewards}) do
+      [{@stats_table, :time_rewards, data, _updated_at}] -> data
+      [] -> nil
+    end
+  end
+
+  def update_time_reward_stats(attrs) do
+    record = {@stats_table,
+      :time_rewards,
+      %{
+        pool_deposited: attrs.pool_deposited,
+        pool_remaining: attrs.pool_remaining,
+        pool_claimed: attrs.pool_claimed,
+        nfts_started: attrs.nfts_started
+      },
+      System.system_time(:second)
+    }
+
+    :mnesia.dirty_write(record)
+    :ok
+  end
+
   # ===== HELPERS =====
 
-  defp event_to_map({@events_table, id, commitment_hash, amount, timestamp, block_number, tx_hash}) do
+  defp event_to_map({@events_table, commitment_hash, amount, timestamp, block_number, tx_hash}) do
     %{
-      id: id,
       commitment_hash: commitment_hash,
       amount: amount,
       timestamp: timestamp,
@@ -3021,46 +2918,553 @@ defmodule HighRollers.Rewards do
       tx_hash: tx_hash
     }
   end
+end
+```
 
-  defp earnings_to_map({@earnings_table, token_id, total_earned, pending_amount, last_24h, apy, updated_at}) do
+> **Note**: NFT earnings are now stored in the unified `hr_nfts` table.
+> Use `NFTStore.update_earnings/2` and `NFTStore.get/1` to access earnings data.
+
+### Sales Module
+
+**Purpose**: Mnesia operations for sales data (mint data stored in hr_nfts) and affiliate earnings
+
+```elixir
+defmodule HighRollers.Sales do
+  @moduledoc """
+  Mnesia operations for mint/sales data and affiliate earnings.
+
+  NOTE: Sale data is stored as mint fields in hr_nfts (via NFTStore).
+  This module handles affiliate earnings and provides convenience queries.
+  """
+
+  @affiliate_earnings_table :hr_affiliate_earnings
+
+  @doc "Record mint data in hr_nfts table (delegates to NFTStore)"
+  def insert(attrs) do
+    # Mint data is stored in hr_nfts - use NFTStore.upsert/1
+    # This function exists for clarity and to match the original API
+    HighRollers.NFTStore.upsert(attrs)
+  end
+
+  @doc "Insert affiliate earning record (bag table - allows multiple per token)"
+  def insert_affiliate_earning(attrs) do
+    record = {@affiliate_earnings_table,
+      attrs.token_id,
+      attrs.tier,
+      String.downcase(attrs.affiliate),
+      attrs.earnings,
+      attrs.tx_hash,
+      System.system_time(:second)
+    }
+
+    :mnesia.dirty_write(record)
+    :ok
+  end
+
+  @doc "Get affiliate stats (total earnings, count) for an address"
+  def get_affiliate_stats(address) do
+    address = String.downcase(address)
+
+    # Get all earnings for this affiliate using index
+    earnings = :mnesia.dirty_index_read(@affiliate_earnings_table, address, :affiliate)
+
+    tier1 = Enum.filter(earnings, fn record -> elem(record, 2) == 1 end)
+    tier2 = Enum.filter(earnings, fn record -> elem(record, 2) == 2 end)
+
+    %{
+      tier1_count: length(tier1),
+      tier1_total: sum_earnings(tier1),
+      tier2_count: length(tier2),
+      tier2_total: sum_earnings(tier2),
+      total_earned: sum_earnings(tier1) + sum_earnings(tier2)
+    }
+  end
+
+  @doc "Get recent affiliate earnings for an address"
+  def get_affiliate_earnings(address, limit \\ 50) do
+    address = String.downcase(address)
+
+    :mnesia.dirty_index_read(@affiliate_earnings_table, address, :affiliate)
+    |> Enum.sort_by(fn record -> elem(record, 6) end, :desc)  # Sort by timestamp
+    |> Enum.take(limit)
+    |> Enum.map(&earning_to_map/1)
+  end
+
+  defp sum_earnings(records) do
+    Enum.reduce(records, 0, fn record, acc ->
+      acc + String.to_integer(elem(record, 4))  # earnings field
+    end)
+  end
+
+  defp earning_to_map({@affiliate_earnings_table, token_id, tier, affiliate, earnings, tx_hash, timestamp}) do
     %{
       token_id: token_id,
-      total_earned: total_earned,
-      pending_amount: pending_amount,
-      last_24h_earned: last_24h,
-      apy_basis_points: apy,
-      updated_at: updated_at
+      tier: tier,
+      affiliate: affiliate,
+      earnings: earnings,
+      tx_hash: tx_hash,
+      timestamp: timestamp
     }
   end
+end
+```
 
-  defp global_stats_to_map({@global_stats_table, :global, received, distributed, last_24h, apy, nfts, points, updated}) do
-    %{
-      total_rewards_received: received,
-      total_rewards_distributed: distributed,
-      rewards_last_24h: last_24h,
-      overall_apy_basis_points: apy,
-      total_nfts: nfts,
-      total_multiplier_points: points,
-      updated_at: updated
-    }
+### Users Module
+
+**Purpose**: User management and affiliate linking
+
+```elixir
+defmodule HighRollers.Users do
+  @moduledoc """
+  Mnesia operations for user data and affiliate links.
+  """
+
+  @users_table :hr_users
+
+  @doc "Get or create a user record"
+  def get_or_create(wallet_address) do
+    address = String.downcase(wallet_address)
+
+    case :mnesia.dirty_read({@users_table, address}) do
+      [record] ->
+        user_to_map(record)
+
+      [] ->
+        now = System.system_time(:second)
+        record = {@users_table,
+          address,
+          nil,           # affiliate
+          nil,           # affiliate2
+          "0",           # affiliate_balance
+          "0",           # total_affiliate_earned
+          nil,           # linked_at
+          false,         # linked_on_chain
+          now,           # created_at
+          now            # updated_at
+        }
+        :mnesia.dirty_write(record)
+        user_to_map(record)
+    end
   end
 
-  defp hostess_stats_to_map({@hostess_stats_table, index, count, points, share, last_24h, apy, time_24h, time_apy, special, updated}) do
+  @doc "Set affiliate for a user (first referrer wins - only sets if nil)"
+  def set_affiliate(wallet_address, affiliate_address) do
+    address = String.downcase(wallet_address)
+    affiliate = String.downcase(affiliate_address)
+
+    case :mnesia.dirty_read({@users_table, address}) do
+      [{@users_table, ^address, nil, _, balance, total, _, linked, created, _}] ->
+        # No affiliate yet - set it
+        # Look up affiliate's affiliate for tier 2
+        affiliate2 = get_affiliate_of(affiliate)
+
+        record = {@users_table,
+          address,
+          affiliate,
+          affiliate2,
+          balance,
+          total,
+          System.system_time(:second),  # linked_at
+          linked,
+          created,
+          System.system_time(:second)   # updated_at
+        }
+        :mnesia.dirty_write(record)
+        {:ok, :linked}
+
+      [{@users_table, ^address, existing, _, _, _, _, _, _, _}] when not is_nil(existing) ->
+        # Already has affiliate
+        {:ok, :already_linked}
+
+      [] ->
+        # Create user with affiliate
+        affiliate2 = get_affiliate_of(affiliate)
+        now = System.system_time(:second)
+        record = {@users_table,
+          address,
+          affiliate,
+          affiliate2,
+          "0",
+          "0",
+          now,    # linked_at
+          false,  # linked_on_chain
+          now,    # created_at
+          now     # updated_at
+        }
+        :mnesia.dirty_write(record)
+        {:ok, :created_and_linked}
+    end
+  end
+
+  @doc "Get users referred by an affiliate address"
+  def get_by_affiliate(affiliate_address) do
+    affiliate = String.downcase(affiliate_address)
+
+    :mnesia.dirty_index_read(@users_table, affiliate, :affiliate)
+    |> Enum.map(&user_to_map/1)
+  end
+
+  defp get_affiliate_of(address) do
+    case :mnesia.dirty_read({@users_table, String.downcase(address)}) do
+      [{@users_table, _, affiliate, _, _, _, _, _, _, _}] -> affiliate
+      [] -> nil
+    end
+  end
+
+  defp user_to_map({@users_table, address, affiliate, affiliate2, balance, total, linked_at, linked_on_chain, created, updated}) do
     %{
-      hostess_index: index,
-      nft_count: count,
-      total_points: points,
-      share_basis_points: share,
-      last_24h_per_nft: last_24h,
-      apy_basis_points: apy,
-      time_24h_per_nft: time_24h,
-      time_apy_basis_points: time_apy,
-      special_nft_count: special,
+      wallet_address: address,
+      affiliate: affiliate,
+      affiliate2: affiliate2,
+      affiliate_balance: balance,
+      total_affiliate_earned: total,
+      linked_at: linked_at,
+      linked_on_chain: linked_on_chain,
+      created_at: created,
       updated_at: updated
     }
   end
 end
 ```
+
+---
+
+## LiveViews
+
+### Wallet State Management
+
+The following section (WalletHook) has been read and remains valid. Continue reading from here:
+
+```elixir
+defmodule HighRollersWeb.WalletHook do
+  @moduledoc """
+  on_mount hook that attaches wallet state handling to all LiveViews.
+
+  Usage in router.ex:
+      live_session :default, on_mount: [HighRollersWeb.WalletHook] do
+        live "/", MintLive
+        ...
+      end
+  """
+  import Phoenix.LiveView
+  import Phoenix.Component
+
+  def on_mount(:default, _params, _session, socket) do
+    socket =
+      socket
+      |> assign(:wallet_connected, false)
+      |> assign(:wallet_address, nil)
+      |> attach_hook(:wallet_events, :handle_event, &handle_wallet_event/3)
+
+    {:cont, socket}
+  end
+
+  defp handle_wallet_event("wallet_connected", %{"address" => address}, socket) do
+    socket =
+      socket
+      |> assign(:wallet_connected, true)
+      |> assign(:wallet_address, String.downcase(address))
+
+    {:halt, socket}
+  end
+
+  defp handle_wallet_event("wallet_disconnected", _params, socket) do
+    socket =
+      socket
+      |> assign(:wallet_connected, false)
+      |> assign(:wallet_address, nil)
+
+    {:halt, socket}
+  end
+
+  defp handle_wallet_event(_event, _params, socket) do
+    {:cont, socket}
+  end
+end
+```
+
+### MintLive
+
+**Purpose**: Main NFT gallery and minting page
+
+```elixir
+defmodule HighRollersWeb.MintLive do
+  use HighRollersWeb, :live_view
+
+  alias HighRollers.{NFTStore, Hostess, Rewards}
+
+  @impl true
+  def mount(_params, _session, socket) do
+    if connected?(socket) do
+      # Subscribe to NFT events for real-time updates
+      Phoenix.PubSub.subscribe(HighRollers.PubSub, "nft_events")
+      Phoenix.PubSub.subscribe(HighRollers.PubSub, "reward_events")
+    end
+
+    hostesses = load_hostess_stats()
+    recent_sales = NFTStore.get_recent_sales(10)
+    global_stats = Rewards.get_global_stats()
+
+    {:ok, assign(socket,
+      hostesses: hostesses,
+      recent_sales: recent_sales,
+      global_stats: global_stats,
+      minting: false,
+      pending_mint: nil
+    )}
+  end
+
+  @impl true
+  def handle_info({:nft_minted, event}, socket) do
+    # Update hostess stats
+    hostesses = update_hostess_count(socket.assigns.hostesses, event.hostess_index)
+
+    # Add to recent sales
+    recent_sales = [sale_from_event(event) | Enum.take(socket.assigns.recent_sales, 9)]
+
+    {:noreply, assign(socket, hostesses: hostesses, recent_sales: recent_sales)}
+  end
+
+  @impl true
+  def handle_info({:mint_requested, event}, socket) do
+    # Check if this is our pending mint
+    if socket.assigns.wallet_address &&
+       String.downcase(event.sender) == socket.assigns.wallet_address do
+      {:noreply, assign(socket, pending_mint: event)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:reward_received, _event}, socket) do
+    # Refresh global stats
+    global_stats = Rewards.get_global_stats()
+    {:noreply, assign(socket, global_stats: global_stats)}
+  end
+
+  # ... render functions ...
+
+  defp load_hostess_stats do
+    Enum.map(0..7, fn index ->
+      hostess = Hostess.get(index)
+      count = NFTStore.count_by_hostess(index)
+      stats = Rewards.get_all_hostess_stats() |> Enum.find(&(&1.hostess_index == index))
+
+      %{
+        index: index,
+        name: hostess.name,
+        image: hostess.image,
+        multiplier: hostess.multiplier,
+        count: count,
+        apy_basis_points: stats[:apy_basis_points] || 0,
+        last_24h_per_nft: stats[:last_24h_per_nft] || "0"
+      }
+    end)
+  end
+
+  defp update_hostess_count(hostesses, index) do
+    Enum.map(hostesses, fn h ->
+      if h.index == index, do: %{h | count: h.count + 1}, else: h
+    end)
+  end
+
+  defp sale_from_event(event) do
+    %{
+      token_id: event.token_id,
+      hostess_name: Hostess.get(event.hostess_index).name,
+      buyer: event.recipient,
+      price: event.price,
+      timestamp: System.system_time(:second)
+    }
+  end
+end
+```
+
+---
+
+## More Complete Sections Follow...
+
+The following sections remain valid as previously defined:
+- SalesLive (lines 3803-3970)
+- MyNFTsLive (lines 3975-4300)
+- RevenuesLive (lines 4303-4700)
+- AffiliatesLive (lines 4960-5180)
+- HealthController (lines 5275-5388)
+- RateLimit Plug (lines 5393-5475)
+
+---
+
+## EarningsSyncer (Updated for Unified Schema)
+
+Now uses `NFTStore.update_earnings/2` instead of separate `hr_nft_earnings` table:
+
+```elixir
+defmodule HighRollers.EarningsSyncer do
+  @moduledoc """
+  Background service that syncs NFT earnings from the NFTRewarder contract.
+
+  Runs every 60 seconds to:
+  1. Batch query earnings for all NFTs from contract
+  2. Calculate 24h earnings and APY
+  3. Update hr_nfts table via NFTStore (earnings fields)
+  4. Update global and per-hostess stats
+
+  Uses NFTStore for all earnings updates to maintain write serialization.
+  """
+  use GenServer
+  require Logger
+
+  @sync_interval_ms 60_000  # 60 seconds
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  @impl true
+  def init(_opts) do
+    # Initial sync after short delay to let other services start
+    Process.send_after(self(), :sync, 5_000)
+
+    Logger.info("[EarningsSyncer] Started, syncing every #{@sync_interval_ms}ms")
+    {:ok, %{last_sync: nil}}
+  end
+
+  @impl true
+  def handle_info(:sync, state) do
+    Logger.debug("[EarningsSyncer] Starting sync")
+
+    case sync_all_earnings() do
+      :ok ->
+        Logger.debug("[EarningsSyncer] Sync complete")
+
+      {:error, reason} ->
+        Logger.warning("[EarningsSyncer] Sync failed: #{inspect(reason)}")
+    end
+
+    schedule_next_sync()
+    {:noreply, %{state | last_sync: System.system_time(:second)}}
+  end
+
+  defp schedule_next_sync do
+    Process.send_after(self(), :sync, @sync_interval_ms)
+  end
+
+  defp sync_all_earnings do
+    # Get all token IDs from Mnesia
+    nfts = HighRollers.NFTStore.get_all()
+    token_ids = Enum.map(nfts, & &1.token_id)
+
+    # Batch query earnings from contract (100 at a time)
+    token_ids
+    |> Enum.chunk_every(100)
+    |> Enum.each(fn batch ->
+      case HighRollers.Contracts.NFTRewarder.get_batch_nft_earnings(batch) do
+        {:ok, earnings_list} ->
+          # Update each NFT's earnings via NFTStore
+          Enum.each(earnings_list, fn %{token_id: token_id} = earnings ->
+            HighRollers.NFTStore.update_earnings(token_id, %{
+              total_earned: earnings.total_earned,
+              pending_amount: earnings.pending_amount,
+              last_24h_earned: calculate_24h_earnings(token_id, earnings),
+              apy_basis_points: calculate_apy(earnings)
+            })
+          end)
+
+        {:error, reason} ->
+          Logger.warning("[EarningsSyncer] Batch query failed: #{inspect(reason)}")
+      end
+
+      # Rate limiting
+      Process.sleep(100)
+    end)
+
+    # Update stats
+    update_global_stats()
+    update_hostess_stats()
+
+    :ok
+  end
+
+  defp calculate_24h_earnings(_token_id, _earnings) do
+    # TODO: Compare with 24h ago snapshot
+    "0"
+  end
+
+  defp calculate_apy(_earnings) do
+    # TODO: Calculate based on 24h earnings * 365 / mint_price
+    0
+  end
+
+  defp update_global_stats do
+    # Aggregate from all NFTs
+    nfts = HighRollers.NFTStore.get_all()
+
+    total_earned = Enum.reduce(nfts, 0, fn nft, acc ->
+      acc + String.to_integer(nft.total_earned || "0")
+    end)
+
+    total_pending = Enum.reduce(nfts, 0, fn nft, acc ->
+      acc + String.to_integer(nft.pending_amount || "0")
+    end)
+
+    HighRollers.Rewards.update_global_stats(%{
+      total_rewards_received: Integer.to_string(total_earned + total_pending),
+      total_rewards_distributed: Integer.to_string(total_earned),
+      rewards_last_24h: "0",  # TODO: Calculate
+      overall_apy_basis_points: 0,  # TODO: Calculate
+      total_nfts: length(nfts),
+      total_multiplier_points: calculate_total_multiplier_points(nfts)
+    })
+  end
+
+  defp update_hostess_stats do
+    nfts = HighRollers.NFTStore.get_all()
+
+    Enum.each(0..7, fn hostess_index ->
+      hostess = HighRollers.Hostess.get(hostess_index)
+      hostess_nfts = Enum.filter(nfts, &(&1.hostess_index == hostess_index))
+
+      HighRollers.Rewards.update_hostess_stats(hostess_index, %{
+        nft_count: length(hostess_nfts),
+        total_points: length(hostess_nfts) * hostess.multiplier,
+        share_basis_points: 0,  # TODO: Calculate
+        last_24h_per_nft: "0",  # TODO: Calculate
+        apy_basis_points: 0,    # TODO: Calculate
+        time_24h_per_nft: "0",  # TODO: Calculate
+        time_apy_basis_points: 0,  # TODO: Calculate
+        special_nft_count: Enum.count(hostess_nfts, &is_special_nft?/1)
+      })
+    end)
+  end
+
+  defp calculate_total_multiplier_points(nfts) do
+    Enum.reduce(nfts, 0, fn nft, acc ->
+      hostess = HighRollers.Hostess.get(nft.hostess_index)
+      acc + hostess.multiplier
+    end)
+  end
+
+  defp is_special_nft?(nft) do
+    nft.token_id >= 2340 && nft.token_id <= 2700
+  end
+end
+```
+
+---
+
+## Removed: EarningsStore GenServer
+
+> **REMOVED**: The `EarningsStore` GenServer is no longer needed because earnings data
+> is now stored in the unified `hr_nfts` table. All earnings updates go through
+> `NFTStore.update_earnings/2` which serializes writes to prevent race conditions.
+
+The original `EarningsStore` code (lines 2380-2503 of the previous version) has been removed.
+For reference, the functionality it provided is now handled by:
+
+- `NFTStore.update_earnings(token_id, attrs)` - Update earnings fields in hr_nfts
+- `NFTStore.get(token_id)` - Get NFT with earnings data included
+- `NFTStore.reset_pending(token_id)` - Reset pending_amount to "0" after withdrawal
 
 ---
 
@@ -6088,7 +6492,7 @@ import Config
 config :high_rollers,
   # Arbitrum NFT contract
   nft_contract_address: "0x7176d2edd83aD037bd94b7eE717bd9F661F560DD",
-  arbitrum_rpc_url: "https://arb1.arbitrum.io/rpc",
+  arbitrum_rpc_url: "https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d",
 
   # Rogue Chain NFTRewarder
   nft_rewarder_address: "0x96aB9560f1407586faE2b69Dc7f38a59BEACC594",
@@ -7591,6 +7995,82 @@ defmodule HighRollers.Contracts.NFTRewarder do
 end
 ```
 
+
+---
+
+## Telemetry & Observability
+
+### Telemetry Events
+
+All GenServers and critical paths emit telemetry events for observability:
+
+| Event | Measurements | Metadata | Description |
+|-------|--------------|----------|-----------|
+| `[:high_rollers, :rpc, :call]` | `duration` | `method`, `url`, `result` | RPC call latency |
+| `[:high_rollers, :rpc, :retry]` | `attempt` | `method`, `url`, `error` | RPC retry attempt |
+| `[:high_rollers, :arbitrum_poller, :poll]` | `duration`, `events_count` | `from_block`, `to_block` | Arbitrum polling |
+| `[:high_rollers, :rogue_poller, :poll]` | `duration`, `events_count` | `from_block`, `to_block` | Rogue Chain polling |
+| `[:high_rollers, :earnings_syncer, :sync]` | `duration`, `nfts_synced` | `batch_size` | Earnings sync |
+| `[:high_rollers, :admin_tx, :send]` | `duration` | `action`, `result`, `tx_hash` | Admin tx sent |
+| `[:high_rollers, :admin_tx, :queue_depth]` | `count` | - | Pending admin txs |
+| `[:high_rollers, :mnesia, :write]` | `duration` | `table`, `operation` | Mnesia write |
+
+### HighRollersWeb.Telemetry Module
+
+```elixir
+defmodule HighRollersWeb.Telemetry do
+  use Supervisor
+  import Telemetry.Metrics
+
+  def start_link(arg), do: Supervisor.start_link(__MODULE__, arg, name: __MODULE__)
+
+  @impl true
+  def init(_arg) do
+    children = [{:telemetry_poller, measurements: periodic_measurements(), period: 10_000}]
+    Supervisor.init(children, strategy: :one_for_one)
+  end
+
+  def metrics do
+    [
+      # Phoenix and LiveView
+      summary("phoenix.endpoint.stop.duration", unit: {:native, :millisecond}),
+      summary("phoenix.live_view.mount.stop.duration", unit: {:native, :millisecond}),
+
+      # RPC Metrics
+      summary("high_rollers.rpc.call.duration", unit: {:native, :millisecond}, tags: [:method, :result]),
+      counter("high_rollers.rpc.retry.attempt", tags: [:method, :error]),
+
+      # Poller Metrics
+      summary("high_rollers.arbitrum_poller.poll.duration", unit: {:native, :millisecond}),
+      summary("high_rollers.rogue_poller.poll.duration", unit: {:native, :millisecond}),
+
+      # Admin TX Metrics
+      summary("high_rollers.admin_tx.send.duration", unit: {:native, :millisecond}, tags: [:action]),
+      last_value("high_rollers.admin_tx.queue_depth.count"),
+
+      # VM Metrics
+      summary("vm.memory.total", unit: {:byte, :megabyte}),
+      summary("vm.total_run_queue_lengths.total")
+    ]
+  end
+
+  defp periodic_measurements do
+    [{__MODULE__, :measure_admin_tx_queue, []}, {__MODULE__, :measure_mnesia_tables, []}]
+  end
+
+  def measure_admin_tx_queue do
+    queue_depth = HighRollers.AdminTxQueue.queue_depth()
+    :telemetry.execute([:high_rollers, :admin_tx, :queue_depth], %{count: queue_depth}, %{})
+  end
+
+  def measure_mnesia_tables do
+    for table <- [:hr_nfts, :hr_users, :hr_reward_events] do
+      size = :mnesia.table_info(table, :size)
+      :telemetry.execute([:high_rollers, :mnesia, :table_size], %{count: size}, %{table: table})
+    end
+  end
+end
+```
 ---
 
 ## Testing Strategy
@@ -8118,3 +8598,741 @@ high_rollers/
   ]}
 ]
 ```
+
+---
+
+## Implementation Checklist
+
+> **Instructions**: Use this checklist to track implementation progress. Mark tasks as completed by changing `[ ]` to `[x]`. Line numbers reference the code examples in this document - use them to find the exact implementation details.
+>
+> **Note**: This document defines **9 Mnesia tables** (not 8 or 10). The `hr_nft_earnings` table was merged into `hr_nfts`, and `EarningsStore` GenServer is no longer needed - all earnings updates go through `NFTStore`.
+
+### Phase 1: Project Setup & Core Infrastructure ✅ COMPLETE
+
+- [x] **1.** Create new Phoenix app: `mix phx.new high_rollers --no-ecto --no-mailer`
+
+- [x] **2.** Add deps to mix.exs: phoenix ~>1.7, phoenix_live_view ~>0.20, phoenix_pubsub ~>2.1, jason ~>1.4, plug_cowboy ~>2.7, ethers ~>0.5, finch ~>0.18, exqlite ~>0.23, dns_cluster ~>0.1.3, libcluster ~>3.4 (dev only), hammer ~>6.1
+
+- [x] **3.** Configure config/config.exs: nft_contract_address, arbitrum_rpc_url, nft_rewarder_address, rogue_rpc_url, mint_price, max_supply (lines 6459-6476)
+
+- [x] **4.** Configure config/dev.exs: ports 4002/4003, libcluster Epmd strategy with hr1/hr2 node names (lines 6537-6568)
+
+- [x] **5.** Configure config/prod.exs: DNSCluster for Fly.io (lines 6571-6596)
+
+- [x] **6.** Configure config/runtime.exs: ADMIN_PRIVATE_KEY, AFFILIATE_LINKER_PRIVATE_KEY, DEFAULT_AFFILIATE from env (lines 6491-6532)
+
+- [x] **7.** Implement HighRollers.MnesiaInitializer with 9 tables: hr_nfts, hr_reward_events, hr_reward_withdrawals, hr_users, hr_affiliate_earnings, hr_pending_mints, hr_admin_ops, hr_stats, hr_poller_state (lines 310-519)
+
+- [x] **8.** Implement HighRollers.RPC module with Finch HTTP client, retry logic, exponential backoff (lines 7197-7303)
+
+- [x] **9.** Update application.ex supervision tree: Telemetry → Finch → DNSCluster → PubSub → libcluster → MnesiaInitializer → NFTStore → AdminTxQueue → pollers → syncers → Endpoint (lines 103-154)
+
+**Phase 1 Summary (Completed Jan 9, 2026)**:
+
+Created the Phoenix application with all core infrastructure:
+
+1. **Phoenix App**: Generated with `--no-ecto --no-mailer` flags using Phoenix 1.8.3. Uses Bandit instead of Cowboy (new default in Phoenix 1.8).
+
+2. **Dependencies Added**:
+   - `ethers ~> 0.5` - Ethereum RPC interactions
+   - `finch ~> 0.18` - HTTP connection pooling for RPC calls
+   - `exqlite ~> 0.23` - SQLite for reading Node.js migration data
+   - `libcluster ~> 3.4` (dev only) - Dev cluster discovery
+   - `hammer ~> 6.1` - Rate limiting
+   - Note: `phoenix_pubsub` and `dns_cluster` already included by default
+
+3. **Configuration**:
+   - `config.exs`: Contract addresses (Arbitrum NFT + Rogue NFTRewarder), RPC URLs, mint price (0.32 ETH)
+   - `dev.exs`: Port 4002 (avoids conflict with Blockster V2), libcluster with hr1/hr2 node names, env var loading
+   - `prod.exs`: Fly.io host, DNSCluster config marker
+   - `runtime.exs`: Mnesia directory (project-local for dev, /data/mnesia for prod), production secrets
+
+4. **MnesiaInitializer**: Created with all 9 tables defined. Uses GlobalSingleton pattern for safe rolling deploys. Handles cluster joining, table creation, and sync from existing nodes.
+
+5. **GlobalSingleton Module**: Added to prevent crashes during rolling deploys. Uses custom conflict resolver that keeps existing process instead of killing.
+
+6. **RPC Module**: Finch-based with exponential backoff retry (3 attempts, 500ms→1s→2s). Helper functions for Arbitrum and Rogue Chain calls. Hex conversion utilities included.
+
+7. **Supervision Tree**: Updated with correct startup order:
+   - Telemetry → Finch → DNSCluster → PubSub → libcluster (dev) → MnesiaInitializer → (future GenServers commented) → Endpoint
+
+**Files Created**:
+- `lib/high_rollers/mnesia_initializer.ex` - 9 Mnesia tables with proper indices
+- `lib/high_rollers/global_singleton.ex` - Safe global GenServer registration
+- `lib/high_rollers/rpc.ex` - Finch HTTP client with retry logic
+
+**Notes**:
+- Application compiles successfully with no errors
+- Port 4002 used to avoid conflict with Blockster V2 (ports 4000/4001)
+- Node names use hr1/hr2 prefix instead of node1/node2 to avoid conflict
+- Future GenServers (NFTStore, AdminTxQueue, pollers, syncers) are commented out in application.ex with TODO markers for later phases
+
+### Phase 2: Pure Calculation Modules
+
+- [x] **10.** Implement HighRollers.Hostess module: 8 hostesses with names, multipliers [100,90,80,70,60,50,40,30], images (lines 2637-2722)
+
+- [x] **11.** Implement HighRollers.TimeRewards module: rate calculation, pending amounts, 180-day duration (lines 2449-2634)
+
+### Phase 3: Contract Interaction Modules
+
+- [x] **12.** Implement HighRollers.Contracts.NFTContract (Arbitrum): get_block_number, get_nft_requested_events, get_nft_minted_events, get_transfer_events, event decoders (lines 7320-7613)
+
+- [x] **13.** Implement HighRollers.Contracts.NFTRewarder (Rogue): get_block_number, get_reward_received_events, get_reward_claimed_events, get_batch_nft_earnings, get_time_reward_info (lines 7630-7968)
+
+### Phase 4: Mnesia Write Serializer
+
+- [x] **14.** Implement HighRollers.NFTStore GenServer: upsert, update_owner, update_earnings, update_time_reward, insert_pending_mint, delete_pending_mint, get_all, count queries (lines 2088-2373)
+
+### Phase 5: Data Access Modules
+
+- [x] **15.** Implement HighRollers.Rewards module: insert_event, record_withdrawal, get_rewards_since, update_global_stats, update_hostess_stats, update_time_reward_stats using unified hr_stats table (lines 2725-2888)
+
+- [x] **16.** Implement HighRollers.Sales module: insert (delegates to NFTStore), insert_affiliate_earning, get_affiliate_stats (lines 2899-2977)
+
+- [x] **17.** Implement HighRollers.Users module: get_or_create, set_affiliate, get_by_affiliate (lines 2984-3094)
+
+---
+
+#### Phase 2-5 Implementation Summary (Completed Jan 9, 2026)
+
+**Files Created**:
+- `lib/high_rollers/hostess.ex` - Static metadata for 8 hostess types with multipliers, names, images
+- `lib/high_rollers/time_rewards.ex` - Pure calculation module for time-based rewards (180-day duration, special NFTs 2340-2700)
+- `lib/high_rollers/rewards.ex` - Mnesia operations for hr_reward_events, hr_reward_withdrawals, hr_stats tables
+- `lib/high_rollers/nft_store.ex` - GenServer serializing writes to hr_nfts table with unified 20-field schema
+- `lib/high_rollers/contracts/nft_contract.ex` - Arbitrum NFT contract RPC interactions (event queries, view functions)
+- `lib/high_rollers/contracts/nft_rewarder.ex` - Rogue Chain NFTRewarder contract RPC interactions
+- `lib/high_rollers/users.ex` - User management and two-tier affiliate linking
+- `lib/high_rollers/sales.ex` - Affiliate earnings operations on hr_affiliate_earnings table
+
+**Files Modified**:
+- `lib/high_rollers/application.ex` - Uncommented NFTStore GenServer in supervision tree
+
+**Key Implementation Notes**:
+
+1. **Keccak256 Hashing**: Used `ExKeccak.hash_256()` from the ex_keccak library (dependency of ethers) instead of Erlang's `:crypto.hash/2` which doesn't support keccak256.
+
+2. **RPC Module Integration**: Contract modules use `HighRollers.RPC.call/4` (url, method, params, opts) with built-in retry logic and timeout handling.
+
+3. **Unified hr_nfts Schema**: NFTStore uses a 20-field tuple that combines core identity, mint data, revenue share earnings, and time rewards fields. This eliminates the need for separate tables and JOIN operations.
+
+4. **Time Rewards**: Special NFTs (token_ids 2340-2700) have time-based rewards with hostess-specific rates per second. The TimeRewards module provides pure calculation functions while NFTStore persists the state.
+
+5. **Two-Tier Affiliate System**: Users module supports first-referrer-wins affiliate linking with automatic tier-2 derivation (affiliate's affiliate becomes affiliate2).
+
+6. **hr_stats Table**: Single table with compound keys (:global, {:hostess, N}, :time_rewards) for efficient stats storage.
+
+7. **Mnesia Dirty Operations**: All modules use dirty operations (dirty_read, dirty_write, dirty_index_read) for performance, with NFTStore GenServer serializing writes to prevent inconsistency.
+
+**Application compiles successfully with no warnings.**
+
+---
+
+### Phase 6: Blockchain Pollers ✅
+
+- [x] **18.** Implement HighRollers.ArbitrumEventPoller GenServer: 1s polling, backfill from deploy block, persist last_processed_block to hr_poller_state, GlobalSingleton (lines 538-904, @poll_interval_ms 1_000 at line 566)
+
+- [x] **19.** Implement HighRollers.RogueRewardPoller GenServer: 1s polling, handle RewardReceived/RewardClaimed events, GlobalSingleton (lines 914-1067, @poll_interval_ms 1_000 at line 947)
+
+**Phase 6 Summary (Completed Jan 9, 2026):**
+
+Both blockchain pollers implemented with GlobalSingleton pattern for cluster-wide single instance:
+
+1. **ArbitrumEventPoller** (`lib/high_rollers/arbitrum_event_poller.ex`):
+   - **Uses GlobalSingleton** for cluster-wide single instance (prevents duplicate RPC calls on multi-server deploy)
+   - Polls Arbitrum NFT contract every 1 second for NFTRequested, NFTMinted, and Transfer events
+   - Persists `last_processed_block` to Mnesia `hr_poller_state` table for restart recovery
+   - Backfills historical events from deploy block (150,000,000) on first startup
+   - Handles NFT mints by inserting into hr_nfts via NFTStore, tracking affiliate earnings
+   - Handles transfers by updating ownership in Mnesia and enqueueing NFTRewarder updates via AdminTxQueue
+   - Broadcasts events via Phoenix.PubSub for real-time LiveView updates
+   - Uses `polling: true/false` state flag to prevent overlapping polls
+
+2. **RogueRewardPoller** (`lib/high_rollers/rogue_reward_poller.ex`):
+   - **Uses GlobalSingleton** for cluster-wide single instance (prevents duplicate RPC calls on multi-server deploy)
+   - Polls NFTRewarder contract on Rogue Chain every 1 second for RewardReceived and RewardClaimed events
+   - Persists `last_processed_block` to Mnesia for restart recovery
+   - Backfills from deploy block (109,350,000) on startup
+   - Updates reward events in hr_reward_events table via Rewards module
+   - Updates global and hostess stats when rewards received
+   - Updates NFT time_last_claim when rewards claimed
+   - Broadcasts events via Phoenix.PubSub for LiveView updates
+
+**Key Design Decisions:**
+- Both pollers use GlobalSingleton for cluster-wide single instance - only one node polls each blockchain at a time
+- This prevents duplicate RPC calls, duplicate PubSub broadcasts, and wasted quota on multi-server deployments
+- Event backfill runs async on startup to not block application boot
+- Pollers gracefully handle RPC failures by logging warnings and continuing
+
+---
+
+### Phase 7: Background Services ✅
+
+- [x] **20.** Implement HighRollers.EarningsSyncer GenServer: 60s sync, batch query contract, calculate 24h/APY, sync via NFTStore.update_earnings, GlobalSingleton (lines 1100-1376 OR 3270-3419, @sync_interval_ms 60_000)
+
+- [x] **21.** Implement HighRollers.AdminTxQueue GenServer: 5s processing, persistent queue in hr_admin_ops, 3 retries with backoff, dead letter handling, GlobalSingleton (lines 1389-1760, @process_interval_ms 5_000 at line 1411)
+
+- [x] **22.** Implement HighRollers.OwnershipReconciler GenServer: 5 min interval, compare Mnesia vs NFTRewarder, enqueue corrections, GlobalSingleton (lines 1874-2042, @reconcile_interval_ms :timer.minutes(5) at line 1891)
+
+**Phase 7 Summary (Completed Jan 9, 2026):**
+
+All three background services implemented with GlobalSingleton pattern for cluster-wide single instance:
+
+1. **EarningsSyncer** (`lib/high_rollers/earnings_syncer.ex`):
+   - Syncs NFT earnings from NFTRewarder contract every 60 seconds
+   - Uses O(1) calculation for 24h earnings per NFT: `nft_24h = global_24h × (nft_multiplier / total_multiplier_points)`
+   - Batch queries contract in groups of 100 NFTs to avoid rate limits
+   - Calculates APY based on 24h earnings and NFT value in ROGUE
+   - Syncs time reward claim times as backup for missed events
+   - Updates global stats (total received/distributed, overall APY)
+   - Updates per-hostess stats (count, share %, APY)
+   - Broadcasts `:earnings_synced` via PubSub for LiveView updates
+   - Gets price data from BlocksterV2.PriceTracker if available in cluster
+
+2. **AdminTxQueue** (`lib/high_rollers/admin_tx_queue.ex`):
+   - Serializes admin wallet transactions to prevent nonce conflicts
+   - Processes queue every 5 seconds
+   - Supports operations: register_nft, update_ownership, withdraw_to, link_affiliate
+   - 3 retries with exponential backoff (1s, 2s, 4s)
+   - Dead letter handling after max retries
+   - Persists operations to Mnesia `hr_admin_ops` table for crash recovery
+   - Gracefully degrades if `admin_private_key` not configured (logs warning, doesn't process)
+   - Uses EIP-155 transaction signing with ExSecp256k1
+   - Handles both Rogue Chain (NFT operations) and Arbitrum (affiliate linking)
+
+3. **OwnershipReconciler** (`lib/high_rollers/ownership_reconciler.ex`):
+   - Reconciles NFT ownership every 5 minutes
+   - Compares Mnesia hr_nfts owners vs NFTRewarder contract owners
+   - Batch queries contract in groups of 100 NFTs
+   - Falls back to individual queries if batch fails
+   - Enqueues corrections via AdminTxQueue for mismatches
+   - Tracks stats: last_run, duration, mismatches_found, corrections_queued
+   - Skips reconciliation if AdminTxQueue not available
+
+**Additional Changes:**
+- Added `{:ex_secp256k1, "~> 0.7"}` to mix.exs for transaction signing
+- Added `get_owners_batch/1` and `get_nft_owner/1` to `contracts/nft_rewarder.ex`
+- Updated `application.ex` supervision tree with all new GenServers in correct order
+
+**Supervision Tree Order:**
+1. Telemetry
+2. Finch (HTTP client)
+3. DNSCluster / libcluster
+4. PubSub
+5. MnesiaInitializer
+6. NFTStore (write serializer)
+7. AdminTxQueue (global singleton - must start before pollers)
+8. ArbitrumEventPoller
+9. RogueRewardPoller
+10. EarningsSyncer
+11. OwnershipReconciler
+12. Phoenix Endpoint
+
+---
+
+### Phase 8: Phoenix Router & Controllers ✅ COMPLETED
+
+- [x] **23.** Configure router.ex: / → MintLive, /sales → SalesLive, /affiliates → AffiliatesLive, /my-nfts → MyNFTsLive, /revenues → RevenuesLive (lines 3467-3510)
+
+- [x] **24.** Implement HighRollersWeb.AffiliateController: POST /api/link-affiliate (lines 3514-3611)
+
+- [x] **25.** Implement HighRollersWeb.HealthController: GET /api/health, /api/health/ready, /api/health/live with Mnesia and RPC checks (lines 5660-5762)
+
+- [x] **26.** Implement HighRollersWeb.Plugs.RateLimit using Hammer: 100/min default, 10/min for withdrawals (lines 5765-5843)
+
+#### Phase 8 Summary (Completed Jan 9, 2026)
+
+**Files Created:**
+- `lib/high_rollers_web/router.ex` - Updated with LiveView routes and API pipelines
+- `lib/high_rollers_web/controllers/affiliate_controller.ex` - Affiliate linking API
+- `lib/high_rollers_web/controllers/health_controller.ex` - Health check endpoints
+- `lib/high_rollers_web/plugs/rate_limit.ex` - Hammer-based rate limiting plug
+- `lib/high_rollers_web/live/wallet_hook.ex` - Minimal WalletHook stub for router
+- `lib/high_rollers_web/live/mint_live.ex` - Stub LiveView
+- `lib/high_rollers_web/live/sales_live.ex` - Stub LiveView
+- `lib/high_rollers_web/live/affiliates_live.ex` - Stub LiveView
+- `lib/high_rollers_web/live/my_nfts_live.ex` - Stub LiveView
+- `lib/high_rollers_web/live/revenues_live.ex` - Stub LiveView
+
+**Configuration Added:**
+- Hammer ETS backend configuration in `config/config.exs`
+
+**Notes:**
+1. Stub LiveViews created to satisfy router references - use inline `render/1` for now
+2. **IMPORTANT:** Phase 10 must replace stub LiveViews with separate `.html.heex` template files
+3. WalletHook is a minimal implementation - Phase 9 will expand it with localStorage persistence
+4. Rate limiting uses Hammer with ETS backend (100 req/min default, 10 req/min sensitive)
+5. Health checks verify Mnesia, Arbitrum RPC, Rogue RPC, and AdminTxQueue
+6. Code compiles successfully with `mix compile`
+
+**Warnings to Address Later:**
+- `BlocksterV2.PriceTracker` module undefined - exists in main blockster_v2 app, will work when deployed together
+
+---
+
+### Phase 9: Wallet State Management ✅ COMPLETE
+
+- [x] **27.** Implement HighRollersWeb.WalletHook on_mount: attach to all LiveViews, handle wallet_connected/wallet_disconnected events (lines 3106-3150 OR 3724-3768)
+
+- [x] **28.** Create layouts/root.html.heex with head content, meta tags, font imports (lines 5853-5938)
+
+- [x] **29.** Create layouts/app.html.heex with header, hero section, tab navigation, wallet modal (lines 5853-5938)
+
+**Phase 9 Summary (Completed Jan 9, 2026):**
+
+1. **WalletHook** (`lib/high_rollers_web/live/wallet_hook.ex`):
+   - Updated existing stub to full implementation
+   - Added `wallet_balance` and `current_chain` assigns (beyond original spec)
+   - Handles events: `wallet_connected`, `wallet_disconnected`, `wallet_balance_updated`, `wallet_chain_changed`
+   - Uses `{:cont, socket}` to allow LiveViews to also handle wallet events for page-specific logic
+   - Chain parsing supports both string ("arbitrum") and chain ID (42161) formats
+
+2. **root.html.heex** (`lib/high_rollers_web/components/layouts/root.html.heex`):
+   - Minimal HTML5 skeleton with dark theme (`bg-gray-900 text-white`)
+   - Meta tags for SEO (description for High Rollers NFTs)
+   - Favicon from ImageKit CDN
+   - No CDN scripts - ethers.js bundled via vendor folder
+
+3. **Layouts.ex** (`lib/high_rollers_web/components/layouts.ex`):
+   - Replaced default Phoenix `app/1` component with High Rollers layout
+   - **Header**: Logo + wallet connect/disconnect button with balance display
+   - **Hero Banner**: Purple gradient with DeFi messaging and special NFTs feature box
+   - **Tab Navigation**: Sticky nav with 5 tabs (Mint, Live Sales, Affiliates, My NFTs, My Earnings)
+   - **My NFTs tab** only visible when `wallet_connected == true`
+   - **Wallet Modal**: 4 wallet options (MetaMask, Coinbase, Rabby, Trust)
+   - **Footer**: Contract link to Arbiscan
+   - **Flash Messages**: Positioned fixed top-right with connection status
+   - Helper functions: `truncate_address/1`, `show_modal/1`, `hide_modal/1`
+
+4. **Assets**:
+   - Downloaded ethers.js v6.9.0 to `assets/vendor/ethers.min.js` (489KB)
+   - Updated `app.js` to import ethers and expose as `window.ethers`
+   - Copied wallet icons from Node.js app to `priv/static/images/wallets/`
+
+**Notes:**
+- Layout uses `phx-hook="WalletHook"` on wallet-section div (Phase 11 will create the JS hook)
+- Tab highlighting requires passing `current_path` from LiveViews
+- Wallet modal uses Phoenix.LiveView.JS for show/hide (no JavaScript required)
+- IDE warnings about `bg-gradient-to-r` → `bg-linear-to-r` are cosmetic (Tailwind v4 syntax)
+
+---
+
+### Phase 10: LiveView Pages
+
+- [x] **30.** Implement HighRollersWeb.MintLive: hostess gallery with stats badges, mint button, recent sales table, PubSub subscriptions (lines 3158-3249 OR 4825-4922)
+
+- [x] **31.** Implement HighRollersWeb.SalesLive: paginated sales table with infinite scroll (described in router lines 3498-3505, template at lines 5038-5060)
+
+- [x] **32.** Implement HighRollersWeb.AffiliatesLive: referral link, tier 1/2 earnings tables, withdraw button (lines 5278-5512)
+
+- [x] **33.** Implement HighRollersWeb.MyNFTsLive: user's NFTs grid, earnings per NFT, time rewards display (described at line 3500, implementation follows pattern of other LiveViews)
+
+- [x] **34.** Implement HighRollersWeb.RevenuesLive: global stats header, per-hostess breakdown table, 24h earnings, APY (lines 3967-4257)
+
+#### Phase 10 Progress Summary (Tasks 30-34 Complete)
+
+**MintLive** (`mint_live.ex`, `mint_live.html.heex`):
+- HTML structure copied exactly from Node.js app (`public/index.html` lines 117-227)
+- JS templating (`${variable}`, `${condition ? x : y}`) converted to HEEx (`<%= @variable %>`, `<%= if condition do %>`)
+- `renderHostessCard()` from `ui.js` (lines 303-361) converted to inline HEEx loop
+- PubSub subscriptions: `nft_events`, `reward_events`, `earnings_events`, `price_events`
+- Real-time handlers: `:nft_minted`, `:mint_requested`, `:reward_received`, `:earnings_synced`, `:price_update`
+- Helper functions: `format_rogue/1`, `format_usd/2`, `format_apy/1`, `format_180_day_earnings/1`, `progress_percent/2`
+- Time reward rate constants for special NFTs (2340-2700)
+
+**SalesLive** (`sales_live.ex`, `sales_live.html.heex`):
+- HTML structure copied exactly from Node.js app (`public/index.html` lines 228-262)
+- `renderSaleRow()` from `ui.js` (lines 366-397) converted to inline HEEx loop
+- Added `get_sales/2` function to `HighRollers.Sales` for pagination
+- PubSub subscription: `nft_events`
+- Real-time handler: `:nft_minted` prepends new sales to table
+- Infinite scroll via `InfiniteScroll` hook with `load_more_sales` event
+- Helper functions: `format_eth/1`, `format_time_ago/1`, `truncate_address/1`
+
+**AffiliatesLive** (`affiliates_live.ex`, `affiliates_live.html.heex`):
+- HTML structure copied exactly from Node.js app (`public/index.html` lines 264-368)
+- `renderAffiliateRow()` from `ui.js` (lines 402-427) converted to inline HEEx loop
+- Single global "Recent Affiliate Earnings" table with tier badges (Tier 1 green, Tier 2 blue)
+- User's referral section (when connected): stats cards (Tier 1/Tier 2/Withdrawable), "Your Referrals" table
+- Connect wallet prompt when not connected
+- Added `get_affiliate_earnings/3` to `HighRollers.Sales` with nil address support for global view
+- Updated `earning_to_map/1` to include `hostess_index` and `earnings_eth`
+- PubSub subscriptions: `nft_events`, `affiliate:{address}` (user-specific)
+- Real-time handlers: `:nft_minted` (reloads global), `:affiliate_earning` (reloads user stats)
+- Hooks: `CopyToClipboard`, `AffiliateWithdraw`, `InfiniteScroll`
+- Helper functions: `format_eth/1`, `truncate_address/1`, `tier_class/1`
+- IMPORTANT: Affiliate withdrawals are user-initiated on Arbitrum (not AdminTxQueue on Rogue Chain)
+
+**MyNFTsLive** (`my_nfts_live.ex`, `my_nfts_live.html.heex`) - Task 33 Completed Jan 9, 2026:
+- HTML structure copied exactly from Node.js app (`public/index.html` lines 370-387)
+- `renderNFTCard()` from `ui.js` (lines 221-333) converted to inline HEEx loop in template
+- Grid layout: 2 cols mobile, 3 cols md, 4 cols lg, 6 cols xl (matches Node.js exactly)
+- Card features: hostess image, name, multiplier badge with rarity colors, token ID
+- Revenue sharing earnings section: Pending (green) + Total (white) with USD values
+- Time rewards section for special NFTs (2340-2700): Pending, Total, Remaining timer, 180d Total
+- Special NFT golden glow animation (`special-nft-glow` CSS class)
+- Empty state with "Mint Your First NFT" button linking to mint page
+- Requires wallet connection - redirects to `/` if not connected
+- PubSub subscriptions: `nft_events`, `reward_events`, `earnings_events`, `price_events`
+- Real-time handlers: `:nft_minted` (adds new NFT), `:nft_transferred` (updates list), `:earnings_synced`, `:reward_claimed`, `:price_update`
+- Helper functions: `format_rogue/1`, `format_usd/2`, `format_time_reward_amount/1`, `format_time_remaining/1`, `get_rarity_class/1`
+- CSS added to `app.css`: rarity badge colors (rarity-legendary/epic/rare/common), nft-card hover effects, special-nft-glow with golden-pulse animation
+- NOTE: No withdraw button on this page - withdrawal is handled in RevenuesLive (Task 34)
+
+**RevenuesLive** (`revenues_live.ex`, `revenues_live.html.heex`) - Task 34 Completed Jan 9, 2026:
+- HTML structure copied exactly from Node.js app (`public/index.html` lines 390-527)
+- JS templating converted to HEEx (same pattern as other LiveViews)
+- Three main sections matching Node.js:
+  1. **My Revenue Section** (when wallet connected):
+     - Aggregated stats: Total Earned, Pending Balance, Last 24 Hours (all with ROGUE logo + USD values)
+     - Withdraw All button with loading state and TX link display
+     - Special NFTs Time Rewards section (for owners of tokens 2340-2700)
+     - Per-NFT Earnings table with Token ID, Type, Multiplier, Total/Pending/24h columns
+  2. **Not Connected Message**: "Connect Wallet" button with WalletConnect hook
+  3. **Recent Reward Events**: Latest Payouts To NFTs table with Time, Amount, USD, TX columns
+- PubSub subscriptions: `reward_events`, `earnings_events`, `price_events`
+- Real-time handlers: `:reward_received` (prepends to table + optimistic updates), `:earnings_synced` (full refresh), `:price_update`, `:withdrawal_complete`
+- Withdrawal via AdminTxQueue: handles both revenue sharing AND time-based rewards in single operation
+- Optimistic updates: user earnings updated immediately on `:reward_received` using proportional distribution formula
+- Helper functions: `format_rogue/1`, `format_usd/2`, `format_usd_from_rogue/2`, `format_number/1`, `format_time_ago/1`, `truncate_address/1`
+- Special NFTs stats calculated from loaded NFTs with `HighRollers.TimeRewards.get_nft_time_info/1`
+- Constants: `@multipliers` (hostess multipliers), `@total_multiplier_points` (109,390 total)
+
+**Phase 10 Complete Notes:**
+- All 5 LiveView pages implemented: MintLive, SalesLive, AffiliatesLive, MyNFTsLive, RevenuesLive
+- HTML structures match Node.js app exactly (diff-tested)
+- All PubSub subscriptions and real-time handlers in place
+- Wallet state managed via WalletHook (on_mount) across all pages
+- All helper functions use consistent formatting patterns
+- Ready for Phase 11 (JavaScript Hooks) to enable wallet connectivity and user interactions
+
+### Phase 11: JavaScript Hooks
+
+- [x] **35.** Copy JS from Node.js: config.js, ui.js, wallet.js, mint.js, affiliate.js, revenues.js (lines 5853-5938)
+
+- [x] **36.** Fix wallet.js: add localStorage address persistence, account mismatch detection (lines 3724-3768)
+
+- [x] **37.** Create WalletHook: wallet_connected/wallet_disconnected events to LiveView (lines 3106-3150)
+
+- [x] **38.** Create MintHook: handle mint transaction, VRF waiting state (lines 4825-4922)
+
+- [x] **39.** Create InfiniteScrollHook: IntersectionObserver for paginated tables (referenced at lines 5041, 6000, 6010)
+
+- [x] **40.** Create CopyToClipboardHook: copy referral link (referenced in AffiliatesLive template)
+
+- [x] **41.** Create TimeRewardHook: per-NFT time reward live counter with rate/start_time/last_claim data attrs (lines 6022-6177)
+
+- [x] **42.** Create GlobalTimeRewardHook: homepage aggregate time rewards counter (lines 6213-6319)
+
+- [x] **43.** Create GlobalTimeReward24hHook: 24h time rewards counter (lines 6327-6409)
+
+- [x] **44.** Create AffiliateWithdrawHook: Arbitrum withdrawal transaction (lines 5512-5554)
+
+- [x] **45.** Update app.js: register all hooks with LiveSocket (lines 5996-6017 OR 6418-6447)
+
+#### Phase 11 Summary
+
+**Completed**: All 11 tasks in Phase 11 are complete.
+
+**What was implemented**:
+
+1. **config.js** - Already existed with contract addresses, ABIs, chain IDs for Arbitrum and Rogue Chain. Includes ImageKit helper for image optimization.
+
+2. **WalletHook** (`assets/js/hooks/wallet_hook.js`) - Full wallet connection management:
+   - localStorage persistence with address verification on reconnect
+   - Account mismatch detection (clears state if MetaMask account changes)
+   - Mobile deep linking support for MetaMask, Coinbase, Trust Wallet
+   - Network switching between Arbitrum and Rogue Chain
+   - Balance fetching for ETH (Arbitrum) and ROGUE (Rogue Chain)
+   - Events to LiveView: `wallet_connected`, `wallet_disconnected`, `balance_updated`
+   - Events from LiveView: `request_wallet_connect`, `request_disconnect`, `switch_network`
+   - Global `window.walletHook` reference for other hooks to access wallet state
+
+3. **MintHook** (`assets/js/hooks/mint_hook.js`) - NFT minting with VRF waiting:
+   - Sends `requestNFT()` transaction to contract
+   - Parses `NFTRequested` event from receipt to get requestId and tokenId
+   - Fallback polling (5s intervals, max 5 min) to check if NFT minted if server event missed
+   - Events: `mint_requested`, `mint_complete`, `mint_error`
+   - Handles user rejection, insufficient funds, and other errors
+
+4. **InfiniteScrollHook** (`assets/js/hooks/infinite_scroll_hook.js`) - Pagination:
+   - IntersectionObserver-based sentinel detection
+   - Supports both window scroll and scrollable container scroll
+   - 200px rootMargin for early loading
+   - Prevents duplicate requests via `loading` flag
+   - Pushes `load_more` event to LiveView
+
+5. **CopyToClipboardHook** (`assets/js/hooks/copy_to_clipboard_hook.js`) - Clipboard:
+   - Copies from `data-copy-text` attribute or `data-copy-selector` target
+   - Fallback for older browsers using temporary textarea
+   - Visual feedback with `copied` class and optional text change
+   - Events: `copy_success`, `copy_error`
+
+6. **TimeRewardHook** (`assets/js/hooks/time_reward_hook.js`) - Per-NFT counters:
+   - Uses data attributes: `rate-per-second`, `start-time`, `last-claim-time`, `total-claimed`
+   - Updates every second: pending amount, time remaining, progress bar, total earned
+   - 180-day duration calculation
+   - Formats large numbers (K, M suffixes)
+   - Stops counter when reward period ends
+
+7. **GlobalTimeRewardHook** (`assets/js/hooks/global_time_reward_hook.js`) - Aggregate total:
+   - For homepage header showing sum of all special NFT time rewards
+   - Uses `base-total`, `base-time`, `total-rate` data attributes
+   - Formula: `current = base_total + (total_rate × elapsed_seconds)`
+   - Server corrects drift every 60s via EarningsSyncer
+
+8. **GlobalTimeReward24hHook** (`assets/js/hooks/global_time_reward_24h_hook.js`) - 24h counter:
+   - Similar to GlobalTimeRewardHook but for 24h earnings
+   - Simplified model (doesn't track "falling off" of old earnings)
+   - Server sync corrects every 60s
+
+9. **AffiliateWithdrawHook** (`assets/js/hooks/affiliate_withdraw_hook.js`) - Withdrawals:
+   - Calls `withdrawFromAffiliate()` on Arbitrum NFT contract
+   - Auto-switches to Arbitrum if on wrong network
+   - Prevents double-click during transaction
+   - Events: `withdraw_started`, `withdraw_success`, `withdraw_error`
+
+10. **app.js** - All 8 hooks registered with LiveSocket in a combined hooks object
+
+**Architecture Decisions**:
+- **LiveView-first approach**: Hooks are minimal bridges to push/handle events - all state managed server-side
+- **No separate ui.js/wallet.js services**: Functionality integrated directly into hooks
+- **Global wallet reference**: `window.walletHook` allows MintHook and AffiliateWithdrawHook to access wallet state
+- **ethers.js via vendor**: Already bundled in `assets/vendor/ethers.min.js`, exposed as `window.ethers`
+
+**Files Created**:
+```
+assets/js/hooks/
+├── wallet_hook.js           (14.7KB)
+├── mint_hook.js             (6.5KB)
+├── infinite_scroll_hook.js  (2.9KB)
+├── copy_to_clipboard_hook.js (3.8KB)
+├── time_reward_hook.js      (4.8KB)
+├── global_time_reward_hook.js (3.1KB)
+├── global_time_reward_24h_hook.js (2.7KB)
+└── affiliate_withdraw_hook.js (3.4KB)
+```
+
+### Phase 12: Telemetry & Observability ✅ COMPLETE
+
+- [x] **46.** Implement HighRollersWeb.Telemetry module with metrics for RPC, pollers, admin_tx (lines 7988-8059)
+
+#### Phase 12 Summary (Completed Jan 9, 2026)
+
+**Implementation completed:**
+
+1. **HighRollersWeb.Telemetry module** - Enhanced with comprehensive metrics:
+   - RPC call duration with method/result tags
+   - RPC retry counter with method/error tracking
+   - Arbitrum poller: poll duration and events_count
+   - Rogue poller: poll duration and events_count
+   - Earnings syncer: sync duration and nfts_synced
+   - Admin TX: send duration with action tag, queue_depth, dead_letter counts
+   - Mnesia table size metrics for all 8 tables
+   - Phoenix LiveView mount/handle_event metrics
+   - VM memory and run queue metrics
+
+2. **Telemetry instrumentation added to:**
+   - `HighRollers.RPC` - Already had call duration, added retry events with error categorization (timeout, connection_closed, HTTP status, transport errors)
+   - `HighRollers.ArbitrumEventPoller` - Poll duration and total events count (requested + minted + transfers)
+   - `HighRollers.RogueRewardPoller` - Poll duration and total events count (received + claimed)
+   - `HighRollers.EarningsSyncer` - Sync duration and NFTs synced count
+   - `HighRollers.AdminTxQueue` - Transaction send duration with success/error result tracking
+
+3. **Periodic measurements (every 10 seconds):**
+   - `measure_admin_tx_queue/0` - Emits pending and dead_letter counts
+   - `measure_mnesia_tables/0` - Emits table size for hr_nfts, hr_users, hr_reward_events, hr_reward_withdrawals, hr_affiliate_earnings, hr_pending_mints, hr_admin_ops, hr_stats
+
+**Files modified:**
+- `lib/high_rollers_web/telemetry.ex` - Complete rewrite with new metrics
+- `lib/high_rollers/rpc.ex` - Added retry telemetry events
+- `lib/high_rollers/arbitrum_event_poller.ex` - Added poll telemetry with event counting
+- `lib/high_rollers/rogue_reward_poller.ex` - Added poll telemetry with event counting
+- `lib/high_rollers/earnings_syncer.ex` - Added sync telemetry
+- `lib/high_rollers/admin_tx_queue.ex` - Added send telemetry with result tracking
+
+**Notes:**
+- Telemetry events are emitted with `:telemetry.execute/3` following Erlang/Elixir conventions
+- Periodic measurements run in telemetry_poller process with 10s interval
+- All measurements handle module/table not-ready states gracefully during startup
+
+**Viewing Metrics - Phoenix LiveDashboard:**
+
+LiveDashboard is already configured and provides a real-time web UI for all metrics:
+
+```
+http://localhost:4000/dashboard
+```
+
+The dashboard shows:
+- **Metrics** tab - All custom High Rollers metrics (RPC duration, poller events, queue depth, table sizes)
+- **Home** - System overview
+- **OS Data** - CPU, memory, disk usage
+- **Processes** - Process info and memory usage
+- **ETS** - ETS table info
+- **Applications** - Running OTP applications
+
+Configuration in router.ex:
+```elixir
+live_dashboard "/dashboard", metrics: HighRollersWeb.Telemetry
+```
+
+**Alternative monitoring options:**
+- **Console Reporter** - Uncomment `{Telemetry.Metrics.ConsoleReporter, metrics: metrics()}` in telemetry.ex for terminal output
+- **PromEx** - Add `{:prom_ex, "~> 1.9"}` for Prometheus/Grafana integration in production
+
+### Phase 13: Testing ✅ COMPLETE
+
+- [x] **47.** Create test/support/mnesia_case.ex: RAM-only tables for tests (lines 8085-8112)
+
+- [x] **48.** Create test/support/mocks.ex: Mox mocks for NFTContract and NFTRewarder (lines 8077-8084, pattern at lines 7320-7968)
+
+- [x] **49.** Write tests for TimeRewards, Hostess, NFTStore, EarningsSyncer, LiveViews (lines 8067-8198)
+
+#### Phase 13 Completion Summary (Jan 2026)
+
+**Test Infrastructure Created:**
+- `test/support/mnesia_case.ex` - ExUnit CaseTemplate providing RAM-only Mnesia tables for each test with helper functions (`insert_test_nft/1`, `insert_test_reward_event/1`, `insert_test_user/1`, `insert_test_stats/2`)
+- `test/support/mocks.ex` - Mox mock definitions for `NFTContractMock` and `NFTRewarderMock`
+- `test/support/fixtures.ex` - Test data factory functions
+- Added `{:mox, "~> 1.1", only: :test}` and `{:floki, "~> 0.36", only: :test}` to mix.exs
+- Created behavior modules: `NFTContractBehaviour` and `NFTRewarderBehaviour` to enable Mox mocking
+
+**Test Files Created:**
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test/high_rollers/time_rewards_test.exs` | 15 | Pure calculation functions, rate per second, pending rewards, 180-day cap, 24h earnings |
+| `test/high_rollers/hostess_test.exs` | 16 | Static data, name lookup, multiplier values, URL generation, available indices |
+| `test/high_rollers/nft_store_test.exs` | 25 | Mnesia CRUD, upsert, get_by_owner, update_earnings, special NFTs, pending mints |
+| `test/high_rollers/rewards_test.exs` | 15 | Event insertion, rewards_since, withdrawals, global stats, hostess stats, time reward stats |
+| `test/high_rollers/sales_test.exs` | 19 | Sales pagination, affiliate earnings, affiliate stats, case-insensitive lookup |
+| `test/high_rollers/contracts/nft_contract_test.exs` | 6 | Mox mock patterns for NFTContract |
+| `test/high_rollers/contracts/nft_rewarder_test.exs` | 5 | Mox mock patterns for NFTRewarder |
+| `test/high_rollers_web/live/mint_live_test.exs` | 12 | Mount, format helpers, events, real-time updates |
+| `test/high_rollers_web/live/my_nfts_live_test.exs` | 4 | Wallet redirect, special NFT detection |
+| `test/high_rollers_web/live/revenues_live_test.exs` | 9 | Mount, hostess stats, real-time updates |
+
+**Test Results:**
+- **Core Module Tests:** 101 tests, 0 failures ✅
+- **LiveView Tests:** LiveView tests created but require full application startup with config (RPC URLs, admin keys). These tests are designed to run in a properly configured environment.
+
+**Bug Fixes During Testing:**
+1. **Float.round/2 FunctionClauseError** in `TimeRewards.calculate_pending/1` - When `percent_complete` was exactly 100 (integer), `Float.round/2` failed. Fixed by ensuring float type with `min(100.0, ...)` and `Float.round(percent_complete * 1.0, 2)`.
+
+2. **NFTStore GenServer already_started** - Tests would fail when NFTStore was already running. Fixed by handling the `{:error, {:already_started, _pid}}` case in test setup blocks.
+
+**Notes:**
+- LiveView tests use `HighRollers.MnesiaCase` with `HighRollersWeb.ConnCase` for combined Mnesia + Phoenix testing
+- Contract mock tests demonstrate Mox expect/verify patterns for both success and error cases
+- Test configuration in `config/test.exs` routes contract calls to mocks
+
+### Phase 14: Data Migration ✅ COMPLETE
+
+- [x] **50.** Implement HighRollers.DataMigration: JOIN nfts+sales+nft_earnings+time_reward_nfts → hr_nfts, copy affiliate_earnings, reward_events, etc. (lines 6893-7141)
+
+**Phase 14 Completion Summary (Jan 9, 2026):**
+
+Created `lib/high_rollers/data_migration.ex` with the following capabilities:
+
+1. **Unified NFT Migration** - JOINs 4 SQLite tables (nfts, sales, nft_earnings, time_reward_nfts) into single hr_nfts Mnesia records
+2. **Direct Copy Migrations** - affiliate_earnings, reward_events, reward_withdrawals, pending_mints
+3. **Helper Functions**:
+   - `run/1` - Run full migration from SQLite path
+   - `dry_run/1` - Preview migration counts without writing to Mnesia
+   - `verify/1` - Compare SQLite vs Mnesia counts post-migration
+   - `set_poller_blocks/1` - Set last_processed_block for both pollers
+   - `get_poller_blocks/0` - Check current poller block numbers
+
+**API Notes:**
+- Exqlite uses `Exqlite.Sqlite3.step(db, stmt)` (2 args) not `step(stmt)` (1 arg)
+- Time rewards `total_claimed` field converts SQLite REAL (float) to Wei string format
+- All addresses are downcased for consistent lookups
+
+**Usage:**
+```elixir
+# Dry run to preview
+HighRollers.DataMigration.dry_run("/path/to/high_rollers.db")
+
+# Run migration
+HighRollers.DataMigration.run("/path/to/high_rollers.db")
+
+# Verify counts match
+HighRollers.DataMigration.verify("/path/to/high_rollers.db")
+
+# Set poller blocks (CRITICAL - must be BEFORE first events)
+HighRollers.DataMigration.set_poller_blocks(
+  arbitrum: 289_000_000,
+  rogue: 109_350_000
+)
+```
+
+**Usage After Deployment:**
+```bash
+# 1. Copy SQLite database from Node.js server to Fly machine
+flyctl ssh sftp shell -a high-rollers-elixir
+> put /local/path/to/high_rollers.db /tmp/high_rollers.db
+
+# 2. Connect to running Fly machine via IEx
+flyctl ssh console -a high-rollers-elixir -C '/app/bin/high_rollers remote'
+
+# 3. In IEx, run the migration
+HighRollers.DataMigration.dry_run("/tmp/high_rollers.db")  # Preview first
+HighRollers.DataMigration.run("/tmp/high_rollers.db")       # Run migration
+HighRollers.DataMigration.verify("/tmp/high_rollers.db")    # Verify counts
+
+# 4. CRITICAL: Set poller block numbers BEFORE first events
+# Get these from Node.js eventListener config or blockchain explorer
+HighRollers.DataMigration.set_poller_blocks(
+  arbitrum: 289_000_000,  # Block before first NFTMinted event
+  rogue: 109_350_000      # Block before first RewardReceived event
+)
+
+# 5. Verify pollers are set correctly
+HighRollers.DataMigration.get_poller_blocks()
+# => %{arbitrum: 289000000, rogue: 109350000}
+
+# 6. Restart the app to pick up poller state (optional - pollers read on init)
+# Or just wait for next poll cycle
+```
+
+### Phase 15: Deployment
+
+- [ ] **51.** Create fly.toml: FRA region, 2 machines, volume mount at /data, health checks (lines 6691-6761)
+
+- [ ] **52.** Set Fly secrets: ADMIN_PRIVATE_KEY, AFFILIATE_LINKER_PRIVATE_KEY, DEFAULT_AFFILIATE (lines 6516-6518)
+
+- [ ] **53.** Deploy and run data migration
+
+- [ ] **54.** Set hr_poller_state last_processed_block for :arbitrum and :rogue chains (lines 6959-6962 OR 7149-7150)
+
+### Phase 16: Post-Migration Verification
+
+- [ ] **55.** Verify: Mnesia table counts match SQLite (2342 NFTs)
+
+- [ ] **56.** Test: wallet connection, minting, affiliate linking, revenue withdrawal, time reward claiming
+
+- [ ] **57.** Monitor production logs for RPC errors, Mnesia issues
+
+---
+
+### Progress Summary
+
+| Phase | Tasks | Completed |
+|-------|-------|-----------|
+| 1. Project Setup | 9 | 9 |
+| 2. Pure Calculation | 2 | 2 |
+| 3. Contract Interaction | 2 | 2 |
+| 4. Write Serializer | 1 | 1 |
+| 5. Data Access | 3 | 3 |
+| 6. Blockchain Pollers | 2 | 2 |
+| 7. Background Services | 3 | 3 |
+| 8. Router & Controllers | 4 | 4 |
+| 9. Wallet Management | 3 | 3 |
+| 10. LiveView Pages | 5 | 3 |
+| 11. JavaScript Hooks | 11 | 11 |
+| 12. Telemetry | 1 | 0 |
+| 13. Testing | 3 | 3 |
+| 14. Data Migration | 1 | 0 |
+| 15. Deployment | 4 | 0 |
+| 16. Verification | 3 | 0 |
+| **TOTAL** | **57** | **46** |

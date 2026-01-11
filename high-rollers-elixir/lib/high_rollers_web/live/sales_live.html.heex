@@ -1,0 +1,58 @@
+<div class="container mx-auto p-6">
+  <h2 class="text-xl font-bold mb-4">Live Sales</h2>
+  <p class="text-gray-400 mb-6">Real-time feed of all High Roller mints</p>
+  <div class="bg-gray-800 rounded-lg overflow-hidden">
+    <div id="sales-scroll-container" class="max-h-[600px] overflow-y-auto overflow-x-auto" phx-hook="InfiniteScroll" data-event="load_more_sales">
+      <table class="w-full min-w-[600px]">
+        <thead class="bg-gray-700 sticky top-0 z-10">
+          <tr>
+            <th class="p-3 text-left">Token ID</th>
+            <th class="p-3 text-left">Type</th>
+            <th class="p-3 text-left">Buyer</th>
+            <th class="p-3 text-left">Price</th>
+            <th class="p-3 text-right">Minted</th>
+          </tr>
+        </thead>
+        <tbody id="sales-table-body">
+          <%= for sale <- @sales do %>
+            <tr class="border-b border-gray-700">
+              <td class="p-3">
+                <div class="flex items-center gap-3">
+                  <img src={HighRollers.Hostess.thumbnail(sale.hostess_index)} alt={sale.hostess_name} class="w-12 h-12 rounded-lg object-cover" />
+                  <a href={"https://arbiscan.io/nft/0x7176d2edd83aD037bd94b7eE717bd9F661F560DD/#{sale.token_id}"} target="_blank" class="text-purple-400 hover:underline cursor-pointer">#<%= sale.token_id %></a>
+                </div>
+              </td>
+              <td class="p-3">
+                <div class="flex items-center gap-2">
+                  <span><%= sale.hostess_name %></span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-purple-900 text-purple-300"><%= HighRollers.Hostess.multiplier(sale.hostess_index) %>x</span>
+                </div>
+              </td>
+              <td class="p-3">
+                <a href={"https://arbiscan.io/address/#{sale.buyer}"} target="_blank" class="text-purple-400 hover:underline cursor-pointer">
+                  <%= truncate_address(sale.buyer) %>
+                </a>
+              </td>
+              <td class="p-3">
+                <span><%= format_eth_short(sale.price) %> <span class="text-xs text-gray-400">ETH</span></span>
+                <span class="text-gray-500 text-xs block"><%= format_eth_usd(sale.price, @eth_price) %></span>
+              </td>
+              <td class="p-3 text-right"><%= format_date(sale.timestamp) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      <!-- Sentinel element for infinite scroll -->
+      <div id="sales-sentinel" class="h-1" data-end={to_string(@sales_end)}></div>
+      <div id="sales-load-more" class={"text-center py-4 text-gray-400 #{if @loading_more, do: "", else: "hidden"}"}>
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
+      </div>
+      <div id="sales-end" class={"text-center py-4 text-gray-500 #{if @sales_end, do: "", else: "hidden"}"}>
+        No more sales to load
+      </div>
+    </div>
+  </div>
+  <div id="sales-loading" class={"text-center py-4 text-gray-400 #{if Enum.empty?(@sales), do: "", else: "hidden"}"}>
+    Loading sales...
+  </div>
+</div>

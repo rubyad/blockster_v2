@@ -1,0 +1,159 @@
+<div class="container mx-auto p-6" id="mint-container" data-special-remaining={@special_remaining}>
+  <!-- Stats Section -->
+  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">Total Minted</h3>
+      <p class="text-2xl font-bold"><%= @total_minted %></p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">Remaining</h3>
+      <p class="text-2xl font-bold text-yellow-400"><%= @remaining %></p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">Current Price</h3>
+      <p class="text-2xl font-bold flex items-baseline gap-2">0.32 <span class="text-sm text-gray-400 font-normal">ETH</span> <span class="text-sm text-gray-500 font-normal">(<%= format_eth_to_usd(0.32, @eth_price) %>)</span></p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">Max Supply</h3>
+      <p class="text-2xl font-bold">2,700</p>
+    </div>
+  </section>
+
+  <!-- Progress Bar -->
+  <section class="mb-8">
+    <div class="bg-gray-700 rounded-full h-4 overflow-hidden">
+      <div class="bg-gradient-to-r from-purple-600 to-pink-600 h-full transition-all duration-500" style={"width: #{progress_percent(@total_minted, 2700)}%"}></div>
+    </div>
+    <p class="text-center text-gray-400 mt-2">
+      <span><%= @total_minted %> / 2,700 minted</span>
+    </p>
+  </section>
+
+  <!-- Revenue Stats -->
+  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-gray-800 p-4 rounded-lg flex flex-col justify-center">
+      <button
+        id="mint-btn"
+        phx-hook="MintHook"
+        phx-click="mint"
+        disabled={@minting || !@wallet_connected || @sold_out}
+        class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-lg text-lg font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+      >
+        <%= if @minting, do: "Minting...", else: "Mint for 0.32 ETH" %>
+      </button>
+      <div class="h-6 mt-2">
+        <%= if @mint_status do %>
+          <div class={"flex items-center gap-2 justify-center text-sm #{if String.starts_with?(@mint_status || "", "Error"), do: "text-red-400", else: "text-gray-400"}"}>
+            <%= if !String.starts_with?(@mint_status || "", "Error") do %>
+              <span class="animate-spin">&#9203;</span>
+            <% end %>
+            <span><%= @mint_status %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg"
+         id="mint-total-rewards"
+         phx-hook="GlobalTimeRewardHook"
+         data-total-rate={@global_time_stats.total_rate_per_second}
+         data-base-time={@global_time_stats.base_time}
+         data-base-total={wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned}
+         data-rogue-price={@rogue_price}>
+      <h3 class="text-gray-400 text-sm">Total Rewards Received</h3>
+      <p class="text-2xl font-bold text-green-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center"><span class="global-time-total"><%= format_with_commas(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+      <p class="text-sm text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned, @rogue_price) %></span></p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">Last 24 Hours</h3>
+      <p class="text-2xl font-bold text-yellow-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center"><%= format_with_commas(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+      <p class="text-sm text-gray-500"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h, @rogue_price) %></p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h3 class="text-gray-400 text-sm">APY of Special NFTs</h3>
+      <p class="text-2xl font-bold text-purple-400"><%= @global_time_stats.apy %>%</p>
+    </div>
+  </section>
+
+  <!-- Sold Out Message -->
+  <div class={"bg-red-900/50 border border-red-500 p-4 rounded-lg mb-4 #{if @sold_out, do: "", else: "hidden"}"}>
+    <p class="text-red-400 font-bold">&#127920; SOLD OUT!</p>
+    <p class="text-gray-400">All 2,700 High Rollers have been minted.</p>
+  </div>
+
+  <!-- How Revenue Sharing Works -->
+  <section class="mb-8 bg-gray-800 p-6 rounded-lg">
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div class="bg-gray-700/50 p-3 rounded-lg">
+        <div class="text-2xl mb-1">&#127920;</div>
+        <h3 class="font-bold text-sm mb-1">Players Bet on <a href="https://blockster-v2.fly.dev/play" target="_blank" class="text-blue-500 hover:underline cursor-pointer">Blockster</a></h3>
+        <p class="text-gray-400 text-xs">0.2% of lost ROGUE bets go to NFT holders</p>
+      </div>
+      <div class="bg-gray-700/50 p-3 rounded-lg">
+        <div class="text-2xl mb-1">&#128142;</div>
+        <h3 class="font-bold text-sm mb-1">Multiplier Matters</h3>
+        <p class="text-gray-400 text-xs">Rarer NFTs earn more per bet</p>
+      </div>
+      <div class="bg-gray-700/50 p-3 rounded-lg">
+        <div class="text-2xl mb-1">&#128176;</div>
+        <h3 class="font-bold text-sm mb-1">Withdraw Anytime</h3>
+        <p class="text-gray-400 text-xs">Earnings accumulate automatically</p>
+      </div>
+    </div>
+
+    <!-- Mint Result -->
+    <div class={"mt-6 p-4 bg-gray-700 rounded-lg #{if @mint_result, do: "", else: "hidden"}"}>
+      <h3 class="text-lg font-bold mb-2">&#127881; You Minted:</h3>
+      <%= if @mint_result do %>
+        <div class="flex items-center gap-4">
+          <img src={@mint_result.hostess.image} alt={@mint_result.hostess_name} class="w-32 h-32 rounded-lg object-cover" />
+          <div>
+            <p class="text-xl font-bold text-purple-400"><%= @mint_result.hostess_name %></p>
+            <p class="text-gray-400"><%= @mint_result.hostess.rarity %></p>
+            <p class="text-yellow-400 font-bold"><%= @mint_result.hostess.multiplier %>x multiplier</p>
+            <p class="text-sm text-gray-500">Token #<%= @mint_result.token_id %></p>
+            <a href={"https://arbiscan.io/tx/#{@mint_result.tx_hash}"} target="_blank" class="text-purple-400 hover:underline text-sm cursor-pointer">
+              View on Arbiscan &rarr;
+            </a>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <!-- Hostess Gallery -->
+  <section class="mb-8">
+    <h2 class="text-xl font-bold mb-4">NFT Rarity & Multipliers</h2>
+    <p class="text-gray-400 mb-4">Each hostess has a different rarity. Rarer hostesses have higher multipliers, earning you a larger share of the revenue pool.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <%= for hostess <- @hostesses do %>
+        <div class="hostess-card bg-gray-800 rounded-lg overflow-hidden">
+          <div class="aspect-square bg-gray-700 relative">
+            <img
+              src={hostess.image}
+              alt={hostess.name}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+          <div class="p-4">
+            <h3 class="font-bold text-lg text-center"><%= hostess.name %></h3>
+            <div class="text-center mt-3">
+              <p class="text-2xl font-bold text-green-400 flex items-baseline justify-center gap-1">
+                <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center" />
+                <%= format_180_day_earnings(hostess.index) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span>
+              </p>
+              <p class="text-gray-400 text-sm"><%= format_180_day_earnings_usd(hostess.index, @rogue_price) %></p>
+              <div class="flex flex-col items-center">
+                <span class="text-gray-400 text-xs mt-1 text-center">Minimum earnings in next 180 days on new mints</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center mt-4 text-sm">
+              <span class="text-gray-400">Rarity: <span class="text-white"><%= hostess.rarity %></span></span>
+              <span class="text-gray-400">Minted: <span class="text-white"><%= hostess.count %></span></span>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="rabby-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8697ff"/>
+      <stop offset="100%" style="stop-color:#6f7cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#rabby-gradient)"/>
+  <path fill="#fff" d="M64 24c-22.091 0-40 17.909-40 40v24c0 8.837 7.163 16 16 16h8v-16h-8V64c0-13.255 10.745-24 24-24s24 10.745 24 24v24h-8v16h8c8.837 0 16-7.163 16-16V64c0-22.091-17.909-40-40-40z"/>
+  <circle cx="48" cy="72" r="8" fill="#fff"/>
+  <circle cx="80" cy="72" r="8" fill="#fff"/>
+</svg>

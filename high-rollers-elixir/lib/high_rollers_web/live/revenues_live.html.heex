@@ -1,0 +1,247 @@
+<!-- MY EARNINGS TAB - Exact copy of Node.js HTML structure (high-rollers-nfts/public/index.html lines 390-527) -->
+<div class="container mx-auto p-6">
+
+  <!-- My Revenue Section (only shown when wallet connected) -->
+  <section :if={@user_earnings} class="mb-8 bg-gray-800 p-6 rounded-lg">
+    <h2 class="text-xl font-bold mb-4">My NFT Earnings</h2>
+
+    <!-- Aggregated Stats (Revenue + Time Rewards Combined) -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <!-- Total Earned - combined with live counting -->
+      <div class="bg-gray-700 p-4 rounded-lg"
+           id="top-total-earned"
+           phx-hook="GlobalTimeRewardHook"
+           data-total-rate={if @special_nfts_stats, do: @special_nfts_stats.total_rate_per_second, else: 0}
+           data-base-time={if @special_nfts_stats, do: @special_nfts_stats.base_time, else: System.system_time(:second)}
+           data-base-total={wei_to_rogue(@user_earnings.total_earned) + (if @special_nfts_stats, do: @special_nfts_stats.total_earned, else: 0)}
+           data-rogue-price={@rogue_price}>
+        <h4 class="text-gray-400 text-sm">Total Earned</h4>
+        <p class="text-xl font-bold text-green-400 flex items-baseline gap-1">
+          <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center"><span class="global-time-total"><%= format_with_commas(wei_to_rogue(@user_earnings.total_earned) + (if @special_nfts_stats, do: @special_nfts_stats.total_earned, else: 0)) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span>
+        </p>
+        <p class="text-sm text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(wei_to_rogue(@user_earnings.total_earned) + (if @special_nfts_stats, do: @special_nfts_stats.total_earned, else: 0), @rogue_price) %></span></p>
+      </div>
+      <!-- Pending Balance - combined with live counting -->
+      <div class="bg-gray-700 p-4 rounded-lg"
+           id="top-pending-balance"
+           phx-hook="GlobalTimeRewardHook"
+           data-total-rate={if @special_nfts_stats, do: @special_nfts_stats.total_rate_per_second, else: 0}
+           data-base-time={if @special_nfts_stats, do: @special_nfts_stats.base_time, else: System.system_time(:second)}
+           data-base-total={wei_to_rogue(@user_earnings.total_pending) + (if @special_nfts_stats, do: @special_nfts_stats.total_pending, else: 0)}
+           data-rogue-price={@rogue_price}>
+        <h4 class="text-gray-400 text-sm">Pending Balance</h4>
+        <p class="text-xl font-bold text-yellow-400 flex items-baseline gap-1">
+          <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center"><span class="global-time-total"><%= format_with_commas(wei_to_rogue(@user_earnings.total_pending) + (if @special_nfts_stats, do: @special_nfts_stats.total_pending, else: 0)) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span>
+        </p>
+        <p class="text-sm text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(wei_to_rogue(@user_earnings.total_pending) + (if @special_nfts_stats, do: @special_nfts_stats.total_pending, else: 0), @rogue_price) %></span></p>
+      </div>
+      <!-- Last 24 Hours - combined (static, no live counting needed for 24h snapshot) -->
+      <div class="bg-gray-700 p-4 rounded-lg">
+        <h4 class="text-gray-400 text-sm">Last 24 Hours</h4>
+        <p class="text-xl font-bold flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 self-center"><%= format_with_commas(wei_to_rogue(@user_earnings.total_24h) + (if @special_nfts_stats, do: @special_nfts_stats.total_24h, else: 0)) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+        <p class="text-sm text-gray-500"><%= format_usd_from_rogue(wei_to_rogue(@user_earnings.total_24h) + (if @special_nfts_stats, do: @special_nfts_stats.total_24h, else: 0), @rogue_price) %></p>
+      </div>
+      <div class="bg-gray-700 p-4 rounded-lg flex flex-col justify-center">
+        <button phx-click="withdraw" disabled={@withdrawing || !@user_earnings.can_withdraw} class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 py-3 px-6 rounded-lg font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+          <%= if @withdrawing, do: "Withdrawing...", else: "Withdraw All" %>
+        </button>
+        <!-- Error message -->
+        <p :if={@withdraw_error} class="text-red-400 text-xs mt-2"><%= @withdraw_error %></p>
+        <!-- Success message with TX links -->
+        <div :if={@withdraw_tx_hashes && length(@withdraw_tx_hashes) > 0} class="mt-2 flex flex-wrap gap-2">
+          <%= for tx_hash <- @withdraw_tx_hashes do %>
+            <a href={"https://roguescan.io/tx/#{tx_hash}?tab=logs"} target="_blank" class="text-green-400 text-xs hover:underline cursor-pointer">View TX ↗</a>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Special NFTs Time Rewards Section (hidden if user has no special NFTs) -->
+    <div :if={@special_nfts_stats} class="mb-6">
+      <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/30 border border-amber-500/50 p-4 rounded-lg">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xl">⭐</span>
+          <h3 class="font-bold text-amber-400">Special NFTs (<span><%= @special_nfts_stats.count %></span>) - Time-Based Rewards</h3>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <!-- Total Earned - live counting every second -->
+          <div
+            id="special-nft-earned"
+            phx-hook="GlobalTimeRewardHook"
+            data-total-rate={@special_nfts_stats.total_rate_per_second}
+            data-base-time={@special_nfts_stats.base_time}
+            data-base-total={@special_nfts_stats.total_earned}
+            data-rogue-price={@rogue_price}
+          >
+            <p class="text-gray-400">Total Earned</p>
+            <p class="text-lg font-bold text-green-400 flex items-baseline gap-1"><span class="global-time-total"><%= format_with_commas(@special_nfts_stats.total_earned) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+            <p class="text-xs text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(@special_nfts_stats.total_earned, @rogue_price) %></span></p>
+          </div>
+          <!-- Pending - live counting every second -->
+          <div
+            id="special-nft-pending"
+            phx-hook="GlobalTimeRewardHook"
+            data-total-rate={@special_nfts_stats.total_rate_per_second}
+            data-base-time={@special_nfts_stats.base_time}
+            data-base-total={@special_nfts_stats.total_pending}
+            data-rogue-price={@rogue_price}
+          >
+            <p class="text-gray-400">Pending</p>
+            <p class="text-lg font-bold text-yellow-400 flex items-baseline gap-1"><span class="global-time-total"><%= format_with_commas(@special_nfts_stats.total_pending) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+            <p class="text-xs text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(@special_nfts_stats.total_pending, @rogue_price) %></span></p>
+          </div>
+          <div>
+            <p class="text-gray-400">24h</p>
+            <p class="text-lg font-bold text-purple-400 flex items-baseline gap-1"><%= format_with_commas(@special_nfts_stats.total_24h) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+            <p class="text-xs text-gray-500"><%= format_usd_from_rogue(@special_nfts_stats.total_24h, @rogue_price) %></p>
+          </div>
+          <div>
+            <p class="text-gray-400">180d Total</p>
+            <p class="text-lg font-bold text-white flex items-baseline gap-1"><%= format_number(@special_nfts_stats.total_180d) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
+            <p class="text-xs text-gray-500"><%= format_usd_from_rogue(@special_nfts_stats.total_180d, @rogue_price) %></p>
+          </div>
+          <div>
+            <p class="text-gray-400">APY</p>
+            <p class="text-lg font-bold text-purple-400"><%= @special_nfts_stats.apy %>%</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Special NFTs (#2340-2700) earn additional time-based rewards for 180 days from registration.</p>
+      </div>
+    </div>
+
+    <!-- Per-NFT Table -->
+    <h3 class="font-bold mb-2">Earnings by NFT</h3>
+    <div class="bg-gray-700 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-600 sticky top-0">
+          <tr class="align-top">
+            <th class="p-2 text-left">Token ID<br><span class="text-xs text-gray-400 font-normal">&nbsp;</span></th>
+            <th class="p-2 text-left">Type<br><span class="text-xs text-gray-400 font-normal">&nbsp;</span></th>
+            <th class="p-2 text-left">Mult<br><span class="text-xs text-gray-400 font-normal">&nbsp;</span></th>
+            <th class="p-2 text-left">Total Earned<br><span class="text-xs text-gray-400 font-normal">(ROGUE)</span></th>
+            <th class="p-2 text-left">Pending<br><span class="text-xs text-gray-400 font-normal">(ROGUE)</span></th>
+            <th class="p-2 text-left">24h<br><span class="text-xs text-gray-400 font-normal">(ROGUE)</span></th>
+            <th class="p-2 text-left">APY<br><span class="text-xs text-gray-400 font-normal">&nbsp;</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for nft <- @user_earnings.nfts do %>
+            <% row_link = if nft_is_special?(nft),
+                 do: "https://roguescan.io/address/0x96aB9560f1407586faE2b69Dc7f38a59BEACC594?tab=read_proxy&source_address=0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb#0xb28d8822",
+                 else: "https://roguescan.io/address/0x96aB9560f1407586faE2b69Dc7f38a59BEACC594?tab=read_proxy&source_address=0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb#0x9a3b5a1d" %>
+            <tr class="border-t border-gray-600 hover:bg-gray-600/50 cursor-pointer" onclick={"window.open('#{row_link}', '_blank')"}>
+              <td class="p-2">
+                <span class="text-purple-400">#<%= nft.token_id %></span>
+                <%= if nft_is_special?(nft) do %><span class="ml-1 text-amber-400">⭐</span><% end %>
+              </td>
+              <td class="p-2"><%= hostess_name(nft.hostess_index) %></td>
+              <td class="p-2"><%= hostess_multiplier(nft.hostess_index) %>x</td>
+              <!-- Combined Total Earned (revenue + time) with live counting for special NFTs -->
+              <td class="p-2"
+                  :if={nft_is_special?(nft)}
+                  id={"nft-earned-#{nft.token_id}"}
+                  phx-hook="GlobalTimeRewardHook"
+                  data-total-rate={nft_time_rate(nft)}
+                  data-base-time={@special_nfts_stats.base_time}
+                  data-base-total={nft_combined_total_earned(nft)}
+                  data-rogue-price={@rogue_price}>
+                <span class="global-time-total text-green-400"><%= format_number(nft_combined_total_earned(nft)) %></span>
+                <span class="global-time-usd text-gray-500 text-xs block"><%= format_usd_from_rogue(nft_combined_total_earned(nft), @rogue_price) %></span>
+              </td>
+              <td :if={!nft_is_special?(nft)} class="p-2">
+                <span class="text-green-400"><%= format_rogue(nft.total_earned) %></span>
+                <span class="text-gray-500 text-xs block"><%= format_usd(nft.total_earned, @rogue_price) %></span>
+              </td>
+              <!-- Combined Pending (revenue + time) with live counting for special NFTs -->
+              <td class="p-2"
+                  :if={nft_is_special?(nft)}
+                  id={"nft-pending-#{nft.token_id}"}
+                  phx-hook="GlobalTimeRewardHook"
+                  data-total-rate={nft_time_rate(nft)}
+                  data-base-time={@special_nfts_stats.base_time}
+                  data-base-total={nft_combined_pending(nft)}
+                  data-rogue-price={@rogue_price}>
+                <span class="global-time-total text-yellow-400"><%= format_number(nft_combined_pending(nft)) %></span>
+                <span class="global-time-usd text-gray-500 text-xs block"><%= format_usd_from_rogue(nft_combined_pending(nft), @rogue_price) %></span>
+              </td>
+              <td :if={!nft_is_special?(nft)} class="p-2">
+                <span class="text-yellow-400"><%= format_rogue(nft.pending_amount) %></span>
+                <span class="text-gray-500 text-xs block"><%= format_usd(nft.pending_amount, @rogue_price) %></span>
+              </td>
+              <!-- Combined 24h (revenue + time) -->
+              <td class="p-2">
+                <span><%= if nft_is_special?(nft), do: format_with_commas(nft_combined_24h(nft)), else: format_number(nft_combined_24h(nft)) %></span>
+                <span class="text-gray-500 text-xs block"><%= format_usd_from_rogue(nft_combined_24h(nft), @rogue_price) %></span>
+              </td>
+              <!-- APY (combined revenue + time for special NFTs) -->
+              <td class="p-2">
+                <span class={if nft_is_special?(nft), do: "text-purple-400", else: "text-gray-400"}><%= nft_apy(nft, @nft_value_rogue) %>%</span>
+              </td>
+            </tr>
+          <% end %>
+          <!-- Empty state -->
+          <tr :if={length(@user_earnings.nfts) == 0} class="border-t border-gray-600">
+            <td colspan="7" class="p-4 text-center text-gray-500">No NFTs found. <a href="/" class="text-purple-400 hover:underline cursor-pointer">Mint your first NFT</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Not Connected Message -->
+  <section :if={!@user_earnings} class="mb-8 bg-gray-800 p-6 rounded-lg text-center">
+    <h2 class="text-xl font-bold mb-4">View Your Earnings</h2>
+    <p class="text-gray-400 mb-4">Connect your wallet to see your NFT revenue earnings and withdraw your rewards.</p>
+    <button id="revenue-connect-btn" phx-click="request_wallet_connect" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg cursor-pointer transition-colors">
+      Connect Wallet
+    </button>
+  </section>
+
+  <!-- Recent Reward Events -->
+  <section class="mb-8">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold">Latest Payouts To NFTs</h2>
+      <span class="text-xs text-gray-500">From BUX Booster game losses only</span>
+    </div>
+    <div class="bg-gray-800 rounded-lg overflow-hidden">
+      <div class="max-h-[400px] overflow-y-auto overflow-x-auto">
+        <table class="w-full min-w-[500px]">
+          <thead class="bg-gray-700 sticky top-0 z-10">
+            <tr>
+              <th class="p-3 text-left">Time</th>
+              <th class="p-3 text-left">Amount</th>
+              <th class="p-3 text-left">USD</th>
+              <th class="p-3 text-left">TX</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for event <- @reward_events do %>
+              <tr class="border-t border-gray-700 hover:bg-gray-700/50">
+                <td class="p-3 text-gray-400"><%= format_time_ago(event[:timestamp]) %></td>
+                <td class="p-3 text-green-400">
+                  <span class="flex items-baseline gap-1">
+                    <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-3 h-3 self-center"><%= format_rogue(event[:amount]) %>
+                  </span>
+                </td>
+                <td class="p-3 text-gray-500"><%= format_usd(event[:amount], @rogue_price) %></td>
+                <td class="p-3">
+                  <a :if={event[:tx_hash]} href={"https://roguescan.io/tx/#{event[:tx_hash]}?tab=logs"} target="_blank" class="text-purple-400 hover:underline cursor-pointer"><%= truncate_address(event[:tx_hash]) %> ↗</a>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      <div :if={@reward_events_loading} class="text-center py-4 text-gray-400">
+        Loading recent rewards...
+      </div>
+      <div :if={!@reward_events_loading && length(@reward_events) == 0} class="text-center py-4 text-gray-500">
+        No rewards yet. Rewards are distributed when players lose <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 inline">ROGUE bets on BUX Booster.
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-2">
+      Time-based rewards for special NFTs (#2340-2700) accrue automatically and are not shown here.
+    </p>
+  </section>
+
+</div>

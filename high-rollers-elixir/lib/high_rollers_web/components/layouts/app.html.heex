@@ -1,0 +1,151 @@
+<div id="app">
+  <!-- Header -->
+  <header class="bg-gray-800 p-4 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-3 cursor-pointer">
+      <img src="/images/crypto-kult-logo.png" alt="Crypto Kult" class="h-10" />
+    </a>
+    <div id="wallet-section" class="flex items-center gap-4" phx-hook="WalletHook">
+      <%!-- Connect button shown when not connected --%>
+      <button
+        :if={!@wallet_connected}
+        id="connect-btn"
+        class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg cursor-pointer transition-colors"
+        phx-click={HighRollersWeb.Layouts.show_modal("wallet-modal")}
+      >
+        Connect Wallet
+      </button>
+      <%!-- Wallet info shown when connected - server-rendered from session --%>
+      <div
+        :if={@wallet_connected}
+        id="wallet-info"
+        class="flex items-center gap-3 bg-gray-700 px-4 py-2 rounded-lg"
+      >
+        <img id="wallet-logo" src={HighRollersWeb.Layouts.wallet_logo_url(@wallet_type)} alt="" class="w-6 h-6" />
+        <span id="wallet-address" class="text-gray-300 font-mono"><%= HighRollersWeb.Layouts.truncate_address(@wallet_address) %></span>
+        <div class="flex items-baseline gap-1.5">
+          <img id="chain-logo" src={HighRollersWeb.Layouts.chain_logo_url(@current_chain)} alt="" class="w-4 h-4 self-center" />
+          <span id="wallet-balance" class="text-green-400 font-bold"><%= HighRollersWeb.Layouts.format_balance(@wallet_balance, @current_chain) %></span>
+          <span id="wallet-currency" class="text-gray-400 text-sm"><%= HighRollersWeb.Layouts.chain_currency(@current_chain) %></span>
+        </div>
+        <button id="disconnect-btn" class="text-gray-400 hover:text-white ml-2 cursor-pointer">
+          ✕
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="relative h-96 overflow-hidden bg-gradient-to-r from-purple-900 to-pink-900">
+    <div class="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-transparent"></div>
+
+    <div class="relative container mx-auto px-6 h-full flex items-center justify-between">
+      <div class="max-w-xl">
+        <h1 class="text-5xl font-bold mb-4">
+          DeFi Gambling Revenues
+        </h1>
+        <p class="text-2xl text-purple-400 font-bold mb-4">
+          Real-Time Revenue Sharing
+        </p>
+        <p class="text-lg text-gray-300 mb-8">
+          High Rollers NFTs earn 0.2% of every losing $ROGUE bet on
+          <a
+            href="https://blockster-v2.fly.dev/play"
+            target="_blank"
+            class="text-blue-500 hover:underline cursor-pointer"
+          >
+            Blockster
+          </a>
+          - mint now to earn passive DeFi income forever.
+        </p>
+        <div class="flex gap-4">
+          <button
+            id="hero-mint-btn"
+            class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-8 py-3 rounded-lg text-lg font-bold cursor-pointer transition-all"
+          >
+            Mint Now - 0.32 ETH
+          </button>
+          <a
+            href="https://www.coingecko.com/en/coins/rogue"
+            target="_blank"
+            class="border border-purple-500 hover:bg-purple-500/20 px-8 py-3 rounded-lg text-lg font-bold cursor-pointer transition-all inline-flex items-center gap-2"
+          >
+            <img
+              src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png"
+              alt="ROGUE"
+              class="w-5 h-5"
+            /> $ROGUE Token
+          </a>
+        </div>
+      </div>
+
+      <!-- Special NFTs Feature Box -->
+      <div class="hidden lg:block max-w-sm">
+        <div class="bg-gradient-to-br from-yellow-500/20 to-amber-500/10 border border-yellow-500/50 rounded-xl p-6 backdrop-blur-sm">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="text-2xl">⭐</span>
+            <h3 class="text-xl font-bold text-yellow-400">Special NFTs #2340-2700</h3>
+          </div>
+          <ul class="space-y-3 text-gray-200">
+            <li class="flex items-start gap-3">
+              <span class="text-yellow-400 mt-0.5">✓</span>
+              <span>
+                <strong class="text-yellow-300">Guaranteed Time Rewards</strong>
+                - Earn ROGUE every second for 180 days, regardless of betting activity
+              </span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="text-yellow-400 mt-0.5">✓</span>
+              <span>
+                <strong class="text-yellow-300">Betting Revenue Share</strong>
+                - Also earn from every losing bet on top of time rewards
+              </span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="text-yellow-400 mt-0.5">✓</span>
+              <span>
+                <strong class="text-yellow-300">Limited Number</strong>
+                - Only <span id="hero-special-remaining" class="font-bold" phx-update="ignore">-</span>
+                special NFTs left!
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <HighRollersWeb.Layouts.tab_nav current_path={@current_path} wallet_connected={@wallet_connected} />
+
+  <!-- Main Content -->
+  <main>
+    <%= @inner_content %>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 border-t border-gray-700 mt-12 py-8">
+    <div class="container mx-auto px-6 text-center">
+      <p class="text-gray-400">
+        High Rollers NFT Collection on Arbitrum One
+      </p>
+      <div class="mt-4 flex justify-center gap-6">
+        <a
+          href="https://arbiscan.io/address/0x7176d2edd83aD037bd94b7eE717bd9F661F560DD"
+          target="_blank"
+          class="text-purple-400 hover:underline cursor-pointer"
+        >
+          Contract
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Wallet Modal -->
+  <HighRollersWeb.Layouts.wallet_modal />
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+  <!-- Flash Messages -->
+  <HighRollersWeb.Layouts.flash_group flash={@flash} />
+</div>

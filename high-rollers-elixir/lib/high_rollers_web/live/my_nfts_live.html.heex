@@ -1,0 +1,102 @@
+<!-- MY NFTS TAB - Exact copy of Node.js HTML structure (high-rollers-nfts/public/index.html lines 370-387) -->
+<div class="container mx-auto p-6">
+  <h2 class="text-xl font-bold mb-4">My High Rollers</h2>
+  <div :if={@loading} class="text-center py-8 text-gray-400">
+    Loading your NFTs...
+  </div>
+  <div :if={!@loading && length(@nfts) == 0} class="text-center py-8">
+    <p class="text-gray-400 mb-4">You don't own any High Roller NFTs yet.</p>
+    <button phx-click="go_to_mint" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg cursor-pointer transition-colors">
+      Mint Your First NFT
+    </button>
+  </div>
+  <div :if={!@loading && length(@nfts) > 0} class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+    <!-- NFT cards - Exact copy of UI.renderNFTCard() from high-rollers-nfts/public/js/ui.js lines 221-333 -->
+    <%= for nft <- @nfts do %>
+      <% is_special = nft.token_id >= 2340 and nft.token_id <= 2700 %>
+      <% card_classes = if is_special,
+           do: "nft-card special-nft-glow bg-gray-800 rounded-lg overflow-hidden cursor-pointer block transition-all relative",
+           else: "nft-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer block hover:ring-2 hover:ring-purple-500 transition-all relative" %>
+      <% image_url = "#{hostess_image(nft.hostess_index)}?tr=w-400,h-400,fo-auto" %>
+      <% rarity = HighRollers.Hostess.get(nft.hostess_index)[:rarity] %>
+      <% rarity_class = get_rarity_class(rarity) %>
+
+      <a href={"https://arbiscan.io/nft/0x7176d2edd83aD037bd94b7eE717bd9F661F560DD/#{nft.token_id}"} target="_blank" class={card_classes}>
+        <!-- Special badge for time-reward NFTs -->
+        <div :if={is_special} class="absolute top-2 right-2 z-10">
+          <span class="bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs px-2 py-1 rounded-full font-bold shadow-lg">
+            SPECIAL
+          </span>
+        </div>
+        <div class="aspect-square bg-gray-700">
+          <img
+            src={image_url}
+            alt={nft.hostess_name}
+            class="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </div>
+        <div class="p-3">
+          <div class="flex justify-between items-center">
+            <p class="font-bold text-sm"><%= nft.hostess_name %></p>
+            <span class={"text-xs px-2 py-0.5 rounded #{rarity_class}"}>
+              <%= hostess_multiplier(nft.hostess_index) %>x
+            </span>
+          </div>
+          <p class="text-gray-400 text-xs">#<%= nft.token_id %></p>
+          <!-- Revenue sharing earnings display (all NFTs) -->
+          <div class="mt-2 pt-2 border-t border-gray-700 text-xs">
+            <p class="text-green-400 font-bold mb-1">Betting Rewards</p>
+            <div class="flex justify-between items-baseline">
+              <span class="text-gray-400">Pending:</span>
+              <span class="text-green-400 font-bold"><%= format_rogue(nft.pending_amount) %> <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+            </div>
+            <div class="flex justify-between items-baseline mt-1">
+              <span class="text-gray-400">Total:</span>
+              <span class="text-white"><%= format_rogue(nft.total_earned) %> <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+            </div>
+          </div>
+          <!-- Time-based rewards section (special NFTs only) -->
+          <div :if={is_special && nft[:time_reward]} class="mt-2 pt-2 border-t border-violet-500/30 text-xs">
+            <p class="text-violet-400 font-bold mb-1">Time Rewards</p>
+            <%= if nft.time_reward[:has_started] do %>
+              <div
+                id={"time-reward-#{nft.token_id}"}
+                phx-hook="TimeRewardHook"
+                data-rate-per-second={nft.time_reward[:rate_per_second]}
+                data-start-time={nft.time_reward[:start_time]}
+                data-last-claim-time={nft.time_reward[:last_claim_time]}
+                data-total-claimed={nft.time_reward[:total_claimed] || 0}
+              >
+                <div class="flex justify-between items-baseline">
+                  <span class="text-gray-400">Pending:</span>
+                  <span class="text-violet-400 font-bold">
+                    <span class="pending-amount"><%= format_time_reward_amount(nft.time_reward[:pending]) %></span> <span class="text-xs text-gray-500 font-normal">ROGUE</span>
+                  </span>
+                </div>
+                <div class="flex justify-between items-baseline mt-1">
+                  <span class="text-gray-400">Total:</span>
+                  <span class="text-violet-300">
+                    <span class="total-earned"><%= format_time_reward_amount(nft.time_reward[:total_earned]) %></span> <span class="text-xs text-gray-500 font-normal">ROGUE</span>
+                  </span>
+                </div>
+                <div class="flex justify-between items-baseline mt-1">
+                  <span class="text-gray-400">Remaining:</span>
+                  <span class="text-white font-mono time-remaining">
+                    <%= format_time_remaining(nft.time_reward[:time_remaining]) %>
+                  </span>
+                </div>
+              </div>
+              <div class="flex justify-between items-baseline mt-1">
+                <span class="text-gray-400">180d Total:</span>
+                <span class="text-violet-200"><%= format_time_reward_amount(nft.time_reward[:total_for_180_days]) %> <span class="text-xs text-gray-500 font-normal">ROGUE</span></span>
+              </div>
+            <% else %>
+              <p class="text-gray-400 italic">Not yet started</p>
+            <% end %>
+          </div>
+        </div>
+      </a>
+    <% end %>
+  </div>
+</div>
