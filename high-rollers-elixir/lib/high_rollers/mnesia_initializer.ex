@@ -215,24 +215,26 @@ defmodule HighRollers.MnesiaInitializer do
     # Ensure mnesia directory exists
     ensure_mnesia_dir()
 
-    # Start Mnesia (if not already running)
+    # Check if schema exists on disk for this node
+    schema_exists = schema_exists_on_disk?()
+
+    # Mnesia may already be running (started by extra_applications in mix.exs)
+    # If schema doesn't exist on disk, we need to stop Mnesia, create schema, restart
     case :mnesia.system_info(:is_running) do
+      :yes when not schema_exists ->
+        Logger.info("[MnesiaInitializer] Mnesia running but no disk schema - stopping to create schema")
+        :mnesia.stop()
+        create_disk_schema()
+        :ok = :mnesia.start()
+        Logger.info("[MnesiaInitializer] Restarted Mnesia with disk schema")
+
       :yes ->
-        Logger.info("[MnesiaInitializer] Mnesia already running")
+        Logger.info("[MnesiaInitializer] Mnesia already running with disk schema")
 
       :no ->
-        # Create schema if it doesn't exist (safe operation)
-        case :mnesia.create_schema([node()]) do
-          :ok ->
-            Logger.info("[MnesiaInitializer] Created schema on #{node()}")
-
-          {:error, {_, {:already_exists, _}}} ->
-            Logger.debug("[MnesiaInitializer] Schema already exists")
-
-          {:error, reason} ->
-            Logger.warning("[MnesiaInitializer] Schema creation returned: #{inspect(reason)}")
+        unless schema_exists do
+          create_disk_schema()
         end
-
         :ok = :mnesia.start()
         Logger.info("[MnesiaInitializer] Started Mnesia")
     end
@@ -252,6 +254,30 @@ defmodule HighRollers.MnesiaInitializer do
     end
 
     Logger.info("[MnesiaInitializer] All tables ready")
+  end
+
+  defp schema_exists_on_disk? do
+    case Application.get_env(:mnesia, :dir) do
+      nil -> false
+      dir when is_list(dir) ->
+        path = List.to_string(dir)
+        schema_file = Path.join(path, "schema.DAT")
+        File.exists?(schema_file)
+    end
+  end
+
+  defp create_disk_schema do
+    case :mnesia.create_schema([node()]) do
+      :ok ->
+        Logger.info("[MnesiaInitializer] Created disk schema on #{node()}")
+
+      {:error, {_, {:already_exists, _}}} ->
+        Logger.debug("[MnesiaInitializer] Schema already exists")
+
+      {:error, reason} ->
+        Logger.error("[MnesiaInitializer] Failed to create schema: #{inspect(reason)}")
+        raise "Failed to create Mnesia schema: #{inspect(reason)}"
+    end
   end
 
   defp ensure_mnesia_dir do
