@@ -9,7 +9,7 @@ config :high_rollers, :env, :prod
 # which you should run after static files are built and
 # before starting your production server.
 config :high_rollers, HighRollersWeb.Endpoint,
-  url: [host: "high-rollers.fly.dev", port: 443, scheme: "https"],
+  url: [host: "high-rollers-elixir.fly.dev", port: 443, scheme: "https"],
   http: [ip: {0, 0, 0, 0}, port: 4000],
   cache_static_manifest: "priv/static/cache_manifest.json"
 

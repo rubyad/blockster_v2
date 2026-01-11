@@ -343,6 +343,13 @@ class WalletService {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           await this.connectWallet(walletType || 'metamask');
+        } else {
+          // User disconnected from MetaMask - clear stale localStorage
+          console.log('[Wallet] No accounts available - user disconnected from MetaMask');
+          localStorage.removeItem('walletConnected');
+          localStorage.removeItem('walletType');
+          // Trigger disconnect callbacks to update UI
+          this.onDisconnectCallbacks.forEach(cb => cb());
         }
       } catch (error) {
         console.log('Auto-connect failed:', error);
