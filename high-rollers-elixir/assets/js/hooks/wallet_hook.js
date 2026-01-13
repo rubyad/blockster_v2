@@ -44,6 +44,11 @@ const WalletHook = {
     this.walletType = null
     this.currentChain = getTargetChainForPath(window.location.pathname)
     this.autoConnectComplete = false
+    this.connectionInProgress = false  // Lock to prevent duplicate connection requests
+
+    // EIP-6963: Store discovered wallet providers (avoids window.ethereum hijacking)
+    this.eip6963Providers = new Map()
+    this.setupEIP6963()
 
     // Set up event listeners from LiveView
     this.setupLiveViewEventHandlers()
@@ -57,8 +62,57 @@ const WalletHook = {
     // Listen for LiveView navigation to switch chains when URL changes
     this.setupNavigationListener()
 
-    // Check for existing connection on mount
-    this.checkExistingConnection()
+    // Check for existing connection on mount (delayed to allow EIP-6963 discovery)
+    setTimeout(() => this.checkExistingConnection(), 100)
+  },
+
+  // ===== EIP-6963: Multi Injected Provider Discovery =====
+  // This avoids the window.ethereum hijacking problem where Coinbase/other wallets
+  // override MetaMask. Each wallet announces itself independently.
+
+  setupEIP6963() {
+    // Listen for wallet announcements
+    this.eip6963Handler = (event) => {
+      const { info, provider } = event.detail
+      console.log('[WalletHook] EIP-6963 wallet announced:', info.name, info.rdns)
+      this.eip6963Providers.set(info.rdns, { info, provider })
+    }
+    window.addEventListener('eip6963:announceProvider', this.eip6963Handler)
+
+    // Request wallets to announce themselves
+    window.dispatchEvent(new Event('eip6963:requestProvider'))
+  },
+
+  getEIP6963Provider(walletType) {
+    // Map our wallet types to EIP-6963 rdns identifiers
+    const rdnsMap = {
+      'metamask': 'io.metamask',
+      'coinbase': 'com.coinbase.wallet',
+      'rabby': 'io.rabby',
+      'trust': 'com.trustwallet.app',
+      'brave': 'com.brave.wallet',
+      'okx': 'com.okex.wallet',
+      'rainbow': 'me.rainbow',
+      'zerion': 'io.zerion.wallet'
+    }
+
+    const rdns = rdnsMap[walletType]
+    if (rdns && this.eip6963Providers.has(rdns)) {
+      const { provider, info } = this.eip6963Providers.get(rdns)
+      console.log('[WalletHook] Using EIP-6963 provider for', walletType, ':', info.name)
+      return provider
+    }
+
+    // Also check for partial matches (some wallets use different rdns)
+    for (const [key, { provider, info }] of this.eip6963Providers) {
+      if (key.toLowerCase().includes(walletType.toLowerCase()) ||
+          info.name.toLowerCase().includes(walletType.toLowerCase())) {
+        console.log('[WalletHook] Using EIP-6963 provider (partial match):', info.name)
+        return provider
+      }
+    }
+
+    return null
   },
 
   setupDisconnectButton() {
@@ -108,10 +162,18 @@ const WalletHook = {
       if (this.currentChain !== targetChain) {
         console.log(`[WalletHook] Switching chain: ${this.currentChain} -> ${targetChain}`)
         await this.switchNetwork(targetChain)
+        // Get balance and sync to session + push to LiveView in one go
+        const balance = await this.getCurrentBalance()
+        await this.syncToSession({
+          address: this.address,
+          type: this.walletType,
+          chain: this.currentChain,
+          balance: balance
+        })
+        // Push to LiveView (no separate session update needed - syncToSession already did it)
+        this.pushEvent("balance_updated", { balance, chain: this.currentChain })
       }
-
-      // Always refresh balance after navigation (chain may have changed)
-      await this.pushCurrentBalance()
+      // If chain didn't change, no need to refresh - balance is still valid
     }
     window.addEventListener('phx:page-loading-stop', this.navigationHandler)
   },
@@ -133,6 +195,11 @@ const WalletHook = {
     // Clean up navigation listener
     if (this.navigationHandler) {
       window.removeEventListener('phx:page-loading-stop', this.navigationHandler)
+    }
+
+    // Clean up EIP-6963 listener
+    if (this.eip6963Handler) {
+      window.removeEventListener('eip6963:announceProvider', this.eip6963Handler)
     }
 
     // Clean up event listeners
@@ -173,6 +240,12 @@ const WalletHook = {
   // ===== Connection Methods =====
 
   async checkExistingConnection() {
+    // Prevent duplicate connection checks
+    if (this.connectionInProgress) {
+      console.log('[WalletHook] Connection already in progress, skipping auto-connect check')
+      return
+    }
+
     if (!window.ethereum) {
       this.autoConnectComplete = true
       return
@@ -192,6 +265,7 @@ const WalletHook = {
 
       if (accounts.length > 0) {
         // Connected - set up JS state silently (session already has correct data)
+        // connectWallet already calls syncToSession internally, so we don't need to call it again
         await this.connectWallet(walletType, true, true)
 
         // After wallet is connected, switch to correct chain for current page
@@ -199,18 +273,19 @@ const WalletHook = {
         if (this.currentChain !== targetChain) {
           console.log(`[WalletHook] Post-connect chain switch: ${this.currentChain} -> ${targetChain}`)
           await this.switchNetwork(targetChain)
+          // After chain switch, update session with new chain's balance
+          const balance = await this.getCurrentBalance()
+          await this.syncToSession({
+            address: this.address,
+            type: this.walletType,
+            chain: this.currentChain,
+            balance: balance
+          })
         }
 
-        // Always fetch and push correct balance for current chain
-        // (session may have stale balance from previous chain/page)
-        const balance = await this.getCurrentBalance()
-        await this.syncToSession({
-          address: this.address,
-          type: this.walletType,
-          chain: this.currentChain,
-          balance: balance
-        })
+        // Push balance update to LiveView (session was already synced in connectWallet or chain switch above)
         try {
+          const balance = await this.getCurrentBalance()
           this.pushEvent("balance_updated", { balance, chain: this.currentChain })
         } catch (error) {
           console.log('[WalletHook] Could not push balance - LiveView not connected')
@@ -233,23 +308,59 @@ const WalletHook = {
   },
 
   async connectWallet(walletType, skipRequest = false, skipLiveViewPush = false) {
+    // Prevent duplicate connection requests
+    if (this.connectionInProgress) {
+      console.log('[WalletHook] Connection already in progress, skipping duplicate request')
+      return
+    }
+    this.connectionInProgress = true
+
+    try {
+      return await this._doConnectWallet(walletType, skipRequest, skipLiveViewPush)
+    } finally {
+      this.connectionInProgress = false
+    }
+  },
+
+  async _doConnectWallet(walletType, skipRequest = false, skipLiveViewPush = false) {
     // Handle mobile deep linking when no wallet provider is available
     if (this.isMobile() && !window.ethereum) {
       return this.handleMobileConnect(walletType)
     }
 
-    if (!window.ethereum) {
+    if (!window.ethereum && this.eip6963Providers.size === 0) {
       throw new Error('No wallet found. Please install MetaMask or another Web3 wallet.')
     }
 
-    const wallets = this.getAvailableWallets()
-    const wallet = wallets.find(w => w.type === walletType) || wallets[0]
+    // Try EIP-6963 first (modern, avoids hijacking issues)
+    let provider = this.getEIP6963Provider(walletType)
+    let resolvedWalletType = walletType
 
-    if (!wallet) {
-      throw new Error('No wallet found')
+    if (provider) {
+      console.log('[WalletHook] connectWallet: Using EIP-6963 provider for', walletType)
+    } else {
+      // Fall back to legacy window.ethereum detection
+      const wallets = this.getAvailableWallets()
+      const wallet = wallets.find(w => w.type === walletType) || wallets[0]
+
+      console.log('[WalletHook] connectWallet (legacy fallback):', {
+        requestedType: walletType,
+        availableWallets: wallets.map(w => w.type),
+        selectedWallet: wallet?.type,
+        selectedProvider: wallet?.provider ? {
+          isMetaMask: wallet.provider.isMetaMask,
+          isCoinbaseWallet: wallet.provider.isCoinbaseWallet,
+          isRabby: wallet.provider.isRabby
+        } : null
+      })
+
+      if (!wallet) {
+        throw new Error('No wallet found')
+      }
+
+      provider = wallet.provider
+      resolvedWalletType = wallet.type
     }
-
-    const provider = wallet.provider
 
     // Request account access (unless we're doing silent reconnect)
     let accounts
@@ -294,7 +405,7 @@ const WalletHook = {
     this.provider = new ethers.BrowserProvider(provider)
     this.signer = await this.provider.getSigner()
     this.address = await this.signer.getAddress()
-    this.walletType = wallet.type
+    this.walletType = resolvedWalletType
 
     // Set up event listeners
     this.handleAccountsChanged = this.handleAccountsChanged.bind(this)
@@ -303,7 +414,7 @@ const WalletHook = {
     provider.on('chainChanged', this.handleChainChanged)
 
     // Only store wallet type for reconnection
-    localStorage.setItem('walletType', wallet.type)
+    localStorage.setItem('walletType', resolvedWalletType)
 
     // Get initial balance
     const balance = await this.getCurrentBalance()
@@ -311,7 +422,7 @@ const WalletHook = {
     // Store in Phoenix session for cross-tab persistence (no flash on navigation)
     await this.syncToSession({
       address: this.address,
-      type: wallet.type,
+      type: resolvedWalletType,
       chain: this.currentChain,
       balance: balance
     })
@@ -327,12 +438,12 @@ const WalletHook = {
     if (!skipLiveViewPush) {
       console.log('[WalletHook] Fresh connect - reloading page for session sync')
       window.location.reload()
-      return { address: this.address, type: wallet.type }
+      return { address: this.address, type: resolvedWalletType }
     }
 
     console.log('[WalletHook] Connected (silent reconnect):', this.address)
 
-    return { address: this.address, type: wallet.type }
+    return { address: this.address, type: resolvedWalletType }
   },
 
   async disconnect() {
@@ -476,8 +587,8 @@ const WalletHook = {
     // Push chain change to LiveView - template handles logo/currency display
     this.pushEvent("wallet_chain_changed", { chain: this.currentChain })
 
-    // Refresh balance for new chain
-    this.pushCurrentBalance()
+    // Note: Don't call pushCurrentBalance() here - our navigation/connection code
+    // already handles balance updates after chain switches to avoid duplicate API calls
   },
 
   // ===== Balance =====
@@ -570,7 +681,16 @@ const WalletHook = {
   },
 
   async syncToSession({ address, type, chain, balance }) {
+    // Prevent duplicate sync requests within 500ms
+    const now = Date.now()
+    if (this.lastSyncTime && (now - this.lastSyncTime) < 500) {
+      console.log('[WalletHook] Skipping duplicate sync request (debounced)')
+      return
+    }
+    this.lastSyncTime = now
+
     try {
+      console.log('[WalletHook] Syncing to session:', { address, chain })
       await fetch('/api/wallet/connect', {
         method: 'POST',
         headers: {
@@ -645,6 +765,28 @@ const WalletHook = {
   getAvailableWallets() {
     const available = []
     const ethereum = window.ethereum
+
+    // Debug logging for wallet detection issues
+    console.log('[WalletHook] getAvailableWallets debug:', {
+      ethereum: !!ethereum,
+      isMetaMask: ethereum?.isMetaMask,
+      isCoinbaseWallet: ethereum?.isCoinbaseWallet,
+      isRabby: ethereum?.isRabby,
+      isTrust: ethereum?.isTrust,
+      isBraveWallet: ethereum?.isBraveWallet,
+      providersCount: ethereum?.providers?.length,
+      providers: ethereum?.providers?.map(p => ({
+        isMetaMask: p.isMetaMask,
+        isCoinbaseWallet: p.isCoinbaseWallet,
+        isRabby: p.isRabby,
+        isTrust: p.isTrust
+      })),
+      eip6963Providers: Array.from(this.eip6963Providers.entries()).map(([rdns, { info }]) => ({
+        rdns,
+        name: info.name,
+        uuid: info.uuid
+      }))
+    })
 
     if (!ethereum && this.isMobile()) {
       // Return wallets with deep link support for mobile
