@@ -24,11 +24,11 @@
       {assigns[:page_title]}
     </.live_title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href={~p"/favicon.ico"} />
-    <link rel="icon" type="image/png" sizes="32x32" href={~p"/favicon-32x32.png"} />
-    <link rel="icon" type="image/png" sizes="16x16" href={~p"/favicon-16x16.png"} />
-    <link rel="apple-touch-icon" sizes="180x180" href={~p"/apple-touch-icon.png"} />
+    <!-- Favicon (no digest hash - these are static files) -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- Tailwind CSS (built by Phoenix) -->
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
