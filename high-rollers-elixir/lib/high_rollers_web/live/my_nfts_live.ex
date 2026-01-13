@@ -181,15 +181,33 @@ defmodule HighRollersWeb.MyNftsLive do
     reward_amount = String.to_integer(reward_amount_str)
     total_points = HighRollers.NFTStore.get_total_multiplier_points()
 
-    Enum.map(nfts, fn nft ->
+    updated_nfts = Enum.map(nfts, fn nft ->
       multiplier = Enum.at(@multipliers, nft.hostess_index, 30)
       nft_share = div(reward_amount * multiplier, total_points)
 
+      new_pending = add_wei(nft.pending_amount, Integer.to_string(nft_share))
+      new_total = add_wei(nft.total_earned, Integer.to_string(nft_share))
+      new_24h = add_wei(nft.last_24h_earned, Integer.to_string(nft_share))
+
       nft
-      |> Map.update(:pending_amount, "0", &add_wei(&1, Integer.to_string(nft_share)))
-      |> Map.update(:total_earned, "0", &add_wei(&1, Integer.to_string(nft_share)))
-      |> Map.update(:last_24h_earned, "0", &add_wei(&1, Integer.to_string(nft_share)))
+      |> Map.put(:pending_amount, new_pending)
+      |> Map.put(:total_earned, new_total)
+      |> Map.put(:last_24h_earned, new_24h)
     end)
+
+    # Update Mnesia asynchronously so EarningsSyncer reload gets correct values
+    # This prevents the race condition where earnings_synced reverts the optimistic update
+    Task.start(fn ->
+      Enum.each(updated_nfts, fn nft ->
+        HighRollers.NFTStore.update_earnings(nft.token_id, %{
+          pending_amount: nft.pending_amount,
+          total_earned: nft.total_earned,
+          last_24h_earned: nft.last_24h_earned
+        })
+      end)
+    end)
+
+    updated_nfts
   end
 
   defp add_wei(a, b) do

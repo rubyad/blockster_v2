@@ -4,14 +4,31 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <meta name="description" content="High Rollers NFTs earn a share of every winning bet. Mint your NFT now and start earning passive income forever." />
+    <meta name="description" content="High Rollers NFTs earn a share of every losing bet on Blockster - forever." />
 
-    <.live_title default="High Rollers NFTs">
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Revenue sharing NFTs - Crypto Kult" />
+    <meta property="og:description" content="High Rollers NFTs earn a share of every losing bet on Blockster - forever." />
+    <meta property="og:image" content="https://ik.imagekit.io/blockster/scarlett.jpg" />
+    <meta property="og:url" content="https://cryptokult.com" />
+    <meta property="og:site_name" content="Crypto Kult" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Revenue sharing NFTs - Crypto Kult" />
+    <meta name="twitter:description" content="High Rollers NFTs earn a share of every losing bet on Blockster - forever." />
+    <meta name="twitter:image" content="https://ik.imagekit.io/blockster/scarlett.jpg" />
+
+    <.live_title default="Revenue sharing NFTs - Crypto Kult">
       {assigns[:page_title]}
     </.live_title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="https://ik.imagekit.io/blockster/rogue-token.png" />
+    <link rel="icon" type="image/x-icon" href={~p"/favicon.ico"} />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/favicon-32x32.png"} />
+    <link rel="icon" type="image/png" sizes="16x16" href={~p"/favicon-16x16.png"} />
+    <link rel="apple-touch-icon" sizes="180x180" href={~p"/apple-touch-icon.png"} />
 
     <!-- Tailwind CSS (built by Phoenix) -->
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
