@@ -80,7 +80,7 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "high-rollers-elixir.fly.dev"
+  host = System.get_env("PHX_HOST") || "highrollersnfts.com"
 
   config :high_rollers, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 

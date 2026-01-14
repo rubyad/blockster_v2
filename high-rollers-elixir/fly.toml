@@ -10,7 +10,7 @@ primary_region = "fra"
   # No migration command - Mnesia tables are created on app startup by MnesiaInitializer
 
 [env]
-  PHX_HOST = "high-rollers-elixir.fly.dev"
+  PHX_HOST = "highrollersnfts.com"
   PHX_SERVER = "true"
   # Single server - no clustering needed
   # DNS_CLUSTER_QUERY not set
