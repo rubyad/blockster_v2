@@ -65,6 +65,27 @@ let TagInput = {
   }
 };
 
+// DepositBuxInput Hook - handles deposit BUX button click
+let DepositBuxInput = {
+  mounted() {
+    const input = this.el.querySelector('#deposit-amount-input');
+    const button = this.el.querySelector('#deposit-bux-btn');
+    const target = this.el.dataset.target;
+
+    if (button && input) {
+      button.addEventListener('click', () => {
+        const amount = input.value.trim();
+        if (amount) {
+          // Use pushEventTo to target the LiveComponent
+          this.pushEventTo(target, "deposit_bux", { amount: amount });
+          // Clear input after successful push
+          input.value = '';
+        }
+      });
+    }
+  }
+};
+
 // Autocomplete Hook for closing dropdowns when clicking outside
 let Autocomplete = {
   mounted() {
@@ -271,7 +292,7 @@ let InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput },
 });
 
 // connect if there are any LiveViews on the page

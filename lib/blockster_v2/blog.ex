@@ -9,8 +9,6 @@ defmodule BlocksterV2.Blog do
   alias BlocksterV2.Blog.Tag
   alias BlocksterV2.Blog.Category
   alias BlocksterV2.Blog.Hub
-  alias BlocksterV2.Blog.CuratedPost
-  alias BlocksterV2.Blog.SectionSetting
 
   # Base queries with proper preloading
 
@@ -214,6 +212,60 @@ defmodule BlocksterV2.Blog do
     )
     |> Repo.all()
     |> populate_author_names()
+  end
+
+  @doc """
+  Lists published posts sorted by BUX pool balance (highest first),
+  then by published_at for posts with equal/zero balance.
+
+  Uses SortedPostsCache for O(1) pagination instead of sorting on every request.
+
+  ## Options
+    * `:limit` - Maximum number of posts to return (default: 20)
+    * `:offset` - Number of posts to skip (default: 0)
+
+  ## Examples
+      iex> list_published_posts_by_pool(limit: 20, offset: 0)
+      [%Post{bux_balance: 500}, %Post{bux_balance: 300}, ...]
+  """
+  def list_published_posts_by_pool(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    # Get sorted post IDs from cache (O(1) slice operation)
+    sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page(limit, offset)
+    post_ids = Enum.map(sorted_ids_with_balances, fn {id, _balance} -> id end)
+    balances_map = Map.new(sorted_ids_with_balances)
+
+    if Enum.empty?(post_ids) do
+      []
+    else
+      # Fetch only the posts we need from database
+      posts = from(p in Post,
+        where: p.id in ^post_ids,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+      )
+      |> Repo.all()
+      |> populate_author_names()
+
+      # Re-order posts to match sorted order and attach balance
+      post_ids
+      |> Enum.map(fn post_id ->
+        post = Enum.find(posts, fn p -> p.id == post_id end)
+        if post do
+          Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+    end
+  end
+
+  @doc """
+  Gets the total count of published posts (for pagination UI).
+  Uses SortedPostsCache for O(1) lookup.
+  """
+  def count_published_posts do
+    BlocksterV2.SortedPostsCache.count()
   end
 
   @doc """
@@ -767,113 +819,5 @@ defmodule BlocksterV2.Blog do
 
     balance = EngagementTracker.get_post_bux_balance(post.id)
     Map.put(post, :bux_balance, balance)
-  end
-
-  @doc """
-  Returns curated posts for a given section, ordered by position.
-  Returns the actual Post records, not CuratedPost records.
-
-  ## Examples
-
-      iex> get_curated_posts_for_section("latest_news")
-      [%Post{}, %Post{}, ...]
-
-      iex> get_curated_posts_for_section("conversations")
-      [%Post{}, %Post{}, ...]
-  """
-  def get_curated_posts_for_section(section) do
-    from(cp in CuratedPost,
-      where: cp.section == ^section,
-      order_by: cp.position,
-      join: p in assoc(cp, :post),
-      where: not is_nil(p.published_at),
-      preload: [post: {p, [:author, :category, :hub, :tags]}]
-    )
-    |> Repo.all()
-    |> Enum.map(& &1.post)
-    |> populate_author_names()
-  end
-
-  @doc """
-  Gets all curated posts for all sections in a single query.
-  Returns a map with section names as keys and lists of posts as values.
-
-  ## Examples
-
-      iex> get_all_curated_posts()
-      %{
-        "latest_news" => [%Post{}, ...],
-        "conversations" => [%Post{}, ...],
-        "posts_three" => [%Post{}, ...],
-        ...
-      }
-  """
-  def get_all_curated_posts do
-    from(cp in CuratedPost,
-      order_by: [cp.section, cp.position],
-      join: p in assoc(cp, :post),
-      where: not is_nil(p.published_at),
-      preload: [post: {p, [:author, :category, :hub, :tags]}]
-    )
-    |> Repo.all()
-    |> Enum.group_by(fn cp -> cp.section end, fn cp -> cp.post end)
-    |> Enum.map(fn {section, posts} -> {section, populate_author_names(posts)} end)
-    |> Map.new()
-  end
-
-  @doc """
-  Updates the post_id for a specific curated post position.
-  Returns {:ok, curated_post} or {:error, changeset}.
-  """
-  def update_curated_post_position(section, position, post_id) do
-    case Repo.get_by(CuratedPost, section: section, position: position) do
-      nil ->
-        {:error, :not_found}
-
-      curated_post ->
-        curated_post
-        |> CuratedPost.changeset(%{post_id: post_id})
-        |> Repo.update()
-    end
-  end
-
-  # Section Settings functions
-
-  @doc """
-  Gets the title for a section. Returns the default title if no custom title is set.
-  """
-  def get_section_title(section, default \\ nil) do
-    case Repo.get_by(SectionSetting, section: section) do
-      nil -> default
-      setting -> setting.title
-    end
-  end
-
-  @doc """
-  Gets all section titles as a map.
-  """
-  def get_all_section_titles do
-    SectionSetting
-    |> Repo.all()
-    |> Enum.reduce(%{}, fn setting, acc ->
-      Map.put(acc, setting.section, setting.title)
-    end)
-  end
-
-  @doc """
-  Updates or creates a section title.
-  """
-  def update_section_title(section, title) do
-    case Repo.get_by(SectionSetting, section: section) do
-      nil ->
-        %SectionSetting{}
-        |> SectionSetting.changeset(%{section: section, title: title})
-        |> Repo.insert()
-
-      setting ->
-        setting
-        |> SectionSetting.changeset(%{title: title})
-        |> Repo.update()
-    end
   end
 end

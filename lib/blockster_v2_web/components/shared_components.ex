@@ -38,12 +38,23 @@ defmodule BlocksterV2Web.SharedComponents do
   attr :id, :string, default: nil
 
   def token_badge(assigns) do
+    # Determine if pool is empty (balance is 0 or nil)
+    is_empty = assigns.balance == 0 or assigns.balance == nil or assigns.balance == 0.0
+
+    assigns = assign(assigns, :is_empty, is_empty)
+
     ~H"""
     <!-- BUX badge with thin black border (hub tokens removed) -->
-    <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-      <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-        <span class="text-xs font-haas_medium_65">{Number.Delimit.number_to_delimited(@balance, precision: 2)}</span>
+    <!-- Gray out when pool is empty to indicate no BUX available -->
+    <div class={"p-[0.5px] rounded-[100px] inline-block #{if @is_empty, do: "bg-gray-400", else: "bg-[#141414]"}"}>
+      <div class={"flex items-center gap-1.5 rounded-[100px] px-2 py-1 min-w-[73px] #{if @is_empty, do: "bg-gray-100", else: "bg-white"}"}>
+        <img
+          src="https://ik.imagekit.io/blockster/blockster-icon.png"
+          alt="BUX"
+          class={"h-5 w-5 rounded-full object-cover #{if @is_empty, do: "opacity-50"}"} />
+        <span class={"text-xs font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
+          {Number.Delimit.number_to_delimited(@balance, precision: 0)}
+        </span>
       </div>
     </div>
     """

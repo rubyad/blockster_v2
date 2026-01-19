@@ -3,6 +3,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Social
+  alias BlocksterV2.EngagementTracker
 
   @impl true
   def update(assigns, socket) do
@@ -62,9 +63,21 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     filtered_authors = authors
     show_author_dropdown = false
 
+    # Get pool stats for existing posts (admin pool management)
+    {pool_balance, pool_deposited, pool_distributed} =
+      if post.id do
+        EngagementTracker.get_post_pool_stats(post.id)
+      else
+        {0, 0, 0}
+      end
+
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:pool_balance, pool_balance)
+     |> assign(:pool_deposited, pool_deposited)
+     |> assign(:pool_distributed, pool_distributed)
+     |> assign(:deposit_amount, "")
      |> assign(:selected_tags, selected_tags)
      |> assign(:available_tags, available_tags)
      |> assign(:filtered_tags, available_tags)
@@ -288,6 +301,40 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
      |> assign(:show_hub_dropdown, false)
      |> assign(:hub_name, "")
      |> assign_form(changeset)}
+  end
+
+  @impl true
+  def handle_event("deposit_bux", %{"amount" => amount_str}, socket) do
+    # Admin-only: Deposit BUX into the post's pool
+    current_user = socket.assigns[:current_user]
+
+    if current_user && current_user.is_admin && socket.assigns.post.id do
+      case Integer.parse(amount_str) do
+        {amount, _} when amount > 0 ->
+          post_id = socket.assigns.post.id
+          case EngagementTracker.deposit_post_bux(post_id, amount) do
+            {:ok, new_balance} ->
+              # Refresh pool stats
+              {pool_balance, pool_deposited, pool_distributed} = EngagementTracker.get_post_pool_stats(post_id)
+
+              {:noreply,
+               socket
+               |> assign(:pool_balance, pool_balance)
+               |> assign(:pool_deposited, pool_deposited)
+               |> assign(:pool_distributed, pool_distributed)
+               |> assign(:deposit_amount, "")
+               |> put_flash(:info, "Deposited #{amount} BUX. Pool now: #{new_balance}")}
+
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Deposit failed: #{inspect(reason)}")}
+          end
+
+        _ ->
+          {:noreply, put_flash(socket, :error, "Invalid amount")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Admin only")}
+    end
   end
 
   @impl true

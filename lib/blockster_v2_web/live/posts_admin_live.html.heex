@@ -163,6 +163,14 @@
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+              <input
+                type="checkbox"
+                phx-click="toggle_all"
+                checked={MapSet.size(@selected_posts) > 0 && MapSet.size(@selected_posts) == length(@posts)}
+                class="cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </th>
             <th
               scope="col"
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
@@ -171,9 +179,11 @@
             </th>
             <th
               scope="col"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 cursor-pointer hover:text-gray-700"
+              phx-click="sort"
+              phx-value-by="published_at"
             >
-              Date
+              Date <%= if @sort_by == :published_at, do: (if @sort_dir == :desc, do: "↓", else: "↑") %>
             </th>
             <th
               scope="col"
@@ -207,6 +217,14 @@
             </th>
             <th
               scope="col"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:text-gray-700"
+              phx-click="sort"
+              phx-value-by="pool_balance"
+            >
+              Pool <%= if @sort_by == :pool_balance, do: (if @sort_dir == :desc, do: "↓", else: "↑") %>
+            </th>
+            <th
+              scope="col"
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
             >
               Status
@@ -222,6 +240,15 @@
         <tbody class="bg-white divide-y divide-gray-200">
           <%= for post <- @posts do %>
             <tr class="hover:bg-gray-50">
+              <td class="px-2 py-4 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={MapSet.member?(@selected_posts, post.id)}
+                  phx-click="toggle_select"
+                  phx-value-id={post.id}
+                  class="cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+              </td>
               <td class="px-4 py-4 whitespace-nowrap">
                 <%= if post.featured_image do %>
                   <img
@@ -491,6 +518,25 @@
                 <% end %>
               </td>
               <td class="px-4 py-4 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <span class={"font-medium text-sm #{if Map.get(post, :pool_balance, 0) == 0, do: "text-gray-400", else: "text-green-600"}"}>
+                    <%= Number.Delimit.number_to_delimited(Map.get(post, :pool_balance, 0), precision: 0) %>
+                  </span>
+                  <form phx-submit="deposit_single" phx-value-post-id={post.id} class="flex items-center gap-1">
+                    <input
+                      type="number"
+                      name="amount"
+                      min="1"
+                      placeholder="+"
+                      class="w-14 px-1 py-0.5 border border-gray-300 rounded text-xs text-center"
+                    />
+                    <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs cursor-pointer hover:bg-green-700" title="Deposit BUX">
+                      +
+                    </button>
+                  </form>
+                </div>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap">
                 <%= status_badge(post) %>
               </td>
               <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -617,4 +663,35 @@
   <div class="mt-4 text-sm text-gray-500">
     Total posts: <%= length(@posts) %>
   </div>
+
+  <%!-- Bulk deposit floating bar --%>
+  <%= if MapSet.size(@selected_posts) > 0 do %>
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 flex items-center gap-4 z-50">
+      <span class="text-sm font-medium text-gray-700">
+        <%= MapSet.size(@selected_posts) %> posts selected
+      </span>
+      <form phx-submit="bulk_deposit" class="flex items-center gap-2">
+        <input
+          type="number"
+          name="amount"
+          min="1"
+          placeholder="BUX per post"
+          class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm"
+        />
+        <button
+          type="submit"
+          class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium cursor-pointer hover:bg-green-700"
+        >
+          Deposit to All
+        </button>
+      </form>
+      <button
+        type="button"
+        phx-click="clear_selection"
+        class="text-gray-500 cursor-pointer hover:text-gray-700 text-sm"
+      >
+        Clear
+      </button>
+    </div>
+  <% end %>
 </div>

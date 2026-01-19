@@ -27,6 +27,13 @@ export const EngagementTracker = {
       return;
     }
 
+    // Check if pool has BUX available - no point tracking if there's nothing to earn
+    this.poolAvailable = this.el.dataset.poolAvailable === "true";
+    if (!this.poolAvailable) {
+      console.log("EngagementTracker: Pool is empty, skipping tracking");
+      return;
+    }
+
     // Initialize tracking state
     this.postId = this.el.dataset.postId;
     this.wordCount = parseInt(this.el.dataset.wordCount, 10) || 0;

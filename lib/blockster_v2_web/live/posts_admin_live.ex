@@ -3,6 +3,7 @@ defmodule BlocksterV2Web.PostsAdminLive do
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Blog.Post
+  alias BlocksterV2.EngagementTracker
 
   @impl true
   def mount(_params, _session, socket) do
@@ -14,10 +15,18 @@ defmodule BlocksterV2Web.PostsAdminLive do
       hubs = Blog.list_hubs()
       authors = get_all_authors()
 
+      # Fetch pool balances from Mnesia
+      pool_balances = EngagementTracker.get_all_post_bux_balances()
+
+      # Attach pool balance to each post
+      posts_with_pools = Enum.map(posts, fn post ->
+        Map.put(post, :pool_balance, Map.get(pool_balances, post.id, 0))
+      end)
+
       {:ok,
        socket
-       |> assign(:all_posts, posts)
-       |> assign(:posts, posts)
+       |> assign(:all_posts, posts_with_pools)
+       |> assign(:posts, posts_with_pools)
        |> assign(:categories, categories)
        |> assign(:tags, tags)
        |> assign(:hubs, hubs)
@@ -30,6 +39,9 @@ defmodule BlocksterV2Web.PostsAdminLive do
        |> assign(:filter_status, "all")
        |> assign(:hub_search_results, [])
        |> assign(:author_search_results, [])
+       |> assign(:selected_posts, MapSet.new())
+       |> assign(:sort_by, :published_at)
+       |> assign(:sort_dir, :desc)
        |> assign(:page_title, "Manage Posts")}
     else
       {:ok,
@@ -430,4 +442,127 @@ defmodule BlocksterV2Web.PostsAdminLive do
   defp filter_by_status(posts, "draft") do
     Enum.filter(posts, fn post -> !Post.published?(post) end)
   end
+
+  # =============================================================================
+  # Pool Management Event Handlers
+  # =============================================================================
+
+  @impl true
+  def handle_event("deposit_single", %{"amount" => amount_str, "post-id" => post_id}, socket) do
+    with {amount, _} <- Integer.parse(amount_str),
+         true <- amount > 0,
+         post_id <- String.to_integer(post_id),
+         {:ok, new_balance} <- EngagementTracker.deposit_post_bux(post_id, amount) do
+      # Update the post in both lists
+      all_posts = update_post_balance(socket.assigns.all_posts, post_id, new_balance)
+      posts = update_post_balance(socket.assigns.posts, post_id, new_balance)
+
+      {:noreply,
+       socket
+       |> assign(:all_posts, all_posts)
+       |> assign(:posts, posts)
+       |> put_flash(:info, "Deposited #{amount} BUX to pool")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Invalid deposit amount")}
+    end
+  end
+
+  @impl true
+  def handle_event("bulk_deposit", %{"amount" => amount_str}, socket) do
+    with {amount, _} <- Integer.parse(amount_str),
+         true <- amount > 0 do
+      selected_ids = MapSet.to_list(socket.assigns.selected_posts)
+
+      # Deposit to each selected post
+      results = Enum.map(selected_ids, fn post_id ->
+        EngagementTracker.deposit_post_bux(post_id, amount)
+      end)
+
+      success_count = Enum.count(results, &match?({:ok, _}, &1))
+
+      # Refresh pool balances
+      pool_balances = EngagementTracker.get_all_post_bux_balances()
+      all_posts = Enum.map(socket.assigns.all_posts, fn post ->
+        Map.put(post, :pool_balance, Map.get(pool_balances, post.id, 0))
+      end)
+      posts = apply_filters(all_posts, socket.assigns)
+
+      {:noreply,
+       socket
+       |> assign(:all_posts, all_posts)
+       |> assign(:posts, posts)
+       |> assign(:selected_posts, MapSet.new())
+       |> put_flash(:info, "Deposited #{amount} BUX to #{success_count} posts")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Invalid amount")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    selected = socket.assigns.selected_posts
+    new_selected = if MapSet.member?(selected, id) do
+      MapSet.delete(selected, id)
+    else
+      MapSet.put(selected, id)
+    end
+    {:noreply, assign(socket, :selected_posts, new_selected)}
+  end
+
+  @impl true
+  def handle_event("toggle_all", _, socket) do
+    all_ids = Enum.map(socket.assigns.posts, & &1.id) |> MapSet.new()
+    new_selected = if MapSet.size(socket.assigns.selected_posts) == MapSet.size(all_ids) do
+      MapSet.new()
+    else
+      all_ids
+    end
+    {:noreply, assign(socket, :selected_posts, new_selected)}
+  end
+
+  @impl true
+  def handle_event("clear_selection", _, socket) do
+    {:noreply, assign(socket, :selected_posts, MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("sort", %{"by" => column}, socket) do
+    column = String.to_atom(column)
+    dir = if socket.assigns.sort_by == column && socket.assigns.sort_dir == :desc, do: :asc, else: :desc
+
+    posts = sort_posts(socket.assigns.posts, column, dir)
+
+    {:noreply, assign(socket, posts: posts, sort_by: column, sort_dir: dir)}
+  end
+
+  defp update_post_balance(posts, post_id, new_balance) do
+    Enum.map(posts, fn post ->
+      if post.id == post_id, do: Map.put(post, :pool_balance, new_balance), else: post
+    end)
+  end
+
+  defp sort_posts(posts, :pool_balance, :desc) do
+    Enum.sort_by(posts, fn p -> Map.get(p, :pool_balance, 0) end, :desc)
+  end
+
+  defp sort_posts(posts, :pool_balance, :asc) do
+    Enum.sort_by(posts, fn p -> Map.get(p, :pool_balance, 0) end, :asc)
+  end
+
+  defp sort_posts(posts, :published_at, :desc) do
+    Enum.sort_by(posts, fn p -> p.published_at || p.inserted_at end, {:desc, DateTime})
+  end
+
+  defp sort_posts(posts, :published_at, :asc) do
+    Enum.sort_by(posts, fn p -> p.published_at || p.inserted_at end, {:asc, DateTime})
+  end
+
+  defp sort_posts(posts, _column, _dir), do: posts
+
+  defp format_pool_balance(balance) when is_number(balance) do
+    Number.Delimit.number_to_delimited(balance, precision: 0)
+  end
+
+  defp format_pool_balance(_), do: "0"
 end

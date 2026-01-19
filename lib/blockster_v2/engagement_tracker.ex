@@ -1240,6 +1240,75 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   # =============================================================================
+  # BUX Pool Functions (finite pool system)
+  # =============================================================================
+
+  @doc """
+  Admin deposits BUX into a post's pool.
+  Increases bux_balance (available to earn) and bux_deposited (lifetime total).
+
+  IMPORTANT: This function delegates to PostBuxPoolWriter GenServer for serialized writes
+  to prevent race conditions when multiple operations happen simultaneously.
+  """
+  def deposit_post_bux(post_id, amount) when is_integer(amount) and amount > 0 do
+    BlocksterV2.PostBuxPoolWriter.deposit(post_id, amount)
+  end
+
+  @doc """
+  Attempts to deduct BUX from post's pool. Returns amount that can be awarded.
+  Does NOT mint - just checks availability and decrements pool.
+  If pool has less than requested, returns whatever remains (partial).
+  If pool is empty, returns 0.
+
+  IMPORTANT: This function delegates to PostBuxPoolWriter GenServer for serialized writes
+  to prevent race conditions when multiple users drain the pool simultaneously.
+
+  Call this BEFORE minting. Only mint the returned amount.
+  """
+  def try_deduct_from_pool(post_id, requested_amount) when is_number(requested_amount) and requested_amount > 0 do
+    BlocksterV2.PostBuxPoolWriter.try_deduct(post_id, requested_amount)
+  end
+
+  def try_deduct_from_pool(_post_id, _requested_amount), do: {:ok, 0, :invalid_amount}
+
+  @doc """
+  Gets pool statistics for a post.
+  Returns {balance, deposited, distributed} tuple or {0, 0, 0} if no record exists.
+  """
+  def get_post_pool_stats(post_id) do
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] -> {0, 0, 0}
+      [record] ->
+        balance = elem(record, 4) || 0
+        deposited = elem(record, 5) || 0
+        distributed = elem(record, 6) || 0
+        {balance, deposited, distributed}
+    end
+  rescue
+    _ -> {0, 0, 0}
+  catch
+    :exit, _ -> {0, 0, 0}
+  end
+
+  @doc """
+  Gets all post BUX balances from Mnesia.
+  Returns a map of post_id => bux_balance for all posts with pool records.
+  """
+  def get_all_post_bux_balances() do
+    :mnesia.dirty_match_object({:post_bux_points, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_})
+    |> Enum.map(fn record ->
+      post_id = elem(record, 1)
+      balance = elem(record, 4) || 0
+      {post_id, balance}
+    end)
+    |> Map.new()
+  rescue
+    _ -> %{}
+  catch
+    :exit, _ -> %{}
+  end
+
+  # =============================================================================
   # Per-Token Balance Functions (user_bux_balances table)
   # =============================================================================
 

@@ -33,6 +33,10 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Add bux_balance from Mnesia
     updated_post = Blog.with_bux_balances(post)
 
+    # Check pool availability (pool system - finite BUX pools)
+    pool_balance = EngagementTracker.get_post_bux_balance(post.id)
+    pool_available = pool_balance > 0
+
     # Always use "BUX" for rewards (hub tokens removed)
     hub_logo = get_hub_logo(updated_post)
 
@@ -128,7 +132,9 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:needs_x_reconnect, false)
      |> assign(:hub_token, "BUX")  # Always BUX (hub tokens removed)
      |> assign(:hub_logo, hub_logo)
-     |> assign(:related_posts, related_posts)}
+     |> assign(:related_posts, related_posts)
+     |> assign(:pool_available, pool_available)
+     |> assign(:pool_balance, pool_balance)}
   end
 
   @impl true
@@ -246,61 +252,94 @@ defmodule BlocksterV2Web.PostLive.Show do
       # First record the engagement data
       case EngagementTracker.record_read(user_id, post_id, params) do
         {:ok, score} ->
-          # Calculate BUX earned
+          # Calculate desired BUX earned
           base_bux_reward = socket.assigns.post.base_bux_reward || 1
           user_multiplier = socket.assigns.user_multiplier || 1
-          bux_earned = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
+          desired_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
 
-          # Try to record the read reward
-          case EngagementTracker.record_read_reward(user_id, post_id, bux_earned) do
-            {:ok, recorded_bux} ->
-              # New reward recorded - mark article as completed
-              engagement = safe_get_engagement(user_id, post_id)
-              rewards = safe_get_rewards(user_id, post_id)
+          # Check pool availability (but don't deduct yet - that happens after successful mint)
+          pool_balance = EngagementTracker.get_post_bux_balance(post_id)
 
-              # Mint BUX tokens to user's smart wallet (async with callback to update tx_id)
-              if socket.assigns[:current_user] do
-                wallet = socket.assigns.current_user.smart_wallet_address
-                if wallet && wallet != "" do
-                  lv_pid = self()
-                  Task.start(fn ->
-                    case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read) do
-                      {:ok, %{"transactionHash" => tx_hash}} ->
-                        send(lv_pid, {:mint_completed, tx_hash})
-                      _ ->
-                        :ok
+          cond do
+            pool_balance <= 0 ->
+              # Pool empty or doesn't exist - no minting
+              {:noreply,
+               socket
+               |> assign(:bux_earned, 0)
+               |> assign(:current_bux, 0)
+               |> assign(:article_completed, true)
+               |> assign(:pool_available, false)
+               |> assign(:pool_balance, 0)
+               |> put_flash(:info, "This post has no BUX available")}
+
+            true ->
+              # Pool has BUX - determine actual amount (may be partial if pool < desired)
+              actual_amount = min(desired_bux, trunc(pool_balance))
+
+              # Try to record reward and mint to user
+              case EngagementTracker.record_read_reward(user_id, post_id, actual_amount) do
+                {:ok, recorded_bux} ->
+                  # New reward recorded - mint tokens
+                  engagement = safe_get_engagement(user_id, post_id)
+                  rewards = safe_get_rewards(user_id, post_id)
+
+                  # Mint BUX tokens to user's smart wallet (async)
+                  # Pool deduction happens AFTER successful mint in BuxMinter
+                  if socket.assigns[:current_user] do
+                    wallet = socket.assigns.current_user.smart_wallet_address
+                    if wallet && wallet != "" and recorded_bux > 0 do
+                      lv_pid = self()
+                      Task.start(fn ->
+                        case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id, :read) do
+                          {:ok, %{"transactionHash" => tx_hash}} ->
+                            send(lv_pid, {:mint_completed, tx_hash})
+                          _ ->
+                            :ok
+                        end
+                      end)
                     end
-                  end)
-                end
+                  end
+
+                  # Note: pool_balance shown here is BEFORE deduction
+                  # It will update via PubSub broadcast after successful mint
+                  socket = socket
+                    |> assign(:engagement, engagement)
+                    |> assign(:rewards, rewards)
+                    |> assign(:bux_earned, recorded_bux)
+                    |> assign(:already_rewarded, false)
+                    |> assign(:article_completed, true)
+                    |> assign(:current_score, score)
+                    |> assign(:current_bux, recorded_bux)
+                    |> assign(:read_tx_id, nil)
+                    |> assign(:pool_balance, pool_balance)
+                    |> assign(:pool_available, pool_balance > 0)
+
+                  # Show partial amount message if applicable
+                  socket = if actual_amount < desired_bux do
+                    put_flash(socket, :info, "Pool depleted! You earned #{recorded_bux} BUX (partial)")
+                  else
+                    socket
+                  end
+
+                  {:noreply, socket}
+
+                {:already_rewarded, existing_bux} ->
+                  # User already received reward for this article
+                  engagement = safe_get_engagement(user_id, post_id)
+                  rewards = safe_get_rewards(user_id, post_id)
+                  tx_id = rewards && Map.get(rewards, :read_tx_id)
+                  {:noreply,
+                   socket
+                   |> assign(:engagement, engagement)
+                   |> assign(:rewards, rewards)
+                   |> assign(:bux_earned, existing_bux)
+                   |> assign(:already_rewarded, true)
+                   |> assign(:article_completed, true)
+                   |> assign(:read_tx_id, tx_id)}
+
+                {:error, _} ->
+                  {:noreply, socket}
               end
-
-              {:noreply,
-               socket
-               |> assign(:engagement, engagement)
-               |> assign(:rewards, rewards)
-               |> assign(:bux_earned, recorded_bux)
-               |> assign(:already_rewarded, false)
-               |> assign(:article_completed, true)
-               |> assign(:current_score, score)
-               |> assign(:current_bux, recorded_bux)
-               |> assign(:read_tx_id, nil)}
-
-            {:already_rewarded, existing_bux} ->
-              # User already received reward for this article
-              engagement = safe_get_engagement(user_id, post_id)
-              rewards = safe_get_rewards(user_id, post_id)
-              tx_id = rewards && Map.get(rewards, :read_tx_id)
-              {:noreply,
-               socket
-               |> assign(:engagement, engagement)
-               |> assign(:rewards, rewards)
-               |> assign(:bux_earned, existing_bux)
-               |> assign(:already_rewarded, true)
-               |> assign(:article_completed, true)
-               |> assign(:read_tx_id, tx_id)}
-
-            {:error, _} ->
-              {:noreply, socket}
           end
 
         {:error, _} ->
@@ -321,7 +360,11 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Only update if this is for the current post
     if socket.assigns.post.id == post_id do
       updated_post = Map.put(socket.assigns.post, :bux_balance, new_balance)
-      {:noreply, assign(socket, :post, updated_post)}
+      {:noreply,
+       socket
+       |> assign(:post, updated_post)
+       |> assign(:pool_balance, new_balance)
+       |> assign(:pool_available, new_balance > 0)}
     else
       {:noreply, socket}
     end
@@ -436,7 +479,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
     # Create pending reward (campaign_id is post_id in Mnesia, x_connection_id is user_id)
     case Social.create_pending_reward(user.id, post.id, user.id) do
-      {:ok, reward} ->
+      {:ok, _reward} ->
         # Refresh token if needed before making API call
         case Social.maybe_refresh_token(x_connection) do
           {:ok, refreshed_connection} ->
@@ -455,40 +498,85 @@ defmodule BlocksterV2Web.PostLive.Show do
                   if result[:retweeted] do
                     # Verify and record the tweet (campaign_id is post.id)
                     case Social.verify_share_reward(user.id, post.id, campaign_tweet_id) do
-                      {:ok, verified_reward} ->
+                      {:ok, _verified_reward} ->
                         # Award BUX (use personalized x_share_reward from socket)
-                        bux_amount = socket.assigns.x_share_reward
+                        desired_bux = socket.assigns.x_share_reward
 
-                        # Update campaign share count
-                        Social.increment_campaign_shares(share_campaign)
+                        # Try to deduct from pool FIRST (pool system - finite BUX pools)
+                        case EngagementTracker.try_deduct_from_pool(post.id, desired_bux) do
+                          {:ok, 0, status} ->
+                            # Pool empty - no BUX to award, but share was still successful
+                            Social.increment_campaign_shares(share_campaign)
+                            {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, 0, tx_hash: nil, post_id: post.id)
 
-                        # Mint BUX tokens to user's wallet (synchronous to capture tx_hash)
-                        wallet = user.smart_wallet_address
-                        tx_hash =
-                          if wallet && wallet != "" do
-                            case BuxMinter.mint_bux(wallet, bux_amount, user.id, post.id, :x_share) do
-                              {:ok, response} -> response["transactionHash"]
-                              {:error, _} -> nil
+                            pool_message = case status do
+                              :pool_empty -> "Shared successfully! (Pool empty - no BUX available)"
+                              :no_pool -> "Shared successfully! (No BUX pool for this article)"
+                              _ -> "Shared successfully! (No BUX available)"
                             end
-                          else
-                            nil
-                          end
 
-                        {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, bux_amount, tx_hash: tx_hash, post_id: post.id)
+                            {:noreply,
+                             socket
+                             |> assign(:share_reward, final_reward)
+                             |> assign(:share_status, {:info, pool_message})
+                             |> assign(:show_share_modal, false)
+                             |> assign(:pool_available, false)
+                             |> assign(:pool_balance, 0)}
 
-                        # Build success message
-                        success_msg =
-                          if result[:liked] do
-                            "Retweeted & Liked! You earned #{bux_amount} BUX!"
-                          else
-                            "Retweeted! You earned #{bux_amount} BUX!"
-                          end
+                          {:ok, actual_bux, status} ->
+                            # Pool had BUX - mint to user
+                            Social.increment_campaign_shares(share_campaign)
 
-                        {:noreply,
-                         socket
-                         |> assign(:share_reward, final_reward)
-                         |> assign(:share_status, {:success, success_msg})
-                         |> assign(:show_share_modal, false)}
+                            # Mint BUX tokens to user's wallet (synchronous to capture tx_hash)
+                            wallet = user.smart_wallet_address
+                            tx_hash =
+                              if wallet && wallet != "" and actual_bux > 0 do
+                                case BuxMinter.mint_bux(wallet, actual_bux, user.id, post.id, :x_share) do
+                                  {:ok, response} -> response["transactionHash"]
+                                  {:error, _} -> nil
+                                end
+                              else
+                                nil
+                              end
+
+                            {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, actual_bux, tx_hash: tx_hash, post_id: post.id)
+
+                            # Update pool balance in assigns
+                            new_pool_balance = EngagementTracker.get_post_bux_balance(post.id)
+
+                            # Build success message
+                            success_msg = cond do
+                              status == :partial_amount ->
+                                if result[:liked] do
+                                  "Retweeted & Liked! Pool depleted - you earned #{actual_bux} BUX (partial)!"
+                                else
+                                  "Retweeted! Pool depleted - you earned #{actual_bux} BUX (partial)!"
+                                end
+                              result[:liked] ->
+                                "Retweeted & Liked! You earned #{actual_bux} BUX!"
+                              true ->
+                                "Retweeted! You earned #{actual_bux} BUX!"
+                            end
+
+                            {:noreply,
+                             socket
+                             |> assign(:share_reward, final_reward)
+                             |> assign(:share_status, {:success, success_msg})
+                             |> assign(:show_share_modal, false)
+                             |> assign(:pool_balance, new_pool_balance)
+                             |> assign(:pool_available, new_pool_balance > 0)}
+
+                          {:error, reason} ->
+                            # Pool deduction failed - still mark share but no BUX
+                            Social.increment_campaign_shares(share_campaign)
+                            {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, 0, tx_hash: nil, post_id: post.id)
+
+                            {:noreply,
+                             socket
+                             |> assign(:share_reward, final_reward)
+                             |> assign(:share_status, {:error, "Shared but error awarding BUX: #{inspect(reason)}"})
+                             |> assign(:show_share_modal, false)}
+                        end
 
                     {:error, _} ->
                       {:noreply,

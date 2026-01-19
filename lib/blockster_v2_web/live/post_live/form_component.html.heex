@@ -389,6 +389,64 @@
                 />
                 <p class="text-xs text-[#141414A3] mt-1">Enter a tweet URL to automatically create a share campaign for this article with 50 BUX reward.</p>
               </div>
+
+              <!-- BUX Pool Management (Only show for existing posts) -->
+              <%= if @post.id do %>
+                <div class="border-t border-[#E7E8F1] pt-6 mt-6">
+                  <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-4">
+                    BUX Pool Management <span class="text-[#8AE388]">(Admin Only)</span>
+                  </h3>
+
+                  <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="bg-[#F7F8FA] p-4 rounded-lg">
+                      <div class="text-xs text-[#141414A3] mb-1">Current Pool Balance</div>
+                      <div class="text-2xl font-haas_medium_65 text-green-600">
+                        {Number.Delimit.number_to_delimited(@pool_balance || 0, precision: 0)} BUX
+                      </div>
+                    </div>
+                    <div class="bg-[#F7F8FA] p-4 rounded-lg">
+                      <div class="text-xs text-[#141414A3] mb-1">Total Deposited</div>
+                      <div class="text-2xl font-haas_medium_65 text-blue-600">
+                        {Number.Delimit.number_to_delimited(@pool_deposited || 0, precision: 0)} BUX
+                      </div>
+                    </div>
+                    <div class="bg-[#F7F8FA] p-4 rounded-lg">
+                      <div class="text-xs text-[#141414A3] mb-1">Total Distributed</div>
+                      <div class="text-2xl font-haas_medium_65 text-purple-600">
+                        {Number.Delimit.number_to_delimited(@pool_distributed || 0, precision: 0)} BUX
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex items-end gap-4" id="deposit-bux-container" phx-hook="DepositBuxInput" data-target={@myself}>
+                    <div class="flex-1">
+                      <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                        Deposit BUX to Pool
+                      </label>
+                      <input
+                        type="number"
+                        id="deposit-amount-input"
+                        min="1"
+                        step="1"
+                        placeholder="Enter amount to deposit"
+                        class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      id="deposit-bux-btn"
+                      class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer font-haas_medium_65 transition-colors"
+                    >
+                      Deposit BUX
+                    </button>
+                  </div>
+
+                  <p class="text-xs text-[#141414A3] mt-2">
+                    Deposited BUX will be available for users to earn by reading this article.
+                    When the pool reaches zero, users can no longer earn BUX from this post until you top it up.
+                  </p>
+                </div>
+              <% end %>
             <% end %>
 
 <!-- TipTap Editor -->
