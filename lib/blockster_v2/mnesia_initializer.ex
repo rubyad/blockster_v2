@@ -356,6 +356,8 @@ defmodule BlocksterV2.MnesiaInitializer do
     # This prevents crashes during rolling deploys when Mnesia tables are being copied
     case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
       {:ok, pid} ->
+        # Notify the process that it's the globally registered instance
+        send(pid, :registered)
         {:ok, pid}
 
       {:already_registered, _pid} ->
@@ -394,12 +396,24 @@ defmodule BlocksterV2.MnesiaInitializer do
 
   @impl true
   def init(_opts) do
+    # Don't start work here - wait for :registered message from start_link
+    # This prevents duplicate Mnesia initialization when GlobalSingleton loses the registration race
+    {:ok, %{initialized: false, registered: false}}
+  end
+
+  @impl true
+  def handle_info(:registered, %{registered: false} = state) do
     Logger.info("[MnesiaInitializer] Starting Mnesia initialization on node: #{node()}")
 
     # Initialize Mnesia in a separate process to not block supervision tree
     Task.start(fn -> initialize_mnesia() end)
 
-    {:ok, %{initialized: false}}
+    {:noreply, %{state | registered: true}}
+  end
+
+  def handle_info(:registered, state) do
+    # Already registered, ignore duplicate
+    {:noreply, state}
   end
 
   defp initialize_mnesia do

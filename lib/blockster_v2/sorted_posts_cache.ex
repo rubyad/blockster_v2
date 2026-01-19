@@ -29,8 +29,13 @@ defmodule BlocksterV2.SortedPostsCache do
 
   def start_link(opts \\ []) do
     case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
-      {:ok, pid} -> {:ok, pid}
-      {:already_registered, _pid} -> :ignore
+      {:ok, pid} ->
+        # Notify the process that it's now the globally registered instance
+        # This triggers the actual initialization work
+        notify_registered(pid)
+        {:ok, pid}
+      {:already_registered, _pid} ->
+        :ignore
     end
   end
 
@@ -139,14 +144,28 @@ defmodule BlocksterV2.SortedPostsCache do
 
   @impl true
   def init(_opts) do
-    # Subscribe to pool balance updates
+    # Don't do any work here - wait for :registered message from start_link
+    # This prevents duplicate work when GlobalSingleton loses the registration race
+    {:ok, %{sorted_posts: [], mnesia_ready: false, mnesia_wait_attempts: 0, registered: false}}
+  end
+
+  @doc false
+  def notify_registered(pid) do
+    send(pid, :registered)
+  end
+
+  @impl true
+  def handle_info(:registered, %{registered: false} = state) do
+    # Now we know we're the globally registered instance - safe to start work
     Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:all")
-
-    # Start waiting for Mnesia to be ready before loading data
     send(self(), :wait_for_mnesia)
-
     Logger.info("[SortedPostsCache] Starting, waiting for Mnesia...")
-    {:ok, %{sorted_posts: [], mnesia_ready: false, mnesia_wait_attempts: 0}}
+    {:noreply, %{state | registered: true}}
+  end
+
+  def handle_info(:registered, state) do
+    # Already registered, ignore duplicate
+    {:noreply, state}
   end
 
   @impl true

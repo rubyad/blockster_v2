@@ -72,6 +72,8 @@ defmodule BlocksterV2.PriceTracker do
     # This prevents crashes during rolling deploys when Mnesia tables are being copied
     case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
       {:ok, pid} ->
+        # Notify the process that it's the globally registered instance
+        send(pid, :registered)
         {:ok, pid}
 
       {:already_registered, _pid} ->
@@ -124,10 +126,21 @@ defmodule BlocksterV2.PriceTracker do
 
   @impl true
   def init(_opts) do
-    # Wait for Mnesia tables to be ready before fetching
-    # The table may not exist yet on first run - we need to wait for MnesiaInitializer
+    # Don't start work here - wait for :registered message from start_link
+    # This prevents duplicate work when GlobalSingleton loses the registration race
+    {:ok, %{last_fetch: nil, fetch_count: 0, mnesia_ready: false, registered: false}}
+  end
+
+  @impl true
+  def handle_info(:registered, %{registered: false} = state) do
+    # Now we're confirmed as the globally registered instance - start the Mnesia wait loop
     Process.send_after(self(), :wait_for_mnesia, 1000)
-    {:ok, %{last_fetch: nil, fetch_count: 0, mnesia_ready: false}}
+    {:noreply, %{state | registered: true}}
+  end
+
+  def handle_info(:registered, state) do
+    # Already registered, ignore duplicate
+    {:noreply, state}
   end
 
   @impl true

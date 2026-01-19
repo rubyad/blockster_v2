@@ -22,6 +22,8 @@ defmodule BlocksterV2.BuxBoosterBetSettler do
     # This prevents crashes during rolling deploys when Mnesia tables are being copied
     case BlocksterV2.GlobalSingleton.start_link(__MODULE__, []) do
       {:ok, pid} ->
+        # Notify the process that it's the globally registered instance
+        send(pid, :registered)
         {:ok, pid}
 
       {:already_registered, _pid} ->
@@ -31,9 +33,20 @@ defmodule BlocksterV2.BuxBoosterBetSettler do
   end
 
   def init(_) do
+    # Don't start work here - wait for :registered message from start_link
+    # This prevents duplicate work when GlobalSingleton loses the registration race
+    {:ok, %{registered: false}}
+  end
+
+  def handle_info(:registered, %{registered: false} = state) do
     Logger.info("[BetSettler] Starting bet settlement checker (runs every minute)")
     schedule_check()
-    {:ok, %{}}
+    {:noreply, %{state | registered: true}}
+  end
+
+  def handle_info(:registered, state) do
+    # Already registered, ignore duplicate
+    {:noreply, state}
   end
 
   def handle_info(:check_unsettled_bets, state) do

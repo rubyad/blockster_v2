@@ -28,8 +28,12 @@ defmodule BlocksterV2.PostBuxPoolWriter do
 
   def start_link(opts \\ []) do
     case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
-      {:ok, pid} -> {:ok, pid}
-      {:already_registered, _pid} -> :ignore
+      {:ok, pid} ->
+        # Notify the process that it's the globally registered instance
+        send(pid, :registered)
+        {:ok, pid}
+      {:already_registered, _pid} ->
+        :ignore
     end
   end
 
@@ -53,8 +57,18 @@ defmodule BlocksterV2.PostBuxPoolWriter do
 
   @impl true
   def init(_opts) do
+    # Don't log here - wait for :registered message to confirm we're the global instance
+    {:ok, %{registered: false}}
+  end
+
+  @impl true
+  def handle_info(:registered, %{registered: false} = state) do
     Logger.info("[PostBuxPoolWriter] Started - serializing pool operations")
-    {:ok, %{}}
+    {:noreply, %{state | registered: true}}
+  end
+
+  def handle_info(:registered, state) do
+    {:noreply, state}
   end
 
   @impl true

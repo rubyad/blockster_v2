@@ -1073,3 +1073,80 @@ defp process_alive_distributed?(pid) do
   end
 end
 ```
+
+### CRITICAL: Deferred Initialization Pattern
+
+**Problem:** When using `GlobalSingleton.start_link()`, the GenServer's `init/1` callback runs **before** global registration completes. If another node wins the registration race, the loser's GenServer gets stopped - but any work started in `init/1` has already begun, causing duplicate work.
+
+**Example of the bug:**
+```
+Node 1: start_link() → init() → schedule_check() → registers globally ✓
+Node 2: start_link() → init() → schedule_check() → registration FAILS, process stopped
+                                   ↑
+                                   This already scheduled a timer!
+```
+
+Result: Both nodes run the scheduled task even though only one should.
+
+**Solution:** Defer ALL initialization work until after confirming registration succeeded:
+
+```elixir
+def start_link(opts) do
+  case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+    {:ok, pid} ->
+      # Only after successful registration, notify the process to start work
+      send(pid, :registered)
+      {:ok, pid}
+
+    {:already_registered, _pid} ->
+      :ignore
+  end
+end
+
+@impl true
+def init(_opts) do
+  # Do NOT start any work here - wait for :registered message
+  {:ok, %{registered: false}}
+end
+
+@impl true
+def handle_info(:registered, %{registered: false} = state) do
+  # NOW it's safe to start work - we're confirmed as the global instance
+  Logger.info("[MyGenServer] Starting...")
+  schedule_work()
+  {:noreply, %{state | registered: true}}
+end
+
+def handle_info(:registered, state) do
+  # Ignore duplicate :registered messages
+  {:noreply, state}
+end
+```
+
+### GenServers Using Deferred Initialization
+
+All GlobalSingleton GenServers now use this pattern (updated Jan 2026):
+
+| GenServer | What's Deferred |
+|-----------|-----------------|
+| `MnesiaInitializer` | `Task.start(fn -> initialize_mnesia() end)` |
+| `PriceTracker` | `Process.send_after(self(), :wait_for_mnesia, 1000)` |
+| `BuxBoosterBetSettler` | `schedule_check()` and startup log |
+| `PostBuxPoolWriter` | Startup log message |
+| `SortedPostsCache` | PubSub subscription and Mnesia wait loop |
+| `TimeTracker` | (no work in init, but pattern applied for consistency) |
+
+### Correct Node 2 Logs After Fix
+
+When node 2 joins a cluster where node 1 is already running:
+
+```
+[info] [GlobalSingleton] BlocksterV2.MnesiaInitializer already running on node1@hostname
+[info] [MnesiaInitializer] Global GenServer already running on another node, initializing Mnesia locally
+[info] [GlobalSingleton] BlocksterV2.SortedPostsCache already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.PostBuxPoolWriter already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.BuxBoosterBetSettler already running on node1@hostname
+[info] [GlobalSingleton] BlocksterV2.PriceTracker already running on node1@hostname
+```
+
+**Note:** Node 2 does NOT show "Starting bet settlement checker" or "Started - serializing pool operations" - those only appear on node 1 which won the registration.
