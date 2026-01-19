@@ -31,6 +31,11 @@ defmodule BlocksterV2.GlobalSingleton do
       end
   """
   def start_link(module, opts) do
+    # Sync global name registry with other nodes before checking
+    # This prevents race conditions during cluster formation where
+    # whereis_name returns :undefined even though another node has registered
+    :global.sync()
+
     case :global.whereis_name(module) do
       :undefined ->
         # No existing process, try to register
@@ -70,12 +75,15 @@ defmodule BlocksterV2.GlobalSingleton do
     case GenServer.start_link(module, opts) do
       {:ok, pid} ->
         # Now try to register globally with custom resolver
+        Logger.info("[GlobalSingleton] #{inspect(module)} attempting registration for #{inspect(pid)}")
         case :global.register_name(module, pid, &resolve_conflict/3) do
           :yes ->
+            Logger.info("[GlobalSingleton] #{inspect(module)} registration succeeded for #{inspect(pid)}")
             {:ok, pid}
 
           :no ->
             # Another process registered first, stop ours
+            Logger.info("[GlobalSingleton] #{inspect(module)} registration failed for #{inspect(pid)}, stopping")
             GenServer.stop(pid, :normal)
             case :global.whereis_name(module) do
               :undefined -> {:error, :registration_failed}
