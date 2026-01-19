@@ -114,9 +114,36 @@ defmodule BlocksterV2.Social do
   end
 
   defp lock_user_to_x_account(user, x_user_id) do
-    user
+    result = user
     |> Ecto.Changeset.change(%{locked_x_user_id: x_user_id})
+    |> Ecto.Changeset.unique_constraint(:locked_x_user_id, name: :users_locked_x_user_id_index)
     |> Repo.update()
+
+    case result do
+      {:ok, user} -> {:ok, user}
+      {:error, %Ecto.Changeset{errors: errors}} ->
+        if Keyword.has_key?(errors, :locked_x_user_id) do
+          # Find the user who has this X account linked
+          existing_user = Repo.get_by(User, locked_x_user_id: x_user_id)
+          existing_email = if existing_user, do: mask_email(existing_user.email), else: nil
+          {:error, {:x_account_already_linked, existing_email}}
+        else
+          result
+        end
+    end
+  end
+
+  # Mask email for privacy: "john.doe@example.com" -> "j***e@example.com"
+  defp mask_email(nil), do: nil
+  defp mask_email(email) do
+    case String.split(email, "@") do
+      [local, domain] when byte_size(local) > 2 ->
+        first = String.first(local)
+        last = String.last(local)
+        "#{first}***#{last}@#{domain}"
+      _ ->
+        "***@***"
+    end
   end
 
   @doc """

@@ -170,6 +170,19 @@ defmodule BlocksterV2Web.XAuthController do
         |> put_flash(:error, "Your account is locked to a different X account. You can only connect the X account you originally linked.")
         |> redirect(to: redirect_path)
 
+      {:error, {:x_account_already_linked, existing_email}} ->
+        Logger.warning("User #{user_id} attempted to connect X account @#{x_user["username"]} but it's already linked to another Blockster account (#{existing_email})")
+
+        message = if existing_email do
+          "This X account (@#{x_user["username"]}) is already connected to another Blockster account (#{existing_email}). Please log in with that account instead, or use a different X account."
+        else
+          "This X account (@#{x_user["username"]}) is already connected to another Blockster account. Each X account can only be linked to one Blockster account."
+        end
+
+        conn
+        |> put_flash(:error, message)
+        |> redirect(to: redirect_path)
+
       {:error, changeset} ->
         Logger.error("Failed to save X connection: #{inspect(changeset.errors)}")
 
