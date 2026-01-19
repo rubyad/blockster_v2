@@ -88,6 +88,14 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @doc """
+  Updates a post's metadata (published_at, category_id) and re-sorts.
+  Called when a post is edited via admin form.
+  """
+  def update_post(post_id, published_at, category_id) do
+    GenServer.cast(__MODULE__, {:update_post, post_id, published_at, category_id})
+  end
+
+  @doc """
   Adds a new post to the cache with category and tags.
   Called when a new post is published.
   """
@@ -193,6 +201,24 @@ defmodule BlocksterV2.SortedPostsCache do
     sorted_posts = state.sorted_posts
       |> Enum.map(fn {pid, _bal, pub_at, cat_id, tag_ids} = entry ->
         if pid == post_id, do: {pid, new_balance, pub_at, cat_id, tag_ids}, else: entry
+      end)
+      |> sort_posts()
+
+    {:noreply, %{state | sorted_posts: sorted_posts}}
+  end
+
+  @impl true
+  def handle_cast({:update_post, post_id, published_at, category_id}, state) do
+    published_unix = case published_at do
+      %DateTime{} -> DateTime.to_unix(published_at)
+      %NaiveDateTime{} -> NaiveDateTime.diff(published_at, ~N[1970-01-01 00:00:00])
+      unix when is_integer(unix) -> unix
+      _ -> 0
+    end
+
+    sorted_posts = state.sorted_posts
+      |> Enum.map(fn {pid, bal, _pub_at, _cat_id, tag_ids} = entry ->
+        if pid == post_id, do: {pid, bal, published_unix, category_id, tag_ids}, else: entry
       end)
       |> sort_posts()
 

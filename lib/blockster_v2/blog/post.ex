@@ -63,6 +63,22 @@ defmodule BlocksterV2.Blog.Post do
       message: "must be lowercase alphanumeric with dashes"
     )
     |> unique_constraint(:slug)
+    |> sync_published_at_with_custom()
+  end
+
+  # When custom_published_at is changed on a published post, also update published_at
+  defp sync_published_at_with_custom(changeset) do
+    custom_published_at = get_change(changeset, :custom_published_at)
+    current_published_at = get_field(changeset, :published_at)
+
+    # Only sync if:
+    # 1. custom_published_at is being changed
+    # 2. The post is already published (has a published_at)
+    if custom_published_at && current_published_at do
+      put_change(changeset, :published_at, custom_published_at)
+    else
+      changeset
+    end
   end
 
   @doc """

@@ -396,6 +396,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Update tags after updating post
         Blog.update_post_tags(post, tags)
 
+        # Update SortedPostsCache with new published_at and category_id
+        BlocksterV2.SortedPostsCache.update_post(post.id, post.published_at, post.category_id)
+
         # Create campaign if tweet URL is provided
         maybe_create_campaign(post, campaign_tweet_url)
 
