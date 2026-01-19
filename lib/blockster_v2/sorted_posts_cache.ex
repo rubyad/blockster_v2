@@ -12,6 +12,9 @@ defmodule BlocksterV2.SortedPostsCache do
   Supports filtering by category_id or tag_id for category/tag pages.
 
   Waits for Mnesia to be ready before loading data to ensure pool balances are available.
+
+  This is a GLOBAL SINGLETON - only one instance runs across the entire cluster.
+  Uses GlobalSingleton for safe registration during rolling deploys.
   """
   use GenServer
   require Logger
@@ -25,7 +28,10 @@ defmodule BlocksterV2.SortedPostsCache do
   # =============================================================================
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
   end
 
   @doc """
@@ -35,14 +41,14 @@ defmodule BlocksterV2.SortedPostsCache do
   This is O(1) - just slices the pre-sorted list.
   """
   def get_page(limit, offset \\ 0) do
-    GenServer.call(__MODULE__, {:get_page, limit, offset})
+    GenServer.call({:global, __MODULE__}, {:get_page, limit, offset})
   end
 
   @doc """
   Gets the total count of posts in the cache.
   """
   def count do
-    GenServer.call(__MODULE__, :count)
+    GenServer.call({:global, __MODULE__}, :count)
   end
 
   @doc """
@@ -52,7 +58,7 @@ defmodule BlocksterV2.SortedPostsCache do
   This is O(n) filter + O(1) slice where n = total posts.
   """
   def get_page_by_category(category_id, limit, offset \\ 0) do
-    GenServer.call(__MODULE__, {:get_page_by_category, category_id, limit, offset})
+    GenServer.call({:global, __MODULE__}, {:get_page_by_category, category_id, limit, offset})
   end
 
   @doc """
@@ -62,21 +68,21 @@ defmodule BlocksterV2.SortedPostsCache do
   This is O(n) filter + O(1) slice where n = total posts.
   """
   def get_page_by_tag(tag_id, limit, offset \\ 0) do
-    GenServer.call(__MODULE__, {:get_page_by_tag, tag_id, limit, offset})
+    GenServer.call({:global, __MODULE__}, {:get_page_by_tag, tag_id, limit, offset})
   end
 
   @doc """
   Gets the count of posts in a specific category.
   """
   def count_by_category(category_id) do
-    GenServer.call(__MODULE__, {:count_by_category, category_id})
+    GenServer.call({:global, __MODULE__}, {:count_by_category, category_id})
   end
 
   @doc """
   Gets the count of posts with a specific tag.
   """
   def count_by_tag(tag_id) do
-    GenServer.call(__MODULE__, {:count_by_tag, tag_id})
+    GenServer.call({:global, __MODULE__}, {:count_by_tag, tag_id})
   end
 
   @doc """
@@ -84,7 +90,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Called after deposits or deductions.
   """
   def update_balance(post_id, new_balance) do
-    GenServer.cast(__MODULE__, {:update_balance, post_id, new_balance})
+    GenServer.cast({:global, __MODULE__}, {:update_balance, post_id, new_balance})
   end
 
   @doc """
@@ -92,7 +98,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Called when a post is edited via admin form.
   """
   def update_post(post_id, published_at, category_id) do
-    GenServer.cast(__MODULE__, {:update_post, post_id, published_at, category_id})
+    GenServer.cast({:global, __MODULE__}, {:update_post, post_id, published_at, category_id})
   end
 
   @doc """
@@ -100,7 +106,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Called when a new post is published.
   """
   def add_post(post_id, balance, published_at, category_id, tag_ids) do
-    GenServer.cast(__MODULE__, {:add_post, post_id, balance, published_at, category_id, tag_ids})
+    GenServer.cast({:global, __MODULE__}, {:add_post, post_id, balance, published_at, category_id, tag_ids})
   end
 
   @doc """
@@ -108,7 +114,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Called when a new post is published. Category and tags default to nil/empty.
   """
   def add_post(post_id, balance, published_at) do
-    GenServer.cast(__MODULE__, {:add_post, post_id, balance, published_at})
+    GenServer.cast({:global, __MODULE__}, {:add_post, post_id, balance, published_at})
   end
 
   @doc """
@@ -116,7 +122,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Called when a post is unpublished or deleted.
   """
   def remove_post(post_id) do
-    GenServer.cast(__MODULE__, {:remove_post, post_id})
+    GenServer.cast({:global, __MODULE__}, {:remove_post, post_id})
   end
 
   @doc """
@@ -124,7 +130,7 @@ defmodule BlocksterV2.SortedPostsCache do
   Used for initial load and recovery.
   """
   def reload do
-    GenServer.cast(__MODULE__, :reload)
+    GenServer.cast({:global, __MODULE__}, :reload)
   end
 
   # =============================================================================
