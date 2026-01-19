@@ -137,7 +137,6 @@ defmodule BlocksterV2Web.Layouts do
                       <.link
                         navigate={~p"/#{post.slug}"}
                         class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
-                        phx-click="close_search"
                       >
                         <div class="img-wrapper rounded-lg overflow-hidden shrink-0" style="width: 60px; height: 60px;">
                           <img src={post.featured_image} class="object-cover w-full h-full" alt="" />

@@ -35,6 +35,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - NEVER read `.env.example` files to infer what secrets exist
 > - Environment variables are configured via `.env` for local dev and Fly secrets for production - never inspect these
 > - If you need to know what env vars a service uses, check the config file (e.g., `config.js`) not the `.env` file
+>
+> **CRITICAL DEPENDENCY RULES**:
+> - NEVER update Phoenix, Phoenix LiveView, or any other significant dependencies without EXPLICIT user permission
+> - NEVER modify mix.exs dependency versions without being explicitly asked to do so
+> - If you identify a potential fix that requires a dependency update, ASK the user first before making any changes
+> - This applies to: Phoenix, Phoenix LiveView, Ecto, Thirdweb, and any core framework dependencies
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
