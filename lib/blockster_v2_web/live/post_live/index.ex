@@ -52,6 +52,7 @@ defmodule BlocksterV2Web.PostLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Latest Posts")
+     |> assign(:show_categories, true)
      |> assign(:displayed_post_ids, displayed_post_ids)
      |> assign(:bux_balances, bux_balances)
      |> assign(:component_module_map, initial_component_map)
@@ -60,6 +61,8 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:search_query, "")
      |> assign(:search_results, [])
      |> assign(:show_search_results, false)
+     |> assign(:show_bux_deposit_modal, false)
+     |> assign(:deposit_modal_post, nil)
      |> stream(:components, components)}
   end
 
@@ -161,6 +164,65 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:show_search_results, false)}
   end
 
+  # BUX Deposit Modal handlers
+  @impl true
+  def handle_event("open_bux_deposit_modal", %{"post-id" => post_id_str}, socket) do
+    post_id = String.to_integer(post_id_str)
+    post = Blog.get_post!(post_id)
+    {pool_balance, total_deposited, total_distributed} = EngagementTracker.get_post_pool_stats(post_id)
+
+    {:noreply,
+     socket
+     |> assign(:show_bux_deposit_modal, true)
+     |> assign(:deposit_modal_post, %{
+       id: post.id,
+       title: post.title,
+       pool_balance: pool_balance || 0,
+       total_deposited: total_deposited || 0,
+       total_distributed: total_distributed || 0
+     })}
+  end
+
+  @impl true
+  def handle_event("close_bux_deposit_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_bux_deposit_modal, false)
+     |> assign(:deposit_modal_post, nil)}
+  end
+
+  @impl true
+  def handle_event("deposit_bux", %{"amount" => amount_str}, socket) do
+    if socket.assigns.current_user && socket.assigns.current_user.is_admin do
+      case Integer.parse(amount_str) do
+        {amount, _} when amount > 0 ->
+          post_id = socket.assigns.deposit_modal_post.id
+
+          case EngagementTracker.deposit_post_bux(post_id, amount) do
+            {:ok, new_balance} ->
+              # Update bux_balances map for the post card display
+              bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+
+              # Close modal and show success message
+              {:noreply,
+               socket
+               |> assign(:bux_balances, bux_balances)
+               |> assign(:show_bux_deposit_modal, false)
+               |> assign(:deposit_modal_post, nil)
+               |> put_flash(:info, "Deposited #{amount} BUX successfully!")}
+
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Deposit failed: #{inspect(reason)}")}
+          end
+
+        _ ->
+          {:noreply, put_flash(socket, :error, "Please enter a valid amount greater than 0")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Admin access required")}
+    end
+  end
+
   # ============================================================================
   # Handle Info (PubSub)
   # ============================================================================
@@ -187,6 +249,29 @@ defmodule BlocksterV2Web.PostLive.Index do
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info({:posts_reordered, _post_id, _new_balance}, socket) do
+    # Posts have been reordered by BUX balance - rebuild all components with new order
+    {components, displayed_post_ids} = build_initial_components()
+
+    # Build new bux_balances map from posts
+    all_posts = Enum.flat_map(components, fn c -> c.posts end)
+    bux_balances = build_bux_balances_map(all_posts)
+
+    # Track component ID -> module mapping for real-time BUX updates via send_update
+    component_map = components
+      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
+      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
+
+    {:noreply,
+     socket
+     |> assign(:displayed_post_ids, displayed_post_ids)
+     |> assign(:bux_balances, bux_balances)
+     |> assign(:component_module_map, component_map)
+     |> assign(:current_offset, @posts_per_cycle)
+     |> stream(:components, components, reset: true)}
   end
 
   # ============================================================================

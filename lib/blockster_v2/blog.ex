@@ -269,6 +269,146 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Lists published posts for a category sorted by BUX pool balance DESC.
+  Uses SortedPostsCache for O(n) filter + O(1) pagination.
+
+  ## Options
+    * `:limit` - Maximum number of posts to return (default: 20)
+    * `:offset` - Number of posts to skip (default: 0)
+    * `:exclude_ids` - List of post IDs to exclude (default: [])
+  """
+  def list_published_posts_by_category_pool(category_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    # Get category by slug
+    case get_category_by_slug(category_slug) do
+      nil ->
+        []
+
+      category ->
+        # Get sorted post IDs from cache
+        # Fetch extra to account for exclusions
+        fetch_limit = limit + length(exclude_ids)
+        sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_category(
+          category.id,
+          fetch_limit,
+          offset
+        )
+
+        # Filter out excluded IDs and take the limit
+        filtered = sorted_ids_with_balances
+          |> Enum.reject(fn {id, _} -> id in exclude_ids end)
+          |> Enum.take(limit)
+
+        post_ids = Enum.map(filtered, fn {id, _} -> id end)
+        balances_map = Map.new(filtered)
+
+        if Enum.empty?(post_ids) do
+          []
+        else
+          # Fetch posts from database
+          posts = from(p in Post,
+            where: p.id in ^post_ids,
+            preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+          )
+          |> Repo.all()
+          |> populate_author_names()
+
+          # Re-order to match sorted order and attach balance
+          post_ids
+          |> Enum.map(fn post_id ->
+            post = Enum.find(posts, fn p -> p.id == post_id end)
+            if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
+          end)
+          |> Enum.reject(&is_nil/1)
+        end
+    end
+  end
+
+  @doc """
+  Lists published posts for a tag sorted by BUX pool balance DESC.
+  Uses SortedPostsCache for O(n) filter + O(1) pagination.
+
+  ## Options
+    * `:limit` - Maximum number of posts to return (default: 20)
+    * `:offset` - Number of posts to skip (default: 0)
+    * `:exclude_ids` - List of post IDs to exclude (default: [])
+  """
+  def list_published_posts_by_tag_pool(tag_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    # Get tag by slug
+    case get_tag_by_slug(tag_slug) do
+      nil ->
+        []
+
+      tag ->
+        # Get sorted post IDs from cache
+        # Fetch extra to account for exclusions
+        fetch_limit = limit + length(exclude_ids)
+        sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_tag(
+          tag.id,
+          fetch_limit,
+          offset
+        )
+
+        # Filter out excluded IDs and take the limit
+        filtered = sorted_ids_with_balances
+          |> Enum.reject(fn {id, _} -> id in exclude_ids end)
+          |> Enum.take(limit)
+
+        post_ids = Enum.map(filtered, fn {id, _} -> id end)
+        balances_map = Map.new(filtered)
+
+        if Enum.empty?(post_ids) do
+          []
+        else
+          # Fetch posts from database
+          posts = from(p in Post,
+            where: p.id in ^post_ids,
+            preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+          )
+          |> Repo.all()
+          |> populate_author_names()
+
+          # Re-order to match sorted order and attach balance
+          post_ids
+          |> Enum.map(fn post_id ->
+            post = Enum.find(posts, fn p -> p.id == post_id end)
+            if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
+          end)
+          |> Enum.reject(&is_nil/1)
+        end
+    end
+  end
+
+  @doc """
+  Gets the count of published posts in a category.
+  Uses SortedPostsCache for O(n) filter.
+  """
+  def count_published_posts_by_category(category_slug) do
+    case get_category_by_slug(category_slug) do
+      nil -> 0
+      category -> BlocksterV2.SortedPostsCache.count_by_category(category.id)
+    end
+  end
+
+  @doc """
+  Gets the count of published posts with a tag.
+  Uses SortedPostsCache for O(n) filter.
+  """
+  def count_published_posts_by_tag(tag_slug) do
+    case get_tag_by_slug(tag_slug) do
+      nil -> 0
+      tag -> BlocksterV2.SortedPostsCache.count_by_tag(tag.id)
+    end
+  end
+
+  @doc """
   Gets posts by a list of IDs. Returns only id, title, and slug for efficiency.
   """
   def get_posts_by_ids([]), do: []

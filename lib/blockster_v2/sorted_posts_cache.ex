@@ -5,14 +5,20 @@ defmodule BlocksterV2.SortedPostsCache do
   Reads are O(1) - just slice the pre-sorted list.
   Writes (deposits/deducts) trigger a re-sort, but these are infrequent.
 
-  Memory usage: ~24 bytes per post (post_id + balance + published_at timestamp)
-  - 10,000 posts = ~240 KB
-  - 100,000 posts = ~2.4 MB
+  Memory usage: ~80 bytes per post (post_id + balance + published_at + category_id + tag_ids list)
+  - 10,000 posts = ~800 KB
+  - 100,000 posts = ~8 MB
+
+  Supports filtering by category_id or tag_id for category/tag pages.
+
+  Waits for Mnesia to be ready before loading data to ensure pool balances are available.
   """
   use GenServer
   require Logger
 
   import Ecto.Query
+
+  @max_mnesia_wait_attempts 30  # 30 attempts * 2 seconds = 60 seconds max wait
 
   # =============================================================================
   # Client API
@@ -40,6 +46,40 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @doc """
+  Gets a page of post IDs for a specific category, sorted by pool balance DESC.
+  Returns list of {post_id, balance} tuples.
+
+  This is O(n) filter + O(1) slice where n = total posts.
+  """
+  def get_page_by_category(category_id, limit, offset \\ 0) do
+    GenServer.call(__MODULE__, {:get_page_by_category, category_id, limit, offset})
+  end
+
+  @doc """
+  Gets a page of post IDs for a specific tag, sorted by pool balance DESC.
+  Returns list of {post_id, balance} tuples.
+
+  This is O(n) filter + O(1) slice where n = total posts.
+  """
+  def get_page_by_tag(tag_id, limit, offset \\ 0) do
+    GenServer.call(__MODULE__, {:get_page_by_tag, tag_id, limit, offset})
+  end
+
+  @doc """
+  Gets the count of posts in a specific category.
+  """
+  def count_by_category(category_id) do
+    GenServer.call(__MODULE__, {:count_by_category, category_id})
+  end
+
+  @doc """
+  Gets the count of posts with a specific tag.
+  """
+  def count_by_tag(tag_id) do
+    GenServer.call(__MODULE__, {:count_by_tag, tag_id})
+  end
+
+  @doc """
   Updates the balance for a post and re-sorts if needed.
   Called after deposits or deductions.
   """
@@ -48,8 +88,16 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @doc """
-  Adds a new post to the cache.
+  Adds a new post to the cache with category and tags.
   Called when a new post is published.
+  """
+  def add_post(post_id, balance, published_at, category_id, tag_ids) do
+    GenServer.cast(__MODULE__, {:add_post, post_id, balance, published_at, category_id, tag_ids})
+  end
+
+  @doc """
+  Adds a new post to the cache (legacy 3-argument version).
+  Called when a new post is published. Category and tags default to nil/empty.
   """
   def add_post(post_id, balance, published_at) do
     GenServer.cast(__MODULE__, {:add_post, post_id, balance, published_at})
@@ -80,11 +128,11 @@ defmodule BlocksterV2.SortedPostsCache do
     # Subscribe to pool balance updates
     Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:all")
 
-    # Load initial data
-    sorted_posts = load_and_sort_all_posts()
+    # Start waiting for Mnesia to be ready before loading data
+    send(self(), :wait_for_mnesia)
 
-    Logger.info("[SortedPostsCache] Initialized with #{length(sorted_posts)} posts")
-    {:ok, %{sorted_posts: sorted_posts}}
+    Logger.info("[SortedPostsCache] Starting, waiting for Mnesia...")
+    {:ok, %{sorted_posts: [], mnesia_ready: false, mnesia_wait_attempts: 0}}
   end
 
   @impl true
@@ -92,7 +140,7 @@ defmodule BlocksterV2.SortedPostsCache do
     page = state.sorted_posts
       |> Enum.drop(offset)
       |> Enum.take(limit)
-      |> Enum.map(fn {post_id, balance, _published_at} -> {post_id, balance} end)
+      |> Enum.map(fn {post_id, balance, _published_at, _category_id, _tag_ids} -> {post_id, balance} end)
 
     {:reply, page, state}
   end
@@ -103,10 +151,48 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @impl true
+  def handle_call({:get_page_by_category, category_id, limit, offset}, _from, state) do
+    page = state.sorted_posts
+      |> Enum.filter(fn {_post_id, _balance, _published_at, cat_id, _tag_ids} -> cat_id == category_id end)
+      |> Enum.drop(offset)
+      |> Enum.take(limit)
+      |> Enum.map(fn {post_id, balance, _published_at, _category_id, _tag_ids} -> {post_id, balance} end)
+
+    {:reply, page, state}
+  end
+
+  @impl true
+  def handle_call({:get_page_by_tag, tag_id, limit, offset}, _from, state) do
+    page = state.sorted_posts
+      |> Enum.filter(fn {_post_id, _balance, _published_at, _cat_id, tag_ids} -> tag_id in tag_ids end)
+      |> Enum.drop(offset)
+      |> Enum.take(limit)
+      |> Enum.map(fn {post_id, balance, _published_at, _category_id, _tag_ids} -> {post_id, balance} end)
+
+    {:reply, page, state}
+  end
+
+  @impl true
+  def handle_call({:count_by_category, category_id}, _from, state) do
+    count = state.sorted_posts
+      |> Enum.count(fn {_post_id, _balance, _published_at, cat_id, _tag_ids} -> cat_id == category_id end)
+
+    {:reply, count, state}
+  end
+
+  @impl true
+  def handle_call({:count_by_tag, tag_id}, _from, state) do
+    count = state.sorted_posts
+      |> Enum.count(fn {_post_id, _balance, _published_at, _cat_id, tag_ids} -> tag_id in tag_ids end)
+
+    {:reply, count, state}
+  end
+
+  @impl true
   def handle_cast({:update_balance, post_id, new_balance}, state) do
     sorted_posts = state.sorted_posts
-      |> Enum.map(fn {pid, _bal, pub_at} = entry ->
-        if pid == post_id, do: {pid, new_balance, pub_at}, else: entry
+      |> Enum.map(fn {pid, _bal, pub_at, cat_id, tag_ids} = entry ->
+        if pid == post_id, do: {pid, new_balance, pub_at, cat_id, tag_ids}, else: entry
       end)
       |> sort_posts()
 
@@ -114,9 +200,9 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @impl true
-  def handle_cast({:add_post, post_id, balance, published_at}, state) do
+  def handle_cast({:add_post, post_id, balance, published_at, category_id, tag_ids}, state) do
     # Check if already exists
-    exists = Enum.any?(state.sorted_posts, fn {pid, _, _} -> pid == post_id end)
+    exists = Enum.any?(state.sorted_posts, fn {pid, _, _, _, _} -> pid == post_id end)
 
     sorted_posts = if exists do
       state.sorted_posts
@@ -127,7 +213,29 @@ defmodule BlocksterV2.SortedPostsCache do
         unix when is_integer(unix) -> unix
         _ -> 0
       end
-      [{post_id, balance, published_unix} | state.sorted_posts]
+      [{post_id, balance, published_unix, category_id, tag_ids || []} | state.sorted_posts]
+      |> sort_posts()
+    end
+
+    {:noreply, %{state | sorted_posts: sorted_posts}}
+  end
+
+  # Legacy 3-argument version for backwards compatibility
+  @impl true
+  def handle_cast({:add_post, post_id, balance, published_at}, state) do
+    # Check if already exists
+    exists = Enum.any?(state.sorted_posts, fn {pid, _, _, _, _} -> pid == post_id end)
+
+    sorted_posts = if exists do
+      state.sorted_posts
+    else
+      published_unix = case published_at do
+        %DateTime{} -> DateTime.to_unix(published_at)
+        %NaiveDateTime{} -> NaiveDateTime.diff(published_at, ~N[1970-01-01 00:00:00])
+        unix when is_integer(unix) -> unix
+        _ -> 0
+      end
+      [{post_id, balance, published_unix, nil, []} | state.sorted_posts]
       |> sort_posts()
     end
 
@@ -136,26 +244,64 @@ defmodule BlocksterV2.SortedPostsCache do
 
   @impl true
   def handle_cast({:remove_post, post_id}, state) do
-    sorted_posts = Enum.reject(state.sorted_posts, fn {pid, _, _} -> pid == post_id end)
+    sorted_posts = Enum.reject(state.sorted_posts, fn {pid, _, _, _, _} -> pid == post_id end)
     {:noreply, %{state | sorted_posts: sorted_posts}}
   end
 
   @impl true
-  def handle_cast(:reload, _state) do
+  def handle_cast(:reload, state) do
     sorted_posts = load_and_sort_all_posts()
     Logger.info("[SortedPostsCache] Reloaded with #{length(sorted_posts)} posts")
-    {:noreply, %{sorted_posts: sorted_posts}}
+    {:noreply, %{state | sorted_posts: sorted_posts, mnesia_ready: true}}
+  end
+
+  # Wait for Mnesia to be ready before loading data
+  @impl true
+  def handle_info(:wait_for_mnesia, state) do
+    attempts = state.mnesia_wait_attempts
+
+    if attempts >= @max_mnesia_wait_attempts do
+      Logger.warning("[SortedPostsCache] Timeout waiting for Mnesia, loading with empty balances")
+      sorted_posts = load_and_sort_all_posts()
+      {:noreply, %{state | sorted_posts: sorted_posts, mnesia_ready: true}}
+    else
+      if table_ready?(:post_bux_points) do
+        Logger.info("[SortedPostsCache] Mnesia ready, loading posts...")
+        sorted_posts = load_and_sort_all_posts()
+        Logger.info("[SortedPostsCache] Initialized with #{length(sorted_posts)} posts")
+        {:noreply, %{state | sorted_posts: sorted_posts, mnesia_ready: true}}
+      else
+        Logger.info("[SortedPostsCache] Waiting for Mnesia post_bux_points table... (attempt #{attempts + 1})")
+        Process.send_after(self(), :wait_for_mnesia, 2000)
+        {:noreply, %{state | mnesia_wait_attempts: attempts + 1}}
+      end
+    end
   end
 
   # Handle PubSub broadcasts from EngagementTracker
   @impl true
   def handle_info({:bux_update, post_id, new_balance}, state) do
+    old_sorted_posts = state.sorted_posts
+
     # Update balance in our sorted list
-    sorted_posts = state.sorted_posts
-      |> Enum.map(fn {pid, _bal, pub_at} = entry ->
-        if pid == post_id, do: {pid, new_balance, pub_at}, else: entry
+    sorted_posts = old_sorted_posts
+      |> Enum.map(fn {pid, _bal, pub_at, cat_id, tag_ids} = entry ->
+        if pid == post_id, do: {pid, new_balance, pub_at, cat_id, tag_ids}, else: entry
       end)
       |> sort_posts()
+
+    # Check if order changed by comparing post IDs
+    old_order = Enum.map(old_sorted_posts, fn {pid, _, _, _, _} -> pid end)
+    new_order = Enum.map(sorted_posts, fn {pid, _, _, _, _} -> pid end)
+
+    if old_order != new_order do
+      # Broadcast reorder event so LiveViews can refresh their post lists
+      Phoenix.PubSub.broadcast(
+        BlocksterV2.PubSub,
+        "post_bux:all",
+        {:posts_reordered, post_id, new_balance}
+      )
+    end
 
     {:noreply, %{state | sorted_posts: sorted_posts}}
   end
@@ -170,34 +316,75 @@ defmodule BlocksterV2.SortedPostsCache do
   # Private Functions
   # =============================================================================
 
+  # Check if Mnesia table is ready for use
+  defp table_ready?(table_name) do
+    try do
+      # Check if Mnesia is running
+      case :mnesia.system_info(:is_running) do
+        :yes ->
+          tables = :mnesia.system_info(:tables)
+
+          if table_name in tables do
+            # Table exists, try a quick read to verify it's accessible
+            try do
+              :mnesia.dirty_first(table_name)
+              true
+            rescue
+              _ -> false
+            catch
+              :exit, _ -> false
+            end
+          else
+            false
+          end
+
+        _ ->
+          false
+      end
+    rescue
+      _ -> false
+    catch
+      :exit, _ -> false
+    end
+  end
+
   defp load_and_sort_all_posts do
     # Get all pool balances from Mnesia
     pool_balances = BlocksterV2.EngagementTracker.get_all_post_bux_balances()
 
-    # Get all published posts with just id and published_at
+    # Get all published posts with id, published_at, category_id
     posts = BlocksterV2.Repo.all(
       from p in BlocksterV2.Blog.Post,
         where: not is_nil(p.published_at),
-        select: {p.id, p.published_at}
+        select: {p.id, p.published_at, p.category_id}
     )
 
-    # Build list of {post_id, balance, published_at} and sort
+    # Get all post_id => tag_ids mappings
+    # Using post_tags join table
+    tag_mappings = BlocksterV2.Repo.all(
+      from pt in "post_tags",
+        select: {pt.post_id, pt.tag_id}
+    )
+    |> Enum.group_by(fn {post_id, _} -> post_id end, fn {_, tag_id} -> tag_id end)
+
+    # Build list of {post_id, balance, published_at, category_id, tag_ids} and sort
     posts
-    |> Enum.map(fn {post_id, published_at} ->
+    |> Enum.map(fn {post_id, published_at, category_id} ->
       balance = Map.get(pool_balances, post_id, 0)
+      tag_ids = Map.get(tag_mappings, post_id, [])
       published_unix = case published_at do
         %DateTime{} -> DateTime.to_unix(published_at)
         %NaiveDateTime{} -> NaiveDateTime.diff(published_at, ~N[1970-01-01 00:00:00])
         _ -> 0
       end
-      {post_id, balance, published_unix}
+      {post_id, balance, published_unix, category_id, tag_ids}
     end)
     |> sort_posts()
   end
 
   defp sort_posts(posts) do
     # Sort by balance DESC, then published_at DESC
-    Enum.sort_by(posts, fn {_post_id, balance, published_at} ->
+    Enum.sort_by(posts, fn {_post_id, balance, published_at, _category_id, _tag_ids} ->
       {-balance, -published_at}
     end)
   end

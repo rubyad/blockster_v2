@@ -40,6 +40,17 @@
             <%= for {post, display_idx} <- Enum.with_index(left_posts, 0) do %>
               <% position_num = if display_idx == 0, do: 1, else: 3 %>
               <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_bux_deposit_modal"
+                    phx-value-post-id={post.id}
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
                 <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if post.featured_image do %>
@@ -80,6 +91,17 @@
           <%= if center_post do %>
             <div class="md:w-[42%] md:mt-0 mt-3 flex md:order-2">
               <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_bux_deposit_modal"
+                    phx-value-post-id={center_post.id}
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
                 <.link navigate={~p"/#{center_post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if center_post.featured_image do %>
@@ -123,6 +145,17 @@
           <div class="md:flex-1 flex flex-col gap-3 md:order-3">
             <%= for {post, display_idx} <- Enum.with_index(right_posts, 0) do %>
               <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex-1 flex flex-col relative">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_bux_deposit_modal"
+                    phx-value-post-id={post.id}
+                    class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
                 <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
                   <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
                     <%= if post.featured_image do %>

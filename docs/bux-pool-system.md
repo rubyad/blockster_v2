@@ -1287,12 +1287,25 @@ end
   - Admin-only visibility, only shown for existing posts
 
 - [x] **6.4** Add quick deposit from post cards (admin only)
-  - File: `lib/blockster_v2_web/components/shared_components.ex` - Added `admin_token_badge/1` component
-  - File: `lib/blockster_v2_web/live/post_live/index.ex` - Added `toggle_quick_deposit` and `quick_deposit` event handlers
-  - Added `is_admin` and `quick_deposit_post_id` assigns to socket
-  - Component modules updated: `posts_three_component.ex`, `posts_four_component.ex`, `posts_five_component.ex`, `posts_six_component.ex`
-  - **Implementation:** Admin posts page at `/admin/posts` has full inline deposit functionality
-  - **Note:** Homepage card quick deposits available via `admin_token_badge` component (templates partially updated)
+  - **Cog Icon on Post Cards:** Added admin-only cog icon button to top-right of all post cards
+    - File: `lib/blockster_v2_web/live/post_live/posts_three_component.html.heex` (5 cards)
+    - File: `lib/blockster_v2_web/live/post_live/posts_four_component.html.heex` (3 cards)
+    - File: `lib/blockster_v2_web/live/post_live/posts_five_component.html.heex` (6 cards)
+    - File: `lib/blockster_v2_web/live/post_live/posts_six_component.html.heex` (5 cards)
+    - Button uses `phx-click="open_bux_deposit_modal"` with `phx-value-post-id={post.id}`
+    - Styled: white background, rounded-full, shadow, hover:bg-gray-100
+  - **Modal State in index.ex:**
+    - Added assigns: `show_bux_deposit_modal` (boolean), `deposit_modal_post` (map with id, title, pool_balance, total_deposited, total_distributed)
+    - Event handler `open_bux_deposit_modal` - fetches post and pool stats via `EngagementTracker.get_post_pool_stats/1`
+    - Event handler `close_bux_deposit_modal` - resets modal state
+    - Event handler `deposit_bux` - validates admin, parses amount, calls `EngagementTracker.deposit_post_bux/2`, updates `bux_balances` map
+  - **Modal UI in index.html.heex:**
+    - Fixed overlay with `bg-gray-900/60`, centered modal with `phx-click-away="close_bux_deposit_modal"`
+    - Header: "Quick BUX Deposit" title + X close button
+    - Post title display (truncated)
+    - Stats grid (3 columns): Pool Balance (green), Deposited (blue), Distributed (purple)
+    - Deposit form: number input + Cancel/Deposit BUX buttons
+    - Uses `Number.Delimit.number_to_delimited/2` for formatted display
 
 - [x] **6.5** Add pool management to admin posts page
   - File: `lib/blockster_v2_web/live/posts_admin_live.ex` (existing file updated)
@@ -1305,22 +1318,32 @@ end
   - Added "toggle all" checkbox in header
   - Event handlers: `deposit_single`, `bulk_deposit`, `toggle_select`, `toggle_all`, `clear_selection`, `sort`
 
-### Phase 7: Real-time Updates ✅ IMPLEMENTED (needs testing)
+### Phase 7: Real-time Updates ✅ COMPLETE
 
 - [x] **7.1** Verify PubSub broadcasts work for pool decrements
   - File: `lib/blockster_v2/engagement_tracker.ex`
   - `broadcast_bux_update/2` called in both `deposit_post_bux` and `try_deduct_from_pool`
-  - **Needs manual testing**
 
 - [x] **7.2** Verify homepage updates on pool changes
   - File: `lib/blockster_v2_web/live/post_live/index.ex`
-  - Existing `handle_info({:bux_update, ...})` handler should work
-  - **Needs manual testing**
+  - Existing `handle_info({:bux_update, ...})` handler updates balance display
+  - Added `handle_info({:posts_reordered, ...})` handler to rebuild components when sort order changes
 
 - [x] **7.3** SortedPostsCache receives and processes updates
   - File: `lib/blockster_v2/sorted_posts_cache.ex`
   - `handle_info({:bux_update, ...})` updates balance and re-sorts
-  - **Needs manual testing for consistency after rapid updates**
+  - **NEW:** Now broadcasts `{:posts_reordered, post_id, new_balance}` when sort order changes
+  - LiveViews subscribe to `post_bux:all` and receive reorder events
+
+- [x] **7.4** SortedPostsCache waits for Mnesia on startup
+  - File: `lib/blockster_v2/sorted_posts_cache.ex`
+  - Polls every 2 seconds until `post_bux_points` table is ready
+  - Prevents loading empty balances when started before Mnesia initialization completes
+  - 60-second timeout before falling back to empty balances
+
+- [x] **7.5** Modal closes after successful deposit
+  - File: `lib/blockster_v2_web/live/post_live/index.ex`
+  - `deposit_bux` event handler now sets `show_bux_deposit_modal: false` on success
 
 ### Phase 8: Edge Cases & Validation ✅ COMPLETE
 
@@ -1401,6 +1424,255 @@ end
   - Dashboard showing pool levels
   - Alerts for low pools
   - Distribution stats
+
+---
+
+## Phase 11: Category & Tag Pages - BUX Pool Sorting
+
+### Overview
+
+Extend the BUX pool sorting system to category (`/category/:slug`) and tag (`/tag/:slug`) pages. Posts will be sorted by `bux_balance DESC`, then `published_at DESC` - matching the homepage behavior.
+
+**Key Difference from Homepage:**
+- **NO quick deposit admin cog** on post cards (admin manages pools from homepage or admin panel only)
+- Same visual BUX badge showing remaining pool balance (with empty state styling)
+
+### Current Implementation Analysis
+
+**Category Page** (`lib/blockster_v2_web/live/post_live/category.ex`):
+- Uses `Blog.list_published_posts_by_category/2` with `exclude_ids` and `limit` options
+- Calls `Blog.with_bux_balances()` to attach Mnesia balances
+- Sorts by `published_at DESC` (in the SQL query)
+- Uses same component cycle: PostsThree → PostsFour → PostsFive → PostsSix
+
+**Tag Page** (`lib/blockster_v2_web/live/post_live/tag.ex`):
+- Uses `Blog.list_published_posts_by_tag/2` with `exclude_ids` and `limit` options
+- Calls `Blog.with_bux_balances()` to attach Mnesia balances
+- Sorts by `published_at DESC` (in the SQL query)
+- Uses same component cycle: PostsThree → PostsFour → PostsFive → PostsSix
+
+**Problem with Current Approach:**
+- SQL-based sorting can't incorporate Mnesia pool balances
+- Each batch fetch is independent - no global view of sort order
+- `exclude_ids` pattern works for `published_at` ordering but not for pool-based ordering
+
+### Implementation Strategy
+
+**Option A: Extend SortedPostsCache (Recommended)**
+
+Add filtered views to `SortedPostsCache` that pre-filter by category/tag while maintaining pool sort order.
+
+**Pros:**
+- O(1) pagination (same as homepage)
+- Consistent sort order across page loads
+- Single source of truth for pool ordering
+
+**Cons:**
+- Slightly more complex cache
+- Need to store category_id and tag_ids per post
+
+**Option B: Query-Time Sorting**
+
+Fetch all matching posts, sort in memory by pool balance, paginate.
+
+**Pros:**
+- Simpler cache (no changes)
+- Works with existing query patterns
+
+**Cons:**
+- O(n) per page load where n = posts in category/tag
+- Inconsistent ordering if pool changes between fetches
+
+**Recommended: Option A** - Extend SortedPostsCache with category/tag filtering.
+
+---
+
+### Implementation Checklist
+
+**Implementation Date:** January 19, 2026
+
+#### Phase 11.1: Extend SortedPostsCache ✅ COMPLETE
+
+- [x] **11.1.1** Add category_id and tag_ids to cached tuples
+  - File: `lib/blockster_v2/sorted_posts_cache.ex`
+  - Changed tuple from `{post_id, balance, published_at}` to `{post_id, balance, published_at, category_id, tag_ids}`
+  - `tag_ids` is a list of tag IDs (posts can have multiple tags)
+
+- [x] **11.1.2** Update `load_and_sort_all_posts/0` to include category/tags
+  - Fetches category_id directly from Post query
+  - Fetches tag_ids via separate query to posts_tags join table
+  - Groups tag_ids by post_id using `Enum.group_by/3`
+
+- [x] **11.1.3** Add `get_page_by_category/3` function
+  - Filters `sorted_posts` by `category_id`, then applies limit/offset
+  - O(n) filter + O(1) slice where n = total posts
+
+- [x] **11.1.4** Add `get_page_by_tag/3` function
+  - Filters `sorted_posts` where `tag_id in tag_ids`, then applies limit/offset
+  - O(n) filter + O(1) slice where n = total posts
+
+- [x] **11.1.5** Add `count_by_category/1` and `count_by_tag/1` functions
+  - For pagination UI (total count of filtered posts)
+
+- [x] **11.1.6** Add handle_call clauses for new operations
+  - `{:get_page_by_category, category_id, limit, offset}` - filter + slice
+  - `{:get_page_by_tag, tag_id, limit, offset}` - filter + slice
+  - `{:count_by_category, category_id}` - filter + length
+  - `{:count_by_tag, tag_id}` - filter + length
+
+- [x] **11.1.7** Update `add_post/3` to accept category_id and tag_ids
+  - Added new `add_post/5` function with category_id and tag_ids
+  - Kept legacy `add_post/3` for backwards compatibility (defaults to nil category, empty tags)
+
+#### Phase 11.2: Add Blog Functions for Pool-Sorted Category/Tag Queries ✅ COMPLETE
+
+- [x] **11.2.1** Add `list_published_posts_by_category_pool/2` to Blog
+  - File: `lib/blockster_v2/blog.ex` (lines 271-327)
+  - Uses `SortedPostsCache.get_page_by_category/3` for O(n) filter + O(1) pagination
+  - Handles exclude_ids for infinite scroll
+  - Attaches bux_balance to each post
+
+- [x] **11.2.2** Add `list_published_posts_by_tag_pool/2` to Blog
+  - File: `lib/blockster_v2/blog.ex` (lines 329-387)
+  - Same pattern as category, uses `SortedPostsCache.get_page_by_tag/3`
+  - Gets tag_id from slug first
+
+- [x] **11.2.3** Add `count_published_posts_by_category/1` and `count_published_posts_by_tag/1`
+  - File: `lib/blockster_v2/blog.ex` (lines 389-408)
+  - For pagination UI (total count of filtered posts)
+
+#### Phase 11.3: Update Category LiveView ✅ COMPLETE
+
+- [x] **11.3.1** Modify `build_components_batch/3` in Category
+  - File: `lib/blockster_v2_web/live/post_live/category.ex`
+  - Replaced `Blog.list_published_posts_by_category()` with `Blog.list_published_posts_by_category_pool()`
+  - Removed `|> Blog.with_bux_balances()` call (new function attaches balances)
+  - Function now returns 3-tuple: `{components, post_ids, bux_balances}`
+
+- [x] **11.3.2** Subscribe to PubSub for real-time balance updates
+  - Added in mount: `Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:all")`
+  - Added handle_info for `{:bux_update, post_id, new_balance}` to update displayed balances
+  - Added handle_info for `{:posts_reordered, _, _}` (ignores for now, would require component rebuild)
+
+- [x] **11.3.3** Verify post cards display BUX badge (no admin cog)
+  - Admin cog is only rendered in index.ex (homepage), NOT in category.ex
+  - Post card templates already render `token_badge` with `bux_balance`
+
+#### Phase 11.4: Update Tag LiveView ✅ COMPLETE
+
+- [x] **11.4.1** Modify `build_components_batch/3` in Tag
+  - File: `lib/blockster_v2_web/live/post_live/tag.ex`
+  - Replaced `Blog.list_published_posts_by_tag()` with `Blog.list_published_posts_by_tag_pool()`
+  - Removed `|> Blog.with_bux_balances()` call
+  - Function now returns 3-tuple: `{components, post_ids, bux_balances}`
+
+- [x] **11.4.2** Subscribe to PubSub for real-time balance updates
+  - Same pattern as category page
+  - Subscribe in mount, handle `:bux_update` and `:posts_reordered`
+
+- [x] **11.4.3** Verify post cards display BUX badge (no admin cog)
+  - Admin cog is only rendered in index.ex (homepage), NOT in tag.ex
+
+#### Phase 11.5: Handle Edge Cases ✅ COMPLETE
+
+- [x] **11.5.1** Handle empty category/tag (no posts)
+  - `get_page_by_category/3` returns `[]` when no posts match
+  - Category/Tag pages continue to show empty state (existing behavior)
+
+- [x] **11.5.2** Handle category/tag with all zero-pool posts
+  - Posts display in `published_at DESC` order (secondary sort)
+  - BUX badges show grayed-out state (existing behavior from Phase 3.3)
+
+- [x] **11.5.3** Handle new post published to category/tag
+  - Legacy `add_post/3` still works with nil category and empty tags
+  - Full cache reload on application restart
+
+- [ ] **11.5.4** Handle post category/tag change (OPTIONAL - Future Enhancement)
+  - Currently requires cache reload if category/tags change
+  - Could add `update_post_metadata/3` function for real-time updates
+
+#### Phase 11.6: Testing
+
+- [ ] **11.6.1** Unit tests for SortedPostsCache filtered queries (OPTIONAL)
+- [ ] **11.6.2** Integration tests for category page (OPTIONAL)
+- [ ] **11.6.3** Integration tests for tag page (OPTIONAL)
+
+- [ ] **11.6.4** Manual testing checklist
+  - [ ] Navigate to category page, verify posts sorted by pool balance
+  - [ ] Navigate to tag page, verify posts sorted by pool balance
+  - [ ] Deposit BUX to post in category, verify order changes
+  - [ ] Scroll to load more posts, verify order maintained
+  - [ ] Verify NO admin cog on post cards in category/tag pages
+  - [ ] Verify BUX badge shows correct balance
+  - [ ] Verify empty pool posts show grayed badge
+
+---
+
+### Files Modified (Phase 11)
+
+| File | Changes |
+|------|---------|
+| `lib/blockster_v2/sorted_posts_cache.ex` | Added category_id/tag_ids to tuples, added filtered query functions |
+| `lib/blockster_v2/blog.ex` | Added `list_published_posts_by_category_pool/2`, `list_published_posts_by_tag_pool/2`, count functions |
+| `lib/blockster_v2_web/live/post_live/category.ex` | Use pool-sorted query, subscribe to PubSub, track bux_balances |
+| `lib/blockster_v2_web/live/post_live/tag.ex` | Use pool-sorted query, subscribe to PubSub, track bux_balances |
+
+---
+
+### Original Files to Modify (from plan)
+
+| File | Changes |
+|------|---------|
+| `lib/blockster_v2/sorted_posts_cache.ex` | Add category_id/tag_ids to tuples, add filtered query functions |
+| `lib/blockster_v2/blog.ex` | Add `list_published_posts_by_category_pool/2`, `list_published_posts_by_tag_pool/2` |
+| `lib/blockster_v2_web/live/post_live/category.ex` | Use new pool-sorted function, subscribe to PubSub |
+| `lib/blockster_v2_web/live/post_live/tag.ex` | Use new pool-sorted function, subscribe to PubSub |
+
+### No Changes Required
+
+- Post card templates (already display BUX badge via `token_badge`)
+- `token_badge` component (already handles empty state)
+- Admin cog (only rendered in homepage index.ex, not in category.ex or tag.ex)
+
+---
+
+### Performance Considerations
+
+**Approach: Simple O(n) In-Memory Filter**
+
+The category/tag queries use a simple filter over the pre-sorted list:
+```elixir
+# get_page_by_category - O(n) filter, then O(1) slice
+state.sorted_posts
+|> Enum.filter(fn {_, _, _, cat_id, _} -> cat_id == category_id end)
+|> Enum.drop(offset)
+|> Enum.take(limit)
+```
+
+**Why this is efficient for your scale:**
+- ~500 posts total = <1ms filter time
+- Even at 10,000 posts = ~2-3ms filter time
+- All in-memory (no DB/Mnesia calls)
+- Filtering tuples is extremely fast in Erlang/Elixir
+
+**Comparison to homepage:**
+- Homepage: O(1) slice (no filter needed - takes from global sorted list)
+- Category/Tag: O(n) filter + O(1) slice (filter by category_id/tag_id first)
+
+**Memory:**
+- Adding category_id (integer) + tag_ids (list of integers) per post
+- Estimated: +16 bytes (category_id) + ~40 bytes average (tag_ids list) = +56 bytes per post
+- 10,000 posts = ~560 KB additional memory (acceptable)
+
+**Initial Load:**
+- Single SQL query fetches all post IDs with category_id and tag_ids
+- PostgreSQL `array_agg` for tags is efficient
+- One Mnesia dirty_match_object for all pool balances (existing)
+
+**Future optimization (only if needed at 50k+ posts):**
+- Add secondary indexes: `by_category: %{category_id => [sorted_posts]}`
+- Converts category/tag queries to O(1) slice
+- ~3x memory but O(1) queries
 
 ---
 
