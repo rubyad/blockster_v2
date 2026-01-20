@@ -592,6 +592,58 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Returns suggested posts for a user, sorted by BUX balance descending.
+  Excludes the current post and (for logged-in users) posts they've already read.
+
+  ## Parameters
+    - current_post_id: ID of the post being viewed (always excluded)
+    - user_id: User ID (nil for anonymous users)
+    - limit: Number of posts to return (default: 4)
+
+  ## Returns
+    List of Post structs with :bux_balance virtual field populated
+  """
+  def get_suggested_posts(current_post_id, user_id \\ nil, limit \\ 4) do
+    alias BlocksterV2.EngagementTracker
+    alias BlocksterV2.SortedPostsCache
+
+    # Build exclusion list
+    exclude_ids = if user_id do
+      read_ids = EngagementTracker.get_user_read_post_ids(user_id)
+      [current_post_id | read_ids]
+    else
+      [current_post_id]
+    end
+
+    # Get sorted post IDs from cache, fetch extra to account for exclusions
+    fetch_limit = limit + length(exclude_ids)
+
+    post_ids_with_balances = SortedPostsCache.get_page(fetch_limit, 0)
+      |> Enum.reject(fn {id, _balance} -> id in exclude_ids end)
+      |> Enum.take(limit)
+
+    # Extract IDs and create balance lookup map
+    post_ids = Enum.map(post_ids_with_balances, fn {id, _} -> id end)
+    balances_map = Map.new(post_ids_with_balances)
+
+    if Enum.empty?(post_ids) do
+      []
+    else
+      # Fetch full post objects with category preload
+      posts = from(p in Post,
+        where: p.id in ^post_ids,
+        preload: [:category]
+      )
+      |> Repo.all()
+
+      # Sort by balance (maintain cache order) and attach balance
+      posts
+      |> Enum.sort_by(fn p -> -Map.get(balances_map, p.id, 0) end)
+      |> Enum.map(fn p -> Map.put(p, :bux_balance, Map.get(balances_map, p.id, 0)) end)
+    end
+  end
+
+  @doc """
   Creates a post.
   """
   def create_post(attrs \\ %{}) do

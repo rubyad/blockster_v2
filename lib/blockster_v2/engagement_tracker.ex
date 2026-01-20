@@ -307,6 +307,32 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Returns list of post IDs where a user has actually received BUX rewards.
+  Used for filtering suggested posts to show unrewarded content first.
+
+  A post is considered "read" only if the user has received a BUX reward for it
+  (read_bux > 0 in user_post_rewards table).
+  """
+  def get_user_read_post_ids(user_id) when is_integer(user_id) do
+    # Query user_post_rewards table for posts where user earned BUX
+    pattern = {:user_post_rewards, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    :mnesia.dirty_match_object(pattern)
+    |> Enum.filter(fn record ->
+      # read_bux is at index 4
+      read_bux = elem(record, 4)
+      read_bux != nil and read_bux > 0
+    end)
+    |> Enum.map(fn record -> elem(record, 3) end)  # post_id is at index 3
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  def get_user_read_post_ids(_), do: []
+
+  @doc """
   Calculates engagement quality score (1-10) based on reading behavior.
 
   Factors considered:

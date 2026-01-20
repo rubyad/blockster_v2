@@ -336,9 +336,9 @@ defmodule BlocksterV2Web.Layouts do
               <span class="text-gray-300">|</span>
               <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/gaming"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Gaming</.link>
+              <.link navigate={~p"/category/ai"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">AI</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/tech"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Tech</.link>
+              <.link navigate={~p"/category/rwa"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">RWA</.link>
               <span class="text-gray-300">|</span>
               <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
             </div>

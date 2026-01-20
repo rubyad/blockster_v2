@@ -358,36 +358,13 @@
           </div>
         <% end %>
 
-        <!-- Related Posts -->
-        <%= if @related_posts && length(@related_posts) > 0 do %>
+        <!-- Suggested Posts -->
+        <%= if @suggested_posts && length(@suggested_posts) > 0 do %>
           <div class="mt-16 pt-10 border-t border-[#E7E8F1]">
-            <h2 class="text-2xl font-haas_bold_75 mb-8 text-[#141414]">Related Articles</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <%= for post <- @related_posts do %>
-                <.link navigate={~p"/#{post.slug}"} class="group block">
-                  <article class="bg-[#F7F8FA] rounded-2xl overflow-hidden hover:shadow-lg transition-all">
-                    <%= if post.featured_image do %>
-                      <div class="aspect-square overflow-hidden">
-                        <img src={ImageKit.w400_h400(post.featured_image)} alt={post.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      </div>
-                    <% else %>
-                      <div class="aspect-square bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
-                        <.icon name="hero-document-text" class="w-10 h-10 text-gray-400" />
-                      </div>
-                    <% end %>
-                    <div class="p-5">
-                      <%= if post.category do %>
-                        <span class="text-xs font-haas_medium_65 text-[#141414A3] uppercase tracking-wider">{post.category.name}</span>
-                      <% end %>
-                      <h3 class="text-base font-haas_medium_65 text-[#141414] mt-1 line-clamp-2">{post.title}</h3>
-                      <div class="flex items-center gap-2 mt-2 text-xs text-[#141414A3]">
-                        <span>{post.author_name}</span>
-                        <span>·</span>
-                        <span>{if post.published_at, do: Calendar.strftime(post.published_at, "%b %d, %Y"), else: "Draft"}</span>
-                      </div>
-                    </div>
-                  </article>
-                </.link>
+            <h2 class="text-2xl font-haas_bold_75 mb-8 text-[#141414]">Suggested For You</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <%= for post <- @suggested_posts do %>
+                <SharedComponents.post_card post={post} balance={post.bux_balance || 0} />
               <% end %>
             </div>
           </div>

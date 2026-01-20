@@ -10,6 +10,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Shop
   alias BlocksterV2.ImageKit
   alias BlocksterV2Web.PostLive.TipTapRenderer
+  alias BlocksterV2Web.SharedComponents
 
   @impl true
   def mount(_params, _session, socket) do
@@ -104,8 +105,9 @@ defmodule BlocksterV2Web.PostLive.Show do
           {x_conn, campaign, reward, calculated_reward}
       end
 
-    # Load related posts (shares tags with current post)
-    related_posts = Blog.get_related_posts(post, 4)
+    # Load suggested posts (highest BUX balance, excluding posts user has read)
+    suggested_user_id = if socket.assigns[:current_user], do: socket.assigns.current_user.id, else: nil
+    suggested_posts = Blog.get_suggested_posts(post.id, suggested_user_id, 4)
 
     # Load sidebar products (2 tees, 1 hat, 1 hoodie - shuffled) only on connected mount
     # Split into 2 for left sidebar and 2 for right sidebar
@@ -143,7 +145,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:needs_x_reconnect, false)
      |> assign(:hub_token, "BUX")  # Always BUX (hub tokens removed)
      |> assign(:hub_logo, hub_logo)
-     |> assign(:related_posts, related_posts)
+     |> assign(:suggested_posts, suggested_posts)
      |> assign(:pool_available, pool_available)
      |> assign(:pool_balance, pool_balance)
      |> assign(:left_sidebar_products, left_sidebar_products)
