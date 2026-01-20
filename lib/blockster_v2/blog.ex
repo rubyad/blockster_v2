@@ -636,9 +636,12 @@ defmodule BlocksterV2.Blog do
       )
       |> Repo.all()
 
-      # Sort by balance (maintain cache order) and attach balance
+      # Sort by the original cache order (balance DESC, published_at DESC) and attach balance
+      # Create a position map from the ordered post_ids list
+      position_map = post_ids |> Enum.with_index() |> Map.new()
+
       posts
-      |> Enum.sort_by(fn p -> -Map.get(balances_map, p.id, 0) end)
+      |> Enum.sort_by(fn p -> Map.get(position_map, p.id, 999) end)
       |> Enum.map(fn p -> Map.put(p, :bux_balance, Map.get(balances_map, p.id, 0)) end)
     end
   end
