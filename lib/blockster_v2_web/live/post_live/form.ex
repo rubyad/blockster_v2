@@ -83,6 +83,11 @@ defmodule BlocksterV2Web.PostLive.Form do
 
     case Blog.create_post(post_params) do
       {:ok, post} ->
+        # Add to SortedPostsCache if published (new posts always start with 0 BUX)
+        if post.published_at do
+          BlocksterV2.SortedPostsCache.add_post(post.id, 0, post.published_at, post.category_id, [])
+        end
+
         {:noreply,
          socket
          |> put_flash(:info, "Post created successfully")

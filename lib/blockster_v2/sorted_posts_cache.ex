@@ -22,6 +22,7 @@ defmodule BlocksterV2.SortedPostsCache do
   import Ecto.Query
 
   @max_mnesia_wait_attempts 30  # 30 attempts * 2 seconds = 60 seconds max wait
+  @periodic_reload_interval :timer.minutes(5)  # Safety net: reload every 5 minutes
 
   # =============================================================================
   # Client API
@@ -320,6 +321,8 @@ defmodule BlocksterV2.SortedPostsCache do
         Logger.info("[SortedPostsCache] Mnesia ready, loading posts...")
         sorted_posts = load_and_sort_all_posts()
         Logger.info("[SortedPostsCache] Initialized with #{length(sorted_posts)} posts")
+        # Schedule periodic reload as safety net
+        schedule_periodic_reload()
         {:noreply, %{state | sorted_posts: sorted_posts, mnesia_ready: true}}
       else
         Logger.info("[SortedPostsCache] Waiting for Mnesia post_bux_points table... (attempt #{attempts + 1})")
@@ -357,6 +360,15 @@ defmodule BlocksterV2.SortedPostsCache do
     {:noreply, %{state | sorted_posts: sorted_posts}}
   end
 
+  # Periodic reload as safety net for any missed updates
+  @impl true
+  def handle_info(:periodic_reload, state) do
+    sorted_posts = load_and_sort_all_posts()
+    Logger.debug("[SortedPostsCache] Periodic reload: #{length(sorted_posts)} posts")
+    schedule_periodic_reload()
+    {:noreply, %{state | sorted_posts: sorted_posts}}
+  end
+
   # Ignore other PubSub messages
   @impl true
   def handle_info(_msg, state) do
@@ -366,6 +378,10 @@ defmodule BlocksterV2.SortedPostsCache do
   # =============================================================================
   # Private Functions
   # =============================================================================
+
+  defp schedule_periodic_reload do
+    Process.send_after(self(), :periodic_reload, @periodic_reload_interval)
+  end
 
   # Check if Mnesia table is ready for use
   defp table_ready?(table_name) do
