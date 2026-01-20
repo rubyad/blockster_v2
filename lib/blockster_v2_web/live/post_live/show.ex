@@ -7,6 +7,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.Social
   alias BlocksterV2.Social.XConnection
+  alias BlocksterV2.Shop
   alias BlocksterV2.ImageKit
   alias BlocksterV2Web.PostLive.TipTapRenderer
 
@@ -106,6 +107,16 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Load related posts (shares tags with current post)
     related_posts = Blog.get_related_posts(post, 4)
 
+    # Load sidebar products (2 tees, 1 hat, 1 hoodie - shuffled) only on connected mount
+    # Split into 2 for left sidebar and 2 for right sidebar
+    {left_sidebar_products, right_sidebar_products} =
+      if connected?(socket) do
+        all_products = Shop.get_sidebar_products()
+        {Enum.take(all_products, 2), Enum.drop(all_products, 2)}
+      else
+        {socket.assigns[:left_sidebar_products] || [], socket.assigns[:right_sidebar_products] || []}
+      end
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
@@ -134,7 +145,9 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:hub_logo, hub_logo)
      |> assign(:related_posts, related_posts)
      |> assign(:pool_available, pool_available)
-     |> assign(:pool_balance, pool_balance)}
+     |> assign(:pool_balance, pool_balance)
+     |> assign(:left_sidebar_products, left_sidebar_products)
+     |> assign(:right_sidebar_products, right_sidebar_products)}
   end
 
   @impl true

@@ -23,6 +23,79 @@ defmodule BlocksterV2.Shop do
     list_products(opts)
   end
 
+  def get_random_products(count \\ 3) do
+    # Only get products that have at least one image using EXISTS subquery
+    products =
+      from(p in Product, as: :product,
+        where: p.status == "active",
+        where: exists(from(i in ProductImage, where: i.product_id == parent_as(:product).id, select: 1)),
+        order_by: fragment("RANDOM()"),
+        limit: ^count
+      )
+      |> Repo.all()
+      |> Repo.preload([:images, :variants])
+
+    # Return products with only first image and first variant for each
+    Enum.map(products, fn product ->
+      first_image = product.images |> Enum.sort_by(& &1.position) |> List.first()
+      first_variant = product.variants |> Enum.sort_by(& &1.position) |> List.first()
+      %{product | images: if(first_image, do: [first_image], else: []), variants: if(first_variant, do: [first_variant], else: [])}
+    end)
+  end
+
+  @doc """
+  Gets sidebar products for post pages: 2 T-shirts, 1 Hat, 1 Hoodie (randomly selected by category).
+  Returns 4 products shuffled into random order.
+  """
+  def get_sidebar_products do
+    tshirts = get_random_products_by_category_slug("t-shirt", 2)
+    hats = get_random_products_by_category_slug("hat", 1)
+    hoodies = get_random_products_by_category_slug("hoodie", 1)
+
+    (tshirts ++ hats ++ hoodies)
+    |> Enum.shuffle()
+  end
+
+  defp get_random_products_by_category_slug(category_slug, count) do
+    # First get the category
+    category = get_category_by_slug(category_slug)
+
+    if category do
+      # Get product IDs in category that have at least one image
+      product_ids =
+        from(p in Product, as: :product,
+          join: c in assoc(p, :categories),
+          where: p.status == "active",
+          where: c.id == ^category.id,
+          where: exists(from(i in ProductImage, where: i.product_id == parent_as(:product).id, select: 1)),
+          select: p.id
+        )
+        |> Repo.all()
+
+      # Shuffle and take random products
+      selected_ids =
+        product_ids
+        |> Enum.shuffle()
+        |> Enum.take(count)
+
+      # Fetch the actual products with preloads
+      products =
+        from(p in Product, where: p.id in ^selected_ids)
+        |> Repo.all()
+        |> Repo.preload([:images, :variants])
+
+      # Return products with first 2 images (for flip effect) and first variant
+      Enum.map(products, fn product ->
+        sorted_images = product.images |> Enum.sort_by(& &1.position)
+        first_two_images = Enum.take(sorted_images, 2)
+        first_variant = product.variants |> Enum.sort_by(& &1.position) |> List.first()
+        %{product | images: first_two_images, variants: if(first_variant, do: [first_variant], else: [])}
+      end)
+    else
+      []
+    end
+  end
+
   def get_product!(id), do: Repo.get!(Product, id)
 
   def get_product(id), do: Repo.get(Product, id)

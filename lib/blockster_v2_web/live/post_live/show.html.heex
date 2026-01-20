@@ -114,35 +114,70 @@
 
       <!-- LEFT SIDEBAR - Shop (Desktop only) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
-        <div class="sticky top-36 space-y-6">
-          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider mb-4">Shop</div>
+        <div class="sticky top-36 space-y-4">
+          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider">Shop</div>
 
-          <!-- Product 1 -->
-          <a href="/shop" class="block group">
-            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/blockster-hoodie.png" alt="Blockster Hoodie" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Blockster Hoodie</h5>
-            <p class="text-xs text-[#141414A3]">$89 <span class="text-[#8AE388]">or 890 BUX</span></p>
-          </a>
-
-          <!-- Product 2 -->
-          <a href="/shop" class="block group">
-            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/cargo.png" alt="Cargo Pants" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Cargo Pants</h5>
-            <p class="text-xs text-[#141414A3]">$120 <span class="text-[#8AE388]">or 1200 BUX</span></p>
-          </a>
-
-          <!-- Product 3 -->
-          <a href="/shop" class="block group">
-            <div class="aspect-square rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/nendorring.png" alt="Nendorring" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Nendorring</h5>
-            <p class="text-xs text-[#141414A3]">$45 <span class="text-[#8AE388]">or 450 BUX</span></p>
-          </a>
+          <%= for product <- @left_sidebar_products do %>
+            <% first_image = Enum.at(product.images, 0) %>
+            <% second_image = Enum.at(product.images, 1) || first_image %>
+            <% price = if Enum.any?(product.variants), do: List.first(product.variants).price, else: Decimal.new(0) %>
+            <% price_float = Decimal.to_float(price) %>
+            <% discounted_price = price_float * (1 - (product.bux_max_discount || 0) / 100) %>
+            <.link navigate={~p"/shop/#{product.handle}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
+              <div class="w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                <%= if first_image do %>
+                  <div
+                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
+                    style="transform-style: preserve-3d;"
+                  >
+                    <%!-- Front face (first image) --%>
+                    <div class="absolute inset-0" style="backface-visibility: hidden;">
+                      <img
+                        src={ImageKit.w500_h500(first_image.src)}
+                        alt={product.title}
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <%!-- Back face (second image or same if only one) --%>
+                    <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                      <img
+                        src={ImageKit.w500_h500(second_image.src)}
+                        alt={product.title}
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+              <div class="px-3 py-3">
+                <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">
+                  {product.title}
+                </h4>
+                <div class="flex flex-col items-center mb-2">
+                  <span class="text-xs font-haas_roman_55 text-[#9CA3AF] line-through">
+                    $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
+                  </span>
+                  <%= if (product.bux_max_discount || 0) > 0 do %>
+                    <span class="text-lg font-haas_medium_65 text-black">
+                      $<%= :erlang.float_to_binary(discounted_price, decimals: 2) %>
+                    </span>
+                    <span class="text-[10px] font-haas_roman_55 text-[#6B7280]">
+                      with BUX tokens
+                    </span>
+                  <% else %>
+                    <span class="text-lg font-haas_medium_65 text-[#141414]">
+                      $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
+                    </span>
+                  <% end %>
+                </div>
+                <div class="w-full py-1.5 bg-black text-white font-haas_medium_65 rounded-full text-xs text-center">
+                  Buy Now
+                </div>
+              </div>
+            </.link>
+          <% end %>
         </div>
       </aside>
 
@@ -199,18 +234,28 @@
               </div>
             <% else %>
               <%= if @current_user do %>
-                <button
-                  phx-click="open_share_modal"
-                  class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
-                >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
-                </button>
+                <div class="relative group">
+                  <button
+                    phx-click="open_share_modal"
+                    class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
+                  </button>
+                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
+                  </div>
+                </div>
               <% else %>
-                <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
-                </.link>
+                <div class="relative group">
+                  <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
+                  </.link>
+                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
+                  </div>
+                </div>
               <% end %>
             <% end %>
           <% else %>
@@ -219,16 +264,15 @@
             </a>
           <% end %>
 
-          <!-- LinkedIn -->
-          <a href={"https://www.linkedin.com/sharing/share-offsite/?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}"} target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 h-9 px-3 bg-[#0A66C2] text-white rounded-full text-sm font-haas_medium_65 hover:bg-[#004182] transition-colors cursor-pointer">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-            <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= round(@user_multiplier) %> BUX</span>
-          </a>
-
           <!-- Token Badge -->
-          <div class="ml-auto flex items-center gap-2 bg-[#F7F8FA] rounded-full px-3 py-1.5">
-            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-            <span class="text-sm font-haas_medium_65 text-[#141414]">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX</span>
+          <div class="relative group ml-auto">
+            <div class="flex items-center gap-2 bg-[#F7F8FA] rounded-full px-3 py-1.5 cursor-default">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
+              <span class="text-sm font-haas_medium_65 text-[#141414]">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX</span>
+            </div>
+            <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX remaining in rewards pool
+            </div>
           </div>
         </div>
 
@@ -351,37 +395,72 @@
 
       </main>
 
-      <!-- RIGHT SIDEBAR - Events (Desktop only) -->
+      <!-- RIGHT SIDEBAR - Shop (Desktop only) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
-        <div class="sticky top-36 space-y-6">
-          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider mb-4">Events</div>
+        <div class="sticky top-36 space-y-4">
+          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider">Shop</div>
 
-          <!-- Event 1 -->
-          <a href="/events" class="block group">
-            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/group-shot.png" alt="Web3 Summit 2025" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Web3 Summit 2025</h5>
-            <p class="text-xs text-[#141414A3]">Jan 15-17 · Miami</p>
-          </a>
-
-          <!-- Event 2 -->
-          <a href="/events" class="block group">
-            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/delivering-speech.png" alt="DeFi Conference" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">DeFi Conference</h5>
-            <p class="text-xs text-[#141414A3]">Feb 20-22 · NYC</p>
-          </a>
-
-          <!-- Event 3 -->
-          <a href="/events" class="block group">
-            <div class="aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-[#F7F8FA]">
-              <img src="https://ik.imagekit.io/blockster/images/team.png" alt="Crypto Meetup" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-            <h5 class="font-haas_medium_65 text-[#141414] text-sm">Crypto Meetup</h5>
-            <p class="text-xs text-[#141414A3]">Mar 10 · London</p>
-          </a>
+          <%= for product <- @right_sidebar_products do %>
+            <% first_image = Enum.at(product.images, 0) %>
+            <% second_image = Enum.at(product.images, 1) || first_image %>
+            <% price = if Enum.any?(product.variants), do: List.first(product.variants).price, else: Decimal.new(0) %>
+            <% price_float = Decimal.to_float(price) %>
+            <% discounted_price = price_float * (1 - (product.bux_max_discount || 0) / 100) %>
+            <.link navigate={~p"/shop/#{product.handle}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
+              <div class="w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                <%= if first_image do %>
+                  <div
+                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
+                    style="transform-style: preserve-3d;"
+                  >
+                    <%!-- Front face (first image) --%>
+                    <div class="absolute inset-0" style="backface-visibility: hidden;">
+                      <img
+                        src={ImageKit.w500_h500(first_image.src)}
+                        alt={product.title}
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <%!-- Back face (second image or same if only one) --%>
+                    <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                      <img
+                        src={ImageKit.w500_h500(second_image.src)}
+                        alt={product.title}
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+              <div class="px-3 py-3">
+                <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">
+                  {product.title}
+                </h4>
+                <div class="flex flex-col items-center mb-2">
+                  <span class="text-xs font-haas_roman_55 text-[#9CA3AF] line-through">
+                    $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
+                  </span>
+                  <%= if (product.bux_max_discount || 0) > 0 do %>
+                    <span class="text-lg font-haas_medium_65 text-black">
+                      $<%= :erlang.float_to_binary(discounted_price, decimals: 2) %>
+                    </span>
+                    <span class="text-[10px] font-haas_roman_55 text-[#6B7280]">
+                      with BUX tokens
+                    </span>
+                  <% else %>
+                    <span class="text-lg font-haas_medium_65 text-[#141414]">
+                      $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
+                    </span>
+                  <% end %>
+                </div>
+                <div class="w-full py-1.5 bg-black text-white font-haas_medium_65 rounded-full text-xs text-center">
+                  Buy Now
+                </div>
+              </div>
+            </.link>
+          <% end %>
         </div>
       </aside>
 

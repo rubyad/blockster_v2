@@ -204,6 +204,29 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Returns random published posts, optionally excluding a specific post.
+  Used for sidebar recommendations.
+  """
+  def get_random_posts(count, exclude_post_id \\ nil) do
+    query =
+      from p in Post,
+        where: not is_nil(p.published_at) and not is_nil(p.featured_image),
+        preload: [:category],
+        order_by: fragment("RANDOM()"),
+        limit: ^count
+
+    query =
+      if exclude_post_id do
+        from p in query, where: p.id != ^exclude_post_id
+      else
+        query
+      end
+
+    Repo.all(query)
+    |> with_bux_balances()
+  end
+
+  @doc """
   Returns the list of all posts (including unpublished) with all associations loaded.
   """
   def list_posts do
