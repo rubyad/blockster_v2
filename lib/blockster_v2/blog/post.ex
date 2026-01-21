@@ -23,6 +23,13 @@ defmodule BlocksterV2.Blog.Post do
     # Virtual field - computed from author association
     field :author_name, :string, virtual: true
 
+    # Video fields
+    field :video_url, :string
+    field :video_id, :string
+    field :video_duration, :integer        # seconds
+    field :video_bux_per_minute, :decimal, default: Decimal.new("1.0")
+    field :video_max_reward, :decimal      # nil = no cap
+
     # Associations
     belongs_to :author, BlocksterV2.Accounts.User
     belongs_to :category, BlocksterV2.Blog.Category
@@ -55,8 +62,14 @@ defmodule BlocksterV2.Blog.Post do
       :base_bux_reward,
       :value,
       :tx_id,
-      :contact
+      :contact,
+      :video_url,
+      :video_id,
+      :video_duration,
+      :video_bux_per_minute,
+      :video_max_reward
     ])
+    |> extract_video_id()
     |> validate_required([:title])
     |> generate_slug()
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
@@ -119,6 +132,58 @@ defmodule BlocksterV2.Blog.Post do
   def increment_view_count(post) do
     post
     |> change(view_count: post.view_count + 1)
+  end
+
+  # Extract YouTube video ID from URL when video_url changes
+  defp extract_video_id(changeset) do
+    case get_change(changeset, :video_url) do
+      nil -> changeset
+      "" -> put_change(changeset, :video_id, nil)
+      url ->
+        video_id = extract_youtube_id(url)
+        put_change(changeset, :video_id, video_id)
+    end
+  end
+
+  @doc """
+  Extracts YouTube video ID from various URL formats.
+  Supports:
+  - Standard: youtube.com/watch?v=VIDEO_ID
+  - Short: youtu.be/VIDEO_ID
+  - Embed: youtube.com/embed/VIDEO_ID
+  """
+  def extract_youtube_id(nil), do: nil
+  def extract_youtube_id(""), do: nil
+
+  def extract_youtube_id(url) when is_binary(url) do
+    cond do
+      # Standard: youtube.com/watch?v=VIDEO_ID
+      String.contains?(url, "youtube.com/watch") ->
+        uri = URI.parse(url)
+        case uri.query do
+          nil -> nil
+          query ->
+            URI.decode_query(query)
+            |> Map.get("v")
+        end
+
+      # Short: youtu.be/VIDEO_ID
+      String.contains?(url, "youtu.be/") ->
+        URI.parse(url).path
+        |> String.trim_leading("/")
+        |> String.split("?")
+        |> List.first()
+
+      # Embed: youtube.com/embed/VIDEO_ID
+      String.contains?(url, "youtube.com/embed/") ->
+        URI.parse(url).path
+        |> String.split("/")
+        |> List.last()
+        |> String.split("?")
+        |> List.first()
+
+      true -> nil
+    end
   end
 
   def publish(post) do

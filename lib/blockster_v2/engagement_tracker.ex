@@ -2647,4 +2647,284 @@ defmodule BlocksterV2.EngagementTracker do
     |> Base.url_encode64(padding: false)
     |> binary_part(0, length)
   end
+
+  # =============================================================================
+  # VIDEO ENGAGEMENT FUNCTIONS (HIGH WATER MARK SYSTEM)
+  # =============================================================================
+
+  @doc """
+  Records that a user started watching a video.
+  Creates initial engagement record if not exists, or increments session count.
+  """
+  def record_video_view(user_id, post_id, video_duration \\ 0) do
+    now = System.system_time(:second)
+    key = {user_id, post_id}
+
+    case :mnesia.dirty_read({:user_video_engagement, key}) do
+      [] ->
+        # Create new engagement record with high water mark at 0
+        record = {
+          :user_video_engagement,
+          key,                    # 1: key
+          user_id,                # 2: user_id
+          post_id,                # 3: post_id
+          0.0,                    # 4: high_water_mark (seconds)
+          0.0,                    # 5: total_earnable_time
+          video_duration,         # 6: video_duration
+          0,                      # 7: completion_percentage
+          0.0,                    # 8: total_bux_earned
+          0.0,                    # 9: last_session_bux
+          0,                      # 10: total_pause_count
+          0,                      # 11: total_tab_away_count
+          1,                      # 12: session_count
+          now,                    # 13: last_watched_at
+          now,                    # 14: created_at
+          now,                    # 15: updated_at
+          []                      # 16: video_tx_ids - list of %{tx_hash, bux_amount, timestamp}
+        }
+        :mnesia.dirty_write(record)
+
+        # Update post stats
+        increment_video_views(post_id)
+
+        {:ok, :created}
+
+      [existing] ->
+        # Increment session count and update last_watched_at
+        updated = existing
+        |> put_elem(12, elem(existing, 12) + 1)  # session_count
+        |> put_elem(13, now)                      # last_watched_at
+        |> put_elem(15, now)                      # updated_at
+
+        :mnesia.dirty_write(updated)
+        {:ok, :updated}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error recording video view: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Gets video engagement for a user/post.
+  Returns the high water mark and total BUX earned.
+  """
+  def get_video_engagement(user_id, post_id) do
+    key = {user_id, post_id}
+
+    case :mnesia.dirty_read({:user_video_engagement, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [record] ->
+        # Handle old records that may not have the video_tx_ids field (16 vs 17 elements)
+        video_tx_ids = if tuple_size(record) >= 17, do: elem(record, 16), else: []
+
+        {:ok, %{
+          high_water_mark: elem(record, 4),
+          total_earnable_time: elem(record, 5),
+          video_duration: elem(record, 6),
+          completion_percentage: elem(record, 7),
+          total_bux_earned: elem(record, 8),
+          last_session_bux: elem(record, 9),
+          total_pause_count: elem(record, 10),
+          total_tab_away_count: elem(record, 11),
+          session_count: elem(record, 12),
+          last_watched_at: elem(record, 13),
+          video_tx_ids: video_tx_ids || []
+        }}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error getting video engagement: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Updates video engagement after a session completes.
+  Updates high water mark and accumulates BUX earned.
+  """
+  def update_video_engagement_session(user_id, post_id, session_data) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    new_hwm = Map.get(session_data, :new_high_water_mark, 0)
+    session_bux = Map.get(session_data, :session_bux, 0)
+    pause_count = Map.get(session_data, :pause_count, 0)
+    tab_away_count = Map.get(session_data, :tab_away_count, 0)
+    session_earnable_time = Map.get(session_data, :session_earnable_time, 0)
+    tx_hash = Map.get(session_data, :tx_hash)
+
+    case :mnesia.dirty_read({:user_video_engagement, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [record] ->
+        old_hwm = elem(record, 4)
+        video_duration = elem(record, 6)
+
+        # Only update high water mark if new position is higher
+        updated_hwm = max(old_hwm, new_hwm)
+
+        # Calculate new completion percentage
+        completion = if video_duration > 0 do
+          trunc((updated_hwm / video_duration) * 100) |> min(100)
+        else
+          0
+        end
+
+        # Accumulate totals
+        new_total_earnable_time = elem(record, 5) + session_earnable_time
+        new_total_bux = elem(record, 8) + session_bux
+        new_total_pauses = elem(record, 10) + pause_count
+        new_total_tab_away = elem(record, 11) + tab_away_count
+
+        # Get existing tx_ids list (handle old records without this field)
+        existing_tx_ids = if tuple_size(record) >= 17, do: elem(record, 16) || [], else: []
+
+        # Append new tx if BUX was earned and tx_hash provided
+        updated_tx_ids = if session_bux > 0 and tx_hash do
+          existing_tx_ids ++ [%{tx_hash: tx_hash, bux_amount: session_bux, timestamp: now}]
+        else
+          existing_tx_ids
+        end
+
+        # Ensure record has all 17 fields (handle migration from 16-field records)
+        base_record = if tuple_size(record) < 17 do
+          Tuple.append(record, [])  # Add empty tx_ids field
+        else
+          record
+        end
+
+        updated_record = base_record
+        |> put_elem(4, updated_hwm)              # high_water_mark
+        |> put_elem(5, new_total_earnable_time)  # total_earnable_time
+        |> put_elem(7, completion)               # completion_percentage
+        |> put_elem(8, new_total_bux)            # total_bux_earned
+        |> put_elem(9, session_bux)              # last_session_bux
+        |> put_elem(10, new_total_pauses)        # total_pause_count
+        |> put_elem(11, new_total_tab_away)      # total_tab_away_count
+        |> put_elem(13, now)                     # last_watched_at
+        |> put_elem(15, now)                     # updated_at
+        |> put_elem(16, updated_tx_ids)          # video_tx_ids
+
+        :mnesia.dirty_write(updated_record)
+
+        # Update post stats if BUX was earned
+        if session_bux > 0 do
+          update_video_stats(post_id, %{
+            bux_distributed_delta: session_bux,
+            watch_time_delta: session_earnable_time,
+            completion: completion >= 90
+          })
+        end
+
+        {:ok, %{
+          high_water_mark: updated_hwm,
+          total_bux_earned: new_total_bux,
+          completion_percentage: completion,
+          video_tx_ids: updated_tx_ids
+        }}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating video session: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Simple high water mark update (no BUX earned, just position tracking).
+  """
+  def update_video_high_water_mark(user_id, post_id, new_position) do
+    key = {user_id, post_id}
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:user_video_engagement, key}) do
+      [] ->
+        {:error, :not_found}
+
+      [record] ->
+        old_hwm = elem(record, 4)
+
+        if new_position > old_hwm do
+          video_duration = elem(record, 6)
+          completion = if video_duration > 0 do
+            trunc((new_position / video_duration) * 100) |> min(100)
+          else
+            0
+          end
+
+          updated = record
+          |> put_elem(4, new_position)   # high_water_mark
+          |> put_elem(7, completion)     # completion_percentage
+          |> put_elem(13, now)           # last_watched_at
+          |> put_elem(15, now)           # updated_at
+
+          :mnesia.dirty_write(updated)
+          {:ok, new_position}
+        else
+          {:ok, old_hwm}  # No change needed
+        end
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating video high water mark: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Increments video view count for a post.
+  """
+  defp increment_video_views(post_id) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:post_video_stats, post_id}) do
+      [] ->
+        record = {:post_video_stats, post_id, 1, 0, 0, 0.0, now}
+        :mnesia.dirty_write(record)
+
+      [record] ->
+        updated = record
+        |> put_elem(2, elem(record, 2) + 1)  # total_views
+        |> put_elem(6, now)                   # updated_at
+        :mnesia.dirty_write(updated)
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error incrementing video views: #{inspect(e)}")
+  end
+
+  @doc """
+  Updates aggregate video stats for a post.
+  """
+  defp update_video_stats(post_id, updates) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:post_video_stats, post_id}) do
+      [] ->
+        # Create if not exists
+        record = {
+          :post_video_stats,
+          post_id,
+          0,                                              # total_views
+          Map.get(updates, :watch_time_delta, 0),        # total_watch_time
+          if(Map.get(updates, :completion), do: 1, else: 0), # completions
+          Map.get(updates, :bux_distributed_delta, 0.0), # bux_distributed
+          now
+        }
+        :mnesia.dirty_write(record)
+
+      [record] ->
+        updated = record
+        |> put_elem(3, elem(record, 3) + Map.get(updates, :watch_time_delta, 0))
+        |> put_elem(4, elem(record, 4) + if(Map.get(updates, :completion), do: 1, else: 0))
+        |> put_elem(5, elem(record, 5) + Map.get(updates, :bux_distributed_delta, 0.0))
+        |> put_elem(6, now)
+
+        :mnesia.dirty_write(updated)
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating video stats: #{inspect(e)}")
+  end
 end

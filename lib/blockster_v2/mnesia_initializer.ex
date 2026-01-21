@@ -346,6 +346,44 @@ defmodule BlocksterV2.MnesiaInitializer do
         :settled_at                 # Unix timestamp when settled (nil until settled)
       ],
       index: [:user_id, :wallet_address, :status, :created_at]
+    },
+    # Video engagement tracking with HIGH WATER MARK system
+    %{
+      name: :user_video_engagement,
+      type: :set,
+      attributes: [
+        :key,                      # {user_id, post_id} tuple - PRIMARY KEY
+        :user_id,
+        :post_id,
+        :high_water_mark,          # CRITICAL: Highest position (seconds) user has watched to
+        :total_earnable_time,      # Total seconds spent BEYOND high water mark (across all sessions)
+        :video_duration,           # Video length in seconds (cached from post)
+        :completion_percentage,    # 0-100% (high_water_mark / video_duration)
+        :total_bux_earned,         # Total BUX earned from this video (across all sessions)
+        :last_session_bux,         # BUX earned in most recent session
+        :total_pause_count,        # Cumulative pause count (anti-gaming metric)
+        :total_tab_away_count,     # Cumulative tab switches (anti-gaming metric)
+        :session_count,            # Number of viewing sessions
+        :last_watched_at,          # Unix timestamp of last session
+        :created_at,
+        :updated_at,
+        :video_tx_ids              # List of maps: [%{tx_hash: "0x...", bux_amount: 1.5, timestamp: 1234567890}, ...]
+      ],
+      index: [:user_id, :post_id]
+    },
+    # Aggregate stats per video post
+    %{
+      name: :post_video_stats,
+      type: :set,
+      attributes: [
+        :post_id,                  # Primary key
+        :total_views,              # Number of unique viewers
+        :total_watch_time,         # Aggregate watch time across all users (seconds)
+        :completions,              # Users who watched 90%+
+        :bux_distributed,          # Total BUX given out for this video
+        :updated_at
+      ],
+      index: [:total_views, :bux_distributed]
     }
   ]
 

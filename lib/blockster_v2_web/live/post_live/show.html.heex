@@ -1,6 +1,43 @@
-<!-- Fixed Bottom-Right BUX Panel - Always visible for logged-in users -->
-<%= if @current_user do %>
-  <div id="bux-panel" class="fixed bottom-4 right-4 z-50">
+<!-- Fixed Bottom-Right BUX Panel - Hidden when video modal is open -->
+<%= if @current_user && !@video_modal_open do %>
+  <div id="bux-panel" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
+    <!-- Video Earned Badge (shows after watching video) -->
+    <%= if @post.video_id && @video_total_bux_earned > 0 do %>
+      <div class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs opacity-90">Video Earned</div>
+            <div class="text-xl font-bold">+<%= Float.round(@video_total_bux_earned, 1) %> BUX</div>
+          </div>
+          <%= if @video_fully_watched do %>
+            <svg class="w-5 h-5 ml-auto text-green-300" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          <% end %>
+        </div>
+        <!-- Show all video transactions -->
+        <%= if @video_tx_ids && length(@video_tx_ids) > 0 do %>
+          <div class="mt-2 pt-2 border-t border-white/20 space-y-1.5 max-h-32 overflow-y-auto">
+            <%= for tx <- @video_tx_ids do %>
+              <a href={"https://roguescan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center justify-between gap-2 cursor-pointer group">
+                <span class="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-75 group-hover:opacity-100"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  <span class="font-mono"><%= String.slice(tx.tx_hash, 0..9) %>...</span>
+                </span>
+                <span class="font-bold text-white/90">+<%= Float.round(tx.bux_amount, 1) %></span>
+              </a>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <!-- Read Reward Panel -->
     <%= if @already_rewarded do %>
       <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
         <div class="flex items-center gap-3">
@@ -276,14 +313,36 @@
           </div>
         </div>
 
-        <!-- Featured Image (Square) -->
+        <!-- Featured Image (Square) with Video Play Button Overlay -->
         <%= if @post.featured_image do %>
-          <div class="mb-10 rounded-2xl overflow-hidden aspect-square">
+          <div class="mb-10 rounded-2xl overflow-hidden aspect-square relative group">
             <img
               src={ImageKit.w800(@post.featured_image)}
               alt={@post.title}
               class="w-full h-full object-cover"
             />
+
+            <%= if @post.video_id do %>
+              <!-- Play Button Overlay - Always visible with darker bg on hover -->
+              <button
+                phx-click="open_video_modal"
+                class="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
+              >
+                <div class="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform">
+                  <svg class="w-10 h-10 text-[#141414] ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </button>
+
+              <!-- Always-visible play indicator -->
+              <div class="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-haas_medium_65 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Watch & Earn BUX
+              </div>
+            <% end %>
           </div>
         <% end %>
 
@@ -304,6 +363,97 @@
             <p class="text-gray-400 italic">No content available</p>
           <% end %>
         </article>
+
+        <!-- BUX Utility Promotional Banner -->
+        <div class="mt-10">
+          <% banner_type = :rand.uniform(3) - 1 %>
+          <%= case banner_type do %>
+            <% 0 -> %>
+              <!-- Airdrop Banner -->
+              <.link navigate={~p"/airdrop"} class="block group cursor-pointer">
+                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.01]">
+                  <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                  <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                  <div class="relative flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                      <div class="flex -space-x-2">
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-7 h-7 rounded-full" />
+                        </div>
+                      </div>
+                      <div>
+                        <div class="text-white/80 text-xs font-haas_medium_65 uppercase tracking-wider mb-1">What can you do with BUX?</div>
+                        <div class="text-white text-xl font-haas_bold_75">Enter Airdrop to win your share of $2,000</div>
+                      </div>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-2 text-white/90 group-hover:translate-x-1 transition-transform">
+                      <span class="font-haas_medium_65">Enter Now</span>
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </.link>
+            <% 1 -> %>
+              <!-- Shop Discount Banner -->
+              <.link navigate={~p"/shop"} class="block group cursor-pointer">
+                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.01]">
+                  <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                  <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                  <div class="relative flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                      <div class="flex -space-x-2">
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-7 h-7 rounded-full" />
+                        </div>
+                      </div>
+                      <div>
+                        <div class="text-white/80 text-xs font-haas_medium_65 uppercase tracking-wider mb-1">What can you do with BUX?</div>
+                        <div class="text-white text-xl font-haas_bold_75">Get up to 100% off on Shop items</div>
+                      </div>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-2 text-white/90 group-hover:translate-x-1 transition-transform">
+                      <span class="font-haas_medium_65">Shop Now</span>
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </.link>
+            <% _ -> %>
+              <!-- BUX Booster Banner -->
+              <.link navigate={~p"/play"} class="block group cursor-pointer">
+                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.01]">
+                  <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                  <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                  <div class="relative flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                      <div class="flex -space-x-2">
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-7 h-7 rounded-full" />
+                        </div>
+                      </div>
+                      <div>
+                        <div class="text-white/80 text-xs font-haas_medium_65 uppercase tracking-wider mb-1">What can you do with BUX?</div>
+                        <div class="text-white text-xl font-haas_bold_75">Double your BUX on BUX Booster</div>
+                      </div>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-2 text-white/90 group-hover:translate-x-1 transition-transform">
+                      <span class="font-haas_medium_65">Play Now</span>
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </.link>
+          <% end %>
+        </div>
 
         <!-- Tags -->
         <%= if @post.tags && length(@post.tags) > 0 do %>
@@ -444,6 +594,159 @@
     </div>
   </div>
 </div>
+
+<!-- Video Watch Modal -->
+<%= if @video_modal_open && @post.video_id do %>
+  <div
+    id="video-modal"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    phx-window-keydown="close_video_modal"
+    phx-key="Escape"
+  >
+    <!-- Close Button -->
+    <button
+      phx-click="close_video_modal"
+      class="absolute top-4 right-4 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+    >
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+
+    <!-- Video Container -->
+    <div
+      id="video-watch-container"
+      class="w-full max-w-5xl mx-4 aspect-video"
+      phx-hook="VideoWatchTracker"
+      data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
+      data-post-id={@post.id}
+      data-video-id={@post.video_id}
+      data-video-duration={@post.video_duration || 0}
+      data-bux-per-minute={Decimal.to_float(@post.video_bux_per_minute || Decimal.new("1.0"))}
+      data-max-reward={if @post.video_max_reward, do: Decimal.to_float(@post.video_max_reward), else: ""}
+      data-high-water-mark={@video_high_water_mark || 0}
+      data-total-bux-earned={@video_total_bux_earned || 0}
+      data-pool-available={to_string(@pool_available)}
+    >
+      <!-- YouTube player will be injected here -->
+      <div data-video-player class="w-full h-full bg-black"></div>
+    </div>
+
+    <!-- BUX Earnings Panel - HIGH WATER MARK AWARE -->
+    <%= if @current_user && @pool_available && !@video_fully_watched do %>
+      <div class="absolute bottom-8 right-8 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[220px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">This Session</div>
+            <div class="text-2xl font-bold">
+              +<span id="video-bux-earned">0.0</span> BUX
+            </div>
+          </div>
+        </div>
+
+        <!-- New Content Indicator (hidden by default, JS shows when watching new) -->
+        <div id="video-new-content" class="hidden mt-2 text-xs bg-white/20 rounded-full px-2 py-1 text-center">
+          ✨ Watching new content - earning BUX!
+        </div>
+
+        <!-- Rewatching Indicator (hidden by default, JS shows when rewatching) -->
+        <button id="video-rewatching" onclick="document.getElementById('video-watch-container').dispatchEvent(new CustomEvent('seek-to-hwm'))" class="hidden mt-2 text-xs bg-white/20 hover:bg-white/30 rounded-full px-3 py-1.5 text-center cursor-pointer transition-colors w-full">
+          Rewatching - skip ahead to resume earning
+        </button>
+
+        <!-- Muted Warning (hidden by default, JS shows when muted) -->
+        <div id="video-muted-warning" class="hidden mt-2 text-xs bg-red-500/80 rounded-full px-2 py-1 text-center font-semibold">
+          🔇 Video muted - unmute to earn BUX
+        </div>
+
+        <!-- Watch Progress Bar (overall video completion) -->
+        <div class="mt-3">
+          <div class="flex justify-between text-xs opacity-75 mb-1">
+            <span>Video Progress</span>
+            <span><span id="video-completion-pct">{@video_completion_percentage}</span>%</span>
+          </div>
+          <div class="h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div
+              id="video-watch-progress"
+              class="h-full bg-white rounded-full transition-all duration-500"
+              style={"width: #{@video_completion_percentage}%"}
+            ></div>
+          </div>
+        </div>
+
+        <!-- Previously Earned (if any) -->
+        <%= if @video_total_bux_earned > 0 do %>
+          <div class="mt-2 pt-2 border-t border-white/20 text-xs">
+            <div class="flex justify-between opacity-75">
+              <span>Previously earned:</span>
+              <span class="font-bold">{Float.round(@video_total_bux_earned, 1)} BUX</span>
+            </div>
+            <div class="flex justify-between opacity-75 mt-1">
+              <span>Total:</span>
+              <span class="font-bold"><span id="video-bux-total">{Float.round(@video_total_bux_earned, 1)}</span> BUX</span>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <!-- Video Fully Watched State -->
+    <%= if @video_fully_watched do %>
+      <div class="absolute bottom-8 right-8 bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">Video Complete!</div>
+            <div class="text-2xl font-bold">{Float.round(@video_total_bux_earned, 1)} BUX</div>
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+          <div class="flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            You've watched the full video
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Pool Empty State -->
+    <%= if !@pool_available && @current_user do %>
+      <div class="absolute bottom-8 right-8 bg-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+          <div>
+            <div class="text-xs opacity-90">Pool Empty</div>
+            <div class="text-lg font-bold">No BUX Available</div>
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+          <p>This post's BUX pool is empty. Enjoy the video!</p>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Anonymous User State -->
+    <%= if !@current_user do %>
+      <div class="absolute bottom-8 right-8 bg-gray-700 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+          <div>
+            <div class="text-xs opacity-90">Log In to Earn</div>
+            <div class="text-lg font-bold">BUX Rewards</div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="block w-full py-2 bg-white text-gray-800 font-haas_medium_65 rounded-lg text-center text-sm hover:bg-gray-100 transition-colors cursor-pointer">
+            Log In
+          </.link>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
 
 <!-- Share Modal -->
 <%= if @show_share_modal do %>

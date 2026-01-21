@@ -149,7 +149,9 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:pool_available, pool_available)
      |> assign(:pool_balance, pool_balance)
      |> assign(:left_sidebar_products, left_sidebar_products)
-     |> assign(:right_sidebar_products, right_sidebar_products)}
+     |> assign(:right_sidebar_products, right_sidebar_products)
+     |> assign(:video_modal_open, false)
+     |> load_video_engagement()}
   end
 
   @impl true
@@ -204,6 +206,56 @@ defmodule BlocksterV2Web.PostLive.Show do
   # Get the hub's logo URL (if any) for displaying alongside the token
   defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
   defp get_hub_logo(_), do: nil
+
+  # Load existing video engagement for this user/post
+  defp load_video_engagement(socket) do
+    post = socket.assigns.post
+
+    # Only load if post has a video
+    if post.video_id do
+      user_id = get_user_id(socket)
+      video_duration = post.video_duration || 0
+
+      if user_id != "anonymous" do
+        case EngagementTracker.get_video_engagement(user_id, post.id) do
+          {:ok, engagement} ->
+            fully_watched = video_duration > 0 && engagement.high_water_mark >= video_duration
+
+            socket
+            |> assign(:video_high_water_mark, engagement.high_water_mark)
+            |> assign(:video_total_bux_earned, engagement.total_bux_earned)
+            |> assign(:video_completion_percentage, engagement.completion_percentage)
+            |> assign(:video_fully_watched, fully_watched)
+            |> assign(:video_tx_ids, engagement.video_tx_ids || [])
+
+          {:error, :not_found} ->
+            # No previous engagement - user starts fresh
+            socket
+            |> assign(:video_high_water_mark, 0.0)
+            |> assign(:video_total_bux_earned, 0.0)
+            |> assign(:video_completion_percentage, 0)
+            |> assign(:video_fully_watched, false)
+            |> assign(:video_tx_ids, [])
+        end
+      else
+        # Anonymous user - no tracking
+        socket
+        |> assign(:video_high_water_mark, 0.0)
+        |> assign(:video_total_bux_earned, 0.0)
+        |> assign(:video_completion_percentage, 0)
+        |> assign(:video_fully_watched, false)
+        |> assign(:video_tx_ids, [])
+      end
+    else
+      # No video on this post
+      socket
+      |> assign(:video_high_water_mark, 0.0)
+      |> assign(:video_total_bux_earned, 0.0)
+      |> assign(:video_completion_percentage, 0)
+      |> assign(:video_fully_watched, false)
+      |> assign(:video_tx_ids, [])
+    end
+  end
 
   @impl true
   def handle_event("article-visited", %{"min_read_time" => min_read_time} = _params, socket) do
@@ -383,6 +435,267 @@ defmodule BlocksterV2Web.PostLive.Show do
     else
       {:noreply, socket}
     end
+  end
+
+  # ============================================
+  # VIDEO WATCH REWARD EVENT HANDLERS
+  # ============================================
+
+  @impl true
+  def handle_event("open_video_modal", _params, socket) do
+    {:noreply, assign(socket, :video_modal_open, true)}
+  end
+
+  @impl true
+  def handle_event("close_video_modal", _params, socket) do
+    {:noreply, assign(socket, :video_modal_open, false)}
+  end
+
+  @impl true
+  def handle_event("video-modal-opened", %{"post_id" => _post_id}, socket) do
+    # Record video view start for logged-in users
+    user_id = get_user_id(socket)
+
+    if user_id != "anonymous" do
+      post = socket.assigns.post
+      video_duration = post.video_duration || 0
+      EngagementTracker.record_video_view(user_id, post.id, video_duration)
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("video-playing", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("video-paused", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("video-watch-update", params, socket) do
+    # Periodic sync from JS (every 5 seconds)
+    # We don't need to do anything server-side here since we handle everything in video-watch-complete
+    # This is here for potential future analytics or state persistence
+    _ = params
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("video-watch-complete", params, socket) do
+    %{
+      "session_earnable_time" => session_earnable_time,
+      "session_bux_earned" => client_session_bux,
+      "session_max_position" => session_max_position,
+      "previous_high_water_mark" => previous_hwm,
+      "new_high_water_mark" => new_hwm,
+      "video_duration" => video_duration,
+      "completion_percentage" => completion,
+      "pause_count" => pause_count,
+      "tab_away_count" => tab_away_count
+    } = params
+
+    user_id = get_user_id(socket)
+    post = socket.assigns.post
+
+    cond do
+      # Not logged in
+      user_id == "anonymous" ->
+        {:noreply,
+         socket
+         |> assign(:video_modal_open, false)
+         |> put_flash(:info, "Log in to earn BUX for watching videos")}
+
+      # No new territory watched (session_earnable_time <= 0)
+      session_earnable_time <= 0 ->
+        # Still update high water mark even if no BUX earned
+        if new_hwm > previous_hwm do
+          EngagementTracker.update_video_high_water_mark(user_id, post.id, new_hwm)
+        end
+        {:noreply, assign(socket, :video_modal_open, false)}
+
+      # Video fully watched already
+      socket.assigns.video_fully_watched ->
+        {:noreply,
+         socket
+         |> assign(:video_modal_open, false)
+         |> put_flash(:info, "You've watched the full video and earned all available BUX")}
+
+      # Validate and mint for NEW territory
+      true ->
+        socket = mint_video_session_reward(socket, user_id, post, %{
+          session_earnable_time: session_earnable_time,
+          client_session_bux: client_session_bux,
+          session_max_position: session_max_position,
+          previous_high_water_mark: previous_hwm,
+          new_high_water_mark: new_hwm,
+          video_duration: video_duration,
+          completion_percentage: completion,
+          pause_count: pause_count,
+          tab_away_count: tab_away_count
+        })
+
+        {:noreply, assign(socket, :video_modal_open, false)}
+    end
+  end
+
+  # Server-side BUX calculation and minting for a VIDEO SESSION
+  # Only mints BUX for NEW territory watched (beyond previous high water mark)
+  defp mint_video_session_reward(socket, user_id, post, metrics) do
+    bux_per_minute = Decimal.to_float(post.video_bux_per_minute || Decimal.new("1.0"))
+    max_total_reward = post.video_max_reward && Decimal.to_float(post.video_max_reward)
+    previous_total_earned = socket.assigns.video_total_bux_earned
+
+    # Server-side validation: Calculate BUX for NEW territory only
+    # session_earnable_time = seconds spent BEYOND previous high water mark
+    server_calculated_bux = calculate_session_video_bux(
+      metrics.session_earnable_time,
+      bux_per_minute,
+      max_total_reward,
+      previous_total_earned
+    )
+
+    # Apply anti-gaming penalties
+    final_session_bux = apply_video_penalties(server_calculated_bux, metrics)
+
+    # Check pool availability
+    pool_balance = EngagementTracker.get_post_bux_balance(post.id)
+
+    cond do
+      final_session_bux <= 0 ->
+        # Update high water mark even if no BUX earned (they watched new territory)
+        EngagementTracker.update_video_engagement_session(user_id, post.id, %{
+          new_high_water_mark: metrics.new_high_water_mark,
+          session_bux: 0,
+          session_earnable_time: metrics.session_earnable_time,
+          pause_count: metrics.pause_count,
+          tab_away_count: metrics.tab_away_count
+        })
+        put_flash(socket, :info, "Keep watching new content to earn BUX!")
+
+      pool_balance <= 0 ->
+        # Update engagement tracking even if pool is empty
+        EngagementTracker.update_video_engagement_session(user_id, post.id, %{
+          new_high_water_mark: metrics.new_high_water_mark,
+          session_bux: 0,
+          session_earnable_time: metrics.session_earnable_time,
+          pause_count: metrics.pause_count,
+          tab_away_count: metrics.tab_away_count
+        })
+        put_flash(socket, :info, "This post's BUX pool is empty")
+
+      true ->
+        # Determine actual amount (may be partial if pool < desired)
+        actual_bux = min(final_session_bux, trunc(pool_balance))
+
+        # Mint the BUX for this session (async)
+        current_user = socket.assigns[:current_user]
+        wallet_address = current_user && current_user.smart_wallet_address
+        new_total_earned = previous_total_earned + actual_bux
+        video_duration = post.video_duration || 0
+        fully_watched = video_duration > 0 && metrics.new_high_water_mark >= video_duration
+
+        if wallet_address && wallet_address != "" and actual_bux > 0 do
+          lv_pid = self()
+          Task.start(fn ->
+            case BuxMinter.mint_bux(wallet_address, actual_bux, user_id, post.id, :video_watch) do
+              {:ok, %{"transactionHash" => tx_hash}} ->
+                # Update video engagement with new high water mark and BUX earned
+                EngagementTracker.update_video_engagement_session(user_id, post.id, %{
+                  new_high_water_mark: metrics.new_high_water_mark,
+                  session_bux: actual_bux,
+                  session_earnable_time: metrics.session_earnable_time,
+                  pause_count: metrics.pause_count,
+                  tab_away_count: metrics.tab_away_count,
+                  tx_hash: tx_hash
+                })
+
+                # Deduct from pool
+                EngagementTracker.try_deduct_from_pool(post.id, actual_bux)
+
+                # Send completion message back to LiveView
+                send(lv_pid, {:video_mint_completed, tx_hash, actual_bux})
+
+              {:error, reason} ->
+                require Logger
+                Logger.error("Failed to mint video reward: #{inspect(reason)}")
+            end
+          end)
+        else
+          # No wallet - just update engagement tracking
+          EngagementTracker.update_video_engagement_session(user_id, post.id, %{
+            new_high_water_mark: metrics.new_high_water_mark,
+            session_bux: 0,
+            session_earnable_time: metrics.session_earnable_time,
+            pause_count: metrics.pause_count,
+            tab_away_count: metrics.tab_away_count
+          })
+        end
+
+        socket
+        |> assign(:video_high_water_mark, metrics.new_high_water_mark)
+        |> assign(:video_total_bux_earned, new_total_earned)
+        |> assign(:video_completion_percentage, metrics.completion_percentage)
+        |> assign(:video_fully_watched, fully_watched)
+        |> put_flash(:success, "You earned +#{actual_bux} BUX for watching!")
+    end
+  end
+
+  # Calculate BUX for SESSION (new territory only)
+  defp calculate_session_video_bux(session_earnable_time, bux_per_minute, max_total_reward, previous_total_earned) do
+    session_minutes = session_earnable_time / 60
+    session_bux = session_minutes * bux_per_minute
+
+    # Apply max total reward cap if set
+    if max_total_reward do
+      remaining_earnable = max_total_reward - previous_total_earned
+      max(0, min(session_bux, remaining_earnable)) |> Float.round(1)
+    else
+      max(0, session_bux) |> Float.round(1)
+    end
+  end
+
+  # Apply penalties for suspicious behavior in this session
+  defp apply_video_penalties(bux, metrics) do
+    penalty_multiplier = 1.0
+
+    # Penalty for excessive pausing (potential gaming)
+    penalty_multiplier = if metrics.pause_count > 10 do
+      penalty_multiplier * 0.8  # 20% reduction
+    else
+      penalty_multiplier
+    end
+
+    # Penalty for excessive tab switching (potential gaming)
+    penalty_multiplier = if metrics.tab_away_count > 5 do
+      penalty_multiplier * 0.9  # 10% reduction
+    else
+      penalty_multiplier
+    end
+
+    Float.round(bux * penalty_multiplier, 1)
+  end
+
+  @impl true
+  def handle_info({:video_mint_completed, tx_hash, bux_amount}, socket) do
+    # Update pool balance after successful mint
+    post_id = socket.assigns.post.id
+    new_pool_balance = EngagementTracker.get_post_bux_balance(post_id)
+
+    # Append new tx to the list
+    now = System.system_time(:second)
+    new_tx = %{tx_hash: tx_hash, bux_amount: bux_amount, timestamp: now}
+    updated_tx_ids = (socket.assigns[:video_tx_ids] || []) ++ [new_tx]
+
+    {:noreply,
+     socket
+     |> assign(:video_tx_ids, updated_tx_ids)
+     |> assign(:pool_balance, new_pool_balance)
+     |> assign(:pool_available, new_pool_balance > 0)
+     |> put_flash(:success, "Earned #{bux_amount} BUX! TX: #{String.slice(tx_hash, 0, 10)}...")}
   end
 
   @impl true

@@ -24,7 +24,7 @@ defmodule BlocksterV2.BuxMinter do
     - amount: Number of tokens to mint
     - user_id: The user's ID (for logging)
     - post_id: The post ID that earned the reward (for logging)
-    - reward_type: The type of reward - :read or :x_share
+    - reward_type: The type of reward - :read, :x_share, or :video_watch
 
   ## Returns
     - {:ok, response} on success with transaction details
@@ -33,7 +33,7 @@ defmodule BlocksterV2.BuxMinter do
   NOTE: Hub tokens removed. Token parameter kept for backward compatibility but always mints BUX.
   """
   def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
-      when reward_type in [:read, :x_share] do
+      when reward_type in [:read, :x_share, :video_watch] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
@@ -114,7 +114,7 @@ defmodule BlocksterV2.BuxMinter do
   Use this when you don't need to wait for the transaction to complete.
   """
   def mint_bux_async(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX")
-      when reward_type in [:read, :x_share] do
+      when reward_type in [:read, :x_share, :video_watch] do
     Task.start(fn ->
       mint_bux(wallet_address, amount, user_id, post_id, reward_type)
     end)

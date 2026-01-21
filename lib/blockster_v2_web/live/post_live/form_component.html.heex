@@ -390,6 +390,158 @@
                 <p class="text-xs text-[#141414A3] mt-1">Enter a tweet URL to automatically create a share campaign for this article with 50 BUX reward.</p>
               </div>
 
+              <!-- Video Settings Section -->
+              <div class="border-t border-[#E7E8F1] pt-6 mt-6">
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-4">
+                  Video Watch Rewards <span class="text-[#8AE388]">(Admin Only)</span>
+                </h3>
+                <p class="text-sm text-[#141414A3] mb-4">
+                  Add a YouTube video to let users earn BUX by watching. Video rewards are separate from read rewards.
+                </p>
+
+                <div class="space-y-4">
+                  <!-- Video URL -->
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                      YouTube Video URL
+                    </label>
+                    <.input
+                      field={@form[:video_url]}
+                      type="text"
+                      placeholder="https://youtube.com/watch?v=... or https://youtu.be/..."
+                      class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                      error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                    />
+                    <p class="text-xs text-[#141414A3] mt-1">Supports youtube.com/watch?v=, youtu.be/, and youtube.com/embed/ URLs.</p>
+                    <%= if @form[:video_id].value do %>
+                      <p class="text-xs text-green-600 mt-1">✓ Video ID extracted: {@form[:video_id].value}</p>
+                    <% end %>
+                  </div>
+
+                  <!-- Video Duration -->
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                      Video Duration (seconds)
+                    </label>
+                    <.input
+                      field={@form[:video_duration]}
+                      type="number"
+                      min="1"
+                      placeholder="600 (for a 10-minute video)"
+                      class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                      error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                    />
+                    <p class="text-xs text-[#141414A3] mt-1">Total video duration in seconds. Used for progress tracking and completion detection.</p>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4">
+                    <!-- BUX Per Minute -->
+                    <div>
+                      <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                        BUX per Minute
+                      </label>
+                      <.input
+                        field={@form[:video_bux_per_minute]}
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        placeholder="1.0"
+                        class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                        error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                      />
+                      <p class="text-xs text-[#141414A3] mt-1">BUX earned per minute watched. Default: 1.0</p>
+                    </div>
+
+                    <!-- Max Reward -->
+                    <div>
+                      <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">
+                        Max BUX Reward (optional)
+                      </label>
+                      <.input
+                        field={@form[:video_max_reward]}
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        placeholder="Leave empty for no cap"
+                        class="w-full bg-white text-[#141414] placeholder:text-[#14141466] border-[#E7E8F1] focus:border-[#8AE388] focus:ring focus:ring-[#8AE38833] rounded-lg px-4 py-3 font-haas_roman_55"
+                        error_class="border-red-400 focus:border-red-500 focus:ring focus:ring-red-300"
+                      />
+                      <p class="text-xs text-[#141414A3] mt-1">Cap total BUX earnable from video. Empty = no limit.</p>
+                    </div>
+                  </div>
+
+                  <!-- Video Reward Preview -->
+                  <%
+                    # Parse video_duration - could be integer, string, or nil/empty
+                    video_duration_val = case @form[:video_duration].value do
+                      nil -> nil
+                      "" -> nil
+                      val when is_integer(val) -> val
+                      val when is_binary(val) ->
+                        case Integer.parse(val) do
+                          {num, _} -> num
+                          :error -> nil
+                        end
+                      _ -> nil
+                    end
+
+                    # Parse bux_per_minute - could be Decimal, float, string, or nil
+                    bux_per_min_val = case @form[:video_bux_per_minute].value do
+                      nil -> 1.0
+                      "" -> 1.0
+                      %Decimal{} = d -> Decimal.to_float(d)
+                      val when is_float(val) -> val
+                      val when is_integer(val) -> val * 1.0
+                      val when is_binary(val) ->
+                        case Float.parse(val) do
+                          {num, _} -> num
+                          :error -> 1.0
+                        end
+                      _ -> 1.0
+                    end
+                  %>
+                  <%= if @form[:video_url].value && @form[:video_url].value != "" && video_duration_val && video_duration_val > 0 do %>
+                    <div class="bg-[#F7F8FA] p-4 rounded-lg border border-[#E7E8F1]">
+                      <div class="text-sm font-haas_medium_65 text-[#141414] mb-2">Video Reward Preview</div>
+                      <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span class="text-[#141414A3]">Duration:</span>
+                          <span class="font-haas_medium_65 ml-1">
+                            {div(video_duration_val, 60)}:{rem(video_duration_val, 60) |> Integer.to_string() |> String.pad_leading(2, "0")}
+                          </span>
+                        </div>
+                        <div>
+                          <span class="text-[#141414A3]">Rate:</span>
+                          <span class="font-haas_medium_65 ml-1">{bux_per_min_val} BUX/min</span>
+                        </div>
+                        <div>
+                          <span class="text-[#141414A3]">Max earnable:</span>
+                          <span class="font-haas_medium_65 ml-1 text-green-600">
+                            <%= if @form[:video_max_reward].value && @form[:video_max_reward].value != "" do %>
+                              <%
+                                max_reward_val = case @form[:video_max_reward].value do
+                                  %Decimal{} = d -> Decimal.to_float(d)
+                                  val when is_float(val) -> val
+                                  val when is_binary(val) ->
+                                    case Float.parse(val) do
+                                      {num, _} -> num
+                                      :error -> 0.0
+                                    end
+                                  _ -> 0.0
+                                end
+                              %>
+                              {max_reward_val} BUX
+                            <% else %>
+                              {Float.round(video_duration_val / 60 * bux_per_min_val, 1)} BUX
+                            <% end %>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
               <!-- BUX Pool Management (Only show for existing posts) -->
               <%= if @post.id do %>
                 <div class="border-t border-[#E7E8F1] pt-6 mt-6">

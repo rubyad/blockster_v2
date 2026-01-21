@@ -165,7 +165,7 @@ defmodule BlocksterV2Web.Layouts do
             <.link navigate={~p"/"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">News</.link>
             <.link navigate={~p"/hubs"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Hubs</.link>
             <.link navigate={~p"/shop-landing"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Shop</.link>
-            <.link navigate={~p"/events"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Events</.link>
+            <.link navigate={~p"/airdrop"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Airdrop</.link>
             <.link navigate={~p"/play"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity cursor-pointer">Play</.link>
           </nav>
 
@@ -324,7 +324,7 @@ defmodule BlocksterV2Web.Layouts do
 
         <!-- Category Row -->
         <%= if @show_categories do %>
-          <div class="border-t border-gray-200 mt-2 py-2.5 bg-gray-50">
+          <div class="border-t border-gray-200 py-2.5 bg-gray-50">
             <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
               <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
               <span class="text-gray-300">|</span>
