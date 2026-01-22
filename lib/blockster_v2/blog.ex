@@ -1020,6 +1020,7 @@ defmodule BlocksterV2.Blog do
   @doc """
   Adds bux_balance from Mnesia to posts.
   Returns posts with :bux_balance virtual field set.
+  Always returns display value (>= 0) - never shows negative balances.
   """
   def with_bux_balances(posts) when is_list(posts) do
     alias BlocksterV2.EngagementTracker
@@ -1028,14 +1029,17 @@ defmodule BlocksterV2.Blog do
     balances = EngagementTracker.get_post_bux_balances(post_ids)
 
     Enum.map(posts, fn post ->
-      Map.put(post, :bux_balance, Map.get(balances, post.id, 0))
+      # Always display >= 0 (never show negative pool balances)
+      raw_balance = Map.get(balances, post.id, 0)
+      Map.put(post, :bux_balance, max(0, raw_balance))
     end)
   end
 
   def with_bux_balances(%Post{} = post) do
     alias BlocksterV2.EngagementTracker
 
-    balance = EngagementTracker.get_post_bux_balance(post.id)
+    # Use display function which returns max(0, balance)
+    balance = EngagementTracker.get_post_bux_balance_display(post.id)
     Map.put(post, :bux_balance, balance)
   end
 end
