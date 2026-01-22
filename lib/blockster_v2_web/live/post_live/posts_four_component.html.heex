@@ -36,6 +36,10 @@
                   </button>
                 <% end %>
                 <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{ImageKit.w500_h600(post.featured_image)}'); background-size: cover; background-position: center; min-height: 400px;"}>
+                  <!-- Video play icon overlay -->
+                  <%= if post.video_id do %>
+                    <.video_play_icon size={:large} />
+                  <% end %>
                   <!-- Content area that starts at 50% height -->
                   <div class="absolute bottom-0 left-0 right-0 h-1/2 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
                     <div class="h-full flex flex-col p-8 max-md:px-[22px] pb-3 pt-[22px]">

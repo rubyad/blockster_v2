@@ -23,7 +23,7 @@ defmodule BlocksterV2Web.AirdropLive do
 
     socket =
       socket
-      |> assign(:page_title, "BUX Airdrop")
+      |> assign(:page_title, "USDT Airdrop")
       |> assign(:user_bux_balance, user_bux_balance)
       |> assign(:airdrop_end_time, airdrop_end_time)
       |> assign(:redeem_amount, "")
@@ -96,8 +96,8 @@ defmodule BlocksterV2Web.AirdropLive do
       <div class="max-w-2xl mx-auto px-4 pt-24 pb-8">
         <!-- Header -->
         <div class="text-center mb-6">
-          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Airdrop</h1>
-          <p class="text-gray-600 text-sm">Redeem BUX for lottery tickets to win USDT prizes</p>
+          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">USDT Airdrop</h1>
+          <p class="text-gray-600 text-sm">Redeem BUX to win USDT prizes</p>
         </div>
 
         <!-- Main Card -->
@@ -218,7 +218,7 @@ defmodule BlocksterV2Web.AirdropLive do
               </div>
               <%= if @redeem_amount != "" and parse_amount(@redeem_amount) > 0 do %>
                 <p class="text-gray-500 text-sm mt-2">
-                  = <span class="font-medium text-gray-900"><%= Number.Delimit.number_to_delimited(parse_amount(@redeem_amount), precision: 0) %></span> lottery tickets
+                  = <span class="font-medium text-gray-900"><%= Number.Delimit.number_to_delimited(parse_amount(@redeem_amount), precision: 0) %></span> entries
                 </p>
               <% end %>
             </div>
@@ -271,7 +271,7 @@ defmodule BlocksterV2Web.AirdropLive do
                 <span class="text-white font-bold">2</span>
               </div>
               <p class="text-sm font-medium text-gray-900">Redeem</p>
-              <p class="text-xs text-gray-500 mt-1">1 BUX = 1 lottery ticket</p>
+              <p class="text-xs text-gray-500 mt-1">1 BUX = 1 entry</p>
             </div>
             <div class="text-center">
               <div class="w-10 h-10 bg-black rounded-full flex items-center justify-center mx-auto mb-2">

@@ -63,6 +63,35 @@ defmodule BlocksterV2Web.SharedComponents do
   end
 
   @doc """
+  Renders a video play icon overlay for posts with videos.
+  Positioned absolutely in the center of the parent container.
+
+  ## Attributes
+    - size: Icon size - :small (32px), :medium (48px), or :large (64px)
+  """
+  attr :size, :atom, default: :medium
+
+  def video_play_icon(assigns) do
+    size_classes = case assigns.size do
+      :small -> "w-8 h-8"
+      :medium -> "w-12 h-12"
+      :large -> "w-16 h-16"
+    end
+
+    assigns = assign(assigns, :size_classes, size_classes)
+
+    ~H"""
+    <div class={"absolute inset-0 flex items-center justify-center pointer-events-none"}>
+      <div class={"#{@size_classes} bg-black/60 rounded-full flex items-center justify-center"}>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-1/2 h-1/2 ml-0.5">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a post card for suggested/related posts.
   Matches the exact styling of homepage post cards.
 
@@ -78,7 +107,7 @@ defmodule BlocksterV2Web.SharedComponents do
     <.link navigate={~p"/#{@post.slug}"} class="block cursor-pointer">
       <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col h-full">
         <!-- Featured Image -->
-        <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square">
+        <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square relative">
           <%= if @post.featured_image do %>
             <img
               src={ImageKit.w500_h500(@post.featured_image)}
@@ -93,6 +122,9 @@ defmodule BlocksterV2Web.SharedComponents do
                 <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
               </svg>
             </div>
+          <% end %>
+          <%= if @post.video_id do %>
+            <.video_play_icon size={:medium} />
           <% end %>
         </div>
 

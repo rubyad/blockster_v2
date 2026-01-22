@@ -71,6 +71,9 @@
                           </svg>
                         </div>
                       <% end %>
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                   </div>
                   <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
@@ -123,6 +126,9 @@
                           <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
                         </svg>
                       </div>
+                    <% end %>
+                    <%= if post.video_id do %>
+                      <.video_play_icon size={:large} />
                     <% end %>
                   </div>
                 </div>
@@ -180,6 +186,9 @@
                           </svg>
                         </div>
                       <% end %>
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                   </div>
                   <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
@@ -234,6 +243,9 @@
                           </svg>
                         </div>
                       <% end %>
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                   </div>
                   <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
@@ -286,6 +298,9 @@
                             <path d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19Z" fill="#141414" />
                           </svg>
                         </div>
+                      <% end %>
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
                       <% end %>
                     </div>
                   </div>
@@ -354,8 +369,11 @@
                   <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_icon_#{idx}"} />
                 </div>
               </div>
-              <div class="img-wrapper shrink-0">
+              <div class="img-wrapper shrink-0 relative">
                 <img src={ImageKit.w230_h320(post.featured_image)} class="object-cover rounded-lg h-[140px] w-[100px] md:h-[160px] md:w-[115px]" alt="" />
+                <%= if post.video_id do %>
+                  <.video_play_icon size={:small} />
+                <% end %>
               </div>
               </.link>
             </div>

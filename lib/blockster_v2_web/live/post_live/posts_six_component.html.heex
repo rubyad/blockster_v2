@@ -38,8 +38,11 @@
                     </button>
                   <% end %>
                   <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square relative">
                       <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                     <div class="px-3 py-3 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
@@ -74,8 +77,11 @@
                     </button>
                   <% end %>
                   <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square relative">
                       <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                     <div class="px-3 py-3 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
@@ -115,8 +121,11 @@
                     </button>
                   <% end %>
                   <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square relative">
                       <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                     <div class="px-3 py-3 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
@@ -151,8 +160,11 @@
                     </button>
                   <% end %>
                   <.link navigate={~p"/#{post.slug}"} class="flex-1 flex flex-col cursor-pointer">
-                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-[16px] aspect-square relative">
                       <img alt="" src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                     <div class="px-3 py-3 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
@@ -191,6 +203,9 @@
               </button>
             <% end %>
             <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden h-full" style={"background-image: url('#{ImageKit.w600_h800(post.featured_image)}'); background-size: cover; background-position: center; min-height: 400px;"}>
+              <%= if post.video_id do %>
+                <.video_play_icon size={:large} />
+              <% end %>
               <!-- Content area that starts at bottom third height -->
               <div class="h-1/3 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden relative">
                 <div class="absolute top-0 left-0 right-0 p-6 max-md:px-[22px] pb-[12px] pt-[22px] transition-all duration-500 ease-in-out">
