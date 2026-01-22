@@ -1136,6 +1136,8 @@ defmodule BlocksterV2.EngagementTracker do
   @doc """
   Gets the BUX balance for a post from the post_bux_points table.
   Returns 0 if no record exists.
+  Note: This can return negative values for internal use.
+  For display purposes, use get_post_bux_balance_display/1.
   """
   def get_post_bux_balance(post_id) do
     case :mnesia.dirty_read({:post_bux_points, post_id}) do
@@ -1147,6 +1149,38 @@ defmodule BlocksterV2.EngagementTracker do
   catch
     :exit, _ -> 0
   end
+
+  @doc """
+  Gets pool balance for display purposes (always >= 0).
+  Never shows negative values to users.
+  """
+  def get_post_bux_balance_display(post_id) do
+    max(0, get_post_bux_balance(post_id))
+  end
+
+  @doc """
+  Checks if pool is available for NEW earning actions.
+  Returns true only if balance > 0.
+  Used to determine if a new user can start earning.
+  """
+  def pool_available?(post_id) do
+    get_post_bux_balance(post_id) > 0
+  end
+
+  @doc """
+  Deducts amount from post's BUX pool with GUARANTEED payout.
+  Pool CAN go negative to honor guaranteed earnings.
+
+  This is used when a user completed an earning action that started
+  when the pool was positive. They are guaranteed the full reward.
+
+  Returns {:ok, new_balance} where new_balance can be negative.
+  """
+  def deduct_from_pool_guaranteed(post_id, amount) when is_number(amount) and amount > 0 do
+    BlocksterV2.PostBuxPoolWriter.deduct_guaranteed(post_id, amount)
+  end
+
+  def deduct_from_pool_guaranteed(_post_id, _amount), do: {:ok, 0}
 
   @doc """
   Gets BUX balances for multiple posts at once.

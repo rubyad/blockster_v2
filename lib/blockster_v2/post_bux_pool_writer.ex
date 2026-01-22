@@ -53,6 +53,17 @@ defmodule BlocksterV2.PostBuxPoolWriter do
     GenServer.call({:global, __MODULE__}, {:deduct, post_id, requested_amount}, 10_000)
   end
 
+  @doc """
+  Deducts BUX from post's pool with GUARANTEED payout (pool can go negative).
+  Used for guaranteed earnings - once a user starts an earning action with a positive pool,
+  they are guaranteed the full reward regardless of pool balance changes during their session.
+
+  Returns {:ok, new_balance} where new_balance can be negative.
+  """
+  def deduct_guaranteed(post_id, amount) when is_number(amount) and amount > 0 do
+    GenServer.call({:global, __MODULE__}, {:deduct_guaranteed, post_id, amount}, 10_000)
+  end
+
   # Server Callbacks
 
   @impl true
@@ -80,6 +91,12 @@ defmodule BlocksterV2.PostBuxPoolWriter do
   @impl true
   def handle_call({:deduct, post_id, requested_amount}, _from, state) do
     result = do_deduct(post_id, requested_amount)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:deduct_guaranteed, post_id, amount}, _from, state) do
+    result = do_deduct_guaranteed(post_id, amount)
     {:reply, result, state}
   end
 
@@ -194,6 +211,65 @@ defmodule BlocksterV2.PostBuxPoolWriter do
   catch
     :exit, e ->
       Logger.error("[PostBuxPoolWriter] Exit deducting from pool: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # Deducts amount from pool with guaranteed payout - pool CAN go negative.
+  # This is used for guaranteed earnings where once a user starts an earning action
+  # with a positive pool, they receive the full reward regardless of pool changes.
+  defp do_deduct_guaranteed(post_id, amount) do
+    now = System.system_time(:second)
+
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] ->
+        # No pool exists - create one with negative balance
+        # This is rare but possible if record was deleted during session
+        record = {
+          :post_bux_points,
+          post_id,
+          nil,      # reward
+          nil,      # read_time
+          -amount,  # bux_balance (negative)
+          0,        # bux_deposited
+          amount,   # total_distributed
+          nil,      # extra_field2
+          nil,      # extra_field3
+          nil,      # extra_field4
+          now,      # created_at
+          now       # updated_at
+        }
+        :mnesia.dirty_write(record)
+        Logger.info("[PostBuxPoolWriter] Created pool with negative balance for post #{post_id}: balance=#{-amount}")
+        # Broadcast 0 for display (never show negative)
+        EngagementTracker.broadcast_bux_update(post_id, 0)
+        {:ok, -amount}
+
+      [record] ->
+        pool_balance = elem(record, 4) || 0
+        new_balance = pool_balance - amount
+        total_distributed = (elem(record, 6) || 0) + amount
+
+        updated = record
+          |> put_elem(4, new_balance)
+          |> put_elem(6, total_distributed)
+          |> put_elem(11, now)
+
+        :mnesia.dirty_write(updated)
+
+        # Broadcast display value (0 if negative, actual if positive)
+        display_balance = max(0, new_balance)
+        EngagementTracker.broadcast_bux_update(post_id, display_balance)
+
+        Logger.info("[PostBuxPoolWriter] Guaranteed deduction of #{amount} from post #{post_id}: balance=#{new_balance} (display=#{display_balance})")
+        {:ok, new_balance}
+    end
+  rescue
+    e ->
+      Logger.error("[PostBuxPoolWriter] Error in guaranteed deduction: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[PostBuxPoolWriter] Exit in guaranteed deduction: #{inspect(e)}")
       {:error, e}
   end
 end

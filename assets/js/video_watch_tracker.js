@@ -415,8 +415,6 @@ export const VideoWatchTracker = {
       const isWatchingNew = displayPosition >= runningHighWaterMark;
       const showRewatching = !isWatchingNew && this.isPlaying;
 
-      console.log(`VideoWatchTracker: Indicator check - displayPosition=${displayPosition.toFixed(2)}, runningHWM=${runningHighWaterMark.toFixed(2)}, isWatchingNew=${isWatchingNew}, showRewatching=${showRewatching}, isPlaying=${this.isPlaying}`);
-
       // Use classList to toggle 'hidden' class (Tailwind's hidden uses !important)
       if (isWatchingNew) {
         newContentIndicator.classList.remove("hidden");
