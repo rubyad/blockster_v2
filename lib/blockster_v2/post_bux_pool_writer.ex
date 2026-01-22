@@ -142,10 +142,11 @@ defmodule BlocksterV2.PostBuxPoolWriter do
         {:ok, new_balance}
     end
 
-    # Broadcast the BUX balance update
+    # Broadcast the BUX balance update (display value: never negative)
     case result do
       {:ok, new_balance} ->
-        EngagementTracker.broadcast_bux_update(post_id, new_balance)
+        display_balance = max(0, new_balance)
+        EngagementTracker.broadcast_bux_update(post_id, display_balance)
         result
       _ ->
         result
