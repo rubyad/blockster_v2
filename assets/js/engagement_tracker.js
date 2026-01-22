@@ -107,6 +107,23 @@ export const EngagementTracker = {
       // Initial scroll depth check (in case article is short)
       setTimeout(() => this.trackScroll(), 500);
     }, 500);
+
+    // Watch for video modal state changes via MutationObserver on data attribute
+    this.videoModalObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "data-video-modal-open") {
+          const isVideoModalOpen = this.el.dataset.videoModalOpen === "true";
+          if (isVideoModalOpen) {
+            console.log("EngagementTracker: Video modal opened, pausing tracking");
+            this.pause();
+          } else {
+            console.log("EngagementTracker: Video modal closed, resuming tracking");
+            this.resume();
+          }
+        }
+      }
+    });
+    this.videoModalObserver.observe(this.el, { attributes: true, attributeFilter: ["data-video-modal-open"] });
   },
 
   // Send engagement update to server - server calculates the score
@@ -303,6 +320,9 @@ export const EngagementTracker = {
     }
     if (this.handleVisibilityChange) {
       document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    }
+    if (this.videoModalObserver) {
+      this.videoModalObserver.disconnect();
     }
 
     // Don't try to push events in destroyed() - LiveView is already disconnecting

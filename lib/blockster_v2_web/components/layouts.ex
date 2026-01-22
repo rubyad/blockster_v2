@@ -105,7 +105,7 @@ defmodule BlocksterV2Web.Layouts do
         </div>
 
         <!-- Navigation Row: Search left, Menu centered, Balance right -->
-        <div class={["max-w-7xl mx-auto px-4", !@show_categories && "pb-2"]}>
+        <div class="max-w-7xl mx-auto px-4 pb-2">
           <div class="flex items-center">
           <!-- Search Bar with Scroll Logo - Left (flex-1 for equal width with right side) -->
           <div class="flex items-center gap-3 flex-1">

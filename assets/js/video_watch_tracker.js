@@ -155,14 +155,21 @@ export const VideoWatchTracker = {
   seekToHighWaterMark() {
     if (!this.player) return;
 
-    // Seek to just past the high water mark (add 1 second to ensure we're in new territory)
-    const seekTarget = Math.min(this.highWaterMark + 1, this.videoDuration);
-    console.log(`VideoWatchTracker: Seeking to high water mark at ${seekTarget}s`);
+    // Use the running high water mark (original + session max) for the seek target
+    const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+
+    // Seek to just past the running high water mark (add 1 second to ensure we're in new territory)
+    const seekTarget = Math.min(runningHighWaterMark + 1, this.videoDuration);
+    console.log(`VideoWatchTracker: Seeking to running high water mark at ${seekTarget}s`);
 
     this.player.seekTo(seekTarget, true);
 
-    // Update last position to avoid earning issues
+    // Update last position and session max to avoid earning issues and indicator flickering
     this.lastPosition = seekTarget;
+    this.sessionMaxPosition = seekTarget;
+
+    // Immediately update the display to hide rewatching indicator
+    this.updateBuxDisplay(seekTarget);
   },
 
   checkMuteState() {
@@ -314,11 +321,14 @@ export const VideoWatchTracker = {
       const currentPosition = this.player ? this.player.getCurrentTime() : 0;
 
       // HIGH WATER MARK LOGIC:
-      // Only count time if we're BEYOND the previous high water mark
-      if (currentPosition > this.highWaterMark) {
+      // Use the running high water mark (original + session max) to prevent re-earning
+      const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+
+      // Only count time if we're BEYOND the running high water mark
+      if (currentPosition > runningHighWaterMark) {
         // Calculate how much NEW time was watched
         // If we jumped ahead (seeked), only count from where we landed
-        const effectiveStartPosition = Math.max(this.lastPosition, this.highWaterMark);
+        const effectiveStartPosition = Math.max(this.lastPosition, runningHighWaterMark);
 
         if (currentPosition > effectiveStartPosition) {
           const newTimeWatched = currentPosition - effectiveStartPosition;
@@ -384,22 +394,28 @@ export const VideoWatchTracker = {
       progressBar.style.width = `${progress}%`;
     }
 
-    // Update completion percentage text
-    const completionPct = document.getElementById("video-completion-pct");
-    if (completionPct && this.videoDuration > 0) {
-      const newHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
-      const pct = Math.min(100, Math.round((newHighWaterMark / this.videoDuration) * 100));
-      completionPct.textContent = pct;
+    // Update video progress time display (current position / total)
+    // Use displayPosition for real-time playback position (not high water mark)
+    const progressTime = document.getElementById("video-progress-time");
+    if (progressTime && this.videoDuration > 0) {
+      const currentTime = this.formatTime(displayPosition);
+      const totalTime = this.formatTime(this.videoDuration);
+      progressTime.textContent = `${currentTime} / ${totalTime}`;
     }
 
     // Update "watching new content" indicator
     // Use displayPosition for accurate real-time indicator (not stale lastPosition)
+    // Compare against running high water mark (original + session max) to prevent false positives
     const newContentIndicator = document.getElementById("video-new-content");
     const rewatchingIndicator = document.getElementById("video-rewatching");
 
     if (newContentIndicator && rewatchingIndicator) {
-      const isWatchingNew = displayPosition > this.highWaterMark;
+      const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+      // Use >= to include the exact position when user seeks to high water mark
+      const isWatchingNew = displayPosition >= runningHighWaterMark;
       const showRewatching = !isWatchingNew && this.isPlaying;
+
+      console.log(`VideoWatchTracker: Indicator check - displayPosition=${displayPosition.toFixed(2)}, runningHWM=${runningHighWaterMark.toFixed(2)}, isWatchingNew=${isWatchingNew}, showRewatching=${showRewatching}, isPlaying=${this.isPlaying}`);
 
       // Use classList to toggle 'hidden' class (Tailwind's hidden uses !important)
       if (isWatchingNew) {
@@ -498,6 +514,19 @@ export const VideoWatchTracker = {
       this.player.pauseVideo();
     }
     this.finalizeWatching();
+  },
+
+  // Format seconds to "M:SS" or "H:MM:SS" format
+  formatTime(seconds) {
+    const totalSeconds = Math.floor(seconds);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, "0")}`;
   },
 
   destroyed() {

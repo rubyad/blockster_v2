@@ -215,6 +215,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     if post.video_id do
       user_id = get_user_id(socket)
       video_duration = post.video_duration || 0
+      video_duration_formatted = format_video_time(video_duration)
 
       if user_id != "anonymous" do
         case EngagementTracker.get_video_engagement(user_id, post.id) do
@@ -227,6 +228,7 @@ defmodule BlocksterV2Web.PostLive.Show do
             |> assign(:video_completion_percentage, engagement.completion_percentage)
             |> assign(:video_fully_watched, fully_watched)
             |> assign(:video_tx_ids, engagement.video_tx_ids || [])
+            |> assign(:video_duration_formatted, video_duration_formatted)
 
           {:error, :not_found} ->
             # No previous engagement - user starts fresh
@@ -236,6 +238,7 @@ defmodule BlocksterV2Web.PostLive.Show do
             |> assign(:video_completion_percentage, 0)
             |> assign(:video_fully_watched, false)
             |> assign(:video_tx_ids, [])
+            |> assign(:video_duration_formatted, video_duration_formatted)
         end
       else
         # Anonymous user - no tracking
@@ -245,6 +248,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         |> assign(:video_completion_percentage, 0)
         |> assign(:video_fully_watched, false)
         |> assign(:video_tx_ids, [])
+        |> assign(:video_duration_formatted, video_duration_formatted)
       end
     else
       # No video on this post
@@ -254,8 +258,24 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> assign(:video_completion_percentage, 0)
       |> assign(:video_fully_watched, false)
       |> assign(:video_tx_ids, [])
+      |> assign(:video_duration_formatted, "0:00")
     end
   end
+
+  # Format video duration in seconds to "M:SS" or "H:MM:SS" format
+  defp format_video_time(seconds) when is_number(seconds) do
+    seconds = trunc(seconds)
+    hours = div(seconds, 3600)
+    minutes = div(rem(seconds, 3600), 60)
+    secs = rem(seconds, 60)
+
+    if hours > 0 do
+      "#{hours}:#{String.pad_leading(Integer.to_string(minutes), 2, "0")}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
+    else
+      "#{minutes}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
+    end
+  end
+  defp format_video_time(_), do: "0:00"
 
   @impl true
   def handle_event("article-visited", %{"min_read_time" => min_read_time} = _params, socket) do
