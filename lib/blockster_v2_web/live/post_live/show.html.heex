@@ -188,6 +188,18 @@
                     </div>
                   </div>
                 <% end %>
+                <%!-- Hub logo or Blockster lightning bolt --%>
+                <div class="absolute top-2 left-2 z-10">
+                  <%= if product.hub && product.hub.logo_url do %>
+                    <img
+                      src={ImageKit.w128_h128(product.hub.logo_url)}
+                      alt={product.hub.name}
+                      class="w-6 h-6 rounded-full object-cover shadow-sm"
+                    />
+                  <% else %>
+                    <SharedComponents.lightning_icon size={24} />
+                  <% end %>
+                </div>
               </div>
               <div class="px-3 py-3">
                 <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">
@@ -561,6 +573,18 @@
                     </div>
                   </div>
                 <% end %>
+                <%!-- Hub logo or Blockster lightning bolt --%>
+                <div class="absolute top-2 left-2 z-10">
+                  <%= if product.hub && product.hub.logo_url do %>
+                    <img
+                      src={ImageKit.w128_h128(product.hub.logo_url)}
+                      alt={product.hub.name}
+                      class="w-6 h-6 rounded-full object-cover shadow-sm"
+                    />
+                  <% else %>
+                    <SharedComponents.lightning_icon size={24} />
+                  <% end %>
+                </div>
               </div>
               <div class="px-3 py-3">
                 <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">

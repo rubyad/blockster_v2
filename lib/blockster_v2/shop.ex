@@ -82,7 +82,7 @@ defmodule BlocksterV2.Shop do
       products =
         from(p in Product, where: p.id in ^selected_ids)
         |> Repo.all()
-        |> Repo.preload([:images, :variants])
+        |> Repo.preload([:images, :variants, :hub])
 
       # Return products with first 2 images (for flip effect) and first variant
       Enum.map(products, fn product ->
