@@ -199,6 +199,7 @@ export const VideoWatchTracker = {
     if (muteIndicator) {
       muteIndicator.style.display = this.isMuted ? "block" : "none";
     }
+    this.updatePanelColor();
   },
 
   onPlayerStateChange(event) {
@@ -225,6 +226,7 @@ export const VideoWatchTracker = {
     if (this.isTabVisible && this.trackingEnabled) {
       this.startTracking();
     }
+    this.updatePanelColor();
     this.pushEvent("video-playing", { post_id: this.postId });
   },
 
@@ -233,6 +235,7 @@ export const VideoWatchTracker = {
     this.isPlaying = false;
     this.pauseCount++;
     this.stopTracking();
+    this.updatePanelColor();
     this.pushEvent("video-paused", {
       post_id: this.postId,
       session_earnable_time: this.sessionEarnableTime,
@@ -427,6 +430,32 @@ export const VideoWatchTracker = {
       } else {
         rewatchingIndicator.classList.add("hidden");
       }
+
+      // Update panel color based on earning state
+      this.updatePanelColor(isWatchingNew);
+    }
+  },
+
+  // Update the earnings panel background color based on whether user is currently earning
+  updatePanelColor(isEarning = null) {
+    const panel = document.getElementById("video-earnings-panel");
+    if (!panel) return;
+
+    // Determine if currently earning: must be playing, not muted, and watching new content
+    let currentlyEarning = isEarning;
+    if (currentlyEarning === null) {
+      // Fallback calculation if not passed
+      const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+      currentlyEarning = this.lastPosition >= runningHighWaterMark;
+    }
+
+    const isActivelyEarning = this.isPlaying && !this.isMuted && currentlyEarning;
+
+    // Use inline style for reliable color change
+    if (isActivelyEarning) {
+      panel.style.background = "linear-gradient(to right, #8AE388, #6BCB69)";
+    } else {
+      panel.style.background = "linear-gradient(to right, #6B7280, #4B5563)";
     }
   },
 

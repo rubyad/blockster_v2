@@ -675,7 +675,7 @@
 
     <!-- BUX Earnings Panel - HIGH WATER MARK AWARE -->
     <%= if @current_user && @pool_available && !@video_fully_watched do %>
-      <div class="absolute bottom-8 right-8 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[220px]">
+      <div id="video-earnings-panel" class="absolute bottom-8 right-8 text-white rounded-2xl shadow-2xl p-4 min-w-[220px] transition-all duration-300" style="background: linear-gradient(to right, #8AE388, #6BCB69);">
         <div class="flex items-center gap-3">
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
           <div>
