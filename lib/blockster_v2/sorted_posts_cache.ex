@@ -435,9 +435,11 @@ defmodule BlocksterV2.SortedPostsCache do
     |> Enum.group_by(fn {post_id, _} -> post_id end, fn {_, tag_id} -> tag_id end)
 
     # Build list of {post_id, balance, published_at, category_id, tag_ids} and sort
+    # Use max(0, balance) so negative pools (from guaranteed earnings) sort same as empty pools
     posts
     |> Enum.map(fn {post_id, published_at, category_id} ->
-      balance = Map.get(pool_balances, post_id, 0)
+      raw_balance = Map.get(pool_balances, post_id, 0)
+      balance = max(0, raw_balance)
       tag_ids = Map.get(tag_mappings, post_id, [])
       published_unix = case published_at do
         %DateTime{} -> DateTime.to_unix(published_at)
