@@ -13,26 +13,28 @@
  */
 export const EngagementTracker = {
   mounted() {
-    // Only track for logged-in users
+    // Track for both logged-in and anonymous users
     this.userId = this.el.dataset.userId;
-    if (!this.userId || this.userId === "anonymous") {
-      console.log("EngagementTracker: Anonymous user, skipping tracking");
-      return;
+    this.isAnonymous = !this.userId || this.userId === "anonymous";
+
+    if (!this.isAnonymous) {
+      // Logged-in user specific checks
+      // Check if user already received reward for this article
+      this.alreadyRewarded = this.el.dataset.alreadyRewarded === "true";
+      if (this.alreadyRewarded) {
+        console.log("EngagementTracker: User already rewarded for this article, skipping tracking");
+        return;
+      }
+
+      // Check if pool has BUX available - no point tracking if there's nothing to earn
+      this.poolAvailable = this.el.dataset.poolAvailable === "true";
+      if (!this.poolAvailable) {
+        console.log("EngagementTracker: Pool is empty, skipping tracking");
+        return;
+      }
     }
 
-    // Check if user already received reward for this article
-    this.alreadyRewarded = this.el.dataset.alreadyRewarded === "true";
-    if (this.alreadyRewarded) {
-      console.log("EngagementTracker: User already rewarded for this article, skipping tracking");
-      return;
-    }
-
-    // Check if pool has BUX available - no point tracking if there's nothing to earn
-    this.poolAvailable = this.el.dataset.poolAvailable === "true";
-    if (!this.poolAvailable) {
-      console.log("EngagementTracker: Pool is empty, skipping tracking");
-      return;
-    }
+    console.log(`EngagementTracker: Starting ${this.isAnonymous ? 'anonymous' : 'authenticated'} tracking`);
 
     // Initialize tracking state
     this.postId = this.el.dataset.postId;
@@ -68,11 +70,13 @@ export const EngagementTracker = {
     // Get the end marker element for detecting when user reaches the end
     this.endMarkerEl = document.getElementById("article-end-marker");
 
-    // Send initial visit event
-    this.pushEvent("article-visited", {
-      min_read_time: this.minReadTime,
-      word_count: this.wordCount
-    });
+    // Send initial visit event (only for logged-in users)
+    if (!this.isAnonymous) {
+      this.pushEvent("article-visited", {
+        min_read_time: this.minReadTime,
+        word_count: this.wordCount
+      });
+    }
 
     console.log(`EngagementTracker: Started tracking post ${this.postId} (${this.wordCount} words, ${this.minReadTime}s min read)`);
 
@@ -96,6 +100,11 @@ export const EngagementTracker = {
         this.sendEngagementUpdate();
       }
     }, 2000);
+
+    // Send initial update immediately for anonymous users to show the panel
+    if (this.isAnonymous) {
+      setTimeout(() => this.sendEngagementUpdate(), 100);
+    }
 
     // Delay scroll tracking setup to let page scroll position settle after navigation
     // This prevents false "end reached" triggers when navigating from a scrolled page
@@ -143,7 +152,13 @@ export const EngagementTracker = {
     console.log(`EngagementTracker: Sending update - time: ${this.timeSpent}s, depth: ${Math.round(this.scrollDepth)}%, events: ${this.scrollEvents}`);
 
     try {
-      this.pushEvent("engagement-update", metrics);
+      if (this.isAnonymous) {
+        // Send anonymous engagement update (no DB persistence, just score calculation)
+        this.pushEvent("anonymous-engagement-update", metrics);
+      } else {
+        // Send normal engagement update for logged-in users
+        this.pushEvent("engagement-update", metrics);
+      }
     } catch (e) {
       // LiveView may be disconnected during page navigation, this is expected
       console.debug("EngagementTracker: Could not send engagement-update (LiveView disconnected)");
@@ -287,12 +302,71 @@ export const EngagementTracker = {
     };
 
     console.log("EngagementTracker: Sending article-read event", metrics);
-    try {
-      this.pushEvent("article-read", metrics);
-    } catch (e) {
-      // LiveView may be disconnected during page navigation, this is expected
-      console.debug("EngagementTracker: Could not send article-read event (LiveView disconnected)");
+
+    if (this.isAnonymous) {
+      // For anonymous users, store in localStorage and show signup prompt
+      this.storeForClaim(metrics);
+      try {
+        this.pushEvent("show-anonymous-claim", { metrics });
+      } catch (e) {
+        console.debug("EngagementTracker: Could not send show-anonymous-claim event (LiveView disconnected)");
+      }
+    } else {
+      // For logged-in users, send normal article-read event
+      try {
+        this.pushEvent("article-read", metrics);
+      } catch (e) {
+        console.debug("EngagementTracker: Could not send article-read event (LiveView disconnected)");
+      }
     }
+  },
+
+  // Store engagement data in localStorage for claim after signup
+  storeForClaim(metrics) {
+    // Calculate earned amount (5 BUX per engagement point)
+    // We'll calculate the score here to store the exact amount
+    const score = this.calculateEngagementScore(metrics);
+    const earnedAmount = score * 5.0;
+
+    const claimData = {
+      postId: this.postId,
+      type: 'read',
+      metrics: metrics,
+      earnedAmount: earnedAmount,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes
+    };
+
+    try {
+      localStorage.setItem(`pending_claim_read_${this.postId}`, JSON.stringify(claimData));
+      console.log(`EngagementTracker: Stored claim for ${earnedAmount} BUX in localStorage`);
+    } catch (e) {
+      console.error("EngagementTracker: Failed to store claim in localStorage", e);
+    }
+  },
+
+  // Calculate engagement score client-side (mirrors server logic)
+  calculateEngagementScore(metrics) {
+    const baseScore = 1.0;
+
+    // Time score (0-6 points)
+    const timeRatio = metrics.min_read_time > 0 ? metrics.time_spent / metrics.min_read_time : 0;
+    let timeScore = 0;
+    if (timeRatio >= 1.0) timeScore = 6;
+    else if (timeRatio >= 0.9) timeScore = 5;
+    else if (timeRatio >= 0.8) timeScore = 4;
+    else if (timeRatio >= 0.7) timeScore = 3;
+    else if (timeRatio >= 0.5) timeScore = 2;
+    else if (timeRatio >= 0.3) timeScore = 1;
+
+    // Depth score (0-3 points)
+    let depthScore = 0;
+    if (metrics.reached_end || metrics.scroll_depth >= 100) depthScore = 3;
+    else if (metrics.scroll_depth >= 66) depthScore = 2;
+    else if (metrics.scroll_depth >= 33) depthScore = 1;
+
+    const finalScore = baseScore + timeScore + depthScore;
+    return Math.min(Math.max(finalScore, 1.0), 10.0);
   },
 
   // Utility: throttle function to limit scroll event frequency

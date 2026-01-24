@@ -47,6 +47,7 @@ import { ArtistImageUpload } from "./artist_image_upload.js";
 import { CoinFlip } from "./coin_flip.js";
 import { BuxBoosterOnchain } from "./bux_booster_onchain.js";
 import { VideoWatchTracker } from "./video_watch_tracker.js";
+import { AnonymousClaimManager } from "./anonymous_claim_manager.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -173,6 +174,15 @@ let CopyToClipboard = {
   }
 };
 
+// Hook to clear localStorage after successful claim processing
+let ClaimCleanup = {
+  mounted() {
+    // When this hook mounts on the success message, clear all claims
+    AnonymousClaimManager.clearAllClaims();
+    console.log('ClaimCleanup: Cleared all pending claims from localStorage');
+  }
+};
+
 let InfiniteScroll = {
   mounted() {
     this.pending = false;
@@ -292,8 +302,16 @@ let InfiniteScroll = {
 
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: { _csrf_token: csrfToken },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker },
+  params: (liveViewName) => {
+    // Get pending claims from localStorage to pass to LiveView
+    const pendingClaims = AnonymousClaimManager.getPendingClaims();
+
+    return {
+      _csrf_token: csrfToken,
+      pending_claims: pendingClaims.length > 0 ? pendingClaims : null
+    };
+  },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker },
 });
 
 // connect if there are any LiveViews on the page

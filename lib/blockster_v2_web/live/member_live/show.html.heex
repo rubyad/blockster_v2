@@ -59,6 +59,99 @@
           </div>
         </div>
 
+        <!-- Anonymous Claim Success Message (for new users only) -->
+        <%= if @is_new_user && @total_claimed > 0 do %>
+          <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-lg shadow-lg p-6 mb-6" phx-hook="ClaimCleanup" id="claim-success-banner">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="flex-1">
+                <h3 class="text-xl font-haas_bold_75 text-green-900 mb-2">
+                  🎉 Welcome to Blockster!
+                </h3>
+                <p class="text-green-800 font-haas_medium_65 mb-3">
+                  You successfully claimed <span class="font-haas_bold_75 text-2xl"><%= Float.round(@total_claimed, 2) %> BUX</span> from reading!
+                </p>
+                <div class="text-sm text-green-700">
+                  Check your activity feed below to see the transaction details.
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- How It Works Section (for new users only) -->
+        <%= if @is_new_user do %>
+          <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-haas_bold_75 text-gray-900 mb-4">How It Works</h2>
+
+            <div class="space-y-4">
+              <!-- Step 1: Connect X -->
+              <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-[#8AE388] to-[#BAF55F] flex items-center justify-center text-black font-haas_bold_75">
+                  1
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-haas_bold_75 text-gray-900 mb-1">Connect Your X Account</h3>
+                  <p class="text-gray-600 text-sm">
+                    Link your X (Twitter) account to earn bonus BUX when you share posts and build your multiplier.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Step 2: Earn BUX -->
+              <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-[#8AE388] to-[#BAF55F] flex items-center justify-center text-black font-haas_bold_75">
+                  2
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-haas_bold_75 text-gray-900 mb-1">Earn More BUX</h3>
+                  <p class="text-gray-600 text-sm">
+                    Read articles, watch videos, and share content to earn BUX tokens. Your multiplier increases your rewards!
+                  </p>
+                </div>
+              </div>
+
+              <!-- Step 3: Redeem -->
+              <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-[#8AE388] to-[#BAF55F] flex items-center justify-center text-black font-haas_bold_75">
+                  3
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-haas_bold_75 text-gray-900 mb-1">Redeem Your BUX</h3>
+                  <p class="text-gray-600 text-sm mb-2">Use your BUX for:</p>
+                  <ul class="list-disc list-inside text-gray-600 text-sm space-y-1">
+                    <li><strong>Shopping discounts</strong> - Get 10% off per BUX in the shop</li>
+                    <li><strong>Airdrop entries</strong> - Enter exclusive airdrops</li>
+                    <li><strong>BUX Booster</strong> - Play the coin flip game for ROGUE rewards</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- CTA Buttons -->
+            <div class="mt-6 flex flex-col sm:flex-row gap-3">
+              <.link
+                navigate={~p"/"}
+                class="flex-1 text-center bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black font-haas_medium_65 py-3 px-6 rounded-lg hover:shadow-lg transition-all cursor-pointer"
+              >
+                Start Reading & Earning
+              </.link>
+              <.link
+                navigate={~p"/play"}
+                class="flex-1 text-center bg-white border-2 border-gray-300 text-gray-700 font-haas_medium_65 py-3 px-6 rounded-lg hover:border-gray-400 transition-all cursor-pointer"
+              >
+                Try BUX Booster
+              </.link>
+            </div>
+          </div>
+        <% end %>
+
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <!-- BUX Balance Card -->

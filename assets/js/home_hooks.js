@@ -720,7 +720,8 @@ export const ThirdwebLogin = {
         console.log('Email authenticated successfully:', data.user);
         this.currentUser = data.user;
         this.updateUI(data.user);
-        window.location.reload(); // Reload to update the UI
+        // Redirect to member page using smart wallet address
+        window.location.href = `/member/${data.user.smart_wallet_address}`;
       } else {
         console.error('Authentication failed:', data.errors);
         alert('Authentication failed. Please try again.');

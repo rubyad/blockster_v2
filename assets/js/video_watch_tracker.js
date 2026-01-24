@@ -31,18 +31,24 @@ export const VideoWatchTracker = {
     // Check if video is fully watched (high water mark >= duration)
     this.videoFullyWatched = this.videoDuration > 0 && this.highWaterMark >= this.videoDuration;
 
+    // Track for both logged-in and anonymous users
+    this.isAnonymous = !this.userId || this.userId === "anonymous";
+
     // Skip tracking conditions
-    if (!this.userId || this.userId === "anonymous") {
-      console.log("VideoWatchTracker: Anonymous user, watch for fun only");
-      this.trackingEnabled = false;
-    } else if (this.videoFullyWatched) {
+    if (!this.isAnonymous && this.videoFullyWatched) {
       console.log("VideoWatchTracker: Video fully watched, no more BUX available");
       this.trackingEnabled = false;
-    } else if (!this.poolAvailable) {
+    } else if (!this.isAnonymous && !this.poolAvailable) {
       console.log("VideoWatchTracker: Pool empty, no rewards available");
       this.trackingEnabled = false;
     } else {
       this.trackingEnabled = true;
+      if (this.isAnonymous) {
+        console.log("VideoWatchTracker: Anonymous user - tracking for claim on signup");
+        // Anonymous users start with 0 high water mark (no previous watch history)
+        this.highWaterMark = 0;
+        this.totalBuxEarnedPreviously = 0;
+      }
     }
 
     // Session tracking state
@@ -199,6 +205,9 @@ export const VideoWatchTracker = {
     if (muteIndicator) {
       muteIndicator.style.display = this.isMuted ? "block" : "none";
     }
+    // Update panel colors when mute state changes
+    this.updatePanelColor();
+    this.updateAnonymousPanelColor();
     this.updatePanelColor();
   },
 
@@ -227,6 +236,7 @@ export const VideoWatchTracker = {
       this.startTracking();
     }
     this.updatePanelColor();
+    this.updateAnonymousPanelColor();
     this.pushEvent("video-playing", { post_id: this.postId });
   },
 
@@ -236,6 +246,7 @@ export const VideoWatchTracker = {
     this.pauseCount++;
     this.stopTracking();
     this.updatePanelColor();
+    this.updateAnonymousPanelColor();
     this.pushEvent("video-paused", {
       post_id: this.postId,
       session_earnable_time: this.sessionEarnableTime,
@@ -357,9 +368,18 @@ export const VideoWatchTracker = {
   updateBuxDisplay(currentPosition = null) {
     // Use passed position or fall back to last known position
     const displayPosition = currentPosition !== null ? currentPosition : this.lastPosition;
-    // Calculate BUX for THIS SESSION only (new territory beyond high water mark)
+
+    // Calculate BUX for THIS SESSION
     const earnableMinutes = this.sessionEarnableTime / 60;
-    let sessionBux = earnableMinutes * this.buxPerMinute;
+    let sessionBux;
+
+    if (this.isAnonymous) {
+      // Anonymous users: 5 BUX per minute
+      sessionBux = earnableMinutes * 5.0;
+    } else {
+      // Logged-in users: use post's configured rate
+      sessionBux = earnableMinutes * this.buxPerMinute;
+    }
 
     // Calculate max possible remaining BUX (from current high water mark to end)
     const remainingSeconds = Math.max(0, this.videoDuration - this.highWaterMark);
@@ -389,12 +409,26 @@ export const VideoWatchTracker = {
       totalDisplay.textContent = total.toFixed(1);
     }
 
+    // Update anonymous video earnings
+    const anonymousBuxDisplay = document.getElementById("anonymous-video-bux");
+    if (anonymousBuxDisplay) {
+      anonymousBuxDisplay.textContent = this.sessionBux.toFixed(1);
+    }
+
     // Update progress bar - shows overall video completion
     const progressBar = document.getElementById("video-watch-progress");
     if (progressBar && this.videoDuration > 0) {
       const newHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
       const progress = Math.min(100, (newHighWaterMark / this.videoDuration) * 100);
       progressBar.style.width = `${progress}%`;
+    }
+
+    // Update anonymous progress bar
+    const anonymousProgressBar = document.getElementById("anonymous-video-watch-progress");
+    if (anonymousProgressBar && this.videoDuration > 0) {
+      const newHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+      const progress = Math.min(100, (newHighWaterMark / this.videoDuration) * 100);
+      anonymousProgressBar.style.width = `${progress}%`;
     }
 
     // Update video progress time display (current position / total)
@@ -406,11 +440,20 @@ export const VideoWatchTracker = {
       progressTime.textContent = `${currentTime} / ${totalTime}`;
     }
 
+    // Update anonymous progress time
+    const anonymousProgressTime = document.getElementById("anonymous-video-progress-time");
+    if (anonymousProgressTime && this.videoDuration > 0) {
+      const currentTime = this.formatTime(displayPosition);
+      const totalTime = this.formatTime(this.videoDuration);
+      anonymousProgressTime.textContent = `${currentTime} / ${totalTime}`;
+    }
+
     // Update "watching new content" indicator
     // Use displayPosition for accurate real-time indicator (not stale lastPosition)
     // Compare against running high water mark (original + session max) to prevent false positives
     const newContentIndicator = document.getElementById("video-new-content");
     const rewatchingIndicator = document.getElementById("video-rewatching");
+    const anonymousNewContentIndicator = document.getElementById("anonymous-video-new-content");
 
     if (newContentIndicator && rewatchingIndicator) {
       const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
@@ -434,6 +477,21 @@ export const VideoWatchTracker = {
       // Update panel color based on earning state
       this.updatePanelColor(isWatchingNew);
     }
+
+    // Update anonymous new content indicator
+    if (anonymousNewContentIndicator) {
+      const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+      const isWatchingNew = displayPosition >= runningHighWaterMark;
+
+      if (isWatchingNew && this.isPlaying) {
+        anonymousNewContentIndicator.classList.remove("hidden");
+      } else {
+        anonymousNewContentIndicator.classList.add("hidden");
+      }
+
+      // Update anonymous panel color
+      this.updateAnonymousPanelColor(isWatchingNew);
+    }
   },
 
   // Update the earnings panel background color based on whether user is currently earning
@@ -445,6 +503,28 @@ export const VideoWatchTracker = {
     let currentlyEarning = isEarning;
     if (currentlyEarning === null) {
       // Fallback calculation if not passed
+      const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
+      currentlyEarning = this.lastPosition >= runningHighWaterMark;
+    }
+
+    const isActivelyEarning = this.isPlaying && !this.isMuted && currentlyEarning;
+
+    // Use inline style for reliable color change
+    if (isActivelyEarning) {
+      panel.style.background = "linear-gradient(to right, #8AE388, #6BCB69)";
+    } else {
+      panel.style.background = "linear-gradient(to right, #6B7280, #4B5563)";
+    }
+  },
+
+  // Update the anonymous earnings panel background color
+  updateAnonymousPanelColor(isEarning = null) {
+    const panel = document.getElementById("anonymous-video-earnings");
+    if (!panel) return;
+
+    // Determine if currently earning
+    let currentlyEarning = isEarning;
+    if (currentlyEarning === null) {
       const runningHighWaterMark = Math.max(this.highWaterMark, this.sessionMaxPosition);
       currentlyEarning = this.lastPosition >= runningHighWaterMark;
     }
@@ -495,6 +575,22 @@ export const VideoWatchTracker = {
       ? Math.round((newHighWaterMark / this.videoDuration) * 100)
       : 0;
 
+    // Handle anonymous users differently
+    if (this.isAnonymous && this.sessionEarnableTime > 0) {
+      // Store in localStorage for claim after signup
+      this.storeVideoClaimData();
+      // Show signup prompt
+      try {
+        this.pushEvent("show-anonymous-video-claim", {
+          buxEarned: this.sessionBux,
+          earnableTime: this.sessionEarnableTime
+        });
+      } catch (e) {
+        console.debug("VideoWatchTracker: Could not send show-anonymous-video-claim (LiveView disconnected)");
+      }
+      return;
+    }
+
     if (!this.trackingEnabled || this.sessionBux <= 0) {
       this.pushEvent("video-watch-complete", {
         post_id: this.postId,
@@ -532,6 +628,25 @@ export const VideoWatchTracker = {
 
     console.log("VideoWatchTracker: Finalizing session", metrics);
     this.pushEvent("video-watch-complete", metrics);
+  },
+
+  // Store video watch data in localStorage for claim after signup
+  storeVideoClaimData() {
+    const claimData = {
+      postId: this.postId,
+      type: 'video',
+      earnableTime: this.sessionEarnableTime,
+      earnedAmount: this.sessionBux,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes
+    };
+
+    try {
+      localStorage.setItem(`pending_claim_video_${this.postId}`, JSON.stringify(claimData));
+      console.log(`VideoWatchTracker: Stored claim for ${this.sessionBux} BUX in localStorage`);
+    } catch (e) {
+      console.error("VideoWatchTracker: Failed to store claim in localStorage", e);
+    }
   },
 
   // Called when user closes modal without video ending

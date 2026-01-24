@@ -1,8 +1,11 @@
 <!-- Fixed Bottom-Right BUX Panel - Hidden when video modal is open -->
-<%= if @current_user && !@video_modal_open do %>
+<!-- Now shows for both logged-in and anonymous users -->
+<%= if !@video_modal_open do %>
   <div id="bux-panel" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
-    <!-- Video Earned Badge (shows after watching video) -->
-    <%= if @post.video_id && @video_total_bux_earned > 0 do %>
+    <!-- LOGGED-IN USER PANELS -->
+    <%= if @current_user do %>
+      <!-- Video Earned Badge (shows after watching video) -->
+      <%= if @post.video_id && @video_total_bux_earned > 0 do %>
       <div class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -129,6 +132,85 @@
           </div>
         <% end %>
       <% end %>
+    <% end %>
+    <% end %>
+
+    <!-- ANONYMOUS USER - SIGNUP PROMPT (when article/video completed) -->
+    <%= if @is_anonymous && @show_signup_prompt && @pool_available do %>
+      <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] rounded-2xl shadow-2xl animate-bounce-shake" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6">
+          <!-- Earned Amount with BUX logo -->
+          <div class="flex items-center justify-between mb-4 gap-4">
+            <span class="text-gray-700 font-haas_medium_65">You Earned</span>
+            <div class="flex items-center gap-1.5">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
+              <span class="text-2xl font-haas_medium_65 text-green-600">
+                <%= :erlang.float_to_binary(@anonymous_earned * 1.0, decimals: 2) %> BUX
+              </span>
+            </div>
+          </div>
+
+          <!-- Engagement Score Breakdown (for reading) -->
+          <%= if @engagement_score do %>
+            <div class="text-sm text-gray-600 mb-4 space-y-1">
+              <div class="flex justify-between">
+                <span>Engagement Score:</span>
+                <span class="font-haas_medium_65"><%= trunc(@engagement_score) %>/10</span>
+              </div>
+            </div>
+          <% end %>
+
+          <!-- USD Value -->
+          <div class="text-sm text-gray-500 mb-6">
+            ≈ $<%= :erlang.float_to_binary(@anonymous_earned * 0.10, decimals: 2) %> USD
+          </div>
+
+          <!-- Login Button -->
+          <div>
+            <.link
+              navigate={~p"/login"}
+              style="background: linear-gradient(to right, #34D399, #10B981, #059669);"
+              class="block w-full text-center text-white font-haas_bold_75 py-3 px-4 rounded-lg transition-all cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-105 hover:bg-gradient-to-r hover:from-[#6EE7B7] hover:via-[#34D399] hover:to-[#10B981]"
+            >
+              Sign Up to Claim
+            </.link>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- ANONYMOUS USER - EARNING IN PROGRESS (while reading) -->
+    <%= if @is_anonymous && !@show_signup_prompt && @engagement_score && @pool_available do %>
+      <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <!-- Current Earnings -->
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">Earning Now</div>
+            <div class="text-xl font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</div>
+          </div>
+        </div>
+
+        <!-- Progress Indicator -->
+        <%= if @engagement_score do %>
+          <div class="mt-2 pt-2 border-t border-white/20">
+            <div class="flex justify-between text-xs opacity-90 mb-1">
+              <span>Engagement Score</span>
+              <span class="font-bold"><%= trunc(@engagement_score) %>/10</span>
+            </div>
+            <div class="w-full bg-white/20 rounded-full h-2">
+              <div class="bg-white h-2 rounded-full transition-all duration-300"
+                   style={"width: #{@engagement_score * 10}%"}>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Call to Action -->
+        <div class="mt-3 text-center text-xs opacity-90">
+          Keep reading to earn more!
+        </div>
+      </div>
     <% end %>
   </div>
 <% end %>
@@ -769,20 +851,37 @@
       </div>
     <% end %>
 
-    <!-- Anonymous User State -->
-    <%= if !@current_user do %>
-      <div class="absolute bottom-8 right-8 bg-gray-700 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+    <!-- Anonymous User - Earnings Panel -->
+    <%= if @is_anonymous && @pool_available do %>
+      <div id="anonymous-video-earnings" class="absolute bottom-8 right-8 text-white rounded-2xl shadow-2xl p-4 min-w-[220px] transition-all duration-300" style="background: linear-gradient(to right, #8AE388, #6BCB69);">
         <div class="flex items-center gap-3">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
           <div>
-            <div class="text-xs opacity-90">Log In to Earn</div>
-            <div class="text-lg font-bold">BUX Rewards</div>
+            <div class="text-xs opacity-90">This Session</div>
+            <div class="text-2xl font-bold">
+              +<span id="anonymous-video-bux">0.0</span> BUX
+            </div>
           </div>
         </div>
+
+        <!-- New Content Indicator (shown by JS) -->
+        <div id="anonymous-video-new-content" class="hidden mt-2 text-xs bg-white/20 rounded-full px-2 py-1 text-center">
+          ✨ Keep watching to earn more!
+        </div>
+
+        <!-- Watch Progress Bar -->
         <div class="mt-3">
-          <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="block w-full py-2 bg-white text-gray-800 font-haas_medium_65 rounded-lg text-center text-sm hover:bg-gray-100 transition-colors cursor-pointer">
-            Log In
-          </.link>
+          <div class="flex justify-between text-xs opacity-75 mb-1">
+            <span>Video Progress</span>
+            <span id="anonymous-video-progress-time">0:00 / {@video_duration_formatted}</span>
+          </div>
+          <div class="h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div
+              id="anonymous-video-watch-progress"
+              class="h-full bg-white rounded-full transition-all duration-500"
+              style="width: 0%"
+            ></div>
+          </div>
         </div>
       </div>
     <% end %>

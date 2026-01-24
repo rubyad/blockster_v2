@@ -138,6 +138,9 @@ defmodule BlocksterV2Web.PostLive.Show do
         {socket.assigns[:left_sidebar_products] || [], socket.assigns[:right_sidebar_products] || []}
       end
 
+    # Anonymous user tracking assigns
+    is_anonymous = socket.assigns[:current_user] == nil
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
@@ -170,6 +173,10 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:left_sidebar_products, left_sidebar_products)
      |> assign(:right_sidebar_products, right_sidebar_products)
      |> assign(:video_modal_open, false)
+     |> assign(:is_anonymous, is_anonymous)
+     |> assign(:show_signup_prompt, false)
+     |> assign(:anonymous_earned, 0)
+     |> assign(:engagement_score, nil)
      |> load_video_engagement()}
   end
 
@@ -225,6 +232,45 @@ defmodule BlocksterV2Web.PostLive.Show do
   # Get the hub's logo URL (if any) for displaying alongside the token
   defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
   defp get_hub_logo(_), do: nil
+
+  # Calculate engagement score from metrics (for anonymous users)
+  # Same logic as EngagementTracker.calculate_engagement_score/9 but works with map params
+  defp calculate_engagement_score(metrics) when is_map(metrics) do
+    # JS sends snake_case keys (time_spent, not timeSpent)
+    time_spent = Map.get(metrics, "time_spent", 0)
+    min_read_time = Map.get(metrics, "min_read_time", 1)
+    scroll_depth = Map.get(metrics, "scroll_depth", 0)
+    reached_end = Map.get(metrics, "reached_end", false)
+
+    # Base score starts at 1
+    base_score = 1.0
+
+    # Time ratio score (0-6 points)
+    time_ratio = if min_read_time > 0, do: time_spent / min_read_time, else: 0
+    time_score = cond do
+      time_ratio >= 1.0 -> 6.0
+      time_ratio >= 0.9 -> 5.0
+      time_ratio >= 0.8 -> 4.0
+      time_ratio >= 0.7 -> 3.0
+      time_ratio >= 0.5 -> 2.0
+      time_ratio >= 0.3 -> 1.0
+      true -> 0.0
+    end
+
+    # Scroll depth score (0-3 points)
+    depth_score = cond do
+      reached_end || scroll_depth >= 100 -> 3.0
+      scroll_depth >= 66 -> 2.0
+      scroll_depth >= 33 -> 1.0
+      true -> 0.0
+    end
+
+    # Calculate final score (min 1, max 10)
+    final_score = base_score + time_score + depth_score
+    min(max(final_score, 1.0), 10.0)
+  end
+
+  defp calculate_engagement_score(_), do: 1.0
 
   # Load existing video engagement for this user/post
   defp load_video_engagement(socket) do
@@ -446,6 +492,60 @@ defmodule BlocksterV2Web.PostLive.Show do
         {:error, _} ->
           {:noreply, socket}
       end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Anonymous user engagement update - calculate but don't reward
+  @impl true
+  def handle_event("anonymous-engagement-update", params, socket) do
+    if socket.assigns.is_anonymous && not socket.assigns.show_signup_prompt do
+      # Calculate engagement score from metrics
+      engagement_score = calculate_engagement_score(params)
+
+      # Calculate BUX earned for anonymous users: 5 BUX per engagement point
+      bux_earned = engagement_score * 5.0
+
+      {:noreply,
+       socket
+       |> assign(:engagement_score, engagement_score)
+       |> assign(:anonymous_earned, bux_earned)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Show signup prompt when anonymous user completes article
+  @impl true
+  def handle_event("show-anonymous-claim", params, socket) do
+    if socket.assigns.is_anonymous do
+      # Calculate final engagement score and earned amount
+      engagement_score = calculate_engagement_score(params["metrics"])
+      bux_earned = engagement_score * 5.0
+
+      {:noreply,
+       socket
+       |> assign(:show_signup_prompt, true)
+       |> assign(:anonymous_earned, bux_earned)
+       |> assign(:engagement_score, engagement_score)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Show signup prompt when anonymous user watches video
+  @impl true
+  def handle_event("show-anonymous-video-claim", params, socket) do
+    if socket.assigns.is_anonymous do
+      # BUX earned already calculated by JS: (seconds / 60) * 5.0
+      bux_earned = params["buxEarned"] || 0
+
+      {:noreply,
+       socket
+       |> assign(:show_signup_prompt, true)
+       |> assign(:anonymous_earned, bux_earned)
+       |> assign(:video_earned_state, true)}
     else
       {:noreply, socket}
     end
