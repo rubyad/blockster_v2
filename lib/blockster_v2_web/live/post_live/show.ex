@@ -175,7 +175,9 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:video_modal_open, false)
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
+     |> assign(:show_video_signup_prompt, false)
      |> assign(:anonymous_earned, 0)
+     |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
      |> load_video_engagement()}
   end
@@ -538,14 +540,13 @@ defmodule BlocksterV2Web.PostLive.Show do
   @impl true
   def handle_event("show-anonymous-video-claim", params, socket) do
     if socket.assigns.is_anonymous do
-      # BUX earned already calculated by JS: (seconds / 60) * 5.0
+      # BUX earned already calculated by JS: (seconds / 60) * 15.0
       bux_earned = params["buxEarned"] || 0
 
       {:noreply,
        socket
-       |> assign(:show_signup_prompt, true)
-       |> assign(:anonymous_earned, bux_earned)
-       |> assign(:video_earned_state, true)}
+       |> assign(:show_video_signup_prompt, true)
+       |> assign(:anonymous_video_earned, bux_earned)}
     else
       {:noreply, socket}
     end

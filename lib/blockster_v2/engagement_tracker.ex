@@ -663,7 +663,7 @@ defmodule BlocksterV2.EngagementTracker do
   Records BUX reward for reading an article.
   Returns {:ok, bux_earned} if new reward recorded, {:already_rewarded, existing_bux} if already exists.
   """
-  def record_read_reward(user_id, post_id, bux_earned) do
+  def record_read_reward(user_id, post_id, bux_earned, tx_hash \\ nil) do
     key = {user_id, post_id}
     now = System.system_time(:second)
 
@@ -677,7 +677,7 @@ defmodule BlocksterV2.EngagementTracker do
           post_id,
           bux_earned,        # read_bux
           false,             # read_paid
-          nil,               # read_tx_id
+          tx_hash,           # read_tx_id
           nil,               # x_share_bux
           false,             # x_share_paid
           nil,               # x_share_tx_id
@@ -715,7 +715,7 @@ defmodule BlocksterV2.EngagementTracker do
             post_id,
             bux_earned,                # read_bux (index 4)
             false,                     # read_paid (index 5)
-            nil,                       # read_tx_id (index 6)
+            tx_hash,                   # read_tx_id (index 6)
             elem(existing, 7),         # x_share_bux (preserve)
             elem(existing, 8),         # x_share_paid (preserve)
             elem(existing, 9),         # x_share_tx_id (preserve)

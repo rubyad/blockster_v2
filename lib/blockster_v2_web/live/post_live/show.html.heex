@@ -135,13 +135,47 @@
     <% end %>
     <% end %>
 
-    <!-- ANONYMOUS USER - SIGNUP PROMPT (when article/video completed) -->
+    <!-- ANONYMOUS USER - VIDEO SIGNUP PROMPT (when video completed) -->
+    <%= if @is_anonymous && @show_video_signup_prompt && @pool_available do %>
+      <div class="bg-gradient-to-r from-[#818CF8] to-[#6366F1] rounded-2xl shadow-2xl animate-bounce-shake mb-4" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6">
+          <!-- Earned Amount with BUX logo -->
+          <div class="flex items-center justify-between mb-4 gap-4">
+            <span class="text-gray-700 font-haas_medium_65">You Earned from Video</span>
+            <div class="flex items-center gap-1.5">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
+              <span class="text-2xl font-haas_medium_65 text-indigo-600">
+                <%= :erlang.float_to_binary(@anonymous_video_earned * 1.0, decimals: 2) %> BUX
+              </span>
+            </div>
+          </div>
+
+          <!-- USD Value -->
+          <div class="text-sm text-gray-500 mb-6">
+            ≈ $<%= :erlang.float_to_binary(@anonymous_video_earned * 0.10, decimals: 2) %> USD
+          </div>
+
+          <!-- Login Button -->
+          <div>
+            <.link
+              navigate={~p"/login"}
+              style="background: linear-gradient(to right, #818CF8, #6366F1, #4F46E5);"
+              class="block w-full text-center text-white font-haas_bold_75 py-3 px-4 rounded-lg transition-all cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-105 hover:bg-gradient-to-r hover:from-[#A5B4FC] hover:via-[#818CF8] hover:to-[#6366F1]"
+            >
+              Sign Up to Claim
+            </.link>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- ANONYMOUS USER - READING SIGNUP PROMPT (when article completed) -->
     <%= if @is_anonymous && @show_signup_prompt && @pool_available do %>
       <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] rounded-2xl shadow-2xl animate-bounce-shake" style="padding: 1.5px;">
         <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6">
           <!-- Earned Amount with BUX logo -->
           <div class="flex items-center justify-between mb-4 gap-4">
-            <span class="text-gray-700 font-haas_medium_65">You Earned</span>
+            <span class="text-gray-700 font-haas_medium_65">You Earned from Reading</span>
             <div class="flex items-center gap-1.5">
               <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
               <span class="text-2xl font-haas_medium_65 text-green-600">

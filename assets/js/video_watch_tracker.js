@@ -374,8 +374,8 @@ export const VideoWatchTracker = {
     let sessionBux;
 
     if (this.isAnonymous) {
-      // Anonymous users: 5 BUX per minute
-      sessionBux = earnableMinutes * 5.0;
+      // Anonymous users: 15 BUX per minute
+      sessionBux = earnableMinutes * 15.0;
     } else {
       // Logged-in users: use post's configured rate
       sessionBux = earnableMinutes * this.buxPerMinute;
@@ -383,13 +383,8 @@ export const VideoWatchTracker = {
 
     // Calculate max possible remaining BUX (from current high water mark to end)
     const remainingSeconds = Math.max(0, this.videoDuration - this.highWaterMark);
-    const maxRemainingBux = (remainingSeconds / 60) * this.buxPerMinute;
-
-    // Apply max reward cap if set (considering previously earned)
-    if (this.maxReward !== null) {
-      const maxSessionBux = this.maxReward - this.totalBuxEarnedPreviously;
-      sessionBux = Math.min(sessionBux, maxSessionBux);
-    }
+    const earnRate = this.isAnonymous ? 15.0 : this.buxPerMinute;
+    const maxRemainingBux = (remainingSeconds / 60) * earnRate;
 
     // Can't earn more than remaining video allows
     sessionBux = Math.min(sessionBux, maxRemainingBux);

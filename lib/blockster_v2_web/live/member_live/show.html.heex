@@ -75,7 +75,7 @@
                   🎉 Welcome to Blockster!
                 </h3>
                 <p class="text-green-800 font-haas_medium_65 mb-3">
-                  You successfully claimed <span class="font-haas_bold_75 text-2xl"><%= Float.round(@total_claimed, 2) %> BUX</span> from reading!
+                  You successfully claimed <span class="font-haas_bold_75 text-2xl"><%= Float.round(@total_claimed, 2) %> BUX</span> from <%= @claim_type_text || "engaging with content" %>!
                 </p>
                 <div class="text-sm text-green-700">
                   Check your activity feed below to see the transaction details.
@@ -849,8 +849,9 @@
                   <span class="text-sm text-[#141414] font-haas_medium_65 leading-[1.4]">
                     TOTAL EARNED
                   </span>
-                  <h2 class="md:text-[32px] text-[24px] md:mt-2 !leading-[1.2] tracking-[0.02em]">
-                    <%= :erlang.float_to_binary((is_struct(@total_bux, Decimal) && Decimal.to_float(@total_bux)) || (is_number(@total_bux) && @total_bux * 1.0) || 0.0, [decimals: 2]) %> $BUX
+                  <h2 class="md:text-[32px] text-[24px] md:mt-2 !leading-[1.2] tracking-[0.02em] flex items-center gap-2">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 md:w-8 md:h-8 rounded-full" />
+                    <%= :erlang.float_to_binary((is_struct(@total_bux, Decimal) && Decimal.to_float(@total_bux)) || (is_number(@total_bux) && @total_bux * 1.0) || 0.0, [decimals: 2]) %> BUX
                   </h2>
                 </div>
                 <div class="flex gap-2">

@@ -228,6 +228,10 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
           case BuxMinter.mint_bux(wallet_address, bux_amount, user_id, post_id, :x_share, "BUX", hub_id) do
             {:ok, response} ->
               tx_hash = response["transactionHash"]
+
+              # Deduct from post pool
+              BlocksterV2.EngagementTracker.deduct_from_pool_guaranteed(post_id, bux_amount)
+
               Social.mark_rewarded(user_id, campaign_id, bux_amount, tx_hash: tx_hash, post_id: post_id)
 
             {:error, :not_configured} ->

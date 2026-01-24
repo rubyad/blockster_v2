@@ -84,16 +84,9 @@ defmodule BlocksterV2.BuxMinter do
               Logger.warning("[BuxMinter] Could not fetch on-chain balance: #{inspect(reason)}")
           end
 
-          # Deduct from pool AFTER successful mint (pool system - finite BUX pools)
-          # This is the single source of truth for pool deductions on read rewards
-          if reward_type == :read do
-            case EngagementTracker.try_deduct_from_pool(post_id, amount) do
-              {:ok, _deducted, _status} ->
-                Logger.info("[BuxMinter] Deducted #{amount} BUX from pool for post #{post_id}")
-              {:error, reason} ->
-                Logger.warning("[BuxMinter] Could not deduct from pool: #{inspect(reason)}")
-            end
-          end
+          # NOTE: Pool deductions moved to calling code for clarity and consistency
+          # Each reward type (read, video, x_share) handles its own pool deduction
+          # using EngagementTracker.deduct_from_pool_guaranteed()
 
           {:ok, response}
 
