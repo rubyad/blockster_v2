@@ -4,6 +4,7 @@
   "description": "Blockster V2 frontend dependencies",
   "private": true,
   "dependencies": {
+    "@fingerprintjs/fingerprintjs-pro": "^3.12.6",
     "@tailwindcss/typography": "^0.5.19",
     "@tiptap/core": "^2.27.1",
     "@tiptap/extension-image": "^2.1.13",

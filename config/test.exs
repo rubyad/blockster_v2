@@ -6,8 +6,8 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :blockster_v2, BlocksterV2.Repo,
-  username: "postgres",
-  password: "postgres",
+  username: System.get_env("DATABASE_USER") || System.get_env("USER") || "postgres",
+  password: System.get_env("DATABASE_PASSWORD") || "postgres",
   hostname: "localhost",
   database: "blockster_v2_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
@@ -35,3 +35,6 @@ config :phoenix, :plug_init_mode, :runtime
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
+
+# Disable GenServers that could interfere with tests
+config :blockster_v2, :start_genservers, false

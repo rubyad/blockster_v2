@@ -227,6 +227,12 @@ defmodule BlocksterV2Web.Layouts do
                     >
                       View Profile
                     </.link>
+                    <.link
+                      navigate={~p"/settings/devices"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Manage Devices
+                    </.link>
                     <button
                       onclick="window.handleWalletDisconnect()"
                       class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -308,6 +314,12 @@ defmodule BlocksterV2Web.Layouts do
                           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
                           Waitlist
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/flagged-accounts"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Flagged Accounts
                         </.link>
                       <% end %>
                     <% end %>
@@ -419,6 +431,12 @@ defmodule BlocksterV2Web.Layouts do
                   >
                     View Profile
                   </.link>
+                  <.link
+                    navigate={~p"/settings/devices"}
+                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Manage Devices
+                  </.link>
                   <button
                     onclick="window.handleWalletDisconnect()"
                     class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -500,6 +518,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Waitlist
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/flagged-accounts"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Flagged Accounts
                       </.link>
                     <% end %>
                   <% end %>

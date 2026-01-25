@@ -29,6 +29,8 @@
     <script>
       // Make Thirdweb client ID available to JavaScript BEFORE app.js loads
       window.THIRDWEB_CLIENT_ID = "a914a4c615baa6291b52524a4446ab90";
+      // Make FingerprintJS public key available to JavaScript
+      window.FINGERPRINTJS_PUBLIC_KEY = "<%= System.get_env("FINGERPRINTJS_PUBLIC_KEY") %>";
     </script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>

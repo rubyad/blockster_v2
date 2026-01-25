@@ -43,6 +43,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/product-categories", ProductCategoriesAdminLive, :index
       live "/admin/product-tags", ProductTagsAdminLive, :index
       live "/admin/artists", ArtistsAdminLive, :index
+      live "/admin/flagged-accounts", AdminLive.FlaggedAccounts, :index
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
@@ -50,6 +51,7 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/profile", UserProfileLive, :index
+      live "/settings/devices", MemberLive.Devices, :index
     end
 
     live_session :author_new,

@@ -599,6 +599,12 @@
                   </p>
                 </div>
               <% end %>
+            <% else %>
+              <!-- Non-admin: preserve existing video fields with hidden inputs -->
+              <input type="hidden" name="post[video_url]" value={@form[:video_url].value || ""} />
+              <input type="hidden" name="post[video_duration]" value={@form[:video_duration].value || ""} />
+              <input type="hidden" name="post[video_bux_per_minute]" value={if @form[:video_bux_per_minute].value, do: Decimal.to_string(@form[:video_bux_per_minute].value), else: ""} />
+              <input type="hidden" name="post[video_max_reward]" value={if @form[:video_max_reward].value, do: Decimal.to_string(@form[:video_max_reward].value), else: ""} />
             <% end %>
 
 <!-- TipTap Editor -->

@@ -19,9 +19,15 @@ defmodule BlocksterV2.Accounts.User do
     field :smart_wallet_address, :string
     field :locked_x_user_id, :string
 
+    # Fingerprint flags
+    field :is_flagged_multi_account_attempt, :boolean, default: false
+    field :last_suspicious_activity_at, :utc_datetime
+    field :registered_devices_count, :integer, default: 0
+
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
     has_many :organized_events, BlocksterV2.Events.Event, foreign_key: :organizer_id
+    has_many :fingerprints, BlocksterV2.Accounts.UserFingerprint
     many_to_many :followed_hubs, BlocksterV2.Blog.Hub,
       join_through: "hub_followers",
       on_replace: :delete
@@ -37,7 +43,8 @@ defmodule BlocksterV2.Accounts.User do
     user
     |> cast(attrs, [:email, :wallet_address, :smart_wallet_address, :username, :auth_method, :is_verified,
                     :is_admin, :is_author, :bux_balance, :level, :experience_points,
-                    :avatar_url, :chain_id])
+                    :avatar_url, :chain_id, :is_flagged_multi_account_attempt,
+                    :last_suspicious_activity_at, :registered_devices_count])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)
@@ -72,7 +79,7 @@ defmodule BlocksterV2.Accounts.User do
   """
   def email_registration_changeset(attrs) do
     %__MODULE__{}
-    |> cast(attrs, [:email, :wallet_address, :smart_wallet_address, :username, :avatar_url])
+    |> cast(attrs, [:email, :wallet_address, :smart_wallet_address, :username, :avatar_url, :registered_devices_count])
     |> put_change(:auth_method, "email")
     |> put_change(:is_verified, false)  # Email needs verification
     |> validate_required([:email, :wallet_address, :smart_wallet_address])

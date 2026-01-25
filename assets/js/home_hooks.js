@@ -201,6 +201,12 @@ export const ThirdwebLogin = {
     // Store in window for global access
     window.personalWallet = this.personalWallet;
 
+    // NEW: Check if user was in the middle of email verification (mobile fix)
+    this.restoreLoginState();
+
+    // NEW: Initialize fingerprint hook reference
+    this.fingerprintHook = window.FingerprintHookInstance;
+
     // Initialize smart wallet that wraps the in-app wallet
     // Bundler service deployed on Fly.io (Rundler v0.9.2)
     const walletConfig = {
@@ -314,6 +320,41 @@ export const ThirdwebLogin = {
   updated() {
     console.log('ThirdwebLogin hook updated - reattaching event listeners');
     this.attachEventListeners();
+  },
+
+  // NEW: Restore login state from localStorage (fixes mobile issue)
+  restoreLoginState() {
+    const savedEmail = localStorage.getItem('login_pending_email');
+    const savedTimestamp = localStorage.getItem('login_pending_timestamp');
+
+    if (savedEmail && savedTimestamp) {
+      // Check if state is less than 30 minutes old
+      const now = Date.now();
+      const age = now - parseInt(savedTimestamp);
+      const maxAge = 30 * 60 * 1000; // 30 minutes
+
+      if (age < maxAge) {
+        console.log('Restoring login state for email:', savedEmail);
+        this.pendingEmail = savedEmail;
+        this.pushEvent("show_code_input", { email: savedEmail });
+      } else {
+        // State too old, clear it
+        console.log('Clearing stale login state');
+        this.clearLoginState();
+      }
+    }
+  },
+
+  // NEW: Save login state to localStorage
+  saveLoginState(email) {
+    localStorage.setItem('login_pending_email', email);
+    localStorage.setItem('login_pending_timestamp', Date.now().toString());
+  },
+
+  // NEW: Clear login state from localStorage
+  clearLoginState() {
+    localStorage.removeItem('login_pending_email');
+    localStorage.removeItem('login_pending_timestamp');
   },
 
   attachEventListeners() {
@@ -574,6 +615,9 @@ export const ThirdwebLogin = {
       this.pendingEmail = email;
       console.log('Stored pending email:', this.pendingEmail);
 
+      // NEW: Save to localStorage for mobile users (WebSocket reconnect fix)
+      this.saveLoginState(email);
+
       // Update LiveView state to show code input
       this.pushEvent("show_code_input", { email: email });
 
@@ -613,6 +657,26 @@ export const ThirdwebLogin = {
       this.pushEvent("show_loading", {});
       console.log('Verifying code...');
 
+      // NEW: Get fingerprint FIRST (before any wallet/API calls)
+      let fingerprintData = null;
+      if (this.fingerprintHook) {
+        console.log('Getting fingerprint before wallet connection...');
+        fingerprintData = await this.fingerprintHook.getFingerprint();
+
+        if (!fingerprintData) {
+          console.error('Failed to get fingerprint');
+          alert('Unable to verify device. Please check your browser settings and try again.');
+          this.pushEvent("show_code_input", { email: this.pendingEmail });
+          return;
+        }
+
+        console.log('Fingerprint obtained:', fingerprintData.visitorId);
+      } else {
+        console.error('FingerprintHook not available - cannot proceed');
+        alert('Device verification is required. Please refresh the page and try again.');
+        return;
+      }
+
       // Step 1: Connect the personal wallet (inAppWallet)
       console.log('Step 1: Connecting personal wallet...');
       const personalAccount = await this.personalWallet.connect({
@@ -643,8 +707,16 @@ export const ThirdwebLogin = {
       // Store address in localStorage so we can verify it's the same user
       localStorage.setItem('smartAccountAddress', smartAccount.address);
 
-      // Pass both personal wallet (EOA) and smart wallet addresses
-      await this.authenticateEmail(this.pendingEmail, personalAccount.address, smartAccount.address);
+      // NEW: Clear login state after successful wallet connection
+      this.clearLoginState();
+
+      // Pass both personal wallet (EOA) and smart wallet addresses + fingerprint data
+      await this.authenticateEmail(
+        this.pendingEmail,
+        personalAccount.address,
+        smartAccount.address,
+        fingerprintData
+      );
     } catch (error) {
       console.error('Verification error:', error);
       console.error('Error message:', error.message);
@@ -698,8 +770,23 @@ export const ThirdwebLogin = {
     }
   },
 
-  async authenticateEmail(email, personalWalletAddress, smartWalletAddress) {
+  async authenticateEmail(email, personalWalletAddress, smartWalletAddress, fingerprintData) {
     try {
+      const body = {
+        email: email,
+        wallet_address: personalWalletAddress,
+        smart_wallet_address: smartWalletAddress,
+        fingerprint_id: fingerprintData.visitorId,
+        fingerprint_confidence: fingerprintData.confidence,
+        fingerprint_request_id: fingerprintData.requestId
+      };
+
+      console.log('Sending authentication request with fingerprint:', {
+        email,
+        fingerprint_id: fingerprintData.visitorId,
+        fingerprint_confidence: fingerprintData.confidence
+      });
+
       const response = await fetch('/api/auth/email/verify', {
         method: 'POST',
         credentials: 'same-origin',
@@ -707,11 +794,7 @@ export const ThirdwebLogin = {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          email: email,
-          wallet_address: personalWalletAddress,
-          smart_wallet_address: smartWalletAddress
-        })
+        body: JSON.stringify(body)
       });
 
       const data = await response.json();
@@ -724,7 +807,16 @@ export const ThirdwebLogin = {
         window.location.href = `/member/${data.user.smart_wallet_address}`;
       } else {
         console.error('Authentication failed:', data.errors);
-        alert('Authentication failed. Please try again.');
+
+        // NEW: Show specific error message for fingerprint conflicts
+        if (data.error_type === 'fingerprint_conflict') {
+          alert(`❌ Device Already Registered\n\nThis device is already registered to another account (${data.existing_email}).\n\nOnly one account per device is allowed to prevent abuse.`);
+        } else if (data.errors) {
+          const errorMessages = Object.values(data.errors).flat().join('\n');
+          alert(`❌ ${errorMessages}`);
+        } else {
+          alert('Authentication failed. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error authenticating email:', error);

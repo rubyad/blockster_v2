@@ -40,13 +40,23 @@ defmodule BlocksterV2Web.AuthController do
 
   @doc """
   POST /api/auth/email/verify
-  Verifies email signup and creates/authenticates user.
-  Expects: %{email: "...", wallet_address: "0x...", smart_wallet_address: "0x..."}
+  Verifies email signup and creates/authenticates user with fingerprint validation.
+  Expects: %{
+    email: "...",
+    wallet_address: "0x...",
+    smart_wallet_address: "0x...",
+    fingerprint_id: "fp_...",
+    fingerprint_confidence: 0.99,
+    fingerprint_request_id: "req_..."
+  }
   wallet_address = personal wallet (EOA) from Thirdweb in-app wallet
   smart_wallet_address = ERC-4337 smart wallet address (displayed to user)
+
+  BLOCKS new account creation if fingerprint is already registered.
+  ALLOWS existing users to login from new devices (adds fingerprint to their account).
   """
-  def verify_email(conn, %{"email" => email, "wallet_address" => wallet_address, "smart_wallet_address" => smart_wallet_address}) do
-    case Accounts.authenticate_email(email, wallet_address, smart_wallet_address) do
+  def verify_email(conn, params) do
+    case Accounts.authenticate_email_with_fingerprint(params) do
       {:ok, user, session} ->
         conn
         |> put_session(:user_token, session.token)
@@ -64,9 +74,21 @@ defmodule BlocksterV2Web.AuthController do
             level: user.level,
             experience_points: user.experience_points,
             auth_method: user.auth_method,
-            is_verified: user.is_verified
+            is_verified: user.is_verified,
+            registered_devices_count: user.registered_devices_count
           },
           token: session.token
+        })
+
+      {:error, :fingerprint_conflict, existing_email} ->
+        # HARD BLOCK: Fingerprint already belongs to another user
+        conn
+        |> put_status(:forbidden)
+        |> json(%{
+          success: false,
+          error_type: "fingerprint_conflict",
+          message: "This device is already registered to another account",
+          existing_email: mask_email(existing_email)
         })
 
       {:error, changeset} ->
@@ -136,5 +158,13 @@ defmodule BlocksterV2Web.AuthController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  # Helper to mask email (show first 2 chars and domain)
+  # Example: alice@example.com -> al***@example.com
+  defp mask_email(email) do
+    [username, domain] = String.split(email, "@")
+    masked_username = String.slice(username, 0..1) <> "***"
+    "#{masked_username}@#{domain}"
   end
 end

@@ -48,6 +48,7 @@ import { CoinFlip } from "./coin_flip.js";
 import { BuxBoosterOnchain } from "./bux_booster_onchain.js";
 import { VideoWatchTracker } from "./video_watch_tracker.js";
 import { AnonymousClaimManager } from "./anonymous_claim_manager.js";
+import { FingerprintHook } from "./fingerprint_hook.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -311,7 +312,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook },
 });
 
 // connect if there are any LiveViews on the page
@@ -525,6 +526,12 @@ window.addEventListener("phx:clear-tag-input", () => {
   if (tagInput) {
     tagInput.value = "";
   }
+});
+
+// Initialize fingerprint hook globally (mount once on page load)
+document.addEventListener('DOMContentLoaded', () => {
+  window.FingerprintHookInstance = Object.create(FingerprintHook);
+  window.FingerprintHookInstance.mounted();
 });
 
 // The lines below enable quality of life phoenix_live_reload

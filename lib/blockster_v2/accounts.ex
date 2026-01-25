@@ -6,7 +6,7 @@ defmodule BlocksterV2.Accounts do
 
   import Ecto.Query, warn: false
   alias BlocksterV2.Repo
-  alias BlocksterV2.Accounts.{User, UserSession}
+  alias BlocksterV2.Accounts.{User, UserSession, UserFingerprint}
 
   ## User functions
 
@@ -279,6 +279,233 @@ defmodule BlocksterV2.Accounts do
           error -> error
         end
     end
+  end
+
+  @doc """
+  Authenticates a user by email with fingerprint validation.
+
+  CRITICAL LOGIC:
+  1. Check if email exists in database
+  2. If email exists → ALLOW login, add fingerprint as new device
+  3. If email is NEW → Check if fingerprint exists
+     - If fingerprint is NEW → CREATE account
+     - If fingerprint EXISTS → BLOCK (return error)
+
+  Returns:
+  - {:ok, user, session} on success
+  - {:error, :fingerprint_conflict, existing_email} if fingerprint is taken
+  - {:error, changeset} on other errors
+  """
+  def authenticate_email_with_fingerprint(attrs) do
+    # Validate required fingerprint fields first
+    with {:ok, email} <- validate_presence(attrs, "email"),
+         {:ok, fingerprint_id} <- validate_presence(attrs, "fingerprint_id"),
+         {:ok, fingerprint_confidence} <- validate_presence(attrs, "fingerprint_confidence"),
+         {:ok, wallet_address} <- validate_presence(attrs, "wallet_address"),
+         {:ok, smart_wallet_address} <- validate_presence(attrs, "smart_wallet_address") do
+      email = String.downcase(email)
+
+      # Step 1: Check if user already exists
+      case get_user_by_email(email) do
+        nil ->
+          # NEW USER - Check fingerprint availability
+          authenticate_new_user_with_fingerprint(attrs)
+
+        existing_user ->
+          # EXISTING USER - Allow login, add fingerprint if new device
+          authenticate_existing_user_with_fingerprint(existing_user, attrs)
+      end
+    else
+      {:error, field} ->
+        changeset = %User{}
+        |> Ecto.Changeset.cast(%{}, [])
+        |> Ecto.Changeset.add_error(field, "can't be blank")
+        {:error, changeset}
+    end
+  end
+
+  defp validate_presence(attrs, field_str) do
+    value = attrs[field_str] || attrs[String.to_atom(field_str)]
+    if value && value != "", do: {:ok, value}, else: {:error, String.to_atom(field_str)}
+  end
+
+  defp authenticate_new_user_with_fingerprint(attrs) do
+    email = String.downcase(attrs["email"] || attrs[:email])
+    fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
+
+    # Check PostgreSQL for fingerprint ownership
+    case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
+      nil ->
+        # Fingerprint is available - create new account
+        create_new_user_with_fingerprint(attrs)
+
+      existing_fingerprint ->
+        # BLOCK: Fingerprint already claimed by another user
+        existing_user = get_user(existing_fingerprint.user_id)
+
+        # Log suspicious activity
+        {:ok, _} = update_user(existing_user, %{
+          is_flagged_multi_account_attempt: true,
+          last_suspicious_activity_at: DateTime.utc_now()
+        })
+
+        # Return error with masked email
+        {:error, :fingerprint_conflict, existing_user.email}
+    end
+  end
+
+  defp create_new_user_with_fingerprint(attrs) do
+    email = String.downcase(attrs["email"] || attrs[:email])
+    wallet_address = String.downcase(attrs["wallet_address"] || attrs[:wallet_address])
+    smart_wallet_address = String.downcase(attrs["smart_wallet_address"] || attrs[:smart_wallet_address])
+    fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
+    fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
+
+    # Start transaction to create user + fingerprint atomically
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:user, User.email_registration_changeset(%{
+      email: email,
+      wallet_address: wallet_address,
+      smart_wallet_address: smart_wallet_address,
+      registered_devices_count: 1
+    }))
+    |> Ecto.Multi.insert(:fingerprint, fn %{user: user} ->
+      UserFingerprint.changeset(%UserFingerprint{}, %{
+        user_id: user.id,
+        fingerprint_id: fingerprint_id,
+        fingerprint_confidence: fingerprint_confidence,
+        first_seen_at: DateTime.utc_now(),
+        last_seen_at: DateTime.utc_now(),
+        is_primary: true  # First device
+      })
+    end)
+    |> Ecto.Multi.run(:session, fn _repo, %{user: user} ->
+      create_session(user.id)
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user, session: session}} ->
+        {:ok, user, session}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
+
+      {:error, :fingerprint, changeset, _} ->
+        # Fingerprint constraint violation
+        {:error, changeset}
+    end
+  end
+
+  defp authenticate_existing_user_with_fingerprint(user, attrs) do
+    smart_wallet_address = String.downcase(attrs["smart_wallet_address"] || attrs[:smart_wallet_address])
+    fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
+    fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
+
+    # Update smart_wallet_address if changed
+    user =
+      if user.smart_wallet_address != smart_wallet_address do
+        {:ok, updated_user} = update_user(user, %{smart_wallet_address: smart_wallet_address})
+        updated_user
+      else
+        user
+      end
+
+    # CRITICAL: Always check and claim fingerprints for existing users
+    # This prevents unclaimed devices from being used for new account creation
+    case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
+      nil ->
+        # NEW device - claim it for this user
+        # This prevents someone else from creating an account on this device
+        add_fingerprint_to_user(user, fingerprint_id, fingerprint_confidence)
+
+      existing_fp when existing_fp.user_id == user.id ->
+        # This user's device - update last_seen timestamp
+        Repo.update(UserFingerprint.changeset(existing_fp, %{
+          last_seen_at: DateTime.utc_now()
+        }))
+
+      _other_users_fingerprint ->
+        # Different user's device (shared device scenario)
+        # Examples: family computer, internet cafe, sold device
+        # ALLOW login but DON'T claim the device
+        # The device stays "owned" by whoever claimed it first
+        # This still prevents NEW account creation on this device
+        :ok
+    end
+
+    # Create session
+    case create_session(user.id) do
+      {:ok, session} -> {:ok, user, session}
+      error -> error
+    end
+  end
+
+  defp add_fingerprint_to_user(user, fingerprint_id, fingerprint_confidence) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:fingerprint, UserFingerprint.changeset(%UserFingerprint{}, %{
+      user_id: user.id,
+      fingerprint_id: fingerprint_id,
+      fingerprint_confidence: fingerprint_confidence,
+      first_seen_at: DateTime.utc_now(),
+      last_seen_at: DateTime.utc_now(),
+      is_primary: false
+    }))
+    |> Ecto.Multi.update(:user, User.changeset(user, %{
+      registered_devices_count: user.registered_devices_count + 1
+    }))
+    |> Repo.transaction()
+    |> case do
+      {:ok, _} -> {:ok, :device_added}
+      {:error, _, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  @doc """
+  Get all devices (fingerprints) for a user.
+  """
+  def get_user_devices(user_id) do
+    from(uf in UserFingerprint,
+      where: uf.user_id == ^user_id,
+      order_by: [desc: uf.is_primary, desc: uf.first_seen_at]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Remove a device from a user's account.
+  """
+  def remove_user_device(user_id, fingerprint_id) do
+    user = get_user(user_id)
+
+    if user.registered_devices_count <= 1 do
+      {:error, :cannot_remove_last_device}
+    else
+      Ecto.Multi.new()
+      |> Ecto.Multi.delete_all(:fingerprint,
+        from(uf in UserFingerprint,
+          where: uf.user_id == ^user_id and uf.fingerprint_id == ^fingerprint_id
+        )
+      )
+      |> Ecto.Multi.update(:user, User.changeset(user, %{
+        registered_devices_count: user.registered_devices_count - 1
+      }))
+      |> Repo.transaction()
+      |> case do
+        {:ok, _} -> {:ok, :device_removed}
+        {:error, _, reason, _} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Lists all users who attempted multi-account creation.
+  """
+  def list_flagged_accounts do
+    from(u in User,
+      where: u.is_flagged_multi_account_attempt == true,
+      order_by: [desc: u.last_suspicious_activity_at]
+    )
+    |> Repo.all()
   end
 
   ## BUX token management

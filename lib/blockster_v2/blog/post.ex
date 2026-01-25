@@ -137,9 +137,14 @@ defmodule BlocksterV2.Blog.Post do
   # Extract YouTube video ID from URL when video_url changes
   defp extract_video_id(changeset) do
     case get_change(changeset, :video_url) do
-      nil -> changeset
-      "" -> put_change(changeset, :video_id, nil)
+      nil ->
+        # video_url not being changed, preserve existing video_id
+        changeset
+      "" ->
+        # video_url explicitly cleared, clear video_id too
+        put_change(changeset, :video_id, nil)
       url ->
+        # video_url provided, extract and set video_id
         video_id = extract_youtube_id(url)
         put_change(changeset, :video_id, video_id)
     end
