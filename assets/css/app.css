@@ -1020,3 +1020,15 @@ html {
   overflow-wrap: anywhere;
   word-break: break-all;
 }
+
+/* Hide LiveView connection error flash on mobile reconnection
+   The phx-disconnected and phx-error classes are added by LiveView
+   when the WebSocket connection drops. On mobile, this is expected
+   behavior when users switch apps, so we hide these messages. */
+.phx-disconnected,
+.phx-error {
+  display: none !important;
+}
+
+/* Optional: If you want to show a subtle loading indicator instead of error,
+   you can style phx-loading and phx-connected classes here */
