@@ -328,10 +328,10 @@ export const ThirdwebLogin = {
     const savedTimestamp = localStorage.getItem('login_pending_timestamp');
 
     if (savedEmail && savedTimestamp) {
-      // Check if state is less than 30 minutes old
+      // Check if state is less than 2 minutes old
       const now = Date.now();
       const age = now - parseInt(savedTimestamp);
-      const maxAge = 30 * 60 * 1000; // 30 minutes
+      const maxAge = 2 * 60 * 1000; // 2 minutes
 
       if (age < maxAge) {
         console.log('Restoring login state for email:', savedEmail);
@@ -343,6 +343,12 @@ export const ThirdwebLogin = {
         this.clearLoginState();
       }
     }
+  },
+
+  // NEW: Called when LiveView reconnects after user returns from email app
+  reconnected() {
+    console.log('LiveView reconnected - checking for pending login state');
+    this.restoreLoginState();
   },
 
   // NEW: Save login state to localStorage
