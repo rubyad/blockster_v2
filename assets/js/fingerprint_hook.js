@@ -4,6 +4,9 @@ export const FingerprintHook = {
   async mounted() {
     console.log('FingerprintHook mounted');
 
+    // Store this hook instance globally so ThirdwebLogin can access it
+    window.FingerprintHookInstance = this;
+
     // Check if we already have a fingerprint in localStorage from a previous session
     const cachedFingerprint = localStorage.getItem('fp_visitor_id');
     const cachedConfidence = localStorage.getItem('fp_confidence');
