@@ -66,7 +66,10 @@ defmodule BlocksterV2.MixProject do
       {:hackney, "~> 1.20"},
       {:sweet_xml, "~> 0.7"},
       {:dotenv, "~> 3.1.0", only: [:dev, :test]},
-      {:number, "~> 1.0"}
+      {:number, "~> 1.0"},
+      {:ex_phone_number, "~> 0.4"},
+      {:httpoison, "~> 2.0"},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

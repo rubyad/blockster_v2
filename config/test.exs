@@ -38,3 +38,6 @@ config :phoenix_live_view,
 
 # Disable GenServers that could interfere with tests
 config :blockster_v2, :start_genservers, false
+
+# Use mock Twilio client in tests
+config :blockster_v2, :twilio_client, TwilioClientMock

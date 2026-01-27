@@ -2300,3 +2300,43 @@ The `ratePerSecond` is stored in wei (e.g., `1.062454e18` for Aurora). Multiplyi
 - Updated top box links to use this new function
 
 **Documentation**: See [high-rollers-nfts/docs/nft_revenues.md](high-rollers-nfts/docs/nft_revenues.md) for complete implementation plan.
+
+---
+
+## Known Issues
+
+### Claude API Error: "tool_use ids must be unique"
+
+**Error**: When using Read or Grep tools, the API returns `{"type":"error","error":{"type":"invalid_request_error","message":"tool_use ids must be unique"}}`
+
+**When It Happens**:
+- Even at the start of fresh conversations
+- Across different Claude models (Sonnet, Opus)
+- Consistently reproducible when trying to read files directly
+- Appears to be a platform-level issue with tool ID generation
+
+**Workaround**: Use the Task tool with general-purpose agent to read files instead of direct Read/Grep calls:
+```
+Instead of:
+  Read file directly → API error
+
+Use:
+  Task tool → spawns separate agent context → agent uses Read/Grep → succeeds
+```
+
+**Why It Works**: Task agents run in a separate context with their own tool ID space, avoiding ID collisions that cause the error.
+
+**Recommendation**:
+- When encountering "tool_use ids must be unique" error, switch to using Task tool for file reading operations
+- Task tool is reliable for reading, grepping, and analyzing files
+- This is a temporary workaround until the underlying API issue is resolved
+- Do NOT waste time debugging tool call syntax - it's not a code issue, it's a platform issue
+
+**Example**:
+```
+User: "Read the config file"
+
+Instead of calling Read tool directly (which may error):
+  Use Task tool: "Read /path/to/config.exs and summarize the configuration"
+  The spawned agent will successfully read and return the contents
+```

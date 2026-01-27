@@ -391,6 +391,10 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     # Remove tags from post_params since we'll handle it separately
     post_params = Map.delete(post_params, "tags")
 
+    # Preserve video fields if not explicitly provided or empty
+    # This prevents accidental clearing of video data during edits
+    post_params = preserve_video_fields(socket.assigns.post, post_params)
+
     case Blog.update_post(socket.assigns.post, post_params) do
       {:ok, post} ->
         # Update tags after updating post
@@ -541,5 +545,29 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
       "featured_image" => form[:featured_image].value,
       "slug" => form[:slug].value || ""
     }
+  end
+
+  # Preserve video fields from existing post if not explicitly provided in params
+  # This prevents accidental clearing of video data during post edits
+  defp preserve_video_fields(existing_post, params) do
+    video_fields = [:video_url, :video_duration, :video_bux_per_minute, :video_max_reward]
+
+    Enum.reduce(video_fields, params, fn field, acc ->
+      field_str = Atom.to_string(field)
+      param_value = Map.get(acc, field_str)
+      existing_value = Map.get(existing_post, field)
+
+      # If param is nil, empty string, or not present, preserve existing value
+      cond do
+        is_nil(param_value) and not is_nil(existing_value) ->
+          Map.put(acc, field_str, existing_value)
+
+        param_value == "" and not is_nil(existing_value) ->
+          Map.put(acc, field_str, existing_value)
+
+        true ->
+          acc
+      end
+    end)
   end
 end

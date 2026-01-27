@@ -46,7 +46,10 @@ config :blockster_v2,
       if(config_env() == :prod,
         do: "https://blockster-v2.fly.dev",
         else: "http://localhost:4000"
-      )
+      ),
+  twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
+  twilio_auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
+  twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID")
 
 # Mnesia configuration
 # In production, Mnesia data is stored in /data/mnesia/blockster (Fly.io persistent volume)
