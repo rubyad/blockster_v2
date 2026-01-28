@@ -11,7 +11,11 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, active_tab: "activity", time_period: "24h", show_multiplier_dropdown: false)}
+    {:ok,
+     socket
+     |> assign(active_tab: "activity", time_period: "24h", show_multiplier_dropdown: false)
+     |> assign(show_phone_modal: false)
+     |> assign(countdown: nil)}
   end
 
   @impl true
@@ -24,6 +28,9 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> push_navigate(to: ~p"/")}
 
       member ->
+        # Preload phone_verification association
+        member = BlocksterV2.Repo.preload(member, :phone_verification)
+
         multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
         token_balances = EngagementTracker.get_user_token_balances(member.id)
 
@@ -91,6 +98,39 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(:time_period, period)
      |> assign(:activities, filtered_activities)
      |> assign(:total_bux, total_bux)}
+  end
+
+  @impl true
+  def handle_event("open_phone_verification", _params, socket) do
+    {:noreply, assign(socket, :show_phone_modal, true)}
+  end
+
+  @impl true
+  def handle_info({:close_phone_verification_modal}, socket) do
+    {:noreply, assign(socket, :show_phone_modal, false)}
+  end
+
+  @impl true
+  def handle_info({:refresh_user_data}, socket) do
+    # Reload member data to get updated phone verification status
+    member = Accounts.get_user(socket.assigns.member.id)
+    member = BlocksterV2.Repo.preload(member, :phone_verification, force: true)
+    {:noreply, assign(socket, :member, member)}
+  end
+
+  @impl true
+  def handle_info({:redirect_to_home}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/")}
+  end
+
+  @impl true
+  def handle_info({:countdown_tick, seconds}, socket) do
+    if seconds > 0 do
+      Process.send_after(self(), {:countdown_tick, seconds - 1}, 1000)
+      {:noreply, assign(socket, :countdown, seconds)}
+    else
+      {:noreply, assign(socket, :countdown, nil)}
+    end
   end
 
   # Load activities from Mnesia tables (post reads, video watches, and X shares)

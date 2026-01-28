@@ -19,6 +19,12 @@ defmodule BlocksterV2.Accounts.User do
     field :smart_wallet_address, :string
     field :locked_x_user_id, :string
 
+    # Phone verification fields
+    field :phone_verified, :boolean, default: false
+    field :geo_multiplier, :decimal, default: Decimal.new("0.5")
+    field :geo_tier, :string, default: "unverified"
+    field :sms_opt_in, :boolean, default: true
+
     # Fingerprint flags
     field :is_flagged_multi_account_attempt, :boolean, default: false
     field :last_suspicious_activity_at, :utc_datetime
@@ -28,6 +34,7 @@ defmodule BlocksterV2.Accounts.User do
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
     has_many :organized_events, BlocksterV2.Events.Event, foreign_key: :organizer_id
     has_many :fingerprints, BlocksterV2.Accounts.UserFingerprint
+    has_one :phone_verification, BlocksterV2.Accounts.PhoneVerification
     many_to_many :followed_hubs, BlocksterV2.Blog.Hub,
       join_through: "hub_followers",
       on_replace: :delete
@@ -44,7 +51,8 @@ defmodule BlocksterV2.Accounts.User do
     |> cast(attrs, [:email, :wallet_address, :smart_wallet_address, :username, :auth_method, :is_verified,
                     :is_admin, :is_author, :bux_balance, :level, :experience_points,
                     :avatar_url, :chain_id, :is_flagged_multi_account_attempt,
-                    :last_suspicious_activity_at, :registered_devices_count])
+                    :last_suspicious_activity_at, :registered_devices_count,
+                    :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)

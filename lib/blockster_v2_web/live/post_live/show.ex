@@ -74,6 +74,13 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Get user multiplier for BUX calculation
     user_multiplier = safe_get_user_multiplier(user_id)
 
+    # Get geo_multiplier from current_user (Decimal -> float)
+    geo_multiplier = if socket.assigns[:current_user] && socket.assigns.current_user.geo_multiplier do
+      Decimal.to_float(socket.assigns.current_user.geo_multiplier)
+    else
+      0.5
+    end
+
     # Get existing rewards for this post
     rewards = safe_get_rewards(user_id, post.id)
 
@@ -99,7 +106,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         {engagement && engagement.engagement_score || 10, bux_earned}
       else
         # Fresh session - always start at 1
-        {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier)}
+        {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier, geo_multiplier)}
       end
 
     # Load X connection and share campaign for logged-in users
@@ -150,6 +157,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:word_count, word_count)
      |> assign(:engagement, engagement)
      |> assign(:user_multiplier, user_multiplier)
+     |> assign(:geo_multiplier, geo_multiplier)
      |> assign(:base_bux_reward, base_bux_reward)
      |> assign(:rewards, rewards)
      |> assign(:bux_earned, bux_earned)
@@ -374,7 +382,8 @@ defmodule BlocksterV2Web.PostLive.Show do
             # Calculate current BUX value
             base_bux_reward = socket.assigns.post.base_bux_reward || 1
             user_multiplier = socket.assigns.user_multiplier || 1
-            current_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
+            geo_multiplier = socket.assigns.geo_multiplier || 0.5
+            current_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier, geo_multiplier)
 
             # Refresh engagement data
             engagement = safe_get_engagement(user_id, post_id)
@@ -409,7 +418,8 @@ defmodule BlocksterV2Web.PostLive.Show do
           # Calculate desired BUX earned
           base_bux_reward = socket.assigns.post.base_bux_reward || 1
           user_multiplier = socket.assigns.user_multiplier || 1
-          desired_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier)
+          geo_multiplier = socket.assigns.geo_multiplier || 0.5
+          desired_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier, geo_multiplier)
 
           # GUARANTEED EARNINGS: No pool check at completion
           # Pool was checked when page loaded. If user started reading when pool was positive,

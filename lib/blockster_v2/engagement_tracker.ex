@@ -470,6 +470,21 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets user geographic multiplier from the User database record.
+  Returns the geo_multiplier value, defaulting to 0.5 for unverified users.
+  """
+  def get_geo_multiplier(user_id) do
+    case BlocksterV2.Repo.get(BlocksterV2.Accounts.User, user_id) do
+      nil -> 0.5  # Default for non-existent users
+      user -> Decimal.to_float(user.geo_multiplier || Decimal.new("0.5"))
+    end
+  rescue
+    _ -> 0.5
+  catch
+    :exit, _ -> 0.5
+  end
+
+  @doc """
   Gets user X (Twitter) multiplier from the :user_multipliers Mnesia table.
   Returns the x_multiplier value, defaulting to 1 if not found or nil.
   Creates record with default values if user doesn't exist in the table.
@@ -532,14 +547,15 @@ defmodule BlocksterV2.EngagementTracker do
 
   @doc """
   Calculates the BUX earned for reading an article.
-  Formula: (engagement_score / 10) * base_bux_reward * user_multiplier
+  Formula: (engagement_score / 10) * base_bux_reward * user_multiplier * geo_multiplier
   """
-  def calculate_bux_earned(engagement_score, base_bux_reward, user_multiplier) do
+  def calculate_bux_earned(engagement_score, base_bux_reward, user_multiplier, geo_multiplier \\ 1.0) do
     score_factor = engagement_score / 10.0
     base_reward = base_bux_reward || 1
     multiplier = user_multiplier || 1
+    geo_mult = geo_multiplier || 1.0
 
-    (score_factor * base_reward * multiplier)
+    (score_factor * base_reward * multiplier * geo_mult)
     |> Float.round(2)
   end
 

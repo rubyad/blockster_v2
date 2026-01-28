@@ -46,7 +46,10 @@ config :blockster_v2,
       if(config_env() == :prod,
         do: "https://blockster-v2.fly.dev",
         else: "http://localhost:4000"
-      )
+      ),
+  twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
+  twilio_auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
+  twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID")
 
 # Mnesia configuration
 # In production, Mnesia data is stored in /data/mnesia/blockster (Fly.io persistent volume)
@@ -98,6 +101,13 @@ if config_env() == :prod do
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    # Connection pool health settings - help detect and recover from connection issues
+    queue_target: 50,
+    queue_interval: 1000,
+    # Timeout settings to detect dead connections faster
+    timeout: 15000,
+    connect_timeout: 15000,
+    handshake_timeout: 15000,
     # For machines with several cores, consider starting multiple pools of `pool_size`
     # pool_count: 4,
     socket_options: maybe_ipv6
