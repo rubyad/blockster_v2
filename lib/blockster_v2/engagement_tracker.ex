@@ -451,22 +451,25 @@ defmodule BlocksterV2.EngagementTracker do
           linkedin_multiplier: 1,
           personal_multiplier: 1,
           rogue_multiplier: 1,
+          hardware_wallet_multiplier: 0,
           overall_multiplier: 1
         }
       [record] ->
-        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, ...]
+        # {:user_multipliers, user_id, smart_wallet, x, linkedin, personal, rogue, overall, extra1, ...}
+        # extra1 (index 8) is hardware_wallet_multiplier
         %{
           x_multiplier: elem(record, 3) || 1,
           linkedin_multiplier: elem(record, 4) || 1,
           personal_multiplier: elem(record, 5) || 1,
           rogue_multiplier: elem(record, 6) || 1,
+          hardware_wallet_multiplier: elem(record, 8) || 0,
           overall_multiplier: elem(record, 7) || 1
         }
     end
   rescue
-    _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, overall_multiplier: 1}
+    _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, hardware_wallet_multiplier: 0, overall_multiplier: 1}
   catch
-    :exit, _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, overall_multiplier: 1}
+    :exit, _ -> %{x_multiplier: 1, linkedin_multiplier: 1, personal_multiplier: 1, rogue_multiplier: 1, hardware_wallet_multiplier: 0, overall_multiplier: 1}
   end
 
   @doc """

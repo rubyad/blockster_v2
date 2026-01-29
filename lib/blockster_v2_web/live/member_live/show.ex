@@ -1,6 +1,8 @@
 defmodule BlocksterV2Web.MemberLive.Show do
   use BlocksterV2Web, :live_view
 
+  require Logger
+
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Accounts
@@ -8,6 +10,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
+  alias BlocksterV2.Wallets
 
   @impl true
   def mount(_params, _session, socket) do
@@ -41,6 +44,26 @@ defmodule BlocksterV2Web.MemberLive.Show do
         is_own_profile = socket.assigns[:current_user] && socket.assigns.current_user.id == member.id
         is_new_user = is_own_profile && is_new_user?(member)
 
+        # Load connected wallet and balances if user is viewing their own profile
+        {connected_wallet, wallet_balances, recent_transfers} = if is_own_profile do
+          wallet = Wallets.get_connected_wallet(member.id)
+          balances = if wallet, do: Wallets.get_user_balances(member.id), else: nil
+          transfers = Wallets.list_user_transfers(member.id, limit: 10)
+          {wallet, balances, transfers}
+        else
+          {nil, nil, []}
+        end
+
+        # Auto-reconnect to hardware wallet if user has one connected
+        socket = if connected?(socket) && is_own_profile && connected_wallet do
+          push_event(socket, "auto_reconnect_wallet", %{
+            provider: connected_wallet.provider,
+            expected_address: connected_wallet.wallet_address
+          })
+        else
+          socket
+        end
+
         # Process pending anonymous claims if connected and viewing own profile
         # This will load activities internally after processing claims
         socket = if connected?(socket) && is_own_profile do
@@ -69,7 +92,11 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:overall_multiplier, multiplier_details.overall_multiplier)
          |> assign(:multiplier_details, multiplier_details)
          |> assign(:token_balances, token_balances)
-         |> assign(:is_new_user, is_new_user)}
+         |> assign(:is_new_user, is_new_user)
+         |> assign(:connected_wallet, connected_wallet)
+         |> assign(:wallet_balances, wallet_balances)
+         |> assign(:recent_transfers, recent_transfers)
+         |> assign(:pending_transfer, nil)}
     end
   end
 
@@ -105,6 +132,309 @@ defmodule BlocksterV2Web.MemberLive.Show do
     {:noreply, assign(socket, :show_phone_modal, true)}
   end
 
+  # Wallet Connection Events
+  @impl true
+  def handle_event("connect_" <> provider, _params, socket) when provider in ["metamask", "coinbase", "walletconnect", "phantom"] do
+    # Push event to JavaScript hook to initiate wallet connection
+    {:noreply, push_event(socket, "connect_wallet", %{provider: provider})}
+  end
+
+  @impl true
+  def handle_event("wallet_connected", %{"address" => address, "provider" => provider, "chain_id" => chain_id}, socket) do
+    user_id = socket.assigns.current_user.id
+
+    # Save connected wallet to database
+    case Wallets.connect_wallet(%{
+      user_id: user_id,
+      wallet_address: address,
+      provider: provider,
+      chain_id: chain_id
+    }) do
+      {:ok, connected_wallet} ->
+        # Trigger balance fetch immediately after connection
+        socket_with_wallet = assign(socket, :connected_wallet, connected_wallet)
+
+        {:noreply,
+         socket_with_wallet
+         |> push_event("fetch_hardware_wallet_balances", %{address: address})
+         |> put_flash(:info, "Wallet connected successfully! Fetching balances...")}
+
+      {:error, changeset} ->
+        error_msg = case changeset.errors do
+          [{:user_id, {"can only connect one wallet at a time", _}}] ->
+            "You already have a wallet connected. Please disconnect it first."
+          _ ->
+            "Failed to connect wallet. Please try again."
+        end
+
+        {:noreply, put_flash(socket, :error, error_msg)}
+    end
+  end
+
+  @impl true
+  def handle_event("wallet_connection_error", %{"error" => error, "provider" => _provider}, socket) do
+    {:noreply, put_flash(socket, :error, "Connection failed: #{error}")}
+  end
+
+  @impl true
+  def handle_event("disconnect_wallet", _params, socket) do
+    user_id = socket.assigns.current_user.id
+
+    case Wallets.disconnect_wallet(user_id) do
+      {:ok, _} ->
+        # Clear balances from Mnesia
+        Wallets.clear_balances(user_id)
+
+        # Push event to JavaScript to disconnect wallet on frontend
+        {:noreply,
+         socket
+         |> assign(:connected_wallet, nil)
+         |> assign(:wallet_balances, nil)
+         |> push_event("disconnect_wallet", %{})
+         |> put_flash(:info, "Wallet disconnected successfully")}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "No wallet connected")}
+    end
+  end
+
+  @impl true
+  def handle_event("wallet_disconnected", _params, socket) do
+    # JavaScript confirmation that wallet was disconnected on frontend
+    # The actual database disconnect already happened in "disconnect_wallet" event
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("copy_address", _params, socket) do
+    # JavaScript will handle the actual copying via clipboard API
+    {:noreply, put_flash(socket, :info, "Address copied to clipboard!")}
+  end
+
+  # Balance Fetching Events
+  @impl true
+  def handle_event("refresh_balances", _params, socket) do
+    case socket.assigns[:connected_wallet] do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No wallet connected")}
+
+      wallet ->
+        {:noreply,
+         socket
+         |> push_event("fetch_hardware_wallet_balances", %{address: wallet.wallet_address})
+         |> put_flash(:info, "Refreshing balances...")}
+    end
+  end
+
+  @impl true
+  def handle_event("hardware_wallet_balances_fetched", %{"balances" => balances}, socket) do
+    user_id = socket.assigns.current_user.id
+    wallet = socket.assigns.connected_wallet
+
+    # Convert string keys to atoms for the balance maps
+    balances_with_atoms = Enum.map(balances, fn balance ->
+      %{
+        symbol: balance["symbol"],
+        chain_id: balance["chain_id"],
+        balance: balance["balance"],
+        address: balance["address"],
+        decimals: balance["decimals"]
+      }
+    end)
+
+    # Store balances in Mnesia
+    case Wallets.store_balances(user_id, wallet.wallet_address, balances_with_atoms) do
+      {:ok, count} ->
+        # Update last_balance_sync_at in Postgres
+        Wallets.mark_balance_synced(user_id)
+
+        # Get grouped balances for display
+        grouped_balances = Wallets.get_user_balances(user_id)
+
+        {:noreply,
+         socket
+         |> assign(:wallet_balances, grouped_balances)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to store balances: #{reason}")}
+    end
+  end
+
+  @impl true
+  def handle_event("balance_fetch_error", %{"error" => error}, socket) do
+    {:noreply, put_flash(socket, :error, "Failed to fetch balances: #{error}")}
+  end
+
+  # Auto-reconnect Events
+  @impl true
+  def handle_event("wallet_reconnected", %{"address" => address, "provider" => _provider}, socket) do
+    # Wallet successfully reconnected - trigger balance fetch
+    {:noreply, push_event(socket, "fetch_hardware_wallet_balances", %{address: address})}
+  end
+
+  @impl true
+  def handle_event("wallet_reconnect_failed", %{"provider" => _provider, "error" => _error}, socket) do
+    # Auto-reconnect failed silently - user can manually reconnect if needed
+    # Don't show error message since this was an automatic background operation
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("wallet_address_mismatch", %{"expected" => expected, "actual" => actual, "provider" => provider}, socket) do
+    user_id = socket.assigns.current_user.id
+
+    # Address mismatch - disconnect from database and show warning
+    Wallets.disconnect_wallet(user_id)
+    Wallets.clear_balances(user_id)
+
+    {:noreply,
+     socket
+     |> assign(:connected_wallet, nil)
+     |> assign(:wallet_balances, nil)
+     |> put_flash(:error, "Wallet address mismatch detected. Your #{String.capitalize(provider)} wallet address changed from #{String.slice(expected, 0..5)}...#{String.slice(expected, -4..-1)} to #{String.slice(actual, 0..5)}...#{String.slice(actual, -4..-1)}. Please reconnect your wallet.")}
+  end
+
+  # Transfer initiation handlers
+
+  def handle_event("initiate_transfer_to_blockster", %{"amount" => amount_str}, socket) do
+    user = socket.assigns.current_user
+    connected_wallet = socket.assigns.connected_wallet
+
+    if connected_wallet do
+      case Float.parse(amount_str) do
+        {amount, _} when amount > 0 ->
+          # Trigger JavaScript to execute transfer from hardware wallet
+          {:noreply,
+           push_event(socket, "transfer_to_blockster", %{
+             amount: amount,
+             blockster_wallet: user.smart_wallet_address
+           })}
+
+        _ ->
+          {:noreply, put_flash(socket, :error, "Invalid amount")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "No wallet connected")}
+    end
+  end
+
+  def handle_event("initiate_transfer_from_blockster", %{"amount" => amount_str}, socket) do
+    user = socket.assigns.current_user
+    connected_wallet = socket.assigns.connected_wallet
+
+    if connected_wallet do
+      case Float.parse(amount_str) do
+        {amount, _} when amount > 0 ->
+          # Check Blockster wallet has sufficient balance
+          blockster_rogue = EngagementTracker.get_user_token_balances(user.id)["ROGUE"] || 0.0
+
+          if amount <= blockster_rogue do
+            # Trigger JavaScript to execute transfer from Blockster smart wallet
+            {:noreply,
+             push_event(socket, "transfer_from_blockster", %{
+               amount: amount,
+               to_address: connected_wallet.wallet_address,
+               from_address: user.smart_wallet_address
+             })}
+          else
+            {:noreply, put_flash(socket, :error, "Insufficient ROGUE balance in Blockster wallet")}
+          end
+
+        _ ->
+          {:noreply, put_flash(socket, :error, "Invalid amount")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "No wallet connected")}
+    end
+  end
+
+  # Transfer event handlers
+
+  def handle_event("transfer_submitted", %{
+    "tx_hash" => tx_hash,
+    "amount" => amount,
+    "from_address" => from_address,
+    "to_address" => to_address,
+    "direction" => direction,
+    "token" => token,
+    "chain_id" => chain_id
+  }, socket) do
+    user_id = socket.assigns.current_user.id
+
+    # Create transfer record in database
+    case Wallets.create_transfer(%{
+      user_id: user_id,
+      from_address: from_address,
+      to_address: to_address,
+      amount: Decimal.new(to_string(amount)),
+      token_symbol: token,
+      chain_id: chain_id,
+      direction: direction,
+      tx_hash: tx_hash,
+      status: "pending"
+    }) do
+      {:ok, transfer} ->
+        Logger.info("[MemberLive] Transfer submitted: #{tx_hash} (#{direction})")
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Transfer of #{amount} #{token} submitted. Waiting for confirmation...")
+         |> assign(:pending_transfer, transfer)}
+
+      {:error, changeset} ->
+        Logger.error("[MemberLive] Failed to create transfer record: #{inspect(changeset)}")
+        {:noreply, put_flash(socket, :error, "Failed to record transfer")}
+    end
+  end
+
+  def handle_event("transfer_confirmed", %{
+    "tx_hash" => tx_hash,
+    "block_number" => block_number,
+    "gas_used" => gas_used,
+    "amount" => amount,
+    "direction" => direction,
+    "status" => status
+  }, socket) do
+    user_id = socket.assigns.current_user.id
+
+    # Update transfer status in database
+    case Wallets.confirm_transfer(tx_hash, block_number) do
+      {:ok, _transfer} ->
+        Logger.info("[MemberLive] Transfer confirmed: #{tx_hash} at block #{block_number}")
+
+        # Trigger balance refresh for both hardware wallet and Blockster wallet
+        if socket.assigns.connected_wallet do
+          # This will fetch fresh balances from blockchain and update Mnesia
+          send(self(), :refresh_hardware_balances)
+        end
+
+        # Also refresh Blockster wallet balance from blockchain
+        send(self(), :refresh_blockster_balance)
+
+        # Reload transfer history
+        recent_transfers = Wallets.list_user_transfers(user_id, limit: 10)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Transfer confirmed! #{amount} ROGUE transferred successfully.")
+         |> assign(:pending_transfer, nil)
+         |> assign(:recent_transfers, recent_transfers)}
+
+      {:error, :not_found} ->
+        Logger.warning("[MemberLive] Transfer not found: #{tx_hash}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("transfer_error", %{"error" => error, "direction" => direction}, socket) do
+    Logger.error("[MemberLive] Transfer failed (#{direction}): #{error}")
+
+    {:noreply,
+     socket
+     |> put_flash(:error, "Transfer failed: #{error}")
+     |> assign(:pending_transfer, nil)}
+  end
+
   @impl true
   def handle_info({:close_phone_verification_modal}, socket) do
     {:noreply, assign(socket, :show_phone_modal, false)}
@@ -130,6 +460,38 @@ defmodule BlocksterV2Web.MemberLive.Show do
       {:noreply, assign(socket, :countdown, seconds)}
     else
       {:noreply, assign(socket, :countdown, nil)}
+    end
+  end
+
+  @impl true
+  def handle_info(:refresh_hardware_balances, socket) do
+    # Trigger JavaScript to refresh hardware wallet balances
+    {:noreply, push_event(socket, "refresh_balances_after_transfer", %{})}
+  end
+
+  def handle_info(:refresh_blockster_balance, socket) do
+    user_id = socket.assigns.current_user.id
+    wallet_address = socket.assigns.current_user.smart_wallet_address
+
+    Logger.info("[MemberLive] Refreshing Blockster balance for wallet: #{wallet_address}")
+
+    # Fetch fresh ROGUE balance from blockchain via BUX Minter (use aggregated endpoint which includes ROGUE)
+    case BuxMinter.get_aggregated_balances(wallet_address) do
+      {:ok, %{balances: balances}} ->
+        Logger.info("[MemberLive] BUX Minter returned balances: #{inspect(balances)}")
+        rogue_balance = Map.get(balances, "ROGUE", 0.0)
+        Logger.info("[MemberLive] Extracted ROGUE balance: #{rogue_balance}")
+        EngagementTracker.update_user_rogue_balance(user_id, wallet_address, rogue_balance, :rogue_chain)
+        Logger.info("[MemberLive] Updated Mnesia with ROGUE balance: #{rogue_balance}")
+
+        # Refresh token_balances from Mnesia and update socket
+        token_balances = EngagementTracker.get_user_token_balances(user_id)
+        Logger.info("[MemberLive] Refreshed token_balances from Mnesia: #{inspect(token_balances)}")
+        {:noreply, assign(socket, :token_balances, token_balances)}
+
+      {:error, reason} ->
+        Logger.error("[MemberLive] Failed to fetch ROGUE balance: #{inspect(reason)}")
+        {:noreply, socket}
     end
   end
 

@@ -50,6 +50,9 @@ import { BuxBoosterOnchain } from "./bux_booster_onchain.js";
 import { VideoWatchTracker } from "./video_watch_tracker.js";
 import { AnonymousClaimManager } from "./anonymous_claim_manager.js";
 import { FingerprintHook } from "./fingerprint_hook.js";
+import { ConnectWalletHook } from "./connect_wallet_hook.js";
+import { BalanceFetcherHook } from "./balance_fetcher.js";
+import { WalletTransferHook } from "./wallet_transfer.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -313,7 +316,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook },
 });
 
 // connect if there are any LiveViews on the page

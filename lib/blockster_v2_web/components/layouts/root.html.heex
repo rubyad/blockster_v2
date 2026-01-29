@@ -29,6 +29,8 @@
     <script>
       // Make Thirdweb client ID available to JavaScript BEFORE app.js loads
       window.THIRDWEB_CLIENT_ID = "a914a4c615baa6291b52524a4446ab90";
+      // Make WalletConnect project ID available for external wallet connections
+      window.WALLETCONNECT_PROJECT_ID = "920f001b332f6932637dd3d527e305d8"; // TODO: Replace with actual project ID from https://cloud.walletconnect.com
       // Make FingerprintJS public key available to JavaScript
       window.FINGERPRINTJS_PUBLIC_KEY = "<%= System.get_env("FINGERPRINTJS_PUBLIC_KEY") %>";
     </script>

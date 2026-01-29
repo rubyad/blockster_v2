@@ -384,6 +384,24 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:total_views, :bux_distributed]
+    },
+    # Hardware wallet balances - stores balances for connected external wallets
+    %{
+      name: :hardware_wallet_balances,
+      type: :set,
+      attributes: [
+        :key,                      # {user_id, symbol, chain_id} tuple - PRIMARY KEY
+        :user_id,
+        :wallet_address,           # User's connected hardware wallet address
+        :symbol,                   # Token symbol (ETH, ROGUE, USDC, etc.)
+        :chain_id,                 # Chain ID (1 = Ethereum, 42161 = Arbitrum, 560013 = Rogue)
+        :balance,                  # Token balance as float
+        :token_address,            # Contract address for ERC-20 (null for native tokens)
+        :decimals,                 # Token decimals (18 for ETH/ROGUE, 6 for USDC/USDT)
+        :last_fetched_at,          # Unix timestamp of last balance fetch
+        :updated_at
+      ],
+      index: [:user_id, :wallet_address, :symbol]
     }
   ]
 

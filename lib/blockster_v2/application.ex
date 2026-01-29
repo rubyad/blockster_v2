@@ -40,7 +40,9 @@ defmodule BlocksterV2.Application do
         # BuxBooster bet settlement checker (runs every minute to settle stuck bets)
         {BlocksterV2.BuxBoosterBetSettler, []},
         # Token price tracker (polls CoinGecko every 10 minutes)
-        {BlocksterV2.PriceTracker, []}
+        {BlocksterV2.PriceTracker, []},
+        # Wallet multiplier refresher (daily at 3 AM UTC)
+        {BlocksterV2.WalletMultiplierRefresher, []}
       ]
     else
       []
