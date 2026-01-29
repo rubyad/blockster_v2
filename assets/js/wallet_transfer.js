@@ -142,7 +142,8 @@ export const WalletTransferHook = {
         const transaction = prepareTransaction({
           to: to_address,
           value: amountWei,
-          chain: window.rogueChain
+          chain: window.rogueChain,
+          client: window.thirdwebClient
         });
 
         console.log("[WalletTransfer] Sending transaction...");

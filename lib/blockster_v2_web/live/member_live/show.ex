@@ -96,7 +96,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:connected_wallet, connected_wallet)
          |> assign(:wallet_balances, wallet_balances)
          |> assign(:recent_transfers, recent_transfers)
-         |> assign(:pending_transfer, nil)}
+         |> assign(:pending_transfer, nil)
+         |> assign(:transfer_pending, false)}  # Hardware wallet transfer pending state for UI feedback
     end
   end
 
@@ -253,7 +254,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
         {:noreply,
          socket
-         |> assign(:wallet_balances, grouped_balances)}
+         |> assign(:wallet_balances, grouped_balances)
+         |> put_flash(:info, "Balances refreshed successfully")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to store balances: #{reason}")}
@@ -329,9 +331,11 @@ defmodule BlocksterV2Web.MemberLive.Show do
           blockster_rogue = EngagementTracker.get_user_token_balances(user.id)["ROGUE"] || 0.0
 
           if amount <= blockster_rogue do
-            # Trigger JavaScript to execute transfer from Blockster smart wallet
+            # Set pending state immediately for UI feedback, then trigger JavaScript
             {:noreply,
-             push_event(socket, "transfer_from_blockster", %{
+             socket
+             |> assign(:transfer_pending, true)
+             |> push_event("transfer_from_blockster", %{
                amount: amount,
                to_address: connected_wallet.wallet_address,
                from_address: user.smart_wallet_address
@@ -379,11 +383,15 @@ defmodule BlocksterV2Web.MemberLive.Show do
         {:noreply,
          socket
          |> put_flash(:info, "Transfer of #{amount} #{token} submitted. Waiting for confirmation...")
-         |> assign(:pending_transfer, transfer)}
+         |> assign(:pending_transfer, transfer)
+         |> assign(:transfer_pending, false)}
 
       {:error, changeset} ->
         Logger.error("[MemberLive] Failed to create transfer record: #{inspect(changeset)}")
-        {:noreply, put_flash(socket, :error, "Failed to record transfer")}
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to record transfer")
+         |> assign(:transfer_pending, false)}
     end
   end
 
@@ -418,6 +426,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
          socket
          |> put_flash(:info, "Transfer confirmed! #{amount} ROGUE transferred successfully.")
          |> assign(:pending_transfer, nil)
+         |> assign(:transfer_pending, false)
          |> assign(:recent_transfers, recent_transfers)}
 
       {:error, :not_found} ->
@@ -432,7 +441,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
     {:noreply,
      socket
      |> put_flash(:error, "Transfer failed: #{error}")
-     |> assign(:pending_transfer, nil)}
+     |> assign(:pending_transfer, nil)
+     |> assign(:transfer_pending, false)}
   end
 
   @impl true

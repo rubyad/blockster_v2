@@ -75,9 +75,9 @@ defmodule BlocksterV2.WalletMultiplier do
   def calculate_hardware_wallet_multiplier(user_id) do
     case Wallets.get_connected_wallet(user_id) do
       nil ->
-        # No wallet connected - return base multiplier
+        # No wallet connected - return base multiplier of 1.0x
         %{
-          total_multiplier: 0.0,
+          total_multiplier: 1.0,
           connection_boost: 0.0,
           rogue_multiplier: 0.0,
           eth_multiplier: 0.0,
@@ -116,9 +116,9 @@ defmodule BlocksterV2.WalletMultiplier do
     other_tokens_usd = calculate_other_tokens_usd_value(balances)
     other_tokens_multiplier = calculate_other_tokens_multiplier(other_tokens_usd)
 
-    # Total multiplier
+    # Total multiplier (includes base 1.0)
     total_multiplier =
-      connection_boost + rogue_multiplier + eth_multiplier + other_tokens_multiplier
+      1.0 + connection_boost + rogue_multiplier + eth_multiplier + other_tokens_multiplier
 
     %{
       total_multiplier: total_multiplier,
@@ -292,11 +292,12 @@ defmodule BlocksterV2.WalletMultiplier do
 
   @doc """
   Get hardware wallet multiplier for a user.
+  Returns 1.0 (base) if no wallet connected or no record exists.
   """
   def get_user_multiplier(user_id) do
     case :mnesia.dirty_read({:user_multipliers, user_id}) do
-      [] -> 0.0
-      [record] -> elem(record, 8) || 0.0
+      [] -> 1.0
+      [record] -> elem(record, 8) || 1.0
     end
   end
 
