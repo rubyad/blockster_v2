@@ -596,7 +596,9 @@ defmodule BlocksterV2.BuxBoosterOnchain do
         url_charlist = String.to_charlist(url)
         body_charlist = String.to_charlist(body)
         headers_charlist = Enum.map(headers, fn {k, v} -> {String.to_charlist(k), String.to_charlist(v)} end)
-        case :httpc.request(:post, {url_charlist, headers_charlist, ~c"application/json", body_charlist}, [], []) do
+        # Add 15 second timeout to prevent hanging (POST operations may take longer)
+        http_options = [{:timeout, 15_000}, {:connect_timeout, 5_000}]
+        case :httpc.request(:post, {url_charlist, headers_charlist, ~c"application/json", body_charlist}, http_options, []) do
           {:ok, {{_, status, _}, _, response_body}} ->
             {:ok, %{status_code: status, body: to_string(response_body)}}
           {:error, reason} ->
@@ -622,7 +624,9 @@ defmodule BlocksterV2.BuxBoosterOnchain do
         :ssl.start()
         url_charlist = String.to_charlist(url)
         headers_charlist = Enum.map(headers, fn {k, v} -> {String.to_charlist(k), String.to_charlist(v)} end)
-        case :httpc.request(:get, {url_charlist, headers_charlist}, [], []) do
+        # Add 10 second timeout to prevent hanging
+        http_options = [{:timeout, 10_000}, {:connect_timeout, 5_000}]
+        case :httpc.request(:get, {url_charlist, headers_charlist}, http_options, []) do
           {:ok, {{_, status, _}, _, response_body}} ->
             {:ok, %{status_code: status, body: to_string(response_body)}}
           {:error, reason} ->

@@ -106,8 +106,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
         |> assign(confetti_pieces: [])
-        |> assign(recent_games: load_recent_games(current_user.id, limit: 30))
-        |> assign(games_offset: 30)  # Track offset for pagination
+        |> assign(recent_games: [])  # Start empty, load async on connected mount
+        |> assign(games_offset: 0)  # Track offset for pagination
+        |> assign(games_loading: connected?(socket))  # Only show loading if connected (async will run)
         |> assign(user_stats: load_user_stats(current_user.id))
         # Provably fair assigns (commitment hash from on-chain)
         |> assign(server_seed: nil)  # Server seed is stored in Mnesia, not in socket
@@ -120,7 +121,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(bet_tx: nil)
         |> assign(bet_id: nil)
         |> assign(settlement_tx: nil)
+
+      # Only start async operations on connected mount (not disconnected)
+      socket = if connected?(socket) do
+        user_id = current_user.id
+        socket
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("BUX", 1) end)
+        |> start_async(:load_recent_games, fn -> load_recent_games(user_id, limit: 30) end)
+      else
+        socket
+      end
 
       {:ok, socket}
     else
@@ -703,6 +713,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         <div class="mt-6">
           <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
             <h3 class="text-sm font-bold text-gray-900 mb-3">Recent Games</h3>
+            <%= if assigns[:games_loading] do %>
+              <div class="text-center py-4 text-gray-500 text-sm">Loading games...</div>
+            <% end %>
             <%= if length(@recent_games) > 0 do %>
               <div id="recent-games-scroll" class="overflow-y-auto max-h-96 relative" phx-hook="InfiniteScroll">
                 <table class="w-full text-xs">
@@ -817,7 +830,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   </table>
                 </div>
             <% else %>
-              <p class="text-gray-500 text-xs">No games played yet</p>
+              <%= if !assigns[:games_loading] do %>
+                <p class="text-gray-500 text-xs">No games played yet</p>
+              <% end %>
             <% end %>
           </div>
         </div>
@@ -1123,6 +1138,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     # Set default bet amount based on token (ROGUE has much higher values)
     default_bet = if token == "ROGUE", do: 100_000, else: 10
+    # Extract difficulty before start_async to avoid copying entire socket
+    difficulty = socket.assigns.selected_difficulty
 
     {:noreply,
      socket
@@ -1132,7 +1149,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
      |> assign(user_stats: user_stats)
      |> assign(show_token_dropdown: false)
      |> assign(error_message: nil)
-     |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(token, socket.assigns.selected_difficulty) end)}
+     |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(token, difficulty) end)}
   end
 
   @impl true
@@ -1163,6 +1180,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     # Reset game state and predictions when difficulty changes
     # Also create new commitment hash asynchronously (same as Play Again)
     wallet_address = socket.assigns.wallet_address
+    # Extract values before start_async to avoid copying entire socket
+    selected_token = socket.assigns.selected_token
+    user_id = if socket.assigns.current_user, do: socket.assigns.current_user.id, else: nil
 
     socket =
       socket
@@ -1177,15 +1197,15 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       |> assign(confetti_pieces: [])
       |> assign(show_fairness_modal: false)
       |> assign(fairness_game: nil)
-      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, new_level) end)
+      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, new_level) end)
 
     # Initialize new on-chain game session asynchronously
-    socket = if wallet_address do
+    socket = if wallet_address && user_id do
       socket
       |> assign(:onchain_ready, false)
       |> assign(:onchain_initializing, true)
       |> start_async(:init_onchain_game, fn ->
-        BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
+        BuxBoosterOnchain.get_or_init_game(user_id, wallet_address)
       end)
     else
       socket
@@ -1647,6 +1667,21 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_async(:load_recent_games, {:ok, games}, socket) do
+    {:noreply,
+     socket
+     |> assign(:recent_games, games)
+     |> assign(:games_offset, length(games))
+     |> assign(:games_loading, false)}
+  end
+
+  @impl true
+  def handle_async(:load_recent_games, {:exit, reason}, socket) do
+    Logger.warning("[BuxBooster] Failed to load recent games (async): #{inspect(reason)}")
+    {:noreply, assign(socket, :games_loading, false)}
+  end
+
   # Handle confirmed betId from background polling (if different from commitment)
   def handle_event("bet_confirmed", %{"game_id" => game_id, "bet_id" => bet_id, "tx_hash" => tx_hash}, socket) do
     Logger.info("[BuxBooster] Bet confirmed with actual betId: #{bet_id}, tx: #{tx_hash}")
@@ -1669,10 +1704,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
   @impl true
   def handle_event("reset_game", _params, socket) do
+    # Extract values before start_async to avoid copying entire socket
+    selected_token = socket.assigns.selected_token
+    selected_difficulty = socket.assigns.selected_difficulty
+    predictions_needed = get_predictions_needed(selected_difficulty)
+
     # For unauthenticated users, just reset UI state
     if socket.assigns.current_user == nil do
-      predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
-
       socket =
         socket
         |> assign(game_state: :idle)
@@ -1683,16 +1721,14 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(payout: 0)
         |> assign(confetti_pieces: [])
         |> assign(error_message: nil)
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, socket.assigns.selected_difficulty) end)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
       {:noreply, socket}
     else
       # Refresh balances and stats for logged in users
-      balances = EngagementTracker.get_user_token_balances(socket.assigns.current_user.id)
-      user_stats = load_user_stats(socket.assigns.current_user.id, socket.assigns.selected_token)
-      # Keep existing recent_games list - don't reload
-      predictions_needed = get_predictions_needed(socket.assigns.selected_difficulty)
-
+      user_id = socket.assigns.current_user.id
+      balances = EngagementTracker.get_user_token_balances(user_id)
+      user_stats = load_user_stats(user_id, selected_token)
       wallet_address = socket.assigns.wallet_address
 
       # Reset UI state immediately
@@ -1715,7 +1751,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(bet_id: nil)
         |> assign(settlement_tx: nil)
         |> assign(error_message: nil)
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(socket.assigns.selected_token, socket.assigns.selected_difficulty) end)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
       # Initialize new on-chain game session asynchronously (non-blocking)
       socket = if wallet_address do
@@ -1724,7 +1760,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(:onchain_initializing, true)
         |> assign(:init_retry_count, 0)  # Reset retry counter on manual reset
         |> start_async(:init_onchain_game, fn ->
-          BuxBoosterOnchain.get_or_init_game(socket.assigns.current_user.id, wallet_address)
+          BuxBoosterOnchain.get_or_init_game(user_id, wallet_address)
         end)
       else
         socket
