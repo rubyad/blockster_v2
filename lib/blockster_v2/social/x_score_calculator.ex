@@ -15,7 +15,7 @@ defmodule BlocksterV2.Social.XScoreCalculator do
   require Logger
 
   alias BlocksterV2.Social.XApiClient
-  alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.{EngagementTracker, UnifiedMultiplier}
 
   @score_refresh_days 7
 
@@ -251,8 +251,12 @@ defmodule BlocksterV2.Social.XScoreCalculator do
     # Update x_connection with score data
     case EngagementTracker.update_x_connection_score(user_id, score_data) do
       {:ok, updated_connection} ->
-        # Update x_multiplier in Mnesia user_multipliers table
+        # Update x_multiplier in Mnesia user_multipliers table (legacy)
         EngagementTracker.set_user_x_multiplier(user_id, score_data.x_score)
+
+        # Update unified_multipliers table (V2 system)
+        UnifiedMultiplier.update_x_multiplier(user_id, score_data.x_score)
+
         Logger.info("[XScoreCalculator] Saved X score #{score_data.x_score} for user #{user_id}")
         {:ok, updated_connection}
 

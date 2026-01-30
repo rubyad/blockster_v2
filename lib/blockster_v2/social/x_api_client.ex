@@ -170,10 +170,10 @@ defmodule BlocksterV2.Social.XApiClient do
         {:error, error_msg}
 
       {:ok, %Req.Response{status: 403}} ->
-        {:error, "Forbidden - may be rate limited"}
+        {:error, "Forbidden - your X account may have restrictions"}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "Rate limited - please try again later"}
+        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API create_tweet failed: #{status} - #{inspect(body)}")
@@ -218,10 +218,10 @@ defmodule BlocksterV2.Social.XApiClient do
         {:error, error_msg}
 
       {:ok, %Req.Response{status: 403}} ->
-        {:error, "Forbidden - may be rate limited or already liked"}
+        {:error, "Forbidden - you may have already liked this post"}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "Rate limited - please try again later"}
+        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API like failed: #{status} - #{inspect(body)}")
@@ -312,10 +312,10 @@ defmodule BlocksterV2.Social.XApiClient do
         {:error, error_msg}
 
       {:ok, %Req.Response{status: 403}} ->
-        {:error, "Forbidden - may be rate limited or already retweeted"}
+        {:error, "Forbidden - you may have already retweeted this post"}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "Rate limited - please try again later"}
+        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API retweet failed: #{status} - #{inspect(body)}")
@@ -368,7 +368,7 @@ defmodule BlocksterV2.Social.XApiClient do
         {:ok, false}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "Rate limited - please try again later"}
+        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API check_retweet failed: #{status} - #{inspect(body)}")

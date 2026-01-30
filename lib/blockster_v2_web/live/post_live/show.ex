@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Blog
   alias BlocksterV2.TimeTracker
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.UnifiedMultiplier
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.Social
   alias BlocksterV2.Social.XConnection
@@ -71,15 +72,13 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Get existing engagement data if any
     engagement = safe_get_engagement(user_id, post.id)
 
-    # Get user multiplier for BUX calculation
+    # Get unified multiplier for BUX calculation (X × Phone × ROGUE × Wallet)
+    # Phone multiplier is already included in the unified multiplier
     user_multiplier = safe_get_user_multiplier(user_id)
 
-    # Get geo_multiplier from current_user (Decimal -> float)
-    geo_multiplier = if socket.assigns[:current_user] && socket.assigns.current_user.geo_multiplier do
-      Decimal.to_float(socket.assigns.current_user.geo_multiplier)
-    else
-      0.5
-    end
+    # geo_multiplier is now included in unified multiplier as "phone multiplier"
+    # Set to 1.0 to avoid double-counting (V2 unified multiplier system)
+    geo_multiplier = 1.0
 
     # Get existing rewards for this post
     rewards = safe_get_rewards(user_id, post.id)
@@ -124,9 +123,10 @@ defmodule BlocksterV2Web.PostLive.Show do
               Social.get_successful_share_reward(current_user.id, campaign.post_id)
             end
 
-          # Calculate personalized X share reward: x_multiplier * base_bux_reward
-          x_multiplier = EngagementTracker.get_user_x_multiplier(current_user.id)
-          calculated_reward = round(x_multiplier * base_bux_reward)
+          # X share reward = raw X score (0-100) as BUX
+          # V2 system: Share rewards use X score directly, NOT multiplied by base reward
+          x_score = UnifiedMultiplier.get_x_score(current_user.id)
+          calculated_reward = x_score
 
           {x_conn, campaign, reward, calculated_reward}
       end
@@ -222,11 +222,13 @@ defmodule BlocksterV2Web.PostLive.Show do
     :exit, _ -> nil
   end
 
-  defp safe_get_user_multiplier("anonymous"), do: 1
+  # Returns overall unified multiplier (X × Phone × ROGUE × Wallet)
+  # Phone multiplier is already included, so no separate geo_multiplier needed
+  defp safe_get_user_multiplier("anonymous"), do: 0.5  # Minimum: unverified phone (0.5x)
   defp safe_get_user_multiplier(user_id) do
-    EngagementTracker.get_user_multiplier(user_id)
+    UnifiedMultiplier.get_overall_multiplier(user_id)
   catch
-    :exit, _ -> 1
+    :exit, _ -> 0.5  # Minimum multiplier for unverified users
   end
 
   defp safe_get_rewards("anonymous", _post_id), do: nil
@@ -693,18 +695,24 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   # Server-side BUX calculation and minting for a VIDEO SESSION
   # Only mints BUX for NEW territory watched (beyond previous high water mark)
+  # V2: Video rewards use overall multiplier (X × Phone × ROGUE × Wallet)
   defp mint_video_session_reward(socket, user_id, post, metrics) do
     bux_per_minute = Decimal.to_float(post.video_bux_per_minute || Decimal.new("1.0"))
     max_total_reward = post.video_max_reward && Decimal.to_float(post.video_max_reward)
     previous_total_earned = socket.assigns.video_total_bux_earned
 
+    # Get user's unified multiplier for video rewards (V2 system)
+    user_multiplier = safe_get_user_multiplier(user_id)
+
     # Server-side validation: Calculate BUX for NEW territory only
     # session_earnable_time = seconds spent BEYOND previous high water mark
+    # Formula: (session_minutes × bux_per_minute × user_multiplier)
     server_calculated_bux = calculate_session_video_bux(
       metrics.session_earnable_time,
       bux_per_minute,
       max_total_reward,
-      previous_total_earned
+      previous_total_earned,
+      user_multiplier
     )
 
     # Apply anti-gaming penalties
@@ -784,9 +792,11 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   # Calculate BUX for SESSION (new territory only)
-  defp calculate_session_video_bux(session_earnable_time, bux_per_minute, max_total_reward, previous_total_earned) do
+  # V2: Formula = session_minutes × bux_per_minute × user_multiplier
+  defp calculate_session_video_bux(session_earnable_time, bux_per_minute, max_total_reward, previous_total_earned, user_multiplier \\ 1.0) do
     session_minutes = session_earnable_time / 60
-    session_bux = session_minutes * bux_per_minute
+    # V2: Apply unified multiplier to video rewards
+    session_bux = session_minutes * bux_per_minute * user_multiplier
 
     # Apply max total reward cap if set
     if max_total_reward do

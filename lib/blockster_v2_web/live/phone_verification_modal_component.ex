@@ -94,7 +94,6 @@ defmodule BlocksterV2Web.PhoneVerificationModalComponent do
   def handle_event("close_success", _params, socket) do
     send(self(), {:close_phone_verification_modal})
     send(self(), {:refresh_user_data})
-    send(self(), {:redirect_to_home})
     {:noreply, socket}
   end
 

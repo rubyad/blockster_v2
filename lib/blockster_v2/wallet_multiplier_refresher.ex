@@ -8,7 +8,7 @@ defmodule BlocksterV2.WalletMultiplierRefresher do
 
   use GenServer
   require Logger
-  alias BlocksterV2.{WalletMultiplier, Wallets, GlobalSingleton}
+  alias BlocksterV2.{WalletMultiplier, Wallets, GlobalSingleton, UnifiedMultiplier}
 
   # Refresh every 24 hours (3:00 AM UTC)
   @refresh_interval :timer.hours(24)
@@ -126,6 +126,8 @@ defmodule BlocksterV2.WalletMultiplierRefresher do
         try do
           case WalletMultiplier.update_user_multiplier(user_id) do
             {:ok, multiplier_data} ->
+              # Also update unified_multipliers table (V2 system)
+              UnifiedMultiplier.update_wallet_multiplier(user_id)
               {:ok, user_id, multiplier_data.total_multiplier}
 
             error ->

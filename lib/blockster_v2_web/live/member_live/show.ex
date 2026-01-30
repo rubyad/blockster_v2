@@ -8,6 +8,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.Accounts
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.UnifiedMultiplier
+  alias BlocksterV2.RogueMultiplier
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
   alias BlocksterV2.Wallets
@@ -34,6 +36,11 @@ defmodule BlocksterV2Web.MemberLive.Show do
         # Preload phone_verification association
         member = BlocksterV2.Repo.preload(member, :phone_verification)
 
+        # V2 Unified Multiplier System - get all multiplier components
+        unified_multipliers = UnifiedMultiplier.get_user_multipliers(member.id)
+        rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
+
+        # Legacy multiplier details for backwards compatibility
         multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
         token_balances = EngagementTracker.get_user_token_balances(member.id)
 
@@ -89,7 +96,16 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:activities, filtered_activities)
          |> assign(:total_bux, total_bux)
          |> assign(:time_period, time_period)
-         |> assign(:overall_multiplier, multiplier_details.overall_multiplier)
+         # V2 Unified Multiplier System
+         |> assign(:unified_multipliers, unified_multipliers)
+         |> assign(:rogue_multiplier_data, rogue_multiplier_data)
+         |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
+         |> assign(:x_multiplier, unified_multipliers.x_multiplier)
+         |> assign(:x_score, unified_multipliers.x_score)
+         |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
+         |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
+         |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)
+         # Legacy multiplier details for backwards compatibility
          |> assign(:multiplier_details, multiplier_details)
          |> assign(:token_balances, token_balances)
          |> assign(:is_new_user, is_new_user)
@@ -103,7 +119,10 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
+    {:noreply,
+     socket
+     |> assign(:active_tab, tab)
+     |> assign(:show_multiplier_dropdown, false)}
   end
 
   @impl true

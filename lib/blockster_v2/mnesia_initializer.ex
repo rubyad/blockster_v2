@@ -402,6 +402,24 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at
       ],
       index: [:user_id, :wallet_address, :symbol]
+    },
+    # Unified multiplier system - combines X, Phone, ROGUE, and Wallet multipliers
+    # This is a NEW table that replaces the old user_multipliers for the unified system
+    %{
+      name: :unified_multipliers,
+      type: :set,
+      attributes: [
+        :user_id,                  # PRIMARY KEY - user ID
+        :x_score,                  # Raw X score (0-100), NOT the multiplier
+        :x_multiplier,             # Calculated X multiplier (1.0-10.0)
+        :phone_multiplier,         # Phone verification multiplier (0.5-2.0)
+        :rogue_multiplier,         # ROGUE holdings multiplier (1.0-5.0) - smart wallet only
+        :wallet_multiplier,        # External wallet multiplier (1.0-3.6) - ETH + other tokens only
+        :overall_multiplier,       # Product of all four multipliers (0.5-360.0)
+        :last_updated,             # Unix timestamp of last update
+        :created_at                # Unix timestamp of creation
+      ],
+      index: [:overall_multiplier]
     }
   ]
 

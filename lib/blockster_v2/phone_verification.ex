@@ -6,6 +6,7 @@ defmodule BlocksterV2.PhoneVerification do
   import Ecto.Query
   alias BlocksterV2.Repo
   alias BlocksterV2.Accounts.{User, PhoneVerification}
+  alias BlocksterV2.UnifiedMultiplier
 
   # Allow injecting mock client in tests
   @twilio_client Application.compile_env(:blockster_v2, :twilio_client, BlocksterV2.TwilioClient)
@@ -23,6 +24,7 @@ defmodule BlocksterV2.PhoneVerification do
     normalized = normalize_phone_number(phone_number)
 
     with {:ok, _} <- validate_phone_format(normalized),
+         {:ok, _} <- check_phone_not_registered(user_id, normalized),
          {:ok, _} <- check_rate_limit(user_id),
          {:ok, phone_data} <- @twilio_client.lookup_phone_number(normalized),
          {:ok, geo_data} <- determine_geo_tier(phone_data.country_code),
@@ -244,6 +246,22 @@ defmodule BlocksterV2.PhoneVerification do
     end
   end
 
+  @doc false
+  def check_phone_not_registered(user_id, phone_number) do
+    # Check if this phone number is already registered to a different user
+    case Repo.get_by(PhoneVerification, phone_number: phone_number) do
+      nil ->
+        {:ok, :phone_available}
+
+      %PhoneVerification{user_id: ^user_id} ->
+        # Same user trying their own number again - that's fine
+        {:ok, :phone_available}
+
+      %PhoneVerification{} ->
+        {:error, "This phone number is already registered to another account."}
+    end
+  end
+
   defp get_pending_verification(user_id) do
     case get_by_user(user_id) do
       nil ->
@@ -278,6 +296,9 @@ defmodule BlocksterV2.PhoneVerification do
       sms_opt_in: sms_opt_in
     })
     |> Repo.update!()
+
+    # Update unified_multipliers table (V2 system) when phone verification completes
+    UnifiedMultiplier.update_phone_multiplier(user_id)
   end
 
   defp get_by_user(user_id) do

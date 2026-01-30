@@ -22,6 +22,7 @@ export const VideoWatchTracker = {
     this.buxPerMinute = parseFloat(this.el.dataset.buxPerMinute) || 1.0;
     this.maxReward = this.el.dataset.maxReward ? parseFloat(this.el.dataset.maxReward) : null;
     this.poolAvailable = this.el.dataset.poolAvailable === "true";
+    this.userMultiplier = parseFloat(this.el.dataset.userMultiplier) || 1.0;
 
     // HIGH WATER MARK: Previous furthest position watched (from server/Mnesia)
     // User only earns BUX when currentPosition > highWaterMark
@@ -374,40 +375,40 @@ export const VideoWatchTracker = {
     let sessionBux;
 
     if (this.isAnonymous) {
-      // Anonymous users: 15 BUX per minute
+      // Anonymous users: 15 BUX per minute (no multiplier)
       sessionBux = earnableMinutes * 15.0;
     } else {
-      // Logged-in users: use post's configured rate
-      sessionBux = earnableMinutes * this.buxPerMinute;
+      // Logged-in users: use post's configured rate × user multiplier
+      sessionBux = earnableMinutes * this.buxPerMinute * this.userMultiplier;
     }
 
     // Calculate max possible remaining BUX (from current high water mark to end)
     const remainingSeconds = Math.max(0, this.videoDuration - this.highWaterMark);
-    const earnRate = this.isAnonymous ? 15.0 : this.buxPerMinute;
+    const earnRate = this.isAnonymous ? 15.0 : this.buxPerMinute * this.userMultiplier;
     const maxRemainingBux = (remainingSeconds / 60) * earnRate;
 
     // Can't earn more than remaining video allows
     sessionBux = Math.min(sessionBux, maxRemainingBux);
 
-    this.sessionBux = Math.round(sessionBux * 10) / 10; // Round to 1 decimal
+    this.sessionBux = Math.round(sessionBux * 100) / 100; // Round to 2 decimals
 
     // Update the display element (template already has + prefix)
     const buxDisplay = document.getElementById("video-bux-earned");
     if (buxDisplay) {
-      buxDisplay.textContent = this.sessionBux.toFixed(1);
+      buxDisplay.textContent = this.sessionBux.toFixed(2);
     }
 
     // Update the total display (previously earned + this session)
     const totalDisplay = document.getElementById("video-bux-total");
     if (totalDisplay) {
       const total = this.totalBuxEarnedPreviously + this.sessionBux;
-      totalDisplay.textContent = total.toFixed(1);
+      totalDisplay.textContent = total.toFixed(2);
     }
 
     // Update anonymous video earnings
     const anonymousBuxDisplay = document.getElementById("anonymous-video-bux");
     if (anonymousBuxDisplay) {
-      anonymousBuxDisplay.textContent = this.sessionBux.toFixed(1);
+      anonymousBuxDisplay.textContent = this.sessionBux.toFixed(2);
     }
 
     // Update progress bar - shows overall video completion

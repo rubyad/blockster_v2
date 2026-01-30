@@ -1,43 +1,48 @@
 defmodule BlocksterV2.WalletMultiplier do
   @moduledoc """
-  Calculates hardware wallet multiplier based on token holdings.
+  Calculates external wallet multiplier based on token holdings.
 
-  Multiplier Rules:
-  - Base wallet connection: +0.1x
-  - ROGUE on Rogue Chain: +0.4x to +4.0x (tiered)
-  - ROGUE on Arbitrum: 50% of Rogue Chain multiplier (max +2.0x)
-  - ETH (mainnet + Arbitrum): +0.1x to +1.5x (combined, no L2 discount)
-  - Other tokens (USD value): +0.01x to +1.0x (capped)
+  **IMPORTANT**: As of V2, this module handles ETH + other tokens ONLY.
+  ROGUE is now handled separately by `BlocksterV2.RogueMultiplier` (smart wallet only).
 
-  See docs/hardware_wallet_integration.md for complete details.
+  ## Multiplier Range: 1.0x - 3.6x
+
+  ### Components:
+  - **Base** (wallet connected): 1.0x
+  - **Connection boost**: +0.1x (just for connecting)
+  - **ETH** (Mainnet + Arbitrum combined): +0.1x to +1.5x
+  - **Other tokens** (USD value): +0.0x to +1.0x
+
+  ### ETH Tiers:
+  | Combined ETH | Boost  |
+  |--------------|--------|
+  | 0 - 0.009    | +0.0x  |
+  | 0.01 - 0.09  | +0.1x  |
+  | 0.1 - 0.49   | +0.3x  |
+  | 0.5 - 0.99   | +0.5x  |
+  | 1.0 - 2.49   | +0.7x  |
+  | 2.5 - 4.99   | +0.9x  |
+  | 5.0 - 9.99   | +1.1x  |
+  | 10.0+        | +1.5x  |
+
+  ### Other Tokens:
+  Formula: `min(total_usd_value / 10000, 1.0)`
+  - $5,000 = +0.5x
+  - $10,000+ = +1.0x (capped)
+
+  See docs/unified_multiplier_system_v2.md for complete details.
   """
 
   require Logger
   alias BlocksterV2.{Wallets, PriceTracker}
 
-  # Token contract addresses
-  @rogue_on_arbitrum "0x88b8d272b9f1bab7d7896f5f88f8825ce14b05bd"
+  # Token contract addresses for other tokens (ROGUE removed - now in RogueMultiplier)
   @usdc_mainnet "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
   @usdc_arbitrum "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
   @usdt_mainnet "0xdac17f958d2ee523a2206206994597c13d831ec7"
   @usdt_arbitrum "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9"
   @arb_mainnet "0xb50721bcf8d664c30412cfbc6cf7a15145935f0d"
   @arb_arbitrum "0x912ce59144191c1204e64559fe8253a0e49e6548"
-
-  # Multiplier tiers for ROGUE
-  @rogue_tiers [
-    {1_000_000, 4.0},
-    {900_000, 3.6},
-    {800_000, 3.2},
-    {700_000, 2.8},
-    {600_000, 2.4},
-    {500_000, 2.0},
-    {400_000, 1.6},
-    {300_000, 1.2},
-    {200_000, 0.8},
-    {100_000, 0.4},
-    {0, 0.0}
-  ]
 
   # Multiplier tiers for ETH (combined mainnet + Arbitrum)
   @eth_tiers [
@@ -51,35 +56,38 @@ defmodule BlocksterV2.WalletMultiplier do
     {0.0, 0.0}
   ]
 
+  # Maximum possible multiplier (base 1.0 + connection 0.1 + ETH 1.5 + other 1.0)
+  @max_multiplier 3.6
+
+  # Base multiplier when no wallet connected
+  @base_multiplier 1.0
+
   @doc """
-  Calculate hardware wallet multiplier for a user.
+  Calculate external wallet multiplier for a user.
 
   Returns a map with breakdown:
   %{
-    total_multiplier: 2.5,
+    total_multiplier: 2.1,      # 1.0-3.6x range
     connection_boost: 0.1,
-    rogue_multiplier: 1.2,
     eth_multiplier: 0.5,
-    other_tokens_multiplier: 0.7,
+    other_tokens_multiplier: 0.5,
     breakdown: %{
-      rogue_chain: 250_000,
-      rogue_arbitrum: 50_000,
-      weighted_rogue: 275_000,
       eth_mainnet: 0.5,
       eth_arbitrum: 0.3,
       combined_eth: 0.8,
-      other_tokens_usd: 7_500
+      other_tokens_usd: 5_000
     }
   }
+
+  **NOTE**: ROGUE is no longer included. Use `BlocksterV2.RogueMultiplier` for ROGUE-based multiplier.
   """
   def calculate_hardware_wallet_multiplier(user_id) do
     case Wallets.get_connected_wallet(user_id) do
       nil ->
         # No wallet connected - return base multiplier of 1.0x
         %{
-          total_multiplier: 1.0,
+          total_multiplier: @base_multiplier,
           connection_boost: 0.0,
-          rogue_multiplier: 0.0,
           eth_multiplier: 0.0,
           other_tokens_multiplier: 0.0,
           breakdown: %{}
@@ -92,19 +100,14 @@ defmodule BlocksterV2.WalletMultiplier do
 
   @doc """
   Calculate multiplier from wallet balances stored in Mnesia.
+  ROGUE has been removed from this calculation - it's now handled by RogueMultiplier.
   """
   defp calculate_from_wallet_balances(wallet) do
     # Get balances from Mnesia
-    balances = Wallets.get_wallet_balances(wallet.user_id)
+    balances = Wallets.get_user_balances(wallet.user_id)
 
     # Base connection boost
     connection_boost = 0.1
-
-    # Calculate ROGUE multiplier
-    rogue_chain = get_balance(balances, "ROGUE", "rogue")
-    rogue_arbitrum = get_balance(balances, "ROGUE", "arbitrum")
-    weighted_rogue = rogue_chain + (rogue_arbitrum * 0.5)
-    rogue_multiplier = calculate_rogue_tier_multiplier(weighted_rogue)
 
     # Calculate ETH multiplier (combined mainnet + Arbitrum)
     eth_mainnet = get_balance(balances, "ETH", "ethereum")
@@ -117,34 +120,23 @@ defmodule BlocksterV2.WalletMultiplier do
     other_tokens_multiplier = calculate_other_tokens_multiplier(other_tokens_usd)
 
     # Total multiplier (includes base 1.0)
+    # Formula: 1.0 + connection_boost + eth_multiplier + other_tokens_multiplier
+    # Range: 1.0 to 3.6 (no ROGUE)
     total_multiplier =
-      1.0 + connection_boost + rogue_multiplier + eth_multiplier + other_tokens_multiplier
+      @base_multiplier + connection_boost + eth_multiplier + other_tokens_multiplier
 
     %{
       total_multiplier: total_multiplier,
       connection_boost: connection_boost,
-      rogue_multiplier: rogue_multiplier,
       eth_multiplier: eth_multiplier,
       other_tokens_multiplier: other_tokens_multiplier,
       breakdown: %{
-        rogue_chain: rogue_chain,
-        rogue_arbitrum: rogue_arbitrum,
-        weighted_rogue: weighted_rogue,
         eth_mainnet: eth_mainnet,
         eth_arbitrum: eth_arbitrum,
         combined_eth: combined_eth,
         other_tokens_usd: other_tokens_usd
       }
     }
-  end
-
-  @doc """
-  Calculate ROGUE tier multiplier based on weighted total.
-  """
-  defp calculate_rogue_tier_multiplier(weighted_rogue) do
-    Enum.find_value(@rogue_tiers, 0.0, fn {threshold, multiplier} ->
-      if weighted_rogue >= threshold, do: multiplier
-    end)
   end
 
   @doc """
@@ -165,7 +157,8 @@ defmodule BlocksterV2.WalletMultiplier do
   end
 
   @doc """
-  Calculate combined USD value of all tracked tokens (excluding ETH and ROGUE).
+  Calculate combined USD value of all tracked tokens (USDC, USDT, ARB).
+  NOTE: ETH and ROGUE are handled separately - not included here.
   """
   defp calculate_other_tokens_usd_value(balances) do
     tokens = [
@@ -186,13 +179,37 @@ defmodule BlocksterV2.WalletMultiplier do
 
   @doc """
   Get balance for a specific token and chain from cached balances.
+
+  Balances is a map like:
+  %{
+    "ETH" => %{total: 1.5, chains: [%{chain_id: 1, balance: 0.5}, ...]},
+    "USDC" => %{...}
+  }
+
+  Chain parameter is the chain name string: "ethereum", "arbitrum", "rogue"
   """
-  defp get_balance(balances, symbol, chain) do
-    case Enum.find(balances, fn b -> b.symbol == symbol && b.chain == chain end) do
-      nil -> 0.0
-      balance -> balance.amount
+  defp get_balance(balances, symbol, chain_name) do
+    chain_id = chain_name_to_id(chain_name)
+
+    case Map.get(balances, symbol) do
+      nil ->
+        0.0
+
+      %{chains: chains} ->
+        case Enum.find(chains, fn c -> c.chain_id == chain_id end) do
+          nil -> 0.0
+          chain_data -> chain_data.balance
+        end
+
+      _ ->
+        0.0
     end
   end
+
+  defp chain_name_to_id("ethereum"), do: 1
+  defp chain_name_to_id("arbitrum"), do: 42161
+  defp chain_name_to_id("rogue"), do: 560013
+  defp chain_name_to_id(_), do: 0
 
   @doc """
   Get token price from PriceTracker (returns 0.0 if not available).
@@ -206,6 +223,9 @@ defmodule BlocksterV2.WalletMultiplier do
 
   @doc """
   Update hardware wallet multiplier for a user in Mnesia.
+
+  NOTE: This updates the legacy user_multipliers table.
+  For the new unified system, use `BlocksterV2.UnifiedMultiplier`.
 
   Table schema (user_multipliers):
   Index 0: :user_multipliers (table name)
@@ -296,18 +316,42 @@ defmodule BlocksterV2.WalletMultiplier do
   """
   def get_user_multiplier(user_id) do
     case :mnesia.dirty_read({:user_multipliers, user_id}) do
-      [] -> 1.0
-      [record] -> elem(record, 8) || 1.0
+      [] -> @base_multiplier
+      [record] -> elem(record, 8) || @base_multiplier
     end
   end
 
   @doc """
   Get combined multiplier (overall) for a user.
+  NOTE: This is from the legacy system. Use `BlocksterV2.UnifiedMultiplier` for V2.
   """
   def get_combined_multiplier(user_id) do
     case :mnesia.dirty_read({:user_multipliers, user_id}) do
-      [] -> 1.0
-      [record] -> elem(record, 7) || 1.0
+      [] -> @base_multiplier
+      [record] -> elem(record, 7) || @base_multiplier
     end
+  end
+
+  @doc """
+  Get the maximum possible wallet multiplier.
+  """
+  def max_multiplier, do: @max_multiplier
+
+  @doc """
+  Get the base/minimum wallet multiplier.
+  """
+  def base_multiplier, do: @base_multiplier
+
+  @doc """
+  Get the ETH tiers for display in UI.
+  """
+  def get_eth_tiers do
+    @eth_tiers
+    |> Enum.map(fn {threshold, boost} ->
+      %{
+        threshold: threshold,
+        boost: boost
+      }
+    end)
   end
 end

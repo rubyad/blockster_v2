@@ -5,8 +5,16 @@
 Allow Blockster users to connect external hardware wallets (MetaMask, Ledger, Trezor, etc.) to their email-based accounts for:
 1. **Token transfers** between hardware wallet and Blockster smart wallet
 2. **Balance reading** across multiple chains and tokens
-3. **Multiplier boosts** based on wallet holdings
+3. **Wallet Multiplier boosts** based on ETH + other token holdings (NOT ROGUE - see note below)
 4. **Direct transactions** from hardware wallet (non-AA) with user confirmation
+
+> **Important V2 Change (Jan 2026)**: The multiplier system has been refactored into a **Unified Multiplier System** with 4 separate components:
+> - **X Multiplier** (1.0x - 10.0x): Based on X account quality score
+> - **Phone Multiplier** (0.5x - 2.0x): Based on phone verification + geo tier
+> - **ROGUE Multiplier** (1.0x - 5.0x): Based on ROGUE in **Blockster smart wallet only** (NOT external wallet)
+> - **Wallet Multiplier** (1.0x - 3.6x): Based on ETH + other tokens in **external wallet** (NO ROGUE)
+>
+> See `docs/unified_multiplier_system_v2.md` for complete details on the unified system.
 
 ## Table of Contents
 - [Architecture](#architecture)
@@ -485,44 +493,61 @@ let ClipboardHook = {
 
 ## Multiplier System
 
-### Multiplier Rules
+> **V2 Update (Jan 2026)**: The multiplier system has been refactored. ROGUE is now a **separate multiplier component** that only counts ROGUE in the **Blockster smart wallet**. External wallet ROGUE does NOT count toward multipliers.
+>
+> See `docs/unified_multiplier_system_v2.md` for the complete unified multiplier system.
+
+### External Wallet Multiplier (V2)
+
+**Range**: 1.0x - 3.6x
+
+The external wallet multiplier is now based on **ETH + other tokens only** (NO ROGUE).
 
 | Factor | Multiplier Boost | Notes |
 |--------|------------------|-------|
-| **Hardware Wallet Connected** | +0.1x | Base boost for connecting |
-| **ROGUE Holdings (Rogue Chain)** | Up to +4.0x | See table below |
-| **ROGUE Holdings (Arbitrum)** | Up to +2.0x | 50% of Rogue Chain multiplier |
-| **ETH Holdings (Mainnet + Arbitrum)** | +0.1x to +1.5x | Strong quality indicator - combined balance |
-| **All Other Tokens (USD Value)** | +0.05x to +0.3x | USDC, USDT, ARB, UNI, LINK, etc. - based on total USD value |
+| **Base** | 1.0x | Always applied |
+| **Hardware Wallet Connected** | +0.1x | Boost for connecting |
+| **ETH Holdings (Mainnet + Arbitrum)** | +0.0x to +1.5x | Combined balance |
+| **Other Tokens (USD Value)** | +0.0x to +1.0x | USDC, USDT, ARB - based on total USD value |
 
-### ROGUE Multiplier Tiers
+**Maximum**: 1.0 + 0.1 + 1.5 + 1.0 = **3.6x**
 
-| ROGUE Balance | Multiplier | Cumulative Total |
-|---------------|------------|------------------|
-| 100k - 199k | +0.4x | 1.5x (base 1.0 + wallet 0.1 + tier 0.4) |
-| 200k - 299k | +0.8x | 1.9x |
-| 300k - 399k | +1.2x | 2.3x |
-| 400k - 499k | +1.6x | 2.7x |
-| 500k - 599k | +2.0x | 3.1x |
-| 600k - 699k | +2.4x | 3.5x |
-| 700k - 799k | +2.8x | 3.9x |
-| 800k - 899k | +3.2x | 4.3x |
-| 900k - 999k | +3.6x | 4.7x |
-| 1M+ | +4.0x | 5.1x (before ETH) |
+### ROGUE Multiplier (Separate - Smart Wallet Only)
+
+> **Important**: ROGUE in your external/hardware wallet does NOT count toward the ROGUE multiplier. Only ROGUE held in your **Blockster smart wallet** counts.
+
+The ROGUE multiplier is now a separate component of the Unified Multiplier System:
+
+| ROGUE Balance (Smart Wallet) | Boost | Total ROGUE Multiplier |
+|------------------------------|-------|------------------------|
+| 0 - 99,999 | +0.0x | 1.0x |
+| 100k - 199k | +0.4x | 1.4x |
+| 200k - 299k | +0.8x | 1.8x |
+| 300k - 399k | +1.2x | 2.2x |
+| 400k - 499k | +1.6x | 2.6x |
+| 500k - 599k | +2.0x | 3.0x |
+| 600k - 699k | +2.4x | 3.4x |
+| 700k - 799k | +2.8x | 3.8x |
+| 800k - 899k | +3.2x | 4.2x |
+| 900k - 999k | +3.6x | 4.6x |
+| 1M+ | +4.0x | 5.0x (maximum) |
+
+**Note**: This is handled by `BlocksterV2.RogueMultiplier` module, NOT the `WalletMultiplier` module.
 
 ### ETH Multiplier Tiers (Combined Mainnet + Arbitrum)
 
 **Note**: ETH is a strong quality indicator. We combine ETH from both Ethereum mainnet and Arbitrum One with equal weight (no L2 discount).
 
-| Combined ETH Balance | Multiplier | Reasoning |
-|----------------------|------------|-----------|
-| 0.01 - 0.09 | +0.1x | Small holder, some crypto experience |
-| 0.1 - 0.49 | +0.3x | Regular user, quality signal |
+| Combined ETH Balance | Boost | Notes |
+|----------------------|-------|-------|
+| 0 - 0.009 | +0.0x | No ETH |
+| 0.01 - 0.09 | +0.1x | Small holder |
+| 0.1 - 0.49 | +0.3x | Regular user |
 | 0.5 - 0.99 | +0.5x | Committed user |
 | 1.0 - 2.49 | +0.7x | Strong engagement |
 | 2.5 - 4.99 | +0.9x | High-value user |
 | 5.0 - 9.99 | +1.1x | Premium user |
-| 10.0+ | +1.5x | Whale tier, maximum ETH multiplier |
+| 10.0+ | +1.5x | Whale tier (maximum) |
 
 **Why Equal Weight for L2?**
 - Users who bridge to Arbitrum are often MORE sophisticated (understand L2s, gas optimization)
@@ -560,109 +585,122 @@ let ClipboardHook = {
 
 **Note**: This is the **combined USD value** of ALL tracked tokens (excluding ETH and ROGUE which have their own tiers).
 
-**Calculation**:
+**V2 Implementation** (see `lib/blockster_v2/wallet_multiplier.ex`):
+
 ```elixir
 defmodule BlocksterV2.WalletMultiplier do
-  @rogue_on_arbitrum "0x..." # ROGUE ERC-20 contract on Arbitrum
+  @moduledoc """
+  Calculates external wallet multiplier based on token holdings.
+
+  **IMPORTANT**: As of V2, this module handles ETH + other tokens ONLY.
+  ROGUE is now handled separately by `BlocksterV2.RogueMultiplier` (smart wallet only).
+
+  ## Multiplier Range: 1.0x - 3.6x
+
+  ### Components:
+  - **Base** (wallet connected): 1.0x
+  - **Connection boost**: +0.1x (just for connecting)
+  - **ETH** (Mainnet + Arbitrum combined): +0.1x to +1.5x
+  - **Other tokens** (USD value): +0.0x to +1.0x
+  """
+
+  @eth_tiers [
+    {10.0, 1.5}, {5.0, 1.1}, {2.5, 0.9}, {1.0, 0.7},
+    {0.5, 0.5}, {0.1, 0.3}, {0.01, 0.1}, {0.0, 0.0}
+  ]
+
+  @base_multiplier 1.0
+  @max_multiplier 3.6
 
   def calculate_hardware_wallet_multiplier(user_id) do
-    base_multiplier = 1.0
-
-    case get_connected_wallet(user_id) do
+    case Wallets.get_connected_wallet(user_id) do
       nil ->
-        base_multiplier
+        # No wallet connected - return base multiplier of 1.0x
+        %{total_multiplier: @base_multiplier, connection_boost: 0.0, ...}
 
       wallet ->
+        # Base connection boost
         connection_boost = 0.1
 
-        # Get ROGUE balance on Rogue Chain (native)
-        rogue_chain_balance = get_rogue_balance_native(wallet.address)
+        # Calculate ETH multiplier (combined mainnet + Arbitrum)
+        # NOTE: ROGUE is NOT included - handled by RogueMultiplier
+        eth_mainnet = get_balance(balances, "ETH", "ethereum")
+        eth_arbitrum = get_balance(balances, "ETH", "arbitrum")
+        combined_eth = eth_mainnet + eth_arbitrum
+        eth_multiplier = calculate_eth_tier_multiplier(combined_eth)
 
-        # Get ROGUE balance on Arbitrum (ERC-20)
-        arbitrum_rogue_balance = get_token_balance(wallet.address, @rogue_on_arbitrum, :arbitrum)
+        # Calculate other tokens multiplier (USD value based)
+        other_tokens_usd = calculate_other_tokens_usd_value(balances)
+        other_tokens_multiplier = min(other_tokens_usd / 10_000, 1.0)
 
-        # Combine ROGUE balances with Arbitrum counting at 50%
-        weighted_rogue_total = rogue_chain_balance + (arbitrum_rogue_balance * 0.5)
-        rogue_multiplier = calculate_rogue_tier_multiplier(weighted_rogue_total)
+        # Total: 1.0 + connection + ETH + other tokens
+        # Range: 1.0 to 3.6 (NO ROGUE)
+        total = @base_multiplier + connection_boost + eth_multiplier + other_tokens_multiplier
 
-        # Get ETH balance from BOTH Ethereum mainnet AND Arbitrum One
-        eth_mainnet_balance = get_eth_balance_mainnet(wallet.address)
-        eth_arbitrum_balance = get_eth_balance_arbitrum(wallet.address)
-
-        # Combine ETH balances with EQUAL WEIGHT (no L2 discount)
-        combined_eth_balance = eth_mainnet_balance + eth_arbitrum_balance
-        eth_multiplier = calculate_eth_multiplier(combined_eth_balance)
-
-        # Get combined USD value of ALL other tokens (USDC, USDT, ARB, UNI, etc.)
-        other_tokens_usd_value = calculate_other_tokens_usd_value(user_id)
-        other_tokens_multiplier = calculate_other_tokens_multiplier(other_tokens_usd_value)
-
-        total = base_multiplier +
-                connection_boost +
-                rogue_multiplier +
-                eth_multiplier +
-                other_tokens_multiplier
-
-        min(total, 10.0) # Cap at 10x
+        %{
+          total_multiplier: total,
+          connection_boost: connection_boost,
+          eth_multiplier: eth_multiplier,
+          other_tokens_multiplier: other_tokens_multiplier,
+          breakdown: %{...}
+        }
     end
   end
+end
+```
 
-  defp calculate_other_tokens_usd_value(user_id) do
-    # Query all hardware wallet balances EXCEPT ETH and ROGUE
-    all_balances = :mnesia.dirty_match_object(
-      {:hardware_wallet_balances, {user_id, :_, :_}, :_, :_, :_, :_}
-    )
+**ROGUE Multiplier** (separate - see `lib/blockster_v2/rogue_multiplier.ex`):
 
-    all_balances
-    |> Enum.reject(fn record ->
-      {_, {_user_id, symbol, _chain_id}, _balance, _addr, _decimals, _updated} = record
-      symbol in ["ETH", "ROGUE"]
-    end)
-    |> Enum.reduce(0.0, fn record, acc ->
-      {_, {_user_id, symbol, _chain_id}, balance, _addr, _decimals, _updated} = record
+```elixir
+defmodule BlocksterV2.RogueMultiplier do
+  @moduledoc """
+  Calculates ROGUE multiplier based on Blockster smart wallet balance ONLY.
 
-      # Get USD price from PriceTracker
-      case BlocksterV2.PriceTracker.get_price(symbol) do
-        {:ok, %{usd_price: price}} -> acc + (balance * price)
-        _ -> acc
-      end
-    end)
+  **IMPORTANT**: Only ROGUE held in the user's **Blockster smart wallet** counts.
+  ROGUE in external wallets (MetaMask, Ledger, etc.) does NOT count.
+
+  ## Multiplier Range: 1.0x - 5.0x
+  """
+
+  @rogue_tiers [
+    {1_000_000, 4.0}, {900_000, 3.6}, {800_000, 3.2}, {700_000, 2.8},
+    {600_000, 2.4}, {500_000, 2.0}, {400_000, 1.6}, {300_000, 1.2},
+    {200_000, 0.8}, {100_000, 0.4}, {0, 0.0}
+  ]
+
+  def calculate_rogue_multiplier(user_id) do
+    # Get ROGUE balance from SMART WALLET only (Mnesia user_rogue_balances table)
+    balance = get_smart_wallet_rogue_balance(user_id)
+
+    # Cap at 1M ROGUE for multiplier calculation
+    capped_balance = min(balance, 1_000_000)
+
+    # Get boost from tier
+    boost = get_rogue_boost(capped_balance)
+
+    %{
+      total_multiplier: 1.0 + boost,
+      boost: boost,
+      balance: balance,
+      capped_balance: capped_balance
+    }
   end
+end
+```
 
-  defp calculate_rogue_tier_multiplier(balance) do
-    cond do
-      balance >= 1_000_000 -> 4.0
-      balance >= 900_000 -> 3.6
-      balance >= 800_000 -> 3.2
-      balance >= 700_000 -> 2.8
-      balance >= 600_000 -> 2.4
-      balance >= 500_000 -> 2.0
-      balance >= 400_000 -> 1.6
-      balance >= 300_000 -> 1.2
-      balance >= 200_000 -> 0.8
-      balance >= 100_000 -> 0.4
-      true -> 0.0
-    end
-  end
+**Unified Multiplier** (combines all 4 - see `lib/blockster_v2/unified_multiplier.ex`):
 
-  defp calculate_eth_multiplier(combined_eth_balance) do
-    cond do
-      combined_eth_balance >= 10.0 -> 1.5   # Whale tier
-      combined_eth_balance >= 5.0 -> 1.1    # Premium user
-      combined_eth_balance >= 2.5 -> 0.9    # High-value user
-      combined_eth_balance >= 1.0 -> 0.7    # Strong engagement
-      combined_eth_balance >= 0.5 -> 0.5    # Committed user
-      combined_eth_balance >= 0.1 -> 0.3    # Regular user
-      combined_eth_balance >= 0.01 -> 0.1   # Small holder
-      true -> 0.0
-    end
-  end
+```elixir
+defmodule BlocksterV2.UnifiedMultiplier do
+  @moduledoc """
+  Overall = X Multiplier × Phone Multiplier × ROGUE Multiplier × Wallet Multiplier
 
-  defp calculate_other_tokens_multiplier(combined_usd_value) do
-    # Proportional multiplier: $10,000 = +1.0x, everything else scaled proportionally
-    # Formula: min(usd_value / 10000, 1.0)
-    multiplier = combined_usd_value / 10_000.0
-    min(multiplier, 1.0)
+  Range: 0.5x to 360.0x
+  """
+
+  def get_overall_multiplier(user_id) do
+    # Reads from unified_multipliers Mnesia table
+    # Returns product of all 4 components
   end
 end
 ```
@@ -703,6 +741,9 @@ defmodule BlocksterV2.HardwareWallet.TokenConfig do
         coingecko_id: "ethereum"
       },
 
+      # NOTE (V2): ROGUE is tracked for display/transfer purposes, but external wallet
+      # ROGUE does NOT count toward multipliers. Only smart wallet ROGUE counts.
+      # See RogueMultiplier module and unified_multiplier_system_v2.md
       "ROGUE" => %{
         name: "Rogue",
         chains: [
@@ -807,24 +848,33 @@ defmodule BlocksterV2.HardwareWallet.TokenConfig do
 end
 ```
 
-### Multiplier Storage in Mnesia
+### Multiplier Storage in Mnesia (V2)
+
+The unified multiplier system uses a **new table** (`unified_multipliers`) that stores all 4 components:
 
 ```elixir
-# Add hardware_wallet_multiplier to user_multipliers table
-:mnesia.create_table(:user_multipliers, [
+# V2: Unified multipliers table (replaces legacy user_multipliers for new system)
+:mnesia.create_table(:unified_multipliers, [
   attributes: [
-    :user_id,
-    :x_multiplier,           # From X account quality
-    :geo_multiplier,         # From phone verification
-    :hardware_wallet_multiplier,  # NEW: From connected wallet holdings
-    :total_multiplier,       # Combined multiplier
-    :updated_at
+    :user_id,                # PRIMARY KEY
+    :x_score,                # Raw X score (0-100)
+    :x_multiplier,           # Calculated (1.0-10.0)
+    :phone_multiplier,       # From phone verification (0.5-2.0)
+    :rogue_multiplier,       # From smart wallet ROGUE (1.0-5.0) - NOT external wallet
+    :wallet_multiplier,      # From external wallet ETH + other tokens (1.0-3.6)
+    :overall_multiplier,     # Product of all four (0.5-360.0)
+    :last_updated,           # Unix timestamp
+    :created_at              # Unix timestamp
   ],
   disc_copies: [node()],
   type: :set,
-  index: []
+  index: [:overall_multiplier]
 ])
 ```
+
+**Note**: The legacy `user_multipliers` table still exists and is updated in parallel for backward compatibility. New code should use `UnifiedMultiplier.get_overall_multiplier/1`.
+
+See `docs/unified_multiplier_system_v2.md` for complete storage details.
 
 ---
 
@@ -2577,54 +2627,85 @@ Connection persistence now matches the email-based smart wallet experience:
 **Deferred**:
 - Background job for periodic balance refresh (will implement in Phase 3 or later)
 
-### Phase 3: Multiplier System (Week 2) ✅ COMPLETE
+### Phase 3: Multiplier System (Week 2) ✅ COMPLETE (Updated Jan 29, 2026)
 - [x] Implement multiplier calculation logic
 - [x] Add `hardware_wallet_multiplier` to Mnesia `user_multipliers` table
 - [x] Create background job to recalculate multipliers daily
 - [x] Update engagement rewards to use combined multiplier
 - [x] Display multiplier boost in UI
+- [x] **V2 Refactor (Jan 29, 2026)**: Separated ROGUE from wallet multiplier into unified system
 
 **Completed**: January 28, 2026
+**V2 Update**: January 29, 2026 - Refactored into Unified Multiplier System
 
 **Key Files**:
-- [lib/blockster_v2/wallet_multiplier.ex](../lib/blockster_v2/wallet_multiplier.ex) - Multiplier calculation logic
+- [lib/blockster_v2/wallet_multiplier.ex](../lib/blockster_v2/wallet_multiplier.ex) - Wallet multiplier (ETH + other tokens ONLY)
+- [lib/blockster_v2/rogue_multiplier.ex](../lib/blockster_v2/rogue_multiplier.ex) - **NEW**: ROGUE multiplier (smart wallet only)
+- [lib/blockster_v2/unified_multiplier.ex](../lib/blockster_v2/unified_multiplier.ex) - **NEW**: Combines all 4 multipliers
 - [lib/blockster_v2/wallet_multiplier_refresher.ex](../lib/blockster_v2/wallet_multiplier_refresher.ex) - Daily refresh GenServer
 - [lib/blockster_v2/engagement_tracker.ex](../lib/blockster_v2/engagement_tracker.ex#L442-L470) - Multiplier details function
 - [lib/blockster_v2_web/live/member_live/show.html.heex](../lib/blockster_v2_web/live/member_live/show.html.heex#L1442-L1530) - UI display
 - [lib/blockster_v2/application.ex](../lib/blockster_v2/application.ex#L45) - Supervision tree
 
-#### Implementation Details (January 2026)
+#### Implementation Details (V2 - January 29, 2026)
+
+> **V2 Change**: ROGUE is now a **separate multiplier** that only counts ROGUE in the Blockster smart wallet.
+> The wallet multiplier now only handles ETH + other tokens (1.0x - 3.6x range).
+> See `docs/unified_multiplier_system_v2.md` for complete V2 documentation.
 
 **1. WalletMultiplier Module** ([lib/blockster_v2/wallet_multiplier.ex](../lib/blockster_v2/wallet_multiplier.ex))
 
-Core module for calculating hardware wallet multipliers based on token holdings.
+Core module for calculating external wallet multipliers based on **ETH + other token** holdings only.
 
-**Multiplier Calculation Logic**:
+**V2 Multiplier Calculation Logic**:
 ```elixir
-total_multiplier = connection_boost + rogue_multiplier + eth_multiplier + other_tokens_multiplier
+# V2: ROGUE removed - now in separate RogueMultiplier module
+total_multiplier = 1.0 + connection_boost + eth_multiplier + other_tokens_multiplier
 
 # Where:
+# - 1.0 = base multiplier
 # - connection_boost = 0.1 (fixed)
-# - rogue_multiplier = tiered based on weighted ROGUE balance (Rogue Chain + 0.5 * Arbitrum)
-# - eth_multiplier = tiered based on combined ETH (mainnet + Arbitrum, no discount)
+# - eth_multiplier = tiered based on combined ETH (mainnet + Arbitrum)
 # - other_tokens_multiplier = min(total_usd_value / 10000, 1.0)
+# Range: 1.0 to 3.6 (NO ROGUE)
+```
+
+**2. RogueMultiplier Module** ([lib/blockster_v2/rogue_multiplier.ex](../lib/blockster_v2/rogue_multiplier.ex)) - **NEW**
+
+Separate module for ROGUE-based multiplier using **smart wallet balance only**.
+
+```elixir
+# ROGUE multiplier is based on Blockster smart wallet balance ONLY
+# External wallet ROGUE does NOT count
+total_multiplier = 1.0 + rogue_boost
+
+# Where rogue_boost is tiered (0.4x per 100k ROGUE, max 4.0x at 1M+)
+# Range: 1.0 to 5.0
+```
+
+**3. UnifiedMultiplier Module** ([lib/blockster_v2/unified_multiplier.ex](../lib/blockster_v2/unified_multiplier.ex)) - **NEW**
+
+Combines all 4 multiplier components using multiplicative formula:
+
+```elixir
+overall = x_multiplier × phone_multiplier × rogue_multiplier × wallet_multiplier
+
+# Range: 0.5 to 360.0
 ```
 
 **Key Functions**:
-- `calculate_hardware_wallet_multiplier/1` - Main calculation function, returns detailed breakdown
-- `update_user_multiplier/1` - Updates Mnesia `user_multipliers` table with new multiplier
-- `get_user_multiplier/1` - Retrieves hardware wallet multiplier from Mnesia (index 8)
-- `get_combined_multiplier/1` - Retrieves overall multiplier from Mnesia (index 7)
+- `WalletMultiplier.calculate_hardware_wallet_multiplier/1` - ETH + other tokens (1.0-3.6x)
+- `RogueMultiplier.calculate_rogue_multiplier/1` - Smart wallet ROGUE (1.0-5.0x)
+- `UnifiedMultiplier.get_overall_multiplier/1` - Combined product (0.5-360.0x)
+- `UnifiedMultiplier.get_user_multipliers/1` - All components + overall
 
-**Mnesia Integration**:
-- Uses `extra_field1` (index 8) in `user_multipliers` table for `hardware_wallet_multiplier`
-- Updates `overall_multiplier` (index 7) to include wallet boost
-- Formula: `overall_multiplier = (x_multiplier + linkedin_multiplier + personal_multiplier + rogue_multiplier - 3.0) + hardware_wallet_multiplier`
-- No schema changes needed (followed CRITICAL MNESIA RULES from CLAUDE.md)
+**Mnesia Tables**:
+- `user_multipliers` (legacy) - Still updated for backward compatibility
+- `unified_multipliers` (V2) - New table with all 4 components + overall
 
-**Tracked Token Contracts**:
+**Tracked Token Contracts** (V2 - ROGUE removed from wallet multiplier):
 ```elixir
-@rogue_on_arbitrum "0x88b8d272b9f1bab7d7896f5f88f8825ce14b05bd"
+# ROGUE contract removed - now handled by RogueMultiplier using smart wallet balance
 @usdc_mainnet "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 @usdc_arbitrum "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
 @usdt_mainnet "0xdac17f958d2ee523a2206206994597c13d831ec7"
@@ -2676,23 +2757,23 @@ bux_earned = (engagement_score / 10) * base_bux_reward * overall_multiplier * ge
 
 Added multiplier boost cards in the Wallet tab on member profile page.
 
-**Active Multiplier Card** (shown when `hardware_wallet_multiplier > 0`):
+**Active Multiplier Card** (shown when `wallet_multiplier > 1.0`):
 - Green gradient background with lightning icon
-- Shows total multiplier boost (e.g., "+2.5x")
+- Shows total multiplier boost (e.g., "+1.6x")
 - Breakdown of components:
   - Base connection boost: +0.10x (always shown)
-  - ROGUE holdings boost (conditional)
   - ETH holdings boost (conditional)
   - Other tokens boost (conditional)
+- **V2 Note**: ROGUE boost is now shown separately in the ROGUE Multiplier section
 - Educational message about daily updates at 3:00 AM UTC
 
-**Info Card** (shown when `hardware_wallet_multiplier == 0` but wallet connected):
+**Info Card** (shown when `wallet_multiplier == 1.0` but wallet connected):
 - Blue gradient background with info icon
 - Educational content about earning multipliers
 - Examples of tier thresholds:
-  - 🚀 100k+ ROGUE = up to +4.0x boost
   - 💎 10+ ETH = +1.5x boost
-  - 💰 Stablecoins & DeFi tokens also count
+  - 💰 Stablecoins & DeFi tokens = up to +1.0x boost
+- **V2 Note**: ROGUE multiplier info is shown separately (smart wallet only)
 
 **Location**: Between "Connected Wallet Display" and "Token Balances" sections
 
@@ -2703,27 +2784,69 @@ Multiplier calculation uses `PriceTracker` module for USD value conversion:
 - Returns `0.0` if price not available (graceful degradation)
 - Used for "other tokens" multiplier calculation (USDC, USDT, ARB)
 
-**6. Testing & Verification**
+**6. Testing & Verification (V2)**
 
 **Manual Testing**:
 ```elixir
 # In IEx console
-alias BlocksterV2.WalletMultiplier
+alias BlocksterV2.{WalletMultiplier, RogueMultiplier, UnifiedMultiplier}
 
-# Calculate multiplier for user
-multiplier_data = WalletMultiplier.calculate_hardware_wallet_multiplier(65)
-
+# V2: Calculate wallet multiplier (ETH + other tokens ONLY)
+wallet_data = WalletMultiplier.calculate_hardware_wallet_multiplier(65)
 # Should return:
 # %{
-#   total_multiplier: 2.5,
+#   total_multiplier: 1.6,  # Range: 1.0 - 3.6 (NO ROGUE)
 #   connection_boost: 0.1,
-#   rogue_multiplier: 1.2,
 #   eth_multiplier: 0.5,
-#   other_tokens_multiplier: 0.7,
+#   other_tokens_multiplier: 0.0,
 #   breakdown: %{
-#     rogue_chain: 250_000,
-#     rogue_arbitrum: 50_000,
-#     weighted_rogue: 275_000,
+#     eth_mainnet: 0.5,
+#     eth_arbitrum: 0.3,
+#     combined_eth: 0.8,
+#     other_tokens_usd: 0
+#   }
+# }
+
+# V2: Calculate ROGUE multiplier (smart wallet ONLY)
+rogue_data = RogueMultiplier.calculate_rogue_multiplier(65)
+# Should return:
+# %{
+#   total_multiplier: 3.0,  # Range: 1.0 - 5.0
+#   boost: 2.0,
+#   balance: 500_000.0,
+#   capped_balance: 500_000.0,
+#   next_tier: %{threshold: 600_000, boost: 2.4, rogue_needed: 100_000}
+# }
+
+# V2: Get unified multiplier (all 4 components)
+overall = UnifiedMultiplier.get_overall_multiplier(65)
+# Returns: 42.0 (product of X × Phone × ROGUE × Wallet)
+
+# V2: Get full breakdown
+multipliers = UnifiedMultiplier.get_user_multipliers(65)
+# Returns:
+# %{
+#   x_score: 75,
+#   x_multiplier: 7.5,
+#   phone_multiplier: 2.0,
+#   rogue_multiplier: 3.0,
+#   wallet_multiplier: 1.6,
+#   overall_multiplier: 72.0
+# }
+```
+
+**Legacy Testing** (for backward compatibility):
+```elixir
+# Old WalletMultiplier still works but NO ROGUE:
+multiplier_data = WalletMultiplier.calculate_hardware_wallet_multiplier(65)
+
+# Old return format (V1 - NO LONGER INCLUDES ROGUE):
+# %{
+#   total_multiplier: 1.6,
+#   connection_boost: 0.1,
+#   eth_multiplier: 0.5,
+#   other_tokens_multiplier: 0.0,
+#   breakdown: %{
 #     eth_mainnet: 0.5,
 #     eth_arbitrum: 0.3,
 #     combined_eth: 0.8,
@@ -2745,7 +2868,8 @@ WalletMultiplier.update_user_multiplier(65)
 - Manual refresh available: `WalletMultiplierRefresher.refresh_all_multipliers()`
 
 **Known Limitations**:
-- Multiplier breakdown (rogue_boost, eth_boost, etc.) not stored in Mnesia - only calculated in `calculate_hardware_wallet_multiplier/1`
+- V2: ROGUE multiplier is now separate from wallet multiplier (see `RogueMultiplier` module)
+- Multiplier breakdown not stored in Mnesia - only calculated on demand
 - UI currently shows basic breakdown - could be enhanced to show tier details
 - Price data dependency - if PriceTracker fails, other tokens multiplier will be 0
 
@@ -2754,6 +2878,7 @@ WalletMultiplier.update_user_multiplier(65)
 - Add historical multiplier tracking for analytics
 - Support more DeFi tokens (UNI, AAVE, LINK, etc.)
 - Add multiplier preview before wallet connection
+- V2: Update UI to show all 4 unified multiplier components
 
 ### Phase 4: Token Transfers (Week 3) ✅ COMPLETE
 - [x] Implement "Send to Blockster" flow (hardware → smart wallet)
@@ -2919,12 +3044,17 @@ end
 - [ ] Balances persist across page refreshes (from Mnesia)
 - [ ] Disconnect clears balances from display and Mnesia
 
-### Multiplier System
-- [ ] Connecting wallet adds +0.1x base multiplier
-- [ ] ROGUE holdings increase multiplier correctly (all tiers)
-- [ ] ETH holdings add appropriate multiplier
+### Multiplier System (V2)
+- [ ] Connecting wallet adds +0.1x base multiplier to **wallet multiplier**
+- [ ] ETH holdings add appropriate multiplier (tiers 0.01 → +0.1x to 10.0+ → +1.5x)
+- [ ] Other tokens add multiplier based on USD value (up to +1.0x at $10k)
 - [ ] Multiplier updates when balances change
 - [ ] Multiplier affects BUX earnings in engagement tracking
+
+**V2 Note**: ROGUE is now a **separate multiplier** that only counts smart wallet balance:
+- [ ] ROGUE in Blockster smart wallet increases ROGUE multiplier (all tiers)
+- [ ] ROGUE in external wallet is displayed but does NOT count toward ROGUE multiplier
+- [ ] Overall multiplier = X × Phone × ROGUE × Wallet
 
 ### Transfers
 - [ ] User can send ROGUE from hardware wallet to Blockster
@@ -2964,15 +3094,40 @@ end
 ### Q: Can users use their hardware wallet for in-app purchases?
 **A:** Yes, but purchases will be separate transactions from their hardware wallet (not account abstracted). The user must confirm each transaction in their wallet app.
 
-### Q: What tokens count toward the multiplier?
-**A:**
-- ROGUE (highest multiplier)
-- ETH (moderate multiplier)
-- Major stablecoins (USDC, USDT) - small multiplier
-- Other top-100 tokens - small multiplier
+### Q: What tokens count toward the external wallet multiplier?
+**A:** As of V2, the **external wallet multiplier** (1.0x - 3.6x) is based on:
+- ETH (Mainnet + Arbitrum combined) - up to +1.5x
+- Major stablecoins (USDC, USDT) - based on USD value
+- ARB token - based on USD value
+- Other tracked tokens - based on combined USD value (up to +1.0x)
+
+**ROGUE does NOT count** toward the external wallet multiplier. ROGUE has its own separate multiplier (1.0x - 5.0x) based on your **Blockster smart wallet** balance only.
+
+### Q: Does ROGUE in my hardware wallet count toward the ROGUE multiplier?
+**A:** **No.** As of V2, only ROGUE held in your **Blockster smart wallet** counts toward the ROGUE multiplier. ROGUE in external wallets (MetaMask, Ledger, etc.) is displayed but does not contribute to multipliers.
+
+This encourages users to hold ROGUE within the Blockster ecosystem.
 
 ### Q: Is there a minimum holding requirement?
-**A:** For ROGUE multiplier tiers, yes - starts at 100k ROGUE. For ETH and other tokens, any positive balance provides a small multiplier boost.
+**A:**
+- **ROGUE multiplier**: Starts at 100k ROGUE in your Blockster smart wallet
+- **ETH multiplier**: Starts at 0.01 ETH combined (Mainnet + Arbitrum)
+- **Other tokens**: Any USD value provides proportional boost (up to $10,000 for +1.0x)
+
+### Q: How is the overall multiplier calculated?
+**A:** The overall multiplier uses a **multiplicative formula**:
+
+`Overall = X Multiplier × Phone Multiplier × ROGUE Multiplier × Wallet Multiplier`
+
+| Component | Range |
+|-----------|-------|
+| X Multiplier | 1.0x - 10.0x |
+| Phone Multiplier | 0.5x - 2.0x |
+| ROGUE Multiplier | 1.0x - 5.0x |
+| Wallet Multiplier | 1.0x - 3.6x |
+| **Overall** | **0.5x - 360.0x** |
+
+See `docs/unified_multiplier_system_v2.md` for complete details.
 
 ---
 

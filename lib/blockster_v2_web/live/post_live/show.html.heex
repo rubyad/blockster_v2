@@ -784,6 +784,7 @@
       data-high-water-mark={@video_high_water_mark || 0}
       data-total-bux-earned={@video_total_bux_earned || 0}
       data-pool-available={to_string(@pool_available)}
+      data-user-multiplier={@user_multiplier || 1.0}
     >
       <!-- YouTube player will be injected here -->
       <div data-video-player class="w-full h-full bg-black"></div>
@@ -795,7 +796,7 @@
         <div class="flex items-center gap-3">
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
           <div>
-            <div class="text-xs opacity-90">This Session</div>
+            <div class="text-xs opacity-90">This Session <span class="bg-white/20 rounded px-1.5 py-0.5 ml-1"><%= :erlang.float_to_binary(@user_multiplier / 1, decimals: 1) %>x</span></div>
             <div class="text-2xl font-bold">
               +<span id="video-bux-earned">0.0</span> BUX
             </div>

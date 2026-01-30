@@ -1569,6 +1569,7 @@ defmodule BlocksterV2.EngagementTracker do
   @doc """
   Updates ROGUE balance for a user (supports both Rogue Chain and Arbitrum).
   For now, only Rogue Chain is fetched by BuxMinter.
+  Also updates the unified_multipliers table since ROGUE balance affects the ROGUE multiplier.
   """
   def update_user_rogue_balance(user_id, wallet_address, balance, chain \\ :rogue_chain) do
     now = System.system_time(:second)
@@ -1602,6 +1603,12 @@ defmodule BlocksterV2.EngagementTracker do
         :mnesia.dirty_write(updated)
         Logger.info("[EngagementTracker] Updated user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
         {:ok, balance_float}
+    end
+
+    # Update unified_multipliers table (V2 system) when ROGUE balance changes
+    # Only update for rogue_chain since that's the smart wallet balance used for multiplier
+    if chain == :rogue_chain do
+      BlocksterV2.UnifiedMultiplier.update_rogue_multiplier(user_id)
     end
 
     # NOTE: Broadcast removed - caller (sync_user_balances) handles broadcasting once at the end
