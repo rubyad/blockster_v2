@@ -351,7 +351,6 @@ defmodule BlocksterV2.EngagementTracker do
     # Base score starts at 1
     score = 1.0
 
-    Logger.info("[EngagementTracker] Calculating score - time_spent: #{time_spent}, min_read_time: #{min_read_time}, scroll_depth: #{scroll_depth}, reached_end: #{reached_end}")
 
     # Time ratio score (0-6 points) - incremental thresholds
     # min_read_time is based on word count at 5 words/second
@@ -378,7 +377,6 @@ defmodule BlocksterV2.EngagementTracker do
     # Calculate final score
     raw_score = score + time_score + depth_score
 
-    Logger.info("[EngagementTracker] Score breakdown - base: #{score}, time: #{time_score}, depth: #{depth_score}, raw_total: #{raw_score}")
 
     # Clamp to 1-10 range
     raw_score
@@ -709,7 +707,6 @@ defmodule BlocksterV2.EngagementTracker do
           now                # updated_at
         }
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Recorded read reward for user #{user_id} on post #{post_id}: #{bux_earned} BUX")
         {:ok, bux_earned}
 
       existing ->
@@ -718,7 +715,6 @@ defmodule BlocksterV2.EngagementTracker do
 
         if existing_read_bux && existing_read_bux > 0 do
           # Already received read reward
-          Logger.info("[EngagementTracker] User #{user_id} already received #{existing_read_bux} BUX for reading post #{post_id}")
           {:already_rewarded, existing_read_bux}
         else
           # Has record but no read reward yet (maybe shared first) - update with read reward
@@ -747,7 +743,6 @@ defmodule BlocksterV2.EngagementTracker do
             now                        # updated_at (index 16)
           }
           :mnesia.dirty_write(record)
-          Logger.info("[EngagementTracker] Updated read reward for user #{user_id} on post #{post_id}: #{bux_earned} BUX")
           {:ok, bux_earned}
         end
     end
@@ -884,7 +879,6 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(16, now)                        # updated_at
 
         :mnesia.dirty_write(updated)
-        Logger.info("[EngagementTracker] Marked read reward paid for user #{user_id} on post #{post_id}: tx=#{tx_id}")
         :ok
     end
   rescue
@@ -935,7 +929,6 @@ defmodule BlocksterV2.EngagementTracker do
           now                # updated_at (index 16)
         }
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Recorded X share reward paid for user #{user_id} on post #{post_id}: #{bux_earned} BUX, tx=#{tx_hash}")
         {:ok, bux_earned}
 
       existing ->
@@ -945,7 +938,6 @@ defmodule BlocksterV2.EngagementTracker do
         if existing_x_bux && existing_x_bux > 0 do
           # Already received X share reward - just update tx if missing
           if elem(existing, 8) do
-            Logger.info("[EngagementTracker] User #{user_id} already received #{existing_x_bux} BUX for X share on post #{post_id}")
             {:already_rewarded, existing_x_bux}
           else
             # Update to mark as paid
@@ -957,7 +949,6 @@ defmodule BlocksterV2.EngagementTracker do
               |> put_elem(16, now)           # updated_at
 
             :mnesia.dirty_write(updated)
-            Logger.info("[EngagementTracker] Marked X share reward paid for user #{user_id} on post #{post_id}: tx=#{tx_hash}")
             {:ok, existing_x_bux}
           end
         else
@@ -1107,7 +1098,6 @@ defmodule BlocksterV2.EngagementTracker do
           now   # updated_at
         }
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Created user_bux_points for user #{user_id}: balance=#{aggregate_balance}")
 
         {:ok, aggregate_balance}
 
@@ -1118,7 +1108,6 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(3, aggregate_balance)   # bux_balance
           |> put_elem(9, now)                 # updated_at
         :mnesia.dirty_write(updated)
-        Logger.info("[EngagementTracker] Updated user_bux_points for user #{user_id}: balance=#{aggregate_balance}")
 
         {:ok, aggregate_balance}
     end
@@ -1239,7 +1228,6 @@ defmodule BlocksterV2.EngagementTracker do
           now      # updated_at
         }
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Created post_bux_points for post #{post_id}: balance=#{amount}")
         {:ok, amount}
 
       [existing] ->
@@ -1250,7 +1238,6 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(4, new_balance)  # bux_balance
           |> put_elem(11, now)         # updated_at
         :mnesia.dirty_write(updated)
-        Logger.info("[EngagementTracker] Updated post_bux_points for post #{post_id}: balance=#{new_balance} (+#{amount})")
         {:ok, new_balance}
     end
 
@@ -1436,7 +1423,6 @@ defmodule BlocksterV2.EngagementTracker do
           # No existing record - create new with all zeros except the specified token
           record = create_new_balance_record(user_id, wallet_address, now, token, balance_float)
           :mnesia.dirty_write(record)
-          Logger.info("[EngagementTracker] Created user_bux_balances for user #{user_id}: #{token}=#{balance_float}")
           # Broadcast if enabled (disabled during batch sync to avoid redundant updates)
           if broadcast do
             BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, balance_float)
@@ -1456,7 +1442,6 @@ defmodule BlocksterV2.EngagementTracker do
           updated = put_elem(updated, 4, aggregate)
 
           :mnesia.dirty_write(updated)
-          Logger.info("[EngagementTracker] Updated user_bux_balances for user #{user_id}: #{token}=#{balance_float}, aggregate=#{aggregate}")
           # Broadcast if enabled (disabled during batch sync to avoid redundant updates)
           if broadcast do
             BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, aggregate)
@@ -1585,7 +1570,6 @@ defmodule BlocksterV2.EngagementTracker do
             {:user_rogue_balances, user_id, wallet_address, now, 0.0, balance_float}
         end
         :mnesia.dirty_write(record)
-        Logger.info("[EngagementTracker] Created user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
         {:ok, balance_float}
 
       [existing] ->
@@ -1601,7 +1585,6 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(field_index, balance_float)
 
         :mnesia.dirty_write(updated)
-        Logger.info("[EngagementTracker] Updated user_rogue_balances for user #{user_id}: #{chain}=#{balance_float}")
         {:ok, balance_float}
     end
 

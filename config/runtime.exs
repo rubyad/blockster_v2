@@ -35,6 +35,8 @@ config :blockster_v2,
   google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY"),
   bux_minter_url: System.get_env("BUX_MINTER_URL"),
   bux_minter_secret: System.get_env("BUX_MINTER_SECRET"),
+  # Skip fingerprint check - defaults to true in dev, false in prod (set SKIP_FINGERPRINT_CHECK=true to enable)
+  skip_fingerprint_check: System.get_env("SKIP_FINGERPRINT_CHECK") == "true" || config_env() == :dev,
   env: config_env(),
   x_api: [
     client_id: System.get_env("X_CLIENT_ID"),

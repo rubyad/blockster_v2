@@ -13,8 +13,8 @@ defmodule BlocksterV2Web.AirdropLive do
         _ -> 0
       end
 
-    # Airdrop end time: 7 days from now (this would be set from contract in production)
-    airdrop_end_time = DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.to_unix()
+    # Airdrop end time: Feb 17th 2026 at 12:00 PM EST (17:00 UTC)
+    airdrop_end_time = DateTime.new!(~D[2026-02-17], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
 
     # Schedule countdown updates every second when connected
     if connected?(socket) do
@@ -110,7 +110,8 @@ defmodule BlocksterV2Web.AirdropLive do
 
           <!-- Countdown Section -->
           <div class="p-6 border-b border-gray-200">
-            <p class="text-center text-gray-500 text-sm font-medium mb-4">Drawing In</p>
+            <p class="text-center text-gray-500 text-sm font-medium mb-2">Drawing On</p>
+            <p class="text-center text-gray-900 font-haas_medium_65 text-lg mb-4">February 17, 2026 at 12:00 PM EST</p>
             <div class="flex justify-center gap-3">
               <div class="text-center">
                 <div class="bg-gray-100 rounded-xl w-16 h-16 flex items-center justify-center">

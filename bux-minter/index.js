@@ -136,7 +136,6 @@ app.post('/mint', authenticate, async (req, res) => {
   const { contract, wallet: tokenWallet, token: actualToken } = getContractForToken(token);
 
   try {
-    console.log(`[MINT] Starting mint: ${amount} ${actualToken} to ${walletAddress} (user: ${userId}, post: ${postId})`);
 
     // Get decimals (all tokens have 18 decimals like standard ERC20)
     const decimals = await contract.decimals();
@@ -146,11 +145,9 @@ app.post('/mint', authenticate, async (req, res) => {
 
     // Execute mint transaction
     const tx = await contract.mint(walletAddress, amountInWei);
-    console.log(`[MINT] Transaction submitted: ${tx.hash}`);
 
     // Wait for confirmation
     const receipt = await tx.wait();
-    console.log(`[MINT] Transaction confirmed in block ${receipt.blockNumber}`);
 
     // Get new balance for this token
     const newBalance = await contract.balanceOf(walletAddress);
@@ -261,7 +258,6 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
   }
 
   try {
-    console.log(`[BALANCES] Fetching BUX and ROGUE balances for ${address}`);
 
     // Fetch ROGUE (native token) balance using provider.getBalance()
     const rogueBalanceWei = await provider.getBalance(address);
@@ -275,8 +271,6 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
       ROGUE: rogueBalance,
       BUX: buxFormatted
     };
-
-    console.log(`[BALANCES] Balances for ${address}: ROGUE=${rogueBalance}, BUX=${buxFormatted}`);
 
     res.json({
       address,
@@ -403,13 +397,8 @@ app.post('/submit-commitment', authenticate, async (req, res) => {
   }
 
   try {
-    console.log(`[COMMITMENT] Submitting commitment for player ${player}, nonce ${nonce}`);
-
     const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce);
-    console.log(`[COMMITMENT] Transaction submitted: ${tx.hash}`);
-
     const receipt = await tx.wait();
-    console.log(`[COMMITMENT] Confirmed in block ${receipt.blockNumber}`);
 
     res.json({
       success: true,
@@ -450,25 +439,16 @@ app.post('/settle-bet', authenticate, async (req, res) => {
   }
 
   try {
-    console.log(`[SETTLE] Settling bet ${commitmentHash}`);
-    console.log(`[SETTLE] Results: ${results.join(',')}, Won: ${won}`);
-
     // V5: Check if this is a ROGUE bet and call the appropriate settlement function
     const bet = await buxBoosterContract.bets(commitmentHash);
     const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
-
-    console.log(`[SETTLE] Bet token: ${bet.token}`);
-    console.log(`[SETTLE] Is ROGUE bet: ${isROGUE}`);
 
     // Call the appropriate settlement function
     const tx = isROGUE
       ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won)
       : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
 
-    console.log(`[SETTLE] Transaction submitted: ${tx.hash}`);
-
     const receipt = await tx.wait();
-    console.log(`[SETTLE] Confirmed in block ${receipt.blockNumber}`);
 
     // Parse the BetSettled event to get the payout
     let payout = '0';
@@ -477,7 +457,6 @@ app.post('/settle-bet', authenticate, async (req, res) => {
         const parsed = buxBoosterContract.interface.parseLog(log);
         if (parsed && parsed.name === 'BetSettled') {
           payout = ethers.formatUnits(parsed.args.payout, 18);
-          console.log(`[SETTLE] Payout: ${payout}`);
           break;
         }
       } catch (e) {
@@ -529,34 +508,26 @@ app.post('/deposit-house-balance', authenticate, async (req, res) => {
 
   try {
     const amountWei = ethers.parseUnits(amount.toString(), 18);
-    console.log(`[DEPOSIT] Depositing ${amount} ${token} as house balance`);
 
     // Get starting nonces for both wallets
     let tokenOwnerNonce = await provider.getTransactionCount(tokenWallet.address, 'pending');
     let contractOwnerNonce = await provider.getTransactionCount(contractOwnerWallet.address, 'pending');
-    console.log(`[DEPOSIT] Starting nonces - Token owner: ${tokenOwnerNonce}, Contract owner: ${contractOwnerNonce}`);
 
     // Step 1: Mint tokens to the CONTRACT OWNER wallet (not token owner)
     const tokenContract = tokenContracts[token];
-    console.log(`[DEPOSIT] Minting ${amount} ${token} to contract owner ${contractOwnerWallet.address}`);
     const mintTx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce: tokenOwnerNonce++ });
     await mintTx.wait();
-    console.log(`[DEPOSIT] Minted successfully`);
 
     // Step 2: Contract owner approves the BuxBoosterGame contract to spend tokens
     const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)'];
     const tokenContractWithApprove = new ethers.Contract(tokenAddress, erc20Abi, contractOwnerWallet);
-    console.log(`[DEPOSIT] Contract owner approving BuxBoosterGame contract`);
     const approveTx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce: contractOwnerNonce++ });
     await approveTx.wait();
-    console.log(`[DEPOSIT] Approved successfully`);
 
     // Step 3: Contract owner calls depositHouseBalance (onlyOwner function)
     const buxBoosterFromOwner = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, contractOwnerWallet);
-    console.log(`[DEPOSIT] Contract owner calling depositHouseBalance`);
     const depositTx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce: contractOwnerNonce++ });
     const receipt = await depositTx.wait();
-    console.log(`[DEPOSIT] Deposited ${amount} ${token} in block ${receipt.blockNumber}`);
 
     // Get updated house balance
     const config = await buxBoosterContract.tokenConfigs(tokenAddress);
@@ -596,8 +567,6 @@ app.get('/player-nonce/:address', authenticate, async (req, res) => {
     // Query the playerNonces mapping directly (fastest query)
     const nonce = await buxBoosterContract.playerNonces(address);
 
-    console.log(`[PLAYER-NONCE] Player ${address}: nonce=${nonce}`);
-
     res.json({
       address,
       nonce: Number(nonce)
@@ -628,8 +597,6 @@ app.get('/player-state/:address', authenticate, async (req, res) => {
     // Check if there's an unused commitment
     const hasUnusedCommitment = commitmentHash !== ethers.ZeroHash && !used;
 
-    console.log(`[PLAYER-STATE] Player ${address}: nonce=${nonce}, commitment=${commitmentHash}, used=${used}`);
-
     res.json({
       address,
       nonce: Number(nonce),
@@ -657,18 +624,12 @@ app.get('/game-token-config/:token', authenticate, async (req, res) => {
   }
 
   try {
-    console.log(`[CONFIG] Querying tokenConfigs for ${token} at ${tokenAddress}`);
     const config = await buxBoosterContract.tokenConfigs(tokenAddress);
-    console.log(`[CONFIG] Raw config:`, config);
-    console.log(`[CONFIG] houseBalance type:`, typeof config.houseBalance);
-    console.log(`[CONFIG] houseBalance value:`, config.houseBalance);
 
     // Handle null/undefined houseBalance
     const houseBalance = config.houseBalance && config.houseBalance.toString() !== '0'
       ? ethers.formatUnits(config.houseBalance, 18)
       : "0";
-
-    console.log(`[CONFIG] Formatted house balance: ${houseBalance}`);
 
     res.json({
       token,
@@ -685,12 +646,8 @@ app.get('/game-token-config/:token', authenticate, async (req, res) => {
 // Get ROGUE house balance from ROGUEBankroll
 app.get('/rogue-house-balance', authenticate, async (req, res) => {
   try {
-    console.log('[ROGUE-HOUSE] Fetching house balance from ROGUEBankroll');
-
     const [netBalance, totalBalance, minBetSize, maxBetSize] =
       await rogueBankrollContract.getHouseInfo();
-
-    console.log(`[ROGUE-HOUSE] Raw values: net=${netBalance}, total=${totalBalance}, min=${minBetSize}, max=${maxBetSize}`);
 
     res.json({
       netBalance: ethers.formatEther(netBalance),
@@ -741,8 +698,6 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Self-referral not allowed' });
   }
 
-  console.log(`[REFERRER] Setting referrer for player ${playerAddr} to ${referrerAddr}`);
-
   const results = {
     buxBoosterGame: { success: false, txHash: null, error: null },
     rogueBankroll: { success: false, txHash: null, error: null }
@@ -753,13 +708,10 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
     // Check if referrer is already set
     const existingReferrer = await buxBoosterReferralContract.playerReferrers(playerAddr);
     if (existingReferrer !== ethers.ZeroAddress) {
-      console.log(`[REFERRER] BuxBoosterGame: Referrer already set to ${existingReferrer}`);
       results.buxBoosterGame.error = 'Referrer already set';
     } else {
       const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr);
-      console.log(`[REFERRER] BuxBoosterGame tx submitted: ${tx.hash}`);
       await tx.wait();
-      console.log(`[REFERRER] BuxBoosterGame tx confirmed`);
       results.buxBoosterGame.success = true;
       results.buxBoosterGame.txHash = tx.hash;
     }
@@ -773,13 +725,10 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
     // Check if referrer is already set
     const existingReferrer = await rogueBankrollWriteContract.playerReferrers(playerAddr);
     if (existingReferrer !== ethers.ZeroAddress) {
-      console.log(`[REFERRER] ROGUEBankroll: Referrer already set to ${existingReferrer}`);
       results.rogueBankroll.error = 'Referrer already set';
     } else {
       const tx = await rogueBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr);
-      console.log(`[REFERRER] ROGUEBankroll tx submitted: ${tx.hash}`);
       await tx.wait();
-      console.log(`[REFERRER] ROGUEBankroll tx confirmed`);
       results.rogueBankroll.success = true;
       results.rogueBankroll.txHash = tx.hash;
     }

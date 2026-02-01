@@ -57,14 +57,11 @@ defmodule BlocksterV2.BuxMinter do
         {"Authorization", "Bearer #{api_secret}"}
       ]
 
-      Logger.info("[BuxMinter] Minting #{amount} #{token} to #{wallet_address} (user: #{user_id}, post: #{post_id})")
-
       case http_post("#{minter_url}/mint", Jason.encode!(payload), headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
           tx_hash = response["transactionHash"]
           actual_token = response["token"] || token
-          Logger.info("[BuxMinter] Mint successful: #{actual_token} tx=#{tx_hash}")
 
           # Mark the read reward as paid in Mnesia (only for read rewards)
           if reward_type == :read do
@@ -75,7 +72,6 @@ defmodule BlocksterV2.BuxMinter do
           # Fetch the specific token balance and update user_bux_balances
           case get_balance(wallet_address, actual_token) do
             {:ok, on_chain_balance} ->
-              Logger.info("[BuxMinter] On-chain #{actual_token} balance for #{wallet_address}: #{on_chain_balance}")
               # Update aggregate balance (still stored in user_bux_points for backward compatibility)
               EngagementTracker.update_user_bux_balance(user_id, wallet_address, on_chain_balance)
               # Update per-token balance in user_bux_balances
@@ -218,7 +214,6 @@ defmodule BlocksterV2.BuxMinter do
         # Filter to only BUX and ROGUE (hub tokens removed)
         filtered_balances = Map.take(balances, ["BUX", "ROGUE"])
         bux_balance = Map.get(filtered_balances, "BUX", 0)
-        Logger.info("[BuxMinter] Syncing balances for user #{user_id}: BUX=#{bux_balance}")
 
         # Update BUX and ROGUE balances in Mnesia (broadcast: false to avoid redundant broadcasts)
         Enum.each(filtered_balances, fn {token, balance} ->
@@ -258,8 +253,6 @@ defmodule BlocksterV2.BuxMinter do
 
     token = normalize_token(token)
 
-    Logger.info("[BuxMinter] Fetching house balance for #{token} from #{minter_url}")
-
     if is_nil(api_secret) or api_secret == "" do
       Logger.error("[BuxMinter] API secret not configured!")
       {:error, :not_configured}
@@ -269,12 +262,10 @@ defmodule BlocksterV2.BuxMinter do
       ]
 
       url = "#{minter_url}/game-token-config/#{token}"
-      Logger.info("[BuxMinter] GET #{url}")
 
       case http_get(url, headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
-          Logger.info("[BuxMinter] Got house balance: #{response["houseBalance"]} #{token}")
 
           # Parse balance - handle both "0" and "123.45" formats
           balance = case response["houseBalance"] do
@@ -305,8 +296,6 @@ defmodule BlocksterV2.BuxMinter do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
-    Logger.info("[BuxMinter] Fetching ROGUE house balance from #{minter_url}")
-
     if is_nil(api_secret) or api_secret == "" do
       Logger.error("[BuxMinter] API secret not configured!")
       {:error, :not_configured}
@@ -316,12 +305,10 @@ defmodule BlocksterV2.BuxMinter do
       ]
 
       url = "#{minter_url}/rogue-house-balance"
-      Logger.info("[BuxMinter] GET #{url}")
 
       case http_get(url, headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
-          Logger.info("[BuxMinter] Got ROGUE house balance: #{response["netBalance"]} ROGUE")
 
           # Parse net balance - this is what we use for max bet calculations
           balance = case response["netBalance"] do
@@ -378,12 +365,9 @@ defmodule BlocksterV2.BuxMinter do
         {"Authorization", "Bearer #{api_secret}"}
       ]
 
-      Logger.info("[BuxMinter] Setting referrer for player #{player_wallet} to #{referrer_wallet}")
-
       case http_post("#{minter_url}/set-player-referrer", Jason.encode!(payload), headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
-          Logger.info("[BuxMinter] Set referrer successful: #{inspect(response)}")
           {:ok, response}
 
         {:ok, %{status_code: 409, body: body}} ->

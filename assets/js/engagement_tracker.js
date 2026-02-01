@@ -22,19 +22,15 @@ export const EngagementTracker = {
       // Check if user already received reward for this article
       this.alreadyRewarded = this.el.dataset.alreadyRewarded === "true";
       if (this.alreadyRewarded) {
-        console.log("EngagementTracker: User already rewarded for this article, skipping tracking");
         return;
       }
 
       // Check if pool has BUX available - no point tracking if there's nothing to earn
       this.poolAvailable = this.el.dataset.poolAvailable === "true";
       if (!this.poolAvailable) {
-        console.log("EngagementTracker: Pool is empty, skipping tracking");
         return;
       }
     }
-
-    console.log(`EngagementTracker: Starting ${this.isAnonymous ? 'anonymous' : 'authenticated'} tracking`);
 
     // Initialize tracking state
     this.postId = this.el.dataset.postId;
@@ -77,8 +73,6 @@ export const EngagementTracker = {
         word_count: this.wordCount
       });
     }
-
-    console.log(`EngagementTracker: Started tracking post ${this.postId} (${this.wordCount} words, ${this.minReadTime}s min read)`);
 
     // Start time tracking
     this.startTimeTracking();
@@ -123,10 +117,8 @@ export const EngagementTracker = {
         if (mutation.type === "attributes" && mutation.attributeName === "data-video-modal-open") {
           const isVideoModalOpen = this.el.dataset.videoModalOpen === "true";
           if (isVideoModalOpen) {
-            console.log("EngagementTracker: Video modal opened, pausing tracking");
             this.pause();
           } else {
-            console.log("EngagementTracker: Video modal closed, resuming tracking");
             this.resume();
           }
         }

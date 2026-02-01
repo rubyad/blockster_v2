@@ -333,13 +333,10 @@ defmodule BlocksterV2.Accounts do
     email = String.downcase(attrs["email"] || attrs[:email])
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
 
-    # Skip fingerprint check in dev mode for easier testing
-    env = Application.get_env(:blockster_v2, :env)
-    require Logger
-    Logger.info("[Accounts] Fingerprint check - env: #{inspect(env)}")
+    # Skip fingerprint check if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
+    skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
 
-    if env == :dev do
-      Logger.info("[Accounts] Skipping fingerprint check in dev mode")
+    if skip_fingerprint do
       create_new_user_with_fingerprint(attrs)
     else
       # Check PostgreSQL for fingerprint ownership

@@ -363,6 +363,28 @@ flyctl secrets set FINGERPRINTJS_API_KEY=your_api_key_here --app blockster-v2
 flyctl secrets set FINGERPRINTJS_PUBLIC_KEY=your_public_key_here --app blockster-v2
 ```
 
+### Bypassing Fingerprint Check (Testing/Development)
+
+The fingerprint check can be bypassed for testing purposes:
+
+**Development**: Fingerprint check is automatically skipped in dev mode.
+
+**Production**: Set the `SKIP_FINGERPRINT_CHECK` environment variable:
+```bash
+# Enable bypass (allows multiple accounts from same device)
+flyctl secrets set SKIP_FINGERPRINT_CHECK=true --app blockster-v2
+
+# Disable bypass (restore normal fingerprint protection)
+flyctl secrets unset SKIP_FINGERPRINT_CHECK --app blockster-v2
+```
+
+**Config location**: `config/runtime.exs`
+```elixir
+skip_fingerprint_check: System.get_env("SKIP_FINGERPRINT_CHECK") == "true" || config_env() == :dev,
+```
+
+**Code location**: `lib/blockster_v2/accounts.ex` - `authenticate_new_user_with_fingerprint/1`
+
 ### Expose Public Key to Frontend
 
 **File**: `lib/blockster_v2_web/templates/layout/root.html.heex`

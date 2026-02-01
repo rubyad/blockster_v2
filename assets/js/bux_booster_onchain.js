@@ -78,7 +78,6 @@ export const BuxBoosterOnchain = {
     // Get game_id and commitment_hash from data attributes (set by LiveView)
     this.gameId = this.el.dataset.gameId;
     this.commitmentHash = this.el.dataset.commitmentHash;
-    console.log("[BuxBoosterOnchain] Mounted with game:", this.gameId, "commitment:", this.commitmentHash);
 
     // Track bet confirmation status
     this.betConfirmed = false;
@@ -86,14 +85,13 @@ export const BuxBoosterOnchain = {
 
     // Listen for BACKGROUND place_bet request (non-blocking)
     this.handleEvent("place_bet_background", async (params) => {
-      console.log("[BuxBoosterOnchain] Background bet submission:", params);
       this.betConfirmed = false;
       await this.placeBetBackground(params);
     });
 
     // Listen for settlement complete
-    this.handleEvent("bet_settled", ({ won, payout }) => {
-      console.log("[BuxBoosterOnchain] Bet settled:", { won, payout });
+    this.handleEvent("bet_settled", () => {
+      // Settlement complete - UI already updated by LiveView
     });
   },
 
@@ -102,14 +100,11 @@ export const BuxBoosterOnchain = {
     const newGameId = this.el.dataset.gameId;
     const newCommitmentHash = this.el.dataset.commitmentHash;
 
-    // Log when these values become available
     if (newGameId && newGameId !== this.gameId) {
-      console.log("[BuxBoosterOnchain] Game ID updated:", newGameId);
       this.gameId = newGameId;
     }
 
     if (newCommitmentHash && newCommitmentHash !== this.commitmentHash) {
-      console.log("[BuxBoosterOnchain] Commitment hash updated:", newCommitmentHash);
       this.commitmentHash = newCommitmentHash;
     }
   },
@@ -127,15 +122,11 @@ export const BuxBoosterOnchain = {
         return;
       }
 
-      const walletAddress = wallet.address;
-      console.log("[BuxBoosterOnchain] Wallet address:", walletAddress);
-
       // Convert amount to wei (18 decimals)
       const amountWei = BigInt(amount) * BigInt(10 ** 18);
 
       // predictions are already uint8 (0 = heads, 1 = tails) from server
       const predictionsArray = predictions.map(p => Number(p));
-      console.log("[BuxBoosterOnchain] Predictions (as numbers):", predictionsArray);
 
       // ROGUE uses address(0) to indicate native token betting
       // Handle both null and zero address (0x0000000000000000000000000000000000000000)
@@ -146,7 +137,6 @@ export const BuxBoosterOnchain = {
 
       if (isROGUE) {
         // ROGUE betting: no approval needed, send ROGUE with transaction value
-        console.log("[BuxBoosterOnchain] Placing ROGUE bet (native token, no approval needed)...");
         result = await this.executePlaceBetROGUE(
           wallet,
           amountWei,
@@ -156,12 +146,10 @@ export const BuxBoosterOnchain = {
         );
       } else {
         // ERC-20 betting: check approval first
-        console.log("[BuxBoosterOnchain] Checking ERC-20 approval status...");
         const needsApproval = await this.needsApproval(wallet, token_address, amountWei);
 
         if (needsApproval) {
           // Execute approve first, then placeBet (sequential transactions)
-          console.log("[BuxBoosterOnchain] Executing approval transaction...");
           const approveResult = await this.executeApprove(wallet, token_address);
 
           if (!approveResult.success) {
@@ -169,7 +157,6 @@ export const BuxBoosterOnchain = {
             return;
           }
 
-          console.log("[BuxBoosterOnchain] ✅ Approval confirmed, now placing bet...");
           result = await this.executePlaceBet(
             wallet,
             token_address,
@@ -180,7 +167,6 @@ export const BuxBoosterOnchain = {
           );
         } else {
           // Already approved, just place bet
-          console.log("[BuxBoosterOnchain] Already approved, placing bet...");
           result = await this.executePlaceBet(
             wallet,
             token_address,
@@ -196,8 +182,6 @@ export const BuxBoosterOnchain = {
         // Calculate confirmation time
         this.betConfirmationTime = Date.now() - startTime;
         this.betConfirmed = true;
-
-        console.log(`[BuxBoosterOnchain] ✅ Bet confirmed in ${this.betConfirmationTime}ms`);
 
         // Notify backend that bet is confirmed
         this.pushEvent("bet_confirmed", {
@@ -233,7 +217,6 @@ export const BuxBoosterOnchain = {
 
     // If cached as approved, skip on-chain check
     if (cachedApproval === 'true') {
-      console.log("[BuxBoosterOnchain] Using cached approval ✅");
       return false;
     }
 
@@ -262,22 +245,16 @@ export const BuxBoosterOnchain = {
 
       // If allowance is effectively infinite, cache it
       if (allowanceBigInt >= INFINITE_THRESHOLD) {
-        console.log("[BuxBoosterOnchain] Infinite approval detected, caching ✅");
         localStorage.setItem(cacheKey, 'true');
         return false;
       }
 
       // Check if current allowance is enough
       if (allowanceBigInt >= amount) {
-        console.log("[BuxBoosterOnchain] Sufficient allowance:", allowanceBigInt.toString());
         // Don't cache limited approvals as they may be consumed
         return false;
       }
 
-      console.log("[BuxBoosterOnchain] Need approval:", {
-        current: allowanceBigInt.toString(),
-        needed: amount.toString()
-      });
       return true;
 
     } catch (error) {
@@ -313,14 +290,10 @@ export const BuxBoosterOnchain = {
         params: [this.contractAddress, INFINITE_APPROVAL]
       });
 
-      console.log("[BuxBoosterOnchain] Sending approve transaction...");
       const result = await sendTransaction({
         transaction: approveTx,
         account: wallet
       });
-
-      console.log("[BuxBoosterOnchain] Approve tx submitted:", result.transactionHash);
-      console.log("[BuxBoosterOnchain] Waiting for approval confirmation...");
 
       // Wait for approval to be confirmed
       await waitForReceipt({
@@ -328,8 +301,6 @@ export const BuxBoosterOnchain = {
         chain,
         transactionHash: result.transactionHash
       });
-
-      console.log("[BuxBoosterOnchain] ✅ Approval confirmed");
 
       // Cache the infinite approval
       const cacheKey = `approval_${wallet.address}_${tokenAddress}_${this.contractAddress}`;
