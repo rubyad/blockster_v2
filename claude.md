@@ -683,6 +683,25 @@ def handle_event("show_fairness_modal", %{"game-id" => game_id}, socket) do
 end
 ```
 
+### Fingerprint Anti-Sybil
+
+Prevents users from creating multiple accounts to game the BUX reward system.
+
+**Bypassing Fingerprint Check (Testing)**:
+- **Dev mode**: Automatically skipped
+- **Production**: Set `SKIP_FINGERPRINT_CHECK=true` via Fly secrets:
+  ```bash
+  # Enable bypass
+  flyctl secrets set SKIP_FINGERPRINT_CHECK=true --app blockster-v2
+
+  # Disable bypass (restore protection)
+  flyctl secrets unset SKIP_FINGERPRINT_CHECK --app blockster-v2
+  ```
+
+**Config**: `config/runtime.exs` - `skip_fingerprint_check`
+**Code**: `lib/blockster_v2/accounts.ex` - `authenticate_new_user_with_fingerprint/1`
+**Docs**: `docs/fingerprint_anti_sybil.md`
+
 ### General Security
 
 - **Never read `.env` files** in code or expose environment variables
