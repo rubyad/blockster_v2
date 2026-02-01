@@ -336,6 +336,8 @@ defmodule BlocksterV2.Accounts do
     # Skip fingerprint check if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
     skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
 
+    Logger.info("[Accounts] authenticate_new_user_with_fingerprint: email=#{email}, skip_fingerprint=#{skip_fingerprint}")
+
     if skip_fingerprint do
       create_new_user_with_fingerprint(attrs)
     else
