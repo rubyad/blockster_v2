@@ -371,8 +371,8 @@ defmodule BlocksterV2.Accounts do
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
     fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
 
-    # In dev mode, skip fingerprint insert to allow multiple test accounts
-    is_dev = Application.get_env(:blockster_v2, :env) == :dev
+    # Skip fingerprint insert if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
+    skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
 
     # Start transaction to create user + fingerprint atomically
     multi = Ecto.Multi.new()
@@ -380,11 +380,11 @@ defmodule BlocksterV2.Accounts do
       email: email,
       wallet_address: wallet_address,
       smart_wallet_address: smart_wallet_address,
-      registered_devices_count: 1
+      registered_devices_count: if(skip_fingerprint, do: 0, else: 1)
     }))
 
-    # Only insert fingerprint in production
-    multi = if is_dev do
+    # Only insert fingerprint when NOT skipping (production with fingerprint check enabled)
+    multi = if skip_fingerprint do
       multi
     else
       multi
@@ -399,6 +399,8 @@ defmodule BlocksterV2.Accounts do
         })
       end)
     end
+
+    Logger.info("[Accounts] create_new_user_with_fingerprint: email=#{email}, skip_fingerprint=#{skip_fingerprint}")
 
     multi
     |> Ecto.Multi.run(:session, fn _repo, %{user: user} ->
