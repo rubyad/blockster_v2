@@ -367,26 +367,19 @@ defmodule BlocksterV2.ReferralRewardPoller do
   end
 
   defp rpc_call(method, params) do
-    body = Jason.encode!(%{
+    body = %{
       jsonrpc: "2.0",
       method: method,
       params: params,
       id: 1
-    })
+    }
 
-    http_options = [{:timeout, 30_000}, {:connect_timeout, 5_000}]
-    headers = [{'content-type', 'application/json'}]
-    url_charlist = String.to_charlist(@rpc_url)
-    body_charlist = String.to_charlist(body)
-
-    case :httpc.request(:post, {url_charlist, headers, 'application/json', body_charlist}, http_options, []) do
-      {:ok, {{_, 200, _}, _, response_body}} ->
-        case Jason.decode(to_string(response_body)) do
-          {:ok, %{"result" => result}} -> {:ok, result}
-          {:ok, %{"error" => error}} -> {:error, error}
-          _ -> {:error, :decode_error}
-        end
-      {:ok, {{_, status, _}, _, _}} ->
+    case Req.post(@rpc_url, json: body, receive_timeout: 30_000) do
+      {:ok, %{status: 200, body: %{"result" => result}}} ->
+        {:ok, result}
+      {:ok, %{status: 200, body: %{"error" => error}}} ->
+        {:error, error}
+      {:ok, %{status: status}} ->
         {:error, {:http_error, status}}
       {:error, reason} ->
         {:error, reason}
