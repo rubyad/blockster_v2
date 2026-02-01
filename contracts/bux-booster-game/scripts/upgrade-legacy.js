@@ -1,4 +1,4 @@
-const { ethers, upgrades } = require("hardhat");
+const { ethers } = require("hardhat");
 
 async function main() {
   const PROXY_ADDRESS = "0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B";
@@ -6,18 +6,17 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Upgrading with account:", deployer.address);
 
-  // Get nonce explicitly to avoid RPC estimation issues
   const nonce = await deployer.getNonce();
   console.log("Current nonce:", nonce);
 
-  // Deploy new implementation
+  // Deploy new implementation using legacy transaction (type 0)
   console.log("\nDeploying new implementation contract...");
   const BuxBoosterGame = await ethers.getContractFactory("BuxBoosterGame");
   const newImpl = await BuxBoosterGame.deploy({
     gasLimit: 5000000,
     nonce: nonce,
-    maxFeePerGas: 2000000000000,  // 2000 gwei
-    maxPriorityFeePerGas: 0
+    gasPrice: 1000000000000,
+    type: 0  // Legacy transaction
   });
   await newImpl.waitForDeployment();
   const newImplAddress = await newImpl.getAddress();
@@ -32,12 +31,12 @@ async function main() {
     const tx = await proxy.upgradeToAndCall(newImplAddress, "0x", {
       gasLimit: 5000000,
       nonce: nonce + 1,
-      maxFeePerGas: 2000000000000,  // 2000 gwei
-      maxPriorityFeePerGas: 0
+      gasPrice: 1000000000000,
+      type: 0
     });
     console.log("Upgrade tx submitted:", tx.hash);
     await tx.wait();
-    console.log("✅ Upgrade complete!");
+    console.log("Upgrade complete!");
   } catch (error) {
     console.error("Upgrade failed:", error.message);
     if (error.data) {
