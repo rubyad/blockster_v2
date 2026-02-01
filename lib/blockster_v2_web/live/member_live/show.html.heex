@@ -180,9 +180,9 @@
                   <h3 class="font-haas_bold_75 text-gray-900 mb-1">Redeem Your BUX</h3>
                   <p class="text-gray-600 text-sm mb-2">Use your BUX for:</p>
                   <ul class="list-disc list-inside text-gray-600 text-sm space-y-1">
-                    <li><strong>Shopping discounts</strong> - Get 10% off per BUX in the shop</li>
+                    <li><strong>Shopping discounts</strong> - Get up to 100% off with BUX in the shop</li>
                     <li><strong>Airdrop entries</strong> - Enter exclusive airdrops</li>
-                    <li><strong>BUX Booster</strong> - Play the coin flip game for ROGUE rewards</li>
+                    <li><strong>BUX Booster</strong> - Play the coin flip game to win BUX and ROGUE</li>
                   </ul>
                 </div>
               </div>
@@ -978,7 +978,7 @@
             </div>
           </div>
           <div class={"table-main mt-3 tab-wrapper #{if @active_tab != "activity", do: "hidden", else: ""}"} id="activity">
-            <div class="jumbptron md:p-8 p-4 rounded-t-[16px] bg-[url('/images/jumotron-bg.png')] bg-repeat bg-cover">
+            <div class="jumbptron md:p-8 p-4 rounded-t-[16px] bg-gradient-to-r from-[#8AE388] to-[#BAF55F]">
               <div class="flex justify-between items-start">
                 <div>
                   <span class="text-sm text-[#141414] font-haas_medium_65 leading-[1.4]">
@@ -1226,6 +1226,29 @@
           <!-- ROGUE Tab Content (V2 Unified System - Smart Wallet Only) -->
           <div class={"tabs-main tab-wrapper #{if @active_tab != "rogue", do: "hidden", else: ""}"} id="rogue">
             <div class="inner md:p-6 p-2">
+              <!-- Send ROGUE Info Card -->
+              <div class="bg-gray-900 rounded-xl p-4 mb-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <h4 class="text-white font-haas_bold_75">Send ROGUE to Your Wallet</h4>
+                </div>
+                <p class="text-gray-400 text-sm mb-3">Send ROGUE on Rogue Chain to your Blockster wallet address below:</p>
+                <div class="bg-white/10 rounded-lg p-3 flex items-center justify-between gap-2">
+                  <code class="text-white text-xs font-mono break-all"><%= @member.smart_wallet_address %></code>
+                  <button
+                    phx-hook="CopyToClipboard"
+                    id="copy-rogue-wallet"
+                    data-copy-text={@member.smart_wallet_address}
+                    class="flex-shrink-0 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded text-xs font-haas_medium_65 cursor-pointer transition-colors flex items-center gap-1"
+                  >
+                    <span class="copy-text">Copy</span>
+                    <svg class="copy-icon w-3 h-3 text-green-300 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </button>
+                </div>
+              </div>
+
               <!-- ROGUE Multiplier Card -->
               <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
                 <!-- Header -->
@@ -1931,7 +1954,7 @@
                   <div class="card p-3 max-sm:gap-3 border border-[#E8EAEC] h-full rounded-[12px] text-center flex sm:flex-col flex-row sm:items-center items-start justify-between bg-white">
                     <div class="flex justify-center">
                       <div class="img-rounded sm:h-16 sm:w-16 w-8 h-8 rounded-full bg-[#AFB5FF]">
-                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/freddy-120.png "/>
+                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-chen.png"/>
                       </div>
                     </div>
                     <div class="wrapper w-full text-center flex flex-col sm:items-center">
@@ -1986,7 +2009,7 @@
                   <div class="card p-3 max-sm:gap-3 border border-[#E8EAEC] h-full rounded-[12px] text-center flex sm:flex-col flex-row sm:items-center items-start justify-between bg-white">
                     <div class="flex justify-center">
                       <div class="img-rounded sm:h-16 sm:w-16 w-8 h-8 rounded-full bg-[#AFB5FF]">
-                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/ava.png "/>
+                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-2.png"/>
                       </div>
                     </div>
                     <div class="wrapper w-full text-center flex flex-col sm:items-center">
@@ -2041,7 +2064,7 @@
                   <div class="card p-3 max-sm:gap-3 border border-[#E8EAEC] h-full rounded-[12px] text-center flex sm:flex-col flex-row sm:items-center items-start justify-between bg-white">
                     <div class="flex justify-center">
                       <div class="img-rounded sm:h-16 sm:w-16 w-8 h-8 rounded-full bg-[#AFB5FF]">
-                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/ron.png "/>
+                        <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-3.png"/>
                       </div>
                     </div>
                     <div class="wrapper w-full text-center flex flex-col sm:items-center">
@@ -2094,7 +2117,7 @@
                 </div>
               </div>
               <div class="table-main mt-3" id="">
-                <div class="jumbptron md:p-8 p-4 rounded-t-[16px] bg-[url('/images/jumotron-bg.png')] bg-repeat bg-cover">
+                <div class="jumbptron md:p-8 p-4 rounded-t-[16px] bg-gradient-to-r from-[#8AE388] to-[#BAF55F]">
                   <span class="text-sm text-[#141414] font-haas_medium_65 leading-[1.4]">
                     TOTAL BALANCE
                   </span>
@@ -2178,7 +2201,7 @@
                         <td class="py-5 whitespace-nowrap font-haas_medium_65 text-[#DA4E4E] text-sm w-1/3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ron.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-3.png"/>
                             </div>
                             <h4 class="text-sm font-inter leading-none font-semibold text-[#000000] truncate max-w-[90px]">
                               Logan Whitmore
@@ -2223,7 +2246,7 @@
                         <td class="py-5 whitespace-nowrap font-haas_medium_65 text-[#DA4E4E] text-sm w-1/3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ava.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-2.png"/>
                             </div>
                             <h4 class="text-sm font-inter leading-none font-semibold text-[#000000] truncate max-w-[90px]">
                               Ava Kingsley
@@ -2268,7 +2291,7 @@
                         <td class="py-5 whitespace-nowrap font-haas_medium_65 text-[#DA4E4E] text-sm w-1/3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ron.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-3.png"/>
                             </div>
                             <h4 class="text-sm font-inter max-w-[80px] font-semibold text-[#000000] truncate">
                               Freddie Ljunghhghj
@@ -2313,7 +2336,7 @@
                         <td class="py-5 whitespace-nowrap font-haas_medium_65 text-[#DA4E4E] text-sm w-1/3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ava.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-2.png"/>
                             </div>
                             <h4 class="text-sm font-inter font-semibold text-[#000000] truncate leading-[24px] max-w-[80px]">
                               Luna Harrington
@@ -2446,7 +2469,7 @@
                         <div class="flex flex-col gap-3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ava.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-2.png"/>
                             </div>
                             <h4 class="text-sm font-inter leading-none font-semibold text-[#000000]">
                               Ava Kingsley
@@ -2487,7 +2510,7 @@
                         <div class="flex flex-col gap-3">
                           <div class="flex gap-2 items-center">
                             <div class="img-rounded h-8 md:min-w-8 rounded-full bg-[#AFB5FF]">
-                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/ron.png "/>
+                              <img alt="Freddie" class="h-full w-full object-cover" src="/images/avatar-3.png"/>
                             </div>
                             <h4 class="text-sm font-inter leading-none font-semibold text-[#000000]">
                               Logan Whitmore
