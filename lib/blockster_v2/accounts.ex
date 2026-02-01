@@ -4,6 +4,7 @@ defmodule BlocksterV2.Accounts do
   Supports both wallet-based and email-based authentication via Thirdweb.
   """
 
+  require Logger
   import Ecto.Query, warn: false
   alias BlocksterV2.Repo
   alias BlocksterV2.Accounts.{User, UserSession, UserFingerprint}
