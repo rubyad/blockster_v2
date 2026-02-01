@@ -57,6 +57,17 @@ import { WalletTransferHook } from "./wallet_transfer.js";
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
+
+// Capture referral code from URL immediately on page load
+(function captureReferralCode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const refCode = urlParams.get('ref');
+
+  if (refCode && /^0x[a-fA-F0-9]{40}$/i.test(refCode)) {
+    localStorage.setItem('blockster_referrer', refCode.toLowerCase());
+    console.log('[Referral] Captured referrer from URL:', refCode);
+  }
+})();
 // TagInput Hook for handling Enter key
 let TagInput = {
   mounted() {
@@ -165,12 +176,26 @@ let CopyToClipboard = {
       const textToCopy = this.el.dataset.copyText;
       if (textToCopy) {
         navigator.clipboard.writeText(textToCopy).then(() => {
-          // Show brief feedback
-          const originalHTML = this.el.innerHTML;
-          this.el.innerHTML = `<svg class="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-          setTimeout(() => {
-            this.el.innerHTML = originalHTML;
-          }, 1500);
+          // Check for new-style button with separate text/icon elements
+          const copyText = this.el.querySelector('.copy-text');
+          const copyIcon = this.el.querySelector('.copy-icon');
+
+          if (copyText && copyIcon) {
+            // New style: show checkmark icon, change text to "Copied!"
+            copyText.textContent = 'Copied!';
+            copyIcon.classList.remove('hidden');
+            setTimeout(() => {
+              copyText.textContent = 'Copy';
+              copyIcon.classList.add('hidden');
+            }, 2000);
+          } else {
+            // Legacy style: replace entire content
+            const originalHTML = this.el.innerHTML;
+            this.el.innerHTML = `<svg class="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => {
+              this.el.innerHTML = originalHTML;
+            }, 1500);
+          }
         }).catch(err => {
           console.error('Failed to copy: ', err);
         });
@@ -258,12 +283,15 @@ let InfiniteScroll = {
 
     this.pending = true;
 
-    // Determine which event to push based on element ID
-    let eventName = 'load-more';
-    if (this.el.id === 'hub-news-stream') {
-      eventName = 'load-more-news';
-    } else if (this.el.id === 'recent-games-scroll') {
-      eventName = 'load-more-games';
+    // Determine which event to push - prefer data-event attribute, then check element ID
+    let eventName = this.el.dataset.event || 'load-more';
+    if (eventName === 'load-more') {
+      // Fallback to ID-based event names for backwards compatibility
+      if (this.el.id === 'hub-news-stream') {
+        eventName = 'load-more-news';
+      } else if (this.el.id === 'recent-games-scroll') {
+        eventName = 'load-more-games';
+      }
     }
 
     // Use pushEvent callback to reset pending only after server responds

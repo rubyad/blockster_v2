@@ -420,6 +420,64 @@ defmodule BlocksterV2.MnesiaInitializer do
         :created_at                # Unix timestamp of creation
       ],
       index: [:overall_multiplier]
+    },
+    # ===== REFERRAL SYSTEM TABLES =====
+    # Referral mappings: user_id -> referrer info
+    %{
+      name: :referrals,
+      type: :set,
+      attributes: [
+        :user_id,                  # PRIMARY KEY - the referred user's ID
+        :referrer_id,              # The referrer's user ID
+        :referrer_wallet,          # Referrer's smart wallet (for contract sync)
+        :referee_wallet,           # Referee's smart wallet (for blockchain event matching)
+        :referred_at,              # Unix timestamp (seconds)
+        :on_chain_synced           # Boolean - whether setPlayerReferrer was called on contracts
+      ],
+      index: [:referrer_id, :referrer_wallet, :referee_wallet]
+    },
+    # Referral earnings history (bag type - allows multiple records per user)
+    %{
+      name: :referral_earnings,
+      type: :bag,
+      attributes: [
+        :id,                       # UUID for uniqueness
+        :referrer_id,              # Who earned (for indexing by user)
+        :referrer_wallet,          # Referrer's smart wallet (for display, no DB lookup needed)
+        :referee_wallet,           # Referee's smart wallet (for display, no DB lookup needed)
+        :earning_type,             # :signup | :phone_verified | :bux_bet_loss | :rogue_bet_loss | :shop_purchase
+        :amount,                   # Amount earned (float)
+        :token,                    # "BUX" or "ROGUE"
+        :tx_hash,                  # Blockchain tx hash (for bet losses)
+        :commitment_hash,          # Bet commitment hash (for dedup)
+        :timestamp                 # Unix timestamp (seconds)
+      ],
+      index: [:referrer_id, :referrer_wallet, :referee_wallet, :commitment_hash]
+    },
+    # Referral stats cache (fast lookup for dashboard)
+    %{
+      name: :referral_stats,
+      type: :set,
+      attributes: [
+        :user_id,                  # PRIMARY KEY
+        :total_referrals,          # Count of referred users
+        :verified_referrals,       # Count who verified phone
+        :total_bux_earned,         # Total BUX earned from referrals
+        :total_rogue_earned,       # Total ROGUE earned from referrals
+        :updated_at                # Unix timestamp
+      ],
+      index: []
+    },
+    # Poller state persistence (tracks last processed block)
+    %{
+      name: :referral_poller_state,
+      type: :set,
+      attributes: [
+        :key,                      # PRIMARY KEY - :rogue (for Rogue Chain poller)
+        :last_block,               # Last processed block number
+        :updated_at                # Unix timestamp
+      ],
+      index: []
     }
   ]
 

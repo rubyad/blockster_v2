@@ -30,6 +30,11 @@ defmodule BlocksterV2.Accounts.User do
     field :last_suspicious_activity_at, :utc_datetime
     field :registered_devices_count, :integer, default: 0
 
+    # Referral fields
+    field :referred_at, :utc_datetime
+    belongs_to :referrer, __MODULE__
+    has_many :referees, __MODULE__, foreign_key: :referrer_id
+
     has_many :sessions, BlocksterV2.Accounts.UserSession
     has_many :posts, BlocksterV2.Blog.Post, foreign_key: :author_id
     has_many :organized_events, BlocksterV2.Events.Event, foreign_key: :organizer_id
@@ -52,7 +57,8 @@ defmodule BlocksterV2.Accounts.User do
                     :is_admin, :is_author, :bux_balance, :level, :experience_points,
                     :avatar_url, :chain_id, :is_flagged_multi_account_attempt,
                     :last_suspicious_activity_at, :registered_devices_count,
-                    :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in])
+                    :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in,
+                    :referrer_id, :referred_at])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)

@@ -33,7 +33,7 @@ defmodule BlocksterV2.BuxMinter do
   NOTE: Hub tokens removed. Token parameter kept for backward compatibility but always mints BUX.
   """
   def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
-      when reward_type in [:read, :x_share, :video_watch] do
+      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
@@ -346,6 +346,63 @@ defmodule BlocksterV2.BuxMinter do
 
   # Normalize token name - always returns BUX (hub tokens removed)
   defp normalize_token(_token), do: "BUX"
+
+  @doc """
+  Sets a player's referrer on both BuxBoosterGame and ROGUEBankroll contracts.
+  Called when a new user signs up with a referral link.
+
+  ## Parameters
+    - player_wallet: The new user's smart wallet address
+    - referrer_wallet: The referrer's smart wallet address
+
+  ## Returns
+    - {:ok, results} on success (at least one contract succeeded)
+    - {:error, :already_set} if referrer already set on both contracts
+    - {:error, reason} on failure
+  """
+  def set_player_referrer(player_wallet, referrer_wallet) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping set_player_referrer")
+      {:error, :not_configured}
+    else
+      payload = %{
+        player: player_wallet,
+        referrer: referrer_wallet
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Setting referrer for player #{player_wallet} to #{referrer_wallet}")
+
+      case http_post("#{minter_url}/set-player-referrer", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Set referrer successful: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: 409, body: body}} ->
+          # Referrer already set on both contracts
+          response = Jason.decode!(body)
+          Logger.warning("[BuxMinter] Referrer already set: #{inspect(response)}")
+          {:error, :already_set}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          Logger.error("[BuxMinter] Set referrer failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] HTTP request failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
 
   # Private helpers
 

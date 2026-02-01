@@ -333,24 +333,34 @@ defmodule BlocksterV2.Accounts do
     email = String.downcase(attrs["email"] || attrs[:email])
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
 
-    # Check PostgreSQL for fingerprint ownership
-    case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
-      nil ->
-        # Fingerprint is available - create new account
-        create_new_user_with_fingerprint(attrs)
+    # Skip fingerprint check in dev mode for easier testing
+    env = Application.get_env(:blockster_v2, :env)
+    require Logger
+    Logger.info("[Accounts] Fingerprint check - env: #{inspect(env)}")
 
-      existing_fingerprint ->
-        # BLOCK: Fingerprint already claimed by another user
-        existing_user = get_user(existing_fingerprint.user_id)
+    if env == :dev do
+      Logger.info("[Accounts] Skipping fingerprint check in dev mode")
+      create_new_user_with_fingerprint(attrs)
+    else
+      # Check PostgreSQL for fingerprint ownership
+      case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
+        nil ->
+          # Fingerprint is available - create new account
+          create_new_user_with_fingerprint(attrs)
 
-        # Log suspicious activity
-        {:ok, _} = update_user(existing_user, %{
-          is_flagged_multi_account_attempt: true,
-          last_suspicious_activity_at: DateTime.utc_now()
-        })
+        existing_fingerprint ->
+          # BLOCK: Fingerprint already claimed by another user
+          existing_user = get_user(existing_fingerprint.user_id)
 
-        # Return error with masked email
-        {:error, :fingerprint_conflict, existing_user.email}
+          # Log suspicious activity
+          {:ok, _} = update_user(existing_user, %{
+            is_flagged_multi_account_attempt: true,
+            last_suspicious_activity_at: DateTime.utc_now()
+          })
+
+          # Return error with masked email
+          {:error, :fingerprint_conflict, existing_user.email}
+      end
     end
   end
 
@@ -361,31 +371,43 @@ defmodule BlocksterV2.Accounts do
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
     fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
 
+    # In dev mode, skip fingerprint insert to allow multiple test accounts
+    is_dev = Application.get_env(:blockster_v2, :env) == :dev
+
     # Start transaction to create user + fingerprint atomically
-    Ecto.Multi.new()
+    multi = Ecto.Multi.new()
     |> Ecto.Multi.insert(:user, User.email_registration_changeset(%{
       email: email,
       wallet_address: wallet_address,
       smart_wallet_address: smart_wallet_address,
       registered_devices_count: 1
     }))
-    |> Ecto.Multi.insert(:fingerprint, fn %{user: user} ->
-      UserFingerprint.changeset(%UserFingerprint{}, %{
-        user_id: user.id,
-        fingerprint_id: fingerprint_id,
-        fingerprint_confidence: fingerprint_confidence,
-        first_seen_at: DateTime.utc_now(),
-        last_seen_at: DateTime.utc_now(),
-        is_primary: true  # First device
-      })
-    end)
+
+    # Only insert fingerprint in production
+    multi = if is_dev do
+      multi
+    else
+      multi
+      |> Ecto.Multi.insert(:fingerprint, fn %{user: user} ->
+        UserFingerprint.changeset(%UserFingerprint{}, %{
+          user_id: user.id,
+          fingerprint_id: fingerprint_id,
+          fingerprint_confidence: fingerprint_confidence,
+          first_seen_at: DateTime.utc_now(),
+          last_seen_at: DateTime.utc_now(),
+          is_primary: true  # First device
+        })
+      end)
+    end
+
+    multi
     |> Ecto.Multi.run(:session, fn _repo, %{user: user} ->
       create_session(user.id)
     end)
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user, session: session}} ->
-        {:ok, user, session}
+        {:ok, user, session, true}  # true = is_new_user
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
@@ -435,7 +457,7 @@ defmodule BlocksterV2.Accounts do
 
     # Create session
     case create_session(user.id) do
-      {:ok, session} -> {:ok, user, session}
+      {:ok, session} -> {:ok, user, session, false}  # false = existing user
       error -> error
     end
   end

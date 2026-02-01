@@ -972,6 +972,23 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     // Total ROGUE paid to NFT holders all-time
     uint256 public totalNFTRewardsPaid;
 
+    // ===== REFERRAL SYSTEM (V8) =====
+
+    /// @notice Referral reward basis points (20 = 0.2%, same as NFT rewards)
+    uint256 public referralBasisPoints;
+
+    /// @notice Mapping from player to their referrer address
+    mapping(address => address) public playerReferrers;
+
+    /// @notice Total referral rewards paid all-time
+    uint256 public totalReferralRewardsPaid;
+
+    /// @notice Total referral rewards earned per referrer
+    mapping(address => uint256) public referrerTotalEarnings;
+
+    /// @notice Admin address authorized to set player referrers (e.g., BuxMinter service)
+    address public referralAdmin;
+
     event Payout(uint256 betId, address winner, uint256 payout, uint256 wagerCurrency, uint256 exitSerialNumber);
     event ROGUEPayout(uint256 betId, address winner, uint256 payout);
     event ROGUEPayoutFailed(uint256 betId, address winner, uint256 payout);
@@ -1049,6 +1066,26 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     event NFTRewardBasisPointsChanged(
         uint256 previousBasisPoints,
         uint256 newBasisPoints
+    );
+
+    // V8: Referral Reward events
+    event ReferralRewardPaid(
+        bytes32 indexed commitmentHash,
+        address indexed referrer,
+        address indexed player,
+        uint256 amount
+    );
+    event ReferrerSet(
+        address indexed player,
+        address indexed referrer
+    );
+    event ReferralBasisPointsChanged(
+        uint256 previousBasisPoints,
+        uint256 newBasisPoints
+    );
+    event ReferralAdminChanged(
+        address indexed previousAdmin,
+        address indexed newAdmin
     );
 
     function setMinimumBetSize(uint256 _minimumBetSize) external onlyOwner {
@@ -1407,6 +1444,111 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         return totalNFTRewardsPaid;
     }
 
+    // ===== REFERRAL SYSTEM FUNCTIONS (V8) =====
+
+    /**
+     * @notice Set the referral reward rate in basis points (owner only)
+     * @dev 20 basis points = 0.2% of losing bets go to referrer
+     *      Matches the NFT reward pattern for consistency
+     * @param _basisPoints New basis points value (max 1000 = 10%)
+     */
+    function setReferralBasisPoints(uint256 _basisPoints) external onlyOwner {
+        require(_basisPoints <= 1000, "Basis points cannot exceed 10%");
+        emit ReferralBasisPointsChanged(referralBasisPoints, _basisPoints);
+        referralBasisPoints = _basisPoints;
+    }
+
+    /**
+     * @notice Get the current referral reward rate in basis points
+     * @return Current basis points value
+     */
+    function getReferralBasisPoints() external view returns (uint256) {
+        return referralBasisPoints;
+    }
+
+    /**
+     * @notice Get total ROGUE paid to referrers all-time
+     * @return Total amount paid to referrers
+     */
+    function getReferralTotalRewardsPaid() external view returns (uint256) {
+        return totalReferralRewardsPaid;
+    }
+
+    /**
+     * @notice Get total ROGUE earned by a specific referrer
+     * @param referrer The referrer's address
+     * @return Total amount earned by this referrer
+     */
+    function getReferrerTotalEarnings(address referrer) external view returns (uint256) {
+        return referrerTotalEarnings[referrer];
+    }
+
+    /**
+     * @notice Set the referral admin address (owner only)
+     * @dev The referral admin can call setPlayerReferrer on behalf of the system
+     * @param _admin The new referral admin address (e.g., BuxMinter service wallet)
+     */
+    function setReferralAdmin(address _admin) external onlyOwner {
+        emit ReferralAdminChanged(referralAdmin, _admin);
+        referralAdmin = _admin;
+    }
+
+    /**
+     * @notice Get the current referral admin address
+     * @return The referral admin address
+     */
+    function getReferralAdmin() external view returns (address) {
+        return referralAdmin;
+    }
+
+    /**
+     * @notice Set a player's referrer (can only be set once)
+     * @dev Called by referral admin (BuxMinter service) or owner on signup
+     * @param player The player's smart wallet address
+     * @param referrer The referrer's smart wallet address
+     */
+    function setPlayerReferrer(address player, address referrer) external {
+        require(msg.sender == owner() || msg.sender == referralAdmin, "Not authorized");
+        require(playerReferrers[player] == address(0), "Referrer already set");
+        require(referrer != address(0), "Invalid referrer");
+        require(player != referrer, "Self-referral not allowed");
+
+        playerReferrers[player] = referrer;
+        emit ReferrerSet(player, referrer);
+    }
+
+    /**
+     * @notice Batch set multiple player referrers (for efficiency)
+     * @dev Called by referral admin (BuxMinter service) or owner
+     * @param players Array of player addresses
+     * @param referrers Array of corresponding referrer addresses
+     */
+    function setPlayerReferrersBatch(
+        address[] calldata players,
+        address[] calldata referrers
+    ) external {
+        require(msg.sender == owner() || msg.sender == referralAdmin, "Not authorized");
+        require(players.length == referrers.length, "Array length mismatch");
+
+        for (uint256 i = 0; i < players.length; i++) {
+            if (playerReferrers[players[i]] == address(0) &&
+                referrers[i] != address(0) &&
+                players[i] != referrers[i]) {
+                playerReferrers[players[i]] = referrers[i];
+                emit ReferrerSet(players[i], referrers[i]);
+            }
+        }
+    }
+
+    /**
+     * @notice Get a player's referrer
+     * @param player The player's address
+     * @return The referrer's address (or address(0) if none)
+     */
+    function getPlayerReferrer(address player) external view returns (address) {
+        return playerReferrers[player];
+    }
+
     /**
      * @dev Internal helper to send NFT rewards
      * @param commitmentHash Bet identifier for event tracking
@@ -1449,6 +1591,64 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
             // Don't revert - NFT rewards are non-critical
             emit NFTRewardFailed(commitmentHash, rewardAmount, "Call failed");
         }
+    }
+
+    /**
+     * @dev Internal helper to send referral rewards (V8)
+     * @notice EXACT COPY of _sendNFTReward pattern:
+     *         - Non-blocking (failure doesn't revert bet settlement)
+     *         - Updates house balance tracking
+     *         - Emits event on success
+     *
+     * KEY DIFFERENCE from NFT rewards:
+     *         - NFT: calls nftRewarder.receiveReward() (pooled distribution)
+     *         - Referral: sends directly to referrer wallet (instant payout)
+     *
+     * @param commitmentHash The bet's commitment hash (for event tracking)
+     * @param player The player who lost the bet
+     * @param wagerAmount The amount wagered
+     */
+    function _sendReferralReward(
+        bytes32 commitmentHash,
+        address player,
+        uint256 wagerAmount
+    ) private {
+        // Skip if rewards not enabled (same check as NFT rewards)
+        if (referralBasisPoints == 0) {
+            return;
+        }
+
+        address referrer = playerReferrers[player];
+        if (referrer == address(0)) {
+            return;
+        }
+
+        // Calculate reward: wagerAmount * basisPoints / 10000 (same formula as NFT)
+        uint256 rewardAmount = (wagerAmount * referralBasisPoints) / 10000;
+
+        if (rewardAmount == 0) {
+            return;
+        }
+
+        // Send ROGUE directly to referrer wallet (NOT to a contract like NFT rewards)
+        (bool success, ) = payable(referrer).call{value: rewardAmount}("");
+
+        if (success) {
+            totalReferralRewardsPaid += rewardAmount;
+            referrerTotalEarnings[referrer] += rewardAmount;
+
+            // Update HouseBalance (EXACT SAME as _sendNFTReward)
+            houseBalance.total_balance -= rewardAmount;
+            houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+            houseBalance.actual_balance = address(this).balance;
+            // Recalculate pool token price
+            if (houseBalance.pool_token_supply > 0) {
+                houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
+            }
+
+            emit ReferralRewardPaid(commitmentHash, referrer, player, rewardAmount);
+        }
+        // Non-blocking: if transfer fails, we just skip (no revert)
     }
 
     /**
@@ -1632,6 +1832,10 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         // V7: Send NFT rewards (portion of losing bet to NFT holders)
         // This is non-blocking - failure won't revert the bet settlement
         _sendNFTReward(commitmentHash, wagerAmount);
+
+        // V8: Send referral rewards (portion of losing bet to referrer)
+        // This is non-blocking - failure won't revert the bet settlement
+        _sendReferralReward(commitmentHash, player, wagerAmount);
 
         // Emit BuxBooster-specific events (split to avoid stack too deep)
         emit BuxBoosterLosingBet(player, commitmentHash, wagerAmount);

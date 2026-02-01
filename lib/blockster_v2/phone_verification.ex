@@ -6,13 +6,13 @@ defmodule BlocksterV2.PhoneVerification do
   import Ecto.Query
   alias BlocksterV2.Repo
   alias BlocksterV2.Accounts.{User, PhoneVerification}
-  alias BlocksterV2.UnifiedMultiplier
+  alias BlocksterV2.{UnifiedMultiplier, Referrals}
 
   # Allow injecting mock client in tests
   @twilio_client Application.compile_env(:blockster_v2, :twilio_client, BlocksterV2.TwilioClient)
 
-  # Rate limiting: max 100 attempts per hour (temporarily increased for testing)
-  @max_attempts_per_hour 100
+  # Rate limiting: max 3 attempts per hour
+  @max_attempts_per_hour 3
   @verification_timeout_minutes 10
 
   @doc """
@@ -97,6 +97,10 @@ defmodule BlocksterV2.PhoneVerification do
         {:ok, updated} ->
           # Update user record with multiplier and SMS opt-in
           update_user_multiplier(user_id, updated.geo_multiplier, updated.geo_tier, updated.sms_opt_in)
+
+          # Award referral reward to referrer (if user was referred)
+          Referrals.process_phone_verification_reward(user_id)
+
           {:ok, updated}
 
         error -> error
