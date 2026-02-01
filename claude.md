@@ -24,11 +24,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - Code changes in lib/ are automatically recompiled and reloaded on next request
 >
 > **CRITICAL MNESIA RULES**:
-> - NEVER delete or suggest deleting Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`)
+> - NEVER delete or suggest deleting Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`) - not in dev, not in prod, not ever
 > - Mnesia directories contain persistent user data that cannot be recovered
 > - If Mnesia tables are missing, the issue is usually in the GenServer startup order or global registration
-> - When a new Mnesia table is added, both nodes must be restarted to create the table - this happens automatically on restart
+> - When a new Mnesia table is added, both nodes must be restarted to create the table - MnesiaInitializer creates missing tables automatically on startup
 > - If PriceTracker or other global GenServers fail with "table doesn't exist", check if the GenServer started before MnesiaInitializer finished
+> - **There is NO scenario where deleting Mnesia directories is the correct solution** - if you think deletion is needed, you are wrong and need to find another approach
 >
 > **CRITICAL SECURITY RULES**:
 > - NEVER read, open, or access any `.env` file in any directory - these contain private keys and secrets

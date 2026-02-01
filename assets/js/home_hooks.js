@@ -67,6 +67,9 @@ if (initClient) {
 
 export const HomeHooks = {
   mounted() {
+    // Capture referral code from URL on landing
+    this.captureReferrerCode();
+
     // Toggle modal function
     this.handleEvent("toggle_modal", ({ id }) => {
       const modal = document.getElementById(id);
@@ -115,6 +118,18 @@ export const HomeHooks = {
     this.handleEvent("cleanup", () => {
       window.removeEventListener('scroll', handleScroll);
     });
+  },
+
+  // Capture referral code from URL and store in localStorage
+  captureReferrerCode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+
+    if (refCode && /^0x[a-fA-F0-9]{40}$/.test(refCode)) {
+      // Store in localStorage for persistence across page navigations
+      localStorage.setItem('blockster_referrer', refCode.toLowerCase());
+      console.log('[Referral] Captured referrer:', refCode);
+    }
   }
 };
 
@@ -361,6 +376,15 @@ export const ThirdwebLogin = {
   clearLoginState() {
     localStorage.removeItem('login_pending_email');
     localStorage.removeItem('login_pending_timestamp');
+  },
+
+  // Referral code helpers
+  getReferrerCode() {
+    return localStorage.getItem('blockster_referrer');
+  },
+
+  clearReferrerCode() {
+    localStorage.removeItem('blockster_referrer');
   },
 
   attachEventListeners() {
@@ -671,7 +695,7 @@ export const ThirdwebLogin = {
 
         if (!fingerprintData) {
           console.error('Failed to get fingerprint');
-          alert('Unable to verify device. Please check your browser settings and try again.');
+          alert('Unable to verify device. Please use Chrome or Edge browser to sign up.');
           this.pushEvent("show_code_input", { email: this.pendingEmail });
           return;
         }
@@ -778,19 +802,26 @@ export const ThirdwebLogin = {
 
   async authenticateEmail(email, personalWalletAddress, smartWalletAddress, fingerprintData) {
     try {
+      // Get referrer code if exists
+      const referrerCode = this.getReferrerCode();
+      console.log('[Referral] getReferrerCode() returned:', referrerCode);
+      console.log('[Referral] All localStorage keys:', Object.keys(localStorage));
+
       const body = {
         email: email,
         wallet_address: personalWalletAddress,
         smart_wallet_address: smartWalletAddress,
         fingerprint_id: fingerprintData.visitorId,
         fingerprint_confidence: fingerprintData.confidence,
-        fingerprint_request_id: fingerprintData.requestId
+        fingerprint_request_id: fingerprintData.requestId,
+        referrer_wallet: referrerCode  // Pass referrer wallet if user came via referral link
       };
 
       console.log('Sending authentication request with fingerprint:', {
         email,
         fingerprint_id: fingerprintData.visitorId,
-        fingerprint_confidence: fingerprintData.confidence
+        fingerprint_confidence: fingerprintData.confidence,
+        referrer_wallet: referrerCode
       });
 
       const response = await fetch('/api/auth/email/verify', {
@@ -809,6 +840,13 @@ export const ThirdwebLogin = {
         console.log('Email authenticated successfully:', data.user);
         this.currentUser = data.user;
         this.updateUI(data.user);
+
+        // Clear referrer code after successful signup (new users only)
+        if (data.is_new_user && referrerCode) {
+          console.log('[Referral] Clearing referrer code after successful signup');
+          this.clearReferrerCode();
+        }
+
         // Redirect to member page using smart wallet address
         window.location.href = `/member/${data.user.smart_wallet_address}`;
       } else {

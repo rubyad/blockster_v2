@@ -26,6 +26,4 @@ primary_region = "ord"  # Chicago (same region as blockster-v2)
   #   path = "/health"
 
 [[vm]]
-  cpu_kind = "shared"
-  cpus = 2
-  memory_mb = 2048
+  size = 'performance-2x'

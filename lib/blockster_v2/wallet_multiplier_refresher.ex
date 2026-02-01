@@ -8,7 +8,8 @@ defmodule BlocksterV2.WalletMultiplierRefresher do
 
   use GenServer
   require Logger
-  alias BlocksterV2.{WalletMultiplier, Wallets, GlobalSingleton, UnifiedMultiplier}
+  import Ecto.Query
+  alias BlocksterV2.{WalletMultiplier, Wallets, GlobalSingleton, UnifiedMultiplier, Repo, ConnectedWallet}
 
   # Refresh every 24 hours (3:00 AM UTC)
   @refresh_interval :timer.hours(24)
@@ -109,12 +110,10 @@ defmodule BlocksterV2.WalletMultiplierRefresher do
   end
 
   defp do_refresh_all_multipliers do
-    # Get all connected wallets from Mnesia
-    connected_wallets =
-      :mnesia.dirty_match_object({:connected_wallets, :_, :_, :_, :_, :_, :_})
-
-    # Get unique user IDs
-    user_ids = Enum.map(connected_wallets, fn record -> elem(record, 1) end) |> Enum.uniq()
+    # Get all unique user IDs with connected wallets from PostgreSQL
+    user_ids =
+      from(cw in ConnectedWallet, select: cw.user_id, distinct: true)
+      |> Repo.all()
 
     Logger.info(
       "[WalletMultiplierRefresher] Refreshing multipliers for #{length(user_ids)} users"
