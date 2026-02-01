@@ -13,6 +13,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
   alias BlocksterV2.Wallets
+  alias BlocksterV2.Referrals
 
   @impl true
   def mount(_params, _session, socket) do
@@ -88,6 +89,24 @@ defmodule BlocksterV2Web.MemberLive.Show do
         filtered_activities = filter_activities_by_period(all_activities, time_period)
         total_bux = calculate_total_bux(filtered_activities)
 
+        # Load referral data for own profile
+        {referral_link, referral_stats, referrals, referral_earnings} = if is_own_profile do
+          wallet_address = member.smart_wallet_address
+          {
+            generate_referral_link(wallet_address),
+            Referrals.get_referrer_stats(member.id),
+            Referrals.list_referrals(member.id, limit: 20),
+            Referrals.list_referral_earnings(member.id, limit: 50)
+          }
+        else
+          {nil, nil, [], []}
+        end
+
+        # Subscribe to real-time referral updates (only for own profile)
+        if connected?(socket) && is_own_profile do
+          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
+        end
+
         {:noreply,
          socket
          |> assign(:page_title, member.username || "Member")
@@ -109,11 +128,17 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> assign(:multiplier_details, multiplier_details)
          |> assign(:token_balances, token_balances)
          |> assign(:is_new_user, is_new_user)
+         |> assign(:is_own_profile, is_own_profile)
          |> assign(:connected_wallet, connected_wallet)
          |> assign(:wallet_balances, wallet_balances)
          |> assign(:recent_transfers, recent_transfers)
          |> assign(:pending_transfer, nil)
-         |> assign(:transfer_pending, false)}  # Hardware wallet transfer pending state for UI feedback
+         |> assign(:transfer_pending, false)
+         # Referral system
+         |> assign(:referral_link, referral_link)
+         |> assign(:referral_stats, referral_stats)
+         |> assign(:referrals, referrals)
+         |> assign(:referral_earnings, referral_earnings)}
     end
   end
 
@@ -464,6 +489,64 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(:transfer_pending, false)}
   end
 
+  # Referral Events
+
+  @impl true
+  def handle_event("copy_referral_link", _params, socket) do
+    referral_link = socket.assigns.referral_link
+    {:noreply, push_event(socket, "copy_to_clipboard", %{text: referral_link})}
+  end
+
+  @impl true
+  def handle_event("load_more_earnings", _params, socket) do
+    current_earnings = socket.assigns.referral_earnings
+    user_id = socket.assigns.member.id
+    offset = length(current_earnings)
+
+    more_earnings = Referrals.list_referral_earnings(user_id, limit: 50, offset: offset)
+
+    if Enum.empty?(more_earnings) do
+      {:reply, %{end_reached: true}, socket}
+    else
+      {:noreply, assign(socket, :referral_earnings, current_earnings ++ more_earnings)}
+    end
+  end
+
+  @impl true
+  def handle_info({:referral_earning, earning}, socket) do
+    current_earnings = socket.assigns.referral_earnings
+    current_stats = socket.assigns.referral_stats
+
+    # Convert earning to map format
+    new_earning = %{
+      id: Ecto.UUID.generate(),
+      earning_type: earning.type,
+      amount: earning.amount,
+      token: earning.token,
+      tx_hash: Map.get(earning, :tx_hash),
+      timestamp: DateTime.from_unix!(earning.timestamp),
+      referee_wallet: earning.referee_wallet
+    }
+
+    # Prepend new earning to list
+    updated_earnings = [new_earning | current_earnings]
+
+    # Update stats
+    updated_stats = case earning.token do
+      "BUX" ->
+        %{current_stats | total_bux_earned: current_stats.total_bux_earned + earning.amount}
+      "ROGUE" ->
+        %{current_stats | total_rogue_earned: current_stats.total_rogue_earned + earning.amount}
+      _ ->
+        current_stats
+    end
+
+    {:noreply,
+     socket
+     |> assign(:referral_earnings, updated_earnings)
+     |> assign(:referral_stats, updated_stats)}
+  end
+
   @impl true
   def handle_info({:close_phone_verification_modal}, socket) do
     {:noreply, assign(socket, :show_phone_modal, false)}
@@ -474,7 +557,22 @@ defmodule BlocksterV2Web.MemberLive.Show do
     # Reload member data to get updated phone verification status
     member = Accounts.get_user(socket.assigns.member.id)
     member = BlocksterV2.Repo.preload(member, :phone_verification, force: true)
-    {:noreply, assign(socket, :member, member)}
+
+    # Recalculate multipliers since phone verification affects them
+    unified_multipliers = UnifiedMultiplier.get_user_multipliers(member.id)
+    rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
+
+    {:noreply,
+     socket
+     |> assign(:member, member)
+     |> assign(:unified_multipliers, unified_multipliers)
+     |> assign(:rogue_multiplier_data, rogue_multiplier_data)
+     |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
+     |> assign(:x_multiplier, unified_multipliers.x_multiplier)
+     |> assign(:x_score, unified_multipliers.x_score)
+     |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
+     |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
+     |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)}
   end
 
   @impl true
@@ -861,5 +959,61 @@ defmodule BlocksterV2Web.MemberLive.Show do
       _ ->
         false
     end
+  end
+
+  # Referral Helper Functions
+
+  defp generate_referral_link(wallet_address) when is_binary(wallet_address) do
+    base_url = BlocksterV2Web.Endpoint.url()
+    "#{base_url}/?ref=#{wallet_address}"
+  end
+  defp generate_referral_link(_), do: nil
+
+  def format_referral_number(number) when is_float(number) do
+    if number == trunc(number) do
+      Integer.to_string(trunc(number))
+    else
+      :erlang.float_to_binary(number, decimals: 2)
+    end
+  end
+  def format_referral_number(number) when is_integer(number), do: Integer.to_string(number)
+  def format_referral_number(_), do: "0"
+
+  def truncate_wallet(nil), do: "-"
+  def truncate_wallet(wallet) when is_binary(wallet) and byte_size(wallet) > 10 do
+    "#{String.slice(wallet, 0..5)}...#{String.slice(wallet, -4..-1)}"
+  end
+  def truncate_wallet(wallet), do: wallet
+
+  def earning_type_label(:signup), do: "Signup"
+  def earning_type_label(:phone_verified), do: "Phone Verified"
+  def earning_type_label(:bux_bet_loss), do: "BUX Bet"
+  def earning_type_label(:rogue_bet_loss), do: "ROGUE Bet"
+  def earning_type_label(:shop_purchase), do: "Shop Purchase"
+  def earning_type_label(_), do: "Other"
+
+  def earning_type_style(:signup), do: "bg-green-100 text-green-800"
+  def earning_type_style(:phone_verified), do: "bg-blue-100 text-blue-800"
+  def earning_type_style(:bux_bet_loss), do: "bg-purple-100 text-purple-800"
+  def earning_type_style(:rogue_bet_loss), do: "bg-indigo-100 text-indigo-800"
+  def earning_type_style(:shop_purchase), do: "bg-orange-100 text-orange-800"
+  def earning_type_style(_), do: "bg-gray-100 text-gray-800"
+
+  def format_relative_time(datetime) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(now, datetime, :second)
+
+    cond do
+      diff_seconds < 60 -> "just now"
+      diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m ago"
+      diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h ago"
+      diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
+      true -> Calendar.strftime(datetime, "%b %d")
+    end
+  end
+
+  def is_recent_earning?(datetime) do
+    now = DateTime.utc_now()
+    DateTime.diff(now, datetime, :second) < 300  # 5 minutes
   end
 end

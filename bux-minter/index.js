@@ -295,6 +295,8 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
 const BUXBOOSTER_CONTRACT_ADDRESS = '0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B';
 const SETTLER_PRIVATE_KEY = process.env.SETTLER_PRIVATE_KEY;
 const CONTRACT_OWNER_PRIVATE_KEY = process.env.CONTRACT_OWNER_PRIVATE_KEY;
+const REFERRAL_ADMIN_BB_PRIVATE_KEY = process.env.REFERRAL_ADMIN_BB_PRIVATE_KEY;
+const REFERRAL_ADMIN_RB_PRIVATE_KEY = process.env.REFERRAL_ADMIN_RB_PRIVATE_KEY;
 
 // BuxBoosterGame ABI - only the functions we need
 const BUXBOOSTER_ABI = [
@@ -308,6 +310,8 @@ const BUXBOOSTER_ABI = [
   'function getPlayerCurrentCommitment(address player) external view returns (bytes32 commitmentHash, uint256 nonce, uint256 timestamp, bool used)',
   'function playerNonces(address player) external view returns (uint256)',
   'function ROGUE_TOKEN() external view returns (address)',
+  'function setPlayerReferrer(address player, address referrer) external',
+  'function playerReferrers(address player) external view returns (address)',
   'event BetSettled(bytes32 indexed commitmentHash, bool won, uint8[] results, uint256 payout, bytes32 serverSeed)',
   'event BetDetails(bytes32 indexed commitmentHash, address indexed token, uint256 amount, int8 difficulty, uint8[] predictions, uint256 nonce, uint256 timestamp)'
 ];
@@ -340,12 +344,46 @@ const ROGUE_BANKROLL_ADDRESS = '0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd';
 
 // ROGUEBankroll ABI - only the functions we need
 const ROGUE_BANKROLL_ABI = [
-  'function getHouseInfo() external view returns (uint256 netBalance, uint256 totalBalance, uint256 minBetSize, uint256 maxBetSize)'
+  'function getHouseInfo() external view returns (uint256 netBalance, uint256 totalBalance, uint256 minBetSize, uint256 maxBetSize)',
+  'function setPlayerReferrer(address player, address referrer) external',
+  'function playerReferrers(address player) external view returns (address)'
 ];
 
 // ROGUEBankroll contract instance (read-only, no wallet needed)
 const rogueBankrollContract = new ethers.Contract(ROGUE_BANKROLL_ADDRESS, ROGUE_BANKROLL_ABI, provider);
 console.log(`[INIT] ROGUEBankroll contract: ${ROGUE_BANKROLL_ADDRESS}`);
+
+// Referral admin wallets (separate from contract owner - can only call setPlayerReferrer)
+let referralAdminBBWallet = null;
+let referralAdminRBWallet = null;
+
+if (REFERRAL_ADMIN_BB_PRIVATE_KEY) {
+  referralAdminBBWallet = new ethers.Wallet(REFERRAL_ADMIN_BB_PRIVATE_KEY, provider);
+  console.log(`[INIT] BuxBoosterGame referral admin: ${referralAdminBBWallet.address}`);
+} else {
+  console.log(`[WARN] REFERRAL_ADMIN_BB_PRIVATE_KEY not set - BuxBoosterGame referral endpoint disabled`);
+}
+
+if (REFERRAL_ADMIN_RB_PRIVATE_KEY) {
+  referralAdminRBWallet = new ethers.Wallet(REFERRAL_ADMIN_RB_PRIVATE_KEY, provider);
+  console.log(`[INIT] ROGUEBankroll referral admin: ${referralAdminRBWallet.address}`);
+} else {
+  console.log(`[WARN] REFERRAL_ADMIN_RB_PRIVATE_KEY not set - ROGUEBankroll referral endpoint disabled`);
+}
+
+// ROGUEBankroll writable contract instance (for setPlayerReferrer - requires referral admin wallet)
+let rogueBankrollWriteContract = null;
+if (referralAdminRBWallet) {
+  rogueBankrollWriteContract = new ethers.Contract(ROGUE_BANKROLL_ADDRESS, ROGUE_BANKROLL_ABI, referralAdminRBWallet);
+  console.log(`[INIT] ROGUEBankroll write contract configured with referral admin wallet`);
+}
+
+// BuxBoosterGame writable contract instance (for setPlayerReferrer - requires referral admin wallet)
+let buxBoosterReferralContract = null;
+if (referralAdminBBWallet) {
+  buxBoosterReferralContract = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, referralAdminBBWallet);
+  console.log(`[INIT] BuxBoosterGame referral contract configured`);
+}
 
 // Submit commitment for a new game
 // Called by Blockster server when player initiates a game
@@ -666,6 +704,110 @@ app.get('/rogue-house-balance', authenticate, async (req, res) => {
   }
 });
 
+// ============================================================
+// Referral System - Set Player Referrer
+// ============================================================
+
+// Set a player's referrer on BOTH contracts (BuxBoosterGame for BUX bets, ROGUEBankroll for ROGUE bets)
+// Called by Blockster server when a new user signs up with a referral code
+app.post('/set-player-referrer', authenticate, async (req, res) => {
+  if (!buxBoosterReferralContract || !rogueBankrollWriteContract) {
+    return res.status(503).json({
+      error: 'Referral system not configured - REFERRAL_ADMIN_BB_PRIVATE_KEY or REFERRAL_ADMIN_RB_PRIVATE_KEY missing'
+    });
+  }
+
+  const { player, referrer } = req.body;
+
+  // Validate input
+  if (!player || !referrer) {
+    return res.status(400).json({ error: 'player and referrer addresses are required' });
+  }
+
+  // Validate addresses
+  if (!ethers.isAddress(player)) {
+    return res.status(400).json({ error: 'Invalid player address' });
+  }
+  if (!ethers.isAddress(referrer)) {
+    return res.status(400).json({ error: 'Invalid referrer address' });
+  }
+
+  // Normalize addresses
+  const playerAddr = ethers.getAddress(player);
+  const referrerAddr = ethers.getAddress(referrer);
+
+  // Prevent self-referral
+  if (playerAddr.toLowerCase() === referrerAddr.toLowerCase()) {
+    return res.status(400).json({ error: 'Self-referral not allowed' });
+  }
+
+  console.log(`[REFERRER] Setting referrer for player ${playerAddr} to ${referrerAddr}`);
+
+  const results = {
+    buxBoosterGame: { success: false, txHash: null, error: null },
+    rogueBankroll: { success: false, txHash: null, error: null }
+  };
+
+  // Set referrer on BuxBoosterGame (for BUX token bets)
+  try {
+    // Check if referrer is already set
+    const existingReferrer = await buxBoosterReferralContract.playerReferrers(playerAddr);
+    if (existingReferrer !== ethers.ZeroAddress) {
+      console.log(`[REFERRER] BuxBoosterGame: Referrer already set to ${existingReferrer}`);
+      results.buxBoosterGame.error = 'Referrer already set';
+    } else {
+      const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr);
+      console.log(`[REFERRER] BuxBoosterGame tx submitted: ${tx.hash}`);
+      await tx.wait();
+      console.log(`[REFERRER] BuxBoosterGame tx confirmed`);
+      results.buxBoosterGame.success = true;
+      results.buxBoosterGame.txHash = tx.hash;
+    }
+  } catch (error) {
+    console.error(`[REFERRER] BuxBoosterGame error:`, error.message);
+    results.buxBoosterGame.error = error.message;
+  }
+
+  // Set referrer on ROGUEBankroll (for ROGUE native token bets)
+  try {
+    // Check if referrer is already set
+    const existingReferrer = await rogueBankrollWriteContract.playerReferrers(playerAddr);
+    if (existingReferrer !== ethers.ZeroAddress) {
+      console.log(`[REFERRER] ROGUEBankroll: Referrer already set to ${existingReferrer}`);
+      results.rogueBankroll.error = 'Referrer already set';
+    } else {
+      const tx = await rogueBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr);
+      console.log(`[REFERRER] ROGUEBankroll tx submitted: ${tx.hash}`);
+      await tx.wait();
+      console.log(`[REFERRER] ROGUEBankroll tx confirmed`);
+      results.rogueBankroll.success = true;
+      results.rogueBankroll.txHash = tx.hash;
+    }
+  } catch (error) {
+    console.error(`[REFERRER] ROGUEBankroll error:`, error.message);
+    results.rogueBankroll.error = error.message;
+  }
+
+  // Determine overall success (at least one contract should succeed for new referrals)
+  const anySuccess = results.buxBoosterGame.success || results.rogueBankroll.success;
+  const bothAlreadySet = results.buxBoosterGame.error === 'Referrer already set' &&
+                         results.rogueBankroll.error === 'Referrer already set';
+
+  if (bothAlreadySet) {
+    return res.status(409).json({
+      error: 'Referrer already set on both contracts',
+      results
+    });
+  }
+
+  res.json({
+    success: anySuccess,
+    player: playerAddr,
+    referrer: referrerAddr,
+    results
+  });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`BUX Minter service running on port ${PORT}`);
@@ -674,5 +816,10 @@ app.listen(PORT, () => {
   if (buxBoosterContract) {
     console.log(`BuxBoosterGame: ${BUXBOOSTER_CONTRACT_ADDRESS}`);
     console.log(`Settler wallet: ${settlerWallet.address}`);
+  }
+  if (buxBoosterReferralContract && rogueBankrollWriteContract) {
+    console.log(`Referral system: enabled`);
+    console.log(`BuxBoosterGame referral admin: ${referralAdminBBWallet.address}`);
+    console.log(`ROGUEBankroll referral admin: ${referralAdminRBWallet.address}`);
   }
 });

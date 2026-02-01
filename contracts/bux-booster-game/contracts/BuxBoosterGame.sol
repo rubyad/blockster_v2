@@ -552,9 +552,36 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     event HouseDeposit(address indexed token, uint256 amount);
     event HouseWithdraw(address indexed token, uint256 amount);
 
+    // V6: Referral events
+    event ReferralRewardPaid(
+        bytes32 indexed commitmentHash,
+        address indexed referrer,
+        address indexed player,
+        address token,
+        uint256 amount
+    );
+    event ReferrerSet(address indexed player, address indexed referrer);
+    event ReferralAdminChanged(address indexed previousAdmin, address indexed newAdmin);
+
     // V5: ROGUE betting support (add at end to preserve storage layout)
     address public rogueBankroll;  // Address of ROGUEBankroll contract
     address constant ROGUE_TOKEN = address(0);  // Special address to represent ROGUE (native token)
+
+    // V6: Referral system (add at end to preserve storage layout)
+    /// @notice Referral reward basis points for BUX token bets (100 = 1%)
+    uint256 public buxReferralBasisPoints;
+
+    /// @notice Mapping from player to their referrer address
+    mapping(address => address) public playerReferrers;
+
+    /// @notice Total referral rewards paid out per token
+    mapping(address => uint256) public totalReferralRewardsPaid;
+
+    /// @notice Total referral rewards earned per referrer per token
+    mapping(address => mapping(address => uint256)) public referrerTokenEarnings;
+
+    /// @notice Admin address authorized to set player referrers (e.g., BuxMinter service)
+    address public referralAdmin;
 
     // ============ Errors ============
 
@@ -664,9 +691,121 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     }
 
     /**
+     * @notice Initialize V6 - Referral system
+     * @dev Sets referral basis points to 100 (1% of losing BUX bets)
+     */
+    function initializeV6() reinitializer(6) public {
+        buxReferralBasisPoints = 100;  // 1% (100 basis points)
+    }
+
+    /**
      * @notice Required by UUPS - only owner can upgrade
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    // ============ Referral Functions (V6) ============
+
+    /**
+     * @notice Set the referral reward basis points for BUX token
+     * @param _basisPoints Referral reward in basis points (max 100 = 1%)
+     */
+    function setBuxReferralBasisPoints(uint256 _basisPoints) external onlyOwner {
+        require(_basisPoints <= 100, "Max 1%");
+        buxReferralBasisPoints = _basisPoints;
+    }
+
+    /**
+     * @notice Get the current BUX referral basis points
+     * @return Current basis points value
+     */
+    function getBuxReferralBasisPoints() external view returns (uint256) {
+        return buxReferralBasisPoints;
+    }
+
+    /**
+     * @notice Get total referral rewards paid for a token
+     * @param token The token address
+     * @return Total amount paid
+     */
+    function getTotalReferralRewardsPaid(address token) external view returns (uint256) {
+        return totalReferralRewardsPaid[token];
+    }
+
+    /**
+     * @notice Get total earnings for a referrer for a specific token
+     * @param referrer The referrer address
+     * @param token The token address
+     * @return Total amount earned
+     */
+    function getReferrerTokenEarnings(address referrer, address token) external view returns (uint256) {
+        return referrerTokenEarnings[referrer][token];
+    }
+
+    /**
+     * @notice Set the referral admin address (owner only)
+     * @dev The referral admin can call setPlayerReferrer on behalf of the system
+     * @param _admin The new referral admin address (e.g., BuxMinter service wallet)
+     */
+    function setReferralAdmin(address _admin) external onlyOwner {
+        emit ReferralAdminChanged(referralAdmin, _admin);
+        referralAdmin = _admin;
+    }
+
+    /**
+     * @notice Get the current referral admin address
+     * @return The referral admin address
+     */
+    function getReferralAdmin() external view returns (address) {
+        return referralAdmin;
+    }
+
+    /**
+     * @notice Set a player's referrer (can only be set once)
+     * @dev Called by referral admin (BuxMinter service) or owner on signup
+     * @param player The player's smart wallet address
+     * @param referrer The referrer's smart wallet address
+     */
+    function setPlayerReferrer(address player, address referrer) external {
+        require(msg.sender == owner() || msg.sender == referralAdmin, "Not authorized");
+        require(playerReferrers[player] == address(0), "Referrer already set");
+        require(referrer != address(0), "Invalid referrer");
+        require(player != referrer, "Self-referral not allowed");
+
+        playerReferrers[player] = referrer;
+        emit ReferrerSet(player, referrer);
+    }
+
+    /**
+     * @notice Batch set multiple player referrers (for efficiency)
+     * @dev Called by referral admin (BuxMinter service) or owner
+     * @param players Array of player addresses
+     * @param referrers Array of corresponding referrer addresses
+     */
+    function setPlayerReferrersBatch(
+        address[] calldata players,
+        address[] calldata referrers
+    ) external {
+        require(msg.sender == owner() || msg.sender == referralAdmin, "Not authorized");
+        require(players.length == referrers.length, "Array length mismatch");
+
+        for (uint256 i = 0; i < players.length; i++) {
+            if (playerReferrers[players[i]] == address(0) &&
+                referrers[i] != address(0) &&
+                players[i] != referrers[i]) {
+                playerReferrers[players[i]] = referrers[i];
+                emit ReferrerSet(players[i], referrers[i]);
+            }
+        }
+    }
+
+    /**
+     * @notice Get a player's referrer
+     * @param player The player address
+     * @return The referrer's address (or address(0) if none)
+     */
+    function getPlayerReferrer(address player) external view returns (address) {
+        return playerReferrers[player];
+    }
 
     // ============ Settler Functions ============
 
@@ -1077,7 +1216,52 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             config.houseBalance += bet.amount;
             stats.overallProfitLoss -= int256(bet.amount);
             stats.profitLossPerDifficulty[diffIndex] -= int256(bet.amount);
+
+            // V6: Send referral reward on losing BUX bet
+            _sendBuxReferralReward(bet.commitmentHash, bet);
         }
+    }
+
+    /**
+     * @dev Send BUX referral reward on losing bet (non-blocking like NFT rewards)
+     * @param commitmentHash The bet's commitment hash (for event tracking)
+     * @param bet The bet struct
+     */
+    function _sendBuxReferralReward(bytes32 commitmentHash, Bet storage bet) private {
+        // Skip if no referral program
+        if (buxReferralBasisPoints == 0) return;
+
+        address referrer = playerReferrers[bet.player];
+        if (referrer == address(0)) return;
+
+        // Calculate referral reward: betAmount * basisPoints / 10000
+        uint256 rewardAmount = (bet.amount * buxReferralBasisPoints) / 10000;
+        if (rewardAmount == 0) return;
+
+        TokenConfig storage config = tokenConfigs[bet.token];
+
+        // Ensure house has enough balance (non-blocking - skip if not enough)
+        if (config.houseBalance < rewardAmount) {
+            return;
+        }
+
+        // Deduct from house balance
+        config.houseBalance -= rewardAmount;
+
+        // Transfer BUX tokens directly to referrer wallet
+        IERC20(bet.token).safeTransfer(referrer, rewardAmount);
+
+        // Track total rewards
+        totalReferralRewardsPaid[bet.token] += rewardAmount;
+        referrerTokenEarnings[referrer][bet.token] += rewardAmount;
+
+        emit ReferralRewardPaid(
+            commitmentHash,
+            referrer,
+            bet.player,
+            bet.token,
+            rewardAmount
+        );
     }
 
     // ============ View Functions ============

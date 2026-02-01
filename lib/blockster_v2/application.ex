@@ -42,7 +42,9 @@ defmodule BlocksterV2.Application do
         # Token price tracker (polls CoinGecko every 10 minutes)
         {BlocksterV2.PriceTracker, []},
         # Wallet multiplier refresher (daily at 3 AM UTC)
-        {BlocksterV2.WalletMultiplierRefresher, []}
+        {BlocksterV2.WalletMultiplierRefresher, []},
+        # Referral reward poller (polls Rogue Chain for ReferralRewardPaid events)
+        {BlocksterV2.ReferralRewardPoller, []}
       ]
     else
       []

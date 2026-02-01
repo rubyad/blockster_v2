@@ -1,6 +1,6 @@
 defmodule BlocksterV2Web.AuthController do
   use BlocksterV2Web, :controller
-  alias BlocksterV2.Accounts
+  alias BlocksterV2.{Accounts, Referrals}
 
   @doc """
   POST /api/auth/wallet/verify
@@ -56,8 +56,20 @@ defmodule BlocksterV2Web.AuthController do
   ALLOWS existing users to login from new devices (adds fingerprint to their account).
   """
   def verify_email(conn, params) do
+    referrer_wallet = Map.get(params, "referrer_wallet")
+    require Logger
+    Logger.info("[Auth] verify_email called with referrer_wallet: #{inspect(referrer_wallet)}")
+
     case Accounts.authenticate_email_with_fingerprint(params) do
-      {:ok, user, session} ->
+      {:ok, user, session, is_new_user} ->
+        Logger.info("[Auth] User authenticated - is_new_user: #{is_new_user}, referrer_wallet: #{inspect(referrer_wallet)}")
+
+        # Process referral if new user with valid referrer
+        if is_new_user && referrer_wallet && referrer_wallet != "" do
+          result = Referrals.process_signup_referral(user, referrer_wallet)
+          Logger.info("[Auth] Referral processing result: #{inspect(result)}")
+        end
+
         conn
         |> put_session(:user_token, session.token)
         |> put_status(:ok)
@@ -77,7 +89,8 @@ defmodule BlocksterV2Web.AuthController do
             is_verified: user.is_verified,
             registered_devices_count: user.registered_devices_count
           },
-          token: session.token
+          token: session.token,
+          is_new_user: is_new_user
         })
 
       {:error, :fingerprint_conflict, existing_email} ->

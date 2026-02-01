@@ -432,13 +432,15 @@
               >
                 Airdrop
               </button> %>
+              <%= if @is_own_profile do %>
               <button
                 phx-click="switch_tab"
-                phx-value-tab="settings"
-                class={"w-1/4 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "settings", do: "bg-white", else: ""}"}
+                phx-value-tab="refer"
+                class={"w-1/4 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "refer", do: "bg-white", else: ""}"}
               >
-                Settings
+                Refer
               </button>
+              <% end %>
             </div>
           </div>
           <div class={"tab-wrapper relative #{if @active_tab != "following", do: "hidden", else: ""}"} id="following">
@@ -1087,368 +1089,143 @@
               </table>
             </div>
           </div>
-          <div class={"tabs-main tab-wrapper #{if @active_tab != "settings", do: "hidden", else: ""}"} id="settings">
-            <div class="inner md:p-6 p-2">
-              <div class="flex justify-between gap-2 flex-wrap">
-                <p class="!text-[16px] font-haas_medium_65 text-[#343434] leading-[24px]">
-                  Profile Info
+          <!-- Refer Tab Content -->
+          <%= if @is_own_profile do %>
+          <div class={"tabs-main tab-wrapper #{if @active_tab != "refer", do: "hidden", else: ""}"} id="refer">
+            <div class="inner md:p-6 p-2 space-y-6">
+              <!-- Referral Link Section -->
+              <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <h3 class="text-lg font-haas_medium_65 mb-2">Your Referral Link</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                  Share this link with friends. Earn <span class="font-bold text-green-600">100 BUX</span> for each signup,
+                  and another <span class="font-bold text-green-600">100 BUX</span> when they verify their phone.
                 </p>
-                <p class="!text-sm font-haas_medium_55 text-[#343434] leading-[24px]">
-                  <b class="font-haas_medium_65">
-                    +500 $BUX
-                  </b>
-                  points for completing your profile
+
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    readonly
+                    value={@referral_link}
+                    class="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono"
+                  />
+                  <button
+                    id="copy-referral-btn"
+                    phx-hook="CopyToClipboard"
+                    data-copy-text={@referral_link}
+                    class="cursor-pointer px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
+                  >
+                    <span class="copy-text">Copy</span>
+                    <svg class="copy-icon w-4 h-4 hidden text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </button>
+                </div>
+
+                <p class="mt-3 text-xs text-gray-500">
+                  Plus earn <span class="font-bold">1%</span> of losing BUX bets and
+                  <span class="font-bold">0.2%</span> of losing ROGUE bets from your referrals!
                 </p>
               </div>
-              <form action="" class="lg:mt-6 mt-3 py-3 border-b border-[#E7E8F1]">
-                <div class="grid md:gap-8 gap-3 md:grid-cols-2 grid-cols-1">
-                  <div class="">
-                    <label class="xs:text-sm text-xs font-haas_medium_65 leading-[1.4] block text-[#343434]" for="">
-                      First Name
-                    </label>
-                    <div class="icon-field relative mt-3">
-                      <input class="text-left placeholder:text-[#343434] p-3 pr-8 text-[#343434] border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="Freddie" type="text"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                        <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                          <g clip-path="url(#clip0_864_30928_msrcxo)">
-                            <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                            </path>
-                          </g>
-                          <defs>
-                            <clippath id="clip0_864_30928_msrcxo">
-                              <rect fill="white" height="12" width="12">
-                              </rect>
-                            </clippath>
-                          </defs>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                  <div class="">
-                    <label class="xs:text-sm text-xs font-haas_medium_65 leading-[1.4] block text-[#343434]" for="">
-                      First Name
-                    </label>
-                    <div class="icon-field relative mt-3">
-                      <input class="text-left placeholder:text-[#343434] p-3 pr-8 text-[#343434] border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="Ljungberg" type="text"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                        <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                          <g clip-path="url(#clip0_864_30928_crctkl)">
-                            <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                            </path>
-                          </g>
-                          <defs>
-                            <clippath id="clip0_864_30928_crctkl">
-                              <rect fill="white" height="12" width="12">
-                              </rect>
-                            </clippath>
-                          </defs>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                  <div class="">
-                    <label class="xs:text-sm text-xs font-haas_medium_65 leading-[1.4] block text-[#343434]" for="">
-                      Phone Number
-                    </label>
-                    <div class="icon-field relative mt-3">
-                      <input class="[appearance:textfield] [&&::-webkit-inner-spin-button]:appearance-none [&&::-webkit-outer-spin-button]:appearance-none text-left placeholder:text-[#343434] p-3 pr-8 text-[#343434] border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="+46 726 415 912" type="number"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                        <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                          <g clip-path="url(#clip0_864_30928_boihwy)">
-                            <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                            </path>
-                          </g>
-                          <defs>
-                            <clippath id="clip0_864_30928_boihwy">
-                              <rect fill="white" height="12" width="12">
-                              </rect>
-                            </clippath>
-                          </defs>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                  <div class="">
-                    <label class="xs:text-sm text-xs font-haas_medium_65 leading-[1.4] block text-[#343434]" for="">
-                      Email Address
-                    </label>
-                    <div class="icon-field relative mt-3">
-                      <input class="text-left placeholder:text-[#343434] p-3 pr-8 text-[#343434] border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="freddie@gmail.com" type="email"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                        <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                          <g clip-path="url(#clip0_864_30928_nvqeoe)">
-                            <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                            </path>
-                          </g>
-                          <defs>
-                            <clippath id="clip0_864_30928_nvqeoe">
-                              <rect fill="white" height="12" width="12">
-                              </rect>
-                            </clippath>
-                          </defs>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                  <div class="">
-                    <label class="xs:text-sm text-xs font-haas_medium_65 leading-[1.4] block text-[#343434]" for="">
-                      Job Title
-                    </label>
-                    <div class="icon-field relative mt-3">
-                      <input class="text-left placeholder:text-[#343434] p-3 pr-8 text-[#343434] border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="Network Engineer" type="text"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                        <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                          <g clip-path="url(#clip0_864_30928_wlwuje)">
-                            <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                            </path>
-                          </g>
-                          <defs>
-                            <clippath id="clip0_864_30928_wlwuje">
-                              <rect fill="white" height="12" width="12">
-                              </rect>
-                            </clippath>
-                          </defs>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
+
+              <!-- Stats Cards -->
+              <%= if @referral_stats do %>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-4 border border-gray-200">
+                  <div class="text-2xl font-haas_medium_65"><%= @referral_stats.total_referrals %></div>
+                  <div class="text-sm text-gray-500">Total Referrals</div>
                 </div>
-              </form>
-              <div class="border-section md:py-6 py-3 border-b border-[#E7E8F1]">
-                <p class="!text-[16px] font-haas_medium_65 text-[#343434] leading-[24px]">
-                  Connected Wallet
-                </p>
-                <div class="flex gap-2.5 items-center md:mt-6 flex-wrap mt-3">
-                  <div class="flex max-md:w-full">
-                    <span class="p-3 max-md:w-full text-sm leading-[1.4] rounded-[12px] bg-white text-[#343434] flex gap-2.5 items-center border-[#14141433] border">
-                      <svg fill="none" height="17" viewbox="0 0 16 17" width="16" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M13.9806 11.22C13.8207 13 12.534 14.1666 10.6673 14.1666H4.66732C2.82732 14.1666 1.33398 12.6733 1.33398 10.8333V6.16665C1.33398 4.35331 2.42732 3.08665 4.12732 2.87331C4.30065 2.84665 4.48065 2.83331 4.66732 2.83331H10.6673C10.8407 2.83331 11.0073 2.83998 11.1673 2.86665C12.7607 3.05331 13.8406 4.16665 13.9806 5.77998C14.0006 5.97331 13.8406 6.13331 13.6473 6.13331H12.614C11.974 6.13331 11.3807 6.37998 10.954 6.81998C10.4473 7.31331 10.194 8.00665 10.254 8.69998C10.3607 9.91331 11.4273 10.8666 12.694 10.8666H13.6473C13.8406 10.8666 14.0006 11.0266 13.9806 11.22Z" fill="#141414">
-                        </path>
-                        <path d="M14.6675 7.8133V9.18663C14.6675 9.5533 14.3741 9.8533 14.0008 9.86663H12.6941C11.9741 9.86663 11.3141 9.33997 11.2541 8.61997C11.2141 8.19997 11.3741 7.80663 11.6541 7.5333C11.9008 7.27997 12.2408 7.1333 12.6141 7.1333H14.0008C14.3741 7.14663 14.6675 7.44663 14.6675 7.8133Z" fill="#141414">
-                        </path>
-                      </svg>
-                      0x6265617665726275696c642e6f7267
-                    </span>
+                <div class="bg-white rounded-xl p-4 border border-gray-200">
+                  <div class="text-2xl font-haas_medium_65"><%= @referral_stats.verified_referrals %></div>
+                  <div class="text-sm text-gray-500">Verified</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-200">
+                  <div class="text-2xl font-haas_medium_65 text-green-600">
+                    <%= format_referral_number(@referral_stats.total_bux_earned) %> BUX
                   </div>
-                  <div>
-                    <button class="flex items-center gap-1 px-3 bg-white relative rounded-full px-1 py-2 bg-green_gradient_2">
-                      <span class="text-xs font-haas_medium_65 text-[#343434] leading-[20px]">
-                        Connect New Wallet
-                      </span>
-                    </button>
+                  <div class="text-sm text-gray-500">BUX Earned</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-200">
+                  <div class="text-2xl font-haas_medium_65 text-blue-600">
+                    <%= format_referral_number(@referral_stats.total_rogue_earned) %> ROGUE
                   </div>
-                  <div>
-                    <button class="flex items-center gap-1 px-4 bg-bg-dark relative rounded-full px-1 py-2">
-                      <span class="text-xs font-inter text-[#ffffff] leading-[20px]">
-                        Reset
-                      </span>
-                    </button>
-                  </div>
-                  <div>
-                    <button class="flex items-center gap-1 px-4 relative rounded-full px-1 py-2 bg-[#DA4E4E]">
-                      <span class="text-xs font-inter text-[#ffffff] leading-[20px]">
-                        Delete
-                      </span>
-                    </button>
-                  </div>
+                  <div class="text-sm text-gray-500">ROGUE Earned</div>
                 </div>
               </div>
-              <div class="border-section md:py-6 py-3 border-b border-[#E7E8F1]">
-                <div class="flex justify-between md:flex-row flex-col">
-                  <div class="flex items-center gap-3">
-                    <h2 class="text-lg font-haas_bold text-[#141414]">
-                      Refer friends Link
-                    </h2>
-                    <button class="flex items-center gap-1 px-3 bg-white relative rounded-full px-1 py-2 bg-green_gradient_2">
-                      <span class="text-xs font-haas_medium_65 text-[#141414] leading-[1.4]">
-                        How it work
-                      </span>
-                    </button>
-                  </div>
-                  <p class="!text-sm font-haas_medium_55 text-[#343434] leading-[24px]">
-                    <b class="font-haas_medium_65">
-                      +50 $BUX
-                    </b>
-                    for each refer
-                  </p>
-                </div>
-                <div class="flex md:pt-6 pt-3 gap-3 flex-wrap">
-                  <div class="link-area max-w-[451px] flex placeholder:text-[#515B70] relative border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px] overflow-hidden">
-                    <span class="bg-[#0000000D] h-full flex items-center py-2 px-4 font-haas_medium_65 bg-green_gradient_2 bg-white r">
-                      blckstr.com/ref
-                    </span>
-                    <input class="f text-left placeholder:text-[#343434] px-4 text-[#343434] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="freddie" type="email"/>
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                      <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                        <g clip-path="url(#clip0_864_30928_gvylvh)">
-                          <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                          </path>
-                        </g>
-                        <defs>
-                          <clippath id="clip0_864_30928_gvylvh">
-                            <rect fill="white" height="12" width="12">
-                            </rect>
-                          </clippath>
-                        </defs>
-                      </svg>
-                    </span>
-                  </div>
-                  <div class="max-md:w-full max-md:text-center">
-                    <button class="flex items-center gap-1 px-4 bg-bg-dark relative rounded-full py-2 max-md:w-full max-md:justify-center">
-                      <span class="text-xs font-inter text-[#ffffff] leading-[20px]">
-                        Copy
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="border-section md:py-6 py-3 border-b border-[#E7E8F1]">
-                <div class="link-area max-w-[451px] flex placeholder:text-[#515B70] relative border-[#DDE1E7] border-[1px] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px] overflow-hidden">
-                  <span class="bg-[#0000000D] h-full flex items-center py-2 px-4 font-haas_medium_65 bg-green_gradient_2 bg-white r">
-                    https://blockster.com/
-                  </span>
-                  <input class="f text-left placeholder:text-[#343434] px-4 text-[#343434] text-sm font-[400] font-haas_roman_55 w-full rounded-[12px]" placeholder="freddie" type="email"/>
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
-                    <svg fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                      <g clip-path="url(#clip0_864_30928_lgimmd)">
-                        <path d="M6.75 2.99999L8.39645 1.35354C8.59171 1.15828 8.90829 1.15828 9.10355 1.35354L10.6464 2.89643C10.8417 3.09169 10.8417 3.40828 10.6464 3.60354L9 5.24999M6.75 2.99999L1.39645 8.35354C1.30268 8.44731 1.25 8.57448 1.25 8.70709V10.75H3.29289C3.4255 10.75 3.55268 10.6973 3.64645 10.6035L9 5.24999M6.75 2.99999L9 5.24999" stroke="#141414" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.2">
-                        </path>
-                      </g>
-                      <defs>
-                        <clippath id="clip0_864_30928_lgimmd">
-                          <rect fill="white" height="12" width="12">
-                          </rect>
-                        </clippath>
-                      </defs>
-                    </svg>
+              <% end %>
+
+              <!-- Earnings Table (Real-time) -->
+              <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                  <h3 class="font-haas_medium_65">Earnings</h3>
+                  <span class="text-xs text-green-600 flex items-center gap-1">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    Live
                   </span>
                 </div>
-              </div>
-              <div class="border-section md:py-6 py-3 border-b border-[#E7E8F1]">
-                <div class="flex justify-between flex-wrap">
-                  <p class="!text-[16px] font-haas_medium_65 text-[#343434] leading-[24px]">
-                    Connect social accounts (2/6)
-                  </p>
-                  <p class="!text-sm font-haas_medium_55 text-[#343434] leading-[24px]">
-                    <b class="font-haas_medium_65">
-                      +500 $BXR
-                    </b>
-                    for each connection
-                  </p>
-                </div>
-                <div class="gap-2 flex md:flex-row flex-col mt-4 md:w-1/2">
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M7.18803 16.2795V11.2921H5.64011V9H7.18803V8.0125C7.18803 5.45958 8.34303 4.2775 10.848 4.2775C11.3222 4.2775 12.1409 4.37042 12.4772 4.46333V6.53958C12.3001 6.52167 11.9909 6.5125 11.6101 6.5125C10.3801 6.5125 9.90594 6.9775 9.90594 8.18958V9H12.3572L11.9372 11.2917H9.90928V16.4458C13.6228 15.9959 16.5 12.834 16.5 9C16.5 4.85792 13.1421 1.5 9 1.5C4.85792 1.5 1.5 4.85792 1.5 9C1.5 12.5174 3.9211 15.469 7.18803 16.2795Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      Facebook
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.2975 2.25H15.5876L10.5843 7.96846L16.4703 15.75H11.8616L8.25193 11.0305L4.12162 15.75H1.83008L7.18162 9.63346L1.53516 2.25H6.26085L9.52369 6.56377L13.2975 2.25ZM12.4937 14.3792H13.7627L5.57131 3.54877H4.20954L12.4937 14.3792Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      Twitter
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1.18573 8.00951C5.81711 5.99869 8.90464 4.6729 10.4484 4.03239C14.8614 2.2034 15.7772 1.88574 16.3754 1.8751C16.5069 1.87288 16.7998 1.90529 16.9909 2.05941C17.1497 2.1893 17.1945 2.36495 17.2168 2.48815C17.2366 2.61135 17.264 2.89215 17.2416 3.11134C17.0034 5.61498 15.9684 11.6905 15.4422 14.4947C15.2213 15.6813 14.782 16.0791 14.3576 16.1179C13.4343 16.2025 12.7343 15.5103 11.8408 14.9267C10.4434 14.0131 9.65422 13.4445 8.29658 12.5532C6.72797 11.523 7.74555 10.9567 8.63906 10.0315C8.87237 9.78927 12.9378 6.10432 13.0148 5.77009C13.0247 5.72828 13.0347 5.57242 12.9404 5.49029C12.8485 5.40791 12.7119 5.43611 12.6127 5.45837C12.4712 5.49004 10.2399 6.96155 5.91131 9.87265C5.27841 10.3066 4.70508 10.5181 4.18883 10.507C3.62294 10.4948 2.53094 10.1873 1.71934 9.9246C0.726544 9.60224 -0.0652454 9.43179 0.00424998 8.8843C0.0389977 8.5993 0.433695 8.30762 1.18573 8.00951Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      Telegram
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 3.1588C10.9024 3.1588 11.1278 3.16592 11.8791 3.20025C12.3308 3.20571 12.7782 3.28874 13.2018 3.44574C13.5113 3.55997 13.7913 3.74212 14.0212 3.97882C14.2579 4.20867 14.44 4.48866 14.5543 4.79819C14.7113 5.22176 14.7943 5.66916 14.7997 6.12085C14.8341 6.87222 14.8412 7.09762 14.8412 9C14.8412 10.9024 14.8341 11.1278 14.7997 11.8791C14.7943 12.3308 14.7113 12.7782 14.5543 13.2018C14.4357 13.5092 14.2541 13.7883 14.0212 14.0212C13.7883 14.2541 13.5092 14.4357 13.2018 14.5543C12.7782 14.7113 12.3308 14.7943 11.8791 14.7997C11.1278 14.8341 10.9024 14.8412 9 14.8412C7.09762 14.8412 6.87222 14.8341 6.12085 14.7997C5.66894 14.7944 5.22132 14.7113 4.79755 14.5543C4.48825 14.4399 4.20849 14.2578 3.97882 14.0212C3.74212 13.7913 3.55997 13.5113 3.44574 13.2018C3.28874 12.7782 3.20571 12.3308 3.20025 11.8791C3.16592 11.1278 3.1588 10.9024 3.1588 9C3.1588 7.09762 3.16592 6.87222 3.20025 6.12085C3.20571 5.66916 3.28874 5.22176 3.44574 4.79819C3.55997 4.48866 3.74212 4.20867 3.97882 3.97882C4.20867 3.74212 4.48866 3.55997 4.79819 3.44574C5.22176 3.28874 5.66916 3.20571 6.12085 3.20025C6.87222 3.16592 7.09762 3.1588 9 3.1588ZM9 1.875C7.06524 1.875 6.82234 1.88342 6.06256 1.91775C5.47152 1.92954 4.88675 2.04146 4.33312 2.24874C3.85748 2.42782 3.42664 2.70856 3.0707 3.07135C2.70822 3.42717 2.42772 3.85777 2.24874 4.33312C2.04168 4.88679 1.92998 5.47155 1.9184 6.06256C1.88277 6.82234 1.875 7.06524 1.875 9C1.875 10.9348 1.88342 11.1777 1.91775 11.9374C1.92954 12.5285 2.04146 13.1132 2.24874 13.6669C2.42782 14.1425 2.70856 14.5734 3.07135 14.9293C3.42717 15.2918 3.85777 15.5723 4.33312 15.7513C4.88679 15.9583 5.47155 16.07 6.06256 16.0816C6.82234 16.1172 7.06524 16.125 9 16.125C10.9348 16.125 11.1777 16.1166 11.9374 16.0822C12.5285 16.0705 13.1132 15.9585 13.6669 15.7513C14.1403 15.5682 14.5703 15.2882 14.9293 14.9293C15.2882 14.5703 15.5682 14.1403 15.7513 13.6669C15.9583 13.1132 16.07 12.5284 16.0816 11.9374C16.1172 11.1777 16.125 10.9348 16.125 9C16.125 7.06524 16.1166 6.82234 16.0822 6.06256C16.0705 5.47152 15.9585 4.88675 15.7513 4.33312C15.5722 3.85748 15.2914 3.42664 14.9286 3.0707C14.5728 2.70822 14.1422 2.42772 13.6669 2.24874C13.1132 2.04168 12.5284 1.92998 11.9374 1.9184C11.1777 1.88277 10.9348 1.875 9 1.875ZM9 5.34099C8.27632 5.34099 7.56888 5.55559 6.96716 5.95764C6.36544 6.3597 5.89646 6.93116 5.61951 7.59976C5.34257 8.26835 5.27011 9.00406 5.4113 9.71384C5.55248 10.4236 5.90097 11.0756 6.41269 11.5873C6.92441 12.099 7.57638 12.4475 8.28616 12.5887C8.99594 12.7299 9.73165 12.6574 10.4002 12.3805C11.0688 12.1035 11.6403 11.6346 12.0424 11.0328C12.4444 10.4311 12.659 9.72368 12.659 9C12.659 8.02957 12.2735 7.09889 11.5873 6.41269C10.9011 5.72649 9.97043 5.34099 9 5.34099ZM9 11.3752C8.53023 11.3752 8.071 11.2359 7.6804 10.9749C7.2898 10.7139 6.98536 10.343 6.80559 9.90896C6.62581 9.47494 6.57877 8.99736 6.67042 8.53662C6.76207 8.07587 6.98829 7.65265 7.32047 7.32047C7.65265 6.98829 8.07587 6.76207 8.53662 6.67042C8.99736 6.57877 9.47494 6.62581 9.90896 6.80559C10.343 6.98536 10.7139 7.2898 10.9749 7.6804C11.2359 8.071 11.3752 8.53023 11.3752 9C11.3752 9.62995 11.125 10.2341 10.6795 10.6795C10.2341 11.125 9.62995 11.3752 9 11.3752ZM12.8035 4.34155C12.6344 4.34155 12.469 4.39169 12.3284 4.48564C12.1878 4.57959 12.0782 4.71312 12.0135 4.86935C11.9488 5.02558 11.9319 5.19749 11.9649 5.36335C11.9979 5.5292 12.0793 5.68155 12.1989 5.80112C12.3185 5.9207 12.4708 6.00213 12.6367 6.03512C12.8025 6.06811 12.9744 6.05118 13.1306 5.98646C13.2869 5.92175 13.4204 5.81216 13.5144 5.67156C13.6083 5.53095 13.6585 5.36565 13.6585 5.19655C13.6585 4.96978 13.5684 4.75231 13.408 4.59197C13.2477 4.43163 13.0302 4.34155 12.8035 4.34155Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      Instagram
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M14.4667 4.00498C13.432 3.52873 12.3395 3.19086 11.2174 3C11.0639 3.27595 10.9249 3.55987 10.8012 3.85056C9.60588 3.66949 8.39035 3.66949 7.19506 3.85056C7.07125 3.5599 6.93231 3.27598 6.77882 3C5.65597 3.19247 4.56283 3.53114 3.527 4.00747C1.47061 7.066 0.913155 10.0486 1.19188 12.9888C2.39616 13.8833 3.74408 14.5635 5.17707 15C5.49973 14.5637 5.78525 14.1009 6.03059 13.6164C5.5646 13.4415 5.11484 13.2256 4.68651 12.9714C4.79924 12.8892 4.90949 12.8045 5.01603 12.7223C6.26237 13.3115 7.62269 13.617 8.99997 13.617C10.3773 13.617 11.7376 13.3115 12.9839 12.7223C13.0917 12.8107 13.2019 12.8954 13.3134 12.9714C12.8843 13.226 12.4337 13.4423 11.9669 13.6177C12.2119 14.1019 12.4974 14.5644 12.8204 15C14.2546 14.5653 15.6036 13.8853 16.8081 12.99C17.1351 9.58032 16.2494 6.62516 14.4667 4.00498ZM6.38365 11.1806C5.60693 11.1806 4.96523 10.472 4.96523 9.60025C4.96523 8.72852 5.58463 8.0137 6.38117 8.0137C7.17771 8.0137 7.81445 8.72852 7.80082 9.60025C7.7872 10.472 7.17524 11.1806 6.38365 11.1806ZM11.6163 11.1806C10.8383 11.1806 10.1991 10.472 10.1991 9.60025C10.1991 8.72852 10.8185 8.0137 11.6163 8.0137C12.4141 8.0137 13.0459 8.72852 13.0322 9.60025C13.0186 10.472 12.4079 11.1806 11.6163 11.1806Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      Discord
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
-                  <label class="block social-pill">
-                    <input hidden="" name="topics" type="checkbox" value="Lifestyle"/>
-                    <div class="pill py-2.5 h-10 block flex gap-2 px-4 justify-center items-center rounded-[30px] bg-[#EEF0F4] text-sm font-haas_medium_55 leading-[1.4]">
-                      <span class="icon">
-                        <svg fill="none" height="18" viewbox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M15.5365 7.66007C14.2018 7.66007 12.966 7.23597 11.9569 6.51523V11.7545C11.9569 14.3754 9.83117 16.5 7.20901 16.5C6.23064 16.5 5.32128 16.2043 4.56588 15.6974C3.29662 14.8455 2.46094 13.3972 2.46094 11.7544C2.46094 9.13371 4.5867 7.00907 7.20908 7.00912C7.42701 7.00902 7.64467 7.02382 7.86056 7.05331V7.63502L7.86044 9.678C7.65264 9.61209 7.43112 9.57632 7.20129 9.57632C6.00172 9.57632 5.02946 10.5483 5.02946 11.747C5.02946 12.5946 5.51545 13.3286 6.22415 13.6861C6.518 13.8342 6.84987 13.9177 7.20131 13.9177C8.39841 13.9177 9.36901 12.9497 9.37314 11.7544V1.5H11.9569V1.83022C11.966 1.92894 11.9791 2.02729 11.9962 2.12499C12.1755 3.14728 12.7871 4.02071 13.636 4.55014C14.206 4.90577 14.8647 5.09378 15.5365 5.09276L15.5365 7.66007Z" fill="#141414">
-                          </path>
-                        </svg>
-                      </span>
-                      TikTok
-                      <span class="close hidden">
-                        <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.3346 13.3333L10.0013 9.99997M10.0013 9.99997L6.66797 6.66663M10.0013 9.99997L13.3347 6.66663M10.0013 9.99997L6.66797 13.3333" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                          </path>
-                        </svg>
-                      </span>
-                    </div>
-                  </label>
+
+                <div
+                  id="referral-earnings-scroll"
+                  class="overflow-y-auto max-h-96"
+                  phx-hook="InfiniteScroll"
+                  data-event="load_more_earnings"
+                >
+                  <table class="w-full text-sm">
+                    <thead class="sticky top-0 bg-gray-50 z-10">
+                      <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TX</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                      <%= for earning <- @referral_earnings do %>
+                        <tr class={if is_recent_earning?(earning.timestamp), do: "bg-green-50"}>
+                          <td class="px-6 py-4">
+                            <span class={"inline-flex items-center px-2 py-1 rounded-full text-xs font-medium #{earning_type_style(earning.earning_type)}"}>
+                              <%= earning_type_label(earning.earning_type) %>
+                            </span>
+                          </td>
+                          <td class="px-6 py-4 text-gray-500">
+                            <%= truncate_wallet(earning.referee_wallet) %>
+                          </td>
+                          <td class="px-6 py-4 text-right font-medium">
+                            <span class={if earning.token == "BUX", do: "text-green-600", else: "text-blue-600"}>
+                              +<%= format_referral_number(earning.amount) %> <%= earning.token %>
+                            </span>
+                          </td>
+                          <td class="px-6 py-4 text-gray-500 text-xs">
+                            <%= format_relative_time(earning.timestamp) %>
+                          </td>
+                          <td class="px-6 py-4">
+                            <%= if earning.tx_hash do %>
+                              <a
+                                href={"https://roguescan.io/tx/#{earning.tx_hash}?tab=logs"}
+                                target="_blank"
+                                class="text-blue-500 hover:underline text-xs cursor-pointer"
+                              >
+                                View
+                              </a>
+                            <% else %>
+                              -
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+
+                      <%= if Enum.empty?(@referral_earnings) do %>
+                        <tr>
+                          <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                            No earnings yet. Share your referral link to start earning!
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           </div>
+          <% end %>
 
           <!-- ROGUE Tab Content (V2 Unified System - Smart Wallet Only) -->
           <div class={"tabs-main tab-wrapper #{if @active_tab != "rogue", do: "hidden", else: ""}"} id="rogue">
