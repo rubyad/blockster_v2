@@ -354,7 +354,15 @@ defmodule BlocksterV2.ReferralRewardPoller do
 
   defp save_last_processed_block(block) do
     record = {:referral_poller_state, :rogue, block, System.system_time(:second)}
-    :mnesia.dirty_write(record)
+    try do
+      :mnesia.dirty_write(record)
+    catch
+      :exit, {:aborted, {:no_exists, _}} ->
+        Logger.warning("[ReferralRewardPoller] Mnesia table not ready, skipping save")
+        :ok
+      :exit, _ ->
+        :ok
+    end
   end
 
   # ----- RPC Helpers -----
