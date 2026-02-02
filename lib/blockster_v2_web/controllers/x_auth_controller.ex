@@ -47,7 +47,7 @@ defmodule BlocksterV2Web.XAuthController do
 
         conn
         |> put_flash(:error, "OAuth session expired. Please try again.")
-        |> redirect(to: ~p"/profile")
+        |> redirect(to: ~p"/")
 
       oauth_state ->
         handle_token_exchange(conn, oauth_state, code)
@@ -59,13 +59,13 @@ defmodule BlocksterV2Web.XAuthController do
 
     conn
     |> put_flash(:error, "X authorization was denied: #{description}")
-    |> redirect(to: ~p"/profile")
+    |> redirect(to: ~p"/")
   end
 
   def callback(conn, _params) do
     conn
     |> put_flash(:error, "Invalid OAuth callback")
-    |> redirect(to: ~p"/profile")
+    |> redirect(to: ~p"/")
   end
 
   @doc """
@@ -79,21 +79,25 @@ defmodule BlocksterV2Web.XAuthController do
       |> put_status(:unauthorized)
       |> json(%{error: "Not authenticated"})
     else
+      # Redirect to member page settings tab after disconnect
+      slug = user.slug || user.smart_wallet_address
+      redirect_path = "/member/#{slug}?tab=settings"
+
       case Social.disconnect_x_account(user.id) do
         :ok ->
           conn
           |> put_flash(:info, "X account disconnected successfully")
-          |> redirect(to: ~p"/profile")
+          |> redirect(to: redirect_path)
 
         {:ok, _} ->
           conn
           |> put_flash(:info, "X account disconnected successfully")
-          |> redirect(to: ~p"/profile")
+          |> redirect(to: redirect_path)
 
         {:error, _} ->
           conn
           |> put_flash(:error, "Failed to disconnect X account")
-          |> redirect(to: ~p"/profile")
+          |> redirect(to: redirect_path)
       end
     end
   end
@@ -208,8 +212,10 @@ defmodule BlocksterV2Web.XAuthController do
   end
 
   # Normalizes the redirect path to ensure it starts with /
-  defp normalize_redirect_path(nil), do: "/profile"
-  defp normalize_redirect_path(""), do: "/profile"
+  # Default to home page since /profile no longer exists
+  defp normalize_redirect_path(nil), do: "/"
+  defp normalize_redirect_path(""), do: "/"
+  defp normalize_redirect_path("/profile"), do: "/"
   defp normalize_redirect_path("/" <> _ = path), do: path
   defp normalize_redirect_path(path), do: "/" <> path
 

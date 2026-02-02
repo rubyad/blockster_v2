@@ -25,7 +25,12 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   @impl true
-  def handle_params(%{"slug" => slug_or_address}, _url, socket) do
+  def handle_params(%{"slug" => slug_or_address} = params, _url, socket) do
+    # Allow tab to be set via URL query parameter (e.g., /member/xxx?tab=settings)
+    tab_from_url = params["tab"]
+    valid_tabs = ["activity", "rogue", "wallet", "refer", "settings", "following", "event", "airdrop"]
+    initial_tab = if tab_from_url in valid_tabs, do: tab_from_url, else: socket.assigns[:active_tab] || "activity"
+
     case Accounts.get_user_by_slug_or_address(slug_or_address) do
       nil ->
         {:noreply,
@@ -34,111 +39,119 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> push_navigate(to: ~p"/")}
 
       member ->
-        # Preload phone_verification association
-        member = BlocksterV2.Repo.preload(member, :phone_verification)
-
-        # V2 Unified Multiplier System - get all multiplier components
-        unified_multipliers = UnifiedMultiplier.get_user_multipliers(member.id)
-        rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
-
-        # Legacy multiplier details for backwards compatibility
-        multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
-        token_balances = EngagementTracker.get_user_token_balances(member.id)
-
-        # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
-        maybe_refresh_bux_balance(member)
-
-        # Check if user is viewing their own profile and just signed up
+        # SECURITY: Member page is private - only the owner can view it
+        # Redirect to home if trying to view someone else's member page
         is_own_profile = socket.assigns[:current_user] && socket.assigns.current_user.id == member.id
-        is_new_user = is_own_profile && is_new_user?(member)
 
-        # Load connected wallet and balances if user is viewing their own profile
-        {connected_wallet, wallet_balances, recent_transfers} = if is_own_profile do
-          wallet = Wallets.get_connected_wallet(member.id)
-          balances = if wallet, do: Wallets.get_user_balances(member.id), else: nil
-          transfers = Wallets.list_user_transfers(member.id, limit: 10)
-          {wallet, balances, transfers}
+        if !is_own_profile do
+          {:noreply,
+           socket
+           |> put_flash(:error, "You can only view your own member page")
+           |> push_navigate(to: ~p"/")}
         else
-          {nil, nil, []}
-        end
+          # Preload phone_verification association
+          member = BlocksterV2.Repo.preload(member, :phone_verification)
 
-        # Auto-reconnect to hardware wallet if user has one connected
-        socket = if connected?(socket) && is_own_profile && connected_wallet do
-          push_event(socket, "auto_reconnect_wallet", %{
-            provider: connected_wallet.provider,
-            expected_address: connected_wallet.wallet_address
-          })
-        else
-          socket
-        end
+          # V2 Unified Multiplier System - refresh from source data to ensure accuracy
+          # This recalculates from x_connections, user table, and Mnesia tables (no external API calls)
+          unified_multipliers = UnifiedMultiplier.refresh_multipliers(member.id)
+          rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
 
-        # Process pending anonymous claims if connected and viewing own profile
-        # This will load activities internally after processing claims
-        socket = if connected?(socket) && is_own_profile do
-          process_pending_claims(socket, member)
-        else
-          socket
-          |> assign(:claimed_rewards, [])
-          |> assign(:total_claimed, 0)
-        end
+          # Legacy multiplier details for backwards compatibility
+          multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
 
-        # Load activities AFTER processing claims (or load fresh if no claims)
-        # If claims were processed, this ensures we get the updated data
-        all_activities = load_member_activities(member.id)
-        time_period = socket.assigns[:time_period] || "24h"
-        filtered_activities = filter_activities_by_period(all_activities, time_period)
-        total_bux = calculate_total_bux(filtered_activities)
+          # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
+          maybe_refresh_bux_balance(member)
 
-        # Load referral data for own profile
-        {referral_link, referral_stats, referrals, referral_earnings} = if is_own_profile do
+          # Check if user just signed up
+          is_new_user = is_new_user?(member)
+
+          # Load connected wallet and balances (always own profile at this point)
+          connected_wallet = Wallets.get_connected_wallet(member.id)
+          wallet_balances = if connected_wallet, do: Wallets.get_user_balances(member.id), else: nil
+          recent_transfers = Wallets.list_user_transfers(member.id, limit: 10)
+
+          # Auto-reconnect to hardware wallet if user has one connected
+          socket = if connected?(socket) && connected_wallet do
+            push_event(socket, "auto_reconnect_wallet", %{
+              provider: connected_wallet.provider,
+              expected_address: connected_wallet.wallet_address
+            })
+          else
+            socket
+          end
+
+          # Process pending anonymous claims if connected
+          # This will load activities internally after processing claims
+          socket = if connected?(socket) do
+            process_pending_claims(socket, member)
+          else
+            socket
+            |> assign(:claimed_rewards, [])
+            |> assign(:total_claimed, 0)
+          end
+
+          # Load activities AFTER processing claims (or load fresh if no claims)
+          # If claims were processed, this ensures we get the updated data
+          all_activities = load_member_activities(member.id)
+          time_period = socket.assigns[:time_period] || "24h"
+          filtered_activities = filter_activities_by_period(all_activities, time_period)
+          total_bux = calculate_total_bux(filtered_activities)
+
+          # Load referral data
           wallet_address = member.smart_wallet_address
-          {
-            generate_referral_link(wallet_address),
-            Referrals.get_referrer_stats(member.id),
-            Referrals.list_referrals(member.id, limit: 20),
-            Referrals.list_referral_earnings(member.id, limit: 50)
-          }
-        else
-          {nil, nil, [], []}
-        end
+          referral_link = generate_referral_link(wallet_address)
+          referral_stats = Referrals.get_referrer_stats(member.id)
+          referrals = Referrals.list_referrals(member.id, limit: 20)
+          referral_earnings = Referrals.list_referral_earnings(member.id, limit: 50)
 
-        # Subscribe to real-time referral updates (only for own profile)
-        if connected?(socket) && is_own_profile do
-          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
-        end
+          # Subscribe to real-time referral updates
+          if connected?(socket) do
+            Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
+          end
 
-        {:noreply,
-         socket
-         |> assign(:page_title, member.username || "Member")
-         |> assign(:member, member)
-         |> assign(:all_activities, all_activities)
-         |> assign(:activities, filtered_activities)
-         |> assign(:total_bux, total_bux)
-         |> assign(:time_period, time_period)
-         # V2 Unified Multiplier System
-         |> assign(:unified_multipliers, unified_multipliers)
-         |> assign(:rogue_multiplier_data, rogue_multiplier_data)
-         |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
-         |> assign(:x_multiplier, unified_multipliers.x_multiplier)
-         |> assign(:x_score, unified_multipliers.x_score)
-         |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
-         |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
-         |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)
-         # Legacy multiplier details for backwards compatibility
-         |> assign(:multiplier_details, multiplier_details)
-         |> assign(:token_balances, token_balances)
-         |> assign(:is_new_user, is_new_user)
-         |> assign(:is_own_profile, is_own_profile)
-         |> assign(:connected_wallet, connected_wallet)
-         |> assign(:wallet_balances, wallet_balances)
-         |> assign(:recent_transfers, recent_transfers)
-         |> assign(:pending_transfer, nil)
-         |> assign(:transfer_pending, false)
-         # Referral system
-         |> assign(:referral_link, referral_link)
-         |> assign(:referral_stats, referral_stats)
-         |> assign(:referrals, referrals)
-         |> assign(:referral_earnings, referral_earnings)}
+          # Settings tab: X connection for Connected Accounts section
+          x_connection = Social.get_x_connection_for_user(member.id)
+
+          {:noreply,
+           socket
+           |> assign(:page_title, member.username || "Member")
+           |> assign(:member, member)
+           |> assign(:active_tab, initial_tab)
+           |> assign(:all_activities, all_activities)
+           |> assign(:activities, filtered_activities)
+           |> assign(:total_bux, total_bux)
+           |> assign(:time_period, time_period)
+           # V2 Unified Multiplier System
+           |> assign(:unified_multipliers, unified_multipliers)
+           |> assign(:rogue_multiplier_data, rogue_multiplier_data)
+           |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
+           |> assign(:x_multiplier, unified_multipliers.x_multiplier)
+           |> assign(:x_score, unified_multipliers.x_score)
+           |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
+           |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
+           |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)
+           # Legacy multiplier details for backwards compatibility
+           |> assign(:multiplier_details, multiplier_details)
+           # NOTE: Do NOT assign :token_balances here - it's set by BuxBalanceHook from current_user
+           # Assigning it here would overwrite the logged-in user's header balances
+           |> assign(:is_new_user, is_new_user)
+           |> assign(:is_own_profile, is_own_profile)
+           |> assign(:connected_wallet, connected_wallet)
+           |> assign(:wallet_balances, wallet_balances)
+           |> assign(:recent_transfers, recent_transfers)
+           |> assign(:pending_transfer, nil)
+           |> assign(:transfer_pending, false)
+           # Referral system
+           |> assign(:referral_link, referral_link)
+           |> assign(:referral_stats, referral_stats)
+           |> assign(:referrals, referrals)
+           |> assign(:referral_earnings, referral_earnings)
+           # Settings tab
+           |> assign(:x_connection, x_connection)
+           |> assign(:editing_username, false)
+           |> assign(:username_form, %{"username" => member.username})}
+        end
     end
   end
 
@@ -158,6 +171,51 @@ defmodule BlocksterV2Web.MemberLive.Show do
   @impl true
   def handle_event("close_multiplier_dropdown", _params, socket) do
     {:noreply, assign(socket, :show_multiplier_dropdown, false)}
+  end
+
+  # Settings tab - Username editing
+  @impl true
+  def handle_event("edit_username", _params, socket) do
+    {:noreply, assign(socket, :editing_username, true)}
+  end
+
+  @impl true
+  def handle_event("cancel_edit_username", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:editing_username, false)
+     |> assign(:username_form, %{"username" => socket.assigns.member.username})}
+  end
+
+  @impl true
+  def handle_event("update_username_form", %{"username" => username}, socket) do
+    {:noreply, assign(socket, :username_form, %{"username" => username})}
+  end
+
+  @impl true
+  def handle_event("save_username", %{"username" => username}, socket) do
+    member = socket.assigns.member
+
+    case Accounts.update_user(member, %{username: username}) do
+      {:ok, updated_member} ->
+        {:noreply,
+         socket
+         |> assign(:member, updated_member)
+         |> assign(:editing_username, false)
+         |> assign(:username_form, %{"username" => updated_member.username})
+         |> put_flash(:info, "Username updated successfully!")}
+
+      {:error, changeset} ->
+        error_message = cond do
+          changeset.errors[:slug] ->
+            "This username is already taken (generates the same profile URL as another user). Please choose a different username."
+          changeset.errors[:username] ->
+            "This username is already taken. Please choose a different one."
+          true ->
+            "Failed to update username"
+        end
+        {:noreply, put_flash(socket, :error, error_message)}
+    end
   end
 
   @impl true

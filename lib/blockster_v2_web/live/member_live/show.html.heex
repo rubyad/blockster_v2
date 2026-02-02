@@ -266,7 +266,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                       <%= if @x_multiplier <= 1 do %>
-                        <a href={~p"/auth/x"} class="text-xs bg-gray-900 text-white w-16 py-1 rounded hover:bg-gray-700 cursor-pointer font-haas_medium_65 text-center">Connect</a>
+                        <a href={~p"/auth/x?redirect=/member/#{@member.slug || @member.smart_wallet_address}"} class="text-xs bg-gray-900 text-white w-16 py-1 rounded hover:bg-gray-700 cursor-pointer font-haas_medium_65 text-center">Connect</a>
                       <% end %>
                       <div class="text-right w-14">
                         <span class={"text-sm font-haas_bold_75 #{if @x_multiplier > 1, do: "text-green-600", else: "text-gray-400"}"}>
@@ -432,9 +432,16 @@
               <button
                 phx-click="switch_tab"
                 phx-value-tab="refer"
-                class={"w-1/4 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "refer", do: "bg-white", else: ""}"}
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "refer", do: "bg-white", else: ""}"}
               >
                 Refer
+              </button>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="settings"
+                class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "settings", do: "bg-white", else: ""}"}
+              >
+                Settings
               </button>
               <% end %>
             </div>
@@ -3034,6 +3041,190 @@
               </button>
             </div>
           </div>
+
+          <%# Settings Tab - Account Details and Connected Accounts %>
+          <%= if @is_own_profile do %>
+          <div class={"tabs-main tab-wrapper #{if @active_tab != "settings", do: "hidden", else: ""}"} id="settings">
+            <div class="space-y-6">
+              <%# Account Details Card %>
+              <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h2 class="text-xl font-haas_bold_75 text-gray-900">Account Details</h2>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                  <%# Username %>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                      Username
+                    </label>
+                    <%= if @editing_username do %>
+                      <form phx-submit="save_username" class="flex items-center gap-2">
+                        <input
+                          type="text"
+                          name="username"
+                          value={@username_form["username"]}
+                          phx-change="update_username_form"
+                          class="flex-1 text-sm bg-white px-4 py-3 rounded-lg border border-gray-300 focus:border-[#8AE388] focus:ring-2 focus:ring-[#8AE388] focus:ring-opacity-50 outline-none transition-all"
+                          placeholder="Enter username"
+                        />
+                        <button
+                          type="submit"
+                          class="px-4 py-3 bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] rounded-lg font-haas_medium_65 hover:shadow-lg transition-all text-sm cursor-pointer"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          phx-click="cancel_edit_username"
+                          class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-haas_medium_65 hover:bg-gray-200 transition-all text-sm cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    <% else %>
+                      <div class="flex items-center gap-2">
+                        <div class="flex-1 text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                          <%= @member.username || "Not set" %>
+                        </div>
+                        <button
+                          phx-click="edit_username"
+                          class="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+                          title="Edit username"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <%# Profile URL (Slug) %>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                      Profile URL
+                    </label>
+                    <div class="text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                      <span class="text-gray-400">blockster.com/member/</span><span class="text-gray-900 font-medium"><%= @member.slug || @member.smart_wallet_address %></span>
+                    </div>
+                  </div>
+
+                  <%# Wallet Address %>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                      Wallet Address
+                    </label>
+                    <div class="flex items-center gap-2">
+                      <code class="flex-1 text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200 font-mono truncate">
+                        <%= @member.smart_wallet_address %>
+                      </code>
+                      <button
+                        id={"copy-wallet-settings-#{@member.id}"}
+                        phx-hook="CopyToClipboard"
+                        data-copy-text={@member.smart_wallet_address}
+                        class="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+                        title="Copy to clipboard"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <%# Email (if available) %>
+                  <%= if @member.email do %>
+                    <div>
+                      <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                        Email Address
+                      </label>
+                      <div class="text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                        <%= @member.email %>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%# Auth Method %>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                      Authentication Method
+                    </label>
+                    <div class="text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200 capitalize">
+                      <%= @member.auth_method %>
+                    </div>
+                  </div>
+
+                  <%# Member Since %>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-500 mb-1">
+                      Member Since
+                    </label>
+                    <div class="text-sm bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                      <%= Calendar.strftime(@member.inserted_at, "%B %d, %Y") %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <%# Connected Accounts Card %>
+              <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h2 class="text-xl font-haas_bold_75 text-gray-900">Connected Accounts</h2>
+                  <p class="text-sm text-gray-500 mt-1">Connect your social accounts to earn BUX rewards for sharing</p>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                  <%# X (Twitter) Connection %>
+                  <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="flex items-center gap-3">
+                      <%# X Logo %>
+                      <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <%= if @x_connection do %>
+                          <div class="flex items-center gap-2">
+                            <span class="text-sm font-haas_medium_65 text-gray-900">@<%= @x_connection.x_username %></span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              Connected
+                            </span>
+                          </div>
+                          <p class="text-xs text-gray-500">
+                            Connected <%= Calendar.strftime(@x_connection.connected_at, "%b %d, %Y") %>
+                          </p>
+                        <% else %>
+                          <span class="text-sm font-haas_medium_65 text-gray-900">X (Twitter)</span>
+                          <p class="text-xs text-gray-500">Connect to earn BUX for retweets</p>
+                        <% end %>
+                      </div>
+                    </div>
+
+                    <%= if @x_connection do %>
+                      <.link
+                        href={~p"/auth/x/disconnect"}
+                        method="delete"
+                        data-confirm="Are you sure you want to disconnect your X account?"
+                        class="px-4 py-2 text-sm font-haas_medium_65 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Disconnect
+                      </.link>
+                    <% else %>
+                      <.link
+                        href={~p"/auth/x?redirect=/member/#{@member.slug || @member.smart_wallet_address}"}
+                        class="px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                      >
+                        Connect X
+                      </.link>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <% end %>
         </div>
       </div>
     </div>
@@ -3119,9 +3310,9 @@
           </a>
         </li>
         <li class="w-full">
-          <a class="text-dark text-xs font-haas_medium_65 tracking-[0.02em] leading-[20px] block px-3 py-2 rounded-[14px] hover:bg-[#F3F5FF]" href="/profile">
+          <button phx-click="switch_tab" phx-value-tab="settings" class="text-dark text-xs font-haas_medium_65 tracking-[0.02em] leading-[20px] block px-3 py-2 rounded-[14px] hover:bg-[#F3F5FF] cursor-pointer w-full text-left">
             Edit Profile
-          </a>
+          </button>
         </li>
         <li class="w-full">
           <a class="text-dark text-xs font-haas_medium_65 tracking-[0.02em] leading-[20px] block px-3 py-2 rounded-[14px] hover:bg-[#F3F5FF]" href="">
@@ -3219,7 +3410,7 @@
   <div class="admin-nav [box-shadow:0px_-4px_8px_0px_#0000001A,_0px_-15px_15px_0px_#00000017,_0px_-34px_21px_0px_#0000000D,_0px_-61px_24px_0px_#00000003,_0px_-95px_27px_0px_#00000000] fixed bottom-0 py-2 left-0 px-3 z-30 w-full md:hidden scrolled bg-white">
     <ul class="flex gap-3 justify-between items-center">
       <li>
-        <a class="h-12 w-12 rounded-full flex items-center justify-center active-nav" href="/profile">
+        <a class="h-12 w-12 rounded-full flex items-center justify-center active-nav cursor-pointer" phx-click="switch_tab" phx-value-tab="wallet">
           <svg fill="#989898" height="24" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
             <path d="M21.3 12.2305H17.82C16.84 12.2305 15.97 12.7705 15.53 13.6505L14.69 15.3105C14.49 15.7105 14.09 15.9605 13.65 15.9605H10.37C10.06 15.9605 9.62 15.8905 9.33 15.3105L8.49 13.6605C8.05 12.7905 7.17 12.2405 6.2 12.2405H2.7C2.31 12.2405 2 12.5505 2 12.9405V16.2005C2 19.8305 4.18 22.0005 7.82 22.0005H16.2C19.63 22.0005 21.74 20.1205 22 16.7805V12.9305C22 12.5505 21.69 12.2305 21.3 12.2305Z" fill="#989898">
             </path>
@@ -3259,7 +3450,7 @@
         </a>
       </li>
       <li>
-        <a class="h-12 w-12 rounded-full flex items-center justify-center" href="/profile1">
+        <a class="h-12 w-12 rounded-full flex items-center justify-center cursor-pointer" phx-click="switch_tab" phx-value-tab="settings">
           <svg fill="none" height="24" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
             <path d="M20.1 9.22043C18.29 9.22043 17.55 7.94042 18.45 6.37042C18.97 5.46042 18.66 4.30042 17.75 3.78042L16.02 2.79042C15.23 2.32042 14.21 2.60042 13.74 3.39042L13.63 3.58042C12.73 5.15042 11.25 5.15042 10.34 3.58042L10.23 3.39042C9.78 2.60042 8.76 2.32042 7.97 2.79042L6.24 3.78042C5.33 4.30042 5.02 5.47042 5.54 6.38042C6.45 7.94042 5.71 9.22043 3.9 9.22043C2.86 9.22043 2 10.0704 2 11.1204V12.8804C2 13.9204 2.85 14.7804 3.9 14.7804C5.71 14.7804 6.45 16.0604 5.54 17.6304C5.02 18.5404 5.33 19.7004 6.24 20.2204L7.97 21.2104C8.76 21.6804 9.78 21.4004 10.25 20.6104L10.36 20.4204C11.26 18.8504 12.74 18.8504 13.65 20.4204L13.76 20.6104C14.23 21.4004 15.25 21.6804 16.04 21.2104L17.77 20.2204C18.68 19.7004 18.99 18.5304 18.47 17.6304C17.56 16.0604 18.3 14.7804 20.11 14.7804C21.15 14.7804 22.01 13.9304 22.01 12.8804V11.1204C22 10.0804 21.15 9.22043 20.1 9.22043ZM12 15.2504C10.21 15.2504 8.75 13.7904 8.75 12.0004C8.75 10.2104 10.21 8.75042 12 8.75042C13.79 8.75042 15.25 10.2104 15.25 12.0004C15.25 13.7904 13.79 15.2504 12 15.2504Z" fill="#989898">
             </path>

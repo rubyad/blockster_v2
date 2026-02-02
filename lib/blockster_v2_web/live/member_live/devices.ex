@@ -130,10 +130,10 @@ defmodule BlocksterV2Web.MemberLive.Devices do
 
       <div class="mt-6">
         <.link
-          navigate={~p"/profile"}
+          navigate={~p"/"}
           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
         >
-          ← Back to Profile
+          ← Back to Home
         </.link>
       </div>
     </div>

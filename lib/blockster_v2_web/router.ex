@@ -47,10 +47,12 @@ defmodule BlocksterV2Web.Router do
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
     end
 
+    # Redirect /profile to member page Settings tab
+    get "/profile", PageController, :profile_redirect
+
     live_session :authenticated,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
-      live "/profile", UserProfileLive, :index
       live "/settings/devices", MemberLive.Devices, :index
     end
 
