@@ -970,25 +970,25 @@ end
 
 ## Detailed Implementation Todo Checklist
 
-### Step 1: LiveView Module - State Management Setup (Dynamic Filters)
+### Step 1: LiveView Module - State Management Setup (Dynamic Filters) ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.ex`
 
 #### 1.1 Module Setup
-- [ ] **1.1.1** Add alias for `BlocksterV2.SiteSettings`
-- [ ] **1.1.2** Remove any hardcoded `@product_types` or `@brands` module attributes (all dynamic now)
+- [x] **1.1.1** Add alias for `BlocksterV2.SiteSettings`
+- [x] **1.1.2** Remove any hardcoded `@product_types` or `@brands` module attributes (all dynamic now)
 
 #### 1.2 Mount Function Rewrite
-- [ ] **1.2.1** Load curated product placements from SiteSettings key `shop_page_product_placements`
-- [ ] **1.2.2** Parse placements string into list of UUIDs with `parse_product_ids/1`
-- [ ] **1.2.3** Load all active products with preloads: `[:images, :variants, :hub, :artist_record, :categories]`
-- [ ] **1.2.4** Extract dynamic categories from products:
+- [x] **1.2.1** Load curated product placements from SiteSettings key `shop_page_product_placements`
+- [x] **1.2.2** Parse placements string into list of UUIDs with `parse_product_ids/1`
+- [x] **1.2.3** Load all active products with preloads: `[:images, :variants, :hub, :artist_record, :categories]`
+- [x] **1.2.4** Extract dynamic categories from products:
   ```elixir
   categories_with_products = all_products
   |> Enum.flat_map(fn p -> p.categories || [] end)
   |> Enum.uniq_by(& &1.id)
   |> Enum.sort_by(& &1.name)
   ```
-- [ ] **1.2.5** Extract dynamic hubs from products:
+- [x] **1.2.5** Extract dynamic hubs from products:
   ```elixir
   hubs_with_products = all_products
   |> Enum.map(& &1.hub)
@@ -996,7 +996,7 @@ end
   |> Enum.uniq_by(& &1.id)
   |> Enum.sort_by(& &1.name)
   ```
-- [ ] **1.2.6** Extract dynamic brands/vendors from products:
+- [x] **1.2.6** Extract dynamic brands/vendors from products:
   ```elixir
   brands_with_products = all_products
   |> Enum.map(& &1.vendor)
@@ -1005,65 +1005,65 @@ end
   |> Enum.uniq()
   |> Enum.sort()
   ```
-- [ ] **1.2.7** Build display order with `build_display_order/2` (curated first, then remaining)
-- [ ] **1.2.8** Add new socket assigns:
-  - [ ] `:all_products` - raw products from DB
-  - [ ] `:curated_product_ids` - list of placement UUIDs
-  - [ ] `:products` - transformed products for display
-  - [ ] `:categories_with_products` - dynamic from product categories
-  - [ ] `:hubs_with_products` - dynamic from product hubs
-  - [ ] `:brands_with_products` - dynamic from product vendors
-  - [ ] `:active_filter` - nil | {:category, slug, name} | {:hub, slug, name} | {:brand, name}
-  - [ ] `:filtered_mode` - boolean
-  - [ ] `:show_product_picker` - boolean
-  - [ ] `:picking_slot` - integer | nil
-  - [ ] `:show_mobile_filters` - boolean
+- [x] **1.2.7** Build display order with `build_display_order/2` (curated first, then remaining)
+- [x] **1.2.8** Add new socket assigns:
+  - [x] `:all_products` - raw products from DB
+  - [x] `:curated_product_ids` - list of placement UUIDs
+  - [x] `:products` - transformed products for display
+  - [x] `:categories_with_products` - dynamic from product categories
+  - [x] `:hubs_with_products` - dynamic from product hubs
+  - [x] `:brands_with_products` - dynamic from product vendors
+  - [x] `:active_filter` - nil | {:category, slug, name} | {:hub, slug, name} | {:brand, name}
+  - [x] `:filtered_mode` - boolean
+  - [x] `:show_product_picker` - boolean
+  - [x] `:picking_slot` - integer | nil
+  - [x] `:show_mobile_filters` - boolean
 
 #### 1.3 Helper Functions
-- [ ] **1.3.1** Add `parse_product_ids/1` function (handle empty string case)
-- [ ] **1.3.2** Add `build_display_order/2` function:
+- [x] **1.3.1** Add `parse_product_ids/1` function (handle empty string case)
+- [x] **1.3.2** Add `build_display_order/2` function:
   - Get curated products in order from IDs
   - Get remaining products not in curated list
   - Return curated ++ remaining
-- [ ] **1.3.3** Keep existing `transform_product/1` function
-- [ ] **1.3.4** Add `filter_by_category/2` function:
+- [x] **1.3.3** Keep existing `transform_product/1` function
+- [x] **1.3.4** Add `filter_by_category/2` function:
   - Filter products where category.slug matches
-- [ ] **1.3.5** Add `filter_by_hub/2` function:
+- [x] **1.3.5** Add `filter_by_hub/2` function:
   - Filter products where hub.slug matches
-- [ ] **1.3.6** Add `filter_by_vendor/2` function:
+- [x] **1.3.6** Add `filter_by_vendor/2` function:
   - Filter products where vendor matches
-- [ ] **1.3.7** Add `update_curated_ids/3` function for updating placements
+- [x] **1.3.7** Add `update_curated_ids/3` function for updating placements
 
 ---
 
-### Step 2: LiveView Module - Filter Event Handlers
+### Step 2: LiveView Module - Filter Event Handlers ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.ex`
 
-- [ ] **2.1** Add `handle_event("filter_by_category", %{"slug" => slug, "name" => name}, socket)`:
+- [x] **2.1** Add `handle_event("filter_by_category", %{"slug" => slug, "name" => name}, socket)`:
   - Filter products by category using `filter_by_category/2`
   - Set `:active_filter` to `{:category, slug, name}`
   - Set `:filtered_mode` to `true`
   - Update `:products` with filtered & transformed results
 
-- [ ] **2.2** Add `handle_event("filter_by_hub", %{"slug" => slug, "name" => name}, socket)`:
+- [x] **2.2** Add `handle_event("filter_by_hub", %{"slug" => slug, "name" => name}, socket)`:
   - Filter products where `product.hub.slug == slug`
   - Set `:active_filter` to `{:hub, slug, name}`
   - Set `:filtered_mode` to `true`
   - Update `:products`
 
-- [ ] **2.3** Add `handle_event("filter_by_brand", %{"brand" => brand}, socket)`:
+- [x] **2.3** Add `handle_event("filter_by_brand", %{"brand" => brand}, socket)`:
   - Filter products where `product.vendor == brand`
   - Set `:active_filter` to `{:brand, brand}`
   - Set `:filtered_mode` to `true`
   - Update `:products`
 
-- [ ] **2.4** Modify existing `handle_event("clear_all_filters", _, socket)`:
+- [x] **2.4** Modify existing `handle_event("clear_all_filters", _, socket)`:
   - Set `:active_filter` to `nil`
   - Set `:filtered_mode` to `false`
   - Rebuild display order using `build_display_order/2`
   - Update `:products` with curated order
 
-- [ ] **2.5** Remove old filter dropdown event handlers (no longer needed):
+- [x] **2.5** Remove old filter dropdown event handlers (no longer needed):
   - `toggle_dropdown`
   - `update_search`
   - `select_option`
@@ -1072,20 +1072,20 @@ end
 
 ---
 
-### Step 3: LiveView Module - Admin Product Placement Event Handlers
+### Step 3: LiveView Module - Admin Product Placement Event Handlers ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.ex`
 
-- [ ] **3.1** Add `handle_event("open_product_picker", %{"slot" => slot}, socket)`:
+- [x] **3.1** Add `handle_event("open_product_picker", %{"slot" => slot}, socket)`:
   - Set `:show_product_picker` to `true`
   - Set `:picking_slot` to `String.to_integer(slot)`
 
-- [ ] **3.2** Add `handle_event("close_product_picker", _params, socket)`:
+- [x] **3.2** Add `handle_event("close_product_picker", _params, socket)`:
   - Set `:show_product_picker` to `false`
   - Set `:picking_slot` to `nil`
 
-- [ ] **3.3** Add `handle_event("ignore", _params, socket)` for modal click handling
+- [x] **3.3** Add `handle_event("ignore", _params, socket)` for modal click handling
 
-- [ ] **3.4** Add `handle_event("select_product_for_slot", %{"id" => product_id}, socket)`:
+- [x] **3.4** Add `handle_event("select_product_for_slot", %{"id" => product_id}, socket)`:
   - Get current slot from `:picking_slot`
   - Update curated IDs using `update_curated_ids/3`
   - Save to SiteSettings with key `shop_page_product_placements`
@@ -1095,22 +1095,22 @@ end
 
 ---
 
-### Step 4: LiveView Module - Mobile Filter Event Handlers
+### Step 4: LiveView Module - Mobile Filter Event Handlers ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.ex`
 
-- [ ] **4.1** Add `handle_event("toggle_mobile_filters", _params, socket)`:
+- [x] **4.1** Add `handle_event("toggle_mobile_filters", _params, socket)`:
   - Toggle `:show_mobile_filters` boolean
 
 ---
 
-### Step 5: Template - Remove Old Header
+### Step 5: Template - Remove Old Header ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **6.1** Remove entire header section (lines ~1-33):
+- [x] **6.1** Remove entire header section (lines ~1-33):
   - Lightning bolt button
   - "Blockster Shop" heading with images
   - Subheading paragraph
-- [ ] **6.2** Remove filter dropdowns section (lines ~35-223):
+- [x] **6.2** Remove filter dropdowns section (lines ~35-223):
   - Hub filter dropdown
   - Artist filter dropdown
   - Category filter dropdown
@@ -1118,10 +1118,10 @@ end
 
 ---
 
-### Step 6: Template - Add Hero Banner Component
+### Step 6: Template - Add Hero Banner Component ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **7.1** Add FullWidthBannerComponent at top of template:
+- [x] **7.1** Add FullWidthBannerComponent at top of template:
   ```heex
   <.live_component
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
@@ -1135,10 +1135,10 @@ end
 
 ---
 
-### Step 7: Template - Add Sidebar + Main Layout Structure
+### Step 7: Template - Add Sidebar + Main Layout Structure ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **8.1** Create flex container wrapping sidebar + products:
+- [x] **8.1** Create flex container wrapping sidebar + products:
   ```heex
   <div class="container mx-auto px-4 pt-8">
     <div class="flex gap-8">
@@ -1148,23 +1148,23 @@ end
   </div>
   ```
 
-- [ ] **8.2** Add sidebar `<aside>` element:
-  - [ ] Width: `w-64`
-  - [ ] Flex shrink: `flex-shrink-0`
-  - [ ] Hidden on mobile: `hidden lg:block`
+- [x] **8.2** Add sidebar `<aside>` element:
+  - [x] Width: `w-64`
+  - [x] Flex shrink: `flex-shrink-0`
+  - [x] Hidden on mobile: `hidden lg:block`
 
-- [ ] **8.3** Add sticky inner container:
-  - [ ] Position: `sticky top-20`
-  - [ ] Height: `h-[calc(100vh-5rem)]`
-  - [ ] Overflow: `overflow-y-auto`
-  - [ ] Padding: `pr-4 pb-8`
+- [x] **8.3** Add sticky inner container:
+  - [x] Position: `sticky top-20`
+  - [x] Height: `h-[calc(100vh-5rem)]`
+  - [x] Overflow: `overflow-y-auto`
+  - [x] Padding: `pr-4 pb-8`
 
 ---
 
-### Step 8: Template - Sidebar "View All" Button
+### Step 8: Template - Sidebar "View All" Button ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **9.1** Add "View All" button at top of sidebar:
+- [x] **9.1** Add "View All" button at top of sidebar:
   ```heex
   <button
     phx-click="clear_all_filters"
@@ -1180,10 +1180,10 @@ end
 
 ---
 
-### Step 9: Template - Sidebar "Products" Section (Categories)
+### Step 9: Template - Sidebar "Products" Section (Categories) ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **9.1** Add section container with heading:
+- [x] **9.1** Add section container with heading:
   ```heex
   <div class="mb-8">
     <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Products</h3>
@@ -1193,25 +1193,25 @@ end
   </div>
   ```
 
-- [ ] **9.2** Add `for` loop iterating over `@categories_with_products`
+- [x] **9.2** Add `for` loop iterating over `@categories_with_products`
 
-- [ ] **9.3** Add filter button for each category:
-  - [ ] `phx-click="filter_by_category"`
-  - [ ] `phx-value-slug={category.slug}`
-  - [ ] `phx-value-name={category.name}`
-  - [ ] Active state: check `match?({:category, slug, _}, @active_filter) and elem(@active_filter, 1) == category.slug`
-  - [ ] Active styling: `bg-black text-white`
-  - [ ] Inactive styling: `text-gray-700 hover:bg-gray-100`
-  - [ ] Add `cursor-pointer` class
+- [x] **9.3** Add filter button for each category:
+  - [x] `phx-click="filter_by_category"`
+  - [x] `phx-value-slug={category.slug}`
+  - [x] `phx-value-name={category.name}`
+  - [x] Active state: check `match?({:category, slug, _}, @active_filter) and elem(@active_filter, 1) == category.slug`
+  - [x] Active styling: `bg-black text-white`
+  - [x] Inactive styling: `text-gray-700 hover:bg-gray-100`
+  - [x] Add `cursor-pointer` class
 
-- [ ] **9.4** Conditionally hide section if `@categories_with_products` is empty
+- [x] **9.4** Conditionally hide section if `@categories_with_products` is empty
 
 ---
 
-### Step 10: Template - Sidebar "Communities" Section (Hubs)
+### Step 10: Template - Sidebar "Communities" Section (Hubs) ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **10.1** Add section container with heading:
+- [x] **10.1** Add section container with heading:
   ```heex
   <div class="mb-8">
     <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Communities</h3>
@@ -1221,24 +1221,24 @@ end
   </div>
   ```
 
-- [ ] **10.2** Add `for` loop iterating over `@hubs_with_products`
+- [x] **10.2** Add `for` loop iterating over `@hubs_with_products`
 
-- [ ] **10.3** Add filter button for each hub:
-  - [ ] `phx-click="filter_by_hub"`
-  - [ ] `phx-value-slug={hub.slug}`
-  - [ ] `phx-value-name={hub.name}`
-  - [ ] Active state: check `match?({:hub, slug, _}, @active_filter) and elem(@active_filter, 1) == hub.slug`
-  - [ ] Include hub logo image if available
-  - [ ] Add `cursor-pointer` class
+- [x] **10.3** Add filter button for each hub:
+  - [x] `phx-click="filter_by_hub"`
+  - [x] `phx-value-slug={hub.slug}`
+  - [x] `phx-value-name={hub.name}`
+  - [x] Active state: check `match?({:hub, slug, _}, @active_filter) and elem(@active_filter, 1) == hub.slug`
+  - [x] Include hub logo image if available
+  - [x] Add `cursor-pointer` class
 
-- [ ] **10.4** Conditionally hide section if `@hubs_with_products` is empty
+- [x] **10.4** Conditionally hide section if `@hubs_with_products` is empty
 
 ---
 
-### Step 11: Template - Sidebar "Brands" Section (Vendors)
+### Step 11: Template - Sidebar "Brands" Section (Vendors) ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **11.1** Add section container with heading:
+- [x] **11.1** Add section container with heading:
   ```heex
   <div class="mb-8">
     <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Brands</h3>
@@ -1248,43 +1248,43 @@ end
   </div>
   ```
 
-- [ ] **11.2** Add `for` loop iterating over `@brands_with_products`
+- [x] **11.2** Add `for` loop iterating over `@brands_with_products`
 
-- [ ] **11.3** Add filter button for each brand:
-  - [ ] `phx-click="filter_by_brand"`
-  - [ ] `phx-value-brand={brand}`
-  - [ ] Active state: check `@active_filter == {:brand, brand}`
-  - [ ] Add `cursor-pointer` class
+- [x] **11.3** Add filter button for each brand:
+  - [x] `phx-click="filter_by_brand"`
+  - [x] `phx-value-brand={brand}`
+  - [x] Active state: check `@active_filter == {:brand, brand}`
+  - [x] Add `cursor-pointer` class
 
-- [ ] **11.4** Conditionally hide section if `@brands_with_products` is empty
+- [x] **11.4** Conditionally hide section if `@brands_with_products` is empty
 
 ---
 
-### Step 12: Template - Products Grid Main Area
+### Step 12: Template - Products Grid Main Area ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **13.1** Add main content wrapper:
+- [x] **13.1** Add main content wrapper:
   ```heex
   <main class="flex-1 min-w-0">
     <!-- Products grid -->
   </main>
   ```
 
-- [ ] **13.2** Add responsive grid container:
+- [x] **13.2** Add responsive grid container:
   ```heex
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
     <!-- Product cards -->
   </div>
   ```
 
-- [ ] **13.3** Add `for` loop with index: `for {product, index} <- Enum.with_index(@products)`
+- [x] **13.3** Add `for` loop with index: `for {product, index} <- Enum.with_index(@products)`
 
 ---
 
-### Step 13: Template - Product Card with Admin Cog
+### Step 13: Template - Product Card with Admin Cog ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **14.1** Wrap each product card in relative container with group:
+- [x] **14.1** Wrap each product card in relative container with group:
   ```heex
   <div class="relative group">
     <!-- Admin cog -->
@@ -1292,23 +1292,23 @@ end
   </div>
   ```
 
-- [ ] **14.2** Add admin cog icon (conditional on `@current_user.is_admin`):
-  - [ ] Position: `absolute top-3 right-3 z-20`
-  - [ ] Visibility: `opacity-0 group-hover:opacity-100 transition-opacity`
-  - [ ] Styling: `bg-white rounded-full p-2 shadow-md hover:shadow-lg`
-  - [ ] `phx-click="open_product_picker"`
-  - [ ] `phx-value-slot={index}`
-  - [ ] Add `cursor-pointer` class
-  - [ ] Add cog SVG icon
+- [x] **14.2** Add admin cog icon (conditional on `@current_user.is_admin`):
+  - [x] Position: `absolute top-3 right-3 z-20`
+  - [x] Visibility: `opacity-0 group-hover:opacity-100 transition-opacity`
+  - [x] Styling: `bg-white rounded-full p-2 shadow-md hover:shadow-lg`
+  - [x] `phx-click="open_product_picker"`
+  - [x] `phx-value-slot={index}`
+  - [x] Add `cursor-pointer` class
+  - [x] Add cog SVG icon
 
-- [ ] **14.3** Keep existing product card structure (link, images, flip effect, pricing)
+- [x] **14.3** Keep existing product card structure (link, images, flip effect, pricing)
 
 ---
 
-### Step 14: Template - Product Picker Modal
+### Step 14: Template - Product Picker Modal ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **15.1** Add conditional modal container:
+- [x] **15.1** Add conditional modal container:
   ```heex
   <%= if @show_product_picker do %>
     <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" phx-click="close_product_picker">
@@ -1317,32 +1317,32 @@ end
   <% end %>
   ```
 
-- [ ] **15.2** Add modal content box:
-  - [ ] Styling: `bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden`
-  - [ ] `phx-click="ignore"` to prevent closing when clicking inside
+- [x] **15.2** Add modal content box:
+  - [x] Styling: `bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden`
+  - [x] `phx-click="ignore"` to prevent closing when clicking inside
 
-- [ ] **15.3** Add modal header:
-  - [ ] Title: "Select Product for Slot X" (use `@picking_slot + 1`)
-  - [ ] Close button with X icon
-  - [ ] `phx-click="close_product_picker"` on close button
+- [x] **15.3** Add modal header:
+  - [x] Title: "Select Product for Slot X" (use `@picking_slot + 1`)
+  - [x] Close button with X icon
+  - [x] `phx-click="close_product_picker"` on close button
 
-- [ ] **15.4** Add scrollable product list:
-  - [ ] Container: `p-4 overflow-y-auto max-h-[60vh]`
-  - [ ] Grid: `grid grid-cols-3 gap-4`
+- [x] **15.4** Add scrollable product list:
+  - [x] Container: `p-4 overflow-y-auto max-h-[60vh]`
+  - [x] Grid: `grid grid-cols-3 gap-4`
 
-- [ ] **15.5** Add product selection buttons:
-  - [ ] Loop over `@all_products`
-  - [ ] `phx-click="select_product_for_slot"`
-  - [ ] `phx-value-id={product.id}`
-  - [ ] Show product image and title
-  - [ ] Add `cursor-pointer` class
+- [x] **15.5** Add product selection buttons:
+  - [x] Loop over `@all_products`
+  - [x] `phx-click="select_product_for_slot"`
+  - [x] `phx-value-id={product.id}`
+  - [x] Show product image and title
+  - [x] Add `cursor-pointer` class
 
 ---
 
-### Step 15: Template - Mobile Filter Button
+### Step 15: Template - Mobile Filter Button ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **16.1** Add floating filter button (visible only on mobile):
+- [x] **16.1** Add floating filter button (visible only on mobile):
   ```heex
   <button
     phx-click="toggle_mobile_filters"
@@ -1354,15 +1354,15 @@ end
   </button>
   ```
 
-- [ ] **16.2** Add filter icon SVG
-- [ ] **16.3** Add badge showing "1" when `@active_filter` is not nil
+- [x] **16.2** Add filter icon SVG
+- [x] **16.3** Add badge showing "1" when `@active_filter` is not nil
 
 ---
 
-### Step 16: Template - Mobile Filter Drawer
+### Step 16: Template - Mobile Filter Drawer ✅ COMPLETE
 **File**: `lib/blockster_v2_web/live/shop_live/index.html.heex`
 
-- [ ] **17.1** Add conditional drawer container:
+- [x] **17.1** Add conditional drawer container:
   ```heex
   <%= if @show_mobile_filters do %>
     <div class="lg:hidden fixed inset-0 z-50">
@@ -1372,23 +1372,23 @@ end
   <% end %>
   ```
 
-- [ ] **17.2** Add backdrop overlay:
-  - [ ] Styling: `absolute inset-0 bg-black/50`
-  - [ ] `phx-click="toggle_mobile_filters"`
+- [x] **17.2** Add backdrop overlay:
+  - [x] Styling: `absolute inset-0 bg-black/50`
+  - [x] `phx-click="toggle_mobile_filters"`
 
-- [ ] **17.3** Add drawer panel:
-  - [ ] Position: `absolute right-0 top-0 h-full w-80`
-  - [ ] Styling: `bg-white shadow-xl overflow-y-auto`
+- [x] **17.3** Add drawer panel:
+  - [x] Position: `absolute right-0 top-0 h-full w-80`
+  - [x] Styling: `bg-white shadow-xl overflow-y-auto`
 
-- [ ] **17.4** Add drawer header with close button
+- [x] **17.4** Add drawer header with close button
 
-- [ ] **17.5** Copy sidebar filter content into drawer body:
-  - [ ] View All button
-  - [ ] Products section
-  - [ ] Communities section
-  - [ ] Brands section
+- [x] **17.5** Copy sidebar filter content into drawer body:
+  - [x] View All button
+  - [x] Products section
+  - [x] Communities section
+  - [x] Brands section
 
-- [ ] **17.6** Add `phx-click="toggle_mobile_filters"` to filter buttons in drawer (to close after selection)
+- [x] **17.6** Mobile filters auto-close after selection (via assign in event handlers)
 
 ---
 
@@ -1399,6 +1399,8 @@ end
 - [ ] **18.2** Accept assigns: `product_types`, `hubs_with_products`, `brands`, `active_filter`
 - [ ] **18.3** Use in both desktop sidebar and mobile drawer
 - [ ] **18.4** Reduces code duplication
+
+**Note**: Deferred - filter content is duplicated between desktop sidebar and mobile drawer but works correctly. Extraction can be done as a future optimization.
 
 ---
 
@@ -1563,11 +1565,135 @@ end
 
 ### Step 30: Final Cleanup
 
-- [ ] **30.1** Remove unused assigns from old implementation
-- [ ] **30.2** Remove unused event handlers from old implementation
-- [ ] **30.3** Remove unused helper functions
+- [x] **30.1** Remove unused assigns from old implementation
+- [x] **30.2** Remove unused event handlers from old implementation
+- [x] **30.3** Remove unused helper functions
 - [ ] **30.4** Remove commented-out code
-- [ ] **30.5** Ensure all clickable elements have `cursor-pointer`
+- [x] **30.5** Ensure all clickable elements have `cursor-pointer`
 - [ ] **30.6** Code review for consistency with project patterns
 - [ ] **30.7** Test in production-like environment
 - [ ] **30.8** Update CLAUDE.md with any new learnings
+
+---
+
+## Implementation Progress
+
+### Session: Feb 2, 2026
+
+#### Completed Steps 1-16 (Full Implementation)
+
+**Branch**: `shop-redesign`
+
+**Files Changed**:
+1. `lib/blockster_v2_web/live/shop_live/index.ex` - Complete rewrite
+2. `lib/blockster_v2_web/live/shop_live/index.html.heex` - Complete rewrite
+
+#### What Was Implemented
+
+**LiveView Module (`index.ex`)**:
+- ✅ Added `SiteSettings` alias for curated product placements
+- ✅ Removed old dropdown-based filter system entirely
+- ✅ New mount function with dynamic filter extraction
+- ✅ All new socket assigns for sidebar filters and admin placements
+- ✅ New filter event handlers: `filter_by_category`, `filter_by_hub`, `filter_by_brand`
+- ✅ Admin product placement handlers: `open_product_picker`, `close_product_picker`, `select_product_for_slot`
+- ✅ Mobile filter handler: `toggle_mobile_filters`
+- ✅ Helper functions: `parse_product_ids/1`, `build_display_order/2`, filter functions, `update_curated_ids/3`
+- ✅ Removed unused `get_sample_products/0` function
+- ✅ Removed unused `@token_value_usd` module attribute
+- ✅ Removed all old dropdown event handlers (`toggle_dropdown`, `update_search`, `select_option`, `clear_filter`, `close_dropdown`)
+
+**Template (`index.html.heex`)**:
+- ✅ Hero banner using `FullWidthBannerComponent` with key `shop_page_banner`
+- ✅ Left sidebar (desktop only, `lg:block`) with sticky positioning
+- ✅ "View All" button with active state styling
+- ✅ Products section (categories dynamically extracted from products)
+- ✅ Communities section (hubs with logos dynamically extracted)
+- ✅ Brands section (vendors dynamically extracted)
+- ✅ Product grid with responsive columns (`grid-cols-1 sm:2 lg:3 xl:4`)
+- ✅ Admin cog icon on product cards (hover, admin only)
+- ✅ Empty state with "View All Products" button
+- ✅ Mobile filter button (fixed bottom-right)
+- ✅ Mobile filter drawer (slide-in from right)
+- ✅ Product picker modal for admin curated placements
+- ✅ All clickable elements have `cursor-pointer`
+
+#### Key Implementation Details
+
+**Filter State Management**:
+```elixir
+# Filter states stored as tuples for easy pattern matching
+@active_filter  # nil | {:category, slug, name} | {:hub, slug, name} | {:brand, name}
+```
+
+**Dynamic Filter Extraction** (in mount):
+```elixir
+# Categories from product associations
+categories_with_products = all_products
+|> Enum.flat_map(fn p -> p.categories || [] end)
+|> Enum.uniq_by(& &1.id)
+|> Enum.sort_by(& &1.name)
+
+# Hubs from product associations
+hubs_with_products = all_products
+|> Enum.map(& &1.hub)
+|> Enum.reject(&is_nil/1)
+|> Enum.uniq_by(& &1.id)
+|> Enum.sort_by(& &1.name)
+
+# Vendors from product field
+brands_with_products = all_products
+|> Enum.map(& &1.vendor)
+|> Enum.reject(&is_nil/1)
+|> Enum.reject(&(&1 == ""))
+|> Enum.uniq()
+|> Enum.sort()
+```
+
+**Curated Product Placements**:
+- Stored in SiteSettings key: `shop_page_product_placements`
+- Format: Comma-separated product UUIDs
+- Admin clicks cog → opens product picker → selects product → saves to SiteSettings
+- Display order: curated products first, then remaining products in natural order
+
+**Template Pattern Matching for Active States**:
+```heex
+<%!-- Category filter active state --%>
+if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
+  do: "bg-black text-white",
+  else: "text-gray-700 hover:bg-gray-100")
+
+<%!-- Brand filter active state (simpler - no name in tuple) --%>
+if(@active_filter == {:brand, brand},
+  do: "bg-black text-white",
+  else: "text-gray-700 hover:bg-gray-100")
+```
+
+#### Compilation Status
+- ✅ Compiles without errors
+- ⚠️ Unrelated warnings in other files (price_tracker.ex, user_auth.ex, bux_booster_live.ex)
+
+#### Remaining Testing Checklist
+- [ ] Test hero banner displays and admin can edit settings
+- [ ] Test sidebar filter buttons highlight correctly
+- [ ] Test category filter filters products correctly
+- [ ] Test hub filter filters products correctly
+- [ ] Test brand filter filters products correctly
+- [ ] Test "View All" restores curated order
+- [ ] Test admin cog appears on hover (admin only)
+- [ ] Test product picker modal opens/closes
+- [ ] Test selecting product updates curated placement
+- [ ] Test placements persist after page reload
+- [ ] Test mobile filter button appears on small screens
+- [ ] Test mobile drawer opens/closes
+- [ ] Test mobile drawer filters work
+- [ ] Test empty state appears when no products match filter
+- [ ] Test product cards link to correct product pages
+- [ ] Test image flip effect works on hover
+
+#### Notes for Next Session
+1. The `@all_products` assign contains raw DB records (not transformed) - needed for filter operations
+2. The `@products` assign contains transformed products for display
+3. Filter operations work on raw DB records, then transform results for display
+4. Mobile filters auto-close after selection (sets `show_mobile_filters: false`)
+5. Product picker shows raw DB products with `product.images` and `product.title`

@@ -1,298 +1,371 @@
-<div class="shop-index">
-  <div class="container mx-auto px-4 pt-28 pb-8">
-    <%!-- Header Section --%>
-    <div class="mb-8">
-      <div class="flex items-center justify-center mb-4">
-        <button class="flex gap-2.5 items-center shadow-[0px_1px_1px_-0.5px_#4D5E8012,0px_4px_4px_-2px_#4D5E800D,0px_8px_8px_-4px_#4D5E800F,0px_16px_16px_-8px_#4D5E8014] bg-white px-[15.5px] md:py-btn-primary-y py-[9px] text-[#000000] rounded-[100px] leading-[1.4] border border-[#0000000D] font-haas_roman_55 text-sm">
-          <span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="26" viewBox="0 0 16 26" fill="none">
-              <path d="M15.5 10.1373L2.83333 25.6321L6.16667 14.8531H0.5L12.5 0.368896L9.5 10.1373H15.5Z" fill="#AFB5FF" />
-            </svg>
-          </span>Crypto-Infused Streetwear
-        </button>
-      </div>
+<div class="shop-index mt-8 lg:mt-12">
+  <%!-- Hero Banner - Same as shop-landing --%>
+  <.live_component
+    module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
+    id="shop-page-hero-banner"
+    current_user={assigns[:current_user]}
+    banner_key="shop_page_banner"
+  />
 
-      <h1 class="flex gap-3 items-center justify-center md:text-[48px] text-[24px] font-haas_medium_65">
-        <span>Blockster</span>
-        <div class="flex -space-x-4 overflow-hidden items-center">
-          <span class="img-rounded rounded-full bg-[#AFB5FF] inline-block size-10 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
-            <img src="/images/pyjamas.png" class="h-full w-full" alt="Pyjamas" />
-          </span>
-          <span class="img-rounded rounded-full bg-[#85EC87] inline-block size-10 rounded-full outline -outline-offset-1 outline-white/10 overflow-hidden">
-            <img src="/images/tee.png" class="h-full w-full" alt="Tee" />
-          </span>
-        </div>
-        <span>Shop</span>
-      </h1>
+  <%!-- Main Content Area --%>
+  <div class="container mx-auto px-4 pt-8 pb-8">
+    <div class="flex gap-8">
+      <%!-- Left Sidebar (Desktop) --%>
+      <aside class="w-64 flex-shrink-0 hidden lg:block">
+        <div class="sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto pb-8 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <%!-- View All Button --%>
+          <button
+            phx-click="clear_all_filters"
+            class={[
+              "w-full mb-6 py-3 px-4 rounded-lg font-haas_medium_65 text-sm transition-colors cursor-pointer",
+              if(@active_filter == nil, do: "bg-black text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-300")
+            ]}
+          >
+            View All
+          </button>
 
-      <div class="max-w-[430px] mx-auto text-center">
-        <p class="font-haas_medium_55 text-[#141414A3] text-center leading-[1.5] md:text-[16px] text-sm md:mt-6 mt-4 tracking-[0.02em]">
-          Streetwear inspired by crypto culture. Use your BUX to get up to 100% discounts on shopping.
-        </p>
-      </div>
-    </div>
-
-    <%!-- Filter Section --%>
-    <div class="flex flex-wrap gap-3 mb-6 justify-center">
-      <%!-- Hub Filter --%>
-      <div class="relative" phx-click-away="close_dropdown" phx-value-filter="hub">
-        <button
-          phx-click="toggle_dropdown"
-          phx-value-filter="hub"
-          class="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E7E8F1] rounded-full cursor-pointer hover:border-[#8AE388] transition-colors"
-        >
-          <span class="text-sm font-haas_medium_65 text-[#141414]">Hub:</span>
-          <%= if @selected_hub do %>
-            <span class="text-sm font-haas_roman_55 text-[#515B70]"><%= @selected_hub.name %></span>
-            <span
-              phx-click="clear_filter"
-              phx-value-filter="hub"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-            </span>
-          <% else %>
-            <span class="text-sm font-haas_roman_55 text-[#A0A0A0]">All</span>
-          <% end %>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" class={"transition-transform ml-1 #{if @show_hub_dropdown, do: "rotate-180", else: ""}"}>
-            <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-
-        <%= if @show_hub_dropdown do %>
-          <div class="absolute top-full mt-2 left-0 w-64 bg-white border border-[#E7E8F1] rounded-xl shadow-lg z-50 p-3">
-            <input
-              type="text"
-              placeholder="Search hubs..."
-              phx-keyup="update_search"
-              phx-value-filter="hub"
-              value={@hub_search}
-              class="w-full px-3 py-2 border border-[#E7E8F1] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-transparent mb-2"
-            />
-            <div class="max-h-48 overflow-y-auto">
-              <%= for hub <- Enum.filter(@hubs, fn h -> @hub_search == "" || String.contains?(String.downcase(h.name), String.downcase(@hub_search)) end) do %>
-                <div
-                  phx-click="select_option"
-                  phx-value-filter="hub"
-                  phx-value-slug={hub.slug}
-                  phx-value-name={hub.name}
-                  class="flex items-center gap-2 py-2 px-3 hover:bg-[#F5F6FB] rounded-lg cursor-pointer text-sm font-haas_roman_55"
-                >
-                  <%= if hub.logo_url do %>
-                    <img src={hub.logo_url} alt={hub.name} class="w-5 h-5 rounded-full object-cover" />
-                  <% end %>
-                  <%= hub.name %>
-                </div>
-              <% end %>
-              <%= if Enum.empty?(@hubs) do %>
-                <div class="py-2 px-3 text-sm text-gray-400">No hubs available</div>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-
-      <%!-- Artist Filter --%>
-      <div class="relative" phx-click-away="close_dropdown" phx-value-filter="artist">
-        <button
-          phx-click="toggle_dropdown"
-          phx-value-filter="artist"
-          class="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E7E8F1] rounded-full cursor-pointer hover:border-[#8AE388] transition-colors"
-        >
-          <span class="text-sm font-haas_medium_65 text-[#141414]">Artist:</span>
-          <%= if @selected_artist do %>
-            <span class="text-sm font-haas_roman_55 text-[#515B70]"><%= @selected_artist.name %></span>
-            <span
-              phx-click="clear_filter"
-              phx-value-filter="artist"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-            </span>
-          <% else %>
-            <span class="text-sm font-haas_roman_55 text-[#A0A0A0]">All</span>
-          <% end %>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" class={"transition-transform ml-1 #{if @show_artist_dropdown, do: "rotate-180", else: ""}"}>
-            <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-
-        <%= if @show_artist_dropdown do %>
-          <div class="absolute top-full mt-2 left-0 w-64 bg-white border border-[#E7E8F1] rounded-xl shadow-lg z-50 p-3">
-            <input
-              type="text"
-              placeholder="Search artists..."
-              phx-keyup="update_search"
-              phx-value-filter="artist"
-              value={@artist_search}
-              class="w-full px-3 py-2 border border-[#E7E8F1] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-transparent mb-2"
-            />
-            <div class="max-h-48 overflow-y-auto">
-              <%= for artist <- Enum.filter(@artists, fn a -> @artist_search == "" || String.contains?(String.downcase(a.name), String.downcase(@artist_search)) end) do %>
-                <div
-                  phx-click="select_option"
-                  phx-value-filter="artist"
-                  phx-value-slug={artist.slug}
-                  phx-value-name={artist.name}
-                  class="flex items-center gap-2 py-2 px-3 hover:bg-[#F5F6FB] rounded-lg cursor-pointer text-sm font-haas_roman_55"
-                >
-                  <%= if artist.image do %>
-                    <img src={artist.image} alt={artist.name} class="w-5 h-5 rounded-full object-cover" />
-                  <% end %>
-                  <%= artist.name %>
-                </div>
-              <% end %>
-              <%= if Enum.empty?(@artists) do %>
-                <div class="py-2 px-3 text-sm text-gray-400">No artists available</div>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-
-      <%!-- Category Filter --%>
-      <div class="relative" phx-click-away="close_dropdown" phx-value-filter="category">
-        <button
-          phx-click="toggle_dropdown"
-          phx-value-filter="category"
-          class="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E7E8F1] rounded-full cursor-pointer hover:border-[#8AE388] transition-colors"
-        >
-          <span class="text-sm font-haas_medium_65 text-[#141414]">Category:</span>
-          <%= if @selected_category do %>
-            <span class="text-sm font-haas_roman_55 text-[#515B70]"><%= @selected_category.name %></span>
-            <span
-              phx-click="clear_filter"
-              phx-value-filter="category"
-              class="ml-1 text-[#515B70] hover:text-[#141414]"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-            </span>
-          <% else %>
-            <span class="text-sm font-haas_roman_55 text-[#A0A0A0]">All</span>
-          <% end %>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" class={"transition-transform ml-1 #{if @show_category_dropdown, do: "rotate-180", else: ""}"}>
-            <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-
-        <%= if @show_category_dropdown do %>
-          <div class="absolute top-full mt-2 left-0 w-64 bg-white border border-[#E7E8F1] rounded-xl shadow-lg z-50 p-3">
-            <input
-              type="text"
-              placeholder="Search categories..."
-              phx-keyup="update_search"
-              phx-value-filter="category"
-              value={@category_search}
-              class="w-full px-3 py-2 border border-[#E7E8F1] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-transparent mb-2"
-            />
-            <div class="max-h-48 overflow-y-auto">
-              <%= for category <- Enum.filter(@categories, fn c -> @category_search == "" || String.contains?(String.downcase(c.name), String.downcase(@category_search)) end) do %>
-                <div
-                  phx-click="select_option"
-                  phx-value-filter="category"
-                  phx-value-slug={category.slug}
-                  phx-value-name={category.name}
-                  class="py-2 px-3 hover:bg-[#F5F6FB] rounded-lg cursor-pointer text-sm font-haas_roman_55"
-                >
-                  <%= category.name %>
-                </div>
-              <% end %>
-              <%= if Enum.empty?(@categories) do %>
-                <div class="py-2 px-3 text-sm text-gray-400">No categories available</div>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-
-      <%!-- View All Button --%>
-      <%= if @selected_hub || @selected_artist || @selected_category do %>
-        <button
-          phx-click="clear_all_filters"
-          class="flex items-center gap-1.5 px-4 py-2.5 bg-[#141414] text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
-        >
-          View All
-        </button>
-      <% end %>
-    </div>
-
-    <%!-- Products Grid --%>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 md:mt-8">
-      <%= for product <- @products do %>
-        <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
-            <div class="img-wrapper w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-              <%!-- Hub Logo Badge (absolute, unaffected by flip) --%>
-              <%= if product.hub_logo do %>
-                <div class="absolute top-3 left-3 z-10 bg-white rounded-full p-1.5 shadow-md">
-                  <img
-                    src={product.hub_logo}
-                    alt={product.hub_name || "Hub"}
-                    class="w-6 h-6 rounded-full object-cover"
-                  />
-                </div>
-              <% end %>
-
-              <div
-                class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
-                style="transform-style: preserve-3d;"
-              >
-                <%!-- Front face (first image) --%>
-                <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
-                  <img
-                    alt={product.name}
-                    src={product.image}
-                    class="w-full h-full object-cover" loading="lazy"
-                  />
-                </div>
-                <%!-- Back face (second image or same image if only one) --%>
-                <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                  <img
-                    alt={product.name}
-                    src={Enum.at(product.images, 1) || product.image}
-                    class="w-full h-full object-cover" loading="lazy"
-                  />
-                </div>
-              </div>
-            </div>
-            <div class="px-4 py-4">
-              <%!-- Product Title - Centered --%>
-              <h4 class="text-[18px] font-haas_medium_65 text-[#101D36] text-center mb-2">
-                <%= product.name %>
-              </h4>
-
-              <%!-- Price Display - Centered --%>
-              <div class="flex flex-col items-center mb-4">
-                <%!-- Original Price - Crossed out, grey --%>
-                <span class="text-[14px] font-haas_roman_55 text-[#9CA3AF] line-through">
-                  $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                </span>
-                <%!-- Discounted Price - Large, black --%>
-                <%= if product.total_max_discount > 0 do %>
-                  <span class="text-[24px] font-haas_medium_65 text-black">
-                    $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
-                  </span>
-                  <span class="text-[11px] font-haas_roman_55 text-[#6B7280] mt-0.5">
-                    with BUX tokens
-                  </span>
-                <% else %>
-                  <span class="text-[24px] font-haas_medium_65 text-[#141414]">
-                    $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                  </span>
+          <%!-- Products Section (Categories - Dynamic from products) --%>
+          <%= if @categories_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Products</h3>
+              <ul class="space-y-2">
+                <%= for category <- @categories_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_category"
+                      phx-value-slug={category.slug}
+                      phx-value-name={category.name}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= category.name %>
+                    </button>
+                  </li>
                 <% end %>
-              </div>
-
-              <div class="w-full py-2.5 bg-[#000000] text-[#ffffff] font-haas_medium_65 rounded-full text-sm text-center">
-                Buy Now
-              </div>
+              </ul>
             </div>
-        </.link>
-      <% end %>
+          <% end %>
+
+          <%!-- Communities Section (Hubs - Dynamic from products) --%>
+          <%= if @hubs_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Communities</h3>
+              <ul class="space-y-2">
+                <%= for hub <- @hubs_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_hub"
+                      phx-value-slug={hub.slug}
+                      phx-value-name={hub.name}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
+                        if(match?({:hub, _, _}, @active_filter) and elem(@active_filter, 1) == hub.slug,
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= if hub.logo_url do %>
+                        <img src={hub.logo_url} alt={hub.name} class="w-5 h-5 rounded-full object-cover" />
+                      <% end %>
+                      <%= hub.name %>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+
+          <%!-- Brands Section (Vendors - Dynamic from products) --%>
+          <%= if @brands_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Brands</h3>
+              <ul class="space-y-2">
+                <%= for brand <- @brands_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_brand"
+                      phx-value-brand={brand}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        if(@active_filter == {:brand, brand},
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= brand %>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+        </div>
+      </aside>
+
+      <%!-- Products Grid --%>
+      <main class="flex-1 min-w-0">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          <%= for {product, index} <- Enum.with_index(@products) do %>
+            <div class="relative group">
+              <%!-- Admin Cog Icon (top-right, visible on hover for admins) --%>
+              <%= if @current_user && @current_user.is_admin do %>
+                <button
+                  phx-click="open_product_picker"
+                  phx-value-slot={index}
+                  class="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-md hover:shadow-lg cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              <% end %>
+
+              <%!-- Product Card --%>
+              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer block">
+                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                  <%!-- Hub Logo Badge (absolute, unaffected by flip) --%>
+                  <%= if product.hub_logo do %>
+                    <div class="absolute top-3 left-3 z-10 bg-white rounded-full p-1.5 shadow-md">
+                      <img
+                        src={product.hub_logo}
+                        alt={product.hub_name || "Hub"}
+                        class="w-6 h-6 rounded-full object-cover"
+                      />
+                    </div>
+                  <% end %>
+
+                  <div
+                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]"
+                    style="transform-style: preserve-3d;"
+                  >
+                    <%!-- Front face (first image) --%>
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                      <img
+                        alt={product.name}
+                        src={product.image}
+                        class="w-full h-full object-cover" loading="lazy"
+                      />
+                    </div>
+                    <%!-- Back face (second image or same image if only one) --%>
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                      <img
+                        alt={product.name}
+                        src={Enum.at(product.images, 1) || product.image}
+                        class="w-full h-full object-cover" loading="lazy"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="px-4 py-4">
+                  <%!-- Product Title - Centered --%>
+                  <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2">
+                    <%= product.name %>
+                  </h4>
+
+                  <%!-- Price Display - Centered --%>
+                  <div class="flex flex-col items-center mb-4">
+                    <%!-- Original Price - Crossed out, grey --%>
+                    <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
+                      $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                    </span>
+                    <%!-- Discounted Price - Large, black --%>
+                    <%= if product.total_max_discount > 0 do %>
+                      <span class="text-2xl font-haas_medium_65 text-black">
+                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
+                      </span>
+                      <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                        with BUX tokens
+                      </span>
+                    <% else %>
+                      <span class="text-2xl font-haas_medium_65 text-gray-900">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                    <% end %>
+                  </div>
+
+                  <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
+                    Buy Now
+                  </div>
+                </div>
+              </.link>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Empty State --%>
+        <%= if @products == [] do %>
+          <div class="text-center py-16">
+            <p class="text-gray-500 text-lg font-haas_roman_55">No products found.</p>
+            <button
+              phx-click="clear_all_filters"
+              class="mt-4 px-6 py-2 bg-black text-white rounded-full font-haas_medium_65 text-sm cursor-pointer hover:bg-gray-800 transition-colors"
+            >
+              View All Products
+            </button>
+          </div>
+        <% end %>
+      </main>
     </div>
   </div>
+
+  <%!-- Mobile Filter Button (Fixed at bottom) --%>
+  <button
+    phx-click="toggle_mobile_filters"
+    class="lg:hidden fixed bottom-4 right-4 z-40 bg-black text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 cursor-pointer"
+  >
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+    </svg>
+    Filters
+    <%= if @active_filter do %>
+      <span class="bg-white text-black text-xs px-2 py-0.5 rounded-full">1</span>
+    <% end %>
+  </button>
+
+  <%!-- Mobile Filter Drawer --%>
+  <%= if @show_mobile_filters do %>
+    <div class="lg:hidden fixed inset-0 z-50">
+      <div class="absolute inset-0 bg-black/50" phx-click="toggle_mobile_filters"></div>
+      <div class="absolute right-0 top-0 h-full w-80 bg-white shadow-xl overflow-y-auto">
+        <div class="p-4 border-b flex justify-between items-center">
+          <h3 class="font-haas_medium_65 text-lg">Filters</h3>
+          <button phx-click="toggle_mobile_filters" class="text-gray-500 cursor-pointer hover:text-gray-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-4">
+          <%!-- View All Button --%>
+          <button
+            phx-click="clear_all_filters"
+            class={[
+              "w-full mb-6 py-3 px-4 rounded-lg font-haas_medium_65 text-sm transition-colors cursor-pointer",
+              if(@active_filter == nil, do: "bg-black text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-300")
+            ]}
+          >
+            View All
+          </button>
+
+          <%!-- Products Section (Categories) --%>
+          <%= if @categories_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Products</h3>
+              <ul class="space-y-2">
+                <%= for category <- @categories_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_category"
+                      phx-value-slug={category.slug}
+                      phx-value-name={category.name}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= category.name %>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+
+          <%!-- Communities Section (Hubs) --%>
+          <%= if @hubs_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Communities</h3>
+              <ul class="space-y-2">
+                <%= for hub <- @hubs_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_hub"
+                      phx-value-slug={hub.slug}
+                      phx-value-name={hub.name}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
+                        if(match?({:hub, _, _}, @active_filter) and elem(@active_filter, 1) == hub.slug,
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= if hub.logo_url do %>
+                        <img src={hub.logo_url} alt={hub.name} class="w-5 h-5 rounded-full object-cover" />
+                      <% end %>
+                      <%= hub.name %>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+
+          <%!-- Brands Section (Vendors) --%>
+          <%= if @brands_with_products != [] do %>
+            <div class="mb-8">
+              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Brands</h3>
+              <ul class="space-y-2">
+                <%= for brand <- @brands_with_products do %>
+                  <li>
+                    <button
+                      phx-click="filter_by_brand"
+                      phx-value-brand={brand}
+                      class={[
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        if(@active_filter == {:brand, brand},
+                          do: "bg-black text-white",
+                          else: "text-gray-700 hover:bg-gray-300")
+                      ]}
+                    >
+                      <%= brand %>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Product Picker Modal (Admin Only) --%>
+  <%= if @show_product_picker do %>
+    <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" phx-click="close_product_picker">
+      <div class="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden mx-4" phx-click="ignore">
+        <div class="p-4 border-b flex justify-between items-center">
+          <h3 class="text-lg font-haas_medium_65">Select Product for Slot <%= (@picking_slot || 0) + 1 %></h3>
+          <button phx-click="close_product_picker" class="text-gray-500 hover:text-gray-700 cursor-pointer">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-4 overflow-y-auto max-h-[60vh]">
+          <div class="grid grid-cols-3 gap-4">
+            <%= for product <- @all_products do %>
+              <button
+                phx-click="select_product_for_slot"
+                phx-value-id={product.id}
+                class="border rounded-lg p-2 hover:border-black transition-colors cursor-pointer text-left"
+              >
+                <img
+                  src={if(product.images && length(product.images) > 0, do: List.first(product.images).src, else: "https://via.placeholder.com/300x300?text=No+Image")}
+                  alt={product.title}
+                  class="w-full aspect-square object-cover rounded-lg mb-2"
+                />
+                <p class="text-sm font-haas_medium_65 truncate"><%= product.title %></p>
+              </button>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </div>

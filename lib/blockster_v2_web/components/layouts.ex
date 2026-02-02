@@ -164,7 +164,7 @@ defmodule BlocksterV2Web.Layouts do
           <nav class="flex items-center gap-1">
             <.link navigate={~p"/"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">News</.link>
             <.link navigate={~p"/hubs"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Hubs</.link>
-            <.link navigate={~p"/shop-landing"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Shop</.link>
+            <.link navigate={~p"/shop"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Shop</.link>
             <.link navigate={~p"/airdrop"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity">Airdrop</.link>
             <.link navigate={~p"/play"} class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#101D36] uppercase hover:opacity-70 transition-opacity cursor-pointer">Play</.link>
           </nav>

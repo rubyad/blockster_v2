@@ -2,45 +2,88 @@ defmodule BlocksterV2Web.ShopLive.Index do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Shop
-  alias BlocksterV2.Blog
+  alias BlocksterV2.SiteSettings
 
   @impl true
   def mount(_params, _session, socket) do
-    # Load filter options from database
-    hubs = Blog.list_hubs()
-    artists = Shop.list_artists()
-    categories = Shop.list_categories()
+    # Load curated product placements from SiteSettings
+    placements_setting = SiteSettings.get("shop_page_product_placements", "")
+    curated_product_ids = parse_product_ids(placements_setting)
 
-    # Load active products from database with preloads
-    db_products = Shop.list_active_products(preload: [:images, :variants, :hub, :artist_record, :categories])
+    # Load all active products with associations
+    all_products = Shop.list_active_products(preload: [:images, :variants, :hub, :artist_record, :categories])
 
-    # Transform database products to display format, falling back to sample products if empty
-    products = case db_products do
-      [] -> get_sample_products()
-      _ -> Enum.map(db_products, &transform_product/1)
-    end
+    # === DYNAMIC FILTER EXTRACTION ===
+
+    # Categories (Products section) - from product categories
+    categories_with_products =
+      all_products
+      |> Enum.flat_map(fn p -> p.categories || [] end)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.sort_by(& &1.name)
+
+    # Hubs (Communities section) - from product hubs
+    hubs_with_products =
+      all_products
+      |> Enum.map(& &1.hub)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.sort_by(& &1.name)
+
+    # Vendors (Brands section) - from product vendors
+    brands_with_products =
+      all_products
+      |> Enum.map(& &1.vendor)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    # Build display order (curated first, then remaining)
+    display_products = build_display_order(curated_product_ids, all_products)
 
     {:ok,
      socket
      |> assign(:page_title, "Shop - Browse Products")
-     |> assign(:all_products, products)
-     |> assign(:products, products)
-     |> assign(:hubs, hubs)
-     |> assign(:artists, artists)
-     |> assign(:categories, categories)
-     |> assign(:show_hub_dropdown, false)
-     |> assign(:show_artist_dropdown, false)
-     |> assign(:show_category_dropdown, false)
-     |> assign(:hub_search, "")
-     |> assign(:artist_search, "")
-     |> assign(:category_search, "")
-     |> assign(:selected_hub, nil)
-     |> assign(:selected_artist, nil)
-     |> assign(:selected_category, nil)}
+     |> assign(:all_products, all_products)
+     |> assign(:curated_product_ids, curated_product_ids)
+     |> assign(:products, Enum.map(display_products, &transform_product/1))
+     |> assign(:categories_with_products, categories_with_products)
+     |> assign(:hubs_with_products, hubs_with_products)
+     |> assign(:brands_with_products, brands_with_products)
+     |> assign(:active_filter, nil)
+     |> assign(:filtered_mode, false)
+     |> assign(:show_product_picker, false)
+     |> assign(:picking_slot, nil)
+     |> assign(:show_mobile_filters, false)}
   end
 
-  # Token value: 1 token = $0.10 discount
-  @token_value_usd 0.10
+  # Parse comma-separated product IDs from SiteSettings
+  defp parse_product_ids(""), do: []
+  defp parse_product_ids(nil), do: []
+  defp parse_product_ids(setting) do
+    setting
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  # Build display order: curated products first, then remaining
+  defp build_display_order(curated_ids, all_products) do
+    # Get curated products in order
+    curated =
+      curated_ids
+      |> Enum.map(fn id -> Enum.find(all_products, &(to_string(&1.id) == id)) end)
+      |> Enum.reject(&is_nil/1)
+
+    # Get remaining products not in curated list
+    curated_id_set = MapSet.new(curated_ids)
+    remaining = Enum.reject(all_products, fn p ->
+      to_string(p.id) in curated_id_set
+    end)
+
+    curated ++ remaining
+  end
 
   defp transform_product(product) do
     first_variant = List.first(product.variants || [])
@@ -111,389 +154,139 @@ defmodule BlocksterV2Web.ShopLive.Index do
     }
   end
 
-  @impl true
-  def handle_event("toggle_dropdown", %{"filter" => filter}, socket) do
-    case filter do
-      "hub" ->
-        {:noreply,
-         assign(socket,
-           show_hub_dropdown: !socket.assigns.show_hub_dropdown,
-           show_artist_dropdown: false,
-           show_category_dropdown: false
-         )}
-
-      "artist" ->
-        {:noreply,
-         assign(socket,
-           show_artist_dropdown: !socket.assigns.show_artist_dropdown,
-           show_hub_dropdown: false,
-           show_category_dropdown: false
-         )}
-
-      "category" ->
-        {:noreply,
-         assign(socket,
-           show_category_dropdown: !socket.assigns.show_category_dropdown,
-           show_hub_dropdown: false,
-           show_artist_dropdown: false
-         )}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
+  # === FILTER EVENT HANDLERS ===
 
   @impl true
-  def handle_event("update_search", %{"filter" => filter, "value" => value}, socket) do
-    case filter do
-      "hub" ->
-        {:noreply, assign(socket, :hub_search, value)}
+  def handle_event("filter_by_category", %{"slug" => slug, "name" => name}, socket) do
+    filtered = filter_by_category(socket.assigns.all_products, slug)
 
-      "artist" ->
-        {:noreply, assign(socket, :artist_search, value)}
-
-      "category" ->
-        {:noreply, assign(socket, :category_search, value)}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
-  @impl true
-  def handle_event("select_option", %{"filter" => filter, "slug" => slug, "name" => name}, socket) do
-    socket = case filter do
-      "hub" ->
-        assign(socket,
-          selected_hub: %{slug: slug, name: name},
-          show_hub_dropdown: false
-        )
-
-      "artist" ->
-        assign(socket,
-          selected_artist: %{slug: slug, name: name},
-          show_artist_dropdown: false
-        )
-
-      "category" ->
-        assign(socket,
-          selected_category: %{slug: slug, name: name},
-          show_category_dropdown: false
-        )
-
-      _ ->
-        socket
-    end
-
-    {:noreply, filter_products(socket)}
-  end
-
-  @impl true
-  def handle_event("clear_filter", %{"filter" => filter}, socket) do
-    socket = case filter do
-      "hub" ->
-        assign(socket, :selected_hub, nil)
-
-      "artist" ->
-        assign(socket, :selected_artist, nil)
-
-      "category" ->
-        assign(socket, :selected_category, nil)
-
-      _ ->
-        socket
-    end
-
-    {:noreply, filter_products(socket)}
-  end
-
-  @impl true
-  def handle_event("clear_all_filters", _, socket) do
     {:noreply,
      socket
-     |> assign(:selected_hub, nil)
-     |> assign(:selected_artist, nil)
-     |> assign(:selected_category, nil)
-     |> filter_products()}
+     |> assign(:active_filter, {:category, slug, name})
+     |> assign(:filtered_mode, true)
+     |> assign(:products, Enum.map(filtered, &transform_product/1))
+     |> assign(:show_mobile_filters, false)}
   end
 
   @impl true
-  def handle_event("close_dropdown", %{"filter" => filter}, socket) do
-    case filter do
-      "hub" ->
-        {:noreply, assign(socket, :show_hub_dropdown, false)}
+  def handle_event("filter_by_hub", %{"slug" => slug, "name" => name}, socket) do
+    filtered = filter_by_hub(socket.assigns.all_products, slug)
 
-      "artist" ->
-        {:noreply, assign(socket, :show_artist_dropdown, false)}
-
-      "category" ->
-        {:noreply, assign(socket, :show_category_dropdown, false)}
-
-      _ ->
-        {:noreply, socket}
-    end
+    {:noreply,
+     socket
+     |> assign(:active_filter, {:hub, slug, name})
+     |> assign(:filtered_mode, true)
+     |> assign(:products, Enum.map(filtered, &transform_product/1))
+     |> assign(:show_mobile_filters, false)}
   end
 
-  defp filter_products(socket) do
-    products = socket.assigns.all_products
+  @impl true
+  def handle_event("filter_by_brand", %{"brand" => brand}, socket) do
+    filtered = filter_by_vendor(socket.assigns.all_products, brand)
 
-    products = if socket.assigns.selected_hub do
-      Enum.filter(products, fn p -> p.hub_slug == socket.assigns.selected_hub.slug end)
-    else
-      products
-    end
-
-    products = if socket.assigns.selected_artist do
-      Enum.filter(products, fn p -> p.artist_slug == socket.assigns.selected_artist.slug end)
-    else
-      products
-    end
-
-    products = if socket.assigns.selected_category do
-      Enum.filter(products, fn p -> socket.assigns.selected_category.slug in p.category_slugs end)
-    else
-      products
-    end
-
-    assign(socket, :products, products)
+    {:noreply,
+     socket
+     |> assign(:active_filter, {:brand, brand})
+     |> assign(:filtered_mode, true)
+     |> assign(:products, Enum.map(filtered, &transform_product/1))
+     |> assign(:show_mobile_filters, false)}
   end
 
-  defp has_active_filters?(socket) do
-    socket.assigns.selected_hub != nil ||
-    socket.assigns.selected_artist != nil ||
-    socket.assigns.selected_category != nil
+  @impl true
+  def handle_event("clear_all_filters", _params, socket) do
+    display_products = build_display_order(
+      socket.assigns.curated_product_ids,
+      socket.assigns.all_products
+    )
+
+    {:noreply,
+     socket
+     |> assign(:active_filter, nil)
+     |> assign(:filtered_mode, false)
+     |> assign(:products, Enum.map(display_products, &transform_product/1))
+     |> assign(:show_mobile_filters, false)}
   end
 
-  defp get_sample_products do
-    [
-      %{
-        id: 1,
-        name: "Cargo Comfort Pants",
-        slug: "cargo-comfort-pants",
-        price: 50.00,
-        original_price: 65.00,
-        max_discounted_price: 25.00,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
-        hub_logo: "https://ik.imagekit.io/blockster/moon-logo.png",
-        hub_name: "MoonPay",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 2,
-        name: "Unofficial Cargo Pants",
-        slug: "unofficial-cargo-pants",
-        price: 50.00,
-        original_price: 65.00,
-        max_discounted_price: 25.00,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
-        hub_logo: nil,
-        hub_name: nil,
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 3,
-        name: "Blockster Sneakers",
-        slug: "blockster-sneakers",
-        price: 50.00,
-        original_price: 65.00,
-        max_discounted_price: 25.00,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
-        hub_logo: "https://ik.imagekit.io/blockster/neo-logo.png",
-        hub_name: "Neo",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 4,
-        name: "Unofficial Standard Hoodie",
-        slug: "unofficial-standard-hoodie",
-        price: 50.00,
-        original_price: 65.00,
-        max_discounted_price: 0.00,
-        bux_max_discount: 50,
-        hub_token_max_discount: 50,
-        total_max_discount: 100,
-        image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
-        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500"],
-        hub_logo: "https://ik.imagekit.io/blockster/rogue-logo.png",
-        hub_name: "Rogue",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 5,
-        name: "Crypto Street Jacket",
-        slug: "crypto-street-jacket",
-        price: 75.00,
-        original_price: 95.00,
-        max_discounted_price: 56.25,
-        bux_max_discount: 15,
-        hub_token_max_discount: 10,
-        total_max_discount: 25,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
-        hub_logo: nil,
-        hub_name: nil,
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 6,
-        name: "Blockster Classic Tee",
-        slug: "blockster-classic-tee",
-        price: 35.00,
-        original_price: 45.00,
-        max_discounted_price: 17.50,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
-        hub_logo: "https://ik.imagekit.io/blockster/moon-logo.png",
-        hub_name: "MoonPay",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 7,
-        name: "Web3 Cap",
-        slug: "web3-cap",
-        price: 25.00,
-        original_price: 35.00,
-        max_discounted_price: 12.50,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
-        hub_logo: nil,
-        hub_name: nil,
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 8,
-        name: "NFT Collector Backpack",
-        slug: "nft-collector-backpack",
-        price: 85.00,
-        original_price: 110.00,
-        max_discounted_price: 42.50,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
-        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
-        hub_logo: "https://ik.imagekit.io/blockster/neo-logo.png",
-        hub_name: "Neo",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 9,
-        name: "Decentralized Joggers",
-        slug: "decentralized-joggers",
-        price: 60.00,
-        original_price: 80.00,
-        max_discounted_price: 30.00,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
-        hub_logo: nil,
-        hub_name: nil,
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 10,
-        name: "Blockchain Bomber",
-        slug: "blockchain-bomber",
-        price: 90.00,
-        original_price: 120.00,
-        max_discounted_price: 45.00,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500", "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png"],
-        hub_logo: "https://ik.imagekit.io/blockster/rogue-logo.png",
-        hub_name: "Rogue",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 11,
-        name: "Smart Contract Socks",
-        slug: "smart-contract-socks",
-        price: 15.00,
-        original_price: 20.00,
-        max_discounted_price: 7.50,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500",
-        images: ["https://ik.imagekit.io/blockster/coming-soon-shoe.png?tr=w-500", "https://ik.imagekit.io/blockster/coming-soon-card-image1.png?tr=w-500"],
-        hub_logo: nil,
-        hub_name: nil,
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      },
-      %{
-        id: 12,
-        name: "DeFi Denim Jacket",
-        slug: "defi-denim-jacket",
-        price: 95.00,
-        original_price: 125.00,
-        max_discounted_price: 47.50,
-        bux_max_discount: 25,
-        hub_token_max_discount: 25,
-        total_max_discount: 50,
-        image: "https://ik.imagekit.io/blockster/hoode-comnmg-soon.png",
-        images: ["https://ik.imagekit.io/blockster/hoode-comnmg-soon.png", "https://ik.imagekit.io/blockster/coming-soon-card-image2.png?tr=w-500"],
-        hub_logo: "https://ik.imagekit.io/blockster/moon-logo.png",
-        hub_name: "MoonPay",
-        hub_slug: nil,
-        artist_slug: nil,
-        artist_name: nil,
-        category_slugs: []
-      }
-    ]
+  # === ADMIN PRODUCT PLACEMENT EVENT HANDLERS ===
+
+  @impl true
+  def handle_event("open_product_picker", %{"slot" => slot}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_product_picker, true)
+     |> assign(:picking_slot, String.to_integer(slot))}
+  end
+
+  @impl true
+  def handle_event("close_product_picker", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_product_picker, false)
+     |> assign(:picking_slot, nil)}
+  end
+
+  @impl true
+  def handle_event("ignore", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_product_for_slot", %{"id" => product_id}, socket) do
+    slot = socket.assigns.picking_slot
+    curated_ids = socket.assigns.curated_product_ids
+
+    # Update or insert product ID at slot position
+    new_curated_ids = update_curated_ids(curated_ids, slot, product_id)
+
+    # Save to SiteSettings
+    SiteSettings.set("shop_page_product_placements", Enum.join(new_curated_ids, ","))
+
+    # Rebuild display order
+    display_products = build_display_order(new_curated_ids, socket.assigns.all_products)
+
+    {:noreply,
+     socket
+     |> assign(:curated_product_ids, new_curated_ids)
+     |> assign(:products, Enum.map(display_products, &transform_product/1))
+     |> assign(:show_product_picker, false)
+     |> assign(:picking_slot, nil)}
+  end
+
+  # === MOBILE FILTER EVENT HANDLERS ===
+
+  @impl true
+  def handle_event("toggle_mobile_filters", _params, socket) do
+    {:noreply, assign(socket, :show_mobile_filters, !socket.assigns.show_mobile_filters)}
+  end
+
+  # === FILTER HELPER FUNCTIONS ===
+
+  defp filter_by_category(products, category_slug) do
+    Enum.filter(products, fn p ->
+      Enum.any?(p.categories || [], fn cat -> cat.slug == category_slug end)
+    end)
+  end
+
+  defp filter_by_hub(products, hub_slug) do
+    Enum.filter(products, fn p ->
+      p.hub && p.hub.slug == hub_slug
+    end)
+  end
+
+  defp filter_by_vendor(products, vendor) do
+    Enum.filter(products, fn p ->
+      p.vendor == vendor
+    end)
+  end
+
+  defp update_curated_ids(existing_ids, slot, new_id) do
+    # Ensure list is long enough
+    padded = existing_ids ++ List.duplicate("", max(0, slot + 1 - length(existing_ids)))
+
+    # Replace at slot, filtering out empty strings
+    padded
+    |> List.replace_at(slot, new_id)
+    |> Enum.filter(&(&1 != ""))
+    |> Enum.uniq()
   end
 end
