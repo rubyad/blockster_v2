@@ -1217,6 +1217,21 @@ See [docs/contract_upgrades.md](docs/contract_upgrades.md), [docs/nonce_system_s
 
 See [docs/ROGUE_BETTING_INTEGRATION_PLAN.md](docs/ROGUE_BETTING_INTEGRATION_PLAN.md) for complete V5 integration details.
 
+**V6 Changes (Jan 2026)** - Referral System:
+- **Architecture**: Added referral reward system for BUX bets - referrers earn 1% of losing bets
+- **New Storage Variables**: `buxReferralBasisPoints` (100 = 1%), `referralAdmin`, `pendingReferralRewards` mapping
+- **New Functions**: `setReferralAdmin()`, `setBuxReferralBasisPoints()`, `claimReferralReward()`
+- **Upgrade Script**: `contracts/bux-booster-game/scripts/upgrade-to-v6.js`
+- **Referral Admin**: `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad`
+
+**V6 Flow**:
+1. When a BUX bet loses, 1% of the bet amount is allocated to the referrer (if any)
+2. Referral rewards accumulate in `pendingReferralRewards` mapping
+3. Referral admin (backend service) calls `claimReferralReward()` to distribute rewards
+4. `ReferralRewardPoller` GenServer polls for new rewards and processes claims
+
+See [docs/referral_system.md](docs/referral_system.md) for complete referral system details.
+
 
 ### BUX Booster Balance Update After Settlement (Dec 2024)
 

@@ -4,6 +4,36 @@ defmodule BlocksterV2Web.ShopLive.Index do
   alias BlocksterV2.Shop
   alias BlocksterV2.ShopSlots
 
+  # Category icons mapping (slug => ImageKit URL)
+  @category_icons %{
+    "t-shirt" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
+    "tees" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
+    "t-shirts" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
+    "hoodie" => "https://ik.imagekit.io/blockster/Hoodie%20Black.png",
+    "hoodies" => "https://ik.imagekit.io/blockster/Hoodie%20Black.png",
+    "hat" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
+    "hats" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
+    "caps" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
+    "sneakers" => "https://ik.imagekit.io/blockster/Sneakers%20Black.png",
+    "shoes" => "https://ik.imagekit.io/blockster/Sneakers%20Black.png",
+    "sunglasses" => "https://ik.imagekit.io/blockster/Sun%20Glasses%20Apparel%20Black.png",
+    "eyewear" => "https://ik.imagekit.io/blockster/Sun%20Glasses%20Apparel%20Black.png",
+    "hardware" => "https://ik.imagekit.io/blockster/Ledger%20Black%20Icon.png"
+  }
+
+  # Brand icons mapping (brand name => ImageKit URL)
+  @brand_icons %{
+    "Adidas" => "https://ik.imagekit.io/blockster/Adidas%20Black.png",
+    "Converse" => "https://ik.imagekit.io/blockster/Converse%20Black.png",
+    "Nike" => "https://ik.imagekit.io/blockster/Nike.png",
+    "Oakley" => "https://ik.imagekit.io/blockster/Oakley%20Black.png",
+    "Ledger" => "https://ik.imagekit.io/blockster/Ledger%20Black%20Icon.png",
+    "Blockster" => "https://ik.imagekit.io/blockster/blockster-icon.png"
+  }
+
+  def category_icon(slug), do: Map.get(@category_icons, slug)
+  def brand_icon(brand), do: Map.get(@brand_icons, brand)
+
   @impl true
   def mount(_params, _session, socket) do
     # Load all active products with associations

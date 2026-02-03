@@ -38,12 +38,15 @@
                         phx-value-slug={category.slug}
                         phx-value-name={category.name}
                         class={[
-                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
                           if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
                             do: "bg-black text-white",
                             else: "text-gray-700 hover:bg-gray-300")
                         ]}
                       >
+                        <%= if icon = BlocksterV2Web.ShopLive.Index.category_icon(category.slug) do %>
+                          <img src={icon} alt="" class={["w-5 h-5 object-contain", if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug, do: "invert", else: "")]} />
+                        <% end %>
                         <%= category.name %>
                       </button>
                     </li>
@@ -92,12 +95,15 @@
                         phx-click="filter_by_brand"
                         phx-value-brand={brand}
                         class={[
-                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
                           if(@active_filter == {:brand, brand},
                             do: "bg-black text-white",
                             else: "text-gray-700 hover:bg-gray-300")
                         ]}
                       >
+                        <%= if icon = BlocksterV2Web.ShopLive.Index.brand_icon(brand) do %>
+                          <img src={icon} alt="" class={["w-5 h-5 object-contain", if(@active_filter == {:brand, brand}, do: "invert", else: "")]} />
+                        <% end %>
                         <%= brand %>
                       </button>
                     </li>
@@ -378,12 +384,15 @@
                       phx-value-slug={category.slug}
                       phx-value-name={category.name}
                       class={[
-                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
                         if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
                           do: "bg-black text-white",
                           else: "text-gray-700 hover:bg-gray-300")
                       ]}
                     >
+                      <%= if icon = BlocksterV2Web.ShopLive.Index.category_icon(category.slug) do %>
+                        <img src={icon} alt="" class={["w-5 h-5 object-contain", if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug, do: "invert", else: "")]} />
+                      <% end %>
                       <%= category.name %>
                     </button>
                   </li>
@@ -432,12 +441,15 @@
                       phx-click="filter_by_brand"
                       phx-value-brand={brand}
                       class={[
-                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
                         if(@active_filter == {:brand, brand},
                           do: "bg-black text-white",
                           else: "text-gray-700 hover:bg-gray-300")
                       ]}
                     >
+                      <%= if icon = BlocksterV2Web.ShopLive.Index.brand_icon(brand) do %>
+                        <img src={icon} alt="" class={["w-5 h-5 object-contain", if(@active_filter == {:brand, brand}, do: "invert", else: "")]} />
+                      <% end %>
                       <%= brand %>
                     </button>
                   </li>
