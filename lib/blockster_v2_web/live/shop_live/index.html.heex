@@ -12,202 +12,317 @@
     <div class="flex gap-8">
       <%!-- Left Sidebar (Desktop) --%>
       <aside class="w-64 flex-shrink-0 hidden lg:block">
-        <div class="sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto pb-8 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <%!-- View All Button --%>
+        <div class="sticky top-20 h-[calc(100vh-6rem)] flex flex-col bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <%!-- View All Button - Fixed at top --%>
           <button
             phx-click="clear_all_filters"
             class={[
-              "w-full mb-6 py-3 px-4 rounded-lg font-haas_medium_65 text-sm transition-colors cursor-pointer",
+              "w-full mb-4 py-3 px-4 rounded-lg font-haas_medium_65 text-sm transition-colors cursor-pointer flex-shrink-0",
               if(@active_filter == nil, do: "bg-black text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-300")
             ]}
           >
             View All
           </button>
 
-          <%!-- Products Section (Categories - Dynamic from products) --%>
-          <%= if @categories_with_products != [] do %>
-            <div class="mb-8">
-              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Products</h3>
-              <ul class="space-y-2">
-                <%= for category <- @categories_with_products do %>
-                  <li>
-                    <button
-                      phx-click="filter_by_category"
-                      phx-value-slug={category.slug}
-                      phx-value-name={category.name}
-                      class={[
-                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
-                        if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
-                          do: "bg-black text-white",
-                          else: "text-gray-700 hover:bg-gray-300")
-                      ]}
-                    >
-                      <%= category.name %>
-                    </button>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-          <% end %>
+          <%!-- Scrollable filter sections container --%>
+          <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+            <%!-- Products Section (Categories - Dynamic from products) --%>
+            <%= if @categories_with_products != [] do %>
+              <div class="flex flex-col min-h-0 max-h-[calc((100%-2rem)/3)]">
+                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-2 flex-shrink-0">Products</h3>
+                <ul class="space-y-1 overflow-y-auto flex-1 min-h-0">
+                  <%= for category <- @categories_with_products do %>
+                    <li>
+                      <button
+                        phx-click="filter_by_category"
+                        phx-value-slug={category.slug}
+                        phx-value-name={category.name}
+                        class={[
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                          if(match?({:category, _, _}, @active_filter) and elem(@active_filter, 1) == category.slug,
+                            do: "bg-black text-white",
+                            else: "text-gray-700 hover:bg-gray-300")
+                        ]}
+                      >
+                        <%= category.name %>
+                      </button>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
 
-          <%!-- Communities Section (Hubs - Dynamic from products) --%>
-          <%= if @hubs_with_products != [] do %>
-            <div class="mb-8">
-              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Communities</h3>
-              <ul class="space-y-2">
-                <%= for hub <- @hubs_with_products do %>
-                  <li>
-                    <button
-                      phx-click="filter_by_hub"
-                      phx-value-slug={hub.slug}
-                      phx-value-name={hub.name}
-                      class={[
-                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
-                        if(match?({:hub, _, _}, @active_filter) and elem(@active_filter, 1) == hub.slug,
-                          do: "bg-black text-white",
-                          else: "text-gray-700 hover:bg-gray-300")
-                      ]}
-                    >
-                      <%= if hub.logo_url do %>
-                        <img src={hub.logo_url} alt={hub.name} class="w-5 h-5 rounded-full object-cover" />
-                      <% end %>
-                      <%= hub.name %>
-                    </button>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-          <% end %>
+            <%!-- Communities Section (Hubs - Dynamic from products) --%>
+            <%= if @hubs_with_products != [] do %>
+              <div class="flex flex-col min-h-0 max-h-[calc((100%-2rem)/3)]">
+                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-2 flex-shrink-0">Communities</h3>
+                <ul class="space-y-1 overflow-y-auto flex-1 min-h-0">
+                  <%= for hub <- @hubs_with_products do %>
+                    <li>
+                      <button
+                        phx-click="filter_by_hub"
+                        phx-value-slug={hub.slug}
+                        phx-value-name={hub.name}
+                        class={[
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer flex items-center gap-2",
+                          if(match?({:hub, _, _}, @active_filter) and elem(@active_filter, 1) == hub.slug,
+                            do: "bg-black text-white",
+                            else: "text-gray-700 hover:bg-gray-300")
+                        ]}
+                      >
+                        <%= if hub.logo_url do %>
+                          <img src={hub.logo_url} alt={hub.name} class="w-5 h-5 rounded-full object-cover" />
+                        <% end %>
+                        <%= hub.name %>
+                      </button>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
 
-          <%!-- Brands Section (Vendors - Dynamic from products) --%>
-          <%= if @brands_with_products != [] do %>
-            <div class="mb-8">
-              <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-4">Brands</h3>
-              <ul class="space-y-2">
-                <%= for brand <- @brands_with_products do %>
-                  <li>
-                    <button
-                      phx-click="filter_by_brand"
-                      phx-value-brand={brand}
-                      class={[
-                        "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
-                        if(@active_filter == {:brand, brand},
-                          do: "bg-black text-white",
-                          else: "text-gray-700 hover:bg-gray-300")
-                      ]}
-                    >
-                      <%= brand %>
-                    </button>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-          <% end %>
+            <%!-- Brands Section (Vendors - Dynamic from products) --%>
+            <%= if @brands_with_products != [] do %>
+              <div class="flex flex-col min-h-0 max-h-[calc((100%-2rem)/3)]">
+                <h3 class="text-sm font-haas_medium_65 text-gray-500 uppercase tracking-wider mb-2 flex-shrink-0">Brands</h3>
+                <ul class="space-y-1 overflow-y-auto flex-1 min-h-0">
+                  <%= for brand <- @brands_with_products do %>
+                    <li>
+                      <button
+                        phx-click="filter_by_brand"
+                        phx-value-brand={brand}
+                        class={[
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-haas_roman_55 transition-colors cursor-pointer",
+                          if(@active_filter == {:brand, brand},
+                            do: "bg-black text-white",
+                            else: "text-gray-700 hover:bg-gray-300")
+                        ]}
+                      >
+                        <%= brand %>
+                      </button>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+          </div>
         </div>
       </aside>
 
       <%!-- Products Grid --%>
       <main class="flex-1 min-w-0">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          <%= for {product, index} <- Enum.with_index(@products) do %>
-            <div class="relative group">
-              <%!-- Admin Cog Icon (top-right, visible on hover for admins) --%>
-              <%= if @current_user && @current_user.is_admin do %>
-                <button
-                  phx-click="open_product_picker"
-                  phx-value-slot={index}
-                  class="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-md hover:shadow-lg cursor-pointer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                  </svg>
-                </button>
+        <%!-- Active Filter Badge --%>
+        <%= if @active_filter do %>
+          <div class="mb-4 flex items-center gap-2">
+            <span class="text-sm text-gray-500">Filtering by:</span>
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-sm font-haas_medium_65">
+              <%= case @active_filter do %>
+                <% {:category, _slug, name} -> %><%= name %>
+                <% {:hub, _slug, name} -> %><%= name %>
+                <% {:brand, name} -> %><%= name %>
+                <% {:artist, _slug, name} -> %><%= name %>
+                <% {:tag, slug} -> %>#<%= slug %>
+                <% _ -> %>Filter
               <% end %>
-
-              <%!-- Product Card --%>
-              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer block">
-                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-                  <%!-- Hub Logo Badge (absolute, unaffected by flip) --%>
-                  <%= if product.hub_logo do %>
-                    <div class="absolute top-3 left-3 z-10 bg-white rounded-full p-1.5 shadow-md">
-                      <img
-                        src={product.hub_logo}
-                        alt={product.hub_name || "Hub"}
-                        class="w-6 h-6 rounded-full object-cover"
-                      />
-                    </div>
-                  <% end %>
-
-                  <div
-                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]"
-                    style="transform-style: preserve-3d;"
-                  >
-                    <%!-- Front face (first image) --%>
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
-                      <img
-                        alt={product.name}
-                        src={product.image}
-                        class="w-full h-full object-cover" loading="lazy"
-                      />
-                    </div>
-                    <%!-- Back face (second image or same image if only one) --%>
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                      <img
-                        alt={product.name}
-                        src={Enum.at(product.images, 1) || product.image}
-                        class="w-full h-full object-cover" loading="lazy"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div class="px-4 py-4">
-                  <%!-- Product Title - Centered --%>
-                  <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2">
-                    <%= product.name %>
-                  </h4>
-
-                  <%!-- Price Display - Centered --%>
-                  <div class="flex flex-col items-center mb-4">
-                    <%!-- Original Price - Crossed out, grey --%>
-                    <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
-                      $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                    </span>
-                    <%!-- Discounted Price - Large, black --%>
-                    <%= if product.total_max_discount > 0 do %>
-                      <span class="text-2xl font-haas_medium_65 text-black">
-                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
-                      </span>
-                      <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
-                        with BUX tokens
-                      </span>
-                    <% else %>
-                      <span class="text-2xl font-haas_medium_65 text-gray-900">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
-                    <% end %>
-                  </div>
-
-                  <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
-                    Buy Now
-                  </div>
-                </div>
-              </.link>
-            </div>
-          <% end %>
-        </div>
-
-        <%!-- Empty State --%>
-        <%= if @products == [] do %>
-          <div class="text-center py-16">
-            <p class="text-gray-500 text-lg font-haas_roman_55">No products found.</p>
-            <button
-              phx-click="clear_all_filters"
-              class="mt-4 px-6 py-2 bg-black text-white rounded-full font-haas_medium_65 text-sm cursor-pointer hover:bg-gray-800 transition-colors"
-            >
-              View All Products
-            </button>
+              <button phx-click="clear_all_filters" class="hover:bg-white/20 rounded-full p-0.5 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </span>
           </div>
         <% end %>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 items-stretch">
+          <%= if @active_filter == nil do %>
+            <%!-- VIEW ALL MODE: Show slot-based cards --%>
+            <%= for {slot_number, product} <- @display_slots do %>
+              <div class="relative group h-full">
+                <%!-- Admin Cog Icon with Slot Number - Always visible on slots --%>
+                <%= if @current_user && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_product_picker"
+                    phx-value-slot={slot_number}
+                    class="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full px-2 py-1 shadow-md hover:shadow-lg cursor-pointer flex items-center gap-1"
+                  >
+                    <span class="text-xs font-haas_medium_65 text-gray-600"><%= slot_number + 1 %></span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+
+                <%= if product do %>
+                  <%!-- Product Card --%>
+                  <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
+                    <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                      <%!-- Hub Logo Badge (absolute, unaffected by flip) --%>
+                      <%= if product.hub_logo do %>
+                        <div class="absolute top-3 left-3 z-10 bg-white rounded-full p-1.5 shadow-md">
+                          <img
+                            src={product.hub_logo}
+                            alt={product.hub_name || "Hub"}
+                            class="w-6 h-6 rounded-full object-cover"
+                          />
+                        </div>
+                      <% end %>
+
+                      <div
+                        class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]"
+                        style="transform-style: preserve-3d;"
+                      >
+                        <%!-- Front face (first image) --%>
+                        <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                          <img
+                            alt={product.name}
+                            src={product.image}
+                            class="w-full h-full object-cover" loading="lazy"
+                          />
+                        </div>
+                        <%!-- Back face (second image or same image if only one) --%>
+                        <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                          <img
+                            alt={product.name}
+                            src={Enum.at(product.images, 1) || product.image}
+                            class="w-full h-full object-cover" loading="lazy"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div class="px-4 py-4 flex flex-col flex-1">
+                      <%!-- Product Title - Centered --%>
+                      <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2 flex-1">
+                        <%= product.name %>
+                      </h4>
+
+                      <%!-- Price Display - Centered --%>
+                      <div class="flex flex-col items-center mb-4">
+                        <%!-- Original Price - Crossed out, grey --%>
+                        <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
+                          $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                        </span>
+                        <%!-- Discounted Price - Large, black --%>
+                        <%= if product.total_max_discount > 0 do %>
+                          <span class="text-2xl font-haas_medium_65 text-black">
+                            $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
+                          </span>
+                          <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                            with BUX tokens
+                          </span>
+                        <% else %>
+                          <span class="text-2xl font-haas_medium_65 text-gray-900">
+                            $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                          </span>
+                        <% end %>
+                      </div>
+
+                      <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
+                        Buy Now
+                      </div>
+                    </div>
+                  </.link>
+                <% else %>
+                  <%!-- Empty Slot Placeholder (Admin Only) --%>
+                  <%= if @current_user && @current_user.is_admin do %>
+                    <div class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 aspect-square flex items-center justify-center">
+                      <div class="text-center text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <p class="text-sm font-haas_roman_55">Slot <%= slot_number + 1 %></p>
+                        <p class="text-xs">Click cog to assign</p>
+                      </div>
+                    </div>
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+          <% else %>
+            <%!-- FILTERED MODE: Show filtered products (no empty slots) --%>
+            <%= for product <- @filtered_products do %>
+              <div class="relative group h-full">
+                <%!-- Product Card --%>
+                <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
+                  <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                    <%!-- Hub Logo Badge (absolute, unaffected by flip) --%>
+                    <%= if product.hub_logo do %>
+                      <div class="absolute top-3 left-3 z-10 bg-white rounded-full p-1.5 shadow-md">
+                        <img
+                          src={product.hub_logo}
+                          alt={product.hub_name || "Hub"}
+                          class="w-6 h-6 rounded-full object-cover"
+                        />
+                      </div>
+                    <% end %>
+
+                    <div
+                      class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]"
+                      style="transform-style: preserve-3d;"
+                    >
+                      <%!-- Front face (first image) --%>
+                      <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                        <img
+                          alt={product.name}
+                          src={product.image}
+                          class="w-full h-full object-cover" loading="lazy"
+                        />
+                      </div>
+                      <%!-- Back face (second image or same image if only one) --%>
+                      <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                        <img
+                          alt={product.name}
+                          src={Enum.at(product.images, 1) || product.image}
+                          class="w-full h-full object-cover" loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="px-4 py-4 flex flex-col flex-1">
+                    <%!-- Product Title - Centered --%>
+                    <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2 flex-1">
+                      <%= product.name %>
+                    </h4>
+
+                    <%!-- Price Display - Centered --%>
+                    <div class="flex flex-col items-center mb-4">
+                      <%!-- Original Price - Crossed out, grey --%>
+                      <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                      <%!-- Discounted Price - Large, black --%>
+                      <%= if product.total_max_discount > 0 do %>
+                        <span class="text-2xl font-haas_medium_65 text-black">
+                          $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
+                        </span>
+                        <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                          with BUX tokens
+                        </span>
+                      <% else %>
+                        <span class="text-2xl font-haas_medium_65 text-gray-900">
+                          $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                        </span>
+                      <% end %>
+                    </div>
+
+                    <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
+                      Buy Now
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
+
+            <%!-- Empty state for filtered results --%>
+            <%= if @filtered_products == [] do %>
+              <div class="col-span-full text-center py-12">
+                <p class="text-gray-500 mb-4">No products found</p>
+                <button phx-click="clear_all_filters" class="text-blue-500 hover:underline cursor-pointer">
+                  View All Products
+                </button>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
       </main>
     </div>
   </div>
@@ -353,8 +468,18 @@
               <button
                 phx-click="select_product_for_slot"
                 phx-value-id={product.id}
-                class="border rounded-lg p-2 hover:border-black transition-colors cursor-pointer text-left"
+                class="relative border rounded-lg p-2 hover:border-black transition-colors cursor-pointer text-left"
               >
+                <%!-- Show slot numbers if product is assigned to any slots --%>
+                <%= if slots = Map.get(@slot_assignments, to_string(product.id)) do %>
+                  <div class="absolute top-1 right-1 flex flex-wrap gap-0.5 max-w-[60%] justify-end">
+                    <%= for slot <- Enum.sort(slots) do %>
+                      <span class="bg-black text-white text-[10px] px-1 rounded">
+                        <%= slot + 1 %>
+                      </span>
+                    <% end %>
+                  </div>
+                <% end %>
                 <img
                   src={if(product.images && length(product.images) > 0, do: List.first(product.images).src, else: "https://via.placeholder.com/300x300?text=No+Image")}
                   alt={product.title}

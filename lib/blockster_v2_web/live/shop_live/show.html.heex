@@ -108,6 +108,19 @@
           <h1 class="text-4xl font-haas_medium_65 text-[#141414]">
             <%= @product.name %>
           </h1>
+          <%!-- Admin Edit Button --%>
+          <%= if @current_user && @current_user.is_admin do %>
+            <.link
+              navigate={~p"/admin/products/#{@product.id}/edit"}
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-haas_medium_65 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Edit
+            </.link>
+          <% end %>
           <%= if @product.max_inventory do %>
             <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-sm font-haas_medium_65">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500">
@@ -437,15 +450,10 @@
 
         <%!-- Add to Cart Button --%>
         <button
-          phx-click="add_to_cart"
-          class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full hover:shadow-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={is_nil(@selected_size)}
+          class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all opacity-50 cursor-not-allowed"
+          disabled
         >
-          <%= if is_nil(@selected_size) do %>
-            Select a size to continue
-          <% else %>
-            Add to Cart - Coming Soon
-          <% end %>
+          Shopping Cart Coming Soon
         </button>
       </div>
     </div>

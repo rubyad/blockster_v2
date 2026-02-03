@@ -478,6 +478,16 @@ defmodule BlocksterV2.MnesiaInitializer do
         :updated_at                # Unix timestamp
       ],
       index: []
+    },
+    # Shop product slot assignments (curated product placements)
+    %{
+      name: :shop_product_slots,
+      type: :set,
+      attributes: [
+        :slot_number,              # PRIMARY KEY - 0-indexed slot position (integer)
+        :product_id                # Product UUID (string) or nil for empty slot
+      ],
+      index: []
     }
   ]
 

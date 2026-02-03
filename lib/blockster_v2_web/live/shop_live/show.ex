@@ -5,8 +5,8 @@ defmodule BlocksterV2Web.ShopLive.Show do
   alias BlocksterV2.Repo
   alias BlocksterV2.EngagementTracker
 
-  # 1 BUX/token = $0.10
-  @token_value_usd 0.10
+  # 1 BUX/token = $0.01
+  @token_value_usd 0.01
 
   # Size ordering (S, M, L, XL)
   @size_order %{"S" => 1, "M" => 2, "L" => 3, "XL" => 4, "XXL" => 5}
@@ -120,7 +120,7 @@ defmodule BlocksterV2Web.ShopLive.Show do
 
     # Calculate max BUX tokens needed for discount
     # Formula: (price * discount_percent / 100) / token_value
-    # e.g., $220 * 50% = $110 discount = 1,100 BUX at $0.10 each
+    # e.g., $220 * 50% = $110 discount = 11,000 BUX at $0.01 each
     max_bux_tokens = if bux_max_discount > 0 do
       round((price * bux_max_discount / 100) / @token_value_usd)
     else
