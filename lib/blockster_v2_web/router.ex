@@ -45,6 +45,11 @@ defmodule BlocksterV2Web.Router do
       live "/admin/artists", ArtistsAdminLive, :index
       live "/admin/flagged-accounts", AdminLive.FlaggedAccounts, :index
       live "/hub/:slug/admin", HubLive.HubAdmin, :index
+
+      # BuxBooster Admin Stats
+      live "/admin/stats", Admin.StatsLive.Index, :index
+      live "/admin/stats/players", Admin.StatsLive.Players, :index
+      live "/admin/stats/players/:address", Admin.StatsLive.PlayerDetail, :show
     end
 
     # Redirect /profile to member page Settings tab

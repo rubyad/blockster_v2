@@ -989,6 +989,15 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     /// @notice Admin address authorized to set player referrers (e.g., BuxMinter service)
     address public referralAdmin;
 
+    // ===== PER-DIFFICULTY STATS (V9) =====
+    // Separate storage for per-difficulty tracking to preserve existing struct layout
+
+    /// @notice Per-difficulty bet counts for each player (9 difficulty levels: -4 to +4)
+    mapping(address => uint256[9]) public buxBoosterBetsPerDifficulty;
+
+    /// @notice Per-difficulty profit/loss for each player (can be negative)
+    mapping(address => int256[9]) public buxBoosterPnLPerDifficulty;
+
     event Payout(uint256 betId, address winner, uint256 payout, uint256 wagerCurrency, uint256 exitSerialNumber);
     event ROGUEPayout(uint256 betId, address winner, uint256 payout);
     event ROGUEPayoutFailed(uint256 betId, address winner, uint256 payout);
@@ -1700,6 +1709,22 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     }
 
     /**
+     * @dev Internal helper to update per-difficulty stats (V9, fixed in V10)
+     * Separated to avoid stack too deep errors
+     *
+     * Difficulty values: -4, -3, -2, -1, 1, 2, 3, 4, 5 (0 is invalid)
+     * Array indices: 0-3 = Win One (-4 to -1), 4-8 = Win All (1 to 5)
+     */
+    function _updatePerDifficultyStats(address player, int8 difficulty, int256 pnlChange) private {
+        // Match BuxBoosterGame formula: negative uses +4, positive uses +3
+        uint256 diffIndex = difficulty < 0
+            ? uint256(int256(difficulty) + 4)  // -4 to -1 -> 0 to 3
+            : uint256(int256(difficulty) + 3); // 1 to 5 -> 4 to 8
+        buxBoosterBetsPerDifficulty[player][diffIndex] += 1;
+        buxBoosterPnLPerDifficulty[player][diffIndex] += pnlChange;
+    }
+
+    /**
      * @dev Internal helper to update house balance for winning BuxBooster bet
      */
     function _updateHouseBalanceWinning(uint256 payout, uint256 betAmount, uint256 maxPayout) private {
@@ -1771,6 +1796,9 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         stats.totalWagered += betAmount;
         stats.totalWinnings += profit;
 
+        // V9: Update per-difficulty stats (helper to avoid stack too deep)
+        _updatePerDifficultyStats(winner, difficulty, int256(profit));
+
         // Update global accounting
         buxBoosterAccounting.totalWins++;
         buxBoosterAccounting.totalPayouts += payout;
@@ -1824,6 +1852,9 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         stats.losses += 1;
         stats.totalWagered += wagerAmount;
         stats.totalLosses += wagerAmount;
+
+        // V9: Update per-difficulty stats (helper to avoid stack too deep)
+        _updatePerDifficultyStats(player, difficulty, -int256(wagerAmount));
 
         // Update global accounting
         buxBoosterAccounting.totalLosses++;
@@ -1894,6 +1925,41 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         } else {
             houseEdge = 0;
         }
+    }
+
+    /**
+     * @notice Get full BuxBooster player stats including per-difficulty breakdown (V9)
+     * @dev View function for admin dashboard - returns aggregate stats + per-difficulty arrays
+     * @param player Player address to query
+     * @return totalBets Total number of bets placed
+     * @return wins Total number of winning bets
+     * @return losses Total number of losing bets
+     * @return totalWagered Total ROGUE wagered
+     * @return totalWinnings Total profit from wins
+     * @return totalLosses Total losses from losing bets
+     * @return betsPerDifficulty Array of bet counts per difficulty level (9 elements, index 0 = difficulty -4)
+     * @return pnlPerDifficulty Array of P/L per difficulty level (9 elements, can be negative)
+     */
+    function getBuxBoosterPlayerStats(address player) external view returns (
+        uint256 totalBets,
+        uint256 wins,
+        uint256 losses,
+        uint256 totalWagered,
+        uint256 totalWinnings,
+        uint256 totalLosses,
+        uint256[9] memory betsPerDifficulty,
+        int256[9] memory pnlPerDifficulty
+    ) {
+        BuxBoosterPlayerStats storage stats = buxBoosterPlayerStats[player];
+
+        totalBets = stats.totalBets;
+        wins = stats.wins;
+        losses = stats.losses;
+        totalWagered = stats.totalWagered;
+        totalWinnings = stats.totalWinnings;
+        totalLosses = stats.totalLosses;
+        betsPerDifficulty = buxBoosterBetsPerDifficulty[player];
+        pnlPerDifficulty = buxBoosterPnLPerDifficulty[player];
     }
 
 }

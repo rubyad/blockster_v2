@@ -488,6 +488,42 @@ defmodule BlocksterV2.MnesiaInitializer do
         :product_id                # Product UUID (string) or nil for empty slot
       ],
       index: []
+    },
+    # User betting stats - pre-calculated for instant admin dashboard page loads
+    # Created for every user on signup (with zeros), updated on every bet settlement
+    # Full on-chain stats (with per-difficulty) stored in :onchain_stats_cache field
+    %{
+      name: :user_betting_stats,
+      type: :set,
+      attributes: [
+        :user_id,             # PRIMARY KEY (integer)
+        :wallet_address,      # String - stored here to avoid PostgreSQL joins on page load
+        # BUX stats (7 fields)
+        :bux_total_bets,      # integer
+        :bux_wins,            # integer
+        :bux_losses,          # integer
+        :bux_total_wagered,   # integer (wei)
+        :bux_total_winnings,  # integer (wei)
+        :bux_total_losses,    # integer (wei)
+        :bux_net_pnl,         # integer (wei, can be negative)
+        # ROGUE stats (7 fields)
+        :rogue_total_bets,    # integer
+        :rogue_wins,          # integer
+        :rogue_losses,        # integer
+        :rogue_total_wagered, # integer (wei)
+        :rogue_total_winnings,# integer (wei)
+        :rogue_total_losses,  # integer (wei)
+        :rogue_net_pnl,       # integer (wei, can be negative)
+        # Timestamps (3 fields)
+        :first_bet_at,        # integer (unix ms) or nil
+        :last_bet_at,         # integer (unix ms) or nil
+        :updated_at,          # integer (unix ms)
+        # Full on-chain stats map (includes per-difficulty breakdown)
+        # Populated on admin page view, refreshed via Refresh button
+        # Map structure: %{bux: %{...with bets_per_difficulty, pnl_per_difficulty}, rogue: %{...}, combined: %{...}}
+        :onchain_stats_cache  # map or nil
+      ],
+      index: [:bux_total_wagered, :rogue_total_wagered]
     }
   ]
 
