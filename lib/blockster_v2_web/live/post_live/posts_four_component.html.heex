@@ -1,10 +1,10 @@
-<section id={"component-#{@id}"} class="blog-section py-6">
-  <div class="container mx-auto">
+<section id={"component-#{@id}"} class="blog-section py-3 md:py-6">
+  <div class="container mx-auto px-4 md:px-0">
     <div class="inner gap-6">
       <div class="left-content">
         <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts", "home-posts"] && !Map.get(assigns, :hide_title) do %>
           <!-- Breadcrumb -->
-          <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+          <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2 hidden md:block">
             <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
             <span class="mx-2">›</span>
             <span><%= Map.get(assigns, :title, "DeFi") %></span>
@@ -21,7 +21,56 @@
             <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
           </div>
         <% else %>
-          <div class="latest-news-blog_cards mt-3 flex md:flex-row flex-col gap-3">
+          <!-- Mobile: Stacked full-width cards with text overlay -->
+          <div class="md:hidden flex flex-col gap-3 mt-3">
+            <%= for {post, local_idx} <- Enum.with_index(@posts, 0) do %>
+              <div class="relative rounded-xl overflow-hidden shadow-lg">
+                <%= if assigns[:current_user] && @current_user.is_admin do %>
+                  <button
+                    phx-click="open_bux_deposit_modal"
+                    phx-value-post-id={post.id}
+                    class="absolute top-2 right-2 z-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+                <.link navigate={~p"/#{post.slug}"} class="block relative aspect-square cursor-pointer">
+                  <!-- Background Image -->
+                  <%= if post.featured_image do %>
+                    <img src={ImageKit.w500_h500(post.featured_image)} alt={post.title} class="w-full h-full object-cover" loading="lazy" />
+                  <% else %>
+                    <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F]"></div>
+                  <% end %>
+                  <!-- Video play icon -->
+                  <%= if post.video_id do %>
+                    <.video_play_icon size={:large} />
+                  <% end %>
+                  <!-- Dark gradient overlay -->
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                  <!-- Text content -->
+                  <div class="absolute bottom-0 left-0 right-0 p-4">
+                    <%= if post.category do %>
+                      <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur-sm text-white rounded-full text-[10px] font-haas_medium_65 mb-2">
+                        <%= post.category.name %>
+                      </span>
+                    <% end %>
+                    <h4 class="font-haas_bold_75 text-white text-base leading-snug"><%= post.title %></h4>
+                    <p class="text-[10px] font-haas_roman_55 text-white/80 mt-1">
+                      <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
+                    </p>
+                    <div class="mt-2">
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_mobile_#{post.id}_#{local_idx}"} />
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            <% end %>
+          </div>
+
+          <!-- Desktop: Original horizontal layout -->
+          <div class="hidden md:flex md:flex-row gap-3 mt-3">
             <%= for {post, local_idx} <- Enum.with_index(@posts, 0) do %>
               <div class="md:w-1/3 gap-3 relative">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
@@ -35,20 +84,20 @@
                     </svg>
                   </button>
                 <% end %>
-                <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative" style={"background-image: url('#{ImageKit.w500_h600(post.featured_image)}'); background-size: cover; background-position: center; min-height: 400px;"}>
+                <.link navigate={~p"/#{post.slug}"} class="group rounded-lg bg-[#ffffff] bg-card flex flex-col justify-end overflow-hidden relative cursor-pointer" style={"background-image: url('#{ImageKit.w500_h600(post.featured_image)}'); background-size: cover; background-position: center; min-height: 400px;"}>
                   <!-- Video play icon overlay -->
                   <%= if post.video_id do %>
                     <.video_play_icon size={:large} />
                   <% end %>
                   <!-- Content area that starts at 50% height -->
                   <div class="absolute bottom-0 left-0 right-0 h-1/2 backdrop-blur-md bg-white/10 transition-all duration-500 ease-in-out group-hover:h-full overflow-hidden">
-                    <div class="h-full flex flex-col p-8 max-md:px-[22px] pb-3 pt-[22px]">
+                    <div class="h-full flex flex-col p-8 pb-3 pt-[22px]">
                       <!-- Top content: category, title, date -->
                       <div>
                         <%= if post.category do %>
                           <span class="text-xs font-haas_medium_65 text-[#ffffff]"><%= post.category.name %></span>
                         <% end %>
-                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2] max-md:text-base"><%= post.title %></h4>
+                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2]"><%= post.title %></h4>
                         <p class="text-xs font-haas_roman_55 text-[#ffffff] mt-2">
                           <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                         </p>
@@ -57,7 +106,7 @@
                       <div class="mt-auto">
                         <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_#{post.id}_#{local_idx}"} />
                         <%= if post.excerpt do %>
-                          <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 max-md:hidden opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
+                          <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
                         <% end %>
                       </div>
                     </div>

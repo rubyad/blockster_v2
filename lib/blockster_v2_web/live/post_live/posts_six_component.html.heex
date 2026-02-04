@@ -17,7 +17,103 @@
         <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
       </div>
     <% else %>
-      <div class="flex gap-3 md:flex-row flex-col-reverse md:items-stretch">
+      <!-- Mobile Layout -->
+      <div class="md:hidden px-4">
+        <!-- First post: Full-width hero card (same style as posts_three center post) -->
+        <%= if Enum.at(@posts, 0) do %>
+          <% first_post = Enum.at(@posts, 0) %>
+          <div class="rounded-xl shadow-lg bg-white mb-4 relative">
+            <%= if assigns[:current_user] && @current_user.is_admin do %>
+              <button
+                phx-click="open_bux_deposit_modal"
+                phx-value-post-id={first_post.id}
+                class="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            <% end %>
+            <.link navigate={~p"/#{first_post.slug}"} class="flex flex-col cursor-pointer">
+              <div class="img-wrapper w-full overflow-hidden rounded-t-lg aspect-square relative">
+                <%= if first_post.featured_image do %>
+                  <img alt={first_post.title} src={ImageKit.w500_h500(first_post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                <% else %>
+                  <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F]"></div>
+                <% end %>
+                <%= if first_post.video_id do %>
+                  <.video_play_icon size={:large} />
+                <% end %>
+              </div>
+              <div class="px-3 py-3 pb-4 flex flex-col text-center">
+                <div class="flex justify-center items-center">
+                  <%= if first_post.category do %>
+                    <span class="px-2 py-0.5 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-[10px] font-haas_medium_65">
+                      <%= first_post.category.name %>
+                    </span>
+                  <% end %>
+                </div>
+                <h3 class="font-haas_bold_75 text-[#141414] mt-2 text-xl leading-snug"><%= first_post.title %></h3>
+                <%= if first_post.excerpt do %>
+                  <p class="text-base font-haas_roman_55 text-[#515B70] mt-2 leading-relaxed"><%= first_post.excerpt %></p>
+                <% end %>
+                <p class="text-xs font-haas_roman_55 text-[#141414] mt-2"><%= if first_post.published_at, do: Calendar.strftime(first_post.published_at, "%B %d, %Y"), else: "Draft" %></p>
+                <div class="flex justify-center mt-3">
+                  <.token_badge post={first_post} balance={get_bux_balance(assigns, first_post)} id={"bux_posts_six_mobile_hero_#{first_post.id}"} />
+                </div>
+              </div>
+            </.link>
+          </div>
+        <% end %>
+
+        <!-- Remaining posts: Horizontal cards with text on LEFT, image on RIGHT -->
+        <div class="flex flex-col">
+          <%= for {post, local_idx} <- Enum.with_index(Enum.drop(@posts, 1), 0) do %>
+            <div class={"relative #{if local_idx > 0, do: "border-t border-gray-200 pt-3", else: ""} #{if local_idx < length(@posts) - 2, do: "pb-3", else: ""}"}>
+              <%= if assigns[:current_user] && @current_user.is_admin do %>
+                <button
+                  phx-click="open_bux_deposit_modal"
+                  phx-value-post-id={post.id}
+                  class="absolute top-2 right-2 z-10 bg-white rounded-full p-1.5 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              <% end %>
+              <.link navigate={~p"/#{post.slug}"} class="flex flex-row-reverse gap-4 cursor-pointer items-stretch">
+                <!-- Image on RIGHT - height matches text content -->
+                <div class="w-24 flex-shrink-0 rounded-xl overflow-hidden relative">
+                  <%= if post.featured_image do %>
+                    <img src={ImageKit.w200_h280(post.featured_image)} alt={post.title} class="w-full h-full object-cover absolute inset-0" loading="lazy" />
+                  <% else %>
+                    <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] absolute inset-0"></div>
+                  <% end %>
+                  <%= if post.video_id do %>
+                    <.video_play_icon size={:small} />
+                  <% end %>
+                </div>
+                <!-- Text on LEFT -->
+                <div class="flex-1 flex flex-col py-1">
+                  <%= if post.category do %>
+                    <span class="text-xs font-haas_roman_55 text-gray-400 mb-1.5"><%= post.category.name %></span>
+                  <% end %>
+                  <h4 class="font-haas_medium_65 text-[#141414] text-base leading-relaxed"><%= post.title %></h4>
+                  <p class="text-[10px] font-haas_roman_55 text-[#515B70] mt-2">
+                    <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
+                  </p>
+                  <div class="mt-2">
+                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_six_mobile_#{post.id}_#{local_idx}"} />
+                  </div>
+                </div>
+              </.link>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Desktop: Original layout -->
+      <div class="hidden md:flex gap-3 md:flex-row flex-col-reverse md:items-stretch">
         <!-- Left side: 1/2 width - 4 small cards in 2x2 grid -->
         <div class="md:w-1/2 w-full flex flex-col">
           <!-- First row: 2 small cards (Positions 1 & 2) -->

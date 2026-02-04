@@ -1,15 +1,15 @@
-<section id={"component-#{@id}"} class="grid-section-reverse py-6">
-  <div class="container mx-auto">
+<section id={"component-#{@id}"} class="grid-section-reverse py-3 md:py-6">
+  <div class="container mx-auto px-4 md:px-0">
     <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts", "home-posts"] && !Map.get(assigns, :hide_title) do %>
       <!-- Breadcrumb -->
-      <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+      <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2 hidden md:block">
         <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Home</.link>
         <span class="mx-2">›</span>
         <span><%= Map.get(assigns, :title, "Investment") %></span>
       </p>
 
       <!-- Section Title -->
-      <h2 class="font-haas_medium_65 mb-6 font-semibold text-4xl"><%= Map.get(assigns, :title, "Investment") %></h2>
+      <h2 class="font-haas_medium_65 mb-6 font-semibold text-4xl hidden md:block"><%= Map.get(assigns, :title, "Investment") %></h2>
     <% end %>
 
     <%= if @posts == [] do %>
@@ -17,6 +17,53 @@
         <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
       </div>
     <% else %>
+      <!-- Mobile: Horizontal cards with image left, text right -->
+      <div class="md:hidden flex flex-col">
+        <%= for {post, local_idx} <- Enum.with_index(@posts, 0) do %>
+          <div class={"relative #{if local_idx > 0, do: "border-t border-gray-200 pt-3", else: ""} #{if local_idx < length(@posts) - 1, do: "pb-3", else: ""}"}>
+            <%= if assigns[:current_user] && @current_user.is_admin do %>
+              <button
+                phx-click="open_bux_deposit_modal"
+                phx-value-post-id={post.id}
+                class="absolute top-2 left-2 z-10 bg-white rounded-full p-1.5 shadow-md hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#515B70]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            <% end %>
+            <.link navigate={~p"/#{post.slug}"} class="flex gap-4 cursor-pointer items-stretch">
+              <!-- Image on left - height matches text content -->
+              <div class="w-24 flex-shrink-0 rounded-xl overflow-hidden relative">
+                <%= if post.featured_image do %>
+                  <img src={ImageKit.w200_h280(post.featured_image)} alt={post.title} class="w-full h-full object-cover absolute inset-0" loading="lazy" />
+                <% else %>
+                  <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] absolute inset-0"></div>
+                <% end %>
+                <%= if post.video_id do %>
+                  <.video_play_icon size={:small} />
+                <% end %>
+              </div>
+              <!-- Text on right -->
+              <div class="flex-1 flex flex-col py-1">
+                <%= if post.category do %>
+                  <span class="text-xs font-haas_roman_55 text-gray-400 mb-1.5"><%= post.category.name %></span>
+                <% end %>
+                <h4 class="font-haas_medium_65 text-[#141414] text-base leading-relaxed"><%= post.title %></h4>
+                <p class="text-[10px] font-haas_roman_55 text-[#515B70] mt-2">
+                  <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
+                </p>
+                <div class="mt-2">
+                  <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_mobile_#{post.id}_#{local_idx}"} />
+                </div>
+              </div>
+            </.link>
+          </div>
+        <% end %>
+      </div>
+
+      <!-- Desktop: Original layout -->
+      <div class="hidden md:block">
       <!-- First Row: Large card left, 2 small cards right -->
       <div class="flex lg:flex-row flex-col gap-4 wide-card lg:items-stretch">
         <!-- Large card (50%) - Position 1 -->
@@ -257,6 +304,7 @@
             </div>
           <% end %>
         </div>
+      </div>
       </div>
     <% end %>
   </div>

@@ -64,6 +64,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
   attr :token_balances, :map, default: %{}, doc: "the user's individual token balances"
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
+  attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
   attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
 
   def site_header(assigns) do
@@ -315,6 +316,12 @@ defmodule BlocksterV2Web.Layouts do
                         >
                           Flagged Accounts
                         </.link>
+                        <.link
+                          navigate={~p"/admin/stats"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Bet Stats
+                        </.link>
                       <% end %>
                     <% end %>
                   </div>
@@ -353,15 +360,16 @@ defmodule BlocksterV2Web.Layouts do
       </header>
 
       <!-- Mobile Header -->
-      <div class="mobile-header border border-[#E7E8F1] p-3 flex items-center justify-between bg-white lg:hidden">
-      <div class="no-search-wrapper flex justify-between items-center w-full">
+      <div class="mobile-header border border-[#E7E8F1] p-3 flex items-center justify-between bg-white lg:hidden" id="mobile-header-search">
+      <!-- Default state: Logo and buttons (hidden when search is open) -->
+      <div class={"no-search-wrapper flex justify-between items-center w-full #{if @show_mobile_search, do: "hidden", else: ""}"}>
         <div>
           <.link navigate={~p"/"}>
             <img src="/images/Logo.png" alt="Blockster" />
           </.link>
         </div>
         <div class="flex gap-2 items-center">
-          <button class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md">
+          <button phx-click="open_mobile_search" class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
               <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
                     stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -513,6 +521,12 @@ defmodule BlocksterV2Web.Layouts do
                       >
                         Flagged Accounts
                       </.link>
+                      <.link
+                        navigate={~p"/admin/stats"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Bet Stats
+                      </.link>
                     <% end %>
                   <% end %>
                 </div>
@@ -524,6 +538,64 @@ defmodule BlocksterV2Web.Layouts do
           <% end %>
         </div>
       </div>
+      <!-- Mobile Search Bar (shown when @show_mobile_search is true) -->
+      <%= if @show_mobile_search do %>
+      <div class="search-mobile w-full">
+        <div class="flex items-center gap-2 w-full">
+          <div class="relative flex-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
+                      stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={@search_query}
+              phx-keyup="search_posts"
+              phx-debounce="300"
+              class="w-full h-10 px-4 pl-9 bg-[#F5F6FB] text-sm font-haas_roman_55 rounded-full border border-[#E8EAEC]"
+              id="mobile-search-input"
+              autofocus
+            />
+            <!-- Mobile Search Results Dropdown -->
+            <%= if @show_search_results && length(@search_results) > 0 do %>
+              <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-[#E7E8F1] shadow-xl z-50 max-h-[400px] overflow-y-auto">
+                <div class="py-2">
+                  <%= for post <- @search_results do %>
+                    <.link
+                      navigate={~p"/#{post.slug}"}
+                      class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
+                    >
+                      <div class="img-wrapper rounded-lg overflow-hidden shrink-0" style="width: 50px; height: 50px;">
+                        <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
+                          <%= post.title %>
+                        </h4>
+                        <%= if post.category do %>
+                          <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
+                            <%= post.category.name %>
+                          </span>
+                        <% end %>
+                      </div>
+                    </.link>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+          <button phx-click="close_mobile_search" class="w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <% end %>
     </div>
     </div>
     <!-- Spacer to push content below fixed header -->

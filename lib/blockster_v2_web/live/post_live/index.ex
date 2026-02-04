@@ -61,6 +61,7 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:search_query, "")
      |> assign(:search_results, [])
      |> assign(:show_search_results, false)
+     |> assign(:show_mobile_search, false)
      |> assign(:show_bux_deposit_modal, false)
      |> assign(:deposit_modal_post, nil)
      |> stream(:components, components)}
@@ -161,7 +162,23 @@ defmodule BlocksterV2Web.PostLive.Index do
      socket
      |> assign(:search_query, "")
      |> assign(:search_results, [])
-     |> assign(:show_search_results, false)}
+     |> assign(:show_search_results, false)
+     |> assign(:show_mobile_search, false)}
+  end
+
+  @impl true
+  def handle_event("open_mobile_search", _params, socket) do
+    {:noreply, assign(socket, :show_mobile_search, true)}
+  end
+
+  @impl true
+  def handle_event("close_mobile_search", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:show_search_results, false)
+     |> assign(:show_mobile_search, false)}
   end
 
   # BUX Deposit Modal handlers

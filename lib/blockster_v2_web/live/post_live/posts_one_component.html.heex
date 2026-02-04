@@ -1,9 +1,9 @@
 <section id={"component-#{@id}"} class="blog-section py-6 relative">
-  <div class="container mx-auto">
+  <div class="container mx-auto px-4 md:px-0">
     <!-- Breadcrumb and Title Row -->
     <div class="xl:flex gap-6 mb-3">
       <div class="xl:w-2/3 w-full">
-        <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
+        <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2 hidden md:block">
           <span>News</span>
           <span class="mx-2">›</span>
           <span><%= Map.get(assigns, :title, "Top Stories") %></span>
@@ -12,7 +12,7 @@
           <button
             phx-click="edit_section_title"
             phx-value-section="latest_news"
-            class="text-2xl md:text-4xl font-haas_bold_75 text-[#141414] hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
+            class="text-xl md:text-4xl font-haas_bold_75 text-[#141414] hover:text-[#515B70] transition-colors cursor-pointer group flex items-center gap-2"
           >
             <%= Map.get(assigns, :title, "Top Stories") %>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
@@ -20,7 +20,7 @@
             </svg>
           </button>
         <% else %>
-          <h2 class="text-2xl md:text-4xl font-haas_bold_75 text-[#141414]"><%= Map.get(assigns, :title, "Top Stories") %></h2>
+          <h2 class="text-xl md:text-4xl font-haas_bold_75 text-[#141414]"><%= Map.get(assigns, :title, "Top Stories") %></h2>
         <% end %>
       </div>
       <div class="xl:w-1/3 w-full hidden xl:block">
@@ -34,7 +34,7 @@
             <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
           </div>
         <% else %>
-          <div class="latest-news-blog_cards md:grid md:grid-cols-[27%_42%_27%] md:grid-rows-2 md:gap-3 flex flex-col gap-3 flex-1">
+          <div class="latest-news-blog_cards md:grid md:grid-cols-[27%_42%_27%] md:grid-rows-2 md:gap-3 grid grid-cols-2 gap-4 flex-1">
             <%
               left_posts = Enum.slice(@posts, 0, 2)
               middle_post = Enum.at(@posts, 2)
@@ -45,7 +45,7 @@
             <!-- Left Column Card 1 (Position 1) -->
             <%= if Enum.at(left_posts, 0) do %>
               <% post = Enum.at(left_posts, 0) %>
-              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-1 md:col-start-1">
+              <div class="rounded-xl shadow-lg hover:shadow-xl transition-all flex flex-col relative md:row-start-1 md:col-start-1 order-2 md:order-0">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_post_selector"
@@ -76,8 +76,8 @@
                       <% end %>
                     </div>
                   </div>
-                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
-                    <div class="flex justify-center items-center">
+                  <div class="px-2 py-2 md:px-3 md:py-3 pb-3 md:pb-4 flex-1 flex flex-col text-center">
+                    <div class="hidden md:flex justify-center items-center">
                       <ul class="gap-3 flex items-center">
                         <%= if post.category do %>
                           <li>
@@ -88,9 +88,9 @@
                         <% end %>
                       </ul>
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
-                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
-                    <div class="flex justify-center mt-3">
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight line-clamp-2">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 hidden md:block">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-2 md:mt-3">
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_left_#{post.id}"} />
                     </div>
                   </div>
@@ -101,7 +101,7 @@
             <!-- Middle Column - 1 tall card (Position 3) - spans 2 rows -->
             <%= if middle_post do %>
               <% post = middle_post %>
-              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-span-2 md:col-start-2">
+              <div class="rounded-xl shadow-lg hover:shadow-xl transition-all flex flex-col relative md:row-span-2 md:col-start-2 col-span-2 md:col-span-1 order-1 md:order-0">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_post_selector"
@@ -144,11 +144,11 @@
                       <% end %>
                     </ul>
                   </div>
-                  <h3 class="font-haas_medium_65 text-[#141414] mt-2 mb-4 text-4xl leading-[1.05]">{post.title}</h3>
+                  <h3 class="font-haas_medium_65 text-[#141414] mt-2 mb-2 md:mb-4 text-xl md:text-4xl leading-tight md:leading-[1.05]">{post.title}</h3>
                   <%= if post.excerpt do %>
-                    <p class="text-[#515B70] font-haas_roman_55 text-sm mt-2">{String.slice(post.excerpt, 0, 200)}<%= if String.length(post.excerpt) > 200, do: "..." %></p>
+                    <p class="text-[#515B70] font-haas_roman_55 text-sm mt-2 hidden md:block">{String.slice(post.excerpt, 0, 200)}<%= if String.length(post.excerpt) > 200, do: "..." %></p>
                   <% end %>
-                  <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                  <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 md:mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
                   <div class="flex justify-center mt-3">
                     <.token_badge post={post} balance={get_bux_balance(assigns, post)} id="bux_icon_2" />
                   </div>
@@ -160,7 +160,7 @@
             <!-- Right Column Card 1 (Position 4) -->
             <%= if Enum.at(right_posts, 0) do %>
               <% post = Enum.at(right_posts, 0) %>
-              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-1 md:col-start-3">
+              <div class="rounded-xl shadow-lg hover:shadow-xl transition-all flex flex-col relative md:row-start-1 md:col-start-3 order-3 md:order-0">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_post_selector"
@@ -191,8 +191,8 @@
                       <% end %>
                     </div>
                   </div>
-                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
-                    <div class="flex justify-center items-center">
+                  <div class="px-2 py-2 md:px-3 md:py-3 pb-3 md:pb-4 flex-1 flex flex-col text-center">
+                    <div class="hidden md:flex justify-center items-center">
                       <ul class="gap-3 flex items-center">
                         <%= if post.category do %>
                           <li>
@@ -203,9 +203,9 @@
                         <% end %>
                       </ul>
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
-                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
-                    <div class="flex justify-center mt-3">
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight line-clamp-2">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 hidden md:block">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-2 md:mt-3">
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_right_#{post.id}"} />
                     </div>
                   </div>
@@ -217,7 +217,7 @@
             <!-- Left Column Card 2 (Position 2) -->
             <%= if Enum.at(left_posts, 1) do %>
               <% post = Enum.at(left_posts, 1) %>
-              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-2 md:col-start-1">
+              <div class="rounded-xl shadow-lg hover:shadow-xl transition-all flex flex-col relative md:row-start-2 md:col-start-1 order-4 md:order-0">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_post_selector"
@@ -248,8 +248,8 @@
                       <% end %>
                     </div>
                   </div>
-                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
-                    <div class="flex justify-center items-center">
+                  <div class="px-2 py-2 md:px-3 md:py-3 pb-3 md:pb-4 flex-1 flex flex-col text-center">
+                    <div class="hidden md:flex justify-center items-center">
                       <ul class="gap-3 flex items-center">
                         <%= if post.category do %>
                           <li>
@@ -260,9 +260,9 @@
                         <% end %>
                       </ul>
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
-                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
-                    <div class="flex justify-center mt-3">
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight line-clamp-2">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 hidden md:block">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-2 md:mt-3">
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_left2_#{post.id}"} />
                     </div>
                   </div>
@@ -273,7 +273,7 @@
             <!-- Right Column Card 2 (Position 5) -->
             <%= if Enum.at(right_posts, 1) do %>
               <% post = Enum.at(right_posts, 1) %>
-              <div class="rounded-lg border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative md:row-start-2 md:col-start-3">
+              <div class="rounded-xl shadow-lg hover:shadow-xl transition-all flex flex-col relative md:row-start-2 md:col-start-3 order-5 md:order-0">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_post_selector"
@@ -304,8 +304,8 @@
                       <% end %>
                     </div>
                   </div>
-                  <div class="px-3 py-3 pb-4 flex-1 flex flex-col text-center">
-                    <div class="flex justify-center items-center">
+                  <div class="px-2 py-2 md:px-3 md:py-3 pb-3 md:pb-4 flex-1 flex flex-col text-center">
+                    <div class="hidden md:flex justify-center items-center">
                       <ul class="gap-3 flex items-center">
                         <%= if post.category do %>
                           <li>
@@ -316,9 +316,9 @@
                         <% end %>
                       </ul>
                     </div>
-                    <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md leading-tight">{post.title}</h4>
-                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-3">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
-                    <div class="flex justify-center mt-3">
+                    <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight line-clamp-2">{post.title}</h4>
+                    <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 hidden md:block">{if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft"}</p>
+                    <div class="flex justify-center mt-2 md:mt-3">
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_right2_#{post.id}"} />
                     </div>
                   </div>
