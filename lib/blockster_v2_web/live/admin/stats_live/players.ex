@@ -260,7 +260,7 @@ defmodule BlocksterV2Web.Admin.StatsLive.Players do
                       </a>
                     </td>
                     <td class="px-4 py-3 text-right font-medium">
-                      <%= Number.Delimit.number_to_delimited(player.combined.total_bets) %>
+                      <%= Number.Delimit.number_to_delimited(player.combined.total_bets, precision: 0) %>
                     </td>
                     <td class="px-4 py-3 text-right">
                       <%= format_token(player.bux.total_wagered) %>

@@ -162,19 +162,19 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Total Bets</dt>
                     <dd class="text-xl font-medium">
-                      <%= Number.Delimit.number_to_delimited(@stats.bux.total_bets) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.bux.total_bets, precision: 0) %>
                     </dd>
                   </div>
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Wins</dt>
                     <dd class="text-xl font-medium text-green-600">
-                      <%= Number.Delimit.number_to_delimited(@stats.bux.wins) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.bux.wins, precision: 0) %>
                     </dd>
                   </div>
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Losses</dt>
                     <dd class="text-xl font-medium text-red-600">
-                      <%= Number.Delimit.number_to_delimited(@stats.bux.losses) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.bux.losses, precision: 0) %>
                     </dd>
                   </div>
                 </div>
@@ -224,19 +224,19 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Total Bets</dt>
                     <dd class="text-xl font-medium">
-                      <%= Number.Delimit.number_to_delimited(@stats.rogue.total_bets) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.rogue.total_bets, precision: 0) %>
                     </dd>
                   </div>
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Wins</dt>
                     <dd class="text-xl font-medium text-green-600">
-                      <%= Number.Delimit.number_to_delimited(@stats.rogue.wins) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.rogue.wins, precision: 0) %>
                     </dd>
                   </div>
                   <div>
                     <dt class="text-xs text-gray-500 uppercase">Losses</dt>
                     <dd class="text-xl font-medium text-red-600">
-                      <%= Number.Delimit.number_to_delimited(@stats.rogue.losses) %>
+                      <%= Number.Delimit.number_to_delimited(@stats.rogue.losses, precision: 0) %>
                     </dd>
                   </div>
                 </div>
@@ -311,7 +311,7 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
                           <td class="px-3 py-2 text-sm"><%= label %></td>
                           <td class="px-3 py-2 text-sm"><%= multiplier %></td>
                           <td class="px-3 py-2 text-right font-medium">
-                            <%= Number.Delimit.number_to_delimited(bets) %>
+                            <%= Number.Delimit.number_to_delimited(bets, precision: 0) %>
                           </td>
                           <td class={"px-3 py-2 text-right font-medium #{pnl_color(pnl)}"}>
                             <%= format_pnl(pnl) %>
@@ -358,7 +358,7 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
                           <td class="px-3 py-2 text-sm"><%= label %></td>
                           <td class="px-3 py-2 text-sm"><%= multiplier %></td>
                           <td class="px-3 py-2 text-right font-medium">
-                            <%= Number.Delimit.number_to_delimited(bets) %>
+                            <%= Number.Delimit.number_to_delimited(bets, precision: 0) %>
                           </td>
                           <td class={"px-3 py-2 text-right font-medium #{pnl_color(pnl)}"}>
                             <%= format_pnl(pnl) %>
@@ -379,19 +379,19 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
               <div class="text-center">
                 <dt class="text-sm text-gray-500">Total Bets</dt>
                 <dd class="text-2xl font-bold">
-                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_bets) %>
+                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_bets, precision: 0) %>
                 </dd>
               </div>
               <div class="text-center">
                 <dt class="text-sm text-gray-500">Total Wins</dt>
                 <dd class="text-2xl font-bold text-green-600">
-                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_wins) %>
+                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_wins, precision: 0) %>
                 </dd>
               </div>
               <div class="text-center">
                 <dt class="text-sm text-gray-500">Total Losses</dt>
                 <dd class="text-2xl font-bold text-red-600">
-                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_losses) %>
+                  <%= Number.Delimit.number_to_delimited(@stats.combined.total_losses, precision: 0) %>
                 </dd>
               </div>
             </div>
