@@ -1,7 +1,7 @@
 <!-- Fixed Bottom-Right BUX Panel - Hidden when video modal is open -->
 <!-- Now shows for both logged-in and anonymous users -->
 <%= if !@video_modal_open do %>
-  <div id="bux-panel" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
+  <div id="bux-panel" class="fixed bottom-20 md:bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
     <!-- LOGGED-IN USER PANELS -->
     <%= if @current_user do %>
       <!-- Video Earned Badge (shows after watching video) -->
@@ -263,7 +263,7 @@
   data-video-modal-open={to_string(@video_modal_open)}
 >
   <!-- 3-Column Layout Container -->
-  <div class="max-w-7xl mx-auto px-4 pt-32 pb-16">
+  <div class="max-w-7xl mx-auto px-4 pt-16 md:pt-32 pb-16">
     <div class="flex gap-8 justify-center">
 
       <!-- LEFT SIDEBAR - Shop (Desktop only) -->
@@ -379,7 +379,7 @@
         </div>
 
         <!-- Social Share Row (Sticky) -->
-        <div class="sticky top-24 z-10 bg-white flex items-center gap-2 py-4 mb-4 border-b border-[#E7E8F1]">
+        <div class="sticky top-[60px] md:top-24 z-10 bg-white flex items-center gap-2 py-4 mb-4 border-b border-[#E7E8F1]">
           <!-- X/Twitter Share with BUX Reward -->
           <%= if @share_campaign && @share_campaign.is_active do %>
             <%= if @share_reward do %>
