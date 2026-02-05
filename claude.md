@@ -1232,6 +1232,29 @@ See [docs/ROGUE_BETTING_INTEGRATION_PLAN.md](docs/ROGUE_BETTING_INTEGRATION_PLAN
 
 See [docs/referral_system.md](docs/referral_system.md) for complete referral system details.
 
+**V7 Changes (Feb 2026)** - Separated BUX Stats:
+- **Architecture**: Added dedicated BUX-only stats tracking (previously BUX and ROGUE were combined in `playerStats` mapping)
+- **New Implementation**: `0xB6752CB0b1ba55a8AE03F2b4Ad84C854Be629dF0`
+- **Upgrade Transaction**: `0xcf22fd3edc565215b80b0ba501bf6fe0ed9cc09d5e96d43416519473d11249b8`
+- **InitializeV7 Transaction**: `0x3f3fa3e5ee145ec8df515c5b911398fcc4f267c9d05cc3c6ff124b7d84d0d943`
+- **New Storage Variables**: `buxPlayerStats` mapping, `buxAccounting` struct
+- **New Functions**: `getBuxPlayerStats(address)`, `getBuxAccounting()`
+- **Upgrade Script**: `contracts/bux-booster-game/scripts/upgrade-to-v7.js`
+- **Test File**: `contracts/bux-booster-game/test/BuxBoosterGame.v7.test.js` (12 tests)
+
+**V7 Contract Changes**:
+- Added `BuxPlayerStats` struct with: totalBets, wins, losses, totalWagered, totalWinnings, totalLosses, betsPerDifficulty[9], profitLossPerDifficulty[9]
+- Added `BuxAccounting` struct with: totalBets, totalWins, totalLosses, totalVolumeWagered, totalPayouts, totalHouseProfit, largestWin, largestBet
+- Updated `_processSettlement()` to write ONLY to new BUX-specific stats (stopped writing to combined `playerStats`)
+- Old `playerStats` mapping preserved for historical reference but no longer updated
+
+**Why Separate Stats?**:
+- ROGUEBankroll already tracks ROGUE-only stats via `buxBoosterAccounting`
+- Combined stats in BuxBoosterGame mixed BUX + ROGUE data, making accurate token-specific reporting impossible
+- Admin dashboard needs clean BUX-only data for analytics
+
+See [docs/bux_booster_stats.md](docs/bux_booster_stats.md) for complete admin stats architecture.
+
 
 ### BUX Booster Balance Update After Settlement (Dec 2024)
 
@@ -1890,6 +1913,28 @@ function getBuxBoosterAccounting() external view returns (
 
 **Upgrade**: ROGUEBankroll upgraded to V6 on Dec 30, 2024
 
+#### ROGUEBankroll V9 - Per-Difficulty Stats (Feb 4, 2026)
+**Feature**: Added per-difficulty bet tracking for ROGUE bets, matching BuxBoosterGame V7's BUX stats.
+
+**New Storage Variables**:
+- `buxBoosterBetsPerDifficulty` - mapping(address => uint256[9]) for bet counts per difficulty
+- `buxBoosterPnLPerDifficulty` - mapping(address => int256[9]) for P/L per difficulty
+
+**New Function**: `getBuxBoosterPlayerStats(address)` - Returns complete player stats:
+- totalBets, wins, losses, totalWagered, totalWinnings, totalLosses
+- betsPerDifficulty[9] - bet count for each difficulty level (0-8)
+- pnlPerDifficulty[9] - profit/loss for each difficulty (signed)
+
+**Upgrade Details**:
+- **Proxy Address**: `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd`
+- **New Implementation**: `0x064630f3F3bB17e76449fD90Aa5C2eB71976c327`
+- **Upgrade Script**: `contracts/bux-booster-game/scripts/upgrade-roguebankroll-v9.js`
+- **Function Selector**: `getBuxBoosterPlayerStats(address)` = `0x75db583f`
+
+**Stack Too Deep Fix**: Added `_updatePerDifficultyStats()` helper function to avoid stack overflow in settlement functions.
+
+**Note**: Historical ROGUE bets won't have per-difficulty data - only new bets after the upgrade are tracked.
+
 #### Enhancement: Automatic Bet Settlement Recovery
 **Problem**: Bets could get stuck in `:placed` status if settlement failed due to network issues, server restarts, or BUX Minter outages.
 
@@ -2219,7 +2264,7 @@ end
 |----------|---------|---------|------|--------|
 | **NFTRewarder** | Rogue Chain | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | UUPS Proxy | ✅ LIVE |
 | NFTRewarder Impl V4 | Rogue Chain | `0xD41D2BD654cD15d691bD7037b0bA8050477D1386` | Implementation | Current |
-| ROGUEBankroll V7 | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy | ✅ LIVE |
+| ROGUEBankroll V9 | Rogue Chain | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | Transparent Proxy | ✅ LIVE |
 | High Rollers NFT | Arbitrum | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | ERC-721 | Source |
 
 **Live Configuration**:
@@ -2408,6 +2453,164 @@ The `ratePerSecond` is stored in wei (e.g., `1.062454e18` for Aurora). Multiplyi
 - Button clicks: No more black screens
 - UI remains responsive during API calls
 
+### BuxBoosterStats Module (Feb 3, 2026)
+
+**Feature**: Backend module for querying BuxBooster betting statistics from on-chain contracts.
+
+**File**: `lib/blockster_v2/bux_booster_stats.ex`
+
+**Functions**:
+| Function | Description | Contract |
+|----------|-------------|----------|
+| `get_bux_global_stats/0` | Global BUX betting stats (V7) | BuxBoosterGame.getBuxAccounting() |
+| `get_rogue_global_stats/0` | Global ROGUE betting stats | ROGUEBankroll.buxBoosterAccounting() |
+| `get_bux_player_stats/1` | Player BUX stats with per-difficulty | BuxBoosterGame.getBuxPlayerStats(addr) |
+| `get_rogue_player_stats/1` | Player ROGUE stats | ROGUEBankroll.buxBoosterPlayerStats(addr) |
+| `get_player_stats/1` | Combined BUX + ROGUE (parallel) | Both contracts |
+| `get_house_balances/0` | House bankrolls | Both contracts |
+| `get_all_player_addresses/0` | All indexed player wallets | PlayerIndex (Mnesia) |
+| `get_player_count/0` | Total indexed player count | PlayerIndex (Mnesia) |
+| `get_all_player_stats/1` | Paginated player stats | Both contracts + PlayerIndex |
+
+**Key Implementation Details**:
+- Direct JSON-RPC calls via `Req` library (no ethers.js dependency)
+- ABI encoding/decoding for uint256, int256 (two's complement), fixed arrays
+- Parallel queries using `Task.async/await_many` for better performance
+- 15-second HTTP timeout configured
+
+**Function Selectors**:
+```elixir
+@get_bux_accounting_selector "0xb2cf35b4"
+@get_bux_player_stats_selector "0x2a07f39f"
+@bux_booster_accounting_selector "0xb9a6a46c"
+@bux_booster_player_stats_selector "0x08114368"
+@token_configs_selector "0x1b69dc5f"
+@get_house_info_selector "0x97b437bd"
+```
+
+**Documentation**: See [docs/bux_booster_stats.md](docs/bux_booster_stats.md) for complete admin stats architecture.
+
+### BuxBooster Player Index (Feb 3, 2026)
+
+**Feature**: Background service that indexes all BuxBooster players by scanning blockchain events.
+
+**Files**:
+- `lib/blockster_v2/bux_booster_stats/player_index.ex` - Event scanning and Mnesia operations
+- `lib/blockster_v2/bux_booster_stats/indexer.ex` - Background GenServer
+
+**Mnesia Table**: `:bux_booster_players`
+```elixir
+# Schema (defined in mnesia_initializer.ex)
+attributes: [:wallet_address, :first_bet_block, :last_bet_block, :total_bets_indexed, :created_at, :updated_at]
+index: [:last_bet_block]
+```
+
+**Events Scanned**:
+- `BetPlaced(bytes32,address,uint256,int8,uint8[])` from BuxBoosterGame (BUX bets)
+- `BuxBoosterBetPlaced(bytes32,address,uint256,uint256,uint256,uint256)` from ROGUEBankroll (ROGUE bets)
+
+**Indexer Behavior**:
+- Uses `GlobalSingleton` for cluster-wide single instance
+- 30 second startup delay before first index
+- Full historical scan on first run
+- Incremental updates every 5 minutes
+- Batched getLogs (10,000 blocks per batch)
+- Stores progress in `:referral_poller_state` table
+
+**Usage**:
+```elixir
+# Check indexer status
+BlocksterV2.BuxBoosterStats.Indexer.status()
+
+# Manually trigger indexing
+BlocksterV2.BuxBoosterStats.Indexer.index_now()
+
+# Get all player addresses
+BlocksterV2.BuxBoosterStats.get_all_player_addresses()
+
+# Get paginated player stats
+BlocksterV2.BuxBoosterStats.get_all_player_stats(page: 1, per_page: 50, sort_by: :total_bets)
+```
+
+**Note**: After code deploy, restart both nodes to create the new `:bux_booster_players` Mnesia table.
+
+### BuxBooster Stats Cache (Feb 3, 2026)
+
+**Feature**: ETS-based caching layer for BuxBooster admin stats to reduce RPC calls.
+
+**File**: `lib/blockster_v2/bux_booster_stats/cache.ex`
+
+**ETS Table**: `:bux_booster_stats_cache`
+
+**TTL Configuration**:
+- Global stats: 5 minutes
+- House balances: 5 minutes
+- Player stats: 1 minute
+
+**Usage**:
+```elixir
+# Get cached stats (auto-fetch on miss)
+BlocksterV2.BuxBoosterStats.Cache.get_global_stats()
+BlocksterV2.BuxBoosterStats.Cache.get_house_balances()
+BlocksterV2.BuxBoosterStats.Cache.get_player_stats("0x123...")
+
+# Invalidation
+BlocksterV2.BuxBoosterStats.Cache.invalidate_global()
+BlocksterV2.BuxBoosterStats.Cache.invalidate_player("0x123...")
+BlocksterV2.BuxBoosterStats.Cache.invalidate_all()
+
+# Monitoring
+BlocksterV2.BuxBoosterStats.Cache.cache_info()
+# => %{entries: 42, memory_kb: 3.14}
+```
+
+### BuxBooster Admin Stats Dashboard (Feb 3, 2026)
+
+**Feature**: Admin LiveView pages for viewing BuxBooster betting statistics.
+
+**Routes** (protected by AdminAuth hook):
+| Route | LiveView | Description |
+|-------|----------|-------------|
+| `/admin/stats` | `Admin.StatsLive.Index` | Global stats dashboard |
+| `/admin/stats/players` | `Admin.StatsLive.Players` | Paginated player list |
+| `/admin/stats/players/:address` | `Admin.StatsLive.PlayerDetail` | Single player detail |
+
+**Files Created**:
+- `lib/blockster_v2_web/live/admin/stats_live/index.ex` - Global stats page
+- `lib/blockster_v2_web/live/admin/stats_live/players.ex` - Players list with sorting/pagination
+- `lib/blockster_v2_web/live/admin/stats_live/player_detail.ex` - Individual player stats
+
+**Global Stats Page** (`/admin/stats`):
+- BUX and ROGUE betting stats in side-by-side cards
+- Metrics: total bets, wins, losses, win rate, volume, payouts, house profit, largest bet/win
+- House balances section (BUX and ROGUE bankrolls)
+- Indexed player count
+- Refresh button (invalidates cache)
+
+**Players List Page** (`/admin/stats/players`):
+- 50 players per page with pagination
+- Sortable columns: Total Bets, BUX Wagered, BUX P/L, ROGUE Wagered, ROGUE P/L
+- Wallet addresses link to Roguescan
+- Details link for each player
+- Abbreviations for large numbers (K, M, B)
+
+**Player Detail Page** (`/admin/stats/players/:address`):
+- Full wallet address with Roguescan link
+- BUX stats card with all metrics
+- ROGUE stats card with all metrics
+- Per-difficulty breakdown table (BUX only, 9 levels)
+- Combined summary section
+- Refresh button (invalidates player cache)
+
+**Access Control**: Uses existing `AdminAuth` LiveView hook - requires `user.is_admin == true`.
+
+**Data Flow**:
+```
+LiveView → Cache.get_global_stats() → (cache hit or fetch) → BuxBoosterStats → JSON-RPC → Contracts
+```
+
+**Documentation**: See [docs/bux_booster_stats.md](docs/bux_booster_stats.md) for complete implementation plan.
+
 ---
 
 ## Known Issues
@@ -2447,3 +2650,78 @@ Instead of calling Read tool directly (which may error):
   Use Task tool: "Read /path/to/config.exs and summarize the configuration"
   The spawned agent will successfully read and return the contents
 ```
+
+---
+
+## Admin Operations
+
+### Query User by Wallet Address in Production
+
+**Important**: Users have two wallet addresses:
+- `wallet_address` - EOA (externally owned account) wallet used for login
+- `smart_wallet_address` - ERC-4337 smart wallet created via account abstraction
+
+When searching for a user by wallet, always check **both fields** using `ilike` for case-insensitive matching.
+
+**Query Pattern**:
+```bash
+# Search by partial wallet (checks both wallet_address and smart_wallet_address)
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query; result = Repo.all(from u in User, where: ilike(u.wallet_address, \"%PARTIAL_ADDRESS%\") or ilike(u.smart_wallet_address, \"%PARTIAL_ADDRESS%\"), select: {u.id, u.wallet_address, u.smart_wallet_address}); IO.inspect(result, label: \"Users\")'"
+
+# Example with specific wallet fragment
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query; result = Repo.all(from u in User, where: ilike(u.wallet_address, \"%ff5ff5%\") or ilike(u.smart_wallet_address, \"%ff5ff5%\"), select: {u.id, u.wallet_address, u.smart_wallet_address}); IO.inspect(result, label: \"Users\")'"
+```
+
+**Output Example**:
+```
+Users: [
+  {7, "0x46d1e6336909626ba5f2fee0d0d114d5368c945c",
+   "0xff5ff5ae22e0099f13be9ec012f8cbf3ff2e2418"}
+]
+```
+This shows: User ID 7, EOA wallet `0x46d1e...`, Smart wallet `0xff5ff5...`
+
+### Mint BUX to User Wallet
+
+**Function**: `BuxMinter.mint_bux/5`
+```elixir
+BuxMinter.mint_bux(wallet_address, amount, user_id, post_id, reward_type)
+```
+
+**Parameters**:
+- `wallet_address` - The smart wallet address (use `smart_wallet_address` from user record)
+- `amount` - Integer amount of BUX to mint
+- `user_id` - User's ID from the database (required for Mnesia balance tracking)
+- `post_id` - Post ID if minting for reading rewards, `nil` for admin transfers
+- `reward_type` - Must be one of: `:read`, `:x_share`, `:video_watch`, `:signup`, `:phone_verified`
+
+**Valid Reward Types**: `:read`, `:x_share`, `:video_watch`, `:signup`, `:phone_verified`
+- Use `:signup` for admin transfers/airdrops
+
+**Production Command**:
+```bash
+# Mint 1000 BUX to user 7's smart wallet
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'result = BlocksterV2.BuxMinter.mint_bux(\"0xff5ff5ae22e0099f13be9ec012f8cbf3ff2e2418\", 1000, 7, nil, :signup); IO.inspect(result, label: \"Mint result\")'"
+```
+
+**Success Response**:
+```elixir
+Mint result: {:ok,
+ %{
+   "amountMinted" => 1000,
+   "blockNumber" => 115251357,
+   "newBalance" => "2003.0",
+   "postId" => nil,
+   "success" => true,
+   "token" => "BUX",
+   "transactionHash" => "0xe7b2eea51109bcb2c7be32e36fb8ed965df9934795c17e70045b093b31e1f208",
+   "userId" => 7,
+   "walletAddress" => "0xff5ff5ae22e0099f13be9ec012f8cbf3ff2e2418"
+ }}
+```
+
+**Important Notes**:
+- Always use the **smart wallet address** (`smart_wallet_address`), not the EOA wallet
+- The `user_id` is required for Mnesia balance tracking to work correctly
+- Without `user_id`, tokens mint on-chain but Mnesia balance won't update
+- Transaction can be verified on Roguescan: `https://roguescan.io/tx/{transactionHash}`

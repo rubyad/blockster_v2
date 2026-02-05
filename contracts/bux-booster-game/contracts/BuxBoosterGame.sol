@@ -583,6 +583,38 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     /// @notice Admin address authorized to set player referrers (e.g., BuxMinter service)
     address public referralAdmin;
 
+    // ============ V7: Separated BUX Stats (add at end to preserve storage layout) ============
+
+    /// @notice BUX-specific player stats (separate from combined playerStats)
+    struct BuxPlayerStats {
+        uint256 totalBets;
+        uint256 wins;
+        uint256 losses;
+        uint256 totalWagered;
+        uint256 totalWinnings;    // Profit from wins
+        uint256 totalLosses;      // Amount lost (bet amounts, not P/L)
+        uint256[9] betsPerDifficulty;
+        int256[9] profitLossPerDifficulty;
+    }
+
+    /// @notice BUX global accounting (mirrors ROGUEBankroll's buxBoosterAccounting)
+    struct BuxAccounting {
+        uint256 totalBets;
+        uint256 totalWins;
+        uint256 totalLosses;
+        uint256 totalVolumeWagered;
+        uint256 totalPayouts;
+        int256 totalHouseProfit;
+        uint256 largestWin;
+        uint256 largestBet;
+    }
+
+    /// @notice BUX-only player stats mapping
+    mapping(address => BuxPlayerStats) public buxPlayerStats;
+
+    /// @notice BUX-only global accounting
+    BuxAccounting public buxAccounting;
+
     // ============ Errors ============
 
     error TokenNotEnabled();
@@ -696,6 +728,16 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
      */
     function initializeV6() reinitializer(6) public {
         buxReferralBasisPoints = 100;  // 1% (100 basis points)
+    }
+
+    /**
+     * @notice Initialize V7 - Separated BUX stats
+     * @dev No initialization needed - new mappings start at zero
+     * Old playerStats mapping preserved (NOT removed) for historical reference
+     */
+    function initializeV7() reinitializer(7) public {
+        // No initialization needed - buxPlayerStats and buxAccounting start at zero
+        // This reinitializer is called to mark the contract as upgraded to V7
     }
 
     /**
@@ -1196,26 +1238,55 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
 
     function _processSettlement(Bet storage bet, uint8 diffIndex, bool won) internal returns (uint256 payout) {
         TokenConfig storage config = tokenConfigs[bet.token];
-        PlayerStats storage stats = playerStats[bet.player];
 
-        stats.totalBets++;
-        stats.totalStaked += bet.amount;
-        stats.betsPerDifficulty[diffIndex]++;
+        // V7: Write to BUX-specific stats only (stop writing to old combined playerStats)
+        BuxPlayerStats storage buxStats = buxPlayerStats[bet.player];
+
+        // V7: Update BUX-specific player stats
+        buxStats.totalBets++;
+        buxStats.totalWagered += bet.amount;
+        buxStats.betsPerDifficulty[diffIndex]++;
+
+        // V7: Update BUX global accounting
+        buxAccounting.totalBets++;
+        buxAccounting.totalVolumeWagered += bet.amount;
+        if (bet.amount > buxAccounting.largestBet) {
+            buxAccounting.largestBet = bet.amount;
+        }
 
         if (won) {
             payout = (bet.amount * MULTIPLIERS[diffIndex]) / 10000;
             bet.status = BetStatus.Won;
             config.houseBalance -= (payout - bet.amount);
             int256 profit = int256(payout) - int256(bet.amount);
-            stats.overallProfitLoss += profit;
-            stats.profitLossPerDifficulty[diffIndex] += profit;
+
+            // V7: Update BUX-specific player stats
+            buxStats.wins++;
+            buxStats.totalWinnings += uint256(profit);
+            buxStats.profitLossPerDifficulty[diffIndex] += profit;
+
+            // V7: Update BUX global accounting
+            buxAccounting.totalWins++;
+            buxAccounting.totalPayouts += payout;
+            buxAccounting.totalHouseProfit -= profit;
+            if (payout > buxAccounting.largestWin) {
+                buxAccounting.largestWin = payout;
+            }
+
             IERC20(bet.token).safeTransfer(bet.player, payout);
         } else {
             payout = 0;
             bet.status = BetStatus.Lost;
             config.houseBalance += bet.amount;
-            stats.overallProfitLoss -= int256(bet.amount);
-            stats.profitLossPerDifficulty[diffIndex] -= int256(bet.amount);
+
+            // V7: Update BUX-specific player stats
+            buxStats.losses++;
+            buxStats.totalLosses += bet.amount;
+            buxStats.profitLossPerDifficulty[diffIndex] -= int256(bet.amount);
+
+            // V7: Update BUX global accounting
+            buxAccounting.totalLosses++;
+            buxAccounting.totalHouseProfit += int256(bet.amount);
 
             // V6: Send referral reward on losing BUX bet
             _sendBuxReferralReward(bet.commitmentHash, bet);
@@ -1311,6 +1382,60 @@ contract BuxBoosterGame is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             stats.overallProfitLoss,
             stats.betsPerDifficulty,
             stats.profitLossPerDifficulty
+        );
+    }
+
+    /**
+     * @notice Get BUX-specific player stats (V7)
+     * @dev Returns separated BUX stats, not combined with ROGUE
+     * @param player The player's address
+     */
+    function getBuxPlayerStats(address player) external view returns (
+        uint256 totalBets,
+        uint256 wins,
+        uint256 losses,
+        uint256 totalWagered,
+        uint256 totalWinnings,
+        uint256 totalLosses,
+        uint256[9] memory betsPerDifficulty,
+        int256[9] memory profitLossPerDifficulty
+    ) {
+        BuxPlayerStats storage stats = buxPlayerStats[player];
+        return (
+            stats.totalBets,
+            stats.wins,
+            stats.losses,
+            stats.totalWagered,
+            stats.totalWinnings,
+            stats.totalLosses,
+            stats.betsPerDifficulty,
+            stats.profitLossPerDifficulty
+        );
+    }
+
+    /**
+     * @notice Get BUX global accounting stats (V7)
+     * @dev Returns global BUX betting statistics
+     */
+    function getBuxAccounting() external view returns (
+        uint256 totalBets,
+        uint256 totalWins,
+        uint256 totalLosses,
+        uint256 totalVolumeWagered,
+        uint256 totalPayouts,
+        int256 totalHouseProfit,
+        uint256 largestWin,
+        uint256 largestBet
+    ) {
+        return (
+            buxAccounting.totalBets,
+            buxAccounting.totalWins,
+            buxAccounting.totalLosses,
+            buxAccounting.totalVolumeWagered,
+            buxAccounting.totalPayouts,
+            buxAccounting.totalHouseProfit,
+            buxAccounting.largestWin,
+            buxAccounting.largestBet
         );
     }
 

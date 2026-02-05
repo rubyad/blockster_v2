@@ -254,6 +254,8 @@ defmodule BlocksterV2.BuxBoosterOnchain do
           {:ok, tx_hash, player_balance} ->
             # Update Mnesia record to settled
             mark_game_settled(game_id, game, tx_hash)
+            # Update user betting stats for admin dashboard
+            update_user_betting_stats(game.user_id, game.token, game.bet_amount, game.won, game.payout)
             Logger.info("[BuxBoosterOnchain] Game #{game_id} settled: #{tx_hash}")
             {:ok, %{tx_hash: tx_hash, player_balance: player_balance}}
 
@@ -262,6 +264,8 @@ defmodule BlocksterV2.BuxBoosterOnchain do
             if is_bet_already_settled_error?(reason) do
               Logger.info("[BuxBoosterOnchain] Game #{game_id} was already settled on-chain, marking as settled")
               mark_game_settled(game_id, game, "already_settled_on_chain")
+              # Update user betting stats for admin dashboard
+              update_user_betting_stats(game.user_id, game.token, game.bet_amount, game.won, game.payout)
               {:ok, %{tx_hash: "already_settled_on_chain", player_balance: nil, already_settled: true}}
             else
               Logger.error("[BuxBoosterOnchain] Failed to settle game #{game_id}: #{inspect(reason)}")
@@ -312,6 +316,102 @@ defmodule BlocksterV2.BuxBoosterOnchain do
     }
     :mnesia.dirty_write(updated_record)
   end
+
+  # Update user betting stats in Mnesia for admin dashboard
+  # Called after successful bet settlement
+  defp update_user_betting_stats(user_id, token, bet_amount, won, payout) do
+    case :mnesia.dirty_read(:user_betting_stats, user_id) do
+      [record] ->
+        now = System.system_time(:millisecond)
+        first_bet_at = elem(record, 17) || now
+
+        updated = case token do
+          "ROGUE" -> update_rogue_stats(record, bet_amount, won, payout, now, first_bet_at)
+          _ -> update_bux_stats(record, bet_amount, won, payout, now, first_bet_at)
+        end
+
+        :mnesia.dirty_write(updated)
+
+      [] ->
+        # Record doesn't exist - shouldn't happen if user was created properly
+        # Create it now as a safety measure
+        Logger.warning("[BuxBoosterOnchain] Missing user_betting_stats for user #{user_id}, creating now")
+        now = System.system_time(:millisecond)
+        bet_amount_wei = to_wei(bet_amount)
+        payout_wei = to_wei(payout)
+
+        {bux_stats, rogue_stats} = case token do
+          "ROGUE" ->
+            rogue = calculate_stats(bet_amount_wei, won, payout_wei)
+            {{0, 0, 0, 0, 0, 0, 0}, rogue}
+          _ ->
+            bux = calculate_stats(bet_amount_wei, won, payout_wei)
+            {bux, {0, 0, 0, 0, 0, 0, 0}}
+        end
+
+        {bux_bets, bux_wins, bux_losses, bux_wagered, bux_winnings, bux_losses_amt, bux_pnl} = bux_stats
+        {rogue_bets, rogue_wins, rogue_losses, rogue_wagered, rogue_winnings, rogue_losses_amt, rogue_pnl} = rogue_stats
+
+        record = {:user_betting_stats, user_id, "",
+          bux_bets, bux_wins, bux_losses, bux_wagered, bux_winnings, bux_losses_amt, bux_pnl,
+          rogue_bets, rogue_wins, rogue_losses, rogue_wagered, rogue_winnings, rogue_losses_amt, rogue_pnl,
+          now, now, now,
+          nil}  # onchain_stats_cache
+        :mnesia.dirty_write(record)
+    end
+    :ok
+  end
+
+  defp update_bux_stats(record, bet_amount, won, payout, now, first_bet_at) do
+    bet_amount_wei = to_wei(bet_amount)
+    payout_wei = to_wei(payout)
+    winnings = if won, do: payout_wei - bet_amount_wei, else: 0
+    losses = if won, do: 0, else: bet_amount_wei
+    net_change = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+
+    record
+    |> put_elem(3, elem(record, 3) + 1)                    # bux_total_bets
+    |> put_elem(4, elem(record, 4) + (if won, do: 1, else: 0))   # bux_wins
+    |> put_elem(5, elem(record, 5) + (if won, do: 0, else: 1))   # bux_losses
+    |> put_elem(6, elem(record, 6) + bet_amount_wei)       # bux_total_wagered
+    |> put_elem(7, elem(record, 7) + winnings)             # bux_total_winnings
+    |> put_elem(8, elem(record, 8) + losses)               # bux_total_losses
+    |> put_elem(9, elem(record, 9) + net_change)           # bux_net_pnl
+    |> put_elem(17, first_bet_at)                          # first_bet_at
+    |> put_elem(18, now)                                   # last_bet_at
+    |> put_elem(19, now)                                   # updated_at
+  end
+
+  defp update_rogue_stats(record, bet_amount, won, payout, now, first_bet_at) do
+    bet_amount_wei = to_wei(bet_amount)
+    payout_wei = to_wei(payout)
+    winnings = if won, do: payout_wei - bet_amount_wei, else: 0
+    losses = if won, do: 0, else: bet_amount_wei
+    net_change = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+
+    record
+    |> put_elem(10, elem(record, 10) + 1)                   # rogue_total_bets
+    |> put_elem(11, elem(record, 11) + (if won, do: 1, else: 0))  # rogue_wins
+    |> put_elem(12, elem(record, 12) + (if won, do: 0, else: 1))  # rogue_losses
+    |> put_elem(13, elem(record, 13) + bet_amount_wei)      # rogue_total_wagered
+    |> put_elem(14, elem(record, 14) + winnings)            # rogue_total_winnings
+    |> put_elem(15, elem(record, 15) + losses)              # rogue_total_losses
+    |> put_elem(16, elem(record, 16) + net_change)          # rogue_net_pnl
+    |> put_elem(17, first_bet_at)                           # first_bet_at
+    |> put_elem(18, now)                                    # last_bet_at
+    |> put_elem(19, now)                                    # updated_at
+  end
+
+  defp calculate_stats(bet_amount_wei, won, payout_wei) do
+    winnings = if won, do: payout_wei - bet_amount_wei, else: 0
+    losses = if won, do: 0, else: bet_amount_wei
+    net_pnl = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+    {1, (if won, do: 1, else: 0), (if won, do: 0, else: 1), bet_amount_wei, winnings, losses, net_pnl}
+  end
+
+  defp to_wei(nil), do: 0
+  defp to_wei(amount) when is_float(amount), do: trunc(amount * 1_000_000_000_000_000_000)
+  defp to_wei(amount) when is_integer(amount), do: amount * 1_000_000_000_000_000_000
 
   @doc """
   Sync player's on-chain balance to Mnesia.

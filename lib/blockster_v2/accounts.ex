@@ -221,6 +221,8 @@ defmodule BlocksterV2.Accounts do
         # Create new user
         case create_user_from_wallet(%{wallet_address: wallet_address, chain_id: chain_id}) do
           {:ok, user} ->
+            # Create betting stats record in Mnesia for admin dashboard queries
+            create_user_betting_stats(user.id, wallet_address)
             case create_session(user.id) do
               {:ok, session} -> {:ok, user, session}
               error -> error
@@ -258,6 +260,8 @@ defmodule BlocksterV2.Accounts do
           smart_wallet_address: smart_wallet_address
         }) do
           {:ok, user} ->
+            # Create betting stats record in Mnesia for admin dashboard queries
+            create_user_betting_stats(user.id, smart_wallet_address)
             case create_session(user.id) do
               {:ok, session} -> {:ok, user, session}
               error -> error
@@ -409,6 +413,8 @@ defmodule BlocksterV2.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user, session: session}} ->
+        # Create betting stats record in Mnesia for admin dashboard queries
+        create_user_betting_stats(user.id, user.smart_wallet_address)
         {:ok, user, session, true}  # true = is_new_user
 
       {:error, :user, changeset, _} ->
@@ -595,4 +601,51 @@ defmodule BlocksterV2.Accounts do
     |> Repo.all()
     |> Map.new()
   end
+
+  # ============ Admin Functions ============
+
+@doc """
+  Creates a betting stats record for a user in Mnesia.
+  Called when a new user is created. All stats start at zero.
+  This enables fast admin dashboard queries without PostgreSQL joins.
+  """
+  def create_user_betting_stats(user_id, wallet_address) when is_integer(user_id) do
+    now = System.system_time(:millisecond)
+    record = {:user_betting_stats,
+      user_id,
+      wallet_address || "",
+      # BUX stats (all zeros)
+      0, 0, 0, 0, 0, 0, 0,
+      # ROGUE stats (all zeros)
+      0, 0, 0, 0, 0, 0, 0,
+      # Timestamps: first_bet_at, last_bet_at, updated_at
+      nil, nil, now,
+      # On-chain stats cache (nil until admin views player detail page)
+      nil
+    }
+    :mnesia.dirty_write(record)
+    :ok
+  end
+
+  @doc """
+  Checks if a user is an admin.
+
+  Admin status is determined by the `is_admin` boolean field on the User schema.
+
+  ## Examples
+
+      iex> is_admin?(%User{is_admin: true})
+      true
+
+      iex> is_admin?(%User{is_admin: false})
+      false
+
+      iex> is_admin?(nil)
+      false
+  """
+  def is_admin?(nil), do: false
+
+  def is_admin?(%User{is_admin: true}), do: true
+
+  def is_admin?(_), do: false
 end
