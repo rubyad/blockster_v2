@@ -184,6 +184,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
      |> assign(:show_video_signup_prompt, false)
+     |> assign(:earning_bar_dismissed, false)
      |> assign(:anonymous_earned, 0)
      |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
@@ -912,12 +913,18 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   @impl true
   def handle_event("close_signup_prompt", _params, socket) do
-    {:noreply, assign(socket, :show_signup_prompt, false)}
+    {:noreply,
+     socket
+     |> assign(:show_signup_prompt, false)
+     |> assign(:earning_bar_dismissed, true)}
   end
 
   @impl true
   def handle_event("close_video_signup_prompt", _params, socket) do
-    {:noreply, assign(socket, :show_video_signup_prompt, false)}
+    {:noreply,
+     socket
+     |> assign(:show_video_signup_prompt, false)
+     |> assign(:earning_bar_dismissed, true)}
   end
 
   @impl true
