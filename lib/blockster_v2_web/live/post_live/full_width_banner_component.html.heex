@@ -27,8 +27,8 @@
   <% mobile_text_size = min(parse_int(@overlay_text_size), 24) %>
   <%= if @show_text || (assigns[:current_user] && @current_user.is_admin) do %>
     <div
-      class={"absolute z-10 text-center p-3 md:p-6 #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move group", else: ""} #{if !@show_text, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
-      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px;"}
+      class={"absolute z-10 text-center p-3 md:p-6 select-none #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move group", else: ""} #{if !@show_text, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
+      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px; #{if assigns[:current_user] && @current_user.is_admin, do: "touch-action: none;", else: ""}"}
       id={"text-block-#{@id}"}
       phx-hook={if assigns[:current_user] && @current_user.is_admin, do: "TextBlockDragResize", else: nil}
       data-target={"#component-#{@id}"}
@@ -42,10 +42,14 @@
       <%= if !@show_text && assigns[:current_user] && @current_user.is_admin do %>
         <span class="text-xs text-gray-500">(Hidden)</span>
       <% end %>
-      <%!-- Resize handle (admin only) - larger touch target on mobile, always visible --%>
+      <%!-- Resize handle (admin only) - larger touch target on mobile, always visible, inside the box --%>
       <%= if assigns[:current_user] && @current_user.is_admin do %>
-        <div class="absolute -bottom-2 -right-2 w-8 h-8 md:w-6 md:h-6 cursor-se-resize bg-black/50 rounded-full flex items-center justify-center" data-resize-handle="true">
-          <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <div
+          class="absolute bottom-1 right-1 w-10 h-10 md:w-8 md:h-8 cursor-se-resize bg-black/60 rounded-lg flex items-center justify-center select-none"
+          style="touch-action: none;"
+          data-resize-handle="true"
+        >
+          <svg class="w-5 h-5 md:w-4 md:h-4 text-white pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
             <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
           </svg>
         </div>

@@ -157,11 +157,21 @@ export const TextBlockDragResize = {
     const deltaY = clientY - this.startY;
 
     // Calculate new dimensions with minimum sizes
-    const newWidth = Math.max(150, this.startWidth + deltaX);
-    const newHeight = Math.max(50, this.startHeight + deltaY);
+    // Use smaller minimum on mobile for better control
+    const minWidth = window.innerWidth < 768 ? 100 : 150;
+    const minHeight = window.innerWidth < 768 ? 40 : 50;
+
+    const newWidth = Math.max(minWidth, this.startWidth + deltaX);
+    const newHeight = Math.max(minHeight, this.startHeight + deltaY);
 
     this.el.style.width = `${newWidth}px`;
     this.el.style.height = `${newHeight}px`;
+
+    // Update start values for continuous resizing (smoother on touch)
+    this.startX = clientX;
+    this.startY = clientY;
+    this.startWidth = newWidth;
+    this.startHeight = newHeight;
   },
 
   onMouseUp() {

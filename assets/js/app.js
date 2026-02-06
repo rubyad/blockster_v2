@@ -187,12 +187,25 @@ let MobileNavHighlight = {
     const currentPath = window.location.pathname;
     const links = this.el.querySelectorAll('[data-nav-path]');
 
+    // Known section paths (everything else is considered "News" content)
+    const sectionPaths = ['/hubs', '/shop', '/airdrop', '/play', '/members', '/login', '/admin'];
+
+    // Check if current path is in a known section
+    const isInKnownSection = sectionPaths.some(section =>
+      currentPath === section || currentPath.startsWith(section + '/')
+    );
+
     links.forEach(link => {
       const navPath = link.dataset.navPath;
-      // Check if current path matches or starts with nav path (for sub-pages)
-      const isActive = navPath === '/'
-        ? currentPath === '/'
-        : currentPath === navPath || currentPath.startsWith(navPath + '/');
+      let isActive = false;
+
+      if (navPath === '/') {
+        // News icon: active on homepage OR any post page (not in known sections)
+        isActive = currentPath === '/' || !isInKnownSection;
+      } else {
+        // Other nav items: active if path matches or starts with nav path
+        isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
+      }
 
       if (isActive) {
         link.classList.add('bg-[#BAF55F]');

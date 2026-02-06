@@ -6,19 +6,20 @@ defmodule BlocksterV2Web.ShopLive.Index do
 
   # Category icons mapping (slug => ImageKit URL)
   @category_icons %{
-    "t-shirt" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
-    "tees" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
-    "t-shirts" => "https://ik.imagekit.io/blockster/Tees%20Black.png",
-    "hoodie" => "https://ik.imagekit.io/blockster/Hoodie%20Black.png",
-    "hoodies" => "https://ik.imagekit.io/blockster/Hoodie%20Black.png",
-    "hat" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
-    "hats" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
-    "caps" => "https://ik.imagekit.io/blockster/Hat%20Black.png",
-    "sneakers" => "https://ik.imagekit.io/blockster/Sneakers%20Black.png",
-    "shoes" => "https://ik.imagekit.io/blockster/Sneakers%20Black.png",
-    "sunglasses" => "https://ik.imagekit.io/blockster/Sun%20Glasses%20Apparel%20Black.png",
-    "eyewear" => "https://ik.imagekit.io/blockster/Sun%20Glasses%20Apparel%20Black.png",
-    "hardware" => "https://ik.imagekit.io/blockster/Ledger%20Black%20Icon.png"
+    "t-shirt" => "https://ik.imagekit.io/blockster/tees.png",
+    "tees" => "https://ik.imagekit.io/blockster/tees.png",
+    "t-shirts" => "https://ik.imagekit.io/blockster/tees.png",
+    "hoodie" => "https://ik.imagekit.io/blockster/hoodies.png",
+    "hoodies" => "https://ik.imagekit.io/blockster/hoodies.png",
+    "hat" => "https://ik.imagekit.io/blockster/hats.png",
+    "hats" => "https://ik.imagekit.io/blockster/hats.png",
+    "caps" => "https://ik.imagekit.io/blockster/hats.png",
+    "sneakers" => "https://ik.imagekit.io/blockster/sneakers.png",
+    "shoes" => "https://ik.imagekit.io/blockster/sneakers.png",
+    "sunglasses" => "https://ik.imagekit.io/blockster/sunglasses.png",
+    "eyewear" => "https://ik.imagekit.io/blockster/sunglasses.png",
+    "gadgets" => "https://ik.imagekit.io/blockster/gadgets.png",
+    "hardware" => "https://ik.imagekit.io/blockster/gadgets.png"
   }
 
   # Brand icons mapping (brand name => ImageKit URL)
@@ -28,11 +29,22 @@ defmodule BlocksterV2Web.ShopLive.Index do
     "Nike" => "https://ik.imagekit.io/blockster/Nike.png",
     "Oakley" => "https://ik.imagekit.io/blockster/Oakley%20Black.png",
     "Ledger" => "https://ik.imagekit.io/blockster/Ledger%20Black%20Icon.png",
-    "Blockster" => "https://ik.imagekit.io/blockster/blockster-icon.png"
+    "Blockster" => "https://ik.imagekit.io/blockster/blockster-icon.png",
+    "Cudis" => "https://ik.imagekit.io/blockster/Cudis%20Black.png",
+    "Solana" => "https://ik.imagekit.io/blockster/Solana%20Black.png",
+    "Trezor" => "https://ik.imagekit.io/blockster/Trezor%20Black.png"
   }
 
   def category_icon(slug), do: Map.get(@category_icons, slug)
-  def brand_icon(brand), do: Map.get(@brand_icons, brand)
+
+  # Brand icon lookup - case-insensitive to handle database variations
+  def brand_icon(brand) when is_binary(brand) do
+    normalized = brand |> String.trim() |> String.downcase()
+    Enum.find_value(@brand_icons, fn {key, url} ->
+      if String.downcase(key) == normalized, do: url
+    end)
+  end
+  def brand_icon(_), do: nil
 
   @impl true
   def mount(_params, _session, socket) do
@@ -69,13 +81,15 @@ defmodule BlocksterV2Web.ShopLive.Index do
       |> Enum.sort_by(& &1.name)
 
     # Vendors (Brands section) - from product vendors
+    # Normalize and deduplicate by lowercase to handle case variations (e.g., "Nike" vs "nike")
     brands_with_products =
       all_products
       |> Enum.map(& &1.vendor)
       |> Enum.reject(&is_nil/1)
+      |> Enum.map(&String.trim/1)
       |> Enum.reject(&(&1 == ""))
-      |> Enum.uniq()
-      |> Enum.sort()
+      |> Enum.uniq_by(&String.downcase/1)  # Dedupe by lowercase but keep original casing
+      |> Enum.sort_by(&String.downcase/1)  # Sort case-insensitively
 
     {:ok,
      socket
