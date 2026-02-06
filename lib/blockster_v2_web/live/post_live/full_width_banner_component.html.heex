@@ -28,7 +28,7 @@
   <%= if @show_text || (assigns[:current_user] && @current_user.is_admin) do %>
     <div
       class={"absolute z-10 text-center p-3 md:p-6 select-none #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move group", else: ""} #{if !@show_text, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
-      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px; #{if assigns[:current_user] && @current_user.is_admin, do: "touch-action: none;", else: ""}"}
+      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px; width: #{@overlay_width}px; #{if @overlay_height != "auto", do: "height: #{@overlay_height}px;", else: ""} #{if assigns[:current_user] && @current_user.is_admin, do: "touch-action: none;", else: ""}"}
       id={"text-block-#{@id}"}
       phx-hook={if assigns[:current_user] && @current_user.is_admin, do: "TextBlockDragResize", else: nil}
       data-target={"#component-#{@id}"}
