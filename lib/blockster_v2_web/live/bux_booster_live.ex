@@ -203,17 +203,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}
     >
-      <div class="max-w-2xl mx-auto px-4 pt-24 pb-8">
+      <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-2 sm:pt-24 pb-8">
         <!-- Header -->
-        <div class="text-center mb-6">
-          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Booster</h1>
-          <p class="text-gray-600 text-sm">Predict coin flips to multiply your tokens</p>
+        <div class="text-center mb-2 sm:mb-6">
+          <h1 class="text-xl sm:text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Booster</h1>
+          <p class="text-gray-600 text-[10px] sm:text-sm">Predict coin flips to multiply your tokens</p>
         </div>
 
         <!-- Main Game Area -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[500px] flex flex-col">
-          <!-- Difficulty Tabs -->
-          <div class="flex border-b border-gray-200">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[480px] sm:h-[500px] flex flex-col overflow-hidden">
+          <!-- Difficulty Tabs - scrollable on mobile (fixed height) -->
+          <div class="flex border-b border-gray-200 overflow-x-auto scrollbar-hide shrink-0">
             <%= for {opt, idx} <- Enum.with_index(@difficulty_options) do %>
               <% is_first = idx == 0 %>
               <% is_last = idx == length(@difficulty_options) - 1 %>
@@ -222,70 +222,65 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 phx-click="select_difficulty"
                 phx-value-level={opt.level}
                 disabled={@game_state not in [:idle, :result]}
-                class={"flex-1 py-3 px-2 text-center transition-all cursor-pointer disabled:cursor-not-allowed #{if is_first, do: "rounded-tl-2xl", else: ""} #{if is_last, do: "rounded-tr-2xl", else: ""} #{if @selected_difficulty == opt.level, do: "bg-black", else: "bg-gray-50 hover:bg-gray-100"}"}
+                class={"flex-1 min-w-[60px] sm:min-w-0 py-2 sm:py-3 px-1 sm:px-2 text-center transition-all cursor-pointer disabled:cursor-not-allowed #{if is_first, do: "rounded-tl-2xl", else: ""} #{if is_last, do: "rounded-tr-2xl", else: ""} #{if @selected_difficulty == opt.level, do: "bg-black", else: "bg-gray-50 hover:bg-gray-100"}"}
               >
-                <div class={"text-lg font-bold #{if @selected_difficulty == opt.level, do: "text-white", else: "text-gray-900"}"}><%= opt.multiplier %>x</div>
-                <div class={"text-xs #{if @selected_difficulty == opt.level, do: "text-gray-300", else: "text-gray-500"}"}><%= opt.predictions %> flip<%= if opt.predictions > 1, do: "s" %></div>
+                <div class={"text-sm sm:text-lg font-bold #{if @selected_difficulty == opt.level, do: "text-white", else: "text-gray-900"}"}><%= opt.multiplier %>x</div>
+                <div class={"text-[10px] sm:text-xs #{if @selected_difficulty == opt.level, do: "text-gray-300", else: "text-gray-500"}"}><%= opt.predictions %> flip<%= if opt.predictions > 1, do: "s" %></div>
               </button>
             <% end %>
           </div>
 
-          <!-- Game Content Area -->
-          <div class="p-6 flex-1 flex flex-col min-h-0 relative">
+          <!-- Game Content Area - uses relative/absolute to prevent height changes -->
+          <div class="flex-1 relative min-h-0">
+            <div class="absolute inset-0 p-3 sm:p-6 flex flex-col overflow-hidden">
             <%= if @game_state == :idle do %>
               <!-- Bet Stake with Token Dropdown -->
-              <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Bet Stake</label>
-                <div class="flex gap-2">
+              <div class="mb-3 sm:mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">Bet Stake</label>
+                <div class="flex gap-1.5 sm:gap-2">
                   <!-- Input with halve/double buttons -->
-                  <div class="flex-1 relative">
+                  <div class="flex-1 relative min-w-0">
                     <input
                       type="number"
                       value={@bet_amount}
                       phx-keyup="update_bet_amount"
                       phx-debounce="100"
                       min="1"
-                      class={"w-full bg-white border border-gray-300 rounded-lg pl-4 py-3 text-gray-900 text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none #{if @selected_token == "ROGUE" && @rogue_usd_price, do: "pr-44", else: "pr-24"}"}
+                      class="w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 pr-20 sm:pr-24 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <!-- Halve/Double buttons and USD value inside input -->
+                    <!-- Halve/Double buttons inside input -->
                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                       <button
                         type="button"
                         phx-click="halve_bet"
-                        class="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer"
+                        class="px-1.5 sm:px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs sm:text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer"
                       >
                         ½
                       </button>
                       <button
                         type="button"
                         phx-click="double_bet"
-                        class="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer"
+                        class="px-1.5 sm:px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs sm:text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer"
                       >
                         2×
                       </button>
-                      <!-- USD value for ROGUE bets -->
-                      <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                        <span class="text-xs text-gray-400 ml-1">
-                          ≈ <%= format_usd(@rogue_usd_price, @bet_amount) %>
-                        </span>
-                      <% end %>
                     </div>
                   </div>
                   <!-- Token Dropdown -->
-                  <div class="relative" id="token-dropdown-wrapper" phx-click-away="hide_token_dropdown">
+                  <div class="relative flex-shrink-0" id="token-dropdown-wrapper" phx-click-away="hide_token_dropdown">
                     <button
                       type="button"
                       phx-click="toggle_token_dropdown"
-                      class="h-full px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-all cursor-pointer min-w-[140px]"
+                      class="h-full px-2 sm:px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center gap-1 sm:gap-2 hover:bg-gray-200 transition-all cursor-pointer"
                     >
-                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 h-5 rounded-full" />
-                      <span class="font-medium text-gray-900"><%= @selected_token %></span>
-                      <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 sm:w-5 h-4 sm:h-5 rounded-full" />
+                      <span class="font-medium text-gray-900 text-sm sm:text-base"><%= @selected_token %></span>
+                      <svg class="w-3 sm:w-4 h-3 sm:h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
                     <%= if @show_token_dropdown do %>
-                      <div class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-max min-w-[220px] max-h-[400px] overflow-y-auto">
+                      <div class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-max min-w-[180px] sm:min-w-[220px] max-h-[400px] overflow-y-auto">
                         <%= for token <- @tokens do %>
                           <button
                             type="button"
@@ -305,51 +300,61 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       </div>
                     <% end %>
                   </div>
+                  <!-- Max button - hidden on mobile, shown on desktop -->
                   <button
                     type="button"
                     phx-click="set_max_bet"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer flex flex-col items-center"
+                    class="hidden sm:flex px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer flex-col items-center flex-shrink-0"
                     title={"Max bet: #{@max_bet} #{@selected_token}"}
                   >
-                    <span class="text-xs text-gray-500 font-normal">Max bet</span>
+                    <span class="text-xs text-gray-500 font-normal">Max</span>
                     <span class="text-sm font-medium"><%= format_integer(@max_bet) %></span>
                   </button>
                 </div>
-                <div class="mt-2">
-                  <div class="flex items-center justify-between text-sm">
+                <!-- Mobile: Max button row -->
+                <div class="flex sm:hidden gap-2 mt-2">
+                  <button
+                    type="button"
+                    phx-click="set_max_bet"
+                    class="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    title={"Max bet: #{@max_bet} #{@selected_token}"}
+                  >
+                    <span class="text-xs text-gray-500">Max bet:</span>
+                    <span class="text-sm font-medium"><%= format_integer(@max_bet) %> <%= @selected_token %></span>
+                  </button>
+                </div>
+                <!-- Balance info - stacks on mobile -->
+                <div class="mt-1.5 sm:mt-2">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm gap-1 sm:gap-0">
                     <div class="text-gray-500">
                       <%= if @selected_token == "ROGUE" do %>
                         <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full inline" />
+                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full inline" />
                           <%= @selected_token %>
+                          <%= if @rogue_usd_price do %>
+                            <span class="text-gray-400">(≈ <%= format_usd(@rogue_usd_price, Map.get(@balances, "ROGUE", 0)) %>)</span>
+                          <% end %>
                         </a>
                       <% else %>
                         <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 h-4 rounded-full inline" />
+                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full inline" />
                           <%= @selected_token %>
                         </a>
                       <% end %>
-                      <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                        <p class="text-xs text-gray-400">
-                          ≈ <%= format_usd(@rogue_usd_price, Map.get(@balances, "ROGUE", 0)) %>
-                        </p>
-                      <% end %>
                     </div>
-                    <div class="text-right">
+                    <div class="text-right sm:text-right">
                       <%= if @selected_token == "ROGUE" do %>
-                        <a href="https://roguetrader.io/rogue-bankroll" target="_blank" class="text-blue-500 text-xs hover:underline cursor-pointer">
+                        <a href="https://roguetrader.io/rogue-bankroll" target="_blank" class="text-blue-500 text-[10px] sm:text-xs hover:underline cursor-pointer">
                           House: <%= format_balance(@house_balance) %> <%= @selected_token %>
+                          <%= if @rogue_usd_price do %>
+                            <span class="text-gray-400">(≈ <%= format_usd(@rogue_usd_price, @house_balance) %>)</span>
+                          <% end %>
                         </a>
                       <% else %>
-                        <p class="text-gray-400 text-xs">
+                        <p class="text-gray-400 text-[10px] sm:text-xs">
                           House: <%= format_balance(@house_balance) %> <%= @selected_token %>
-                        </p>
-                      <% end %>
-                      <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                        <p class="text-xs text-gray-400">
-                          ≈ <%= format_usd(@rogue_usd_price, @house_balance) %>
                         </p>
                       <% end %>
                     </div>
@@ -358,16 +363,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               </div>
 
               <!-- Potential Profit Display -->
-              <div class="bg-green-50 rounded-xl p-3 mb-4 border border-green-200">
+              <div class="bg-green-50 rounded-xl p-2 sm:p-3 mb-3 sm:mb-4 border border-green-200">
                 <div class="flex items-center justify-between">
-                  <span class="text-gray-700 text-sm">Potential Profit:</span>
-                  <div class="flex items-center gap-3">
-                    <span class="text-xl font-bold text-green-600 flex items-center gap-2">
-                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 h-5 rounded-full" />
+                  <span class="text-gray-700 text-xs sm:text-sm">Potential Profit:</span>
+                  <div class="flex items-center gap-1 sm:gap-3">
+                    <span class="text-base sm:text-xl font-bold text-green-600 flex items-center gap-1 sm:gap-2">
+                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 sm:w-5 h-4 sm:h-5 rounded-full" />
                       +<%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %>
                     </span>
                     <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                      <span class="text-sm text-green-500">
+                      <span class="text-xs sm:text-sm text-green-500">
                         (<%= format_usd(@rogue_usd_price, @bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %>)
                       </span>
                     <% end %>
@@ -377,19 +382,21 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
               <!-- Error Message -->
               <%= if @error_message do %>
-                <div class="bg-red-50 border border-red-300 rounded-lg p-3 mb-4 text-red-700 text-sm">
+                <div class="bg-red-50 border border-red-300 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4 text-red-700 text-xs sm:text-sm">
                   <%= @error_message %>
                 </div>
               <% end %>
 
               <!-- Prediction Selection Grid -->
               <div class="flex-1 flex flex-col">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="block text-sm font-medium text-gray-700">
+                <div class="flex items-start sm:items-center justify-between mb-2 gap-2">
+                  <label class="block text-xs sm:text-sm font-medium text-gray-700">
                     <%= if get_mode(@selected_difficulty) == :win_one do %>
-                      Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)
+                      <span class="hidden sm:inline">Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)</span>
+                      <span class="sm:hidden">Predict (<%= get_predictions_needed(@selected_difficulty) %> flips, win any)</span>
                     <% else %>
-                      Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)
+                      <span class="hidden sm:inline">Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)</span>
+                      <span class="sm:hidden">Predict (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)</span>
                     <% end %>
                   </label>
                   <!-- Provably Fair -->
@@ -407,9 +414,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <%= if @show_provably_fair do %>
                       <div
                         phx-click-away="close_provably_fair"
-                        class="absolute right-0 top-full mt-1 z-50 w-80 bg-white rounded-lg p-3 border border-gray-200 shadow-lg text-left overflow-hidden"
+                        class="absolute right-0 top-full mt-1 z-50 w-[calc(100vw-24px)] sm:w-80 max-w-80 bg-white rounded-lg p-2 sm:p-3 border border-gray-200 shadow-lg text-left overflow-hidden"
                       >
-                        <p class="text-xs text-gray-600 mb-2">
+                        <p class="text-[10px] sm:text-xs text-gray-600 mb-2">
                           This hash commits the server to a result BEFORE you place your bet.
                           After the game, you can verify the result was fair.
                         </p>
@@ -456,13 +463,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   </div>
                 </div>
                 <div class="flex-1 flex items-center justify-center">
-                  <div class="flex gap-2 justify-center">
+                  <div class="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
                       <button
                         type="button"
                         phx-click="toggle_prediction"
                         phx-value-index={i}
-                        class={"w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
+                        class={"w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
                           :heads -> "casino-chip-heads"
                           :tails -> "casino-chip-tails"
                           _ -> "bg-gray-200 text-gray-500 hover:bg-gray-300"
@@ -470,12 +477,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       >
                           <%= case Enum.at(@predictions, i - 1) do %>
                           <% :heads -> %>
-                            <div class="w-10 h-10 rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner">
-                              <span class="text-2xl">🚀</span>
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner">
+                              <span class="text-xl sm:text-2xl">🚀</span>
                             </div>
                           <% :tails -> %>
-                            <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner">
-                              <span class="text-2xl">💩</span>
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner">
+                              <span class="text-xl sm:text-2xl">💩</span>
                             </div>
                           <% _ -> %><%= i %>
                         <% end %>
@@ -486,12 +493,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               </div>
 
               <!-- Start Game Button -->
-              <div class="mt-4">
+              <div class="mt-3 sm:mt-4">
                 <button
                   type="button"
                   phx-click="start_game"
                   disabled={Enum.any?(@predictions, &is_nil/1)}
-                  class="w-full py-4 bg-black text-white font-bold text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="w-full py-3 sm:py-4 bg-black text-white font-bold text-base sm:text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                 <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
                   Place Bet
@@ -509,14 +516,14 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               <!-- Game in Progress -->
               <div class="text-center flex-1 flex flex-col relative">
                 <!-- Prediction vs Result Display -->
-                <div class="mb-4">
-                  <div class="flex justify-center gap-2 mb-2">
+                <div class="mb-3 sm:mb-4">
+                  <div class="flex justify-center gap-1 sm:gap-2 mb-2 flex-wrap">
                     <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
                       <div class="text-center">
                         <!-- Prediction -->
-                        <div class={"w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
-                          <div class={"w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                            <span class="text-3xl"><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
+                        <div class={"w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
+                          <div class={"w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                            <span class="text-xl sm:text-3xl"><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
                           </div>
                         </div>
                         <!-- Result indicator -->
@@ -525,18 +532,18 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                              (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) -> %>
                             <% result = Enum.at(@results, i - 1) %>
                             <% matched = result == Enum.at(@predictions, i - 1) %>
-                            <div class={"w-20 h-20 mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
-                              <div class={"w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                                <span class="text-3xl"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                            <div class={"w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
+                              <div class={"w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                                <span class="text-xl sm:text-3xl"><%= if result == :heads, do: "🚀", else: "💩" %></span>
                               </div>
                             </div>
                           <% i == @current_flip and @game_state == :flipping -> %>
-                            <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse">
-                              <span class="text-white text-3xl font-bold">?</span>
+                            <div class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse">
+                              <span class="text-white text-xl sm:text-3xl font-bold">?</span>
                             </div>
                           <% true -> %>
-                            <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center bg-gray-100">
-                              <span class="text-gray-400 text-xl">-</span>
+                            <div class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center bg-gray-100">
+                              <span class="text-gray-400 text-lg sm:text-xl">-</span>
                             </div>
                         <% end %>
                       </div>
@@ -546,15 +553,15 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
                 <!-- Bet Amount Display (shown during flipping/showing_result) -->
                 <%= if @game_state in [:flipping, :showing_result] do %>
-                  <div class="mb-4 text-center">
-                    <p class="text-gray-500 text-sm">Bet</p>
-                    <p class="text-xl font-bold text-gray-900 flex items-center justify-center gap-2">
-                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 h-5 rounded-full" />
+                  <div class="mb-3 sm:mb-4 text-center">
+                    <p class="text-gray-500 text-xs sm:text-sm">Bet</p>
+                    <p class="text-lg sm:text-xl font-bold text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
+                      <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 sm:w-5 h-4 sm:h-5 rounded-full" />
                       <span><%= format_balance(@current_bet) %></span>
                       <span class="text-gray-600"><%= @selected_token %></span>
                     </p>
                     <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                      <p class="text-xs text-gray-400 mt-1">
+                      <p class="text-[10px] sm:text-xs text-gray-400 mt-1">
                         ≈ <%= format_usd(@rogue_usd_price, @current_bet) %>
                       </p>
                     <% end %>
@@ -563,16 +570,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
                 <%= if @game_state == :awaiting_tx do %>
                   <!-- Awaiting Transaction State -->
-                  <div class="mb-6 text-center">
-                    <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center bg-purple-100 animate-pulse mb-4">
-                      <svg class="w-12 h-12 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <div class="mb-4 sm:mb-6 text-center">
+                    <div class="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full flex items-center justify-center bg-purple-100 animate-pulse mb-3 sm:mb-4">
+                      <svg class="w-8 h-8 sm:w-12 sm:h-12 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm Transaction</h3>
-                    <p class="text-sm text-gray-600 mb-4">Please approve the transaction in your wallet</p>
-                    <p class="text-xs text-gray-400">
+                    <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Confirm Transaction</h3>
+                    <p class="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Please approve the transaction in your wallet</p>
+                    <p class="text-[10px] sm:text-xs text-gray-400">
                       Betting <%= format_balance(@current_bet) %> <%= @selected_token %>
                     </p>
                   </div>
@@ -580,19 +587,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
                 <%= if @game_state == :flipping do %>
                   <!-- Coin Flip Animation -->
-                  <div class="mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)} data-flip-index={@current_flip}>
-                    <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
+                  <div class="mb-4 sm:mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)} data-flip-index={@current_flip}>
+                    <div class="coin-container mx-auto w-16 h-16 sm:w-24 sm:h-24 relative perspective-1000">
                       <div class="coin w-full h-full absolute animate-flip-continuous">
                         <!-- Heads chip -->
                         <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class="w-16 h-16 rounded-full bg-coin-heads flex items-center justify-center border-4 border-white shadow-inner">
-                            <span class="text-4xl">🚀</span>
+                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-coin-heads flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
+                            <span class="text-2xl sm:text-4xl">🚀</span>
                           </div>
                         </div>
                         <!-- Tails chip -->
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center border-4 border-white shadow-inner">
-                            <span class="text-4xl">💩</span>
+                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-700 flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
+                            <span class="text-2xl sm:text-4xl">💩</span>
                           </div>
                         </div>
                       </div>
@@ -602,25 +609,25 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
                 <%= if @game_state == :showing_result do %>
                   <!-- Show coin result for 1 second -->
-                  <div class="mb-6">
-                    <div class="coin-container mx-auto w-24 h-24 relative perspective-1000">
+                  <div class="mb-4 sm:mb-6">
+                    <div class="coin-container mx-auto w-16 h-16 sm:w-24 sm:h-24 relative perspective-1000">
                       <!-- Static coin showing the result -->
                       <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if Enum.at(@results, @current_flip - 1) == :heads, do: "0deg", else: "180deg"})"}>
                         <!-- Heads chip -->
                         <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class="w-16 h-16 rounded-full bg-coin-heads flex items-center justify-center border-4 border-white shadow-inner">
-                            <span class="text-4xl">🚀</span>
+                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-coin-heads flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
+                            <span class="text-2xl sm:text-4xl">🚀</span>
                           </div>
                         </div>
                         <!-- Tails chip -->
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center border-4 border-white shadow-inner">
-                            <span class="text-4xl">💩</span>
+                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-700 flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
+                            <span class="text-2xl sm:text-4xl">💩</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <p class="mt-3 text-sm">
+                    <p class="mt-2 sm:mt-3 text-xs sm:text-sm">
                       <span class={if Enum.at(@results, @current_flip - 1) == Enum.at(@predictions, @current_flip - 1), do: "text-green-600 font-bold", else: "text-red-600 font-bold"}>
                         <%= if Enum.at(@results, @current_flip - 1) == Enum.at(@predictions, @current_flip - 1), do: "✓ Correct!", else: "✗ Wrong!" %>
                       </span>
@@ -642,36 +649,36 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   <% end %>
 
                   <!-- Final Result Display -->
-                  <div class="mb-6 relative">
+                  <div class="mb-4 sm:mb-6 relative">
                     <%= if @won do %>
                       <!-- Win content with scale-in and shake animation - emoji on side -->
-                      <div class="win-celebration win-shake flex items-center justify-center gap-4">
-                        <div class="animate-bounce" style="font-size: 50px; line-height: 1;">🎉</div>
+                      <div class="win-celebration win-shake flex items-center justify-center gap-2 sm:gap-4">
+                        <div class="animate-bounce text-3xl sm:text-[50px] leading-none">🎉</div>
                         <div class="text-center">
-                          <h2 class="text-3xl font-bold text-green-600 mb-1 animate-pulse">YOU WON!</h2>
-                          <p class="text-2xl text-gray-900 flex items-center justify-center gap-2">
-                            <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-6 h-6 rounded-full" />
+                          <h2 class="text-xl sm:text-3xl font-bold text-green-600 mb-1 animate-pulse">YOU WON!</h2>
+                          <p class="text-lg sm:text-2xl text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
+                            <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 sm:w-6 h-5 sm:h-6 rounded-full" />
                             <span class="text-green-600 font-bold"><%= format_balance(@payout) %></span>
                             <span><%= @selected_token %></span>
                           </p>
                           <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                            <p class="text-sm text-gray-500 mt-1">
+                            <p class="text-xs sm:text-sm text-gray-500 mt-1">
                               ≈ <%= format_usd(@rogue_usd_price, @payout) %>
                             </p>
                           <% end %>
                         </div>
-                        <div class="animate-bounce" style="font-size: 50px; line-height: 1;">🎉</div>
+                        <div class="animate-bounce text-3xl sm:text-[50px] leading-none">🎉</div>
                       </div>
                     <% else %>
                       <!-- Loss content -->
                       <div class="text-center">
-                        <p class="text-xl text-gray-900 flex items-center justify-center gap-2">
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-5 h-5 rounded-full" />
+                        <p class="text-lg sm:text-xl text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
+                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 sm:w-5 h-4 sm:h-5 rounded-full" />
                           <span class="text-red-600 font-bold">-<%= format_balance(@bet_amount) %></span>
                           <span><%= @selected_token %></span>
                         </p>
                         <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                          <p class="text-sm text-gray-500 mt-1">
+                          <p class="text-xs sm:text-sm text-gray-500 mt-1">
                             ≈ -<%= format_usd(@rogue_usd_price, @bet_amount) %>
                           </p>
                         <% end %>
@@ -684,7 +691,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <button
                       type="button"
                       phx-click="reset_game"
-                      class="px-8 py-3 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in"
+                      class="px-6 sm:px-8 py-2.5 sm:py-3 bg-black text-white font-bold text-sm sm:text-base rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in"
                     >
                       Play Again
                     </button>
@@ -706,36 +713,37 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               </div>
             <% end %>
 
+            </div>
           </div>
         </div>
 
         <!-- Recent Games -->
-        <div class="mt-6">
-          <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <h3 class="text-sm font-bold text-gray-900 mb-3">Recent Games</h3>
+        <div class="mt-4 sm:mt-6">
+          <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">Recent Games</h3>
             <%= if assigns[:games_loading] do %>
-              <div class="text-center py-4 text-gray-500 text-sm">Loading games...</div>
+              <div class="text-center py-4 text-gray-500 text-xs sm:text-sm">Loading games...</div>
             <% end %>
             <%= if length(@recent_games) > 0 do %>
-              <div id="recent-games-scroll" class="overflow-y-auto max-h-96 relative" phx-hook="InfiniteScroll">
-                <table class="w-full text-xs">
+              <div id="recent-games-scroll" class="overflow-x-auto overflow-y-auto max-h-72 sm:max-h-96 relative" phx-hook="InfiniteScroll">
+                <table class="w-full text-[10px] sm:text-xs min-w-[600px]">
                   <thead class="sticky top-0 z-20 bg-white">
                     <tr class="border-b-2 border-gray-200 bg-white">
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Bet ID</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Bet</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Predictions</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Results</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Odds</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Result</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">P/L</th>
-                      <th class="text-left py-2 px-2 text-gray-600 font-medium bg-white">Verify</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">ID</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">Bet</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">Pred</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">Result</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">Odds</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">W/L</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">P/L</th>
+                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white whitespace-nowrap">Verify</th>
                     </tr>
                   </thead>
                     <tbody>
                       <%= for game <- @recent_games do %>
                         <tr id={"game-#{game.game_id}"} class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
                           <!-- Bet ID (nonce linked to commitment tx) -->
-                          <td class="py-2 px-2">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.commitment_tx do %>
                               <a href={"https://roguescan.io/tx/#{game.commitment_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
                                 #<%= game.nonce %>
@@ -745,55 +753,52 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <% end %>
                           </td>
                           <!-- Bet Amount (linked to bet placement tx) -->
-                          <td class="py-2 px-2">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.bet_tx do %>
-                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1.5">
-                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1">
+                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full" />
                                 <span><%= format_integer(game.bet_amount) %></span>
                               </a>
                             <% else %>
-                              <div class="flex items-center gap-1.5">
-                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-4 h-4 rounded-full" />
+                              <div class="flex items-center gap-1">
+                                <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full" />
                                 <span class="text-gray-900"><%= format_integer(game.bet_amount) %></span>
                               </div>
                             <% end %>
                           </td>
                           <!-- Predictions -->
-                          <td class="py-2 px-2">
-                            <div class="flex gap-0.5">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
+                            <div class="flex gap-0">
                               <%= for pred <- (game.predictions || []) do %>
-                                <span><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                                <span class="text-[10px] sm:text-xs"><%= if pred == :heads, do: "🚀", else: "💩" %></span>
                               <% end %>
                             </div>
                           </td>
                           <!-- Results -->
-                          <td class="py-2 px-2">
-                            <div class="flex gap-0.5">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
+                            <div class="flex gap-0">
                               <%= for result <- (game.results || []) do %>
-                                <span><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                                <span class="text-[10px] sm:text-xs"><%= if result == :heads, do: "🚀", else: "💩" %></span>
                               <% end %>
                             </div>
                           </td>
                           <!-- Odds -->
-                          <td class="py-2 px-2 text-gray-900 font-medium"><%= game.multiplier %>x</td>
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-900 font-medium whitespace-nowrap"><%= game.multiplier %>x</td>
                           <!-- Win/Loss -->
-                          <td class="py-2 px-2">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.won do %>
-                              <span class="text-green-600 font-medium">Win</span>
+                              <span class="text-green-600 font-medium">W</span>
                             <% else %>
-                              <span class="text-red-600 font-medium">Loss</span>
+                              <span class="text-red-600 font-medium">L</span>
                             <% end %>
                           </td>
                           <!-- P/L (profit for wins, loss for losses) -->
-                          <td class="py-2 px-2">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2 whitespace-nowrap">
                             <%= if game.won do %>
                               <% profit = game.payout - game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium inline-flex items-center gap-1">
-                                  <span>+<%= format_balance(profit) %></span>
-                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                  </svg>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
+                                  +<%= format_balance(profit) %>
                                 </a>
                               <% else %>
                                 <span class="text-green-600 font-medium">
@@ -803,11 +808,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <% else %>
                               <% loss = game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium inline-flex items-center gap-1">
-                                  <span>-<%= format_balance(loss) %></span>
-                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                  </svg>
+                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
+                                  -<%= format_balance(loss) %>
                                 </a>
                               <% else %>
                                 <span class="text-red-600 font-medium">-<%= format_balance(loss) %></span>
@@ -815,10 +817,10 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <% end %>
                           </td>
                           <!-- Verify -->
-                          <td class="py-2 px-2">
+                          <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.server_seed && game.server_seed_hash && game.nonce do %>
                               <button type="button" phx-click="show_fairness_modal" phx-value-game-id={game.game_id} class="text-blue-500 hover:underline cursor-pointer">
-                                Verify
+                                ✓
                               </button>
                             <% else %>
                               <span class="text-gray-400">-</span>
@@ -831,7 +833,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 </div>
             <% else %>
               <%= if !assigns[:games_loading] do %>
-                <p class="text-gray-500 text-xs">No games played yet</p>
+                <p class="text-gray-500 text-[10px] sm:text-xs">No games played yet</p>
               <% end %>
             <% end %>
           </div>
@@ -841,116 +843,116 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     <!-- Fairness Verification Modal -->
     <%= if @show_fairness_modal and @fairness_game do %>
-      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" phx-click="hide_fairness_modal">
-        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl" phx-click="stop_propagation">
+      <div class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" phx-click="hide_fairness_modal">
+        <div class="bg-white rounded-none sm:rounded-2xl w-full sm:max-w-lg max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl" phx-click="stop_propagation">
           <!-- Header -->
-          <div class="p-4 border-b flex items-center justify-between bg-gray-50 rounded-t-2xl">
+          <div class="p-3 sm:p-4 border-b flex items-center justify-between bg-gray-50 sm:rounded-t-2xl sticky top-0 z-10">
             <div class="flex items-center gap-2">
-              <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-4 sm:w-5 h-4 sm:h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <h2 class="text-lg font-bold text-gray-900">Provably Fair Verification</h2>
+              <h2 class="text-base sm:text-lg font-bold text-gray-900">Provably Fair Verification</h2>
             </div>
             <button type="button" phx-click="hide_fairness_modal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-5 sm:w-6 h-5 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           <!-- Content -->
-          <div class="p-4 space-y-4">
+          <div class="p-3 sm:p-4 space-y-3 sm:space-y-4">
             <!-- Bet Details -->
-            <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
-              <p class="text-sm font-medium text-blue-800 mb-2">Your Bet Details</p>
-              <p class="text-xs text-blue-600 mb-2">These player-controlled values derive your client seed:</p>
-              <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-blue-50 rounded-lg p-2 sm:p-3 border border-blue-200">
+              <p class="text-xs sm:text-sm font-medium text-blue-800 mb-1 sm:mb-2">Your Bet Details</p>
+              <p class="text-[10px] sm:text-xs text-blue-600 mb-2">These player-controlled values derive your client seed:</p>
+              <div class="grid grid-cols-2 gap-1 sm:gap-2 text-xs sm:text-sm">
                 <div class="text-blue-600">User ID:</div>
-                <div class="font-mono text-xs"><%= @fairness_game.user_id %></div>
+                <div class="font-mono text-[10px] sm:text-xs"><%= @fairness_game.user_id %></div>
                 <div class="text-blue-600">Bet Amount:</div>
-                <div><%= @fairness_game.bet_amount %></div>
+                <div class="text-xs sm:text-sm"><%= @fairness_game.bet_amount %></div>
                 <div class="text-blue-600">Token:</div>
-                <div><%= @fairness_game.token %></div>
+                <div class="text-xs sm:text-sm"><%= @fairness_game.token %></div>
                 <div class="text-blue-600">Difficulty:</div>
-                <div><%= @fairness_game.difficulty %></div>
+                <div class="text-xs sm:text-sm"><%= @fairness_game.difficulty %></div>
                 <div class="text-blue-600">Predictions:</div>
-                <div><%= @fairness_game.predictions_str %></div>
+                <div class="text-xs sm:text-sm"><%= @fairness_game.predictions_str %></div>
               </div>
             </div>
 
             <!-- Nonce -->
-            <div class="bg-gray-50 rounded-lg p-3">
+            <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
               <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-600">Game Nonce:</span>
-                <span class="font-mono text-sm"><%= @fairness_game.nonce %></span>
+                <span class="text-xs sm:text-sm text-gray-600">Game Nonce:</span>
+                <span class="font-mono text-xs sm:text-sm"><%= @fairness_game.nonce %></span>
               </div>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-[10px] sm:text-xs text-gray-500 mt-1">
                 Ensures unique results even for identical bets
               </p>
             </div>
 
             <!-- Seeds -->
-            <div class="space-y-3">
+            <div class="space-y-2 sm:space-y-3">
               <div>
-                <label class="text-sm font-medium text-gray-700">Server Seed (revealed)</label>
-                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                <label class="text-xs sm:text-sm font-medium text-gray-700">Server Seed (revealed)</label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 sm:py-2 rounded break-all block overflow-x-auto">
                   <%= @fairness_game.server_seed %>
                 </code>
               </div>
 
               <div>
-                <label class="text-sm font-medium text-gray-700">Server Commitment (shown before bet)</label>
-                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                <label class="text-xs sm:text-sm font-medium text-gray-700">Server Commitment (shown before bet)</label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 sm:py-2 rounded break-all block overflow-x-auto">
                   <%= @fairness_game.server_seed_hash %>
                 </code>
               </div>
 
               <div>
-                <label class="text-sm font-medium text-gray-700">Client Seed (derived from bet details)</label>
-                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                <label class="text-xs sm:text-sm font-medium text-gray-700">Client Seed (derived from bet details)</label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 sm:py-2 rounded break-all block overflow-x-auto">
                   <%= @fairness_game.client_seed %>
                 </code>
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-[10px] sm:text-xs text-gray-500 mt-1 break-all">
                   = SHA256("<%= @fairness_game.client_seed_input %>")
                 </p>
               </div>
 
               <div>
-                <label class="text-sm font-medium text-gray-700">Combined Seed</label>
-                <code class="mt-1 text-xs font-mono bg-gray-100 px-2 py-2 rounded break-all block">
+                <label class="text-xs sm:text-sm font-medium text-gray-700">Combined Seed</label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 sm:py-2 rounded break-all block overflow-x-auto">
                   <%= @fairness_game.combined_seed %>
                 </code>
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-[10px] sm:text-xs text-gray-500 mt-1">
                   = SHA256(server_seed + ":" + client_seed + ":" + nonce)
                 </p>
               </div>
             </div>
 
             <!-- Verification Steps -->
-            <div class="bg-green-50 rounded-lg p-3 border border-green-200">
-              <p class="text-sm font-medium text-green-800 mb-2">Verification Steps</p>
-              <ol class="text-sm text-green-700 space-y-1 list-decimal ml-4">
+            <div class="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200">
+              <p class="text-xs sm:text-sm font-medium text-green-800 mb-1 sm:mb-2">Verification Steps</p>
+              <ol class="text-[10px] sm:text-sm text-green-700 space-y-0.5 sm:space-y-1 list-decimal ml-4">
                 <li>SHA256(server_seed) = commitment</li>
                 <li>client_seed = SHA256(bet_details)</li>
-                <li>combined_seed = SHA256(server_seed:client_seed:nonce)</li>
-                <li>Results derived from combined seed bytes</li>
+                <li>combined_seed = SHA256(server:client:nonce)</li>
+                <li>Results from combined seed bytes</li>
               </ol>
             </div>
 
             <!-- Flip Results Breakdown -->
             <div>
-              <p class="text-sm font-medium text-gray-700 mb-2">Flip Results</p>
-              <div class="space-y-2">
+              <p class="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Flip Results</p>
+              <div class="space-y-1.5 sm:space-y-2">
                 <%= for i <- 0..(length(@fairness_game.results) - 1) do %>
                   <% byte = Enum.at(@fairness_game.bytes, i) %>
-                  <div class="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                  <div class="flex items-center justify-between text-xs sm:text-sm bg-gray-50 p-1.5 sm:p-2 rounded">
                     <span>Flip <%= i + 1 %>:</span>
-                    <div class="flex items-center gap-2">
-                      <span class="font-mono text-xs">byte[<%= i %>] = <%= byte %></span>
+                    <div class="flex items-center gap-1 sm:gap-2">
+                      <span class="font-mono text-[10px] sm:text-xs">byte[<%= i %>]=<%= byte %></span>
                       <span class={if byte < 128, do: "text-amber-600", else: "text-gray-600"}>
-                        <%= if byte < 128, do: "🚀 Heads", else: "💩 Tails" %>
+                        <%= if byte < 128, do: "🚀", else: "💩" %>
                       </span>
-                      <span class="text-xs text-gray-400">
+                      <span class="text-[10px] sm:text-xs text-gray-400 hidden sm:inline">
                         (<%= if byte < 128, do: "< 128", else: ">= 128" %>)
                       </span>
                     </div>
@@ -960,49 +962,49 @@ defmodule BlocksterV2Web.BuxBoosterLive do
             </div>
 
             <!-- External Verification -->
-            <div class="border-t pt-4">
-              <p class="text-sm font-medium text-gray-700 mb-2">Verify Externally</p>
-              <p class="text-xs text-gray-500 mb-3">
+            <div class="border-t pt-3 sm:pt-4">
+              <p class="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Verify Externally</p>
+              <p class="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">
                 Click each link to verify using an online SHA256 calculator:
               </p>
-              <div class="space-y-3">
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-600 mb-1">1. Verify server commitment</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+              <div class="space-y-2 sm:space-y-3">
+                <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p class="text-[10px] sm:text-xs text-gray-600 mb-1">1. Verify server commitment</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
                     SHA256(server_seed) → Click to verify
                   </a>
-                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.server_seed_hash %></p>
+                  <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.server_seed_hash %></p>
                 </div>
 
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-600 mb-1">2. Derive client seed from bet details</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.client_seed_input}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+                <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p class="text-[10px] sm:text-xs text-gray-600 mb-1">2. Derive client seed from bet details</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.client_seed_input}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
                     SHA256(bet_details) → Click to verify
                   </a>
-                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.client_seed %></p>
+                  <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.client_seed %></p>
                 </div>
 
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-600 mb-1">3. Generate combined seed</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}:#{@fairness_game.client_seed}:#{@fairness_game.nonce}"} target="_blank" class="text-blue-500 hover:underline text-xs cursor-pointer">
+                <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p class="text-[10px] sm:text-xs text-gray-600 mb-1">3. Generate combined seed</p>
+                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}:#{@fairness_game.client_seed}:#{@fairness_game.nonce}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
                     SHA256(server:client:nonce) → Click to verify
                   </a>
-                  <p class="text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.combined_seed %></p>
+                  <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.combined_seed %></p>
                 </div>
 
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-600 mb-1">4. Convert hex to bytes for flip results</p>
-                  <p class="text-xs text-gray-500 mb-2">
+                <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p class="text-[10px] sm:text-xs text-gray-600 mb-1">4. Convert hex to bytes for flip results</p>
+                  <p class="text-[10px] sm:text-xs text-gray-500 mb-2">
                     Each pair of hex chars = 1 byte. First <%= length(@fairness_game.results) %> bytes determine flips:
                   </p>
-                  <div class="bg-white rounded p-2 border">
+                  <div class="bg-white rounded p-1.5 sm:p-2 border">
                     <%= for {byte, i} <- Enum.with_index(@fairness_game.bytes) do %>
-                      <div class={"flex items-center justify-between text-xs py-1 #{if i > 0, do: "border-t border-gray-100"}"}>
+                      <div class={"flex items-center justify-between text-[10px] sm:text-xs py-0.5 sm:py-1 #{if i > 0, do: "border-t border-gray-100"}"}>
                         <span class="font-mono text-gray-500">
                           byte[<%= i %>] = 0x<%= String.slice(@fairness_game.combined_seed, i * 2, 2) %> = <%= byte %>
                         </span>
                         <span class={if byte < 128, do: "text-amber-600", else: "text-gray-600"}>
-                          <%= if byte < 128, do: "< 128 → Heads", else: ">= 128 → Tails" %>
+                          <%= if byte < 128, do: "< 128 → 🚀", else: ">= 128 → 💩" %>
                         </span>
                       </div>
                     <% end %>
