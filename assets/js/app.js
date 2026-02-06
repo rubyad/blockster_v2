@@ -169,6 +169,76 @@ let TokenInput = {
   }
 };
 
+// Mobile and Desktop Navigation Highlight Hook
+let MobileNavHighlight = {
+  mounted() {
+    this.updateActiveNav();
+    // Listen for LiveView navigation changes
+    window.addEventListener('phx:navigate', () => {
+      setTimeout(() => this.updateActiveNav(), 50);
+    });
+  },
+
+  updated() {
+    this.updateActiveNav();
+  },
+
+  updateActiveNav() {
+    const currentPath = window.location.pathname;
+    const links = this.el.querySelectorAll('[data-nav-path]');
+
+    links.forEach(link => {
+      const navPath = link.dataset.navPath;
+      // Check if current path matches or starts with nav path (for sub-pages)
+      const isActive = navPath === '/'
+        ? currentPath === '/'
+        : currentPath === navPath || currentPath.startsWith(navPath + '/');
+
+      if (isActive) {
+        link.classList.add('bg-[#8AE388]');
+        link.classList.remove('hover:bg-gray-100');
+      } else {
+        link.classList.remove('bg-[#8AE388]');
+        link.classList.add('hover:bg-gray-100');
+      }
+    });
+  }
+};
+
+// Desktop Navigation Highlight Hook
+let DesktopNavHighlight = {
+  mounted() {
+    this.updateActiveNav();
+    window.addEventListener('phx:navigate', () => {
+      setTimeout(() => this.updateActiveNav(), 50);
+    });
+  },
+
+  updated() {
+    this.updateActiveNav();
+  },
+
+  updateActiveNav() {
+    const currentPath = window.location.pathname;
+    const links = this.el.querySelectorAll('[data-nav-path]');
+
+    links.forEach(link => {
+      const navPath = link.dataset.navPath;
+      const isActive = navPath === '/'
+        ? currentPath === '/'
+        : currentPath === navPath || currentPath.startsWith(navPath + '/');
+
+      if (isActive) {
+        link.classList.add('text-[#8AE388]', 'font-bold');
+        link.classList.remove('text-[#141414]', 'hover:text-[#8AE388]');
+      } else {
+        link.classList.remove('text-[#8AE388]', 'font-bold');
+        link.classList.add('text-[#141414]', 'hover:text-[#8AE388]');
+      }
+    });
+  }
+};
+
 let CopyToClipboard = {
   mounted() {
     this.el.addEventListener("click", (e) => {
@@ -344,7 +414,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight },
 });
 
 // connect if there are any LiveViews on the page

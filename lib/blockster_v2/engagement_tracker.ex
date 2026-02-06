@@ -333,6 +333,74 @@ defmodule BlocksterV2.EngagementTracker do
   def get_user_read_post_ids(_), do: []
 
   @doc """
+  Gets all post rewards for a user as a map of post_id => reward details.
+  Returns a map where each post has:
+  - read_bux: BUX earned from reading
+  - x_share_bux: BUX earned from X share
+  - watch_bux: BUX earned from video watching
+  - total_bux: Total BUX earned from this post
+
+  Used for displaying earned badges on post cards.
+  """
+  def get_user_post_rewards_map(user_id) when is_integer(user_id) do
+    # Get read/share rewards from user_post_rewards table
+    read_share_pattern = {:user_post_rewards, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    read_share_map = :mnesia.dirty_match_object(read_share_pattern)
+    |> Enum.reduce(%{}, fn record, acc ->
+      post_id = elem(record, 3)
+      read_bux = elem(record, 4) || 0
+      x_share_bux = elem(record, 7) || 0
+
+      # Only include if there's any reward
+      if read_bux > 0 or x_share_bux > 0 do
+        Map.put(acc, post_id, %{
+          read_bux: read_bux,
+          x_share_bux: x_share_bux,
+          watch_bux: 0
+        })
+      else
+        acc
+      end
+    end)
+
+    # Get video watch rewards from user_video_engagement table
+    # Pattern: key, user_id, post_id, high_water_mark, total_earnable_time, video_duration,
+    #          completion_percentage, total_bux_earned (index 8), ...
+    video_pattern = {:user_video_engagement, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+
+    video_map = try do
+      :mnesia.dirty_match_object(video_pattern)
+      |> Enum.reduce(%{}, fn record, acc ->
+        post_id = elem(record, 3)
+        watch_bux = elem(record, 8) || 0
+
+        if watch_bux > 0 do
+          Map.put(acc, post_id, watch_bux)
+        else
+          acc
+        end
+      end)
+    rescue
+      _ -> %{}
+    catch
+      :exit, _ -> %{}
+    end
+
+    # Merge video rewards into read/share map
+    Enum.reduce(video_map, read_share_map, fn {post_id, watch_bux}, acc ->
+      existing = Map.get(acc, post_id, %{read_bux: 0, x_share_bux: 0, watch_bux: 0})
+      Map.put(acc, post_id, Map.put(existing, :watch_bux, watch_bux))
+    end)
+  rescue
+    _ -> %{}
+  catch
+    :exit, _ -> %{}
+  end
+
+  def get_user_post_rewards_map(_), do: %{}
+
+  @doc """
   Calculates engagement quality score (1-10) based on reading behavior.
 
   Factors considered:

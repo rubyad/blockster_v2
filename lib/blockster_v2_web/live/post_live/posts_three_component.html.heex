@@ -82,7 +82,11 @@
                     <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight"><%= post.title %></h4>
                     <p class="text-[10px] md:text-xs font-haas_roman_55 text-[#515B70] flex-1 mt-1 md:mt-2"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                     <div class="flex justify-center mt-2 md:mt-3">
-                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_three_left_#{post.id}_#{display_idx}"} />
+                      <%= if has_earned_reward?(assigns, post) do %>
+                        <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_three_left_#{post.id}_#{display_idx}"} />
+                      <% else %>
+                        <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_three_left_#{post.id}_#{display_idx}"} />
+                      <% end %>
                     </div>
                   </div>
                 </.link>
@@ -139,7 +143,11 @@
                     <% end %>
                     <p class="text-xs font-haas_roman_55 text-[#141414] flex-1 mt-2 md:mt-3"><%= if center_post.published_at, do: Calendar.strftime(center_post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                     <div class="flex justify-center mt-3">
-                      <.token_badge post={center_post} balance={get_bux_balance(assigns, center_post)} id={"bux_posts_three_middle_#{center_post.id}"} />
+                      <%= if has_earned_reward?(assigns, center_post) do %>
+                        <.earned_badges reward={get_user_reward(assigns, center_post)} id={"earned_posts_three_middle_#{center_post.id}"} />
+                      <% else %>
+                        <.token_badge post={center_post} balance={get_bux_balance(assigns, center_post)} id={"bux_posts_three_middle_#{center_post.id}"} />
+                      <% end %>
                     </div>
                   </div>
                 </.link>
@@ -193,7 +201,11 @@
                     <h4 class="font-haas_medium_65 text-[#141414] mt-1 md:mt-2 text-sm md:text-md leading-tight"><%= post.title %></h4>
                     <p class="text-[10px] md:text-xs font-haas_roman_55 text-[#515B70] flex-1 mt-1 md:mt-2"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
                     <div class="flex justify-center mt-2 md:mt-3">
-                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_three_right_#{post.id}_#{display_idx}"} />
+                      <%= if has_earned_reward?(assigns, post) do %>
+                        <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_three_right_#{post.id}_#{display_idx}"} />
+                      <% else %>
+                        <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_three_right_#{post.id}_#{display_idx}"} />
+                      <% end %>
                     </div>
                   </div>
                 </.link>

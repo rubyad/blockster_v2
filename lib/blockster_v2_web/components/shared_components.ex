@@ -63,6 +63,74 @@ defmodule BlocksterV2Web.SharedComponents do
   end
 
   @doc """
+  Renders earned badges showing BUX already earned from a post.
+  Shows separate badges for each reward type: read (orange), share (black), watch (purple).
+
+  ## Attributes
+    - reward: Map with :read_bux, :x_share_bux, and :watch_bux amounts
+    - id: Unique ID for the badge
+  """
+  attr :reward, :map, required: true
+  attr :id, :string, default: nil
+
+  def earned_badges(assigns) do
+    read_bux = assigns.reward[:read_bux] || 0
+    x_share_bux = assigns.reward[:x_share_bux] || 0
+    watch_bux = assigns.reward[:watch_bux] || 0
+
+    assigns = assigns
+      |> assign(:read_bux, read_bux)
+      |> assign(:x_share_bux, x_share_bux)
+      |> assign(:watch_bux, watch_bux)
+
+    ~H"""
+    <div class="flex flex-wrap gap-1">
+      <!-- Read reward badge (amber with white text) -->
+      <%= if @read_bux > 0 do %>
+        <div class="rounded-[100px] inline-block bg-gradient-to-r from-amber-400 to-amber-500">
+          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+            </svg>
+            <span class="text-[10px] font-haas_medium_65 text-white">
+              {Number.Delimit.number_to_delimited(@read_bux, precision: 0)}
+            </span>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Share reward badge (black filled with white text) -->
+      <%= if @x_share_bux > 0 do %>
+        <div class="rounded-[100px] inline-block bg-gray-900">
+          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+            </svg>
+            <span class="text-[10px] font-haas_medium_65 text-white">
+              {Number.Delimit.number_to_delimited(@x_share_bux, precision: 0)}
+            </span>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Watch reward badge (purple) -->
+      <%= if @watch_bux > 0 do %>
+        <div class="p-[0.5px] rounded-[100px] inline-block bg-gradient-to-r from-violet-400 to-violet-500">
+          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1 bg-violet-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-violet-800" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+            </svg>
+            <span class="text-[10px] font-haas_medium_65 text-violet-800">
+              {Number.Delimit.number_to_delimited(@watch_bux, precision: 0)}
+            </span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a video play icon overlay for posts with videos.
   Positioned absolutely in the center of the parent container.
 

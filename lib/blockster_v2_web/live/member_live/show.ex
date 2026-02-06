@@ -164,6 +164,14 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   @impl true
+  def handle_event("switch_tab_select", %{"tab" => tab}, socket) do
+    {:noreply,
+     socket
+     |> assign(:active_tab, tab)
+     |> assign(:show_multiplier_dropdown, false)}
+  end
+
+  @impl true
   def handle_event("toggle_multiplier_dropdown", _params, socket) do
     {:noreply, assign(socket, :show_multiplier_dropdown, !socket.assigns.show_multiplier_dropdown)}
   end

@@ -973,9 +973,9 @@
 
 <!-- Share Modal -->
 <%= if @show_share_modal do %>
-  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" phx-click="close_share_modal">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" phx-click-away="close_share_modal">
-      <div class={if @pool_available, do: "bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-6", else: "bg-gradient-to-r from-gray-400 to-gray-500 p-6"}>
+  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" phx-click="close_share_modal">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden max-h-[90vh] flex flex-col" phx-click-away="close_share_modal">
+      <div class={"flex-shrink-0 " <> if(@pool_available, do: "bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-6", else: "bg-gradient-to-r from-gray-400 to-gray-500 p-6")}>
         <div class="flex items-center justify-between">
           <h3 class="text-xl font-haas_bold_75 text-black flex items-center gap-2">
             <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
@@ -997,7 +997,7 @@
           <% end %>
         <% end %>
       </div>
-      <div class="p-6">
+      <div class="p-6 overflow-y-auto flex-1">
         <%= if @share_status do %>
           <%= case @share_status do %>
             <% {:success, message} -> %>

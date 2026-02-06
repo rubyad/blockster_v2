@@ -61,7 +61,11 @@
                       <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                     </p>
                     <div class="mt-2">
-                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_mobile_#{post.id}_#{local_idx}"} />
+                      <%= if has_earned_reward?(assigns, post) do %>
+                        <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_four_mobile_#{post.id}_#{local_idx}"} />
+                      <% else %>
+                        <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_mobile_#{post.id}_#{local_idx}"} />
+                      <% end %>
                     </div>
                   </div>
                 </.link>
@@ -104,7 +108,11 @@
                       </div>
                       <!-- Bottom content: BUX button (and description on hover) -->
                       <div class="mt-auto">
-                        <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_#{post.id}_#{local_idx}"} />
+                        <%= if has_earned_reward?(assigns, post) do %>
+                          <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_four_#{post.id}_#{local_idx}"} />
+                        <% else %>
+                          <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_four_#{post.id}_#{local_idx}"} />
+                        <% end %>
                         <%= if post.excerpt do %>
                           <p class="font-haas_roman_55 text-sm text-[#ffffff] leading-[1.5] mt-2.5 opacity-0 max-h-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:max-h-24"><%= post.excerpt %></p>
                         <% end %>

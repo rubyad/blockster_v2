@@ -54,7 +54,11 @@
                   <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                 </p>
                 <div class="mt-2">
-                  <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_mobile_#{post.id}_#{local_idx}"} />
+                  <%= if has_earned_reward?(assigns, post) do %>
+                    <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_mobile_#{post.id}_#{local_idx}"} />
+                  <% else %>
+                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_mobile_#{post.id}_#{local_idx}"} />
+                  <% end %>
                 </div>
               </div>
             </.link>
@@ -95,7 +99,11 @@
                       <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                     </li>
                   </ul>
-                  <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_1_#{post.id}"} />
+                  <%= if has_earned_reward?(assigns, post) do %>
+                    <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_1_#{post.id}"} />
+                  <% else %>
+                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_1_#{post.id}"} />
+                  <% end %>
                 </div>
                 <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[24px] leading-[1.2] max-md:text-[20px]"><%= post.title %></h4>
               </div>
@@ -136,7 +144,11 @@
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
-                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_2_#{post.id}"} />
+                    <%= if has_earned_reward?(assigns, post) do %>
+                      <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_2_#{post.id}"} />
+                    <% else %>
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_2_#{post.id}"} />
+                    <% end %>
                   </div>
                   <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
                 </div>
@@ -175,7 +187,11 @@
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
-                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_3_#{post.id}"} />
+                    <%= if has_earned_reward?(assigns, post) do %>
+                      <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_3_#{post.id}"} />
+                    <% else %>
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_3_#{post.id}"} />
+                    <% end %>
                   </div>
                   <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
                 </div>
@@ -216,7 +232,11 @@
                       <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                     </li>
                   </ul>
-                  <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_4_#{post.id}"} />
+                  <%= if has_earned_reward?(assigns, post) do %>
+                    <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_4_#{post.id}"} />
+                  <% else %>
+                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_4_#{post.id}"} />
+                  <% end %>
                 </div>
                 <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[24px] leading-[1.2] max-md:text-[20px]"><%= post.title %></h4>
               </div>
@@ -257,7 +277,11 @@
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
-                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_5_#{post.id}"} />
+                    <%= if has_earned_reward?(assigns, post) do %>
+                      <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_5_#{post.id}"} />
+                    <% else %>
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_5_#{post.id}"} />
+                    <% end %>
                   </div>
                   <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
                 </div>
@@ -296,7 +320,11 @@
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
-                    <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_6_#{post.id}"} />
+                    <%= if has_earned_reward?(assigns, post) do %>
+                      <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_five_6_#{post.id}"} />
+                    <% else %>
+                      <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_6_#{post.id}"} />
+                    <% end %>
                   </div>
                   <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
                 </div>

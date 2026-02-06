@@ -1,4 +1,4 @@
-<div class="profile-main bg-bg-light pt-28">
+<div class="profile-main bg-bg-light pt-20 sm:pt-28">
   <section class="lg:mb-40">
     <div class="container mx-auto">
       <div class="w-full max-w-4xl mx-auto">
@@ -28,7 +28,7 @@
                       href={"https://roguescan.io/address/#{@member.smart_wallet_address}?tab=token_transfers"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="text-sm text-gray-500 hover:text-blue-500 cursor-pointer"
+                      class="text-xs sm:text-sm text-gray-500 hover:text-blue-500 cursor-pointer break-all"
                     >
                       <%= @member.smart_wallet_address %>
                     </a>
@@ -65,22 +65,22 @@
             </div>
 
             <!-- Content -->
-            <div class="relative flex items-center justify-between">
+            <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div class="flex items-center gap-4">
-                <div class="flex-shrink-0 w-12 h-12 bg-black rounded-full flex items-center justify-center">
-                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                   </svg>
                 </div>
                 <div>
-                  <h3 class="text-lg font-haas_medium_65 text-gray-900">
+                  <h3 class="text-base sm:text-lg font-haas_medium_65 text-gray-900">
                     Verify your phone number to increase your BUX earnings
                   </h3>
                 </div>
               </div>
               <button
                 phx-click="open_phone_verification"
-                class="bg-black text-white px-6 py-3 rounded-lg font-haas_medium_65 hover:bg-gray-800 transition cursor-pointer shadow-md hover:shadow-lg"
+                class="bg-black text-white px-6 py-3 rounded-lg font-haas_medium_65 hover:bg-gray-800 transition cursor-pointer shadow-md hover:shadow-lg whitespace-nowrap flex-shrink-0 w-full sm:w-auto text-center"
               >
                 Verify Now →
               </button>
@@ -381,6 +381,7 @@
           </div>
         </div>
         <div class="w-full md:bg-white rounded-2xl md:p-6 md:p-3 mt-3">
+          <!-- Desktop Tabs -->
           <div class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden">
             <div class="inline-flex w-full gap-1">
               <button
@@ -445,6 +446,23 @@
               </button>
               <% end %>
             </div>
+          </div>
+          <!-- Mobile Tabs Dropdown -->
+          <div class="md:hidden">
+            <form phx-change="switch_tab_select">
+              <select
+                name="tab"
+                class="w-full px-4 py-3 font-haas_medium_65 text-sm bg-white border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-black/10"
+              >
+                <option value="activity" selected={@active_tab == "activity"}>Activity</option>
+                <option value="rogue" selected={@active_tab == "rogue"}>ROGUE</option>
+                <option value="wallet" selected={@active_tab == "wallet"}>External Wallet</option>
+                <%= if @is_own_profile do %>
+                <option value="refer" selected={@active_tab == "refer"}>Refer</option>
+                <option value="settings" selected={@active_tab == "settings"}>Settings</option>
+                <% end %>
+              </select>
+            </form>
           </div>
           <div class={"tab-wrapper relative #{if @active_tab != "following", do: "hidden", else: ""}"} id="following">
             <div class="tab-secondary flex md:hidden">
@@ -1097,32 +1115,32 @@
           <div class={"tabs-main tab-wrapper #{if @active_tab != "refer", do: "hidden", else: ""}"} id="refer">
             <div class="inner md:p-6 p-2 space-y-6">
               <!-- Referral Link Section -->
-              <div class="bg-white rounded-xl p-6 border border-gray-200">
-                <h3 class="text-lg font-haas_medium_65 mb-2">Your Referral Link</h3>
-                <p class="text-sm text-gray-600 mb-4">
+              <div class="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+                <h3 class="text-base sm:text-lg font-haas_medium_65 mb-2">Your Referral Link</h3>
+                <p class="text-xs sm:text-sm text-gray-600 mb-4">
                   Share this link with friends. Earn <span class="font-bold text-green-600">100 BUX</span> for each signup,
                   and another <span class="font-bold text-green-600">100 BUX</span> when they verify their phone.
                 </p>
 
-                <div class="flex gap-2">
+                <div class="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     readonly
                     value={@referral_link}
-                    class="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono"
+                    class="flex-1 px-3 sm:px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm font-mono min-w-0"
                   />
                   <button
                     id="copy-referral-btn"
                     phx-hook="CopyToClipboard"
                     data-copy-text={@referral_link}
-                    class="cursor-pointer px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
+                    class="cursor-pointer px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 flex-shrink-0"
                   >
-                    <span class="copy-text">Copy</span>
+                    <span class="copy-text">Copy Link</span>
                     <svg class="copy-icon w-4 h-4 hidden text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </button>
                 </div>
 
-                <p class="mt-3 text-xs text-gray-500">
+                <p class="mt-3 text-[10px] sm:text-xs text-gray-500">
                   Plus earn <span class="font-bold">1%</span> of losing BUX bets and
                   <span class="font-bold">0.2%</span> of losing ROGUE bets from your referrals!
                 </p>
@@ -1130,34 +1148,34 @@
 
               <!-- Stats Cards -->
               <%= if @referral_stats do %>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white rounded-xl p-4 border border-gray-200">
-                  <div class="text-2xl font-haas_medium_65"><%= @referral_stats.total_referrals %></div>
-                  <div class="text-sm text-gray-500">Total Referrals</div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+                <div class="bg-white rounded-xl p-3 sm:p-4 border border-gray-200">
+                  <div class="text-xl sm:text-2xl font-haas_medium_65"><%= @referral_stats.total_referrals %></div>
+                  <div class="text-xs sm:text-sm text-gray-500">Total Referrals</div>
                 </div>
-                <div class="bg-white rounded-xl p-4 border border-gray-200">
-                  <div class="text-2xl font-haas_medium_65"><%= @referral_stats.verified_referrals %></div>
-                  <div class="text-sm text-gray-500">Verified</div>
+                <div class="bg-white rounded-xl p-3 sm:p-4 border border-gray-200">
+                  <div class="text-xl sm:text-2xl font-haas_medium_65"><%= @referral_stats.verified_referrals %></div>
+                  <div class="text-xs sm:text-sm text-gray-500">Verified</div>
                 </div>
-                <div class="bg-white rounded-xl p-4 border border-gray-200">
-                  <div class="text-2xl font-haas_medium_65 text-green-600">
-                    <%= format_referral_number(@referral_stats.total_bux_earned) %> BUX
+                <div class="bg-white rounded-xl p-3 sm:p-4 border border-gray-200">
+                  <div class="text-xl sm:text-2xl font-haas_medium_65 text-green-600">
+                    <%= format_referral_number(@referral_stats.total_bux_earned) %>
                   </div>
-                  <div class="text-sm text-gray-500">BUX Earned</div>
+                  <div class="text-xs sm:text-sm text-gray-500">BUX Earned</div>
                 </div>
-                <div class="bg-white rounded-xl p-4 border border-gray-200">
-                  <div class="text-2xl font-haas_medium_65 text-blue-600">
-                    <%= format_referral_number(@referral_stats.total_rogue_earned) %> ROGUE
+                <div class="bg-white rounded-xl p-3 sm:p-4 border border-gray-200">
+                  <div class="text-xl sm:text-2xl font-haas_medium_65 text-blue-600">
+                    <%= format_referral_number(@referral_stats.total_rogue_earned) %>
                   </div>
-                  <div class="text-sm text-gray-500">ROGUE Earned</div>
+                  <div class="text-xs sm:text-sm text-gray-500">ROGUE Earned</div>
                 </div>
               </div>
               <% end %>
 
               <!-- Earnings Table (Real-time) -->
               <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                  <h3 class="font-haas_medium_65">Earnings</h3>
+                <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex justify-between items-center">
+                  <h3 class="font-haas_medium_65 text-sm sm:text-base">Earnings</h3>
                   <span class="text-xs text-green-600 flex items-center gap-1">
                     <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                     Live
@@ -1166,45 +1184,45 @@
 
                 <div
                   id="referral-earnings-scroll"
-                  class="overflow-y-auto max-h-96"
+                  class="overflow-x-auto overflow-y-auto max-h-96"
                   phx-hook="InfiniteScroll"
                   data-event="load_more_earnings"
                 >
-                  <table class="w-full text-sm">
+                  <table class="w-full text-xs sm:text-sm min-w-[500px]">
                     <thead class="sticky top-0 bg-gray-50 z-10">
                       <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TX</th>
+                        <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase">From</th>
+                        <th class="px-3 sm:px-6 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase">TX</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                       <%= for earning <- @referral_earnings do %>
                         <tr class={if is_recent_earning?(earning.timestamp), do: "bg-green-50"}>
-                          <td class="px-6 py-4">
-                            <span class={"inline-flex items-center px-2 py-1 rounded-full text-xs font-medium #{earning_type_style(earning.earning_type)}"}>
+                          <td class="px-3 sm:px-6 py-3 sm:py-4">
+                            <span class={"inline-flex items-center px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap #{earning_type_style(earning.earning_type)}"}>
                               <%= earning_type_label(earning.earning_type) %>
                             </span>
                           </td>
-                          <td class="px-6 py-4 text-gray-500">
+                          <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-500">
                             <%= truncate_wallet(earning.referee_wallet) %>
                           </td>
-                          <td class="px-6 py-4 text-right font-medium">
+                          <td class="px-3 sm:px-6 py-3 sm:py-4 text-right font-medium whitespace-nowrap">
                             <span class={if earning.token == "BUX", do: "text-green-600", else: "text-blue-600"}>
                               +<%= format_referral_number(earning.amount) %> <%= earning.token %>
                             </span>
                           </td>
-                          <td class="px-6 py-4 text-gray-500 text-xs">
+                          <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-500 text-[10px] sm:text-xs whitespace-nowrap">
                             <%= format_relative_time(earning.timestamp) %>
                           </td>
-                          <td class="px-6 py-4">
+                          <td class="px-3 sm:px-6 py-3 sm:py-4">
                             <%= if earning.tx_hash do %>
                               <a
                                 href={"https://roguescan.io/tx/#{earning.tx_hash}?tab=logs"}
                                 target="_blank"
-                                class="text-blue-500 hover:underline text-xs cursor-pointer"
+                                class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
                               >
                                 View
                               </a>
@@ -1217,7 +1235,7 @@
 
                       <%= if Enum.empty?(@referral_earnings) do %>
                         <tr>
-                          <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                          <td colspan="5" class="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-500 text-xs sm:text-sm">
                             No earnings yet. Share your referral link to start earning!
                           </td>
                         </tr>
@@ -1259,20 +1277,20 @@
               <!-- ROGUE Multiplier Card -->
               <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
                 <!-- Header -->
-                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4">
-                  <div class="flex items-center justify-between">
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 sm:px-5 py-4">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div class="flex items-center gap-2">
-                      <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-6 h-6 rounded-full" />
-                      <h4 class="text-lg font-haas_bold_75 text-white">Hold ROGUE to Boost your BUX Earnings</h4>
+                      <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-6 h-6 rounded-full flex-shrink-0" />
+                      <h4 class="text-base sm:text-lg font-haas_bold_75 text-white">Hold ROGUE to Boost BUX Earnings</h4>
                     </div>
-                    <div class="bg-white/20 rounded-full px-3 py-1">
+                    <div class="bg-white/20 rounded-full px-3 py-1 self-start sm:self-auto">
                       <span class="text-white text-sm font-haas_bold_75">
                         <%= :erlang.float_to_binary(@rogue_multiplier / 1, decimals: 1) %>x
                         <%= if @rogue_multiplier == 5.0, do: "✨ MAX" %>
                       </span>
                     </div>
                   </div>
-                  <p class="text-sm text-indigo-100 mt-2">Earn 0.4x more BUX rewards for every 100k ROGUE held in your Blockster wallet (4x max boost)</p>
+                  <p class="text-xs sm:text-sm text-indigo-100 mt-2">Earn 0.4x more BUX for every 100k ROGUE held (4x max boost)</p>
                 </div>
 
                 <!-- Smart Wallet Balance -->
@@ -1447,7 +1465,7 @@
                       <a
                         href={"https://roguescan.io/address/#{@connected_wallet.wallet_address}"}
                         target="_blank"
-                        class="flex-1 text-xs font-mono bg-gray-50 px-3 py-2 rounded text-blue-500 hover:underline cursor-pointer"
+                        class="flex-1 text-xs font-mono bg-gray-50 px-3 py-2 rounded text-blue-500 hover:underline cursor-pointer break-all min-w-0"
                       >
                         <%= @connected_wallet.wallet_address %>
                       </a>
@@ -1455,7 +1473,7 @@
                         phx-hook="CopyToClipboard"
                         data-copy-text={@connected_wallet.wallet_address}
                         id={"copy-address-#{@connected_wallet.id}"}
-                        class="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                        class="p-2 hover:bg-gray-100 rounded cursor-pointer flex-shrink-0"
                         title="Copy address"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1543,26 +1561,27 @@
                     </div>
 
                     <!-- Column Headers -->
-                    <div class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs font-haas_medium_65 text-gray-500">
-                      <div class="flex items-center gap-3 flex-1">
-                        <div class="w-32">Token</div>
+                    <div class="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs font-haas_medium_65 text-gray-500">
+                      <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div class="w-20 sm:w-32 flex-shrink-0">Token</div>
                         <div>Balance</div>
                       </div>
-                      <div class="flex items-center gap-2">
-                        <span>BUX Multiplier</span>
+                      <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="hidden sm:inline">BUX Multiplier</span>
+                        <span class="sm:hidden">Mult.</span>
                       </div>
                     </div>
 
                     <div class="divide-y divide-gray-100">
                       <!-- Base + Connection row (always 1.1x when wallet connected) -->
-                      <div class="px-4 py-3 flex items-center justify-between bg-blue-50">
-                        <div class="flex items-center gap-3 flex-1">
-                          <div class="text-sm font-haas_medium_65 text-gray-900 w-32">-</div>
-                          <div class="text-sm text-gray-600">
-                            Base + Wallet Connected
+                      <div class="px-3 sm:px-4 py-3 flex items-center justify-between bg-blue-50">
+                        <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                          <div class="text-sm font-haas_medium_65 text-gray-900 w-20 sm:w-32 flex-shrink-0">-</div>
+                          <div class="text-xs sm:text-sm text-gray-600 truncate">
+                            Base + Wallet
                           </div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-shrink-0">
                           <div class="text-xs text-green-600 font-haas_medium_65">
                             1.1x
                           </div>
@@ -1595,37 +1614,35 @@
                                 _ -> chain.chain_name
                               end
                             %>
-                            <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gray-50">
-                              <div class="flex items-center gap-3 flex-1">
-                                <div class="w-32">
-                                  <div class="flex items-center gap-2">
-                                    <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 rounded-full" />
-                                    <span class="text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
+                            <div class="px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gray-50">
+                              <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <div class="w-20 sm:w-32 flex-shrink-0">
+                                  <div class="flex items-center gap-1 sm:gap-2">
+                                    <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0" />
+                                    <span class="text-xs sm:text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
                                   </div>
-                                  <div class="text-xs text-gray-500 ml-7 whitespace-nowrap"><%= chain_name %></div>
+                                  <div class="text-[10px] sm:text-xs text-gray-500 ml-5 sm:ml-7 truncate"><%= chain_name %></div>
                                 </div>
-                                <div>
-                                  <div class="text-sm text-gray-900 font-haas_medium_65">
+                                <div class="min-w-0">
+                                  <div class="text-xs sm:text-sm text-gray-900 font-haas_medium_65">
                                     <%= Number.Delimit.number_to_delimited(chain.balance, precision: 2) %>
                                   </div>
                                   <%= if usd_value do %>
-                                    <div class="text-xs text-gray-500">
+                                    <div class="text-[10px] sm:text-xs text-gray-500">
                                       $<%= Number.Delimit.number_to_delimited(usd_value, precision: 2) %>
                                     </div>
                                   <% end %>
                                 </div>
                               </div>
-                              <div class="flex items-center gap-2">
-                                <div class="text-xs text-gray-400 font-haas_medium_65">
-                                  —
-                                </div>
+                              <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                                 <button
                                   phx-click="switch_tab"
                                   phx-value-tab="rogue"
-                                  class="text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                                  class="text-[10px] sm:text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer whitespace-nowrap"
                                   title="ROGUE multiplier is tracked in the ROGUE tab"
                                 >
-                                  See ROGUE tab
+                                  <span class="hidden sm:inline">See ROGUE tab</span>
+                                  <span class="sm:hidden">ROGUE</span>
                                 </button>
                               </div>
                             </div>
@@ -1641,30 +1658,30 @@
                             boost = multiplier_fn.(data.total)
                             usd_value = if price_data, do: data.total * price_data.usd_price, else: nil
                           %>
-                          <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                            <div class="flex items-center gap-3 flex-1">
-                              <div class="flex items-center gap-2 w-32">
+                          <div class="px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                              <div class="flex items-center gap-1 sm:gap-2 w-20 sm:w-32 flex-shrink-0">
                                 <%= if symbol == "ETH" do %>
-                                  <img src="https://ik.imagekit.io/blockster/ethereum.png" alt="ETH" class="w-5 h-5" />
+                                  <img src="https://ik.imagekit.io/blockster/ethereum.png" alt="ETH" class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                                 <% end %>
-                                <span class="text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
+                                <span class="text-xs sm:text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
                               </div>
-                              <div>
-                                <div class="text-sm text-gray-900 font-haas_medium_65">
+                              <div class="min-w-0">
+                                <div class="text-xs sm:text-sm text-gray-900 font-haas_medium_65">
                                   <%= :erlang.float_to_binary(data.total / 1, decimals: if(data.total < 10, do: 4, else: 2)) %>
                                 </div>
                                 <%= if usd_value do %>
-                                  <div class="text-xs text-gray-500">
+                                  <div class="text-[10px] sm:text-xs text-gray-500">
                                     $<%= Number.Delimit.number_to_delimited(usd_value, precision: 2) %>
                                   </div>
                                 <% end %>
                               </div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                               <div class="text-xs text-green-600 font-haas_medium_65">
                                 +<%= if boost == trunc(boost), do: trunc(boost), else: :erlang.float_to_binary(boost, decimals: 1) %>x
                               </div>
-                              <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg class="w-4 h-4 text-green-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                               </svg>
                             </div>
@@ -1674,22 +1691,22 @@
                     </div>
 
                     <!-- Total Wallet Multiplier (V2: ETH + Other Tokens only, max 3.6x) -->
-                    <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 border-t-2 border-green-300">
-                      <div class="flex items-center justify-between">
-                        <div>
-                          <span class="text-sm font-haas_bold_75 text-green-900">External Wallet Multiplier</span>
-                          <span class="text-xs text-gray-500 ml-1">/ 3.6x max</span>
+                    <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-3 sm:px-4 py-3 border-t-2 border-green-300">
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                          <span class="text-xs sm:text-sm font-haas_bold_75 text-green-900">Wallet Multiplier</span>
+                          <span class="text-[10px] sm:text-xs text-gray-500 ml-1">/ 3.6x</span>
                         </div>
                         <%
                           # Full wallet multiplier includes base 1.0
                           full_wallet_multiplier = 1.0 + total_boost
                         %>
-                        <span class="text-lg font-haas_bold_75 text-green-600">
+                        <span class="text-base sm:text-lg font-haas_bold_75 text-green-600 flex-shrink-0">
                           <%= if full_wallet_multiplier == trunc(full_wallet_multiplier), do: trunc(full_wallet_multiplier), else: :erlang.float_to_binary(full_wallet_multiplier, decimals: 1) %>x
                           <%= if full_wallet_multiplier >= 3.6, do: "✨" %>
                         </span>
                       </div>
-                      <p class="text-xs text-green-700 mt-1">ETH + other tokens only. ROGUE tracked in ROGUE tab.</p>
+                      <p class="text-[10px] sm:text-xs text-green-700 mt-1">ETH + other tokens. ROGUE in ROGUE tab.</p>
                     </div>
                   </div>
                 <% else %>
@@ -3174,21 +3191,21 @@
                   <p class="text-sm text-gray-500 mt-1">Connect your social accounts to earn BUX rewards for sharing</p>
                 </div>
 
-                <div class="px-6 py-4 space-y-4">
+                <div class="px-4 sm:px-6 py-4 space-y-4">
                   <%# X (Twitter) Connection %>
-                  <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div class="flex items-center gap-3">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="flex items-center gap-3 min-w-0">
                       <%# X Logo %>
-                      <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                      <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                         </svg>
                       </div>
-                      <div>
+                      <div class="min-w-0">
                         <%= if @x_connection do %>
-                          <div class="flex items-center gap-2">
-                            <span class="text-sm font-haas_medium_65 text-gray-900">@<%= @x_connection.x_username %></span>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-sm font-haas_medium_65 text-gray-900 truncate">@<%= @x_connection.x_username %></span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">
                               Connected
                             </span>
                           </div>
@@ -3207,14 +3224,14 @@
                         href={~p"/auth/x/disconnect"}
                         method="delete"
                         data-confirm="Are you sure you want to disconnect your X account?"
-                        class="px-4 py-2 text-sm font-haas_medium_65 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        class="px-4 py-2 text-sm font-haas_medium_65 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-center flex-shrink-0"
                       >
                         Disconnect
                       </.link>
                     <% else %>
                       <.link
                         href={~p"/auth/x?redirect=/member/#{@member.slug || @member.smart_wallet_address}"}
-                        class="px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                        class="px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer text-center flex-shrink-0"
                       >
                         Connect X
                       </.link>

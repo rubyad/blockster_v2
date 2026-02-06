@@ -49,12 +49,20 @@ defmodule BlocksterV2Web.PostLive.Index do
       |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
       |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
 
+    # Get user's earned rewards by post for displaying "earned" badges
+    user_post_rewards = if socket.assigns[:current_user] do
+      EngagementTracker.get_user_post_rewards_map(socket.assigns.current_user.id)
+    else
+      %{}
+    end
+
     {:ok,
      socket
      |> assign(:page_title, "Latest Posts")
      |> assign(:show_categories, true)
      |> assign(:displayed_post_ids, displayed_post_ids)
      |> assign(:bux_balances, bux_balances)
+     |> assign(:user_post_rewards, user_post_rewards)
      |> assign(:component_module_map, initial_component_map)
      |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
      |> assign(:current_offset, @posts_per_cycle)
