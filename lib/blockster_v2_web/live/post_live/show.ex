@@ -911,6 +911,16 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
+  def handle_event("close_signup_prompt", _params, socket) do
+    {:noreply, assign(socket, :show_signup_prompt, false)}
+  end
+
+  @impl true
+  def handle_event("close_video_signup_prompt", _params, socket) do
+    {:noreply, assign(socket, :show_video_signup_prompt, false)}
+  end
+
+  @impl true
   def handle_event("share_to_x", _params, socket) do
     user = socket.assigns.current_user
     x_connection = socket.assigns.x_connection

@@ -117,20 +117,6 @@
               <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
             </div>
           </div>
-          <!-- Mobile compact version -->
-          <div class="md:hidden fixed bottom-[68px] left-0 right-0 mx-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
-            <div class="flex items-center justify-between mb-1.5">
-              <div class="flex items-center gap-2">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
-                <span class="text-sm font-bold">+{@current_bux} BUX</span>
-                <span class="text-xs opacity-75">({@user_multiplier}x)</span>
-              </div>
-              <span class="text-xs">Keep reading to earn more BUX</span>
-            </div>
-            <div class="w-full bg-white/20 rounded-full h-1.5">
-              <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@current_score * 10}%"}></div>
-            </div>
-          </div>
         <% else %>
           <!-- Pool is empty - show "no rewards available" state -->
           <div class="bg-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
@@ -152,10 +138,17 @@
 
     <!-- ANONYMOUS USER - VIDEO SIGNUP PROMPT (when video completed) -->
     <%= if @is_anonymous && @show_video_signup_prompt && @pool_available do %>
-      <div class="bg-gradient-to-r from-[#818CF8] to-[#6366F1] rounded-2xl shadow-2xl animate-bounce-shake mb-4" style="padding: 1.5px;">
-        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6">
+      <div class="bg-gradient-to-r from-[#818CF8] to-[#6366F1] rounded-2xl shadow-2xl animate-bounce-shake mb-4 mx-auto" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 relative">
+          <!-- Close Button -->
+          <button phx-click="close_video_signup_prompt" class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+
           <!-- Earned Amount with BUX logo -->
-          <div class="flex items-center justify-between mb-4 gap-4">
+          <div class="flex items-center justify-between mb-4 gap-4 pr-6">
             <span class="text-gray-700 font-haas_medium_65">You Earned from Video</span>
             <div class="flex items-center gap-1.5">
               <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
@@ -163,11 +156,6 @@
                 <%= :erlang.float_to_binary(@anonymous_video_earned * 1.0, decimals: 2) %> BUX
               </span>
             </div>
-          </div>
-
-          <!-- USD Value -->
-          <div class="text-sm text-gray-500 mb-6">
-            ≈ $<%= :erlang.float_to_binary(@anonymous_video_earned * 0.10, decimals: 2) %> USD
           </div>
 
           <!-- Login Button -->
@@ -186,10 +174,17 @@
 
     <!-- ANONYMOUS USER - READING SIGNUP PROMPT (when article completed) -->
     <%= if @is_anonymous && @show_signup_prompt && @pool_available do %>
-      <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] rounded-2xl shadow-2xl animate-bounce-shake" style="padding: 1.5px;">
-        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6">
+      <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] rounded-2xl shadow-2xl animate-bounce-shake mx-auto" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 relative">
+          <!-- Close Button -->
+          <button phx-click="close_signup_prompt" class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+
           <!-- Earned Amount with BUX logo -->
-          <div class="flex items-center justify-between mb-4 gap-4">
+          <div class="flex items-center justify-between mb-4 gap-4 pr-6">
             <span class="text-gray-700 font-haas_medium_65">You Earned from Reading</span>
             <div class="flex items-center gap-1.5">
               <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
@@ -208,11 +203,6 @@
               </div>
             </div>
           <% end %>
-
-          <!-- USD Value -->
-          <div class="text-sm text-gray-500 mb-6">
-            ≈ $<%= :erlang.float_to_binary(@anonymous_earned * 0.10, decimals: 2) %> USD
-          </div>
 
           <!-- Login Button -->
           <div>
@@ -261,25 +251,48 @@
           Keep reading to earn more!
         </div>
       </div>
-      <!-- Mobile compact version -->
-      <div class="md:hidden fixed bottom-[68px] left-0 right-0 mx-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
-        <div class="flex items-center justify-between mb-1.5">
-          <div class="flex items-center gap-2">
-            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
-            <span class="text-sm font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</span>
-          </div>
-          <span class="text-xs">Keep reading to earn more BUX</span>
-        </div>
-        <div class="w-full bg-white/20 rounded-full h-1.5">
-          <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@engagement_score * 10}%"}></div>
-        </div>
-      </div>
     <% end %>
   </div>
 <% end %>
 
+<!-- Mobile Earning Bars - Outside bux-panel to prevent horizontal scroll -->
+<%= if !@video_modal_open do %>
+  <!-- Logged-in user mobile earning bar -->
+  <%= if @current_user && !@already_rewarded && !@article_completed && @pool_available do %>
+    <div class="md:hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center gap-2">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <span class="text-sm font-bold">+{@current_bux} BUX</span>
+          <span class="text-xs opacity-75">({@user_multiplier}x)</span>
+        </div>
+        <span class="text-xs">Keep reading to earn more BUX</span>
+      </div>
+      <div class="w-full bg-white/20 rounded-full h-1.5">
+        <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@current_score * 10}%"}></div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Anonymous user mobile earning bar -->
+  <%= if @is_anonymous && !@show_signup_prompt && @engagement_score && @pool_available do %>
+    <div class="md:hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center gap-2">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <span class="text-sm font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</span>
+        </div>
+        <span class="text-xs">Keep reading to earn more BUX</span>
+      </div>
+      <div class="w-full bg-white/20 rounded-full h-1.5">
+        <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@engagement_score * 10}%"}></div>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+
 <div
-  class="article-page bg-white min-h-screen"
+  class="article-page bg-white min-h-screen overflow-x-hidden"
   id="post-engagement-tracker"
   phx-hook="EngagementTracker"
   data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
