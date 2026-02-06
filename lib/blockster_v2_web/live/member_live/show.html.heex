@@ -1,4 +1,4 @@
-<div class="profile-main bg-bg-light pt-20 sm:pt-28">
+<div class="profile-main bg-bg-light pt-0 lg:pt-4">
   <section class="lg:mb-40">
     <div class="container mx-auto">
       <div class="w-full max-w-4xl mx-auto">
@@ -1088,18 +1088,18 @@
                               <%= activity.label %>
                           <% end %>
                         </td>
-                        <td class="md:px-8 px-4 py-5 whitespace-nowrap font-haas_medium_65 text-sm w-1/3 text-right">
+                        <td class="md:px-8 px-2 py-5 font-haas_medium_65 text-sm w-1/3 text-right">
                           <% token_name = activity[:token] || "BUX" %>
                           <% token_logo = "https://ik.imagekit.io/blockster/blockster-icon.png" %>
                           <%= if activity[:tx_id] do %>
-                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[#4E84DA] hover:underline hover:text-[#3a6ab8]">
-                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full" />
-                              <%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %>
+                            <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-end gap-1 text-[#4E84DA] hover:underline hover:text-[#3a6ab8] whitespace-nowrap">
+                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full flex-shrink-0" />
+                              <span><%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %></span>
                             </a>
                           <% else %>
-                            <span class="inline-flex items-center gap-1.5 text-[#4EDA55]">
-                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full" />
-                              <%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %>
+                            <span class="inline-flex items-center justify-end gap-1 text-[#4EDA55] whitespace-nowrap">
+                              <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full flex-shrink-0" />
+                              <span><%= :erlang.float_to_binary((is_struct(activity.amount, Decimal) && Decimal.to_float(activity.amount)) || (is_number(activity.amount) && activity.amount * 1.0) || 0.0, [decimals: 2]) %> <%= token_name %></span>
                             </span>
                           <% end %>
                         </td>

@@ -195,10 +195,10 @@ let MobileNavHighlight = {
         : currentPath === navPath || currentPath.startsWith(navPath + '/');
 
       if (isActive) {
-        link.classList.add('bg-[#8AE388]');
+        link.classList.add('bg-[#BAF55F]');
         link.classList.remove('hover:bg-gray-100');
       } else {
-        link.classList.remove('bg-[#8AE388]');
+        link.classList.remove('bg-[#BAF55F]');
         link.classList.add('hover:bg-gray-100');
       }
     });
@@ -229,11 +229,11 @@ let DesktopNavHighlight = {
         : currentPath === navPath || currentPath.startsWith(navPath + '/');
 
       if (isActive) {
-        link.classList.add('text-[#8AE388]', 'font-bold');
-        link.classList.remove('text-[#141414]', 'hover:text-[#8AE388]');
+        link.classList.add('text-[#BAF55F]', 'font-bold');
+        link.classList.remove('text-[#141414]', 'hover:text-[#BAF55F]');
       } else {
-        link.classList.remove('text-[#8AE388]', 'font-bold');
-        link.classList.add('text-[#141414]', 'hover:text-[#8AE388]');
+        link.classList.remove('text-[#BAF55F]', 'font-bold');
+        link.classList.add('text-[#141414]', 'hover:text-[#BAF55F]');
       }
     });
   }

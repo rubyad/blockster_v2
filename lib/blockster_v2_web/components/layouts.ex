@@ -599,7 +599,7 @@ defmodule BlocksterV2Web.Layouts do
     </div>
     </div>
     <!-- Spacer to push content below fixed header -->
-    <div class="h-20 lg:h-24"></div>
+    <div class="h-14 lg:h-24"></div>
     """
   end
 

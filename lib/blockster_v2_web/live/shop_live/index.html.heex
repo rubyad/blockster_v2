@@ -1,4 +1,4 @@
-<div class="shop-index mt-8 lg:mt-12">
+<div class="shop-index mt-0 lg:mt-12">
   <%!-- Hero Banner - Same as shop-landing --%>
   <.live_component
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
@@ -139,7 +139,7 @@
           </div>
         <% end %>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 items-stretch">
+        <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 items-stretch">
           <%= if @active_filter == nil do %>
             <%!-- VIEW ALL MODE: Show slot-based cards --%>
             <%= for {slot_number, product} <- @display_slots do %>
@@ -195,34 +195,34 @@
                         </div>
                       </div>
                     </div>
-                    <div class="px-4 py-4 flex flex-col flex-1">
+                    <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
                       <%!-- Product Title - Centered --%>
-                      <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2 flex-1">
+                      <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
                         <%= product.name %>
                       </h4>
 
                       <%!-- Price Display - Centered --%>
-                      <div class="flex flex-col items-center mb-4">
+                      <div class="flex flex-col items-center mb-2 md:mb-4">
                         <%!-- Original Price - Crossed out, grey --%>
-                        <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
+                        <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
                           $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                         </span>
                         <%!-- Discounted Price - Large, black --%>
                         <%= if product.total_max_discount > 0 do %>
-                          <span class="text-2xl font-haas_medium_65 text-black">
+                          <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
                             $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
                           </span>
-                          <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                          <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
                             with BUX tokens
                           </span>
                         <% else %>
-                          <span class="text-2xl font-haas_medium_65 text-gray-900">
+                          <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
                             $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                           </span>
                         <% end %>
                       </div>
 
-                      <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
+                      <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
                         Buy Now
                       </div>
                     </div>
@@ -283,34 +283,34 @@
                       </div>
                     </div>
                   </div>
-                  <div class="px-4 py-4 flex flex-col flex-1">
+                  <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
                     <%!-- Product Title - Centered --%>
-                    <h4 class="text-lg font-haas_medium_65 text-gray-900 text-center mb-2 flex-1">
+                    <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
                       <%= product.name %>
                     </h4>
 
                     <%!-- Price Display - Centered --%>
-                    <div class="flex flex-col items-center mb-4">
+                    <div class="flex flex-col items-center mb-2 md:mb-4">
                       <%!-- Original Price - Crossed out, grey --%>
-                      <span class="text-sm font-haas_roman_55 text-gray-400 line-through">
+                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
                         $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                       </span>
                       <%!-- Discounted Price - Large, black --%>
                       <%= if product.total_max_discount > 0 do %>
-                        <span class="text-2xl font-haas_medium_65 text-black">
+                        <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
                           $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
                         </span>
-                        <span class="text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                        <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
                           with BUX tokens
                         </span>
                       <% else %>
-                        <span class="text-2xl font-haas_medium_65 text-gray-900">
+                        <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
                           $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                         </span>
                       <% end %>
                     </div>
 
-                    <div class="w-full py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-sm text-center">
+                    <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
                       Buy Now
                     </div>
                   </div>

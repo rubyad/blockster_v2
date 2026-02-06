@@ -1,5 +1,5 @@
-<section id={"component-#{@id}"} class="w-full relative pt-28 overflow-hidden">
-  <div class="w-full -mt-28 overflow-hidden" style={"height: #{parse_int(@banner_height)}px;"}>
+<section id={"component-#{@id}"} class="w-full relative overflow-hidden">
+  <div class={"w-full overflow-hidden h-[280px] md:h-[#{parse_int(@banner_height)}px]"}>
     <%= if assigns[:current_user] && @current_user.is_admin do %>
       <img
         src={imagekit_url(@banner_url)}
@@ -24,17 +24,18 @@
   <%!-- Text Overlay Block (resizable and draggable) --%>
   <% {pos_x, pos_y} = parse_position(@overlay_position) %>
   <% {btn_x, btn_y} = parse_position(@button_position) %>
+  <% mobile_text_size = min(parse_int(@overlay_text_size), 24) %>
   <%= if @show_text || (assigns[:current_user] && @current_user.is_admin) do %>
     <div
-      class={"absolute z-10 text-center p-6 #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move group", else: ""} #{if !@show_text, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
-      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px; width: #{if @overlay_width == "auto", do: "auto", else: "#{parse_int(@overlay_width)}px"}; #{if @overlay_height != "auto", do: "height: #{parse_int(@overlay_height)}px;", else: ""}"}
+      class={"absolute z-10 text-center p-3 md:p-6 #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move group", else: ""} #{if !@show_text, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
+      style={"left: #{pos_x}%; top: #{pos_y}%; transform: translate(-50%, -50%); background-color: #{hex_to_rgba(@overlay_bg_color, @overlay_bg_opacity)}; border-radius: #{parse_int(@overlay_border_radius)}px;"}
       id={"text-block-#{@id}"}
       phx-hook={if assigns[:current_user] && @current_user.is_admin, do: "TextBlockDragResize", else: nil}
       data-target={"#component-#{@id}"}
     >
       <h2
-        class="font-bold leading-tight"
-        style={"color: #{@overlay_text_color}; font-size: #{parse_int(@overlay_text_size)}px;"}
+        class={"font-bold leading-tight text-[#{mobile_text_size}px] md:text-[#{parse_int(@overlay_text_size)}px]"}
+        style={"color: #{@overlay_text_color};"}
       >
         <%= @overlay_text %>
       </h2>
@@ -56,7 +57,7 @@
   <%= if @show_button || (assigns[:current_user] && @current_user.is_admin) do %>
     <a
       href={@button_url}
-      class={"absolute z-10 inline-block font-semibold rounded-full transition-all hover:opacity-90 #{button_padding(@button_size)} #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move", else: ""} #{if !@show_button, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
+      class={"absolute z-10 inline-block font-semibold rounded-full transition-all hover:opacity-90 px-4 py-2 text-sm md:#{button_padding(@button_size)} #{if assigns[:current_user] && @current_user.is_admin, do: "cursor-move", else: ""} #{if !@show_button, do: "opacity-50 border-2 border-dashed border-gray-400", else: ""}"}
       style={"left: #{btn_x}%; top: #{btn_y}%; transform: translate(-50%, -50%); background-color: #{@button_bg_color}; color: #{@button_text_color};"}
       id={"button-block-#{@id}"}
       phx-hook={if assigns[:current_user] && @current_user.is_admin, do: "ButtonDrag", else: nil}
