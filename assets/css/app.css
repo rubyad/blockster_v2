@@ -1030,5 +1030,18 @@ html {
   display: none !important;
 }
 
-/* Optional: If you want to show a subtle loading indicator instead of error,
-   you can style phx-loading and phx-connected classes here */
+/* Prevent black flash during LiveView navigation
+   Keep the old content visible until new content is ready */
+.phx-page-loading [data-phx-main] {
+  opacity: 1 !important;
+}
+
+/* Ensure smooth transitions - don't hide content during navigation */
+[data-phx-main] {
+  min-height: 100vh;
+}
+
+/* Ensure body and html have consistent background */
+html, body {
+  background-color: #F5F6FB;
+}
