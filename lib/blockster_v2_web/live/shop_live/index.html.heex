@@ -203,12 +203,12 @@
 
                       <%!-- Price Display - Centered --%>
                       <div class="flex flex-col items-center mb-2 md:mb-4">
-                        <%!-- Original Price - Crossed out, grey --%>
-                        <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
-                          $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                        </span>
-                        <%!-- Discounted Price - Large, black --%>
                         <%= if product.total_max_discount > 0 do %>
+                          <%!-- Original Price - Crossed out, grey (only show if there's a discount) --%>
+                          <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
+                            $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                          </span>
+                          <%!-- Discounted Price - Large, black --%>
                           <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
                             $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
                           </span>
@@ -216,6 +216,7 @@
                             with BUX tokens
                           </span>
                         <% else %>
+                          <%!-- Regular Price - No discount --%>
                           <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
                             $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                           </span>
@@ -291,12 +292,12 @@
 
                     <%!-- Price Display - Centered --%>
                     <div class="flex flex-col items-center mb-2 md:mb-4">
-                      <%!-- Original Price - Crossed out, grey --%>
-                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
-                      <%!-- Discounted Price - Large, black --%>
                       <%= if product.total_max_discount > 0 do %>
+                        <%!-- Original Price - Crossed out, grey (only show if there's a discount) --%>
+                        <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
+                          $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                        </span>
+                        <%!-- Discounted Price - Large, black --%>
                         <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
                           $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
                         </span>
@@ -304,6 +305,7 @@
                           with BUX tokens
                         </span>
                       <% else %>
+                        <%!-- Regular Price - No discount --%>
                         <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
                           $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
                         </span>
