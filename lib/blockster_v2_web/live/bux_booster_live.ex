@@ -198,7 +198,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     ~H"""
     <div
       id="bux-booster-game"
-      class="min-h-screen bg-gray-50"
+      class="min-h-screen bg-gray-50 overflow-x-hidden"
       phx-hook="BuxBoosterOnchain"
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}

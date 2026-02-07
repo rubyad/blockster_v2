@@ -11,14 +11,14 @@
     header_token={assigns[:header_token] || "BUX"}
   />
 
-  <main class="flex-grow pb-16 md:pb-0">
+  <main class="flex-grow pb-20 md:pb-0 overflow-x-hidden">
     <%= @inner_content %>
   </main>
 
   <.site_footer />
 
   <!-- Mobile Bottom Navigation -->
-  <div id="mobile-bottom-nav" phx-hook="MobileNavHighlight" class="fixed-bottom-nav bg-white fixed bottom-0 py-2 left-0 px-3 z-30 w-full md:hidden border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+  <div id="mobile-bottom-nav" phx-hook="MobileNavHighlight" class="fixed-bottom-nav bg-white fixed bottom-0 pb-[env(safe-area-inset-bottom,8px)] pt-2 left-0 px-3 z-30 w-full md:hidden border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
     <ul class="flex gap-3 justify-between items-center">
       <!-- News -->
       <li>
