@@ -28,13 +28,15 @@ export const CoinFlip = {
       // Subsequent flips already know the result, so go straight to reveal animation
       if (flipIndex === 1) {
         // First flip: start with continuous spinning, wait for reveal_result event
-        this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+        this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
+        this.coinEl.classList.add('animate-flip-continuous');
         this.animationStartTime = Date.now();
         console.log('[CoinFlip] First flip - starting continuous spin');
       } else {
         // Subsequent flips: go straight to the result animation
         const finalAnimation = this.result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
-        this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+        this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
+        this.coinEl.classList.add(finalAnimation);
         this.resultRevealed = true; // Mark as revealed so reveal_result event is ignored
         console.log('[CoinFlip] Flip', flipIndex, '- starting direct reveal animation:', finalAnimation);
 
@@ -64,7 +66,8 @@ export const CoinFlip = {
         // Listen for the next animationiteration event (when animation completes one loop and reaches 0deg)
         const switchAnimation = () => {
           const finalAnimation = this.pendingResult === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
-          this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+          this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
+          this.coinEl.classList.add(finalAnimation);
           console.log('[CoinFlip] Switched to final animation:', finalAnimation, 'at 0deg');
           this.coinEl.removeEventListener('animationiteration', switchAnimation);
         };
@@ -102,12 +105,14 @@ export const CoinFlip = {
 
           // Only use continuous spin for first flip
           if (flipIndex === 1) {
-            this.coinEl.className = 'coin w-full h-full absolute animate-flip-continuous';
+            this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
+            this.coinEl.classList.add('animate-flip-continuous');
             console.log('[CoinFlip] Updated - first flip, applied continuous spin class');
           } else {
             // Subsequent flips: go straight to result animation
             const finalAnimation = this.result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
-            this.coinEl.className = `coin w-full h-full absolute ${finalAnimation}`;
+            this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
+            this.coinEl.classList.add(finalAnimation);
             this.resultRevealed = true;
             console.log('[CoinFlip] Updated - flip', flipIndex, 'applied direct reveal:', finalAnimation);
 
