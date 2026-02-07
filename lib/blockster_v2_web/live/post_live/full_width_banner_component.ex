@@ -14,21 +14,30 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   def update(assigns, socket) do
     banner_key = Map.get(assigns, :banner_key, "shop_landing_banner")
 
-    # Load all settings with this prefix in a single query
-    settings = SiteSettings.get_by_prefix(banner_key)
+    # Only load settings from database on initial mount (when :desktop is not yet assigned)
+    # This prevents mobile from re-inheriting desktop values on every component update
+    socket =
+      if Map.has_key?(socket.assigns, :desktop) do
+        # Already initialized - just update the assigns passed from parent
+        assign(socket, assigns)
+      else
+        # Initial mount - load settings from database
+        settings = SiteSettings.get_by_prefix(banner_key)
 
-    # Load desktop settings (original keys)
-    desktop = load_banner_settings(settings, banner_key, "")
+        # Load desktop settings (original keys)
+        desktop = load_banner_settings(settings, banner_key, "")
 
-    # Load mobile settings (with _mobile suffix), falls back to desktop values
-    mobile = load_banner_settings(settings, banner_key, "_mobile", desktop)
+        # Load mobile settings (with _mobile suffix), falls back to desktop values only on initial load
+        mobile = load_banner_settings(settings, banner_key, "_mobile", desktop)
 
-    {:ok,
-     socket
-     |> assign(assigns)
-     |> assign(:banner_key, banner_key)
-     |> assign(:desktop, desktop)
-     |> assign(:mobile, mobile)}
+        socket
+        |> assign(assigns)
+        |> assign(:banner_key, banner_key)
+        |> assign(:desktop, desktop)
+        |> assign(:mobile, mobile)
+      end
+
+    {:ok, socket}
   end
 
   @impl true
