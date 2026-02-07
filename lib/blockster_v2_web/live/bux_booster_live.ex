@@ -323,39 +323,31 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <span class="text-sm font-medium"><%= format_integer(@max_bet) %> <%= @selected_token %></span>
                   </button>
                 </div>
-                <!-- Balance info - stacks on mobile -->
+                <!-- Balance info - always on same line -->
                 <div class="mt-1.5 sm:mt-2">
-                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm gap-1 sm:gap-0">
+                  <div class="flex items-center justify-between text-[10px] sm:text-sm">
                     <div class="text-gray-500">
                       <%= if @selected_token == "ROGUE" do %>
-                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-1 text-blue-500 hover:underline cursor-pointer">
+                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full inline" />
-                          <%= @selected_token %>
-                          <%= if @rogue_usd_price do %>
-                            <span class="text-gray-400">(≈ <%= format_usd(@rogue_usd_price, Map.get(@balances, "ROGUE", 0)) %>)</span>
-                          <% end %>
+                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 h-3 sm:w-4 sm:h-4 rounded-full inline" />
                         </a>
                       <% else %>
-                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-1 text-blue-500 hover:underline cursor-pointer">
+                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
-                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full inline" />
-                          <%= @selected_token %>
+                          <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 h-3 sm:w-4 sm:h-4 rounded-full inline" />
                         </a>
                       <% end %>
                     </div>
-                    <div class="text-right sm:text-right">
+                    <div class="text-right">
                       <%= if @selected_token == "ROGUE" do %>
                         <a href="https://roguetrader.io/rogue-bankroll" target="_blank" class="text-blue-500 text-[10px] sm:text-xs hover:underline cursor-pointer">
-                          House: <%= format_balance(@house_balance) %> <%= @selected_token %>
-                          <%= if @rogue_usd_price do %>
-                            <span class="text-gray-400">(≈ <%= format_usd(@rogue_usd_price, @house_balance) %>)</span>
-                          <% end %>
+                          House: <%= format_balance(@house_balance) %>
                         </a>
                       <% else %>
-                        <p class="text-gray-400 text-[10px] sm:text-xs">
-                          House: <%= format_balance(@house_balance) %> <%= @selected_token %>
-                        </p>
+                        <span class="text-gray-400 text-[10px] sm:text-xs">
+                          House: <%= format_balance(@house_balance) %>
+                        </span>
                       <% end %>
                     </div>
                   </div>
@@ -463,13 +455,15 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   </div>
                 </div>
                 <div class="flex-1 flex items-center justify-center">
+                  <% num_flips = get_predictions_needed(@selected_difficulty) %>
+                  <% sizes = get_prediction_size_classes(num_flips) %>
                   <div class="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
-                    <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
+                    <%= for i <- 1..num_flips do %>
                       <button
                         type="button"
                         phx-click="toggle_prediction"
                         phx-value-index={i}
-                        class={"w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
+                        class={"#{sizes.outer} rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
                           :heads -> "casino-chip-heads"
                           :tails -> "casino-chip-tails"
                           _ -> "bg-gray-200 text-gray-500 hover:bg-gray-300"
@@ -477,12 +471,12 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       >
                           <%= case Enum.at(@predictions, i - 1) do %>
                           <% :heads -> %>
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner">
-                              <span class="text-xl sm:text-2xl">🚀</span>
+                            <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
+                              <span class={sizes.emoji}>🚀</span>
                             </div>
                           <% :tails -> %>
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner">
-                              <span class="text-xl sm:text-2xl">💩</span>
+                            <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
+                              <span class={sizes.emoji}>💩</span>
                             </div>
                           <% _ -> %><%= i %>
                         <% end %>
@@ -515,15 +509,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
             <% else %>
               <!-- Game in Progress -->
               <div class="text-center flex-1 flex flex-col relative">
+                <% num_flips = get_predictions_needed(@selected_difficulty) %>
+                <% sizes = get_coin_size_classes(num_flips) %>
                 <!-- Prediction vs Result Display -->
                 <div class="mb-3 sm:mb-4">
                   <div class="flex justify-center gap-1 sm:gap-2 mb-2 flex-wrap">
-                    <%= for i <- 1..get_predictions_needed(@selected_difficulty) do %>
+                    <%= for i <- 1..num_flips do %>
                       <div class="text-center">
                         <!-- Prediction -->
-                        <div class={"w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
-                          <div class={"w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                            <span class="text-xl sm:text-3xl"><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
+                        <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
+                          <div class={"#{sizes.inner} rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                            <span class={sizes.emoji}><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
                           </div>
                         </div>
                         <!-- Result indicator -->
@@ -532,17 +528,17 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                              (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) -> %>
                             <% result = Enum.at(@results, i - 1) %>
                             <% matched = result == Enum.at(@predictions, i - 1) %>
-                            <div class={"w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
-                              <div class={"w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                                <span class="text-xl sm:text-3xl"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
+                              <div class={"#{sizes.inner} rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
+                                <span class={sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
                               </div>
                             </div>
                           <% i == @current_flip and @game_state == :flipping -> %>
-                            <div class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse">
-                              <span class="text-white text-xl sm:text-3xl font-bold">?</span>
+                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse"}>
+                              <span class={"text-white #{sizes.emoji} font-bold"}>?</span>
                             </div>
                           <% true -> %>
-                            <div class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center bg-gray-100">
+                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-gray-100"}>
                               <span class="text-gray-400 text-lg sm:text-xl">-</span>
                             </div>
                         <% end %>
@@ -2139,6 +2135,29 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     case Enum.find(@difficulty_options, fn opt -> opt.level == difficulty end) do
       nil -> :win_all
       opt -> Map.get(opt, :mode, :win_all)
+    end
+  end
+
+  # Dynamic coin sizing based on number of flips - bigger coins for fewer flips
+  # Returns {outer_size, inner_size, emoji_size} for mobile and desktop
+  defp get_coin_size_classes(num_flips) do
+    case num_flips do
+      1 -> %{outer: "w-20 h-20 sm:w-24 sm:h-24", inner: "w-14 h-14 sm:w-16 sm:h-16", emoji: "text-3xl sm:text-4xl"}
+      2 -> %{outer: "w-16 h-16 sm:w-20 sm:h-20", inner: "w-11 h-11 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
+      3 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-10 h-10 sm:w-14 sm:h-14", emoji: "text-xl sm:text-3xl"}
+      4 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-9 h-9 sm:w-12 sm:h-12", emoji: "text-xl sm:text-3xl"}
+      _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-lg sm:text-2xl"}
+    end
+  end
+
+  # Same for prediction buttons in idle state
+  defp get_prediction_size_classes(num_flips) do
+    case num_flips do
+      1 -> %{outer: "w-20 h-20 sm:w-20 sm:h-20", inner: "w-14 h-14 sm:w-14 sm:h-14", emoji: "text-3xl sm:text-3xl"}
+      2 -> %{outer: "w-16 h-16 sm:w-18 sm:h-18", inner: "w-11 h-11 sm:w-12 sm:h-12", emoji: "text-2xl sm:text-2xl"}
+      3 -> %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
+      4 -> %{outer: "w-13 h-13 sm:w-16 sm:h-16", inner: "w-9 h-9 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
+      _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
     end
   end
 
