@@ -296,6 +296,22 @@ let ClaimCleanup = {
   }
 };
 
+// ScrollToCenter - scrolls selected child into center of scrollable container
+let ScrollToCenter = {
+  mounted() {
+    requestAnimationFrame(() => {
+      const container = this.el;
+      const selected = container.querySelector('[data-selected="true"]');
+      if (selected) {
+        const containerRect = container.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        const scrollLeft = container.scrollLeft + (selectedRect.left - containerRect.left) - (containerRect.width / 2) + (selectedRect.width / 2);
+        container.scrollLeft = scrollLeft;
+      }
+    });
+  }
+};
+
 let InfiniteScroll = {
   mounted() {
     this.pending = false;
@@ -427,7 +443,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, ScrollToCenter },
 });
 
 // connect if there are any LiveViews on the page

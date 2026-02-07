@@ -213,7 +213,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         <!-- Main Game Area -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[480px] sm:h-[500px] flex flex-col overflow-hidden">
           <!-- Difficulty Tabs - scrollable on mobile (fixed height) -->
-          <div class="flex border-b border-gray-200 overflow-x-auto scrollbar-hide shrink-0">
+          <div id="difficulty-tabs" class="flex border-b border-gray-200 overflow-x-auto scrollbar-hide shrink-0" phx-hook="ScrollToCenter">
             <%= for {opt, idx} <- Enum.with_index(@difficulty_options) do %>
               <% is_first = idx == 0 %>
               <% is_last = idx == length(@difficulty_options) - 1 %>
@@ -222,6 +222,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 phx-click="select_difficulty"
                 phx-value-level={opt.level}
                 disabled={@game_state not in [:idle, :result]}
+                data-selected={if @selected_difficulty == opt.level, do: "true", else: "false"}
                 class={"flex-1 min-w-[60px] sm:min-w-0 py-2 sm:py-3 px-1 sm:px-2 text-center transition-all cursor-pointer disabled:cursor-not-allowed #{if is_first, do: "rounded-tl-2xl", else: ""} #{if is_last, do: "rounded-tr-2xl", else: ""} #{if @selected_difficulty == opt.level, do: "bg-black", else: "bg-gray-50 hover:bg-gray-100"}"}
               >
                 <div class={"text-sm sm:text-lg font-bold #{if @selected_difficulty == opt.level, do: "text-white", else: "text-gray-900"}"}><%= opt.multiplier %>x</div>
@@ -236,7 +237,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
             <%= if @game_state == :idle do %>
               <!-- Bet Stake with Token Dropdown -->
               <div class="mb-3 sm:mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">Bet Stake</label>
+                <label class="block text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Bet Stake</label>
                 <div class="flex gap-1.5 sm:gap-2">
                   <!-- Input with halve/double buttons -->
                   <div class="flex-1 relative min-w-0">
