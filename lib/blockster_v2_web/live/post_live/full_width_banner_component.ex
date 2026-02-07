@@ -7,7 +7,7 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, :show_edit_modal, false)}
+    {:ok, assign(socket, show_edit_modal: false, editing_version: :desktop)}
   end
 
   @impl true
@@ -17,73 +17,35 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
     # Load all settings with this prefix in a single query
     settings = SiteSettings.get_by_prefix(banner_key)
 
-    # Extract settings with defaults
-    banner_url = settings[banner_key] || @default_banner
-    banner_position = settings["#{banner_key}_position"] || "50% 50%"
-    banner_zoom = settings["#{banner_key}_zoom"] || "100"
+    # Load desktop settings (original keys)
+    desktop = load_banner_settings(settings, banner_key, "")
 
-    # Text overlay settings
-    overlay_text = settings["#{banner_key}_overlay_text"] || "Shop the collection on Blockster"
-    overlay_text_color = settings["#{banner_key}_overlay_text_color"] || "#ffffff"
-    overlay_text_size = settings["#{banner_key}_overlay_text_size"] || "48"
-    overlay_bg_color = settings["#{banner_key}_overlay_bg_color"] || "#000000"
-    overlay_bg_opacity = settings["#{banner_key}_overlay_bg_opacity"] || "50"
-    overlay_border_radius = settings["#{banner_key}_overlay_border_radius"] || "12"
-    overlay_position = settings["#{banner_key}_overlay_position"] || "50% 50%"
-
-    # Text box dimensions (for resizing)
-    overlay_width = settings["#{banner_key}_overlay_width"] || "400"
-    overlay_height = settings["#{banner_key}_overlay_height"] || "auto"
-
-    # Button settings
-    button_text = settings["#{banner_key}_button_text"] || "View All"
-    button_url = settings["#{banner_key}_button_url"] || "/shop"
-    button_bg_color = settings["#{banner_key}_button_bg_color"] || "#ffffff"
-    button_text_color = settings["#{banner_key}_button_text_color"] || "#000000"
-    button_size = settings["#{banner_key}_button_size"] || "medium"
-    button_position = settings["#{banner_key}_button_position"] || "50% 70%"
-
-    # Banner height setting
-    banner_height = settings["#{banner_key}_height"] || "600"
-
-    # Visibility settings
-    show_text = (settings["#{banner_key}_show_text"] || "true") == "true"
-    show_button = (settings["#{banner_key}_show_button"] || "true") == "true"
+    # Load mobile settings (with _mobile suffix), falls back to desktop values
+    mobile = load_banner_settings(settings, banner_key, "_mobile", desktop)
 
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:banner_key, banner_key)
-     |> assign(:banner_url, banner_url)
-     |> assign(:banner_position, banner_position)
-     |> assign(:banner_zoom, banner_zoom)
-     |> assign(:overlay_text, overlay_text)
-     |> assign(:overlay_text_color, overlay_text_color)
-     |> assign(:overlay_text_size, overlay_text_size)
-     |> assign(:overlay_bg_color, overlay_bg_color)
-     |> assign(:overlay_bg_opacity, overlay_bg_opacity)
-     |> assign(:overlay_border_radius, overlay_border_radius)
-     |> assign(:overlay_position, overlay_position)
-     |> assign(:overlay_width, overlay_width)
-     |> assign(:overlay_height, overlay_height)
-     |> assign(:button_text, button_text)
-     |> assign(:button_url, button_url)
-     |> assign(:button_bg_color, button_bg_color)
-     |> assign(:button_text_color, button_text_color)
-     |> assign(:button_size, button_size)
-     |> assign(:button_position, button_position)
-     |> assign(:banner_height, banner_height)
-     |> assign(:show_text, show_text)
-     |> assign(:show_button, show_button)}
+     |> assign(:desktop, desktop)
+     |> assign(:mobile, mobile)}
+  end
+
+  @impl true
+  def handle_event("set_editing_version", %{"version" => version}, socket) do
+    editing_version = if version == "mobile", do: :mobile, else: :desktop
+    {:noreply, assign(socket, :editing_version, editing_version)}
   end
 
   @impl true
   def handle_event("update_banner", %{"banner_url" => banner_url}, socket) do
     banner_key = socket.assigns.banner_key
+    suffix = version_suffix(socket.assigns.editing_version)
+    setting_key = "#{banner_key}#{suffix}"
 
-    case SiteSettings.set(banner_key, banner_url) do
+    case SiteSettings.set(setting_key, banner_url) do
       {:ok, _} ->
-        {:noreply, assign(socket, :banner_url, banner_url)}
+        {:noreply, update_version_setting(socket, :banner_url, banner_url)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -93,11 +55,12 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def handle_event("update_position", %{"position" => position}, socket) do
     banner_key = socket.assigns.banner_key
-    position_key = "#{banner_key}_position"
+    suffix = version_suffix(socket.assigns.editing_version)
+    position_key = "#{banner_key}#{suffix}_position"
 
     case SiteSettings.set(position_key, position) do
       {:ok, _} ->
-        {:noreply, assign(socket, :banner_position, position)}
+        {:noreply, update_version_setting(socket, :banner_position, position)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -107,11 +70,12 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def handle_event("update_zoom", %{"zoom" => zoom}, socket) do
     banner_key = socket.assigns.banner_key
-    zoom_key = "#{banner_key}_zoom"
+    suffix = version_suffix(socket.assigns.editing_version)
+    zoom_key = "#{banner_key}#{suffix}_zoom"
 
     case SiteSettings.set(zoom_key, zoom) do
       {:ok, _} ->
-        {:noreply, assign(socket, :banner_zoom, zoom)}
+        {:noreply, update_version_setting(socket, :banner_zoom, zoom)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -121,11 +85,12 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def handle_event("update_overlay_position", %{"position" => position}, socket) do
     banner_key = socket.assigns.banner_key
-    position_key = "#{banner_key}_overlay_position"
+    suffix = version_suffix(socket.assigns.editing_version)
+    position_key = "#{banner_key}#{suffix}_overlay_position"
 
     case SiteSettings.set(position_key, position) do
       {:ok, _} ->
-        {:noreply, assign(socket, :overlay_position, position)}
+        {:noreply, update_version_setting(socket, :overlay_position, position)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -135,24 +100,23 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def handle_event("update_overlay_size", %{"width" => width, "height" => height}, socket) do
     banner_key = socket.assigns.banner_key
+    suffix = version_suffix(socket.assigns.editing_version)
 
-    SiteSettings.set("#{banner_key}_overlay_width", width)
-    SiteSettings.set("#{banner_key}_overlay_height", height)
+    SiteSettings.set("#{banner_key}#{suffix}_overlay_width", width)
+    SiteSettings.set("#{banner_key}#{suffix}_overlay_height", height)
 
-    {:noreply,
-     socket
-     |> assign(:overlay_width, width)
-     |> assign(:overlay_height, height)}
+    {:noreply, update_version_settings(socket, %{overlay_width: width, overlay_height: height})}
   end
 
   @impl true
   def handle_event("update_button_position", %{"position" => position}, socket) do
     banner_key = socket.assigns.banner_key
-    position_key = "#{banner_key}_button_position"
+    suffix = version_suffix(socket.assigns.editing_version)
+    position_key = "#{banner_key}#{suffix}_button_position"
 
     case SiteSettings.set(position_key, position) do
       {:ok, _} ->
-        {:noreply, assign(socket, :button_position, position)}
+        {:noreply, update_version_setting(socket, :button_position, position)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -177,48 +141,59 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def handle_event("save_overlay_settings", params, socket) do
     banner_key = socket.assigns.banner_key
+    suffix = version_suffix(socket.assigns.editing_version)
+    key_prefix = "#{banner_key}#{suffix}"
+
+    # Get current version's settings for fallback values
+    current = if socket.assigns.editing_version == :desktop,
+      do: socket.assigns.desktop,
+      else: socket.assigns.mobile
 
     # Handle checkbox values (they come as "true" or nil)
     show_text = if params["show_text"], do: "true", else: "false"
     show_button = if params["show_button"], do: "true", else: "false"
 
     settings = [
-      {"#{banner_key}_overlay_text", params["overlay_text"]},
-      {"#{banner_key}_overlay_text_color", params["overlay_text_color"]},
-      {"#{banner_key}_overlay_text_size", params["overlay_text_size"]},
-      {"#{banner_key}_overlay_bg_color", params["overlay_bg_color"]},
-      {"#{banner_key}_overlay_bg_opacity", params["overlay_bg_opacity"]},
-      {"#{banner_key}_overlay_border_radius", params["overlay_border_radius"]},
-      {"#{banner_key}_button_text", params["button_text"]},
-      {"#{banner_key}_button_url", params["button_url"]},
-      {"#{banner_key}_button_bg_color", params["button_bg_color"]},
-      {"#{banner_key}_button_text_color", params["button_text_color"]},
-      {"#{banner_key}_button_size", params["button_size"]},
-      {"#{banner_key}_height", params["banner_height"]},
-      {"#{banner_key}_show_text", show_text},
-      {"#{banner_key}_show_button", show_button}
+      {"#{key_prefix}_overlay_text", params["overlay_text"]},
+      {"#{key_prefix}_overlay_text_color", params["overlay_text_color"]},
+      {"#{key_prefix}_overlay_text_size", params["overlay_text_size"]},
+      {"#{key_prefix}_overlay_bg_color", params["overlay_bg_color"]},
+      {"#{key_prefix}_overlay_bg_opacity", params["overlay_bg_opacity"]},
+      {"#{key_prefix}_overlay_border_radius", params["overlay_border_radius"]},
+      {"#{key_prefix}_button_text", params["button_text"]},
+      {"#{key_prefix}_button_url", params["button_url"]},
+      {"#{key_prefix}_button_bg_color", params["button_bg_color"]},
+      {"#{key_prefix}_button_text_color", params["button_text_color"]},
+      {"#{key_prefix}_button_size", params["button_size"]},
+      {"#{key_prefix}_height", params["banner_height"]},
+      {"#{key_prefix}_show_text", show_text},
+      {"#{key_prefix}_show_button", show_button}
     ]
 
     Enum.each(settings, fn {key, value} ->
       if value, do: SiteSettings.set(key, value)
     end)
 
+    updates = %{
+      overlay_text: params["overlay_text"] || current.overlay_text,
+      overlay_text_color: params["overlay_text_color"] || current.overlay_text_color,
+      overlay_text_size: params["overlay_text_size"] || current.overlay_text_size,
+      overlay_bg_color: params["overlay_bg_color"] || current.overlay_bg_color,
+      overlay_bg_opacity: params["overlay_bg_opacity"] || current.overlay_bg_opacity,
+      overlay_border_radius: params["overlay_border_radius"] || current.overlay_border_radius,
+      button_text: params["button_text"] || current.button_text,
+      button_url: params["button_url"] || current.button_url,
+      button_bg_color: params["button_bg_color"] || current.button_bg_color,
+      button_text_color: params["button_text_color"] || current.button_text_color,
+      button_size: params["button_size"] || current.button_size,
+      banner_height: params["banner_height"] || current.banner_height,
+      show_text: show_text == "true",
+      show_button: show_button == "true"
+    }
+
     {:noreply,
      socket
-     |> assign(:overlay_text, params["overlay_text"] || socket.assigns.overlay_text)
-     |> assign(:overlay_text_color, params["overlay_text_color"] || socket.assigns.overlay_text_color)
-     |> assign(:overlay_text_size, params["overlay_text_size"] || socket.assigns.overlay_text_size)
-     |> assign(:overlay_bg_color, params["overlay_bg_color"] || socket.assigns.overlay_bg_color)
-     |> assign(:overlay_bg_opacity, params["overlay_bg_opacity"] || socket.assigns.overlay_bg_opacity)
-     |> assign(:overlay_border_radius, params["overlay_border_radius"] || socket.assigns.overlay_border_radius)
-     |> assign(:button_text, params["button_text"] || socket.assigns.button_text)
-     |> assign(:button_url, params["button_url"] || socket.assigns.button_url)
-     |> assign(:button_bg_color, params["button_bg_color"] || socket.assigns.button_bg_color)
-     |> assign(:button_text_color, params["button_text_color"] || socket.assigns.button_text_color)
-     |> assign(:button_size, params["button_size"] || socket.assigns.button_size)
-     |> assign(:banner_height, params["banner_height"] || socket.assigns.banner_height)
-     |> assign(:show_text, show_text == "true")
-     |> assign(:show_button, show_button == "true")
+     |> update_version_settings(updates)
      |> assign(:show_edit_modal, false)}
   end
 
@@ -275,6 +250,66 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
         {x_val, y_val}
       _ ->
         {50, 50}
+    end
+  end
+
+  # Load banner settings for a specific version (desktop or mobile)
+  # suffix is "" for desktop, "_mobile" for mobile
+  # defaults is an optional map to fall back to (used for mobile to fall back to desktop values)
+  defp load_banner_settings(settings, banner_key, suffix, defaults \\ %{}) do
+    key = "#{banner_key}#{suffix}"
+
+    %{
+      banner_url: settings[key] || defaults[:banner_url] || @default_banner,
+      banner_position: settings["#{key}_position"] || defaults[:banner_position] || "50% 50%",
+      banner_zoom: settings["#{key}_zoom"] || defaults[:banner_zoom] || "100",
+      overlay_text: settings["#{key}_overlay_text"] || defaults[:overlay_text] || "Shop the collection on Blockster",
+      overlay_text_color: settings["#{key}_overlay_text_color"] || defaults[:overlay_text_color] || "#ffffff",
+      overlay_text_size: settings["#{key}_overlay_text_size"] || defaults[:overlay_text_size] || "48",
+      overlay_bg_color: settings["#{key}_overlay_bg_color"] || defaults[:overlay_bg_color] || "#000000",
+      overlay_bg_opacity: settings["#{key}_overlay_bg_opacity"] || defaults[:overlay_bg_opacity] || "50",
+      overlay_border_radius: settings["#{key}_overlay_border_radius"] || defaults[:overlay_border_radius] || "12",
+      overlay_position: settings["#{key}_overlay_position"] || defaults[:overlay_position] || "50% 50%",
+      overlay_width: settings["#{key}_overlay_width"] || defaults[:overlay_width] || "400",
+      overlay_height: settings["#{key}_overlay_height"] || defaults[:overlay_height] || "auto",
+      button_text: settings["#{key}_button_text"] || defaults[:button_text] || "View All",
+      button_url: settings["#{key}_button_url"] || defaults[:button_url] || "/shop",
+      button_bg_color: settings["#{key}_button_bg_color"] || defaults[:button_bg_color] || "#ffffff",
+      button_text_color: settings["#{key}_button_text_color"] || defaults[:button_text_color] || "#000000",
+      button_size: settings["#{key}_button_size"] || defaults[:button_size] || "medium",
+      button_position: settings["#{key}_button_position"] || defaults[:button_position] || "50% 70%",
+      banner_height: settings["#{key}_height"] || defaults[:banner_height] || "600",
+      show_text: (settings["#{key}_show_text"] || defaults[:show_text] || "true") == "true",
+      show_button: (settings["#{key}_show_button"] || defaults[:show_button] || "true") == "true"
+    }
+  end
+
+  defp version_suffix(:desktop), do: ""
+  defp version_suffix(:mobile), do: "_mobile"
+
+  # Update a setting in the current editing version's map
+  defp update_version_setting(socket, key, value) do
+    version = socket.assigns.editing_version
+    version_map = if version == :desktop, do: socket.assigns.desktop, else: socket.assigns.mobile
+    updated_map = Map.put(version_map, key, value)
+
+    if version == :desktop do
+      assign(socket, :desktop, updated_map)
+    else
+      assign(socket, :mobile, updated_map)
+    end
+  end
+
+  # Update multiple settings in the current editing version's map
+  defp update_version_settings(socket, updates) do
+    version = socket.assigns.editing_version
+    version_map = if version == :desktop, do: socket.assigns.desktop, else: socket.assigns.mobile
+    updated_map = Map.merge(version_map, updates)
+
+    if version == :desktop do
+      assign(socket, :desktop, updated_map)
+    else
+      assign(socket, :mobile, updated_map)
     end
   end
 end
