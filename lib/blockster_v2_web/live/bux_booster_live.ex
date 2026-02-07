@@ -585,18 +585,18 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <%= if @game_state == :flipping do %>
                   <!-- Coin Flip Animation -->
                   <div class="mb-4 sm:mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-result={Enum.at(@results, @current_flip - 1)} data-flip-index={@current_flip}>
-                    <div class="coin-container mx-auto w-16 h-16 sm:w-24 sm:h-24 relative perspective-1000">
+                    <div class={"coin-container mx-auto #{sizes.outer} relative perspective-1000"}>
                       <div class="coin w-full h-full absolute animate-flip-continuous">
                         <!-- Heads chip -->
                         <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-coin-heads flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
-                            <span class="text-2xl sm:text-4xl">🚀</span>
+                          <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <span class={sizes.emoji}>🚀</span>
                           </div>
                         </div>
                         <!-- Tails chip -->
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-700 flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
-                            <span class="text-2xl sm:text-4xl">💩</span>
+                          <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <span class={sizes.emoji}>💩</span>
                           </div>
                         </div>
                       </div>
@@ -607,19 +607,19 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <%= if @game_state == :showing_result do %>
                   <!-- Show coin result for 1 second -->
                   <div class="mb-4 sm:mb-6">
-                    <div class="coin-container mx-auto w-16 h-16 sm:w-24 sm:h-24 relative perspective-1000">
+                    <div class={"coin-container mx-auto #{sizes.outer} relative perspective-1000"}>
                       <!-- Static coin showing the result -->
                       <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if Enum.at(@results, @current_flip - 1) == :heads, do: "0deg", else: "180deg"})"}>
                         <!-- Heads chip -->
                         <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-coin-heads flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
-                            <span class="text-2xl sm:text-4xl">🚀</span>
+                          <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <span class={sizes.emoji}>🚀</span>
                           </div>
                         </div>
                         <!-- Tails chip -->
                         <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-700 flex items-center justify-center border-2 sm:border-4 border-white shadow-inner">
-                            <span class="text-2xl sm:text-4xl">💩</span>
+                          <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <span class={sizes.emoji}>💩</span>
                           </div>
                         </div>
                       </div>
@@ -2144,9 +2144,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   defp get_coin_size_classes(num_flips) do
     case num_flips do
       1 -> %{outer: "w-20 h-20 sm:w-24 sm:h-24", inner: "w-14 h-14 sm:w-16 sm:h-16", emoji: "text-3xl sm:text-4xl"}
-      2 -> %{outer: "w-16 h-16 sm:w-20 sm:h-20", inner: "w-11 h-11 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
-      3 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-10 h-10 sm:w-14 sm:h-14", emoji: "text-xl sm:text-3xl"}
-      4 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-9 h-9 sm:w-12 sm:h-12", emoji: "text-xl sm:text-3xl"}
+      2 -> %{outer: "w-18 h-18 sm:w-20 sm:h-20", inner: "w-12 h-12 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
+      3 -> %{outer: "w-16 h-16 sm:w-20 sm:h-20", inner: "w-11 h-11 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
+      4 -> %{outer: "w-14 h-14 sm:w-18 sm:h-18", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"}
       _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-lg sm:text-2xl"}
     end
   end
@@ -2155,9 +2155,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   defp get_prediction_size_classes(num_flips) do
     case num_flips do
       1 -> %{outer: "w-20 h-20 sm:w-20 sm:h-20", inner: "w-14 h-14 sm:w-14 sm:h-14", emoji: "text-3xl sm:text-3xl"}
-      2 -> %{outer: "w-16 h-16 sm:w-18 sm:h-18", inner: "w-11 h-11 sm:w-12 sm:h-12", emoji: "text-2xl sm:text-2xl"}
-      3 -> %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
-      4 -> %{outer: "w-13 h-13 sm:w-16 sm:h-16", inner: "w-9 h-9 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
+      2 -> %{outer: "w-18 h-18 sm:w-18 sm:h-18", inner: "w-12 h-12 sm:w-12 sm:h-12", emoji: "text-2xl sm:text-2xl"}
+      3 -> %{outer: "w-16 h-16 sm:w-16 sm:h-16", inner: "w-11 h-11 sm:w-10 sm:h-10", emoji: "text-2xl sm:text-2xl"}
+      4 -> %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
       _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
     end
   end
