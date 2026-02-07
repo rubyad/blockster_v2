@@ -170,12 +170,19 @@ defmodule BlocksterV2.Blog do
 
     query = if hub && hub.tag_name do
       # Find posts that either have this hub_id OR have a tag matching the hub's tag_name
+      # Use subquery to get distinct post IDs first, then order properly
+      post_ids_query =
+        from(p in Post,
+          left_join: pt in "post_tags", on: pt.post_id == p.id,
+          left_join: t in Tag, on: t.id == pt.tag_id,
+          where: not is_nil(p.published_at),
+          where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
+          select: p.id,
+          distinct: true
+        )
+
       from(p in Post,
-        left_join: pt in "post_tags", on: pt.post_id == p.id,
-        left_join: t in Tag, on: t.id == pt.tag_id,
-        where: not is_nil(p.published_at),
-        where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
-        distinct: p.id,
+        where: p.id in subquery(post_ids_query),
         order_by: [desc: p.published_at],
         limit: ^limit,
         preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]

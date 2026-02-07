@@ -1,8 +1,8 @@
 <div class="bg-[#F5F6FB]">
   <!-- Hub Content -->
-  <section class="md:py-10 py-6">
+  <section class="pt-6 md:pt-10 pb-6">
     <div class="container mx-auto">
-      <div class="hero-admin bg-white rounded-2xl md:p-6 p-3 mt-6">
+      <div class="hero-admin bg-white rounded-2xl md:p-6 p-3">
     <div class="w-full flex flex-wrap md:flex-nowrap items-start justify-between gap-4 relative">
       <!-- Profile Left -->
       <div class="flex items-center gap-4 flex-wrap">
@@ -22,21 +22,6 @@
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">{@hub.name}</h3>
           </div>
-
-          <div class="flex flex-wrap items-center mt-6 text-sm text-gray-800 max-md:justify-between">
-            <div class="wraper text-center pr-6 border-[#14141414] border-r">
-              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Stories</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.posts), do: length(@hub.posts), else: 0}</span>
-            </div>
-            <div class="wraper text-center px-6 border-[#14141414] border-r">
-              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Events</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.events), do: length(@hub.events), else: 0}</span>
-            </div>
-            <div class="wraper text-center px-6">
-              <p class="text-xs font-haas_medium_55 tracking-[0.02em]">Subscribers</p>
-              <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">{if Ecto.assoc_loaded?(@hub.followers), do: length(@hub.followers), else: 0}</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -44,29 +29,16 @@
       <button class="bg-black text-white text-sm px-5 py-2 max-sm:absolute rounded-full font-inter leading-[1.4] transition gap-2 flex items-center max-sm:right-3 max-sm:top-3" onclick="toggleModal('shareModal')">
         <span class="text-[20px] flex items-center leading-[0] max-sm:hidden">+</span>
         <span class="text-xs flex items-center leading-[1.4] max-sm:hidden">Subscribe</span>
-        <span class="text-xs flex items-center leading-[1.4] sm:hidden">Share</span>
-        <span class="sm:hidden">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M7.70833 3.125H3.125V16.875H16.875V12.2917M11.4583 3.125H16.875V8.54167M9.16667 10.8333L16.4542 3.54576" stroke="white" stroke-width="1.5" stroke-linecap="square"></path>
-          </svg>
-        </span>
+        <span class="text-xs flex items-center leading-[1.4] sm:hidden">Subscribe</span>
       </button>
     </div>
 
     <%= if @hub.description do %>
-      <h4 class="!text-[14px] flex gap-2 items-center font-haas_medium_65 text-[#343434] leading-[24px] border-[#141414] disabled:opacity-[0.6] mt-6">About us</h4>
-      <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-1 border-[#141414] disabled:opacity-[0.6]"><%= @hub.description %></p>
+      <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-4 border-[#141414] disabled:opacity-[0.6]"><%= @hub.description %></p>
     <% end %>
 
 
-    <div class="flex flex-wrap gap-4 items-center justify-between mt-4">
-      <div class="p-[0.5px] rounded-[100px] inline-block bg-[#141414]">
-        <div class="flex items-center gap-1.5 bg-white rounded-[100px] px-2 py-1 min-w-[73px]">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-          <span class="text-xs font-haas_medium_65">Earn BUX</span>
-        </div>
-      </div>
-
+    <div class="flex flex-wrap gap-4 items-center justify-end mt-4">
       <!-- Social Media Icons -->
       <div class="flex items-center gap-3">
         <%= if @hub.website_url do %>
@@ -140,6 +112,7 @@
     </div>
       </div>
 
+      <!-- Desktop Tabs -->
       <div id="hub-page-menu" class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden mt-6 relative z-20">
         <div class="inline-flex w-full gap-1">
           <button
@@ -178,6 +151,67 @@
             Events
           </button>
         </div>
+      </div>
+
+      <!-- Mobile Dropdown Tabs -->
+      <div class="md:hidden mt-4 relative z-20" phx-click-away="close_mobile_menu">
+        <button
+          phx-click="toggle_mobile_menu"
+          class="w-full p-3 bg-[#E7E8F1] rounded-full flex items-center justify-between cursor-pointer"
+        >
+          <span class="font-haas_roman_55 text-sm text-[#141414] pl-2">
+            <%= cond do %>
+              <% @show_all -> %>All
+              <% @show_news -> %>News
+              <% @show_videos -> %>Videos
+              <% @show_shop -> %>Shop
+              <% @show_events -> %>Events
+              <% true -> %>All
+            <% end %>
+          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={"transition-transform #{if @show_mobile_menu, do: "rotate-180", else: ""}"}>
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <%= if @show_mobile_menu do %>
+          <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <button
+              phx-click="switch_tab"
+              phx-value-tab="all"
+              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_all, do: "bg-gray-100", else: ""}"}
+            >
+              All
+            </button>
+            <button
+              phx-click="switch_tab"
+              phx-value-tab="news"
+              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_news, do: "bg-gray-100", else: ""}"}
+            >
+              News
+            </button>
+            <button
+              phx-click="switch_tab"
+              phx-value-tab="videos"
+              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_videos, do: "bg-gray-100", else: ""}"}
+            >
+              Videos
+            </button>
+            <button
+              phx-click="switch_tab"
+              phx-value-tab="shop"
+              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_shop, do: "bg-gray-100", else: ""}"}
+            >
+              Shop
+            </button>
+            <button
+              phx-click="switch_tab"
+              phx-value-tab="events"
+              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_events, do: "bg-gray-100", else: ""}"}
+            >
+              Events
+            </button>
+          </div>
+        <% end %>
       </div>
     </div>
   </section>

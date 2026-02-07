@@ -203,11 +203,11 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}
     >
-      <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-2 sm:pt-24 pb-8">
-        <!-- Header -->
-        <div class="text-center mb-2 sm:mb-6">
-          <h1 class="text-xl sm:text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Booster</h1>
-          <p class="text-gray-600 text-[10px] sm:text-sm">Predict coin flips to multiply your tokens</p>
+      <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
+        <!-- Header (hidden on mobile) -->
+        <div class="hidden sm:block text-center mb-6">
+          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Booster</h1>
+          <p class="text-gray-600 text-sm">Predict coin flips to multiply your tokens</p>
         </div>
 
         <!-- Main Game Area -->
@@ -714,10 +714,10 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           </div>
         </div>
 
-        <!-- Recent Games -->
+        <!-- BUX Booster Games -->
         <div class="mt-4 sm:mt-6">
           <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">Recent Games</h3>
+            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">BUX Booster Games</h3>
             <%= if assigns[:games_loading] do %>
               <div class="text-center py-4 text-gray-500 text-xs sm:text-sm">Loading games...</div>
             <% end %>

@@ -188,7 +188,8 @@ let MobileNavHighlight = {
     const links = this.el.querySelectorAll('[data-nav-path]');
 
     // Known section paths (everything else is considered "News" content)
-    const sectionPaths = ['/hubs', '/shop', '/airdrop', '/play', '/members', '/login', '/admin'];
+    // Note: /hub (singular) is for hub detail pages, /hubs is the index
+    const sectionPaths = ['/hubs', '/hub', '/shop', '/airdrop', '/play', '/members', '/login', '/admin'];
 
     // Check if current path is in a known section
     const isInKnownSection = sectionPaths.some(section =>
@@ -202,6 +203,9 @@ let MobileNavHighlight = {
       if (navPath === '/') {
         // News icon: active on homepage OR any post page (not in known sections)
         isActive = currentPath === '/' || !isInKnownSection;
+      } else if (navPath === '/hubs') {
+        // Hubs nav: active for /hubs index AND /hub/:slug detail pages
+        isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
       } else {
         // Other nav items: active if path matches or starts with nav path
         isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
@@ -237,9 +241,16 @@ let DesktopNavHighlight = {
 
     links.forEach(link => {
       const navPath = link.dataset.navPath;
-      const isActive = navPath === '/'
-        ? currentPath === '/'
-        : currentPath === navPath || currentPath.startsWith(navPath + '/');
+      let isActive = false;
+
+      if (navPath === '/') {
+        isActive = currentPath === '/';
+      } else if (navPath === '/hubs') {
+        // Hubs nav: active for /hubs index AND /hub/:slug detail pages
+        isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
+      } else {
+        isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
+      }
 
       if (isActive) {
         link.classList.add('bg-[#D4FF00]');

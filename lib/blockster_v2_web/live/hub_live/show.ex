@@ -34,6 +34,7 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:show_videos, false)
          |> assign(:show_shop, false)
          |> assign(:show_events, false)
+         |> assign(:show_mobile_menu, false)
          |> assign(:news_loaded, false)
          |> assign(:videos_loaded, true)
          |> assign(:shop_loaded, false)
@@ -50,6 +51,16 @@ defmodule BlocksterV2Web.HubLive.Show do
   end
 
   @impl true
+  def handle_event("toggle_mobile_menu", _params, socket) do
+    {:noreply, assign(socket, :show_mobile_menu, !socket.assigns.show_mobile_menu)}
+  end
+
+  @impl true
+  def handle_event("close_mobile_menu", _params, socket) do
+    {:noreply, assign(socket, :show_mobile_menu, false)}
+  end
+
+  @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     socket =
       socket
@@ -58,6 +69,7 @@ defmodule BlocksterV2Web.HubLive.Show do
       |> assign(:show_videos, tab == "videos")
       |> assign(:show_shop, tab == "shop")
       |> assign(:show_events, tab == "events")
+      |> assign(:show_mobile_menu, false)
 
     # Load/reload news components when switching to news tab
     # Always reset the stream to ensure consistent display

@@ -13,8 +13,8 @@ defmodule BlocksterV2Web.AirdropLive do
         _ -> 0
       end
 
-    # Airdrop end time: Feb 17th 2026 at 12:00 PM EST (17:00 UTC)
-    airdrop_end_time = DateTime.new!(~D[2026-02-17], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
+    # Airdrop end time: Feb 28th 2026 at 12:00 PM EST (17:00 UTC)
+    airdrop_end_time = DateTime.new!(~D[2026-02-28], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
 
     # Schedule countdown updates every second when connected
     if connected?(socket) do
@@ -93,9 +93,9 @@ defmodule BlocksterV2Web.AirdropLive do
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-gray-50">
-      <div class="max-w-2xl mx-auto px-4 pt-24 pb-8">
-        <!-- Header -->
-        <div class="text-center mb-6">
+      <div class="max-w-2xl mx-auto px-4 pt-6 md:pt-24 pb-8">
+        <!-- Header (hidden on mobile) -->
+        <div class="hidden md:block text-center mb-6">
           <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">USDT Airdrop</h1>
           <p class="text-gray-600 text-sm">Redeem BUX to win USDT prizes</p>
         </div>
@@ -111,7 +111,7 @@ defmodule BlocksterV2Web.AirdropLive do
           <!-- Countdown Section -->
           <div class="p-6 border-b border-gray-200">
             <p class="text-center text-gray-500 text-sm font-medium mb-2">Drawing On</p>
-            <p class="text-center text-gray-900 font-haas_medium_65 text-lg mb-4">February 17, 2026 at 12:00 PM EST</p>
+            <p class="text-center text-gray-900 font-haas_medium_65 text-lg mb-4">February 28, 2026 at 12:00 PM EST</p>
             <div class="flex justify-center gap-3">
               <div class="text-center">
                 <div class="bg-gray-100 rounded-xl w-16 h-16 flex items-center justify-center">
