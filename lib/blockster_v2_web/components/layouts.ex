@@ -163,11 +163,11 @@ defmodule BlocksterV2Web.Layouts do
 
           <!-- Navigation Links - Centered -->
           <nav id="desktop-nav" phx-hook="DesktopNavHighlight" class="flex items-center gap-1">
-            <.link navigate={~p"/"} data-nav-path="/" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#141414] uppercase hover:text-[#8AE388] transition-colors">News</.link>
-            <.link navigate={~p"/hubs"} data-nav-path="/hubs" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#141414] uppercase hover:text-[#8AE388] transition-colors">Hubs</.link>
-            <.link navigate={~p"/shop"} data-nav-path="/shop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#141414] uppercase hover:text-[#8AE388] transition-colors">Shop</.link>
-            <.link navigate={~p"/airdrop"} data-nav-path="/airdrop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#141414] uppercase hover:text-[#8AE388] transition-colors">Airdrop</.link>
-            <.link navigate={~p"/play"} data-nav-path="/play" class="px-4 py-2 font-haas_medium_65 text-[14px] text-[#141414] uppercase hover:text-[#8AE388] transition-colors cursor-pointer">Play</.link>
+            <.link navigate={~p"/"} data-nav-path="/" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#D4FF00] transition-colors">News</.link>
+            <.link navigate={~p"/hubs"} data-nav-path="/hubs" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#D4FF00] transition-colors">Hubs</.link>
+            <.link navigate={~p"/shop"} data-nav-path="/shop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#D4FF00] transition-colors">Shop</.link>
+            <.link navigate={~p"/airdrop"} data-nav-path="/airdrop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#D4FF00] transition-colors">Airdrop</.link>
+            <.link navigate={~p"/play"} data-nav-path="/play" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#D4FF00] transition-colors cursor-pointer">Play</.link>
           </nav>
 
           <!-- Balance/User - Right (flex-1 for equal width with left side) -->

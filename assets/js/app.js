@@ -208,10 +208,10 @@ let MobileNavHighlight = {
       }
 
       if (isActive) {
-        link.classList.add('bg-[#BAF55F]');
+        link.classList.add('bg-[#D4FF00]');
         link.classList.remove('hover:bg-gray-100');
       } else {
-        link.classList.remove('bg-[#BAF55F]');
+        link.classList.remove('bg-[#D4FF00]');
         link.classList.add('hover:bg-gray-100');
       }
     });
@@ -242,11 +242,11 @@ let DesktopNavHighlight = {
         : currentPath === navPath || currentPath.startsWith(navPath + '/');
 
       if (isActive) {
-        link.classList.add('text-[#BAF55F]', 'font-bold');
-        link.classList.remove('text-[#141414]', 'hover:text-[#BAF55F]');
+        link.classList.add('bg-[#D4FF00]');
+        link.classList.remove('hover:bg-[#D4FF00]');
       } else {
-        link.classList.remove('text-[#BAF55F]', 'font-bold');
-        link.classList.add('text-[#141414]', 'hover:text-[#BAF55F]');
+        link.classList.remove('bg-[#D4FF00]');
+        link.classList.add('hover:bg-[#D4FF00]');
       }
     });
   }

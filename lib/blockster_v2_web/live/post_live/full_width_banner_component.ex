@@ -11,49 +11,62 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
   @impl true
   def update(assigns, socket) do
     # Set default banner URL if not provided
-    banner_url = Map.get(assigns, :banner_url) || @default_banner
-    banner_url = imagekit_url(banner_url)
+    base_url = Map.get(assigns, :banner_url) || @default_banner
+
+    # Create separate URLs for desktop and mobile with different transformations
+    desktop_url = imagekit_url(base_url, "w-1920,q-90")
+    mobile_url = imagekit_url(base_url, "w-800,q-85")
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:banner_url, banner_url)}
+     |> assign(:desktop_banner_url, desktop_url)
+     |> assign(:mobile_banner_url, mobile_url)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="w-full relative overflow-hidden">
+    <section class="w-full relative">
       <%!-- Desktop Banner --%>
-      <div class="hidden md:block w-full h-[600px] overflow-hidden">
+      <div class="hidden md:block w-full h-[600px] overflow-hidden relative">
         <img
-          src={@banner_url}
+          src={@desktop_banner_url}
           alt="Banner"
           class="w-full h-full object-cover"
           style="object-position: 50% 50%;"
         />
+        <%!-- Text Overlay - Desktop (one line, near bottom) --%>
+        <%= if assigns[:overlay_text] do %>
+          <div class="absolute inset-x-0 bottom-16 flex justify-center px-4">
+            <div class="bg-black/50 rounded-xl px-8 py-4 text-center">
+              <h2 class="text-white font-bold text-3xl whitespace-nowrap">
+                <%= @overlay_text %>
+              </h2>
+            </div>
+          </div>
+        <% end %>
       </div>
 
       <%!-- Mobile Banner --%>
-      <div class="md:hidden w-full h-[280px] overflow-hidden">
+      <div class="md:hidden w-full h-[280px] overflow-hidden relative">
         <img
-          src={@banner_url}
+          src={@mobile_banner_url}
           alt="Banner"
           class="w-full h-full object-cover"
           style="object-position: 50% 50%;"
         />
-      </div>
-
-      <%!-- Text Overlay - Responsive --%>
-      <%= if assigns[:overlay_text] do %>
-        <div class="absolute inset-0 flex items-center justify-center p-4">
-          <div class="bg-black/50 rounded-xl p-4 md:p-6 max-w-[90%] md:max-w-md text-center">
-            <h2 class="text-white font-bold text-xl md:text-4xl leading-tight">
-              <%= @overlay_text %>
-            </h2>
+        <%!-- Text Overlay - Mobile (wraps to 2 lines, near bottom) --%>
+        <%= if assigns[:overlay_text] do %>
+          <div class="absolute inset-x-0 bottom-8 flex justify-center px-4">
+            <div class="bg-black/50 rounded-xl px-4 py-3 text-center max-w-[85%]">
+              <h2 class="text-white font-bold text-base leading-tight">
+                <%= @overlay_text %>
+              </h2>
+            </div>
           </div>
-        </div>
-      <% end %>
+        <% end %>
+      </div>
 
       <%!-- Button --%>
       <%= if assigns[:button_text] && assigns[:button_url] do %>
@@ -68,9 +81,9 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
     """
   end
 
-  defp imagekit_url(url) do
+  defp imagekit_url(url, transforms) do
     if url && String.contains?(url, "ik.imagekit.io") do
-      "#{url}?tr=w-1920,q-90"
+      "#{url}?tr=#{transforms}"
     else
       url
     end
