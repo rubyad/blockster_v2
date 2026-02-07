@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title default="BlocksterV2" suffix=" · Phoenix Framework">
       {assigns[:page_title]}
@@ -57,7 +57,7 @@
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8">
     </script>
   </head>
-  <body class="bg-[#F5F6FB]">
+  <body class="bg-[#F5F6FB] overflow-x-hidden">
     {@inner_content}
   </body>
 </html>
