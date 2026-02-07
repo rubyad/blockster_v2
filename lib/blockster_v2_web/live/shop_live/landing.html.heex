@@ -4,7 +4,9 @@
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
     id="shop-hero-banner"
     current_user={assigns[:current_user]}
-    banner_key="shop_landing_banner"
+    overlay_text="Shop the collection on Blockster"
+    button_text="View All"
+    button_url="/shop"
   />
 
   <%!-- Shop Content Sections --%>
@@ -19,7 +21,6 @@
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
     id="shop-banner-two"
     current_user={assigns[:current_user]}
-    banner_key="shop_banner_two"
   />
 
   <.live_component
@@ -33,7 +34,6 @@
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
     id="shop-banner-three"
     current_user={assigns[:current_user]}
-    banner_key="shop_banner_three"
   />
 
   <.live_component
@@ -47,7 +47,6 @@
     module={BlocksterV2Web.PostLive.FullWidthBannerComponent}
     id="shop-banner-four"
     current_user={assigns[:current_user]}
-    banner_key="shop_banner_four"
   />
 
   <.live_component
