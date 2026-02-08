@@ -286,10 +286,10 @@ let CategoryNavHighlight = {
       const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
 
       if (isActive) {
-        // Thick black line with thick green line on top (stacked via box-shadow)
+        // Thick black line with thick green line below it (stacked)
         link.classList.remove('border-transparent');
         link.style.borderBottom = '3px solid black';
-        link.style.boxShadow = '0 3px 0 0 #CAFC00';
+        link.style.boxShadow = '0 6px 0 0 #CAFC00';  // 3px black + 3px offset = green starts at 6px
       } else {
         link.classList.add('border-transparent');
         link.style.borderBottom = '';
