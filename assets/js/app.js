@@ -286,14 +286,12 @@ let CategoryNavHighlight = {
       const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
 
       if (isActive) {
-        // Thick black line with thick green line below it (stacked)
+        // Thin black underline
         link.classList.remove('border-transparent');
-        link.style.borderBottom = '3px solid black';
-        link.style.boxShadow = '0 6px 0 0 #CAFC00';  // 3px black + 3px offset = green starts at 6px
+        link.style.borderBottom = '1px solid black';
       } else {
         link.classList.add('border-transparent');
         link.style.borderBottom = '';
-        link.style.boxShadow = '';
       }
     });
   }
