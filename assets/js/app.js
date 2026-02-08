@@ -244,7 +244,8 @@ let DesktopNavHighlight = {
       let isActive = false;
 
       if (navPath === '/') {
-        isActive = currentPath === '/';
+        // News icon: active on homepage OR any category page
+        isActive = currentPath === '/' || currentPath.startsWith('/category/');
       } else if (navPath === '/hubs') {
         // Hubs nav: active for /hubs index AND /hub/:slug detail pages
         isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
@@ -285,11 +286,14 @@ let CategoryNavHighlight = {
       const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
 
       if (isActive) {
-        link.classList.add('border-[#CAFC00]');
+        // Black underline with lime green highlight glow
+        link.classList.add('border-black');
         link.classList.remove('border-transparent');
+        link.style.boxShadow = '0 3px 0 0 #CAFC00';
       } else {
-        link.classList.remove('border-[#CAFC00]');
+        link.classList.remove('border-black');
         link.classList.add('border-transparent');
+        link.style.boxShadow = '';
       }
     });
   }
