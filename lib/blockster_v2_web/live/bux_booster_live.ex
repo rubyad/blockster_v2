@@ -204,14 +204,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       data-commitment-hash={assigns[:commitment_hash]}
     >
       <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
-        <!-- Header (hidden on mobile) -->
-        <div class="hidden sm:block text-center mb-6">
-          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">BUX Booster</h1>
-          <p class="text-gray-600 text-sm">Predict coin flips to multiply your tokens</p>
-        </div>
-
         <!-- Main Game Area -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[480px] sm:h-[500px] flex flex-col overflow-hidden">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[480px] sm:h-[510px] flex flex-col overflow-hidden">
           <!-- Difficulty Tabs - scrollable on mobile (fixed height) -->
           <div id="difficulty-tabs" class="flex border-b border-gray-200 overflow-x-auto scrollbar-hide shrink-0" phx-hook="ScrollToCenter">
             <%= for {opt, idx} <- Enum.with_index(@difficulty_options) do %>
@@ -239,7 +233,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
               <div class="mb-3 sm:mb-4">
                 <label class="block text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Bet Stake</label>
                 <div class="flex gap-1.5 sm:gap-2">
-                  <!-- Input with halve/double buttons -->
+                  <!-- Input with halve/double buttons and USD value -->
                   <div class="flex-1 relative min-w-0">
                     <input
                       type="number"
@@ -247,10 +241,13 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       phx-keyup="update_bet_amount"
                       phx-debounce="100"
                       min="1"
-                      class="w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 pr-20 sm:pr-24 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      class={"w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none #{if @selected_token == "ROGUE" && @rogue_usd_price, do: "pr-[7.5rem] sm:pr-36", else: "pr-20 sm:pr-24"}"}
                     />
-                    <!-- Halve/Double buttons inside input -->
+                    <!-- USD value and Halve/Double buttons inside input -->
                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
+                        <span class="text-gray-400 text-[10px] sm:text-xs mr-1">≈ <%= format_usd(@rogue_usd_price, @bet_amount) %></span>
+                      <% end %>
                       <button
                         type="button"
                         phx-click="halve_bet"
@@ -332,6 +329,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                         <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
                           <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 h-3 sm:w-4 sm:h-4 rounded-full inline" />
+                          <%= if @rogue_usd_price do %>
+                            <span class="text-gray-400">(<%= format_usd(@rogue_usd_price, Map.get(@balances, @selected_token, 0)) %>)</span>
+                          <% end %>
                         </a>
                       <% else %>
                         <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
@@ -344,6 +344,9 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       <%= if @selected_token == "ROGUE" do %>
                         <a href="https://roguetrader.io/rogue-bankroll" target="_blank" class="text-blue-500 text-[10px] sm:text-xs hover:underline cursor-pointer">
                           House: <%= format_balance(@house_balance) %>
+                          <%= if @rogue_usd_price do %>
+                            <span class="text-gray-400">(<%= format_usd(@rogue_usd_price, @house_balance) %>)</span>
+                          <% end %>
                         </a>
                       <% else %>
                         <span class="text-gray-400 text-[10px] sm:text-xs">
@@ -555,13 +558,10 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                     <p class="text-lg sm:text-xl font-bold text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
                       <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-4 sm:w-5 h-4 sm:h-5 rounded-full" />
                       <span><%= format_balance(@current_bet) %></span>
-                      <span class="text-gray-600"><%= @selected_token %></span>
+                      <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
+                        <span class="text-gray-400 text-sm sm:text-base font-normal">≈ <%= format_usd(@rogue_usd_price, @current_bet) %></span>
+                      <% end %>
                     </p>
-                    <%= if @selected_token == "ROGUE" && @rogue_usd_price do %>
-                      <p class="text-[10px] sm:text-xs text-gray-400 mt-1">
-                        ≈ <%= format_usd(@rogue_usd_price, @current_bet) %>
-                      </p>
-                    <% end %>
                   </div>
                 <% end %>
 
@@ -2184,8 +2184,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     cond do
       usd_value >= 1_000_000 -> "$#{:erlang.float_to_binary(usd_value / 1_000_000, decimals: 2)}M"
       usd_value >= 1_000 -> "$#{:erlang.float_to_binary(usd_value / 1_000, decimals: 2)}K"
-      usd_value >= 0.01 -> "$#{:erlang.float_to_binary(usd_value, decimals: 2)}"
-      true -> "$#{:erlang.float_to_binary(usd_value, decimals: 4)}"
+      true -> "$#{:erlang.float_to_binary(usd_value, decimals: 2)}"
     end
   end
   defp format_usd(_, _), do: nil

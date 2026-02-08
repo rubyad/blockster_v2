@@ -34,13 +34,13 @@ defmodule BlocksterV2Web.PostLive.FullWidthBannerComponent do
           src={@desktop_banner_url}
           alt="Banner"
           class="w-full h-full object-cover"
-          style="object-position: 50% 50%;"
+          style="object-position: 50% 20%;"
         />
         <%!-- Text Overlay - Desktop (one line, near bottom) --%>
         <%= if assigns[:overlay_text] do %>
           <div class="absolute inset-x-0 bottom-16 flex justify-center px-4">
             <div class="bg-black/50 rounded-xl px-8 py-4 text-center">
-              <h2 class="text-white font-bold text-3xl whitespace-nowrap">
+              <h2 class="text-white font-bold text-4xl whitespace-nowrap">
                 <%= @overlay_text %>
               </h2>
             </div>

@@ -94,12 +94,6 @@ defmodule BlocksterV2Web.AirdropLive do
     ~H"""
     <div class="min-h-screen bg-gray-50">
       <div class="max-w-2xl mx-auto px-4 pt-6 md:pt-24 pb-8">
-        <!-- Header (hidden on mobile) -->
-        <div class="hidden md:block text-center mb-6">
-          <h1 class="text-3xl font-bold text-gray-900 font-haas_medium_65">USDT Airdrop</h1>
-          <p class="text-gray-600 text-sm">Redeem BUX to win USDT prizes</p>
-        </div>
-
         <!-- Main Card -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <!-- Prize Pool Header -->

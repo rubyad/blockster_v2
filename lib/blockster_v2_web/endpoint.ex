@@ -4,11 +4,13 @@ defmodule BlocksterV2Web.Endpoint do
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
+  # Session cookie persists for 30 days so users stay logged in on mobile
   @session_options [
     store: :cookie,
     key: "_blockster_v2_key",
     signing_salt: "5Zxg0YVm",
-    same_site: "Lax"
+    same_site: "Lax",
+    max_age: 30 * 24 * 60 * 60
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
