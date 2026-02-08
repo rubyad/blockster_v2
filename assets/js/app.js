@@ -244,8 +244,11 @@ let DesktopNavHighlight = {
       let isActive = false;
 
       if (navPath === '/') {
-        // News icon: active on homepage OR any category page
-        isActive = currentPath === '/' || currentPath.startsWith('/category/');
+        // News icon: active on homepage, category pages, and post pages
+        // Post pages are any path that's not a known section
+        const knownSections = ['/hubs', '/hub/', '/shop', '/airdrop', '/play', '/login', '/members', '/admin'];
+        const isKnownSection = knownSections.some(section => currentPath.startsWith(section));
+        isActive = currentPath === '/' || currentPath.startsWith('/category/') || !isKnownSection;
       } else if (navPath === '/hubs') {
         // Hubs nav: active for /hubs index AND /hub/:slug detail pages
         isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
@@ -280,10 +283,16 @@ let CategoryNavHighlight = {
   updateActiveCategory() {
     const currentPath = window.location.pathname;
     const links = this.el.querySelectorAll('[data-category-path]');
+    // Get post's category from data attribute (set when on a post page)
+    const postCategory = this.el.dataset.postCategory;
 
     links.forEach(link => {
       const categoryPath = link.dataset.categoryPath;
-      const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
+      const categorySlug = categoryPath.replace('/category/', '');
+      // Active if: on category page OR post's category matches this category
+      const isActive = currentPath === categoryPath ||
+                       currentPath.startsWith(categoryPath + '/') ||
+                       (postCategory && postCategory === categorySlug);
 
       if (isActive) {
         // Thin black underline

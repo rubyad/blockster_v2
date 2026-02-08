@@ -64,6 +64,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :bux_balance, :any, default: 0, doc: "the user's on-chain BUX balance from Mnesia"
   attr :token_balances, :map, default: %{}, doc: "the user's individual token balances"
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
+  attr :post_category_slug, :string, default: nil, doc: "the current post's category slug for highlighting"
   attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
   attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
 
@@ -343,7 +344,7 @@ defmodule BlocksterV2Web.Layouts do
         <!-- Category Row -->
         <%= if @show_categories do %>
           <div class="border-t border-gray-200 py-2.5 bg-gray-50">
-            <div id="category-nav" phx-hook="CategoryNavHighlight" class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
+            <div id="category-nav" phx-hook="CategoryNavHighlight" data-post-category={@post_category_slug} class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
               <.link navigate={~p"/category/blockchain"} data-category-path="/category/blockchain" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Blockchain</.link>
               <span class="text-gray-300">|</span>
               <.link navigate={~p"/category/investment"} data-category-path="/category/investment" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Investment</.link>

@@ -152,6 +152,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      socket
      |> assign(:page_title, post.title)
      |> assign(:show_categories, true)
+     |> assign(:post_category_slug, if(updated_post.category, do: updated_post.category.slug, else: nil))
      |> assign(:post, updated_post)
      |> assign(:time_spent, time_spent)
      |> assign(:word_count, word_count)
