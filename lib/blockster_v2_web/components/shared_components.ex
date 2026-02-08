@@ -56,14 +56,17 @@ defmodule BlocksterV2Web.SharedComponents do
       |> assign(:tooltip, tooltip)
 
     ~H"""
-    <!-- BUX badge - solid lime green with black lightning bolt icon -->
+    <!-- BUX badge - solid lime green with lightning bolt from logo -->
     <!-- Gray out when pool is empty to indicate no BUX available -->
+    <!-- Sized to match earned badges (h-4 icon, text-xs, px-2.5 py-1.5) -->
     <div class={"rounded-full inline-block cursor-default #{if @is_empty, do: "bg-gray-300", else: "bg-[#D4FF00]"}"} title={@tooltip}>
-      <div class={"flex items-center gap-1.5 rounded-full px-2.5 py-1.5 min-w-[73px]"}>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class={"h-5 w-5 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
-          <path fill-rule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clip-rule="evenodd" />
-        </svg>
-        <span class={"text-sm font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
+      <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+        <img
+          src={~p"/images/bolt.png"}
+          alt="BUX"
+          class={"h-4 w-4 #{if @is_empty, do: "opacity-40", else: ""}"}
+        />
+        <span class={"text-xs font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
           {@balance_formatted}
         </span>
       </div>
