@@ -286,13 +286,13 @@ let CategoryNavHighlight = {
       const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
 
       if (isActive) {
-        // Black underline with lime green highlight glow
-        link.classList.add('border-black');
+        // Thick black line with thick green line on top (stacked via box-shadow)
         link.classList.remove('border-transparent');
+        link.style.borderBottom = '3px solid black';
         link.style.boxShadow = '0 3px 0 0 #CAFC00';
       } else {
-        link.classList.remove('border-black');
         link.classList.add('border-transparent');
+        link.style.borderBottom = '';
         link.style.boxShadow = '';
       }
     });
