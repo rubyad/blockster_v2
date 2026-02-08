@@ -23,6 +23,80 @@ defmodule BlocksterV2.Shop do
     list_products(opts)
   end
 
+  @doc """
+  Lists all active products for a specific hub, transformed for display.
+
+  Returns a list of maps with product display data including:
+  - `id`, `name`, `slug`
+  - `image` (first image URL)
+  - `images` (list of all image URLs)
+  - `price` (from first variant)
+  - `total_max_discount` (max of bux_max_discount and hub_token_max_discount)
+  - `max_discounted_price` (price after max discount applied)
+  """
+  def list_products_by_hub(hub_id, opts \\ []) do
+    preload = Keyword.get(opts, :preload, [:images, :variants])
+
+    images_query = from(i in ProductImage, order_by: i.position)
+    variants_query = from(v in ProductVariant, order_by: v.position)
+
+    ordered_preloads = Enum.map(preload, fn
+      :images -> {:images, images_query}
+      :variants -> {:variants, variants_query}
+      other -> other
+    end)
+
+    from(p in Product,
+      where: p.hub_id == ^hub_id and p.status == "active",
+      order_by: [desc: p.inserted_at],
+      preload: ^ordered_preloads
+    )
+    |> Repo.all()
+    |> Enum.map(&prepare_product_for_display/1)
+  end
+
+  @doc """
+  Transforms a Product struct into a display-ready map.
+  Used by hub shop sections and other places that need product cards.
+  """
+  def prepare_product_for_display(product) do
+    first_variant = product.variants |> List.first()
+
+    price = if first_variant && first_variant.price do
+      Decimal.to_float(first_variant.price)
+    else
+      0.0
+    end
+
+    # Get the token discount percentages (0-100)
+    bux_max_discount = product.bux_max_discount || 0
+    hub_token_max_discount = product.hub_token_max_discount || 0
+
+    # Max discount is the higher of the two (not additive)
+    total_max_discount = max(bux_max_discount, hub_token_max_discount)
+
+    # Calculate max discounted price (after max token redemption)
+    max_discounted_price = price * (1 - total_max_discount / 100)
+
+    %{
+      id: product.id,
+      name: product.title,
+      slug: product.handle,
+      image: get_first_image(product),
+      images: Enum.map(product.images || [], fn img -> img.src end),
+      price: price,
+      total_max_discount: total_max_discount,
+      max_discounted_price: max_discounted_price
+    }
+  end
+
+  defp get_first_image(product) do
+    case product.images do
+      [first | _] -> first.src
+      _ -> "https://via.placeholder.com/300x300?text=No+Image"
+    end
+  end
+
   def get_random_products(count \\ 3) do
     # Only get products that have at least one image using EXISTS subquery
     products =

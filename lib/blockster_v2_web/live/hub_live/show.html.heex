@@ -236,30 +236,89 @@
       </button>
     </div>
 
-    <!-- Hub Videos -->
-    <div class="mt-8">
-      <.live_component
-        module={BlocksterV2Web.PostLive.VideosComponent}
-        id="hub-videos-all"
-        posts={@videos_posts}
-        content={@hub.name}
-        type="hub-videos"
-        title="Videos"
-        show_breadcrumb={false}
-      />
-    </div>
+    <!-- Hub Videos Section - Only shown if videos exist -->
+    <%= if @videos_posts != [] do %>
+      <div class="md:pt-16 pt-8 md:pb-4 pb-2">
+        <div class="container mx-auto">
+          <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Videos</h2>
+          <.live_component
+            module={BlocksterV2Web.PostLive.VideosComponent}
+            id="hub-videos-all"
+            posts={@videos_posts}
+            content={@hub.name}
+            type="hub-videos"
+            show_header={false}
+          />
+        </div>
+      </div>
+    <% end %>
 
-    <!-- Shop Two Component -->
-    <.live_component
-      module={BlocksterV2Web.PostLive.ShopTwoComponent}
-      id="hub-shop-two"
-    />
+    <!-- Hub Shop Section - Only shown if products exist -->
+    <%= if @hub_products != [] do %>
+      <div class="md:pt-16 pt-8 md:pb-16 pb-8">
+        <div class="container mx-auto">
+          <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Shop</h2>
+          <!-- Hub Products Grid (same styling as /shop page) -->
+          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 items-stretch">
+            <%= for product <- @hub_products do %>
+              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
+                <!-- Image container with 3D flip animation -->
+                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                  <!-- 3D Flip animation container -->
+                  <div class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]" style="transform-style: preserve-3d;">
+                    <!-- Front face -->
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                      <img alt={product.name} src={product.image} class="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                    <!-- Back face -->
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                      <img alt={product.name} src={Enum.at(product.images, 1) || product.image} class="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                  </div>
+                </div>
 
-    <!-- Events Cards Component -->
-    <.live_component
-      module={BlocksterV2Web.PostLive.EventsCardsComponent}
-      id="hub-events-cards"
-    />
+                <!-- Product info -->
+                <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
+                  <!-- Title - Centered -->
+                  <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
+                    <%= product.name %>
+                  </h4>
+
+                  <!-- Price Display - Centered -->
+                  <div class="flex flex-col items-center mb-2 md:mb-4">
+                    <%= if product.total_max_discount > 0 do %>
+                      <!-- Original Price - Crossed out -->
+                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                      <!-- Discounted Price -->
+                      <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
+                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
+                      </span>
+                      <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                        with BUX tokens
+                      </span>
+                    <% else %>
+                      <!-- Regular Price -->
+                      <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                    <% end %>
+                  </div>
+
+                  <!-- Buy Now Button -->
+                  <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
+                    Buy Now
+                  </div>
+                </div>
+              </.link>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Events Section removed from All tab - only show on Events tab -->
   <% end %>
 
   <!-- News Tab Content -->
@@ -286,42 +345,141 @@
 
   <!-- Videos Tab Content -->
   <%= if @show_videos do %>
-    <div>
-      <.live_component
-        module={BlocksterV2Web.PostLive.VideosComponent}
-        id="hub-videos"
-        posts={@videos_posts}
-      />
+    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
+      <div class="container mx-auto">
+        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Videos</h2>
+        <%= if @videos_posts == [] do %>
+          <!-- Videos Empty State -->
+          <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
+            <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
+              <!-- Play icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No <%= @hub.name %> Videos</h3>
+            <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
+              Video content for this community is coming soon. Stay tuned!
+            </p>
+          </div>
+        <% else %>
+          <.live_component
+            module={BlocksterV2Web.PostLive.VideosComponent}
+            id="hub-videos"
+            posts={@videos_posts}
+            content={@hub.name}
+            type="hub-videos"
+            show_header={false}
+          />
+        <% end %>
+      </div>
     </div>
   <% end %>
 
   <!-- Shop Tab Content -->
   <%= if @show_shop do %>
-    <div class="relative">
-      <.live_component
-        module={BlocksterV2Web.PostLive.ShopOneComponent}
-        id="hub-shop-one"
-      />
+    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
+      <div class="container mx-auto">
+        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Shop</h2>
+        <%= if @hub_products == [] do %>
+          <!-- Shop Empty State -->
+          <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
+            <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
+              <!-- Shopping bag icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No <%= @hub.name %> Products</h3>
+            <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
+              This community doesn't have any products in the shop yet.
+            </p>
+            <.link navigate={~p"/shop"} class="mt-4 px-6 py-2 bg-black text-white rounded-full font-haas_medium_65 text-sm hover:bg-gray-800 transition-colors cursor-pointer">
+              Browse All Products
+            </.link>
+          </div>
+        <% else %>
+          <!-- Hub Products Grid (same styling as /shop page) -->
+          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 items-stretch">
+            <%= for product <- @hub_products do %>
+              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
+                <!-- Image container with 3D flip animation -->
+                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
+                  <!-- 3D Flip animation container -->
+                  <div class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]" style="transform-style: preserve-3d;">
+                    <!-- Front face -->
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
+                      <img alt={product.name} src={product.image} class="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                    <!-- Back face -->
+                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
+                      <img alt={product.name} src={Enum.at(product.images, 1) || product.image} class="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                  </div>
+                </div>
 
-      <.live_component
-        module={BlocksterV2Web.PostLive.ShopTwoComponent}
-        id="hub-shop-two-tab"
-      />
+                <!-- Product info -->
+                <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
+                  <!-- Title - Centered -->
+                  <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
+                    <%= product.name %>
+                  </h4>
 
-      <.live_component
-        module={BlocksterV2Web.PostLive.ShopFourComponent}
-        id="hub-shop-four"
-      />
+                  <!-- Price Display - Centered -->
+                  <div class="flex flex-col items-center mb-2 md:mb-4">
+                    <%= if product.total_max_discount > 0 do %>
+                      <!-- Original Price - Crossed out -->
+                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                      <!-- Discounted Price -->
+                      <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
+                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
+                      </span>
+                      <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
+                        with BUX tokens
+                      </span>
+                    <% else %>
+                      <!-- Regular Price -->
+                      <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
+                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
+                      </span>
+                    <% end %>
+                  </div>
+
+                  <!-- Buy Now Button -->
+                  <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
+                    Buy Now
+                  </div>
+                </div>
+              </.link>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
   <% end %>
 
   <!-- Events Tab Content -->
   <%= if @show_events do %>
-    <div>
-      <.live_component
-        module={BlocksterV2Web.PostLive.EventsComponent}
-        id="hub-events"
-      />
+    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
+      <div class="container mx-auto">
+        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Events</h2>
+        <!-- Events Empty State (always shown per requirements) -->
+        <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
+          <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
+            <!-- Calendar icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No Events Listed</h3>
+          <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
+            There are currently no events scheduled for this community. Check back later!
+          </p>
+        </div>
+      </div>
     </div>
   <% end %>
 </div>

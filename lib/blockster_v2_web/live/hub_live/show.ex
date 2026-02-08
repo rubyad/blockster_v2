@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.HubLive.Show do
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Blog
+  alias BlocksterV2.Shop
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
@@ -20,8 +21,12 @@ defmodule BlocksterV2Web.HubLive.Show do
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
         posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_balances()
         posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_balances()
-        # VideosComponent needs 3 posts for the All tab
-        videos_posts = Blog.list_published_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_balances()
+
+        # VideosComponent needs 3 video posts for the All tab (posts with video_id)
+        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_balances()
+
+        # Hub-specific products for Shop section
+        hub_products = Shop.list_products_by_hub(hub.id)
 
         {:ok,
          socket
@@ -37,8 +42,9 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:show_mobile_menu, false)
          |> assign(:news_loaded, false)
          |> assign(:videos_loaded, true)
-         |> assign(:shop_loaded, false)
+         |> assign(:shop_loaded, true)
          |> assign(:videos_posts, videos_posts)
+         |> assign(:hub_products, hub_products)
          |> assign(:displayed_post_ids, [])
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:news_components, [])}
@@ -89,7 +95,8 @@ defmodule BlocksterV2Web.HubLive.Show do
     # Load videos when switching to videos tab for the first time
     socket =
       if tab == "videos" && !socket.assigns.videos_loaded do
-        videos_posts = Blog.list_published_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_balances()
+        # Use list_video_posts_by_hub to get only posts with video_id
+        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_balances()
 
         socket
         |> assign(:videos_loaded, true)
@@ -98,14 +105,8 @@ defmodule BlocksterV2Web.HubLive.Show do
         socket
       end
 
-    # Load shop when switching to shop tab for the first time
-    socket =
-      if tab == "shop" && !socket.assigns.shop_loaded do
-        socket
-        |> assign(:shop_loaded, true)
-      else
-        socket
-      end
+    # Shop is now loaded in mount, no lazy loading needed
+    # (hub_products are loaded eagerly since they're shown in the All tab)
 
     {:noreply, socket}
   end

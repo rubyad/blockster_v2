@@ -211,6 +211,67 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Lists published video posts for a specific hub.
+
+  Video posts are identified by having a non-null `video_id` field,
+  which is extracted from YouTube URLs entered in the post form.
+
+  ## Options
+
+    * `:limit` - Maximum number of posts to return (default: 3)
+
+  ## Examples
+
+      iex> list_video_posts_by_hub(123)
+      [%Post{video_id: "dQw4w9WgXcQ", ...}, ...]
+
+      iex> list_video_posts_by_hub(123, limit: 5)
+      [%Post{}, ...]
+
+  """
+  def list_video_posts_by_hub(hub_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 3)
+
+    # Get the hub to access its tag_name
+    hub = get_hub(hub_id)
+
+    query = if hub && hub.tag_name do
+      # Find video posts that either have this hub_id OR have a tag matching the hub's tag_name
+      post_ids_query =
+        from(p in Post,
+          left_join: pt in "post_tags", on: pt.post_id == p.id,
+          left_join: t in Tag, on: t.id == pt.tag_id,
+          where: not is_nil(p.published_at),
+          where: not is_nil(p.video_id),
+          where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
+          select: p.id,
+          distinct: true
+        )
+
+      from(p in Post,
+        where: p.id in subquery(post_ids_query),
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+      )
+    else
+      # Fallback to just hub_id if hub doesn't have a tag_name
+      from(p in Post,
+        where: not is_nil(p.published_at),
+        where: not is_nil(p.video_id),
+        where: p.hub_id == ^hub_id,
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+      )
+    end
+
+    query
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
   Returns random published posts, optionally excluding a specific post.
   Used for sidebar recommendations.
   """
