@@ -43,6 +43,18 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - If you identify a potential fix that requires a dependency update, ASK the user first before making any changes
 > - This applies to: Phoenix, Phoenix LiveView, Ecto, Thirdweb, and any core framework dependencies
 
+## Branding Assets
+
+**Blockster Brand Color**: `#CAFC00` (lime green)
+- This is the official Blockster brand color
+- Use for all brand accents: badges, highlights, active states, buttons
+- Navigation highlights (top menu, bottom nav) use this color
+
+**Blockster Logo/Icon**: `https://ik.imagekit.io/blockster/blockster-icon.png`
+- This is THE Blockster logo - lime green circle with black lightning bolt
+- Used for BUX token icon, badges, and branding throughout the app
+- Access via `lightning_icon/1` component in SharedComponents
+
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
 - **Database**: PostgreSQL with Ecto

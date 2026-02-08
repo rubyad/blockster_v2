@@ -212,10 +212,10 @@ let MobileNavHighlight = {
       }
 
       if (isActive) {
-        link.classList.add('bg-[#D4FF00]');
+        link.classList.add('bg-[#CAFC00]');
         link.classList.remove('hover:bg-gray-100');
       } else {
-        link.classList.remove('bg-[#D4FF00]');
+        link.classList.remove('bg-[#CAFC00]');
         link.classList.add('hover:bg-gray-100');
       }
     });
@@ -253,11 +253,11 @@ let DesktopNavHighlight = {
       }
 
       if (isActive) {
-        link.classList.add('bg-[#D4FF00]');
-        link.classList.remove('hover:bg-[#D4FF00]');
+        link.classList.add('bg-[#CAFC00]');
+        link.classList.remove('hover:bg-[#CAFC00]');
       } else {
-        link.classList.remove('bg-[#D4FF00]');
-        link.classList.add('hover:bg-[#D4FF00]');
+        link.classList.remove('bg-[#CAFC00]');
+        link.classList.add('hover:bg-[#CAFC00]');
       }
     });
   }

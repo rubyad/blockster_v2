@@ -56,15 +56,14 @@ defmodule BlocksterV2Web.SharedComponents do
       |> assign(:tooltip, tooltip)
 
     ~H"""
-    <!-- BUX badge - solid lime green with lightning bolt from logo -->
+    <!-- BUX badge - uses Blockster logo icon, sized to match earned badges -->
     <!-- Gray out when pool is empty to indicate no BUX available -->
-    <!-- Sized to match earned badges (h-4 icon, text-xs, px-2.5 py-1.5) -->
-    <div class={"rounded-full inline-block cursor-default #{if @is_empty, do: "bg-gray-300", else: "bg-[#D4FF00]"}"} title={@tooltip}>
+    <div class={"rounded-full inline-block cursor-default #{if @is_empty, do: "bg-gray-300", else: "bg-[#CAFC00]"}"} title={@tooltip}>
       <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
         <img
-          src={~p"/images/bolt.png"}
+          src="https://ik.imagekit.io/blockster/blockster-icon.png"
           alt="BUX"
-          class={"h-4 w-4 #{if @is_empty, do: "opacity-40", else: ""}"}
+          class={"h-4 w-4 rounded-full #{if @is_empty, do: "opacity-40", else: ""}"}
         />
         <span class={"text-xs font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
           {@balance_formatted}
