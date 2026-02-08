@@ -1,22 +1,10 @@
 <div class="unregistered-page bg-[#F5F6FB]">
-  <!-- Mobile Sticky Search -->
-  <div class="md:hidden sticky top-0 z-30 bg-[#F5F6FB] px-4 pt-4 pb-2">
-    <input
-      type="text"
-      placeholder="Search hubs..."
-      phx-keyup="search"
-      phx-debounce="300"
-      value={@search_query}
-      class="w-full px-6 py-3 rounded-full border border-[#E7E8F1] bg-white text-[#141414] font-haas_roman_55 placeholder-[#515B70] focus:outline-none focus:ring-2 focus:ring-[#141414] focus:border-transparent shadow-sm"
-    />
-  </div>
-
   <!-- Hero Section -->
-  <section class="section pt-4 md:pt-24 pb-6">
+  <section class="section pt-6 md:pt-24 pb-2 md:pb-6">
     <div class="container mx-auto px-4">
       <div class="text-center max-w-3xl mx-auto">
         <h1 class="text-4xl md:text-5xl font-haas_bold_75 text-[#141414] mb-4">Hubs</h1>
-        <p class="text-lg font-haas_roman_55 text-[#515B70] leading-relaxed max-md:hidden">
+        <p class="text-base md:text-lg font-haas_roman_55 text-[#515B70] leading-relaxed">
           Explore dedicated pages for leading blockchain businesses, exchanges, DeFi platforms and more. Each hub features curated content, events and branded merch.
         </p>
         <!-- Desktop Search -->
@@ -94,7 +82,19 @@
     </div>
   </section>
 
-  <!-- Hubs Grid Section --> 
+  <!-- Mobile Sticky Search -->
+  <div class="md:hidden sticky top-14 z-30 bg-[#F5F6FB] px-4 pt-2 pb-4">
+    <input
+      type="text"
+      placeholder="Search hubs..."
+      phx-keyup="search"
+      phx-debounce="300"
+      value={@search_query}
+      class="w-full px-6 py-3 rounded-full border border-[#E7E8F1] bg-white text-[#141414] font-haas_roman_55 placeholder-[#515B70] focus:outline-none focus:ring-2 focus:ring-[#141414] focus:border-transparent shadow-sm"
+    />
+  </div>
+
+  <!-- Hubs Grid Section -->
   <section class="section pb-20">
     <div class="container mx-auto px-4">
       <%= if @hubs == [] do %>
