@@ -42,20 +42,29 @@ defmodule BlocksterV2Web.SharedComponents do
   def token_badge(assigns) do
     # Determine if pool is empty (balance is 0 or nil)
     is_empty = assigns.balance == 0 or assigns.balance == nil or assigns.balance == 0.0
+    balance_formatted = Number.Delimit.number_to_delimited(assigns.balance, precision: 0)
 
-    assigns = assign(assigns, :is_empty, is_empty)
+    tooltip = if is_empty do
+      "No BUX available in reward pool"
+    else
+      "#{balance_formatted} BUX available in reward pool"
+    end
+
+    assigns = assigns
+      |> assign(:is_empty, is_empty)
+      |> assign(:balance_formatted, balance_formatted)
+      |> assign(:tooltip, tooltip)
 
     ~H"""
-    <!-- BUX badge with thin black border (hub tokens removed) -->
+    <!-- BUX badge - solid lime green with black lightning bolt icon -->
     <!-- Gray out when pool is empty to indicate no BUX available -->
-    <div class={"p-[0.5px] rounded-[100px] inline-block #{if @is_empty, do: "bg-gray-400", else: "bg-[#141414]"}"}>
-      <div class={"flex items-center gap-1.5 rounded-[100px] px-2 py-1 min-w-[73px] #{if @is_empty, do: "bg-gray-100", else: "bg-white"}"}>
-        <img
-          src="https://ik.imagekit.io/blockster/blockster-icon.png"
-          alt="BUX"
-          class={"h-5 w-5 rounded-full object-cover #{if @is_empty, do: "opacity-50"}"} />
-        <span class={"text-xs font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
-          {Number.Delimit.number_to_delimited(@balance, precision: 0)}
+    <div class={"rounded-full inline-block cursor-default #{if @is_empty, do: "bg-gray-300", else: "bg-[#D4FF00]"}"} title={@tooltip}>
+      <div class={"flex items-center gap-1.5 rounded-full px-2.5 py-1.5 min-w-[73px]"}>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class={"h-5 w-5 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
+          <path fill-rule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clip-rule="evenodd" />
+        </svg>
+        <span class={"text-sm font-haas_medium_65 #{if @is_empty, do: "text-gray-400", else: "text-black"}"}>
+          {@balance_formatted}
         </span>
       </div>
     </div>
@@ -78,50 +87,57 @@ defmodule BlocksterV2Web.SharedComponents do
     x_share_bux = assigns.reward[:x_share_bux] || 0
     watch_bux = assigns.reward[:watch_bux] || 0
 
+    read_formatted = Number.Delimit.number_to_delimited(read_bux, precision: 0)
+    share_formatted = Number.Delimit.number_to_delimited(x_share_bux, precision: 0)
+    watch_formatted = Number.Delimit.number_to_delimited(watch_bux, precision: 0)
+
     assigns = assigns
       |> assign(:read_bux, read_bux)
       |> assign(:x_share_bux, x_share_bux)
       |> assign(:watch_bux, watch_bux)
+      |> assign(:read_formatted, read_formatted)
+      |> assign(:share_formatted, share_formatted)
+      |> assign(:watch_formatted, watch_formatted)
 
     ~H"""
     <div class="flex flex-wrap gap-1">
-      <!-- Read reward badge (amber with white text) -->
+      <!-- Read reward badge (amber with white text) - 20% bigger -->
       <%= if @read_bux > 0 do %>
-        <div class="rounded-[100px] inline-block bg-gradient-to-r from-amber-400 to-amber-500">
-          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+        <div class="rounded-full inline-block bg-gradient-to-r from-amber-400 to-amber-500 cursor-default" title={"Earned #{@read_formatted} BUX for reading"}>
+          <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
               <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
             </svg>
-            <span class="text-[10px] font-haas_medium_65 text-white">
-              {Number.Delimit.number_to_delimited(@read_bux, precision: 0)}
+            <span class="text-xs font-haas_medium_65 text-white">
+              {@read_formatted}
             </span>
           </div>
         </div>
       <% end %>
 
-      <!-- Share reward badge (black filled with white text) -->
+      <!-- Share reward badge (black filled with white text) - 20% bigger -->
       <%= if @x_share_bux > 0 do %>
-        <div class="rounded-[100px] inline-block bg-gray-900">
-          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+        <div class="rounded-full inline-block bg-gray-900 cursor-default" title={"Earned #{@share_formatted} BUX for sharing on X"}>
+          <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
               <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
             </svg>
-            <span class="text-[10px] font-haas_medium_65 text-white">
-              {Number.Delimit.number_to_delimited(@x_share_bux, precision: 0)}
+            <span class="text-xs font-haas_medium_65 text-white">
+              {@share_formatted}
             </span>
           </div>
         </div>
       <% end %>
 
-      <!-- Watch reward badge (purple) -->
+      <!-- Watch reward badge (purple) - 20% bigger -->
       <%= if @watch_bux > 0 do %>
-        <div class="p-[0.5px] rounded-[100px] inline-block bg-gradient-to-r from-violet-400 to-violet-500">
-          <div class="flex items-center gap-1 rounded-[100px] px-2 py-1 bg-violet-100">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-violet-800" viewBox="0 0 20 20" fill="currentColor">
+        <div class="rounded-full inline-block bg-gradient-to-r from-violet-400 to-violet-500 cursor-default" title={"Earned #{@watch_formatted} BUX for watching video"}>
+          <div class="flex items-center gap-1.5 rounded-full px-2.5 py-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
             </svg>
-            <span class="text-[10px] font-haas_medium_65 text-violet-800">
-              {Number.Delimit.number_to_delimited(@watch_bux, precision: 0)}
+            <span class="text-xs font-haas_medium_65 text-white">
+              {@watch_formatted}
             </span>
           </div>
         </div>

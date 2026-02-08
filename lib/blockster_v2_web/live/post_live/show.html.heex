@@ -431,7 +431,7 @@
         <% mobile_is_completed = @pool_available and (@already_rewarded or (!@is_anonymous and @article_completed) or (@is_anonymous and @show_signup_prompt)) %>
         <div class="sticky top-[58px] md:top-24 z-10 mb-4 border-b bg-white border-[#E7E8F1]">
           <!-- Content Row -->
-          <div class="flex items-center gap-2 py-2 md:py-4 px-0">
+          <div class="flex items-center gap-2 pt-3.5 pb-2.5 md:py-4 px-0">
           <!-- X/Twitter Share with BUX Reward -->
           <%= if @share_campaign && @share_campaign.is_active do %>
             <%= if @share_reward do %>
@@ -451,11 +451,11 @@
               </div>
               <%!-- Mobile: Black share reward badge (same as post cards) - clickable to tx --%>
               <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
-                <div class="flex items-center gap-1 rounded-full px-2 py-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                   </svg>
-                  <span class="text-[10px] font-haas_medium_65 text-white">
+                  <span class="text-xs font-haas_medium_65 text-white">
                     <%= Float.round((@share_reward[:bux_rewarded] || 0) + 0.0, 2) %>
                   </span>
                 </div>
@@ -486,13 +486,13 @@
                 <%!-- Mobile: Compact button --%>
                 <button
                   phx-click="open_share_modal"
-                  class="md:hidden flex items-center gap-1.5 h-7 px-2.5 bg-black text-white rounded-full text-xs font-haas_medium_65 cursor-pointer shrink-0"
+                  class="md:hidden flex items-center gap-1.5 h-8 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 cursor-pointer shrink-0"
                 >
-                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                   <%= if @pool_available do %>
-                    <span class="bg-[#8AE388] text-black px-1.5 py-0.5 rounded-full text-[10px] font-bold">+<%= @x_share_reward %></span>
+                    <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+<%= @x_share_reward %></span>
                   <% else %>
-                    <span class="text-gray-400 text-[10px]">Empty</span>
+                    <span class="text-gray-400 text-xs">Empty</span>
                   <% end %>
                 </button>
               <% else %>
@@ -524,37 +524,26 @@
             </a>
           <% end %>
 
-          <!-- Mobile Encouragement Text (hidden when X share button visible for logged-in users, or when completed) -->
+          <!-- Encouragement Text (hidden when X share button visible for logged-in users, or when completed) -->
           <%= if @pool_available and not mobile_is_completed do %>
             <span class={[
-              "md:hidden text-xs text-gray-500 flex-1 min-w-0 truncate",
+              "text-sm text-gray-500 flex-1 min-w-0 truncate",
               !@is_anonymous && @share_campaign && @share_campaign.is_active && "hidden"
             ]}>
               Keep reading to earn more!
             </span>
           <% end %>
 
-          <!-- Token Badge (Desktop only) -->
-          <div class="hidden md:block relative group ml-auto">
-            <div class="flex items-center gap-2 bg-[#F7F8FA] rounded-full px-3 py-1.5 cursor-default">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
-              <span class="text-sm font-haas_medium_65 text-[#141414]">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX</span>
-            </div>
-            <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              {Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX remaining in rewards pool
-            </div>
-          </div>
-
-          <!-- Mobile Earnings Display (Right Side) -->
-          <div class="md:hidden ml-auto flex items-center gap-1.5 shrink-0">
+          <!-- Earnings Display (Both Mobile and Desktop) -->
+          <div class="ml-auto flex items-center gap-2 shrink-0">
             <%= if @pool_available and not mobile_is_completed do %>
               <%!-- In progress: show current earnings --%>
               <% earned = if @is_anonymous, do: (@anonymous_earned || 0) / 1, else: (@current_bux || 0) / 1 %>
-              <div class="flex items-center gap-1.5">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 rounded-full" />
+              <div class="flex items-center gap-2">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
                 <div class="flex flex-col items-end">
-                  <span class="text-[9px] text-gray-400 leading-none">Your Earnings</span>
-                  <span class="font-haas_medium_65 text-sm leading-tight">
+                  <span class="text-[11px] text-gray-400 leading-none">Your Earnings</span>
+                  <span class="font-haas_medium_65 text-base leading-tight">
                     +<%= Float.round(earned + 0.0, 2) %> BUX
                   </span>
                 </div>
@@ -566,14 +555,14 @@
                 <% share_earned = if @share_reward, do: (@share_reward[:bux_rewarded] || 0) + 0.0, else: 0.0 %>
                 <% video_earned = (@video_total_bux_earned || 0) + 0.0 %>
                 <% total_earned = read_earned + share_earned + video_earned %>
-                <span class="text-xs text-gray-600 font-haas_medium_65">You earned <%= Float.round(total_earned, 2) %> BUX!</span>
+                <span class="text-sm text-gray-600 font-haas_medium_65">You earned <%= Float.round(total_earned, 2) %> BUX!</span>
                 <%!-- Read reward badge (amber with white text) --%>
                 <div class="rounded-full inline-block bg-gradient-to-r from-amber-400 to-amber-500">
-                  <div class="flex items-center gap-1 rounded-full px-2 py-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                     </svg>
-                    <span class="text-[10px] font-haas_medium_65 text-white">
+                    <span class="text-xs font-haas_medium_65 text-white">
                       <%= Float.round(read_earned, 2) %>
                     </span>
                   </div>
@@ -581,11 +570,11 @@
                 <%!-- Video reward badge (purple) - only if video earned > 0 --%>
                 <%= if video_earned > 0 do %>
                   <div class="rounded-full inline-block bg-gradient-to-r from-violet-400 to-violet-500">
-                    <div class="flex items-center gap-1 rounded-full px-2 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                       </svg>
-                      <span class="text-[10px] font-haas_medium_65 text-white">
+                      <span class="text-xs font-haas_medium_65 text-white">
                         <%= Float.round(video_earned, 2) %>
                       </span>
                     </div>
@@ -593,16 +582,16 @@
                 <% end %>
               <% else %>
                 <%!-- No pool available --%>
-                <span class="font-haas_medium_65 text-sm text-gray-400">No rewards</span>
+                <span class="font-haas_medium_65 text-base text-gray-400">No rewards</span>
               <% end %>
             <% end %>
           </div>
           </div><!-- End Content Row -->
 
-          <!-- Mobile Progress Bar (below content row) - hidden when completed -->
+          <!-- Progress Bar (below content row) - hidden when completed -->
           <%= if @pool_available and not mobile_is_completed do %>
             <% score = if @is_anonymous, do: (@engagement_score || 0), else: (@current_score || 0) %>
-            <div class="md:hidden h-1 bg-gray-100 relative">
+            <div class="h-1 bg-gray-100 relative">
               <div
                 class="h-full bg-gradient-to-r from-[#8AE388] to-[#6BCB69] transition-all duration-300 relative"
                 style={"width: #{score * 10}%"}

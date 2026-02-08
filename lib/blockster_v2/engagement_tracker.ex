@@ -365,9 +365,11 @@ defmodule BlocksterV2.EngagementTracker do
     end)
 
     # Get video watch rewards from user_video_engagement table
-    # Pattern: key, user_id, post_id, high_water_mark, total_earnable_time, video_duration,
-    #          completion_percentage, total_bux_earned (index 8), ...
-    video_pattern = {:user_video_engagement, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+    # Pattern: table_name, key, user_id, post_id, high_water_mark, total_earnable_time, video_duration,
+    #          completion_percentage, total_bux_earned (index 8), last_session_bux, total_pause_count,
+    #          total_tab_away_count, session_count, last_watched_at, created_at, updated_at, video_tx_ids
+    # Total: 17 elements (table name + 16 attributes)
+    video_pattern = {:user_video_engagement, :_, user_id, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
 
     video_map = try do
       :mnesia.dirty_match_object(video_pattern)
