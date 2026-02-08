@@ -343,22 +343,22 @@ defmodule BlocksterV2Web.Layouts do
         <!-- Category Row -->
         <%= if @show_categories do %>
           <div class="border-t border-gray-200 py-2.5 bg-gray-50">
-            <div class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
-              <.link navigate={~p"/category/blockchain"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Blockchain</.link>
+            <div id="category-nav" phx-hook="CategoryNavHighlight" class="max-w-7xl mx-auto px-4 flex items-center justify-center gap-4 overflow-x-auto">
+              <.link navigate={~p"/category/blockchain"} data-category-path="/category/blockchain" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Blockchain</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/investment"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Investment</.link>
+              <.link navigate={~p"/category/investment"} data-category-path="/category/investment" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Investment</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/crypto-trading"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Trading</.link>
+              <.link navigate={~p"/category/crypto-trading"} data-category-path="/category/crypto-trading" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Trading</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/people"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">People</.link>
+              <.link navigate={~p"/category/people"} data-category-path="/category/people" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">People</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/defi"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">DeFi</.link>
+              <.link navigate={~p"/category/defi"} data-category-path="/category/defi" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">DeFi</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/ai"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">AI</.link>
+              <.link navigate={~p"/category/ai"} data-category-path="/category/ai" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">AI</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/rwa"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">RWA</.link>
+              <.link navigate={~p"/category/rwa"} data-category-path="/category/rwa" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">RWA</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/events"} class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none">Events</.link>
+              <.link navigate={~p"/category/events"} data-category-path="/category/events" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Events</.link>
             </div>
           </div>
         <% end %>

@@ -263,6 +263,38 @@ let DesktopNavHighlight = {
   }
 };
 
+// Category Navigation Highlight Hook
+let CategoryNavHighlight = {
+  mounted() {
+    this.updateActiveCategory();
+    window.addEventListener('phx:navigate', () => {
+      setTimeout(() => this.updateActiveCategory(), 50);
+    });
+  },
+
+  updated() {
+    this.updateActiveCategory();
+  },
+
+  updateActiveCategory() {
+    const currentPath = window.location.pathname;
+    const links = this.el.querySelectorAll('[data-category-path]');
+
+    links.forEach(link => {
+      const categoryPath = link.dataset.categoryPath;
+      const isActive = currentPath === categoryPath || currentPath.startsWith(categoryPath + '/');
+
+      if (isActive) {
+        link.classList.add('border-[#CAFC00]');
+        link.classList.remove('border-transparent');
+      } else {
+        link.classList.remove('border-[#CAFC00]');
+        link.classList.add('border-transparent');
+      }
+    });
+  }
+};
+
 let CopyToClipboard = {
   mounted() {
     this.el.addEventListener("click", (e) => {
@@ -491,7 +523,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, ScrollToCenter, TaglineRotator },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator },
 });
 
 // connect if there are any LiveViews on the page
