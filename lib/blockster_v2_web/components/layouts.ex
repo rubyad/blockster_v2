@@ -99,9 +99,14 @@ defmodule BlocksterV2Web.Layouts do
             <.link navigate={~p"/"} class="block">
               <img id="header-logo" src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-7 transition-all duration-300" />
             </.link>
-            <p id="header-tagline" class="uppercase font-extralight text-xs text-black tracking-[0.4em] mt-0.5 transition-all duration-300">
-              Web3 Media Platform
-            </p>
+            <div id="header-tagline-container" class="relative mt-0.5" phx-hook="TaglineRotator">
+              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] pl-1.5 transition-all duration-500">
+                Onchain Rewards
+              </p>
+              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] transition-all duration-500 absolute inset-0 opacity-0 whitespace-nowrap flex items-center justify-center">
+                Powered by Rogue Chain
+              </p>
+            </div>
           </div>
         </div>
 

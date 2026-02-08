@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Blog
+  alias BlocksterV2.EngagementTracker
 
   # Component modules for cycling through layouts
   @component_modules [
@@ -39,6 +40,13 @@ defmodule BlocksterV2Web.PostLive.Tag do
         # Initialize with first batch of components
         {components, displayed_post_ids, bux_balances} = build_initial_components(tag.slug)
 
+        # Get user's earned rewards by post for displaying "earned" badges
+        user_post_rewards = if socket.assigns[:current_user] do
+          EngagementTracker.get_user_post_rewards_map(socket.assigns.current_user.id)
+        else
+          %{}
+        end
+
         {:ok,
          socket
          |> assign(:tag_name, tag.name)
@@ -47,6 +55,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> assign(:show_categories, true)
          |> assign(:displayed_post_ids, displayed_post_ids)
          |> assign(:bux_balances, bux_balances)
+         |> assign(:user_post_rewards, user_post_rewards)
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:components, components)}
     end
