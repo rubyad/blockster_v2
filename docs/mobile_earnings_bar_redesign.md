@@ -497,3 +497,127 @@ The earnings display replaces the BUX balance on the **right** (where `ml-auto` 
 - The `@current_bux` value is a float that updates in real-time via the EngagementTracker hook
 - The `@has_active_share_campaign` assign may need to be added if not already present
 - Consider adding a subtle animation when progress bar updates for better UX
+
+---
+
+## Implementation Checklist
+
+### Phase 1: Hide Mobile Green Bottom Bar ✅ COMPLETED (Feb 8, 2026)
+- [x] Locate the mobile green bottom bar (lines 264-298 in show.html.heex)
+- [x] Add `hidden` class to hide it on all screen sizes
+- [x] Verify desktop green card (lines 106-119) still works with `hidden md:block`
+
+**Implementation Notes:**
+- Changed `md:hidden` to `hidden` on both mobile earning bars:
+  - Line 268: Logged-in user bar
+  - Line 285: Anonymous user bar
+- Added comment "HIDDEN: moved to sticky top bar" for clarity
+- Desktop green card at line 106 remains unchanged (`hidden md:block`)
+
+### Phase 2: Restructure Sticky Bar Container ✅ COMPLETED (Feb 8, 2026)
+- [x] Modify sticky bar container (line 430) to support new mobile layout
+- [x] Used nested divs: outer sticky container + inner content row
+- [x] Content row: `flex items-center gap-2 py-2 md:py-4 px-0`
+
+**Implementation Notes:**
+- Outer container: `sticky top-[58px] md:top-24 z-10 bg-white mb-4 border-b`
+- Inner content row: `flex items-center gap-2 py-2 md:py-4 px-0`
+- Progress bar sits between outer and inner divs (mobile only)
+
+### Phase 3: Add Mobile Progress Bar ✅ COMPLETED (Feb 8, 2026)
+- [x] Add progress bar div INSIDE sticky container, BELOW the content row
+- [x] Use `md:hidden` to hide on desktop
+- [x] Implement progress bar with all specified styles
+- [x] Only show when `@pool_available`
+- [x] Add completed state (full green bar when `@already_rewarded`)
+
+**Implementation Notes:**
+- Progress bar moved BELOW content row (user feedback: "put progress bar below the bar not above")
+- In-progress state:
+  - Container: `md:hidden h-1 bg-gray-100`
+  - Fill: `h-full bg-gradient-to-r from-[#8AE388] to-[#6BCB69] transition-all duration-300`
+  - Width: `style={"width: #{score * 10}%"}`
+- Completed state (`@already_rewarded`):
+  - Full green bar: `md:hidden h-1 bg-[#8AE388]` with `w-full`
+- Uses `@engagement_score` for anonymous users, `@current_score` for logged-in users
+
+### Phase 4: Add Mobile Earnings Display (Right Side) ✅ COMPLETED (Feb 8, 2026)
+- [x] Create new mobile earnings div with `md:hidden ml-auto`
+- [x] Add BUX icon (w-5 h-5 rounded-full)
+- [x] Show current earnings with `Float.round(@current_bux, 2)`
+- [x] Add "Your Earnings" label above amount (text-[9px] text-gray-400)
+- [x] Add "+" prefix to earning amount
+- [x] Add "Already earned" state → changed to green "You Earned" with actual amount
+- [x] Add "No rewards" state (gray text)
+- [x] Use `shrink-0` to prevent shrinking
+- [x] Hide desktop Token Badge on mobile (`hidden md:block`)
+- [x] Handle anonymous users correctly (use `@anonymous_earned` instead of `@current_bux`)
+- [x] Fix Float.round/2 type errors (add `+ 0.0` to convert integers to floats)
+- [x] Completed state shows green text with actual BUX earned (`@bux_earned`)
+
+**Implementation Notes:**
+- Mobile earnings: `md:hidden ml-auto flex items-center gap-1.5 shrink-0`
+- Desktop Token Badge: Added `hidden md:block` to hide on mobile
+- In-progress state: "Your Earnings" label (gray) + black amount
+- Completed state: "You Earned" label (green #22863a) + green amount
+- For anonymous users: uses `@anonymous_earned` and `@engagement_score`
+- For logged-in users: uses `@current_bux` and `@current_score`
+- On completion: uses `@bux_earned` for final earned amount
+
+### Phase 5: Add Encouragement Text (Middle) ✅ COMPLETED (Feb 8, 2026)
+- [x] Add span for "Keep reading to earn more!" text
+- [x] Use classes: `md:hidden text-xs text-gray-500 flex-1 min-w-0 truncate`
+- [x] Conditionally hide when X share button is visible
+- [x] Only show when `@pool_available and not @already_rewarded`
+
+**Implementation Notes:**
+- Added after X share section, before Token Badge
+- Hidden when `@share_campaign && @share_campaign.is_active` (X share button visible)
+- Uses `flex-1 min-w-0 truncate` to fill space and truncate on narrow screens
+
+### Phase 6: Create Mobile Compact X Share Button ✅ COMPLETED (Feb 8, 2026)
+- [x] Wrap existing desktop X share button in `hidden md:flex` / `hidden md:block`
+- [x] Create new mobile X share button section with `md:hidden shrink-0`
+- [x] Implement "Not yet shared" state (compact black pill with +BUX badge)
+- [x] Implement "Already shared" state (green tint pill with checkmark)
+- [x] Implement "Pool empty" state (gray text "Empty")
+- [x] Keep `phx-click="open_share_modal"` for button functionality
+- [x] Handle not-logged-in state (link to login)
+
+**Implementation Notes:**
+- Desktop buttons wrapped in `hidden md:flex` or `hidden md:block`
+- Mobile buttons use `md:hidden` with `shrink-0` to prevent shrinking
+- Already shared: Green checkmark badge `bg-[#8AE388]/20 text-[#22863a]`
+- Not shared with pool: Black pill with green `+X` badge
+- Pool empty: Black pill with gray "Empty" text
+- No campaign: Simple gray X icon (same on mobile/desktop)
+
+### Phase 7: Hide Desktop Elements on Mobile
+- [ ] Add `hidden md:flex` to desktop X share button container (lines 431-495)
+- [ ] Add `hidden md:flex` to desktop BUX balance badge (lines 497-506)
+- [ ] Verify existing `hidden md:block` on desktop green card (lines 106-119)
+
+### Phase 8: Handle Edge Cases
+- [ ] Verify X share button still works when not logged in (links to login)
+- [ ] Verify X share button still works when no campaign (simple X icon only)
+- [ ] Test with zero BUX earned (0.00 BUX)
+- [ ] Test with maximum BUX earned (e.g., 10.00 BUX)
+- [ ] Test very narrow screens (320px)
+- [ ] Test encouragement text truncation on narrow screens
+
+### Phase 9: Final Testing
+- [ ] Test on iPhone SE (320px width)
+- [ ] Test on iPhone 12/13 (390px width)
+- [ ] Test on iPad (768px width - should switch to desktop)
+- [ ] Test on desktop (1024px+ width)
+- [ ] Verify progress bar updates in real-time as user scrolls
+- [ ] Verify BUX amount updates in real-time
+- [ ] Verify sticky behavior works correctly during scroll
+- [ ] Verify no horizontal overflow on any mobile screen size
+- [ ] Cross-browser test: Safari iOS, Chrome Android
+
+### Phase 10: Code Cleanup
+- [ ] Remove any commented-out old code
+- [ ] Ensure consistent indentation
+- [ ] Add HTML comments for clarity
+- [ ] Update line number references in this doc if needed

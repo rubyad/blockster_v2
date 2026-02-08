@@ -263,9 +263,9 @@
 
 <!-- Mobile Earning Bars - Outside bux-panel to prevent horizontal scroll -->
 <%= if !@video_modal_open do %>
-  <!-- Logged-in user mobile earning bar -->
+  <!-- Logged-in user mobile earning bar - HIDDEN: moved to sticky top bar -->
   <%= if @current_user && !@already_rewarded && !@article_completed && @pool_available do %>
-    <div class="md:hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
       <div class="flex items-center justify-between mb-1.5">
         <div class="flex items-center gap-2">
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
@@ -280,9 +280,9 @@
     </div>
   <% end %>
 
-  <!-- Anonymous user mobile earning bar -->
+  <!-- Anonymous user mobile earning bar - HIDDEN: moved to sticky top bar -->
   <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
-    <div class="md:hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
       <div class="flex items-center justify-between mb-1.5">
         <div class="flex items-center gap-2">
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
@@ -427,28 +427,43 @@
         </div>
 
         <!-- Social Share Row (Sticky) -->
-        <div class="sticky top-[58px] md:top-24 z-10 bg-white flex items-center gap-2 py-4 mb-4 border-b border-[#E7E8F1]">
+        <%!-- Completed state: @already_rewarded or @article_completed (logged-in) or @show_signup_prompt (anonymous) --%>
+        <% mobile_is_completed = @pool_available and (@already_rewarded or (!@is_anonymous and @article_completed) or (@is_anonymous and @show_signup_prompt)) %>
+        <div class="sticky top-[58px] md:top-24 z-10 mb-4 border-b bg-white border-[#E7E8F1]">
+          <!-- Content Row -->
+          <div class="flex items-center gap-2 py-2 md:py-4 px-0">
           <!-- X/Twitter Share with BUX Reward -->
           <%= if @share_campaign && @share_campaign.is_active do %>
             <%= if @share_reward do %>
-              <%!-- User has already shared - show success state with X branding + green ring --%>
-              <div class="flex items-center gap-1">
-                <%!-- Main success badge --%>
+              <%!-- User has already shared - show success state --%>
+              <%!-- Desktop: Full badge with text --%>
+              <div class="hidden md:flex items-center gap-1">
                 <div class="flex items-center gap-2 h-10 px-4 bg-black text-white rounded-full text-sm font-haas_medium_65 ring-2 ring-[#8AE388] ring-offset-2">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                   <span class="text-[#8AE388] font-bold">Shared & Liked!</span>
                   <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full object-cover" /><%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> BUX</span>
                 </div>
-                <%!-- Transaction link --%>
                 <%= if @share_reward[:tx_hash] do %>
                   <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on RogueScan">
                     <svg class="w-4 h-4 text-[#141414]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                   </a>
                 <% end %>
               </div>
+              <%!-- Mobile: Black share reward badge (same as post cards) - clickable to tx --%>
+              <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
+                <div class="flex items-center gap-1 rounded-full px-2 py-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                  </svg>
+                  <span class="text-[10px] font-haas_medium_65 text-white">
+                    <%= Float.round((@share_reward[:bux_rewarded] || 0) + 0.0, 2) %>
+                  </span>
+                </div>
+              </a>
             <% else %>
               <%= if @current_user do %>
-                <div class="relative group">
+                <%!-- Desktop: Full button with tooltip --%>
+                <div class="hidden md:block relative group">
                   <button
                     phx-click="open_share_modal"
                     class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
@@ -468,8 +483,21 @@
                     <% end %>
                   </div>
                 </div>
+                <%!-- Mobile: Compact button --%>
+                <button
+                  phx-click="open_share_modal"
+                  class="md:hidden flex items-center gap-1.5 h-7 px-2.5 bg-black text-white rounded-full text-xs font-haas_medium_65 cursor-pointer shrink-0"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <%= if @pool_available do %>
+                    <span class="bg-[#8AE388] text-black px-1.5 py-0.5 rounded-full text-[10px] font-bold">+<%= @x_share_reward %></span>
+                  <% else %>
+                    <span class="text-gray-400 text-[10px]">Empty</span>
+                  <% end %>
+                </button>
               <% else %>
-                <div class="relative group">
+                <%!-- Not logged in - Desktop --%>
+                <div class="hidden md:block relative group">
                   <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                     <%= if @pool_available do %>
@@ -486,16 +514,28 @@
                     <% end %>
                   </div>
                 </div>
+                <%!-- Not logged in - Mobile: No X share button shown --%>
               <% end %>
             <% end %>
           <% else %>
-            <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer">
+            <%!-- No active campaign - simple X share link (hidden on mobile for anonymous users) --%>
+            <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class={["flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer shrink-0", @is_anonymous && "hidden md:flex"]}>
               <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             </a>
           <% end %>
 
-          <!-- Token Badge -->
-          <div class="relative group ml-auto">
+          <!-- Mobile Encouragement Text (hidden when X share button visible for logged-in users, or when completed) -->
+          <%= if @pool_available and not mobile_is_completed do %>
+            <span class={[
+              "md:hidden text-xs text-gray-500 flex-1 min-w-0 truncate",
+              !@is_anonymous && @share_campaign && @share_campaign.is_active && "hidden"
+            ]}>
+              Keep reading to earn more!
+            </span>
+          <% end %>
+
+          <!-- Token Badge (Desktop only) -->
+          <div class="hidden md:block relative group ml-auto">
             <div class="flex items-center gap-2 bg-[#F7F8FA] rounded-full px-3 py-1.5 cursor-default">
               <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="h-5 w-5 rounded-full object-cover" />
               <span class="text-sm font-haas_medium_65 text-[#141414]">{Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX</span>
@@ -504,7 +544,74 @@
               {Number.Delimit.number_to_delimited(Map.get(@post, :bux_balance, 0), precision: 0)} BUX remaining in rewards pool
             </div>
           </div>
-        </div>
+
+          <!-- Mobile Earnings Display (Right Side) -->
+          <div class="md:hidden ml-auto flex items-center gap-1.5 shrink-0">
+            <%= if @pool_available and not mobile_is_completed do %>
+              <%!-- In progress: show current earnings --%>
+              <% earned = if @is_anonymous, do: (@anonymous_earned || 0) / 1, else: (@current_bux || 0) / 1 %>
+              <div class="flex items-center gap-1.5">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 rounded-full" />
+                <div class="flex flex-col items-end">
+                  <span class="text-[9px] text-gray-400 leading-none">Your Earnings</span>
+                  <span class="font-haas_medium_65 text-sm leading-tight">
+                    +<%= Float.round(earned + 0.0, 2) %> BUX
+                  </span>
+                </div>
+              </div>
+            <% else %>
+              <%= if mobile_is_completed do %>
+                <%!-- Completed: show "You earned X BUX!" text + badges --%>
+                <% read_earned = if @is_anonymous, do: (@anonymous_earned || 0) + 0.0, else: (@bux_earned || 0) + 0.0 %>
+                <% share_earned = if @share_reward, do: (@share_reward[:bux_rewarded] || 0) + 0.0, else: 0.0 %>
+                <% video_earned = (@video_total_bux_earned || 0) + 0.0 %>
+                <% total_earned = read_earned + share_earned + video_earned %>
+                <span class="text-xs text-gray-600 font-haas_medium_65">You earned <%= Float.round(total_earned, 2) %> BUX!</span>
+                <%!-- Read reward badge (amber with white text) --%>
+                <div class="rounded-full inline-block bg-gradient-to-r from-amber-400 to-amber-500">
+                  <div class="flex items-center gap-1 rounded-full px-2 py-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                    </svg>
+                    <span class="text-[10px] font-haas_medium_65 text-white">
+                      <%= Float.round(read_earned, 2) %>
+                    </span>
+                  </div>
+                </div>
+                <%!-- Video reward badge (purple) - only if video earned > 0 --%>
+                <%= if video_earned > 0 do %>
+                  <div class="rounded-full inline-block bg-gradient-to-r from-violet-400 to-violet-500">
+                    <div class="flex items-center gap-1 rounded-full px-2 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                      <span class="text-[10px] font-haas_medium_65 text-white">
+                        <%= Float.round(video_earned, 2) %>
+                      </span>
+                    </div>
+                  </div>
+                <% end %>
+              <% else %>
+                <%!-- No pool available --%>
+                <span class="font-haas_medium_65 text-sm text-gray-400">No rewards</span>
+              <% end %>
+            <% end %>
+          </div>
+          </div><!-- End Content Row -->
+
+          <!-- Mobile Progress Bar (below content row) - hidden when completed -->
+          <%= if @pool_available and not mobile_is_completed do %>
+            <% score = if @is_anonymous, do: (@engagement_score || 0), else: (@current_score || 0) %>
+            <div class="md:hidden h-1 bg-gray-100 relative">
+              <div
+                class="h-full bg-gradient-to-r from-[#8AE388] to-[#6BCB69] transition-all duration-300 relative"
+                style={"width: #{score * 10}%"}
+              >
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#6BCB69] rounded-full border-2 border-white shadow-sm" />
+              </div>
+            </div>
+          <% end %>
+        </div><!-- End Sticky Container -->
 
         <!-- Featured Image (Square) with Video Play Button Overlay -->
         <%= if @post.featured_image do %>
