@@ -7,6 +7,196 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+/**
+ * TransactionQueue - Serializes blockchain transactions to prevent nonce conflicts
+ *
+ * Under concurrent load, multiple requests querying the provider for nonce will
+ * get the same value (since previous tx hasn't mined yet). This queue ensures:
+ * 1. Only one transaction processes at a time per wallet
+ * 2. Nonce is tracked locally and incremented after each send
+ * 3. Nonce errors trigger re-sync and retry with exponential backoff
+ */
+class TransactionQueue {
+  constructor(wallet, provider, name) {
+    this.wallet = wallet;
+    this.provider = provider;
+    this.name = name;
+    this.queue = [];
+    this.processing = false;
+    this.currentNonce = null;
+    this.nonceInitialized = false;
+    this.maxRetries = 5;
+    this.baseDelayMs = 100;
+  }
+
+  /**
+   * Add a transaction to the queue
+   * @param {Function} txFunction - Async function that takes (nonce) and returns tx receipt
+   * @param {Object} options - Optional settings { priority: boolean }
+   * @returns {Promise} - Resolves with tx receipt when transaction is mined
+   */
+  async enqueue(txFunction, options = {}) {
+    return new Promise((resolve, reject) => {
+      const item = {
+        txFunction,
+        resolve,
+        reject,
+        retries: 0,
+        priority: options.priority || false,
+        enqueuedAt: Date.now()
+      };
+
+      if (options.priority) {
+        // Priority items go to front (after other priority items)
+        const lastPriorityIndex = this.queue.findIndex(i => !i.priority);
+        if (lastPriorityIndex === -1) {
+          this.queue.push(item);
+        } else {
+          this.queue.splice(lastPriorityIndex, 0, item);
+        }
+      } else {
+        this.queue.push(item);
+      }
+
+      console.log(`[TxQueue:${this.name}] Enqueued transaction (queue size: ${this.queue.length})`);
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Initialize nonce from the blockchain (only called once or on error recovery)
+   */
+  async initNonce() {
+    try {
+      // Use 'pending' to include unconfirmed transactions
+      this.currentNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+      this.nonceInitialized = true;
+      console.log(`[TxQueue:${this.name}] Initialized nonce to ${this.currentNonce}`);
+    } catch (error) {
+      console.error(`[TxQueue:${this.name}] Failed to initialize nonce:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Re-sync nonce from blockchain (used after nonce errors)
+   */
+  async resyncNonce() {
+    try {
+      const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+      console.log(`[TxQueue:${this.name}] Re-synced nonce: local was ${this.currentNonce}, network is ${networkNonce}`);
+      this.currentNonce = networkNonce;
+    } catch (error) {
+      console.error(`[TxQueue:${this.name}] Failed to re-sync nonce:`, error.message);
+      // Keep current nonce and hope for the best
+    }
+  }
+
+  /**
+   * Check if an error is a nonce-related error
+   */
+  isNonceError(error) {
+    const message = error.message?.toLowerCase() || '';
+    const code = error.code?.toLowerCase() || '';
+
+    return (
+      message.includes('nonce') ||
+      message.includes('replacement transaction underpriced') ||
+      message.includes('already known') ||
+      message.includes('transaction with same nonce') ||
+      code === 'nonce_expired' ||
+      code === 'replacement_underpriced'
+    );
+  }
+
+  /**
+   * Process the queue sequentially
+   */
+  async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+      const waitTime = Date.now() - item.enqueuedAt;
+
+      if (waitTime > 1000) {
+        console.log(`[TxQueue:${this.name}] Processing transaction (waited ${waitTime}ms in queue)`);
+      }
+
+      try {
+        // Initialize nonce on first transaction
+        if (!this.nonceInitialized) {
+          await this.initNonce();
+        }
+
+        // Get nonce for this transaction and increment immediately
+        const nonceToUse = this.currentNonce;
+        this.currentNonce++;
+
+        console.log(`[TxQueue:${this.name}] Executing transaction with nonce ${nonceToUse}`);
+
+        // Execute the transaction function with the nonce
+        const receipt = await item.txFunction(nonceToUse);
+
+        console.log(`[TxQueue:${this.name}] Transaction confirmed: ${receipt.hash}`);
+        item.resolve(receipt);
+
+      } catch (error) {
+        console.error(`[TxQueue:${this.name}] Transaction failed:`, error.message);
+
+        if (this.isNonceError(error) && item.retries < this.maxRetries) {
+          // Nonce error - re-sync and retry
+          item.retries++;
+          const delay = this.baseDelayMs * Math.pow(2, item.retries - 1);
+
+          console.log(`[TxQueue:${this.name}] Nonce error, retry ${item.retries}/${this.maxRetries} after ${delay}ms`);
+
+          // Re-sync nonce from network
+          await this.resyncNonce();
+
+          // Wait before retry
+          await new Promise(r => setTimeout(r, delay));
+
+          // Put back at front of queue for immediate retry
+          this.queue.unshift(item);
+
+        } else {
+          // Non-nonce error or max retries exceeded
+          if (item.retries >= this.maxRetries) {
+            console.error(`[TxQueue:${this.name}] Max retries exceeded, giving up`);
+          }
+          item.reject(error);
+        }
+      }
+
+      // Small delay between transactions to avoid RPC rate limiting
+      if (this.queue.length > 0) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+
+    this.processing = false;
+  }
+
+  /**
+   * Get queue status for monitoring
+   */
+  status() {
+    return {
+      name: this.name,
+      walletAddress: this.wallet.address,
+      queueLength: this.queue.length,
+      processing: this.processing,
+      currentNonce: this.currentNonce,
+      nonceInitialized: this.nonceInitialized
+    };
+  }
+}
+
 // Token contract addresses - all deployed on Rogue Chain
 // NOTE: Hub tokens (moonBUX, neoBUX, etc.) removed - only BUX remains for rewards
 const TOKEN_CONTRACTS = {
@@ -135,19 +325,25 @@ app.post('/mint', authenticate, async (req, res) => {
   // Get the appropriate contract for this token
   const { contract, wallet: tokenWallet, token: actualToken } = getContractForToken(token);
 
-  try {
+  // Get the minter queue
+  const queue = txQueues.minter;
+  if (!queue) {
+    return res.status(503).json({ error: 'Transaction queue not initialized' });
+  }
 
+  try {
     // Get decimals (all tokens have 18 decimals like standard ERC20)
     const decimals = await contract.decimals();
 
     // Convert amount to wei (with proper decimals)
     const amountInWei = ethers.parseUnits(amount.toString(), decimals);
 
-    // Execute mint transaction
-    const tx = await contract.mint(walletAddress, amountInWei);
-
-    // Wait for confirmation
-    const receipt = await tx.wait();
+    // Execute mint transaction through queue
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/mint] Minting ${amount} ${actualToken} to ${walletAddress} with nonce ${nonce}`);
+      const tx = await contract.mint(walletAddress, amountInWei, { nonce });
+      return await tx.wait();
+    });
 
     // Get new balance for this token
     const newBalance = await contract.balanceOf(walletAddress);
@@ -155,7 +351,7 @@ app.post('/mint', authenticate, async (req, res) => {
 
     res.json({
       success: true,
-      transactionHash: tx.hash,
+      transactionHash: receipt.hash,
       blockNumber: receipt.blockNumber,
       walletAddress,
       amountMinted: amount,
@@ -379,6 +575,42 @@ if (referralAdminBBWallet) {
   console.log(`[INIT] BuxBoosterGame referral contract configured`);
 }
 
+// ============================================================
+// Transaction Queues - One per wallet to serialize transactions
+// ============================================================
+
+const txQueues = {};
+
+// Create queue for minter wallet
+if (wallet) {
+  txQueues.minter = new TransactionQueue(wallet, provider, 'minter');
+  console.log(`[INIT] Transaction queue created for minter wallet: ${wallet.address}`);
+}
+
+// Create queue for settler wallet
+if (settlerWallet) {
+  txQueues.settler = new TransactionQueue(settlerWallet, provider, 'settler');
+  console.log(`[INIT] Transaction queue created for settler wallet: ${settlerWallet.address}`);
+}
+
+// Create queue for contract owner wallet
+if (contractOwnerWallet) {
+  txQueues.contractOwner = new TransactionQueue(contractOwnerWallet, provider, 'contractOwner');
+  console.log(`[INIT] Transaction queue created for contract owner wallet: ${contractOwnerWallet.address}`);
+}
+
+// Create queue for referral admin BB wallet
+if (referralAdminBBWallet) {
+  txQueues.referralBB = new TransactionQueue(referralAdminBBWallet, provider, 'referralBB');
+  console.log(`[INIT] Transaction queue created for referral admin BB wallet: ${referralAdminBBWallet.address}`);
+}
+
+// Create queue for referral admin RB wallet
+if (referralAdminRBWallet) {
+  txQueues.referralRB = new TransactionQueue(referralAdminRBWallet, provider, 'referralRB');
+  console.log(`[INIT] Transaction queue created for referral admin RB wallet: ${referralAdminRBWallet.address}`);
+}
+
 // Submit commitment for a new game
 // Called by Blockster server when player initiates a game
 app.post('/submit-commitment', authenticate, async (req, res) => {
@@ -396,13 +628,22 @@ app.post('/submit-commitment', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Invalid player address format' });
   }
 
+  // Get the settler queue
+  const queue = txQueues.settler;
+  if (!queue) {
+    return res.status(503).json({ error: 'Settler transaction queue not initialized' });
+  }
+
   try {
-    const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce);
-    const receipt = await tx.wait();
+    const receipt = await queue.enqueue(async (txNonce) => {
+      console.log(`[/submit-commitment] Submitting commitment ${commitmentHash} for ${player} with tx nonce ${txNonce}`);
+      const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce, { nonce: txNonce });
+      return await tx.wait();
+    });
 
     res.json({
       success: true,
-      txHash: tx.hash,
+      txHash: receipt.hash,
       blockNumber: receipt.blockNumber,
       commitmentHash,
       player,
@@ -438,17 +679,27 @@ app.post('/settle-bet', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'results must be an array' });
   }
 
+  // Get the settler queue
+  const queue = txQueues.settler;
+  if (!queue) {
+    return res.status(503).json({ error: 'Settler transaction queue not initialized' });
+  }
+
   try {
-    // V5: Check if this is a ROGUE bet and call the appropriate settlement function
+    // Read bet info BEFORE queueing (this is a read call, no nonce needed)
     const bet = await buxBoosterContract.bets(commitmentHash);
     const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
 
-    // Call the appropriate settlement function
-    const tx = isROGUE
-      ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won)
-      : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
+    // Execute settlement through queue
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/settle-bet] Settling bet ${commitmentHash} (ROGUE: ${isROGUE}) with nonce ${nonce}`);
 
-    const receipt = await tx.wait();
+      const tx = isROGUE
+        ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won, { nonce })
+        : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won, { nonce });
+
+      return await tx.wait();
+    });
 
     // Parse the BetSettled event to get the payout
     let payout = '0';
@@ -466,7 +717,7 @@ app.post('/settle-bet', authenticate, async (req, res) => {
 
     res.json({
       success: true,
-      txHash: tx.hash,
+      txHash: receipt.hash,
       blockNumber: receipt.blockNumber,
       commitmentHash,
       won,
@@ -475,6 +726,13 @@ app.post('/settle-bet', authenticate, async (req, res) => {
   } catch (error) {
     console.error(`[SETTLE] Error:`, error);
 
+    // Handle specific contract errors
+    if (error.message?.includes('0x05d09e5f')) {
+      return res.status(400).json({ error: 'BetAlreadySettled', details: 'This bet has already been settled' });
+    }
+    if (error.message?.includes('0x469bfa91')) {
+      return res.status(400).json({ error: 'BetNotFound', details: 'Bet not found on chain' });
+    }
     if (error.reason) {
       return res.status(400).json({ error: error.reason });
     }
@@ -506,36 +764,53 @@ app.post('/deposit-house-balance', authenticate, async (req, res) => {
     return res.status(400).json({ error: `No wallet configured for ${token}` });
   }
 
+  // Get transaction queues
+  const tokenQueue = txQueues.minter;  // Token owner uses minter wallet
+  const ownerQueue = txQueues.contractOwner;
+
+  if (!tokenQueue || !ownerQueue) {
+    return res.status(503).json({ error: 'Transaction queues not initialized' });
+  }
+
   try {
     const amountWei = ethers.parseUnits(amount.toString(), 18);
 
-    // Get starting nonces for both wallets
-    let tokenOwnerNonce = await provider.getTransactionCount(tokenWallet.address, 'pending');
-    let contractOwnerNonce = await provider.getTransactionCount(contractOwnerWallet.address, 'pending');
+    // Step 1: Mint tokens to the CONTRACT OWNER wallet (uses minter queue)
+    console.log(`[/deposit-house-balance] Step 1: Minting ${amount} ${token} to contract owner`);
+    const mintReceipt = await tokenQueue.enqueue(async (nonce) => {
+      const tokenContract = tokenContracts[token];
+      const tx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce });
+      return await tx.wait();
+    });
+    console.log(`[/deposit-house-balance] Mint complete: ${mintReceipt.hash}`);
 
-    // Step 1: Mint tokens to the CONTRACT OWNER wallet (not token owner)
-    const tokenContract = tokenContracts[token];
-    const mintTx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce: tokenOwnerNonce++ });
-    await mintTx.wait();
+    // Step 2: Contract owner approves the BuxBoosterGame contract to spend tokens (uses contract owner queue)
+    console.log(`[/deposit-house-balance] Step 2: Approving BuxBoosterGame to spend tokens`);
+    const approveReceipt = await ownerQueue.enqueue(async (nonce) => {
+      const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)'];
+      const tokenContractWithApprove = new ethers.Contract(tokenAddress, erc20Abi, contractOwnerWallet);
+      const tx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce });
+      return await tx.wait();
+    });
+    console.log(`[/deposit-house-balance] Approve complete: ${approveReceipt.hash}`);
 
-    // Step 2: Contract owner approves the BuxBoosterGame contract to spend tokens
-    const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)'];
-    const tokenContractWithApprove = new ethers.Contract(tokenAddress, erc20Abi, contractOwnerWallet);
-    const approveTx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce: contractOwnerNonce++ });
-    await approveTx.wait();
-
-    // Step 3: Contract owner calls depositHouseBalance (onlyOwner function)
-    const buxBoosterFromOwner = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, contractOwnerWallet);
-    const depositTx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce: contractOwnerNonce++ });
-    const receipt = await depositTx.wait();
+    // Step 3: Contract owner calls depositHouseBalance (uses contract owner queue)
+    console.log(`[/deposit-house-balance] Step 3: Depositing to house balance`);
+    const depositReceipt = await ownerQueue.enqueue(async (nonce) => {
+      const buxBoosterFromOwner = new ethers.Contract(BUXBOOSTER_CONTRACT_ADDRESS, BUXBOOSTER_ABI, contractOwnerWallet);
+      const tx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce });
+      return await tx.wait();
+    });
+    console.log(`[/deposit-house-balance] Deposit complete: ${depositReceipt.hash}`);
 
     // Get updated house balance
     const config = await buxBoosterContract.tokenConfigs(tokenAddress);
 
     res.json({
       success: true,
-      txHash: depositTx.hash,
-      blockNumber: receipt.blockNumber,
+      mintTxHash: mintReceipt.hash,
+      approveTxHash: approveReceipt.hash,
+      depositTxHash: depositReceipt.hash,
       token,
       amountDeposited: amount,
       newHouseBalance: ethers.formatUnits(config.houseBalance, 18)
@@ -698,62 +973,107 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Self-referral not allowed' });
   }
 
+  // Get transaction queues
+  const bbQueue = txQueues.referralBB;
+  const rbQueue = txQueues.referralRB;
+
+  if (!bbQueue || !rbQueue) {
+    return res.status(503).json({ error: 'Referral transaction queues not initialized' });
+  }
+
   const results = {
     buxBoosterGame: { success: false, txHash: null, error: null },
     rogueBankroll: { success: false, txHash: null, error: null }
   };
 
-  // Set referrer on BuxBoosterGame (for BUX token bets)
-  try {
-    // Check if referrer is already set
-    const existingReferrer = await buxBoosterReferralContract.playerReferrers(playerAddr);
-    if (existingReferrer !== ethers.ZeroAddress) {
-      results.buxBoosterGame.error = 'Referrer already set';
-    } else {
-      const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr);
-      await tx.wait();
-      results.buxBoosterGame.success = true;
-      results.buxBoosterGame.txHash = tx.hash;
-    }
-  } catch (error) {
-    console.error(`[REFERRER] BuxBoosterGame error:`, error.message);
-    results.buxBoosterGame.error = error.message;
+  // Check if referrers are already set (read operations - no queue needed)
+  const [bbExistingReferrer, rbExistingReferrer] = await Promise.all([
+    buxBoosterReferralContract.playerReferrers(playerAddr),
+    rogueBankrollWriteContract.playerReferrers(playerAddr)
+  ]);
+
+  const bbAlreadySet = bbExistingReferrer !== ethers.ZeroAddress;
+  const rbAlreadySet = rbExistingReferrer !== ethers.ZeroAddress;
+
+  if (bbAlreadySet) {
+    results.buxBoosterGame.error = 'Referrer already set';
+  }
+  if (rbAlreadySet) {
+    results.rogueBankroll.error = 'Referrer already set';
   }
 
-  // Set referrer on ROGUEBankroll (for ROGUE native token bets)
-  try {
-    // Check if referrer is already set
-    const existingReferrer = await rogueBankrollWriteContract.playerReferrers(playerAddr);
-    if (existingReferrer !== ethers.ZeroAddress) {
-      results.rogueBankroll.error = 'Referrer already set';
-    } else {
-      const tx = await rogueBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr);
-      await tx.wait();
-      results.rogueBankroll.success = true;
-      results.rogueBankroll.txHash = tx.hash;
-    }
-  } catch (error) {
-    console.error(`[REFERRER] ROGUEBankroll error:`, error.message);
-    results.rogueBankroll.error = error.message;
-  }
-
-  // Determine overall success (at least one contract should succeed for new referrals)
-  const anySuccess = results.buxBoosterGame.success || results.rogueBankroll.success;
-  const bothAlreadySet = results.buxBoosterGame.error === 'Referrer already set' &&
-                         results.rogueBankroll.error === 'Referrer already set';
-
-  if (bothAlreadySet) {
+  // If both already set, return early
+  if (bbAlreadySet && rbAlreadySet) {
     return res.status(409).json({
       error: 'Referrer already set on both contracts',
       results
     });
   }
 
+  // Execute referrer updates in parallel (different wallets = different queues = safe to parallelize)
+  const promises = [];
+
+  if (!bbAlreadySet) {
+    promises.push(
+      bbQueue.enqueue(async (nonce) => {
+        console.log(`[/set-player-referrer] Setting referrer on BuxBoosterGame with nonce ${nonce}`);
+        const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
+        return await tx.wait();
+      }).then(receipt => {
+        results.buxBoosterGame.success = true;
+        results.buxBoosterGame.txHash = receipt.hash;
+      }).catch(error => {
+        console.error(`[REFERRER] BuxBoosterGame error:`, error.message);
+        results.buxBoosterGame.error = error.message;
+      })
+    );
+  }
+
+  if (!rbAlreadySet) {
+    promises.push(
+      rbQueue.enqueue(async (nonce) => {
+        console.log(`[/set-player-referrer] Setting referrer on ROGUEBankroll with nonce ${nonce}`);
+        const tx = await rogueBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
+        return await tx.wait();
+      }).then(receipt => {
+        results.rogueBankroll.success = true;
+        results.rogueBankroll.txHash = receipt.hash;
+      }).catch(error => {
+        console.error(`[REFERRER] ROGUEBankroll error:`, error.message);
+        results.rogueBankroll.error = error.message;
+      })
+    );
+  }
+
+  // Wait for all queue operations to complete
+  await Promise.all(promises);
+
+  // Determine overall success
+  const anySuccess = results.buxBoosterGame.success || results.rogueBankroll.success;
+
   res.json({
     success: anySuccess,
     player: playerAddr,
     referrer: referrerAddr,
     results
+  });
+});
+
+// ============================================================
+// Queue Status Endpoint - For monitoring
+// ============================================================
+
+// Get status of all transaction queues
+app.get('/queue-status', authenticate, (req, res) => {
+  const status = {};
+
+  for (const [name, queue] of Object.entries(txQueues)) {
+    status[name] = queue.status();
+  }
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    queues: status
   });
 });
 

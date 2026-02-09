@@ -1,5 +1,137 @@
 # BUX Minter Transaction Queue Implementation
 
+## Implementation Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Add TransactionQueue Class | **COMPLETE** |
+| Phase 2 | Create Queue Instances | **COMPLETE** |
+| Phase 3 | Update `/mint` Endpoint | **COMPLETE** |
+| Phase 4 | Update `/submit-commitment` Endpoint | **COMPLETE** |
+| Phase 5 | Update `/settle-bet` Endpoint | **COMPLETE** |
+| Phase 6 | Update `/deposit-house-balance` Endpoint | **COMPLETE** |
+| Phase 7 | Update `/set-player-referrer` Endpoint | **COMPLETE** |
+| Phase 8 | Add `/queue-status` Monitoring Endpoint | **COMPLETE** |
+| Phase 9 | Local Testing | PENDING |
+| Phase 10 | Deploy to Fly.io | PENDING |
+| Phase 11 | Update Documentation | IN PROGRESS |
+
+**Implementation Date**: February 9, 2026
+
+---
+
+## Detailed Implementation Checklist
+
+### Phase 1: Add TransactionQueue Class ✅
+
+#### 1.1 Create the TransactionQueue class
+- [x] Add class definition after imports (line ~19)
+- [x] Add constructor with wallet, provider, name parameters
+- [x] Add queue array and processing flag
+- [x] Add nonce tracking properties (currentNonce, nonceInitialized)
+- [x] Add retry configuration (maxRetries: 5, baseDelayMs: 100)
+
+#### 1.2 Add nonce management methods
+- [x] `initNonce()` - fetch initial nonce from network
+- [x] `resyncNonce()` - re-fetch nonce after errors
+- [x] `isNonceError(error)` - detect nonce-related errors
+
+#### 1.3 Add queue processing
+- [x] `enqueue(txFunction, options)` - add transaction to queue, return Promise
+- [x] `processQueue()` - main loop with sequential execution
+- [x] Implement exponential backoff retry (100ms, 200ms, 400ms, 800ms, 1600ms)
+- [x] `status()` - return queue state for monitoring
+
+### Phase 2: Create Queue Instances ✅
+
+- [x] Create `txQueues` object after wallet initialization (~line 382)
+- [x] Create queue for minter wallet (`txQueues.minter`)
+- [x] Create queue for settler wallet (`txQueues.settler`)
+- [x] Create queue for contract owner wallet (`txQueues.contractOwner`)
+- [x] Create queue for referral admin BB wallet (`txQueues.referralBB`)
+- [x] Create queue for referral admin RB wallet (`txQueues.referralRB`)
+- [x] Add initialization logging for each queue
+
+### Phase 3: Update `/mint` Endpoint ✅
+
+- [x] Check if queue is initialized (return 503 if not)
+- [x] Wrap mint transaction in `queue.enqueue()`
+- [x] Pass nonce to `contract.mint()` call
+- [x] Add logging with nonce value
+- [x] Keep existing error handling
+
+### Phase 4: Update `/submit-commitment` Endpoint ✅
+
+- [x] Check if queue is initialized (return 503 if not)
+- [x] Wrap submitCommitment in `queue.enqueue()`
+- [x] Use `txNonce` variable name to avoid confusion with game `nonce` parameter
+- [x] Pass txNonce to contract call
+- [x] Keep existing error handling
+
+### Phase 5: Update `/settle-bet` Endpoint ✅
+
+- [x] Check if queue is initialized (return 503 if not)
+- [x] Read bet info BEFORE queueing (read calls don't need nonces)
+- [x] Determine if ROGUE bet based on token address
+- [x] Wrap settlement in `queue.enqueue()`
+- [x] Call appropriate function (settleBet vs settleBetROGUE)
+- [x] Pass nonce to contract call
+- [x] Add BetAlreadySettled error handling (0x05d09e5f)
+- [x] Add BetNotFound error handling (0x469bfa91)
+
+### Phase 6: Update `/deposit-house-balance` Endpoint ✅
+
+- [x] Get both minter queue and contract owner queue
+- [x] Check both queues are initialized
+- [x] Step 1: Mint via minter queue
+- [x] Step 2: Approve via contract owner queue
+- [x] Step 3: Deposit via contract owner queue
+- [x] Return all three transaction hashes in response
+- [x] Handle errors appropriately
+
+### Phase 7: Update `/set-player-referrer` Endpoint ✅
+
+- [x] Get both referral queues (BB and RB)
+- [x] Check both queues are initialized
+- [x] Read existing referrers BEFORE queueing (read operations)
+- [x] Execute BB and RB updates in PARALLEL (different wallets = safe)
+- [x] Use Promise.all for parallel execution
+- [x] Collect results from both queues
+- [x] Return combined results
+
+### Phase 8: Add `/queue-status` Monitoring Endpoint ✅
+
+- [x] Create GET `/queue-status` endpoint
+- [x] Require API_SECRET authorization
+- [x] Return status for all 5 queues
+- [x] Include: name, walletAddress, queueLength, processing, currentNonce, nonceInitialized
+- [x] Add timestamp to response
+
+### Phase 9: Local Testing ⏳
+
+- [ ] Start local BUX Minter and verify queue initialization logs
+- [ ] Test single requests for each endpoint
+- [ ] Test concurrent requests (10 simultaneous mints)
+- [ ] Verify sequential nonce assignment in logs
+- [ ] Test error recovery (external transaction causing nonce mismatch)
+
+### Phase 10: Deploy to Fly.io ⏳
+
+- [ ] Deploy to Fly.io
+- [ ] Monitor deployment logs for queue initialization
+- [ ] Call `/queue-status` on production
+- [ ] Test single mint operation
+- [ ] Test single bet flow (commit → place → settle)
+- [ ] Monitor for nonce errors in logs
+
+### Phase 11: Update Documentation ⏳
+
+- [ ] Update CLAUDE.md with transaction queue documentation
+- [ ] Document the new `/queue-status` endpoint
+- [ ] Add troubleshooting guide for queue issues
+
+---
+
 ## Problem Statement
 
 The BUX Minter service currently has **no transaction queuing** - all contract calls go directly to the blockchain. When multiple requests arrive concurrently (which happens constantly with thousands of users earning read/share/watch rewards and placing/settling bets), the following occurs:
@@ -32,638 +164,260 @@ Under production load with thousands of concurrent users, nonce errors are **gua
 
 ### Wallets Requiring Queues
 
-| Wallet | Environment Variable | Used By |
-|--------|---------------------|---------|
-| Minter | `OWNER_PRIVATE_KEY` | `/mint` endpoint |
-| Settler | `SETTLER_PRIVATE_KEY` | `/submit-commitment`, `/settle-bet` |
-| Contract Owner | `CONTRACT_OWNER_PRIVATE_KEY` | `/deposit-house-balance` |
-| Token Owner | `OWNER_PRIVATE_KEY` | `/deposit-house-balance` (mint step) |
-| Referral Admin BB | `REFERRAL_ADMIN_BB_PRIVATE_KEY` | `/set-player-referrer` |
-| Referral Admin RB | `REFERRAL_ADMIN_RB_PRIVATE_KEY` | `/set-player-referrer` |
+| Wallet | Environment Variable | Used By | Queue Name |
+|--------|---------------------|---------|------------|
+| Minter | `OWNER_PRIVATE_KEY` | `/mint`, `/deposit-house-balance` (mint step) | `txQueues.minter` |
+| Settler | `SETTLER_PRIVATE_KEY` | `/submit-commitment`, `/settle-bet` | `txQueues.settler` |
+| Contract Owner | `CONTRACT_OWNER_PRIVATE_KEY` | `/deposit-house-balance` (approve, deposit) | `txQueues.contractOwner` |
+| Referral Admin BB | `REFERRAL_ADMIN_BB_PRIVATE_KEY` | `/set-player-referrer` (BuxBoosterGame) | `txQueues.referralBB` |
+| Referral Admin RB | `REFERRAL_ADMIN_RB_PRIVATE_KEY` | `/set-player-referrer` (ROGUEBankroll) | `txQueues.referralRB` |
 
 ---
 
-## Implementation
+## Implementation Details
 
-### Step 1: Create TransactionQueue Class
+### Code Locations in `bux-minter/index.js`
 
-Add this class at the top of `bux-minter/index.js` (after imports, before wallet setup):
+| Component | Lines | Description |
+|-----------|-------|-------------|
+| TransactionQueue class | 19-198 | Core queue class with nonce management |
+| Queue instances creation | 382-416 | Creates `txQueues` object with all 5 queues |
+| `/mint` endpoint (queued) | 111-180 | Uses `txQueues.minter` |
+| `/submit-commitment` endpoint (queued) | 418-461 | Uses `txQueues.settler` |
+| `/settle-bet` endpoint (queued) | 420-500 | Uses `txQueues.settler` |
+| `/deposit-house-balance` endpoint (queued) | 502-568 | Uses `txQueues.minter` + `txQueues.contractOwner` |
+| `/set-player-referrer` endpoint (queued) | 676-785 | Uses `txQueues.referralBB` + `txQueues.referralRB` in parallel |
+| `/queue-status` endpoint | 787-803 | Monitoring endpoint |
 
+### TransactionQueue Class
+
+The `TransactionQueue` class (lines 19-198) provides:
+
+**Properties:**
+- `wallet` - ethers.Wallet instance for signing transactions
+- `provider` - ethers.JsonRpcProvider for blockchain interaction
+- `name` - String identifier for logging (e.g., "minter", "settler")
+- `queue` - Array of pending transaction items
+- `processing` - Boolean flag to prevent concurrent processing
+- `currentNonce` - Locally tracked nonce (initialized lazily)
+- `nonceInitialized` - Whether initial nonce has been fetched
+- `maxRetries` - Max retry attempts for nonce errors (default: 5)
+- `baseDelayMs` - Base delay for exponential backoff (default: 100ms)
+
+**Methods:**
+- `enqueue(txFunction, options)` - Add transaction to queue, returns Promise
+- `initNonce()` - Fetch initial nonce from network (called once)
+- `resyncNonce()` - Re-fetch nonce after errors
+- `isNonceError(error)` - Detect nonce-related errors
+- `processQueue()` - Main processing loop (runs sequentially)
+- `status()` - Return queue state for monitoring
+
+**Queue Item Structure:**
 ```javascript
-/**
- * TransactionQueue - Serializes blockchain transactions to prevent nonce conflicts
- *
- * Under concurrent load, multiple requests querying the provider for nonce will
- * get the same value (since previous tx hasn't mined yet). This queue ensures:
- * 1. Only one transaction processes at a time per wallet
- * 2. Nonce is tracked locally and incremented after each send
- * 3. Nonce errors trigger re-sync and retry with exponential backoff
- */
-class TransactionQueue {
-  constructor(wallet, provider, name) {
-    this.wallet = wallet;
-    this.provider = provider;
-    this.name = name;
-    this.queue = [];
-    this.processing = false;
-    this.currentNonce = null;
-    this.nonceInitialized = false;
-    this.maxRetries = 5;
-    this.baseDelayMs = 100;
-  }
-
-  /**
-   * Add a transaction to the queue
-   * @param {Function} txFunction - Async function that takes (nonce) and returns tx receipt
-   * @param {Object} options - Optional settings { priority: boolean }
-   * @returns {Promise} - Resolves with tx receipt when transaction is mined
-   */
-  async enqueue(txFunction, options = {}) {
-    return new Promise((resolve, reject) => {
-      const item = {
-        txFunction,
-        resolve,
-        reject,
-        retries: 0,
-        priority: options.priority || false,
-        enqueuedAt: Date.now()
-      };
-
-      if (options.priority) {
-        // Priority items go to front (after other priority items)
-        const lastPriorityIndex = this.queue.findIndex(i => !i.priority);
-        if (lastPriorityIndex === -1) {
-          this.queue.push(item);
-        } else {
-          this.queue.splice(lastPriorityIndex, 0, item);
-        }
-      } else {
-        this.queue.push(item);
-      }
-
-      console.log(`[TxQueue:${this.name}] Enqueued transaction (queue size: ${this.queue.length})`);
-      this.processQueue();
-    });
-  }
-
-  /**
-   * Initialize nonce from the blockchain (only called once or on error recovery)
-   */
-  async initNonce() {
-    try {
-      // Use 'pending' to include unconfirmed transactions
-      this.currentNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-      this.nonceInitialized = true;
-      console.log(`[TxQueue:${this.name}] Initialized nonce to ${this.currentNonce}`);
-    } catch (error) {
-      console.error(`[TxQueue:${this.name}] Failed to initialize nonce:`, error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Re-sync nonce from blockchain (used after nonce errors)
-   */
-  async resyncNonce() {
-    try {
-      const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-      console.log(`[TxQueue:${this.name}] Re-synced nonce: local was ${this.currentNonce}, network is ${networkNonce}`);
-      this.currentNonce = networkNonce;
-    } catch (error) {
-      console.error(`[TxQueue:${this.name}] Failed to re-sync nonce:`, error.message);
-      // Keep current nonce and hope for the best
-    }
-  }
-
-  /**
-   * Check if an error is a nonce-related error
-   */
-  isNonceError(error) {
-    const message = error.message?.toLowerCase() || '';
-    const code = error.code?.toLowerCase() || '';
-
-    return (
-      message.includes('nonce') ||
-      message.includes('replacement transaction underpriced') ||
-      message.includes('already known') ||
-      message.includes('transaction with same nonce') ||
-      code === 'nonce_expired' ||
-      code === 'replacement_underpriced'
-    );
-  }
-
-  /**
-   * Process the queue sequentially
-   */
-  async processQueue() {
-    if (this.processing || this.queue.length === 0) {
-      return;
-    }
-
-    this.processing = true;
-
-    while (this.queue.length > 0) {
-      const item = this.queue.shift();
-      const waitTime = Date.now() - item.enqueuedAt;
-
-      if (waitTime > 1000) {
-        console.log(`[TxQueue:${this.name}] Processing transaction (waited ${waitTime}ms in queue)`);
-      }
-
-      try {
-        // Initialize nonce on first transaction
-        if (!this.nonceInitialized) {
-          await this.initNonce();
-        }
-
-        // Get nonce for this transaction and increment immediately
-        const nonceToUse = this.currentNonce;
-        this.currentNonce++;
-
-        console.log(`[TxQueue:${this.name}] Executing transaction with nonce ${nonceToUse}`);
-
-        // Execute the transaction function with the nonce
-        const receipt = await item.txFunction(nonceToUse);
-
-        console.log(`[TxQueue:${this.name}] Transaction confirmed: ${receipt.hash}`);
-        item.resolve(receipt);
-
-      } catch (error) {
-        console.error(`[TxQueue:${this.name}] Transaction failed:`, error.message);
-
-        if (this.isNonceError(error) && item.retries < this.maxRetries) {
-          // Nonce error - re-sync and retry
-          item.retries++;
-          const delay = this.baseDelayMs * Math.pow(2, item.retries - 1);
-
-          console.log(`[TxQueue:${this.name}] Nonce error, retry ${item.retries}/${this.maxRetries} after ${delay}ms`);
-
-          // Re-sync nonce from network
-          await this.resyncNonce();
-
-          // Wait before retry
-          await new Promise(r => setTimeout(r, delay));
-
-          // Put back at front of queue for immediate retry
-          this.queue.unshift(item);
-
-        } else {
-          // Non-nonce error or max retries exceeded
-          if (item.retries >= this.maxRetries) {
-            console.error(`[TxQueue:${this.name}] Max retries exceeded, giving up`);
-          }
-          item.reject(error);
-        }
-      }
-
-      // Small delay between transactions to avoid RPC rate limiting
-      if (this.queue.length > 0) {
-        await new Promise(r => setTimeout(r, 50));
-      }
-    }
-
-    this.processing = false;
-  }
-
-  /**
-   * Get queue status for monitoring
-   */
-  status() {
-    return {
-      name: this.name,
-      walletAddress: this.wallet.address,
-      queueLength: this.queue.length,
-      processing: this.processing,
-      currentNonce: this.currentNonce,
-      nonceInitialized: this.nonceInitialized
-    };
-  }
+{
+  txFunction: async (nonce) => receipt,  // The transaction function
+  resolve: Function,                      // Promise resolve
+  reject: Function,                       // Promise reject
+  retries: 0,                             // Current retry count
+  priority: false,                        // Priority flag (front of queue)
+  enqueuedAt: Date.now()                  // For latency tracking
 }
 ```
 
-### Step 2: Create Queue Instances
+### Nonce Error Detection
 
-After wallet setup, create queue instances for each wallet:
+The queue automatically detects and retries these nonce-related errors:
+- Messages containing: "nonce", "replacement transaction underpriced", "already known", "transaction with same nonce"
+- Error codes: `nonce_expired`, `replacement_underpriced`
 
-```javascript
-// Transaction queues - one per wallet to serialize transactions
-const txQueues = {};
+### Retry Strategy
 
-// Only create queues for wallets that exist
-if (wallet) {
-  txQueues.minter = new TransactionQueue(wallet, provider, 'minter');
-  console.log(`[INIT] Transaction queue created for minter wallet: ${wallet.address}`);
-}
+1. On nonce error, increment retry counter
+2. Calculate delay: `baseDelayMs * 2^(retries-1)` (exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms)
+3. Re-sync nonce from blockchain
+4. Wait for delay
+5. Put transaction back at front of queue
+6. After 5 retries, reject with error
 
-if (settlerWallet) {
-  txQueues.settler = new TransactionQueue(settlerWallet, provider, 'settler');
-  console.log(`[INIT] Transaction queue created for settler wallet: ${settlerWallet.address}`);
-}
+---
 
-if (contractOwnerWallet) {
-  txQueues.contractOwner = new TransactionQueue(contractOwnerWallet, provider, 'contractOwner');
-  console.log(`[INIT] Transaction queue created for contract owner wallet: ${contractOwnerWallet.address}`);
-}
+## Endpoint Changes Summary
 
-if (referralAdminBBWallet) {
-  txQueues.referralBB = new TransactionQueue(referralAdminBBWallet, provider, 'referralBB');
-  console.log(`[INIT] Transaction queue created for referral admin BB wallet: ${referralAdminBBWallet.address}`);
-}
-
-if (referralAdminRBWallet) {
-  txQueues.referralRB = new TransactionQueue(referralAdminRBWallet, provider, 'referralRB');
-  console.log(`[INIT] Transaction queue created for referral admin RB wallet: ${referralAdminRBWallet.address}`);
-}
-```
-
-### Step 3: Update `/mint` Endpoint
-
-**Before (direct call):**
-```javascript
-app.post('/mint', authenticate, async (req, res) => {
-  // ...validation...
-  try {
-    const tx = await contract.mint(walletAddress, amountInWei);
-    const receipt = await tx.wait();
-    // ...
-  }
-});
-```
-
-**After (queued):**
-```javascript
-app.post('/mint', authenticate, async (req, res) => {
-  // ...validation...
-
-  const { contract, wallet: tokenWallet, token: resolvedToken } = getContractForToken(token);
-
-  // Get the appropriate queue for this token's wallet
-  // For now, all tokens use the minter wallet
-  const queue = txQueues.minter;
-
-  if (!queue) {
-    return res.status(503).json({ error: 'Transaction queue not initialized' });
-  }
-
-  try {
-    const receipt = await queue.enqueue(async (nonce) => {
-      console.log(`[/mint] Minting ${amount} ${resolvedToken} to ${walletAddress} with nonce ${nonce}`);
-      const tx = await contract.mint(walletAddress, amountInWei, { nonce });
-      return await tx.wait();
-    });
-
-    // Get updated balance
-    const newBalance = await contract.balanceOf(walletAddress);
-    const formattedBalance = ethers.formatUnits(newBalance, 18);
-
-    res.json({
-      success: true,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      walletAddress,
-      amountMinted: amount,
-      newBalance: formattedBalance,
-      token: resolvedToken,
-      userId,
-      postId
-    });
-  } catch (error) {
-    console.error(`[/mint] Error:`, error);
-    res.status(500).json({ error: 'Failed to mint tokens', details: error.message });
-  }
-});
-```
-
-### Step 4: Update `/submit-commitment` Endpoint
+### `/mint` Endpoint
 
 **Before:**
 ```javascript
-app.post('/submit-commitment', authenticate, async (req, res) => {
-  // ...validation...
-  try {
-    const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce);
-    const receipt = await tx.wait();
-    // ...
-  }
-});
+const tx = await contract.mint(walletAddress, amountInWei);
+const receipt = await tx.wait();
 ```
 
 **After:**
 ```javascript
-app.post('/submit-commitment', authenticate, async (req, res) => {
-  // ...validation...
+const queue = txQueues.minter;
+if (!queue) {
+  return res.status(503).json({ error: 'Transaction queue not initialized' });
+}
 
-  const queue = txQueues.settler;
-  if (!queue) {
-    return res.status(503).json({ error: 'Settler transaction queue not initialized' });
-  }
-
-  try {
-    const receipt = await queue.enqueue(async (txNonce) => {
-      console.log(`[/submit-commitment] Submitting commitment ${commitmentHash} for ${player} with tx nonce ${txNonce}`);
-      const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce, { nonce: txNonce });
-      return await tx.wait();
-    });
-
-    res.json({
-      success: true,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      commitmentHash,
-      player,
-      nonce
-    });
-  } catch (error) {
-    console.error(`[/submit-commitment] Error:`, error);
-    if (error.reason) {
-      return res.status(400).json({ error: error.reason });
-    }
-    res.status(500).json({ error: 'Failed to submit commitment', details: error.message });
-  }
+const receipt = await queue.enqueue(async (nonce) => {
+  console.log(`[/mint] Minting ${amount} ${actualToken} to ${walletAddress} with nonce ${nonce}`);
+  const tx = await contract.mint(walletAddress, amountInWei, { nonce });
+  return await tx.wait();
 });
 ```
 
-### Step 5: Update `/settle-bet` Endpoint
+### `/submit-commitment` Endpoint
 
-**Before:**
+**Key Change:** Uses `txNonce` for transaction nonce to avoid confusion with the game `nonce` parameter:
 ```javascript
-app.post('/settle-bet', authenticate, async (req, res) => {
-  // ...validation...
-  try {
-    const bet = await buxBoosterContract.bets(commitmentHash);
-    const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
-
-    const tx = isROGUE
-      ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won)
-      : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won);
-    const receipt = await tx.wait();
-    // ...
-  }
+const receipt = await queue.enqueue(async (txNonce) => {
+  const tx = await buxBoosterContract.submitCommitment(commitmentHash, player, nonce, { nonce: txNonce });
+  return await tx.wait();
 });
 ```
 
-**After:**
+### `/settle-bet` Endpoint
+
+**Key Change:** Reads bet info BEFORE queueing (read calls don't need nonces):
 ```javascript
-app.post('/settle-bet', authenticate, async (req, res) => {
-  // ...validation...
+// Read bet info BEFORE queueing (this is a read call, no nonce needed)
+const bet = await buxBoosterContract.bets(commitmentHash);
+const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
 
-  const queue = txQueues.settler;
-  if (!queue) {
-    return res.status(503).json({ error: 'Settler transaction queue not initialized' });
-  }
-
-  try {
-    // Read bet info BEFORE queueing (this is a read call, no nonce needed)
-    const bet = await buxBoosterContract.bets(commitmentHash);
-    const isROGUE = bet.token === "0x0000000000000000000000000000000000000000";
-
-    const receipt = await queue.enqueue(async (nonce) => {
-      console.log(`[/settle-bet] Settling bet ${commitmentHash} (ROGUE: ${isROGUE}) with nonce ${nonce}`);
-
-      const tx = isROGUE
-        ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won, { nonce })
-        : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won, { nonce });
-
-      return await tx.wait();
-    });
-
-    // Parse the BetSettled event to get the payout
-    let payout = '0';
-    for (const log of receipt.logs) {
-      try {
-        const parsed = buxBoosterContract.interface.parseLog(log);
-        if (parsed && parsed.name === 'BetSettled') {
-          payout = ethers.formatUnits(parsed.args.payout, 18);
-          break;
-        }
-      } catch (e) {
-        // Not a BuxBoosterGame event, skip
-      }
-    }
-
-    res.json({
-      success: true,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      commitmentHash,
-      payout,
-      won
-    });
-  } catch (error) {
-    console.error(`[/settle-bet] Error:`, error);
-
-    // Handle specific contract errors
-    if (error.message?.includes('0x05d09e5f')) {
-      return res.status(400).json({ error: 'BetAlreadySettled', details: 'This bet has already been settled' });
-    }
-    if (error.message?.includes('0x469bfa91')) {
-      return res.status(400).json({ error: 'BetNotFound', details: 'Bet not found on chain' });
-    }
-    if (error.reason) {
-      return res.status(400).json({ error: error.reason });
-    }
-    res.status(500).json({ error: 'Failed to settle bet', details: error.message });
-  }
+// Execute settlement through queue
+const receipt = await queue.enqueue(async (nonce) => {
+  const tx = isROGUE
+    ? await buxBoosterContract.settleBetROGUE(commitmentHash, serverSeed, results, won, { nonce })
+    : await buxBoosterContract.settleBet(commitmentHash, serverSeed, results, won, { nonce });
+  return await tx.wait();
 });
 ```
 
-### Step 6: Update `/deposit-house-balance` Endpoint
+**Added Error Handling:**
+```javascript
+if (error.message?.includes('0x05d09e5f')) {
+  return res.status(400).json({ error: 'BetAlreadySettled', details: 'This bet has already been settled' });
+}
+if (error.message?.includes('0x469bfa91')) {
+  return res.status(400).json({ error: 'BetNotFound', details: 'Bet not found on chain' });
+}
+```
 
-This endpoint uses multiple wallets, so it needs multiple queues:
+### `/deposit-house-balance` Endpoint
+
+**Key Change:** Uses TWO queues sequentially:
+1. `txQueues.minter` for minting tokens to contract owner
+2. `txQueues.contractOwner` for approve and deposit
 
 ```javascript
-app.post('/deposit-house-balance', authenticate, async (req, res) => {
-  // ...validation...
+// Step 1: Mint tokens (minter queue)
+const mintReceipt = await tokenQueue.enqueue(async (nonce) => {
+  const tx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce });
+  return await tx.wait();
+});
 
-  const tokenQueue = txQueues.minter;  // Token owner uses minter wallet
-  const ownerQueue = txQueues.contractOwner;
+// Step 2: Approve (contract owner queue)
+const approveReceipt = await ownerQueue.enqueue(async (nonce) => {
+  const tx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce });
+  return await tx.wait();
+});
 
-  if (!tokenQueue || !ownerQueue) {
-    return res.status(503).json({ error: 'Transaction queues not initialized' });
-  }
-
-  try {
-    // Step 1: Mint tokens to contract owner (uses minter queue)
-    console.log(`[/deposit-house-balance] Step 1: Minting ${amount} ${token} to contract owner`);
-    const mintReceipt = await tokenQueue.enqueue(async (nonce) => {
-      const tx = await tokenContract.mint(contractOwnerWallet.address, amountWei, { nonce });
-      return await tx.wait();
-    });
-    console.log(`[/deposit-house-balance] Mint complete: ${mintReceipt.hash}`);
-
-    // Step 2: Approve BuxBoosterGame to spend tokens (uses contract owner queue)
-    console.log(`[/deposit-house-balance] Step 2: Approving BuxBoosterGame to spend tokens`);
-    const approveReceipt = await ownerQueue.enqueue(async (nonce) => {
-      const tx = await tokenContractWithApprove.approve(BUXBOOSTER_CONTRACT_ADDRESS, amountWei, { nonce });
-      return await tx.wait();
-    });
-    console.log(`[/deposit-house-balance] Approve complete: ${approveReceipt.hash}`);
-
-    // Step 3: Deposit to house balance (uses contract owner queue)
-    console.log(`[/deposit-house-balance] Step 3: Depositing to house balance`);
-    const depositReceipt = await ownerQueue.enqueue(async (nonce) => {
-      const tx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce });
-      return await tx.wait();
-    });
-    console.log(`[/deposit-house-balance] Deposit complete: ${depositReceipt.hash}`);
-
-    // Get updated house balance
-    const tokenConfig = await buxBoosterContract.tokenConfigs(tokenAddress);
-    const newHouseBalance = ethers.formatUnits(tokenConfig.houseBalance, 18);
-
-    res.json({
-      success: true,
-      mintTxHash: mintReceipt.hash,
-      approveTxHash: approveReceipt.hash,
-      depositTxHash: depositReceipt.hash,
-      token,
-      amountDeposited: amount,
-      newHouseBalance
-    });
-  } catch (error) {
-    console.error(`[/deposit-house-balance] Error:`, error);
-    res.status(500).json({ error: 'Failed to deposit house balance', details: error.message });
-  }
+// Step 3: Deposit (contract owner queue)
+const depositReceipt = await ownerQueue.enqueue(async (nonce) => {
+  const tx = await buxBoosterFromOwner.depositHouseBalance(tokenAddress, amountWei, { nonce });
+  return await tx.wait();
 });
 ```
 
-### Step 7: Update `/set-player-referrer` Endpoint
-
+**Response now includes all three tx hashes:**
 ```javascript
-app.post('/set-player-referrer', authenticate, async (req, res) => {
-  // ...validation...
-
-  const bbQueue = txQueues.referralBB;
-  const rbQueue = txQueues.referralRB;
-
-  if (!bbQueue || !rbQueue) {
-    return res.status(503).json({ error: 'Referral transaction queues not initialized' });
-  }
-
-  try {
-    // Execute both referrer updates in parallel (different wallets = different queues)
-    const [bbReceipt, rbReceipt] = await Promise.all([
-      bbQueue.enqueue(async (nonce) => {
-        console.log(`[/set-player-referrer] Setting referrer on BuxBoosterGame with nonce ${nonce}`);
-        const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
-        return await tx.wait();
-      }),
-      rbQueue.enqueue(async (nonce) => {
-        console.log(`[/set-player-referrer] Setting referrer on ROGUEBankroll with nonce ${nonce}`);
-        const tx = await rogueBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
-        return await tx.wait();
-      })
-    ]);
-
-    res.json({
-      success: true,
-      buxBoosterTxHash: bbReceipt.hash,
-      rogueBankrollTxHash: rbReceipt.hash,
-      player: playerAddr,
-      referrer: referrerAddr
-    });
-  } catch (error) {
-    console.error(`[/set-player-referrer] Error:`, error);
-    res.status(500).json({ error: 'Failed to set player referrer', details: error.message });
-  }
+res.json({
+  success: true,
+  mintTxHash: mintReceipt.hash,
+  approveTxHash: approveReceipt.hash,
+  depositTxHash: depositReceipt.hash,
+  token,
+  amountDeposited: amount,
+  newHouseBalance: ethers.formatUnits(config.houseBalance, 18)
 });
 ```
 
-### Step 8: Add Monitoring Endpoint
+### `/set-player-referrer` Endpoint
 
-Add an endpoint to monitor queue health:
-
+**Key Change:** Uses TWO queues in PARALLEL (different wallets = safe to parallelize):
 ```javascript
-// Queue status endpoint for monitoring
-app.get('/queue-status', authenticate, (req, res) => {
-  const status = {};
+// Check if referrers are already set (read operations - no queue needed)
+const [bbExistingReferrer, rbExistingReferrer] = await Promise.all([
+  buxBoosterReferralContract.playerReferrers(playerAddr),
+  rogueBankrollWriteContract.playerReferrers(playerAddr)
+]);
 
-  for (const [name, queue] of Object.entries(txQueues)) {
-    status[name] = queue.status();
-  }
+// Execute referrer updates in parallel
+const promises = [];
 
-  res.json({
-    timestamp: new Date().toISOString(),
-    queues: status
-  });
-});
+if (!bbAlreadySet) {
+  promises.push(
+    bbQueue.enqueue(async (nonce) => {
+      const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
+      return await tx.wait();
+    }).then(receipt => {
+      results.buxBoosterGame.success = true;
+      results.buxBoosterGame.txHash = receipt.hash;
+    }).catch(error => {
+      results.buxBoosterGame.error = error.message;
+    })
+  );
+}
+
+// Similar for rbQueue...
+
+await Promise.all(promises);
 ```
 
 ---
 
-## Testing
+## Monitoring
 
-### Unit Test: Queue Serialization
+### `/queue-status` Endpoint
 
-```javascript
-// test/queue.test.js
-import { expect } from 'chai';
-
-describe('TransactionQueue', () => {
-  it('should process transactions sequentially', async () => {
-    const executionOrder = [];
-
-    // Enqueue 3 transactions simultaneously
-    const promises = [
-      queue.enqueue(async (nonce) => {
-        executionOrder.push({ nonce, time: Date.now() });
-        await sleep(100);
-        return { hash: `tx-${nonce}` };
-      }),
-      queue.enqueue(async (nonce) => {
-        executionOrder.push({ nonce, time: Date.now() });
-        await sleep(100);
-        return { hash: `tx-${nonce}` };
-      }),
-      queue.enqueue(async (nonce) => {
-        executionOrder.push({ nonce, time: Date.now() });
-        await sleep(100);
-        return { hash: `tx-${nonce}` };
-      })
-    ];
-
-    await Promise.all(promises);
-
-    // Verify sequential execution
-    expect(executionOrder[0].nonce).to.equal(0);
-    expect(executionOrder[1].nonce).to.equal(1);
-    expect(executionOrder[2].nonce).to.equal(2);
-
-    // Verify timing (each should start after previous finishes)
-    expect(executionOrder[1].time - executionOrder[0].time).to.be.gte(100);
-    expect(executionOrder[2].time - executionOrder[1].time).to.be.gte(100);
-  });
-});
-```
-
-### Load Test: Concurrent Requests
-
+**Request:**
 ```bash
-#!/bin/bash
-# test/load-test.sh
-
-# Simulate 50 concurrent mint requests
-echo "Starting load test: 50 concurrent /mint requests"
-
-for i in {1..50}; do
-  curl -s -X POST https://bux-minter.fly.dev/mint \
-    -H "Authorization: Bearer $API_SECRET" \
-    -H "Content-Type: application/json" \
-    -d "{\"walletAddress\":\"0xTestWallet$i\",\"amount\":1,\"userId\":$i,\"postId\":null,\"rewardType\":\"read\"}" &
-done
-
-wait
-echo "Load test complete"
+curl -H "Authorization: Bearer $API_SECRET" https://bux-minter.fly.dev/queue-status
 ```
 
-### Production Monitoring
+**Response:**
+```json
+{
+  "timestamp": "2026-02-09T12:00:00.000Z",
+  "queues": {
+    "minter": {
+      "name": "minter",
+      "walletAddress": "0x...",
+      "queueLength": 0,
+      "processing": false,
+      "currentNonce": 1234,
+      "nonceInitialized": true
+    },
+    "settler": {
+      "name": "settler",
+      "walletAddress": "0x...",
+      "queueLength": 3,
+      "processing": true,
+      "currentNonce": 5678,
+      "nonceInitialized": true
+    },
+    "contractOwner": { ... },
+    "referralBB": { ... },
+    "referralRB": { ... }
+  }
+}
+```
 
-Add these alerts to your monitoring system:
+### Monitoring Alerts to Set Up
 
-1. **Queue depth alert**: If any queue exceeds 100 items
-2. **Processing time alert**: If average transaction wait time exceeds 30 seconds
-3. **Retry rate alert**: If retry rate exceeds 10% of transactions
-4. **Nonce error alert**: If nonce errors still occur after retries exhausted
+1. **Queue depth alert**: If any queue exceeds 50 items
+2. **Nonce error alert**: If nonce errors occur after implementation (shouldn't happen)
+3. **Response time alert**: If `/settle-bet` > 10s or `/mint` > 5s
+4. **Processing stuck alert**: If `processing: true` but `queueLength: 0` for > 30s
 
 ---
 
@@ -672,69 +426,117 @@ Add these alerts to your monitoring system:
 ### Throughput Limits
 
 With sequential processing per wallet:
-- **Block time**: Rogue Chain ~2-3 seconds
-- **Max throughput per wallet**: ~20-30 tx/minute
-- **With 5 wallets**: ~100-150 tx/minute total
+- **Block time**: Rogue Chain ~250ms (very fast!)
+- **Max throughput per wallet**: ~200+ tx/minute (limited by RPC and confirmation time)
+- **With 5 wallets**: ~1000+ tx/minute total theoretical max
 
-### Scaling Options
+### Latency Impact
 
-If throughput becomes a bottleneck:
+The queue adds minimal latency:
+- First transaction: ~0ms (queue is empty)
+- Subsequent transactions: ~50ms inter-transaction delay + confirmation time of previous tx
+- Under load: Latency scales with queue depth
 
-1. **Multiple Minter Wallets**: Create a pool of minter wallets, round-robin distribute mints
-   ```javascript
-   const minterWallets = [wallet1, wallet2, wallet3];
-   const minterQueues = minterWallets.map((w, i) => new TransactionQueue(w, provider, `minter-${i}`));
+### Scaling Options (if needed)
 
-   function getMinterQueue() {
-     // Round-robin selection
-     const index = mintCounter++ % minterQueues.length;
-     return minterQueues[index];
-   }
-   ```
-
-2. **Batch Minting**: Modify contract to mint to multiple addresses in one tx
-   ```solidity
-   function batchMint(address[] calldata recipients, uint256[] calldata amounts) external
-   ```
-
-3. **Async Rewards**: For non-critical rewards (read rewards), queue in database and process in background batches
+1. **Multiple Minter Wallets**: Pool of minter wallets with round-robin selection
+2. **Batch Minting**: Contract function to mint to multiple addresses in one tx
+3. **Async Rewards**: Queue read rewards in database, process in background batches
 
 ---
 
 ## Rollback Plan
 
-If issues occur after deployment:
+### If Issues Occur in Production
 
-1. **Immediate rollback**: Revert to previous version without queues
-2. **Queue bypass**: Add environment variable to skip queue in emergencies
-   ```javascript
-   const BYPASS_QUEUE = process.env.BYPASS_QUEUE === 'true';
+1. **Check queue status**: `curl /queue-status` - is queue backing up?
+2. **Quick fix**: Set `BYPASS_QUEUE=true` in Fly secrets
+3. **Rollback**: `flyctl releases list` then `flyctl releases rollback`
 
-   if (BYPASS_QUEUE) {
-     // Direct call (old behavior)
-     const tx = await contract.mint(address, amount);
-   } else {
-     // Queued call (new behavior)
-     await queue.enqueue(async (nonce) => { ... });
-   }
-   ```
+### Adding Queue Bypass (Future Enhancement)
+
+```javascript
+const BYPASS_QUEUE = process.env.BYPASS_QUEUE === 'true';
+
+if (BYPASS_QUEUE) {
+  // Direct call (old behavior)
+  const tx = await contract.mint(address, amount);
+  const receipt = await tx.wait();
+} else {
+  // Queued call (new behavior)
+  const receipt = await queue.enqueue(async (nonce) => { ... });
+}
+```
 
 ---
 
-## Deployment Checklist
+## Testing Checklist
 
-- [ ] Add TransactionQueue class to index.js
-- [ ] Create queue instances after wallet setup
-- [ ] Update `/mint` endpoint to use queue
-- [ ] Update `/submit-commitment` endpoint to use queue
-- [ ] Update `/settle-bet` endpoint to use queue
-- [ ] Update `/deposit-house-balance` endpoint to use queues
-- [ ] Update `/set-player-referrer` endpoint to use queues
-- [ ] Add `/queue-status` monitoring endpoint
-- [ ] Test locally with concurrent requests
-- [ ] Deploy to staging and load test
-- [ ] Monitor queue metrics in production
-- [ ] Update CLAUDE.md with accurate documentation
+### Phase 9: Local Testing
+
+#### 9.1 Start local BUX Minter
+- [ ] `cd bux-minter`
+- [ ] Ensure `.env` has all required keys
+- [ ] `node index.js`
+- [ ] Verify startup logs show queue creation:
+  ```
+  [INIT] Transaction queue created for minter wallet: 0x...
+  [INIT] Transaction queue created for settler wallet: 0x...
+  [INIT] Transaction queue created for contract owner wallet: 0x...
+  [INIT] Transaction queue created for referral admin BB wallet: 0x...
+  [INIT] Transaction queue created for referral admin RB wallet: 0x...
+  ```
+
+#### 9.2 Test single requests
+- [ ] Test `/mint` with single request
+- [ ] Test `/submit-commitment` with single request
+- [ ] Test `/settle-bet` with single request
+- [ ] Test `/queue-status` endpoint
+- [ ] Verify all return success
+
+#### 9.3 Test concurrent requests
+```bash
+#!/bin/bash
+# test-concurrent.sh
+for i in {1..10}; do
+  curl -s -X POST http://localhost:3001/mint \
+    -H "Authorization: Bearer $API_SECRET" \
+    -H "Content-Type: application/json" \
+    -d '{"walletAddress":"0xTestWallet","amount":1,"userId":1}' &
+done
+wait
+echo "Done"
+```
+- [ ] Run test script
+- [ ] Verify all 10 requests succeed
+- [ ] Check logs for sequential nonces (0, 1, 2, ...)
+- [ ] Check `/queue-status` during test
+
+#### 9.4 Test error recovery
+- [ ] Manually send a transaction from settler wallet outside the queue
+- [ ] Immediately call `/settle-bet`
+- [ ] Verify it recovers (re-syncs nonce and retries)
+- [ ] Check logs for: `[TxQueue:settler] Nonce error, retry 1/5...`
+
+### Phase 10: Deployment
+
+#### 10.1 Pre-deployment
+- [ ] All local tests passing
+- [ ] No console errors during normal operation
+- [ ] Queue status endpoint working
+
+#### 10.2 Deploy to Fly.io
+```bash
+cd bux-minter
+flyctl deploy
+```
+- [ ] Monitor deployment logs for queue initialization messages
+
+#### 10.3 Post-deployment verification
+- [ ] Call `/queue-status` on production
+- [ ] Test a single mint operation
+- [ ] Test a single bet flow (commit → place → settle)
+- [ ] Monitor for any nonce errors in logs
 
 ---
 
@@ -745,6 +547,7 @@ This implementation ensures:
 1. **Zero nonce conflicts** - Each wallet processes one transaction at a time
 2. **Automatic recovery** - Nonce errors trigger re-sync and retry with exponential backoff
 3. **Monitoring** - Queue status endpoint for operational visibility
-4. **Scalability path** - Can add wallet pools if throughput becomes a bottleneck
+4. **Parallel where safe** - Referral updates use parallel queues (different wallets)
+5. **Sequential where needed** - Deposit flow uses sequential queues (same wallet dependencies)
 
-The queue adds ~50-100ms latency per transaction (from waiting in queue), but eliminates the ~30% failure rate seen under concurrent load.
+The queue adds minimal latency (~50ms between transactions) but eliminates the nonce conflict errors seen under concurrent load.

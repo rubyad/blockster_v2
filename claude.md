@@ -42,6 +42,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - NEVER modify mix.exs dependency versions without being explicitly asked to do so
 > - If you identify a potential fix that requires a dependency update, ASK the user first before making any changes
 > - This applies to: Phoenix, Phoenix LiveView, Ecto, Thirdweb, and any core framework dependencies
+>
+> **CRITICAL FILE EDITING RULES**:
+> - NEVER use the Write tool to rewrite an entire file when updating documentation - use Edit tool to make targeted changes
+> - When asked to "update" a document, ADD new content while PRESERVING all existing content
+> - Rewriting entire files risks losing important information (checklists, original plans, reference material)
+> - If you accidentally delete content from a file, IMMEDIATELY restore it before continuing
 
 ## Branding Assets
 
