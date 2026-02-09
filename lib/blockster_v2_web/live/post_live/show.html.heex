@@ -148,20 +148,6 @@
           </div>
         </div>
 
-        <!-- Progress Indicator -->
-        <%= if @engagement_score do %>
-          <div class="mt-2 pt-2 border-t border-white/20">
-            <div class="flex justify-between text-xs opacity-90 mb-1">
-              <span>Engagement Score</span>
-              <span class="font-bold"><%= trunc(@engagement_score) %>/10</span>
-            </div>
-            <div class="w-full bg-white/20 rounded-full h-2">
-              <div class="bg-white h-2 rounded-full transition-all duration-300"
-                   style={"width: #{@engagement_score * 10}%"}>
-              </div>
-            </div>
-          </div>
-        <% end %>
 
         <!-- Call to Action -->
         <div class="mt-3 text-center text-xs opacity-90">
@@ -274,24 +260,18 @@
         </div>
         <span class="text-xs">Keep reading to earn more BUX</span>
       </div>
-      <div class="w-full bg-white/20 rounded-full h-1.5">
-        <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@current_score * 10}%"}></div>
-      </div>
     </div>
   <% end %>
 
   <!-- Anonymous user mobile earning bar - HIDDEN: moved to sticky top bar -->
   <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
     <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
-      <div class="flex items-center justify-between mb-1.5">
+      <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
           <span class="text-sm font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</span>
         </div>
         <span class="text-xs">Keep reading to earn more BUX</span>
-      </div>
-      <div class="w-full bg-white/20 rounded-full h-1.5">
-        <div class="bg-white h-1.5 rounded-full transition-all duration-300" style={"width: #{@engagement_score * 10}%"}></div>
       </div>
     </div>
   <% end %>
@@ -613,7 +593,7 @@
                 <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
                 <div class="flex flex-col items-end">
                   <span class="text-[11px] text-gray-400 leading-none">Your Earnings</span>
-                  <span class="font-haas_medium_65 text-base leading-tight">
+                  <span class="font-haas_medium_65 text-base leading-tight font-bold">
                     +<%= Float.round(earned + 0.0, 2) %> BUX
                   </span>
                 </div>
@@ -658,18 +638,6 @@
           </div>
           </div><!-- End Content Row -->
 
-          <!-- Progress Bar (below content row) - hidden when completed -->
-          <%= if @pool_available and not mobile_is_completed do %>
-            <% score = if @is_anonymous, do: (@engagement_score || 0), else: (@current_score || 0) %>
-            <div class="h-1 bg-gray-100 relative">
-              <div
-                class="h-full bg-gradient-to-r from-[#8AE388] to-[#6BCB69] transition-all duration-300 relative"
-                style={"width: #{score * 10}%"}
-              >
-                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#6BCB69] rounded-full border-2 border-white shadow-sm" />
-              </div>
-            </div>
-          <% end %>
         </div><!-- End Sticky Container -->
 
         <!-- Featured Image (Square) with Video Play Button Overlay -->

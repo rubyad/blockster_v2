@@ -49,11 +49,16 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 - This is the official Blockster brand color
 - Use for all brand accents: badges, highlights, active states, buttons
 - Navigation highlights (top menu, bottom nav) use this color
+- **NEVER use as text color** (`text-[#CAFC00]`) - it's difficult to read. Use as background (`bg-[#CAFC00]`) with black text instead
 
 **Blockster Logo/Icon**: `https://ik.imagekit.io/blockster/blockster-icon.png`
 - This is THE Blockster logo - lime green circle with black lightning bolt
 - Used for BUX token icon, badges, and branding throughout the app
 - Access via `lightning_icon/1` component in SharedComponents
+
+**Icons**: Use Heroicons solid style from https://heroicons.com/solid
+- Prefer solid (filled) icons over outline icons for consistency
+- Standard icon pattern: `w-16 h-16 bg-[#CAFC00] rounded-xl` container with `w-8 h-8 text-black` icon
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -2737,3 +2742,60 @@ Mint result: {:ok,
 - The `user_id` is required for Mnesia balance tracking to work correctly
 - Without `user_id`, tokens mint on-chain but Mnesia balance won't update
 - Transaction can be verified on Roguescan: `https://roguescan.io/tx/{transactionHash}`
+
+### Clear Phone Verification (for testing)
+
+Phone verification data is stored in **two places**:
+1. `phone_verifications` table - the verification record with phone number, carrier info, etc.
+2. User record fields - `phone_verified`, `geo_multiplier`, `geo_tier`
+
+Both must be cleared to fully reset phone verification for a user.
+
+**Local Dev** (using `mix run -e`):
+```bash
+# Clear ALL phone verifications and reset ALL verified users
+mix run -e '
+alias BlocksterV2.Repo
+alias BlocksterV2.Accounts.User
+alias BlocksterV2.Accounts.PhoneVerification
+import Ecto.Query
+
+# Delete all phone verification records
+{deleted, _} = Repo.delete_all(PhoneVerification)
+IO.puts("Deleted #{deleted} phone verification records")
+
+# Reset all users with phone_verified=true
+{updated, _} = Repo.update_all(
+  from(u in User, where: u.phone_verified == true),
+  set: [phone_verified: false, geo_multiplier: Decimal.new("0.5"), geo_tier: "unverified"]
+)
+IO.puts("Reset #{updated} users")
+'
+
+# Clear for a SPECIFIC user by user_id
+mix run -e '
+alias BlocksterV2.Repo
+alias BlocksterV2.Accounts.User
+alias BlocksterV2.Accounts.PhoneVerification
+import Ecto.Query
+
+user_id = 89  # Change this to target user
+
+Repo.delete_all(from p in PhoneVerification, where: p.user_id == ^user_id)
+Repo.update_all(from(u in User, where: u.id == ^user_id), set: [phone_verified: false, geo_multiplier: Decimal.new("0.5"), geo_tier: "unverified"])
+IO.puts("Cleared phone verification for user #{user_id}")
+'
+```
+
+**Production** (using flyctl):
+```bash
+# Clear for a specific user
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+alias BlocksterV2.{Repo, Accounts.User, Accounts.PhoneVerification}
+import Ecto.Query
+user_id = 89
+Repo.delete_all(from p in PhoneVerification, where: p.user_id == ^user_id)
+Repo.update_all(from(u in User, where: u.id == ^user_id), set: [phone_verified: false, geo_multiplier: Decimal.new(\"0.5\"), geo_tier: \"unverified\"])
+IO.puts(\"Cleared phone verification for user #{user_id}\")
+'"
+```

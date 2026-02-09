@@ -16,6 +16,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   use BlocksterV2Web, :live_view
   alias BlocksterV2.UnifiedMultiplier
   alias BlocksterV2.PhoneVerification
+  alias BlocksterV2.Wallets
 
   # All valid steps in order
   @steps ["welcome", "redeem", "profile", "phone", "wallet", "x", "complete", "rogue"]
@@ -29,7 +30,18 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         {:ok, push_navigate(socket, to: ~p"/login")}
 
       user ->
-        # Get user's current multipliers for display
+        # Get phone verification status (includes country_code for already verified users)
+        {:ok, phone_status} = PhoneVerification.get_verification_status(user.id)
+
+        # Check if external wallet is connected
+        connected_wallet = Wallets.get_connected_wallet(user.id)
+
+        # If wallet is connected, ensure multiplier is up to date
+        if connected_wallet do
+          UnifiedMultiplier.update_wallet_multiplier(user.id)
+        end
+
+        # Get user's current multipliers for display (after wallet update if any)
         multipliers = UnifiedMultiplier.get_user_multipliers(user.id)
 
         socket =
@@ -47,6 +59,9 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           |> assign(phone_success: nil)
           |> assign(phone_countdown: nil)
           |> assign(verification_result: nil)
+          |> assign(phone_country_code: phone_status[:country_code])
+          # External wallet connection state
+          |> assign(connected_wallet: connected_wallet)
 
         {:ok, socket}
     end
@@ -155,6 +170,61 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
     end
   end
 
+  # =============================================================================
+  # External Wallet Connection Events
+  # =============================================================================
+
+  @impl true
+  def handle_event("connect_metamask", _params, socket) do
+    {:noreply, push_event(socket, "connect_wallet", %{provider: "metamask"})}
+  end
+
+  @impl true
+  def handle_event("connect_coinbase", _params, socket) do
+    {:noreply, push_event(socket, "connect_wallet", %{provider: "coinbase"})}
+  end
+
+  @impl true
+  def handle_event("connect_walletconnect", _params, socket) do
+    {:noreply, push_event(socket, "connect_wallet", %{provider: "walletconnect"})}
+  end
+
+  @impl true
+  def handle_event("connect_phantom", _params, socket) do
+    {:noreply, push_event(socket, "connect_wallet", %{provider: "phantom"})}
+  end
+
+  @impl true
+  def handle_event("wallet_connected", %{"address" => address, "provider" => provider, "chain_id" => chain_id}, socket) do
+    user_id = socket.assigns.user.id
+
+    case Wallets.connect_wallet(%{
+      user_id: user_id,
+      wallet_address: address,
+      provider: provider,
+      chain_id: chain_id
+    }) do
+      {:ok, connected_wallet} ->
+        # Recalculate wallet multiplier based on connected wallet balances
+        UnifiedMultiplier.update_wallet_multiplier(user_id)
+        # Refresh multipliers after wallet connection
+        multipliers = UnifiedMultiplier.get_user_multipliers(user_id)
+
+        {:noreply,
+         socket
+         |> assign(:connected_wallet, connected_wallet)
+         |> assign(:multipliers, multipliers)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to connect wallet. Please try again.")}
+    end
+  end
+
+  @impl true
+  def handle_event("wallet_connection_error", %{"error" => error}, socket) do
+    {:noreply, put_flash(socket, :error, "Connection failed: #{error}")}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -184,15 +254,16 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
                 phone_success={@phone_success}
                 phone_countdown={@phone_countdown}
                 verification_result={@verification_result}
+                phone_country_code={@phone_country_code}
               />
             <% "wallet" -> %>
-              <.wallet_step user={@user} />
+              <.wallet_step user={@user} connected_wallet={@connected_wallet} multipliers={@multipliers} />
             <% "x" -> %>
               <.x_step user={@user} multipliers={@multipliers} />
             <% "complete" -> %>
-              <.complete_step user={@user} multipliers={@multipliers} />
+              <.complete_step user={@user} multipliers={@multipliers} connected_wallet={@connected_wallet} />
             <% "rogue" -> %>
-              <.rogue_step />
+              <.rogue_step user={@user} />
             <% _ -> %>
               <.welcome_step />
           <% end %>
@@ -249,19 +320,17 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <!-- Icons row -->
       <div class="flex justify-center gap-6">
         <div class="flex flex-col items-center space-y-2 animate-fade-in" style="animation-delay: 0ms">
-          <div class="w-16 h-16 flex items-center justify-center border border-gray-300 rounded-xl">
+          <div class="w-16 h-16 flex items-center justify-center bg-[#CAFC00] rounded-xl">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              fill="none"
               viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-8 h-8"
+              fill="currentColor"
+              class="w-8 h-8 text-black"
             >
               <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+                fill-rule="evenodd"
+                d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z"
+                clip-rule="evenodd"
               />
             </svg>
           </div>
@@ -272,20 +341,19 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           class="flex flex-col items-center space-y-2 animate-fade-in"
           style="animation-delay: 100ms"
         >
-          <div class="w-16 h-16 flex items-center justify-center border border-gray-300 rounded-xl">
+          <div class="w-16 h-16 flex items-center justify-center bg-[#CAFC00] rounded-xl">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              fill="none"
               viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-8 h-8"
+              fill="currentColor"
+              class="w-8 h-8 text-black"
             >
               <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z"
+                fill-rule="evenodd"
+                d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 0 1 .75.75c0 5.056-2.383 9.555-6.084 12.436A6.75 6.75 0 0 1 9.75 22.5a.75.75 0 0 1-.75-.75v-4.131A15.838 15.838 0 0 1 6.382 15H2.25a.75.75 0 0 1-.75-.75 6.75 6.75 0 0 1 7.815-6.666ZM15 6.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z"
+                clip-rule="evenodd"
               />
+              <path d="M5.26 17.242a.75.75 0 1 0-.897-1.203 5.243 5.243 0 0 0-2.05 5.022.75.75 0 0 0 .625.627 5.243 5.243 0 0 0 5.022-2.051.75.75 0 1 0-1.202-.897 3.744 3.744 0 0 1-3.008 1.51c0-1.23.592-2.323 1.51-3.008Z" />
             </svg>
           </div>
           <span class="text-xs text-gray-500">Games</span>
@@ -295,33 +363,31 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           class="flex flex-col items-center space-y-2 animate-fade-in"
           style="animation-delay: 200ms"
         >
-          <div class="w-16 h-16 flex items-center justify-center border border-gray-300 rounded-xl">
+          <div class="w-16 h-16 flex items-center justify-center bg-[#CAFC00] rounded-xl">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              fill="none"
               viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-8 h-8"
+              fill="currentColor"
+              class="w-8 h-8 text-black"
             >
               <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"
+                fill-rule="evenodd"
+                d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z"
+                clip-rule="evenodd"
               />
             </svg>
           </div>
-          <span class="text-xs text-gray-500">Drops</span>
+          <span class="text-xs text-gray-500">Airdrop</span>
         </div>
       </div>
 
       <!-- Headlines -->
       <div class="space-y-4">
         <h1 class="font-haas_medium_65 text-3xl md:text-4xl text-black">
-          Redeem Your BUX
+          Redeem BUX
         </h1>
         <p class="font-haas_roman_55 text-lg text-gray-600">
-          Cool merch, games and airdrops
+          For cool merch, games and airdrops
         </p>
       </div>
 
@@ -347,35 +413,13 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
     ~H"""
     <div class="text-center space-y-8">
-      <!-- Multiplier visualization -->
-      <div class="flex flex-col items-center space-y-2">
-        <div class="text-gray-400 text-3xl font-haas_medium_65">
-          <%= format_multiplier(@current_multiplier) %>
-        </div>
-        <div class="text-gray-400">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            stroke="currentColor"
-            class="w-6 h-6 animate-bounce"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
-          </svg>
-        </div>
-        <div class="text-4xl font-haas_medium_65 text-black">
-          <span class="bg-[#CAFC00] px-2 rounded"><%= format_multiplier(@max_multiplier) %></span>
-        </div>
-      </div>
-
-      <!-- Headlines -->
+      <!-- Headline with 20x highlight -->
       <div class="space-y-4">
-        <h1 class="font-haas_medium_65 text-3xl md:text-4xl text-black">
-          Complete Your Profile
+        <h1 class="font-haas_medium_65 text-3xl md:text-4xl text-black leading-tight">
+          Earn up to <span class="bg-[#CAFC00] px-2 py-1 rounded">20x</span> more BUX
         </h1>
         <p class="font-haas_roman_55 text-lg text-gray-600">
-          Increase your earning power by connecting your accounts
+          Complete your profile to boost your earning power
         </p>
       </div>
 
@@ -413,19 +457,18 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
       <!-- Icon -->
       <div class="flex justify-center">
-        <div class="w-16 h-16 flex items-center justify-center">
+        <div class="w-16 h-16 flex items-center justify-center bg-[#CAFC00] rounded-xl">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            fill="none"
             viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="w-12 h-12"
+            fill="currentColor"
+            class="w-8 h-8 text-black"
           >
+            <path d="M10.5 18.75a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" />
             <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+              fill-rule="evenodd"
+              d="M8.25 1.5A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75A2.25 2.25 0 0 0 15.75 1.5h-7.5Zm7.5 1.5h-7.5a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75V3.75a.75.75 0 0 0-.75-.75Z"
+              clip-rule="evenodd"
             />
           </svg>
         </div>
@@ -437,29 +480,39 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           Connect Your Phone
         </h1>
         <p class="font-haas_roman_55 text-base text-gray-600">
-          Verify to boost earnings
+          Verify to boost your BUX earnings
         </p>
-        <div class="text-sm font-haas_roman_55">
-          <span class="text-gray-400">0.5x</span>
-          <span class="mx-2">→</span>
-          <span class="text-black font-haas_medium_65">2.0x</span>
-          <span class="text-[#CAFC00]"> (premium)</span>
-        </div>
       </div>
 
       <%= cond do %>
         <% @phone_verified -> %>
           <!-- Already verified state (from previous session) -->
-          <div class="pt-4">
-            <div class="flex items-center justify-center gap-2 text-green-600">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          <div class="pt-4 space-y-4">
+            <!-- Verified badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-green-600">
+                <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
               </svg>
-              <span class="font-haas_medium_65">Phone Verified!</span>
+              <span class="font-haas_medium_65 text-green-800">
+                Phone Verified
+              </span>
+            </div>
+
+            <!-- Multiplier boost display -->
+            <div class="bg-gray-50 rounded-xl p-4 text-left">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Phone Multiplier</span>
+                <span class="font-haas_medium_65 text-lg text-black">
+                  <%= :erlang.float_to_binary(@multipliers.phone_multiplier / 1, decimals: 1) %>x
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                You are in <%= @phone_country_code || "Unknown" %>
+              </p>
             </div>
           </div>
 
-          <div class="pt-6">
+          <div class="pt-4">
             <.link
               patch={~p"/onboarding/wallet"}
               class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
@@ -598,43 +651,39 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
         <% @phone_step_state == :success -> %>
           <!-- STEP 3: Success -->
-          <div class="pt-4 space-y-6">
-            <div class="flex items-center justify-center gap-2 text-green-600">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          <div class="pt-4 space-y-4">
+            <!-- Verified badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-green-600">
+                <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
               </svg>
-              <span class="font-haas_medium_65 text-xl">Phone Verified!</span>
+              <span class="font-haas_medium_65 text-green-800">
+                Phone Verified
+              </span>
             </div>
 
-            <!-- Multiplier Visualization -->
-            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6">
-              <div class="text-sm text-gray-600 mb-2">Your BUX Earnings Multiplier</div>
-              <div class="flex items-center justify-center gap-4 mb-4">
-                <div class="text-center">
-                  <div class="text-3xl font-haas_medium_65 text-gray-400 line-through">0.5x</div>
-                  <div class="text-xs text-gray-500">Before</div>
-                </div>
-                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
-                <div class="text-center">
-                  <div class="text-3xl font-haas_medium_65 text-black">
-                    <%= if @verification_result, do: "#{@verification_result.geo_multiplier}x", else: "2.0x" %>
-                  </div>
-                  <div class="text-xs text-gray-600">After</div>
-                </div>
+            <!-- Phone number display -->
+            <%= if @verification_result do %>
+              <div class="text-sm text-gray-500 font-mono">
+                <%= format_phone_display(@phone_number) %>
               </div>
+            <% end %>
 
-              <%= if @verification_result do %>
-                <div class="flex justify-center">
-                  <div class="bg-white rounded-lg px-4 py-2">
-                    <span class="text-gray-600">Country: </span>
-                    <span class="font-haas_medium_65"><%= @verification_result.country_code %></span>
-                  </div>
-                </div>
-              <% end %>
+            <!-- Multiplier boost display -->
+            <div class="bg-gray-50 rounded-xl p-4 text-left">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Phone Multiplier</span>
+                <span class="font-haas_medium_65 text-lg text-black">
+                  <%= if @verification_result, do: "#{@verification_result.geo_multiplier}x", else: "#{:erlang.float_to_binary(@multipliers.phone_multiplier / 1, decimals: 1)}x" %>
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                You are in <%= if @verification_result, do: @verification_result.country_code, else: @phone_country_code || "Unknown" %>
+              </p>
             </div>
+          </div>
 
+          <div class="pt-4">
             <.link
               patch={~p"/onboarding/wallet"}
               class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
@@ -648,33 +697,18 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   end
 
   defp wallet_step(assigns) do
-    # Check if wallet already connected
-    wallet_connected = assigns.user.smart_wallet_address != nil
-    assigns = assign(assigns, wallet_connected: wallet_connected)
-
     ~H"""
-    <div class="text-center space-y-6">
+    <div class="text-center space-y-6" id="wallet-step" phx-hook="ConnectWalletHook">
       <!-- Step indicator -->
       <div class="text-sm text-gray-400 font-haas_roman_55">
         Step 2 of 3
       </div>
 
-      <!-- Icon -->
+      <!-- Icon - solid wallet with lime background -->
       <div class="flex justify-center">
-        <div class="w-16 h-16 flex items-center justify-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="w-12 h-12"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
-            />
+        <div class="w-16 h-16 bg-[#CAFC00] rounded-xl flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-black">
+            <path d="M2.273 5.625A4.483 4.483 0 0 1 5.25 4.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0 0 18.75 3H5.25a3 3 0 0 0-2.977 2.625ZM2.273 8.625A4.483 4.483 0 0 1 5.25 7.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0 0 18.75 6H5.25a3 3 0 0 0-2.977 2.625ZM5.25 9a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h13.5a3 3 0 0 0 3-3v-6a3 3 0 0 0-3-3H15a.75.75 0 0 0-.75.75 2.25 2.25 0 0 1-4.5 0A.75.75 0 0 0 9 9H5.25Z" />
           </svg>
         </div>
       </div>
@@ -685,36 +719,43 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           Connect Your Wallet
         </h1>
         <p class="font-haas_roman_55 text-base text-gray-600">
-          Receive BUX rewards on-chain
+          Connect wallet to boost your BUX earnings
         </p>
       </div>
 
-      <%= if @wallet_connected do %>
-        <!-- Already connected state -->
-        <div class="pt-4">
-          <div class="flex items-center justify-center gap-2 text-green-600">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
-              class="w-6 h-6"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-              />
+      <%= if @connected_wallet do %>
+        <!-- Already connected state with multiplier -->
+        <div class="pt-4 space-y-4">
+          <!-- Connected badge -->
+          <div class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-green-600">
+              <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
             </svg>
-            <span class="font-haas_medium_65">
-              <%= String.slice(@user.smart_wallet_address, 0..5) <>
-                "..." <> String.slice(@user.smart_wallet_address, -4..-1) %>
+            <span class="font-haas_medium_65 text-green-800">
+              <%= String.capitalize(@connected_wallet.provider) %> Connected
             </span>
+          </div>
+
+          <!-- Wallet address -->
+          <div class="text-sm text-gray-500 font-mono">
+            <%= String.slice(@connected_wallet.wallet_address, 0..5) %>...<%= String.slice(@connected_wallet.wallet_address, -4..-1) %>
+          </div>
+
+          <!-- Multiplier boost display -->
+          <div class="bg-gray-50 rounded-xl p-4 text-left">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">Wallet Multiplier</span>
+              <span class="font-haas_medium_65 text-lg text-black">
+                <%= format_multiplier(@multipliers.wallet_multiplier) %>
+              </span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              Hold ETH or stablecoins to increase up to 3.6x
+            </p>
           </div>
         </div>
 
-        <div class="pt-6">
+        <div class="pt-4">
           <.link
             patch={~p"/onboarding/x"}
             class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
@@ -723,14 +764,41 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           </.link>
         </div>
       <% else %>
-        <!-- Connect wallet UI -->
+        <!-- Connect wallet options -->
         <div class="pt-4 space-y-4">
-          <button
-            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
-            phx-click="connect_wallet"
-          >
-            Connect Wallet
-          </button>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              phx-click="connect_metamask"
+              class="flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer transition-all hover:border-orange-400"
+            >
+              <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" class="w-6 h-6" />
+              <span class="font-haas_medium_65 text-sm text-black">MetaMask</span>
+            </button>
+
+            <button
+              phx-click="connect_coinbase"
+              class="flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer transition-all hover:border-blue-400"
+            >
+              <img src="https://ik.imagekit.io/blockster/coinbase-logo.png" alt="Coinbase" class="w-6 h-6" />
+              <span class="font-haas_medium_65 text-sm text-black">Coinbase</span>
+            </button>
+
+            <button
+              phx-click="connect_walletconnect"
+              class="flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer transition-all hover:border-blue-500"
+            >
+              <img src="https://ik.imagekit.io/blockster/wallet-connect.png" alt="WalletConnect" class="w-6 h-6" />
+              <span class="font-haas_medium_65 text-sm text-black">WalletConnect</span>
+            </button>
+
+            <button
+              phx-click="connect_phantom"
+              class="flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer transition-all hover:border-purple-400"
+            >
+              <img src="https://avatars.githubusercontent.com/u/78782331?s=280&v=4" alt="Phantom" class="w-6 h-6 rounded" />
+              <span class="font-haas_medium_65 text-sm text-black">Phantom</span>
+            </button>
+          </div>
 
           <.link
             patch={~p"/onboarding/x"}
@@ -756,10 +824,10 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         Step 3 of 3
       </div>
 
-      <!-- X Logo -->
+      <!-- X Logo in lime box -->
       <div class="flex justify-center">
-        <div class="w-16 h-16 flex items-center justify-center">
-          <span class="text-5xl font-bold">𝕏</span>
+        <div class="w-16 h-16 bg-[#CAFC00] rounded-xl flex items-center justify-center">
+          <span class="text-3xl font-bold text-black">𝕏</span>
         </div>
       </div>
 
@@ -771,9 +839,6 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <p class="font-haas_roman_55 text-base text-gray-600">
           Share stories to earn BUX
         </p>
-        <div class="text-sm font-haas_roman_55 text-[#CAFC00]">
-          Up to 10.0x multiplier
-        </div>
       </div>
 
       <%= if @x_connected do %>
@@ -836,7 +901,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
     assigns =
       assign(assigns,
         phone_connected: multipliers.phone_multiplier > 0.5,
-        wallet_connected: assigns.user.smart_wallet_address != nil,
+        wallet_connected: assigns.connected_wallet != nil,
         x_connected: multipliers.x_score > 0
       )
 
@@ -869,13 +934,13 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
       <!-- Earning Power Display -->
       <div class="space-y-2">
-        <div class="inline-block border-2 border-black rounded-lg px-6 py-3">
-          <span class="text-5xl font-haas_medium_65">
+        <div class="inline-block bg-[#CAFC00] rounded-xl px-8 py-4">
+          <span class="text-5xl font-haas_medium_65 text-black">
             <%= format_multiplier(@multipliers.overall_multiplier) %>
           </span>
         </div>
         <div class="text-gray-500 font-haas_roman_55">
-          Earning Power
+          BUX Earning Power
         </div>
       </div>
 
@@ -885,43 +950,39 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <div class="flex items-center gap-2">
           <%= if @phone_connected do %>
             <span class="text-green-500">✓</span>
-            <span>Phone</span>
-            <span class="ml-auto text-[#CAFC00]">
-              +<%= format_multiplier(@multipliers.phone_multiplier - 0.5) %>
-            </span>
           <% else %>
             <span class="text-gray-300">○</span>
-            <span class="text-gray-400">Phone</span>
-            <span class="ml-auto text-gray-400">+1.5x potential</span>
           <% end %>
+          <span>Phone</span>
+          <span class="ml-auto text-black font-haas_medium_65">
+            <%= format_multiplier(@multipliers.phone_multiplier) %>
+          </span>
         </div>
 
         <!-- Wallet -->
         <div class="flex items-center gap-2">
           <%= if @wallet_connected do %>
             <span class="text-green-500">✓</span>
-            <span>Wallet</span>
-            <span class="ml-auto text-gray-500">Connected</span>
           <% else %>
             <span class="text-gray-300">○</span>
-            <span class="text-gray-400">Wallet</span>
-            <span class="ml-auto text-gray-400">Not connected</span>
           <% end %>
+          <span>Wallet</span>
+          <span class="ml-auto text-black font-haas_medium_65">
+            <%= format_multiplier(@multipliers.wallet_multiplier) %>
+          </span>
         </div>
 
         <!-- X -->
         <div class="flex items-center gap-2">
           <%= if @x_connected do %>
             <span class="text-green-500">✓</span>
-            <span>X</span>
-            <span class="ml-auto text-[#CAFC00]">
-              +<%= format_multiplier(@multipliers.x_multiplier - 1.0) %>
-            </span>
           <% else %>
             <span class="text-gray-300">○</span>
-            <span class="text-gray-400">X</span>
-            <span class="ml-auto text-gray-400">+9.0x potential</span>
           <% end %>
+          <span>X</span>
+          <span class="ml-auto text-black font-haas_medium_65">
+            <%= format_multiplier(@multipliers.x_multiplier) %>
+          </span>
         </div>
       </div>
 
@@ -931,7 +992,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           patch={~p"/onboarding/rogue"}
           class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
         >
-          Start Earning
+          Start Earning BUX
         </.link>
       </div>
     </div>
@@ -941,54 +1002,43 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   defp rogue_step(assigns) do
     ~H"""
     <div class="text-center space-y-6">
-      <!-- ROGUE Icon with animated glow -->
+      <!-- ROGUE Token Logo -->
       <div class="flex justify-center">
-        <div class="w-20 h-20 rounded-full bg-[#CAFC00] flex items-center justify-center animate-rogue-glow">
-          <span class="text-2xl font-haas_medium_65 text-black">ROGUE</span>
-        </div>
+        <img
+          src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png"
+          alt="ROGUE"
+          class="w-16 h-16 rounded-xl"
+        />
       </div>
 
       <!-- Headlines -->
       <div class="space-y-3">
         <h1 class="font-haas_medium_65 text-2xl md:text-3xl text-black">
-          Psst... Want to Earn More?
+          Hold ROGUE
         </h1>
         <p class="font-haas_roman_55 text-base text-gray-600">
-          Hold ROGUE tokens for bonus rewards
+          Hold ROGUE to boost your BUX earnings
         </p>
       </div>
 
-      <!-- Benefits list -->
-      <div class="text-left max-w-xs mx-auto space-y-3 text-sm text-gray-600">
-        <div class="flex items-center gap-3">
-          <span class="text-[#CAFC00]">•</span>
-          <span>Extra BUX multiplier</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-[#CAFC00]">•</span>
-          <span>Exclusive airdrops</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-[#CAFC00]">•</span>
-          <span>Play BUX Booster</span>
-        </div>
+      <!-- Link -->
+      <div>
+        <a
+          href="https://www.coingecko.com/en/coins/rogue"
+          target="_blank"
+          class="text-blue-500 hover:underline cursor-pointer"
+        >
+          View ROGUE on CoinGecko
+        </a>
       </div>
 
-      <!-- CTAs -->
-      <div class="pt-6 space-y-4">
-        <a
-          href="https://roguechain.io"
-          target="_blank"
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
-        >
-          Learn More
-        </a>
-
+      <!-- CTA -->
+      <div class="pt-4">
         <.link
           navigate={~p"/"}
-          class="block w-full text-gray-500 font-haas_roman_55 py-2 text-center hover:underline cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
         >
-          Maybe Later
+          Start Earning BUX
         </.link>
       </div>
     </div>
@@ -1037,6 +1087,14 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
   defp format_multiplier(value) when is_integer(value) do
     "#{value}.0x"
+  end
+
+  defp format_multiplier(%Decimal{} = value) do
+    "#{Decimal.round(value, 1)}x"
+  end
+
+  defp format_multiplier(value) when is_number(value) do
+    "#{Float.round(value / 1, 1)}x"
   end
 
   defp format_multiplier(_), do: "1.0x"
