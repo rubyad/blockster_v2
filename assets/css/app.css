@@ -1046,3 +1046,86 @@ html {
 html, body {
   background-color: #F5F6FB;
 }
+
+/* =============================================================================
+   Onboarding Flow Animations
+   ============================================================================= */
+
+/* Fade in animation for step content */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* Scale in animation for success checkmark */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s ease-out forwards;
+}
+
+/* Slide up animation for onboarding popup (mobile bottom sheet) */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+/* Fade in from bottom-right animation (desktop floating card) */
+@keyframes fade-in-bottom-right {
+  from {
+    opacity: 0;
+    transform: translate(20px, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+.animate-fade-in-bottom-right {
+  animation: fade-in-bottom-right 0.3s ease-out forwards;
+}
+
+/* ROGUE token glow effect */
+@keyframes rogue-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(202, 252, 0, 0.3), 0 0 40px rgba(202, 252, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(202, 252, 0, 0.5), 0 0 60px rgba(202, 252, 0, 0.2);
+  }
+}
+
+.animate-rogue-glow {
+  animation: rogue-glow 2s ease-in-out infinite;
+}

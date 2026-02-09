@@ -11,7 +11,7 @@ defmodule BlocksterV2Web.AuthController do
     chain_id = Map.get(params, "chain_id", 560013)
 
     case Accounts.authenticate_wallet(wallet_address, chain_id) do
-      {:ok, user, session} ->
+      {:ok, user, session, is_new_user} ->
         conn
         |> put_session(:user_token, session.token)
         |> put_status(:ok)
@@ -20,6 +20,7 @@ defmodule BlocksterV2Web.AuthController do
           user: %{
             id: user.id,
             wallet_address: user.wallet_address,
+            smart_wallet_address: user.smart_wallet_address,
             username: user.username,
             avatar_url: user.avatar_url,
             bux_balance: user.bux_balance,
@@ -28,7 +29,8 @@ defmodule BlocksterV2Web.AuthController do
             auth_method: user.auth_method,
             is_verified: user.is_verified
           },
-          token: session.token
+          token: session.token,
+          is_new_user: is_new_user
         })
 
       {:error, changeset} ->

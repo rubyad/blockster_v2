@@ -789,7 +789,17 @@ export const ThirdwebLogin = {
         console.log('Wallet authenticated successfully:', data.user);
         this.currentUser = data.user;
         this.updateUI(data.user);
-        window.location.reload(); // Reload to update the UI
+
+        // Redirect based on whether this is a new user or returning user
+        if (data.is_new_user) {
+          // New users go through onboarding flow
+          console.log('New wallet user - redirecting to onboarding');
+          window.location.href = '/onboarding';
+        } else {
+          // Returning users go to member page
+          console.log('Returning wallet user - redirecting to member page');
+          window.location.href = `/member/${data.user.smart_wallet_address || data.user.wallet_address}`;
+        }
       } else {
         console.error('Authentication failed:', data.errors);
         alert('Authentication failed. Please try again.');
@@ -847,8 +857,16 @@ export const ThirdwebLogin = {
           this.clearReferrerCode();
         }
 
-        // Redirect to member page using smart wallet address
-        window.location.href = `/member/${data.user.smart_wallet_address}`;
+        // Redirect based on whether this is a new user or returning user
+        if (data.is_new_user) {
+          // New users go through onboarding flow
+          console.log('New user - redirecting to onboarding');
+          window.location.href = '/onboarding';
+        } else {
+          // Returning users go directly to member page
+          console.log('Returning user - redirecting to member page');
+          window.location.href = `/member/${data.user.smart_wallet_address}`;
+        }
       } else {
         console.error('Authentication failed:', data.errors);
 

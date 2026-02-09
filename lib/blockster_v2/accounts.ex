@@ -224,7 +224,7 @@ defmodule BlocksterV2.Accounts do
             # Create betting stats record in Mnesia for admin dashboard queries
             create_user_betting_stats(user.id, wallet_address)
             case create_session(user.id) do
-              {:ok, session} -> {:ok, user, session}
+              {:ok, session} -> {:ok, user, session, true}  # is_new_user = true
               error -> error
             end
           error -> error
@@ -233,7 +233,7 @@ defmodule BlocksterV2.Accounts do
       user ->
         # Existing user, create session
         case create_session(user.id) do
-          {:ok, session} -> {:ok, user, session}
+          {:ok, session} -> {:ok, user, session, false}  # is_new_user = false
           error -> error
         end
     end

@@ -189,6 +189,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:anonymous_earned, 0)
      |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
+     |> assign(:show_onboarding_popup, false)
+     |> assign_onboarding_popup_eligible()
      |> load_video_engagement()}
   end
 
@@ -246,6 +248,37 @@ defmodule BlocksterV2Web.PostLive.Show do
   # Get the hub's logo URL (if any) for displaying alongside the token
   defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
   defp get_hub_logo(_), do: nil
+
+  # Check if user is eligible for onboarding popup
+  # Eligible if logged in AND has incomplete profile (missing phone, wallet, or X)
+  defp assign_onboarding_popup_eligible(socket) do
+    case socket.assigns[:current_user] do
+      nil ->
+        assign(socket, :onboarding_popup_eligible, false)
+
+      user ->
+        # Check if profile is incomplete
+        phone_verified = user.phone_verified || false
+
+        # For wallet: check if they have an external wallet connected
+        # auth_method == "wallet" means they signed up with an external wallet
+        # OR wallet_multiplier > 1.0 means they connected an external wallet with tokens later
+        multipliers = BlocksterV2.UnifiedMultiplier.get_user_multipliers(user.id)
+        wallet_connected = user.auth_method == "wallet" || multipliers.wallet_multiplier > 1.0
+
+        x_connected = socket.assigns[:x_connection] != nil
+
+        # Eligible if ANY of these are not complete
+        incomplete = !phone_verified || !wallet_connected || !x_connected
+
+        # Use the overall_multiplier from multipliers for display
+        multiplier = multipliers.overall_multiplier
+
+        socket
+        |> assign(:onboarding_popup_eligible, incomplete)
+        |> assign(:onboarding_popup_multiplier, multiplier)
+    end
+  end
 
   # Calculate engagement score from metrics (for anonymous users)
   # Same logic as EngagementTracker.calculate_engagement_score/9 but works with map params
@@ -926,6 +959,16 @@ defmodule BlocksterV2Web.PostLive.Show do
      socket
      |> assign(:show_video_signup_prompt, false)
      |> assign(:earning_bar_dismissed, true)}
+  end
+
+  @impl true
+  def handle_event("show_onboarding_popup", _params, socket) do
+    {:noreply, assign(socket, :show_onboarding_popup, true)}
+  end
+
+  @impl true
+  def handle_event("dismiss_onboarding_popup", _params, socket) do
+    {:noreply, assign(socket, :show_onboarding_popup, false)}
   end
 
   @impl true

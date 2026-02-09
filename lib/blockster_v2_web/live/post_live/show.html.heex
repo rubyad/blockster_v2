@@ -297,6 +297,76 @@
   <% end %>
 <% end %>
 
+<!-- Onboarding Popup Hook Wrapper - triggers popup on 20% scroll for eligible users -->
+<div
+  id="onboarding-popup-trigger"
+  phx-hook="OnboardingPopup"
+  data-show-popup={to_string(@onboarding_popup_eligible && !@show_onboarding_popup)}
+>
+</div>
+
+<!-- Onboarding Popup Modal -->
+<%= if @show_onboarding_popup do %>
+  <div class="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/50" phx-click="dismiss_onboarding_popup"></div>
+
+    <!-- Popup Card - Mobile: bottom sheet, Desktop: centered card -->
+    <div class="relative w-full md:w-[400px] md:max-w-[90vw] bg-white md:rounded-2xl rounded-t-2xl shadow-2xl animate-slide-up md:animate-fade-in-bottom-right">
+      <!-- Close Button -->
+      <button
+        phx-click="dismiss_onboarding_popup"
+        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+      >
+        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <!-- Content -->
+      <div class="p-6 pt-8">
+        <!-- ROGUE Token Icon with Glow -->
+        <div class="flex justify-center mb-4">
+          <div class="w-20 h-20 rounded-full bg-[#CAFC00] flex items-center justify-center animate-rogue-glow">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-12 h-12" />
+          </div>
+        </div>
+
+        <!-- Title -->
+        <h3 class="text-xl font-haas_bold_75 text-center text-gray-900 mb-2">
+          Boost Your Earnings!
+        </h3>
+
+        <!-- Current Multiplier -->
+        <p class="text-center text-gray-600 mb-4">
+          Your current earning power: <span class="font-haas_bold_75 text-[#CAFC00]"><%= :erlang.float_to_binary(@onboarding_popup_multiplier, decimals: 2) %>x</span>
+        </p>
+
+        <!-- Description -->
+        <p class="text-center text-gray-500 text-sm mb-6">
+          Complete your profile to unlock up to <span class="font-haas_medium_65">5.0x</span> earning power and maximize your BUX rewards!
+        </p>
+
+        <!-- CTA Button -->
+        <a
+          href="/onboarding"
+          class="block w-full py-3 px-6 bg-black text-white text-center font-haas_medium_65 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+        >
+          Complete Profile
+        </a>
+
+        <!-- Skip Link -->
+        <button
+          phx-click="dismiss_onboarding_popup"
+          class="w-full mt-3 text-sm text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+        >
+          Maybe Later
+        </button>
+      </div>
+    </div>
+  </div>
+<% end %>
+
 <div
   class="article-page bg-white min-h-screen"
   id="post-engagement-tracker"
@@ -900,7 +970,7 @@
 <%= if @video_modal_open && @post.video_id do %>
   <div
     id="video-modal"
-    class="fixed inset-0 z-[100] flex items-start md:items-center justify-center pt-16 md:pt-0 bg-black/70 backdrop-blur-sm"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
     phx-window-keydown="close_video_modal"
     phx-key="Escape"
   >

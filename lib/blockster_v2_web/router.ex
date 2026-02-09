@@ -87,6 +87,14 @@ defmodule BlocksterV2Web.Router do
     get "/auth/x/callback", XAuthController, :callback
     delete "/auth/x/disconnect", XAuthController, :disconnect
 
+    # Onboarding flow (minimal layout, no header/footer)
+    live_session :onboarding,
+      on_mount: [BlocksterV2Web.UserAuth],
+      layout: {BlocksterV2Web.Layouts, :onboarding} do
+      live "/onboarding", OnboardingLive.Index, :welcome
+      live "/onboarding/:step", OnboardingLive.Index, :step
+    end
+
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
