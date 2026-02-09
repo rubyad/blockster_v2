@@ -900,7 +900,7 @@
 <%= if @video_modal_open && @post.video_id do %>
   <div
     id="video-modal"
-    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    class="fixed inset-0 z-[100] flex items-start md:items-center justify-center pt-16 md:pt-0 bg-black/70 backdrop-blur-sm"
     phx-window-keydown="close_video_modal"
     phx-key="Escape"
   >
