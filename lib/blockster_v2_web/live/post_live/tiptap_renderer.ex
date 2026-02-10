@@ -81,18 +81,16 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
     """
   end
 
-  # Tweet Embed - wrapped in container to prevent viewport overflow on mobile
+  # Tweet Embed
   defp render_node(%{"type" => "tweet", "attrs" => %{"url" => url, "id" => tweet_id}}) do
     # Normalize URL to use twitter.com instead of x.com for better compatibility
     normalized_url = String.replace(url, "x.com", "twitter.com")
 
     """
-    <div class="tweet-container" style="max-width: 100%; overflow: hidden;">
-      <blockquote class="twitter-tweet" data-tweet-id="#{escape_html(tweet_id)}" data-theme="light" data-dnt="true">
-        <p lang="en" dir="ltr">Loading tweet...</p>
-        <a href="#{escape_html(normalized_url)}">View Tweet</a>
-      </blockquote>
-    </div>
+    <blockquote class="twitter-tweet" data-tweet-id="#{escape_html(tweet_id)}" data-theme="light" data-dnt="true">
+      <p lang="en" dir="ltr">Loading tweet...</p>
+      <a href="#{escape_html(normalized_url)}">View Tweet</a>
+    </blockquote>
     """
   end
 
