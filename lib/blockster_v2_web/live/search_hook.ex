@@ -12,6 +12,7 @@ defmodule BlocksterV2Web.SearchHook do
       |> assign(:search_query, "")
       |> assign(:search_results, [])
       |> assign(:show_search_results, false)
+      |> assign(:show_mobile_search, false)
       |> attach_hook(:search_events, :handle_event, fn
         "search_posts", %{"value" => query}, socket ->
           results = if String.length(query) >= 2 do
@@ -37,6 +38,17 @@ defmodule BlocksterV2Web.SearchHook do
           else
             {:halt, socket}
           end
+
+        "open_mobile_search", _params, socket ->
+          {:halt, assign(socket, :show_mobile_search, true)}
+
+        "close_mobile_search", _params, socket ->
+          {:halt,
+           socket
+           |> assign(:search_query, "")
+           |> assign(:search_results, [])
+           |> assign(:show_search_results, false)
+           |> assign(:show_mobile_search, false)}
 
         _event, _params, socket ->
           {:cont, socket}

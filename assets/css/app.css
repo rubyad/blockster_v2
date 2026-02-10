@@ -9,9 +9,11 @@
 /* Tailwind Typography plugin for prose styling */
 @plugin "@tailwindcss/typography";
 
-/* Enable smooth scrolling globally */
-html {
+/* Enable smooth scrolling globally and prevent horizontal overflow on mobile */
+html, body {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
@@ -798,6 +800,20 @@ html {
 .ProseMirror .tweet-embed-placeholder,
 .ProseMirror .spacer-embed {
   user-select: none;
+}
+
+/* Twitter embed container - prevent viewport overflow on mobile */
+.tweet-container {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tweet-container .twitter-tweet,
+.tweet-container .twitter-tweet-rendered,
+.tweet-container iframe[src*="twitter"],
+.tweet-container iframe[src*="platform.twitter"] {
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
 /* BUX Panel Animation - scale up and glow when earned */
