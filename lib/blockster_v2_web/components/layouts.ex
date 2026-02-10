@@ -543,7 +543,7 @@ defmodule BlocksterV2Web.Layouts do
               value={@search_query}
               phx-keyup="search_posts"
               phx-debounce="300"
-              phx-hook="AutoFocus"
+              phx-mounted={JS.focus()}
               class="w-full h-10 px-4 pl-9 bg-[#F5F6FB] text-base font-haas_roman_55 rounded-full border border-[#E8EAEC]"
               id="mobile-search-input"
             />
