@@ -103,6 +103,9 @@ defmodule BlocksterV2Web.Router do
       live "/play", BuxBoosterLive, :index
       live "/airdrop", AirdropLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
+      live "/privacy", LegalLive.Privacy, :index
+      live "/terms", LegalLive.Terms, :index
+      live "/cookies", LegalLive.Cookies, :index
       live "/events", EventLive.Index, :index
       live "/event/:slug", EventLive.Show, :show
       live "/hubs", HubLive.Index, :index

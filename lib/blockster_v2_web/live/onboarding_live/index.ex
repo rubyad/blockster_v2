@@ -506,9 +506,6 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
                   <%= :erlang.float_to_binary(@multipliers.phone_multiplier / 1, decimals: 1) %>x
                 </span>
               </div>
-              <p class="text-xs text-gray-500 mt-1">
-                You are in <%= @phone_country_code || "Unknown" %>
-              </p>
             </div>
           </div>
 
@@ -677,9 +674,6 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
                   <%= if @verification_result, do: "#{@verification_result.geo_multiplier}x", else: "#{:erlang.float_to_binary(@multipliers.phone_multiplier / 1, decimals: 1)}x" %>
                 </span>
               </div>
-              <p class="text-xs text-gray-500 mt-1">
-                You are in <%= if @verification_result, do: @verification_result.country_code, else: @phone_country_code || "Unknown" %>
-              </p>
             </div>
           </div>
 
@@ -1013,23 +1007,13 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
       <!-- Headlines -->
       <div class="space-y-3">
-        <h1 class="font-haas_medium_65 text-2xl md:text-3xl text-black">
-          Hold ROGUE
-        </h1>
-        <p class="font-haas_roman_55 text-base text-gray-600">
-          Hold ROGUE to boost your BUX earnings
-        </p>
-      </div>
-
-      <!-- Link -->
-      <div>
-        <a
-          href="https://www.coingecko.com/en/coins/rogue"
-          target="_blank"
-          class="text-blue-500 hover:underline cursor-pointer"
+        <h1 class="font-haas_medium_65 text-2xl md:text-3xl text-black whitespace-nowrap">Psst. Hold ROGUE to Earn More!</h1>
+        <.link
+          navigate={~p"/member/#{@user.smart_wallet_address}?tab=rogue"}
+          class="font-haas_roman_55 text-base text-blue-500 hover:underline cursor-pointer"
         >
-          View ROGUE on CoinGecko
-        </a>
+          Hold ROGUE to boost your BUX earnings
+        </.link>
       </div>
 
       <!-- CTA -->

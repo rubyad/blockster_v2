@@ -191,15 +191,12 @@ defmodule BlocksterV2Web.Layouts do
                 <!-- Dropdown menu -->
                 <div id="desktop-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                   <div class="py-1">
-                    <a
-                    href={"https://roguescan.io/address/#{@current_user.smart_wallet_address || @current_user.wallet_address}?tab=tokens"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    <div class="font-semibold">Wallet</div>
-                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
-                  </a>
+                    <.link
+                      navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
+                    >
+                      My Profile
+                    </.link>
                     <!-- Token Balances (BUX and ROGUE only - hub tokens removed) -->
                     <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
                       <div class="border-t border-gray-100 py-1">
@@ -228,12 +225,6 @@ defmodule BlocksterV2Web.Layouts do
                       </div>
                     <% end %>
                     <div class="border-t border-gray-100"></div>
-                    <.link
-                      navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      View Profile
-                    </.link>
                     <button
                       onclick="window.handleWalletDisconnect()"
                       class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -396,15 +387,12 @@ defmodule BlocksterV2Web.Layouts do
               <!-- Mobile Dropdown menu -->
               <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                 <div class="py-1">
-                  <a
-                    href={"https://roguescan.io/address/#{@current_user.smart_wallet_address || @current_user.wallet_address}?tab=tokens"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                  <.link
+                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
+                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
                   >
-                    <div class="font-semibold">Wallet</div>
-                    <div class="text-xs text-gray-500">{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", 0..5)}...{String.slice(@current_user.smart_wallet_address || @current_user.wallet_address || "", -4..-1//1)}</div>
-                  </a>
+                    My Profile
+                  </.link>
                   <!-- Token Balances (Mobile) -->
                   <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
                     <%
@@ -433,12 +421,6 @@ defmodule BlocksterV2Web.Layouts do
                     </div>
                   <% end %>
                   <div class="border-t border-gray-100"></div>
-                  <.link
-                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
-                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    View Profile
-                  </.link>
                   <button
                     onclick="window.handleWalletDisconnect()"
                     class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -620,70 +602,50 @@ defmodule BlocksterV2Web.Layouts do
           <!-- Logo and Description -->
           <div class="lg:col-span-2">
             <div class="mb-6">
-              <img src="/images/logo-footer.png" alt="Blockster" class="h-8" />
+              <img src="https://ik.imagekit.io/blockster/Blockster-logo-white.png" alt="Blockster" class="h-8" />
             </div>
             <p class="text-sm font-haas_roman_55 text-[#E8EAEC] leading-relaxed max-w-sm">
-              Web3's Daily Content Hub—Earn $BUX, redeem rewards, and stay plugged into crypto, blockchain, and the future of finance.
+              Web3's daily content hub—Earn BUX, redeem rewards, and stay plugged into crypto, blockchain, and the future of finance.
             </p>
             <!-- Social Links -->
             <div class="flex gap-4 mt-6">
-              <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
+              <a href="https://x.com/BlocksterCom" target="_blank" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
                 <span class="text-white font-bold">𝕏</span>
-              </a>
-              <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
-              </a>
-              <a href="#" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
-                <span class="text-white text-sm font-bold">IG</span>
               </a>
             </div>
           </div>
 
-          <!-- Resources Links -->
+          <!-- Blockster Links -->
           <div>
-            <h3 class="font-haas_bold_75 text-white mb-4">Resources</h3>
+            <h3 class="font-haas_bold_75 text-white mb-4">Blockster</h3>
             <ul class="space-y-3">
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Blog</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Help Center</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Community</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Guides</a></li>
+              <li><.link navigate={~p"/"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">News</.link></li>
+              <li><.link navigate={~p"/hubs"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Hubs</.link></li>
+              <li><.link navigate={~p"/shop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Shop</.link></li>
+              <li><.link navigate={~p"/play"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Play</.link></li>
             </ul>
           </div>
 
-          <!-- Blockchain Links -->
+          <!-- Explore Links -->
           <div>
-            <h3 class="font-haas_bold_75 text-white mb-4">Blockchain</h3>
+            <h3 class="font-haas_bold_75 text-white mb-4">Explore</h3>
             <ul class="space-y-3">
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Bitcoin</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Ethereum</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Solana</a></li>
-              <li><a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">All Chains</a></li>
+              <li><.link navigate={~p"/how-it-works"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">How it Works</.link></li>
+              <li><.link navigate={~p"/shop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Shop</.link></li>
+              <li><.link navigate={~p"/airdrop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Airdrop</.link></li>
+              <li><.link navigate={~p"/play"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX Booster</.link></li>
             </ul>
           </div>
 
-          <!-- Newsletter -->
+          <!-- Rogue Chain Links -->
           <div>
-            <h3 class="font-haas_bold_75 text-white mb-4">Newsletter</h3>
-            <p class="text-sm font-haas_roman_55 text-[#E8EAEC] mb-4">
-              Stay updated with the latest in crypto
-            </p>
-            <form class="flex gap-2">
-              <input
-                type="email"
-                name="email"
-                placeholder="Enter email"
-                class="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-[100px] text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-white/40"
-                required
-              />
-              <button
-                type="submit"
-                class="px-4 py-2 bg-white text-[#141414] font-haas_bold_75 rounded-[100px] text-sm hover:bg-[#E8EAEC] transition-colors"
-              >
-                →
-              </button>
-            </form>
+            <h3 class="font-haas_bold_75 text-white mb-4">Rogue Chain</h3>
+            <ul class="space-y-3">
+              <li><a href="https://www.coingecko.com/en/coins/rogue" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">ROGUE on CoinGecko</a></li>
+              <li><a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Buy ROGUE</a></li>
+              <li><a href="https://roguetrader.io/bridge" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Bridge ROGUE</a></li>
+              <li><a href="https://roguescan.io" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Block Explorer</a></li>
+            </ul>
           </div>
         </div>
 
@@ -691,12 +653,12 @@ defmodule BlocksterV2Web.Layouts do
         <div class="border-t border-white/10 pt-8">
           <div class="flex flex-col md:flex-row justify-between items-center gap-4">
             <p class="text-sm font-haas_roman_55 text-[#E8EAEC]">
-              © 2025 Blockster. All rights reserved.
+              © 2026 Blockster Media & Technology, LLC. All rights reserved.
             </p>
             <div class="flex gap-6">
-              <a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors">Cookie Policy</a>
+              <.link navigate={~p"/privacy"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Privacy Policy</.link>
+              <.link navigate={~p"/terms"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Terms of Service</.link>
+              <.link navigate={~p"/cookies"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Cookie Policy</.link>
             </div>
           </div>
         </div>

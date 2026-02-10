@@ -517,6 +517,24 @@ Products use a checkbox-based system for sizes/colors that auto-generates varian
 
 ---
 
+## User Registration
+
+**Registration is by email only** - users do NOT connect an external crypto wallet to sign up.
+
+### How It Works
+1. User enters their email address to register
+2. Thirdweb SDK automatically creates an ERC-4337 smart wallet for them
+3. The smart wallet address is stored as `smart_wallet_address` in the User record
+4. Users can optionally link an external wallet later for multiplier bonuses
+
+### Key Points
+- **Email-only signup**: No MetaMask, WalletConnect, or other wallet connection required
+- **Automatic wallet creation**: Thirdweb creates a gasless smart wallet on registration
+- **No seed phrases**: Users don't need to manage private keys
+- **Optional external wallet**: Can be linked later for earning power multipliers
+
+---
+
 ## Account Abstraction (ERC-4337)
 
 **Network**: Rogue Chain Mainnet (Chain ID: 560013) - used for both local and production
