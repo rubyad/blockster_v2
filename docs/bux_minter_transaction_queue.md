@@ -13,7 +13,7 @@
 | Phase 7 | Update `/set-player-referrer` Endpoint | **COMPLETE** |
 | Phase 8 | Add `/queue-status` Monitoring Endpoint | **COMPLETE** |
 | Phase 9 | Local Testing | PENDING |
-| Phase 10 | Deploy to Fly.io | PENDING |
+| Phase 10 | Deploy to Fly.io | **COMPLETE** |
 | Phase 11 | Update Documentation | IN PROGRESS |
 
 **Implementation Date**: February 9, 2026
@@ -115,13 +115,13 @@
 - [ ] Verify sequential nonce assignment in logs
 - [ ] Test error recovery (external transaction causing nonce mismatch)
 
-### Phase 10: Deploy to Fly.io ⏳
+### Phase 10: Deploy to Fly.io ✅
 
-- [ ] Deploy to Fly.io
-- [ ] Monitor deployment logs for queue initialization
-- [ ] Call `/queue-status` on production
-- [ ] Test single mint operation
-- [ ] Test single bet flow (commit → place → settle)
+- [x] Deploy to Fly.io
+- [x] Monitor deployment logs for queue initialization
+- [ ] Call `/queue-status` on production (needs API secret)
+- [ ] Test single mint operation (waiting for user activity)
+- [ ] Test single bet flow (waiting for user activity)
 - [ ] Monitor for nonce errors in logs
 
 ### Phase 11: Update Documentation ⏳

@@ -1,4 +1,4 @@
-<div class="profile-main bg-bg-light pt-0 lg:pt-4">
+<div class="profile-main bg-bg-light pt-0 lg:pt-24">
   <section class="lg:mb-40">
     <div class="container mx-auto">
       <div class="w-full max-w-4xl mx-auto">
@@ -1251,6 +1251,32 @@
           <!-- ROGUE Tab Content (V2 Unified System - Smart Wallet Only) -->
           <div class={"tabs-main tab-wrapper #{if @active_tab != "rogue", do: "hidden", else: ""}"} id="rogue">
             <div class="inner md:p-6 p-2">
+              <!-- Quick Links - Top -->
+              <div class="grid md:grid-cols-2 gap-4 mb-4">
+                <a href="https://www.coingecko.com/en/coins/rogue" target="_blank" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer">
+                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-haas_medium_65 text-gray-900">View on CoinGecko</p>
+                    <p class="text-xs text-gray-500">Track ROGUE price</p>
+                  </div>
+                </a>
+                <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer">
+                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-haas_medium_65 text-gray-900">Buy ROGUE</p>
+                    <p class="text-xs text-gray-500">Swap on Uniswap</p>
+                  </div>
+                </a>
+              </div>
+
               <!-- Send ROGUE Info Card -->
               <div class="bg-gray-900 rounded-xl p-4 mb-4">
                 <div class="flex items-center gap-2 mb-2">
@@ -1389,31 +1415,16 @@
                 </div>
               </div>
 
-              <!-- Quick Links -->
-              <div class="grid md:grid-cols-2 gap-4">
-                <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer">
-                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+              <!-- Play BUX Booster - Full Width Bottom -->
+              <.link navigate={~p"/play"} class="block w-full bg-gradient-to-r from-[#CAFC00] to-[#a8d400] rounded-xl p-4 hover:from-[#d4ff33] hover:to-[#b8e600] transition-all cursor-pointer shadow-md hover:shadow-lg">
+                <div class="flex items-center justify-center gap-3">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX Booster" class="w-10 h-10 rounded-full" />
+                  <div class="text-left">
+                    <p class="font-haas_bold_75 text-black text-lg">Play BUX Booster</p>
+                    <p class="text-sm text-black/70">Win ROGUE with coin flips</p>
                   </div>
-                  <div>
-                    <p class="font-haas_medium_65 text-gray-900">Buy ROGUE</p>
-                    <p class="text-xs text-gray-500">Swap on Uniswap</p>
-                  </div>
-                </a>
-                <.link navigate={~p"/play"} class="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-md transition-all cursor-pointer">
-                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="font-haas_medium_65 text-gray-900">Play BUX Booster</p>
-                    <p class="text-xs text-gray-500">Win ROGUE with coin flips</p>
-                  </div>
-                </.link>
-              </div>
+                </div>
+              </.link>
             </div>
           </div>
 
