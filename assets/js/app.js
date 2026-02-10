@@ -341,6 +341,16 @@ let CopyToClipboard = {
   }
 };
 
+// AutoFocus - focuses input when mounted (for mobile search)
+let AutoFocus = {
+  mounted() {
+    // Wait for next paint cycle to ensure element is fully rendered
+    requestAnimationFrame(() => {
+      this.el.focus();
+    });
+  }
+};
+
 // Hook to clear localStorage after successful claim processing
 let ClaimCleanup = {
   mounted() {
@@ -573,7 +583,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator, OnboardingPopup },
+  hooks: { TipTapEditor, FeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator, OnboardingPopup },
 });
 
 // connect if there are any LiveViews on the page

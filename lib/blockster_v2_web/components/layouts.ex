@@ -366,7 +366,7 @@ defmodule BlocksterV2Web.Layouts do
           </.link>
         </div>
         <div class="flex gap-2 items-center">
-          <button phx-click={JS.push("open_mobile_search") |> JS.focus(to: "#mobile-search-input")} class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+          <button phx-click="open_mobile_search" class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
               <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
                     stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -543,9 +543,9 @@ defmodule BlocksterV2Web.Layouts do
               value={@search_query}
               phx-keyup="search_posts"
               phx-debounce="300"
+              phx-hook="AutoFocus"
               class="w-full h-10 px-4 pl-9 bg-[#F5F6FB] text-base font-haas_roman_55 rounded-full border border-[#E8EAEC]"
               id="mobile-search-input"
-              autofocus
             />
             <!-- Mobile Search Results Dropdown -->
             <%= if @show_search_results && length(@search_results) > 0 do %>
