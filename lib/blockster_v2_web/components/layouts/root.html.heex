@@ -4,6 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <meta name="description" content={assigns[:og_description] || "Web3's daily content hub — Earn BUX, redeem rewards, and stay plugged into crypto, blockchain, and the future of finance."} />
+    <!-- Open Graph -->
+    <meta property="og:title" content={assigns[:og_title] || "Blockster"} />
+    <meta property="og:description" content={assigns[:og_description] || "Web3's daily content hub — Earn BUX, redeem rewards, and stay plugged into crypto, blockchain, and the future of finance."} />
+    <meta property="og:image" content={assigns[:og_image] || "https://ik.imagekit.io/blockster/blockster-icon.png"} />
+    <meta property="og:url" content={assigns[:og_url] || BlocksterV2Web.Endpoint.url()} />
+    <meta property="og:type" content={assigns[:og_type] || "website"} />
+    <meta property="og:site_name" content="Blockster" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@BlocksterCom" />
+    <meta name="twitter:title" content={assigns[:og_title] || "Blockster"} />
+    <meta name="twitter:description" content={assigns[:og_description] || "Web3's daily content hub — Earn BUX, redeem rewards, and stay plugged into crypto, blockchain, and the future of finance."} />
+    <meta name="twitter:image" content={assigns[:og_image] || "https://ik.imagekit.io/blockster/blockster-icon.png"} />
     <.live_title default="Blockster" suffix=" · Blockster">
       {assigns[:page_title]}
     </.live_title>

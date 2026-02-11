@@ -9,6 +9,7 @@ defmodule BlocksterV2Web.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug BlocksterV2Web.Plugs.V2RedirectPlug
+    plug BlocksterV2Web.Plugs.OgMetaPlug
     plug BlocksterV2Web.Plugs.AuthPlug
   end
 

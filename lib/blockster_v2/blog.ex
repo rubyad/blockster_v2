@@ -585,6 +585,14 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Gets a single post by slug. Returns nil if not found.
+  Lightweight query — no preloads.
+  """
+  def get_post_by_slug(slug) do
+    Repo.get_by(Post, slug: slug)
+  end
+
+  @doc """
   Gets a single post by slug with all associations loaded.
   Raises `Ecto.NoResultsError` if the Post does not exist.
   """
