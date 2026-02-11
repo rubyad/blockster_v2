@@ -585,11 +585,19 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
-  Gets a single post by slug. Returns nil if not found.
-  Lightweight query — no preloads.
+  Gets a single post by slug with all associations loaded.
+  Returns nil if not found.
   """
   def get_post_by_slug(slug) do
-    Repo.get_by(Post, slug: slug)
+    from(p in Post,
+      where: p.slug == ^slug,
+      preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+    )
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      post -> populate_author_names(post)
+    end
   end
 
   @doc """
