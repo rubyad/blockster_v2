@@ -1,7 +1,7 @@
 <div class="bg-[#F5F6FB]">
   <!-- Hub Content -->
   <section class="pt-6 md:pt-16 pb-2 md:pb-6">
-    <div class="container mx-auto">
+    <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
       <!-- Back to Hubs link - desktop only -->
       <.link navigate={~p"/hubs"} class="hidden md:inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-4 cursor-pointer font-haas_roman_55 text-sm">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -237,7 +237,7 @@
         hide_title={true}
       />
     </div>
-    <div class="container mx-auto flex justify-end relative z-10">
+    <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px] flex justify-end relative z-10 mb-8">
       <button phx-click="switch_tab" phx-value-tab="news" class="text-sm font-haas_medium_65 text-gray-500 hover:underline cursor-pointer">
         Read more stories from <%= @hub.name %> &gt;
       </button>
@@ -246,7 +246,7 @@
     <!-- Hub Videos Section - Only shown if videos exist -->
     <%= if @videos_posts != [] do %>
       <div class="md:pt-16 pt-8 md:pb-4 pb-2">
-        <div class="container mx-auto">
+        <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
           <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Videos</h2>
           <.live_component
             module={BlocksterV2Web.PostLive.VideosComponent}
@@ -263,10 +263,10 @@
     <!-- Hub Shop Section - Only shown if products exist -->
     <%= if @hub_products != [] do %>
       <div class="md:pt-16 pt-8 md:pb-16 pb-8">
-        <div class="container mx-auto">
+        <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
           <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Shop</h2>
           <!-- Hub Products Grid (same styling as /shop page) -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 items-stretch">
+          <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 items-stretch">
             <%= for product <- @hub_products do %>
               <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
                 <!-- Image container with 3D flip animation -->
@@ -330,7 +330,7 @@
 
   <!-- News Tab Content -->
   <%= if @show_news do %>
-    <div class="container mx-auto pt-4 pb-2">
+    <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px] pt-4 pb-2">
       <h2 class="text-3xl font-haas_medium_65 text-[#141414]">Latest stories from <%= @hub.name %></h2>
     </div>
     <div id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
@@ -353,7 +353,7 @@
   <!-- Videos Tab Content -->
   <%= if @show_videos do %>
     <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="container mx-auto">
+      <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
         <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Videos</h2>
         <%= if @videos_posts == [] do %>
           <!-- Videos Empty State -->
@@ -387,7 +387,7 @@
   <!-- Shop Tab Content -->
   <%= if @show_shop do %>
     <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="container mx-auto">
+      <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
         <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Shop</h2>
         <%= if @hub_products == [] do %>
           <!-- Shop Empty State -->
@@ -408,7 +408,7 @@
           </div>
         <% else %>
           <!-- Hub Products Grid (same styling as /shop page) -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 items-stretch">
+          <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 items-stretch">
             <%= for product <- @hub_products do %>
               <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
                 <!-- Image container with 3D flip animation -->
@@ -471,7 +471,7 @@
   <!-- Events Tab Content -->
   <%= if @show_events do %>
     <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="container mx-auto">
+      <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
         <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Events</h2>
         <!-- Events Empty State (always shown per requirements) -->
         <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">

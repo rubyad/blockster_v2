@@ -100,7 +100,7 @@
                 <!-- Text on LEFT -->
                 <div class="flex-1 flex flex-col py-1">
                   <%= if post.category do %>
-                    <span class="text-xs font-haas_roman_55 text-gray-400 mb-1.5"><%= post.category.name %></span>
+                    <span class="uppercase text-xs font-extralight text-gray-400 tracking-[0.2em] mb-1.5"><%= post.category.name %></span>
                   <% end %>
                   <h4 class="font-haas_medium_65 text-[#141414] text-base leading-relaxed"><%= post.title %></h4>
                   <p class="text-[10px] font-haas_roman_55 text-[#515B70] mt-2">
@@ -150,14 +150,16 @@
                     </div>
                     <div class="px-4 py-4 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
-                        <ul class="gap-3 flex">
-                          <%= if post.category do %>
-                            <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
-                          <% end %>
-                          <li class="text-xs font-light text-gray-500">
-                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
-                          </li>
-                        </ul>
+                        <%= if reward_badge_count(assigns, post) < 2 do %>
+                          <ul class="gap-3 flex">
+                            <%= if post.category do %>
+                              <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
+                            <% end %>
+                            <li class="text-xs font-light text-gray-500">
+                              <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                            </li>
+                          </ul>
+                        <% end %>
                         <%= if has_earned_reward?(assigns, post) do %>
                           <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_six_1_#{post.id}"} />
                         <% else %>
@@ -193,14 +195,16 @@
                     </div>
                     <div class="px-4 py-4 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
-                        <ul class="gap-3 flex">
-                          <%= if post.category do %>
-                            <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
-                          <% end %>
-                          <li class="text-xs font-light text-gray-500">
-                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
-                          </li>
-                        </ul>
+                        <%= if reward_badge_count(assigns, post) < 2 do %>
+                          <ul class="gap-3 flex">
+                            <%= if post.category do %>
+                              <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
+                            <% end %>
+                            <li class="text-xs font-light text-gray-500">
+                              <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                            </li>
+                          </ul>
+                        <% end %>
                         <%= if has_earned_reward?(assigns, post) do %>
                           <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_six_2_#{post.id}"} />
                         <% else %>
@@ -241,14 +245,16 @@
                     </div>
                     <div class="px-4 py-4 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
-                        <ul class="gap-3 flex">
-                          <%= if post.category do %>
-                            <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
-                          <% end %>
-                          <li class="text-xs font-light text-gray-500">
-                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
-                          </li>
-                        </ul>
+                        <%= if reward_badge_count(assigns, post) < 2 do %>
+                          <ul class="gap-3 flex">
+                            <%= if post.category do %>
+                              <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
+                            <% end %>
+                            <li class="text-xs font-light text-gray-500">
+                              <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                            </li>
+                          </ul>
+                        <% end %>
                         <%= if has_earned_reward?(assigns, post) do %>
                           <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_six_3_#{post.id}"} />
                         <% else %>
@@ -284,14 +290,16 @@
                     </div>
                     <div class="px-4 py-4 flex-1 flex flex-col">
                       <div class="flex justify-between items-center">
-                        <ul class="gap-3 flex">
-                          <%= if post.category do %>
-                            <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
-                          <% end %>
-                          <li class="text-xs font-light text-gray-500">
-                            <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
-                          </li>
-                        </ul>
+                        <%= if reward_badge_count(assigns, post) < 2 do %>
+                          <ul class="gap-3 flex">
+                            <%= if post.category do %>
+                              <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
+                            <% end %>
+                            <li class="text-xs font-light text-gray-500">
+                              <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
+                            </li>
+                          </ul>
+                        <% end %>
                         <%= if has_earned_reward?(assigns, post) do %>
                           <.earned_badges reward={get_user_reward(assigns, post)} id={"earned_posts_six_4_#{post.id}"} />
                         <% else %>

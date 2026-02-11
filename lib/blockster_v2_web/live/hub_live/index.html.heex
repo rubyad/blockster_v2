@@ -1,7 +1,7 @@
 <div class="unregistered-page bg-[#F5F6FB]">
   <!-- Hero Section -->
   <section class="section pt-6 md:pt-24 pb-2 md:pb-6">
-    <div class="container mx-auto px-4">
+    <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
       <div class="text-center max-w-3xl mx-auto">
         <h1 class="text-4xl md:text-5xl font-haas_bold_75 text-[#141414] mb-4">Hubs</h1>
         <p class="text-base md:text-lg font-haas_roman_55 text-[#515B70] leading-relaxed">
@@ -36,13 +36,13 @@
 
   <!-- Hubs Grid Section -->
   <section class="section pb-20">
-    <div class="container mx-auto px-4">
+    <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
       <%= if @hubs == [] do %>
         <div class="text-center py-20">
           <p class="text-[#515B70] font-haas_roman_55">No hubs available yet.</p>
         </div>
       <% else %>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for hub <- @hubs do %>
             <.link
               navigate={~p"/hub/#{hub.slug}"}

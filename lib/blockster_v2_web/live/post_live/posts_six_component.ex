@@ -21,4 +21,15 @@ defmodule BlocksterV2Web.PostLive.PostsSixComponent do
     reward = get_user_reward(assigns, post)
     reward != nil and (reward[:read_bux] > 0 or reward[:x_share_bux] > 0 or reward[:watch_bux] > 0)
   end
+
+  # Count number of earned reward badges (read, share, watch)
+  defp reward_badge_count(assigns, post) do
+    case get_user_reward(assigns, post) do
+      nil -> 0
+      reward ->
+        Enum.count([:read_bux, :x_share_bux, :watch_bux], fn key ->
+          (reward[key] || 0) > 0
+        end)
+    end
+  end
 end
