@@ -37,7 +37,16 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   @impl true
   def handle_params(%{"slug" => slug} = _params, _url, socket) do
-    post = Blog.get_post_by_slug!(slug)
+    case Blog.get_post_by_slug(slug) do
+      nil ->
+        raise BlocksterV2Web.NotFoundError, message: "Post not found"
+
+      post ->
+        handle_post_params(post, socket)
+    end
+  end
+
+  defp handle_post_params(post, socket) do
 
     # Unsubscribe from previous post if navigating between posts
     if socket.assigns[:post] do
