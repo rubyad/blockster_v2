@@ -548,7 +548,8 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
   end
 
   # Preserve video fields from existing post if not explicitly provided in params
-  # This prevents accidental clearing of video data during post edits
+  # Only preserves when the param key is absent (nil) - if the user explicitly
+  # clears a field (empty string), we allow it so videos can be deleted
   defp preserve_video_fields(existing_post, params) do
     video_fields = [:video_url, :video_duration, :video_bux_per_minute, :video_max_reward]
 
@@ -557,16 +558,11 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
       param_value = Map.get(acc, field_str)
       existing_value = Map.get(existing_post, field)
 
-      # If param is nil, empty string, or not present, preserve existing value
-      cond do
-        is_nil(param_value) and not is_nil(existing_value) ->
-          Map.put(acc, field_str, existing_value)
-
-        param_value == "" and not is_nil(existing_value) ->
-          Map.put(acc, field_str, existing_value)
-
-        true ->
-          acc
+      # Only preserve if param is completely absent (nil) - not when explicitly cleared ("")
+      if is_nil(param_value) and not is_nil(existing_value) do
+        Map.put(acc, field_str, existing_value)
+      else
+        acc
       end
     end)
   end
