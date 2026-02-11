@@ -82,6 +82,7 @@ defmodule BlocksterV2Web.Layouts do
       |> assign(:formatted_bux_balance, formatted_balance)
       |> assign(:display_token, token)
       |> assign(:token_logo, token_logo)
+      |> assign(:hide_mobile_token_name, balance >= 1000)
 
     ~H"""
     <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
@@ -377,7 +378,7 @@ defmodule BlocksterV2Web.Layouts do
             <div class="relative" id="mobile-user-dropdown" phx-click-away={JS.hide(to: "#mobile-dropdown-menu")}>
               <button id="mobile-user-button" phx-click={JS.toggle(to: "#mobile-dropdown-menu")} class="flex items-center gap-2 rounded-[100px] bg-bg-light py-1.5 pl-2 pr-2 shadow-sm cursor-pointer">
                 <img src={@token_logo} alt={@display_token} class="w-6 h-6 rounded-full" />
-                <span class="text-sm font-haas_medium_65 text-[#000000]">{@formatted_bux_balance} <span class="text-gray-500">{@display_token}</span></span>
+                <span class="text-sm font-haas_medium_65 text-[#000000]">{@formatted_bux_balance}<%= unless @hide_mobile_token_name do %> <span class="text-gray-500">{@display_token}</span><% end %></span>
                 <span class="flex items-center transition-all ease-linear duration-500">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M8 10L12 14L16 10" stroke="#101D36" stroke-width="1.5" stroke-linecap="square" />
