@@ -46,7 +46,7 @@ config :blockster_v2,
   app_url:
     System.get_env("APP_URL") ||
       if(config_env() == :prod,
-        do: "https://blockster-v2.fly.dev",
+        do: "https://blockster.com",
         else: "http://localhost:4000"
       ),
   twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
@@ -103,6 +103,10 @@ if config_env() == :prod do
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    # Required for PGBouncer transaction mode (MPG uses PGBouncer)
+    prepare: :unnamed,
+    # Keep idle connections alive - prevents PGBouncer from killing them
+    idle_interval: 15_000,
     # Connection pool health settings - help detect and recover from connection issues
     queue_target: 50,
     queue_interval: 1000,
@@ -110,8 +114,6 @@ if config_env() == :prod do
     timeout: 15000,
     connect_timeout: 15000,
     handshake_timeout: 15000,
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
     socket_options: maybe_ipv6
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
@@ -142,6 +144,8 @@ if config_env() == :prod do
       port: port
     ],
     check_origin: [
+      "https://blockster.com",
+      "https://www.blockster.com",
       "https://blockster-v2.fly.dev",
       "https://v2.blockster.com"
     ],
@@ -187,6 +191,6 @@ if config_env() == :prod do
     api_key: System.get_env("SENDGRID_API_KEY")
 
   # Override app_url with PHX_HOST if set
-  app_host = System.get_env("PHX_HOST") || "v2.blockster.com"
+  app_host = System.get_env("PHX_HOST") || "blockster.com"
   config :blockster_v2, app_url: "https://#{app_host}"
 end

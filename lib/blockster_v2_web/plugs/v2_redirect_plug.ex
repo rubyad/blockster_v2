@@ -1,6 +1,7 @@
 defmodule BlocksterV2Web.Plugs.V2RedirectPlug do
   @moduledoc """
-  Redirects root path to /waitlist when accessed from v2.blockster.com
+  Redirects legacy domains (v2.blockster.com, blockster-v2.fly.dev) to blockster.com.
+  Also redirects www.blockster.com to blockster.com for canonical URL.
   """
   import Plug.Conn
   import Phoenix.Controller
@@ -8,9 +9,9 @@ defmodule BlocksterV2Web.Plugs.V2RedirectPlug do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    if conn.request_path == "/" and conn.host == "v2.blockster.com" do
+    if conn.host in ["v2.blockster.com", "blockster-v2.fly.dev", "www.blockster.com"] do
       conn
-      |> redirect(to: "/waitlist")
+      |> redirect(external: "https://blockster.com#{conn.request_path}")
       |> halt()
     else
       conn
