@@ -1,5 +1,5 @@
 <section id={"component-#{@id}"} class="blog-section py-3 md:py-6">
-  <div class="container mx-auto px-4 md:px-0">
+  <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
     <div class="inner gap-6">
       <div class="left-content">
         <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts", "home-posts"] && !Map.get(assigns, :hide_title) do %>
@@ -56,7 +56,7 @@
                         <%= post.category.name %>
                       </span>
                     <% end %>
-                    <h4 class="font-haas_bold_75 text-white text-base leading-snug"><%= post.title %></h4>
+                    <h4 class="font-haas_bold_75 text-white text-base leading-snug"><%= String.slice(post.title, 0, 75) %><%= if String.length(post.title) > 75, do: "..." %></h4>
                     <p class="text-[10px] font-haas_roman_55 text-white/80 mt-1">
                       <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                     </p>
@@ -74,9 +74,9 @@
           </div>
 
           <!-- Desktop: Original horizontal layout -->
-          <div class="hidden md:flex md:flex-row gap-3 mt-3">
+          <div class="hidden md:flex md:flex-row gap-6 mt-3">
             <%= for {post, local_idx} <- Enum.with_index(@posts, 0) do %>
-              <div class="md:w-1/3 gap-3 relative">
+              <div class="md:w-1/3 gap-6 relative">
                 <%= if assigns[:current_user] && @current_user.is_admin do %>
                   <button
                     phx-click="open_bux_deposit_modal"
@@ -99,10 +99,10 @@
                       <!-- Top content: category, title, date -->
                       <div>
                         <%= if post.category do %>
-                          <span class="text-xs font-haas_medium_65 text-[#ffffff]"><%= post.category.name %></span>
+                          <span class="uppercase text-xs font-extralight text-white tracking-[0.2em]"><%= post.category.name %></span>
                         <% end %>
-                        <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-lg leading-[1.2]"><%= post.title %></h4>
-                        <p class="text-xs font-haas_roman_55 text-[#ffffff] mt-2">
+                        <h4 class="font-normal text-white mt-2 text-lg leading-6 tracking-wide"><%= String.slice(post.title, 0, 75) %><%= if String.length(post.title) > 75, do: "..." %></h4>
+                        <p class="text-xs font-light text-white/80 mt-2">
                           <%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %>
                         </p>
                       </div>

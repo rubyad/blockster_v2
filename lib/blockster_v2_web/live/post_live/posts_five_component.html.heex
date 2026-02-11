@@ -1,5 +1,5 @@
 <section id={"component-#{@id}"} class="grid-section-reverse py-3 md:py-6">
-  <div class="container mx-auto px-4 md:px-0">
+  <div class="mx-auto px-6 md:px-12 lg:px-48 xl:px-64 2xl:max-w-[1600px]">
     <%= if Map.get(assigns, :type) not in ["category-posts", "tag-posts", "home-posts"] && !Map.get(assigns, :hide_title) do %>
       <!-- Breadcrumb -->
       <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2 hidden md:block">
@@ -69,7 +69,7 @@
       <!-- Desktop: Original layout -->
       <div class="hidden md:block">
       <!-- First Row: Large card left, 2 small cards right -->
-      <div class="flex lg:flex-row flex-col gap-4 wide-card lg:items-stretch">
+      <div class="flex lg:flex-row flex-col gap-6 wide-card lg:items-stretch">
         <!-- Large card (50%) - Position 1 -->
         <%= if Enum.at(@posts, 0) do %>
           <% post = Enum.at(@posts, 0) %>
@@ -93,9 +93,9 @@
                 <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
                   <ul class="gap-3 flex">
                     <%= if post.category do %>
-                      <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span><%= post.category.name %></span></li>
+                      <li class="uppercase text-xs font-extralight text-white tracking-[0.2em]"><span><%= post.category.name %></span></li>
                     <% end %>
-                    <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
+                    <li class="text-xs font-light text-white/80">
                       <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                     </li>
                   </ul>
@@ -105,14 +105,14 @@
                     <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_1_#{post.id}"} />
                   <% end %>
                 </div>
-                <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[24px] leading-[1.2] max-md:text-[20px]"><%= post.title %></h4>
+                <h4 class="font-normal text-white mt-2 text-2xl leading-7 tracking-wide"><%= post.title %></h4>
               </div>
             </.link>
           </div>
         <% end %>
 
         <!-- Two small cards (50% total, 25% each) - Positions 2 & 3 -->
-        <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-4 md:items-stretch">
+        <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-6 md:items-stretch">
           <%= if Enum.at(@posts, 1) do %>
             <% post = Enum.at(@posts, 1) %>
             <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
@@ -134,13 +134,13 @@
                     <.video_play_icon size={:medium} />
                   <% end %>
                 </div>
-                <div class="px-3 py-3 flex-1 flex flex-col">
+                <div class="px-4 py-4 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
                     <ul class="gap-3 flex">
                       <%= if post.category do %>
-                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                        <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
                       <% end %>
-                      <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                      <li class="text-xs font-light text-gray-500">
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
@@ -150,7 +150,7 @@
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_2_#{post.id}"} />
                     <% end %>
                   </div>
-                  <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                  <h4 class="font-normal text-black mt-2 text-lg leading-6 tracking-wide"><%= post.title %></h4>
                 </div>
               </.link>
             </div>
@@ -177,13 +177,13 @@
                     <.video_play_icon size={:medium} />
                   <% end %>
                 </div>
-                <div class="px-3 py-3 flex-1 flex flex-col">
+                <div class="px-4 py-4 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
                     <ul class="gap-3 flex">
                       <%= if post.category do %>
-                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                        <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
                       <% end %>
-                      <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                      <li class="text-xs font-light text-gray-500">
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
@@ -193,7 +193,7 @@
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_3_#{post.id}"} />
                     <% end %>
                   </div>
-                  <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                  <h4 class="font-normal text-black mt-2 text-lg leading-6 tracking-wide"><%= post.title %></h4>
                 </div>
               </.link>
             </div>
@@ -202,7 +202,7 @@
       </div>
 
       <!-- Second Row: Reversed layout - 2 small cards left, large card right -->
-      <div class="flex lg:flex-row-reverse flex-col gap-4 mt-3 wide-card lg:items-stretch">
+      <div class="flex lg:flex-row-reverse flex-col gap-6 mt-6 wide-card lg:items-stretch">
         <!-- Large card (50%) - Position 4 -->
         <%= if Enum.at(@posts, 3) do %>
           <% post = Enum.at(@posts, 3) %>
@@ -226,9 +226,9 @@
                 <div class="flex justify-between items-center max-md:flex-col-reverse max-md:items-start max-md:gap-1.5">
                   <ul class="gap-3 flex">
                     <%= if post.category do %>
-                      <li class="text-xs font-haas_medium_65 text-[#ffffff]"><span><%= post.category.name %></span></li>
+                      <li class="uppercase text-xs font-extralight text-white tracking-[0.2em]"><span><%= post.category.name %></span></li>
                     <% end %>
-                    <li class="text-xs font-haas_roman_55 dot text-[#ffffff] relative">
+                    <li class="text-xs font-light text-white/80">
                       <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                     </li>
                   </ul>
@@ -238,14 +238,14 @@
                     <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_4_#{post.id}"} />
                   <% end %>
                 </div>
-                <h4 class="font-haas_medium_65 text-[#ffffff] mt-2 text-[24px] leading-[1.2] max-md:text-[20px]"><%= post.title %></h4>
+                <h4 class="font-normal text-white mt-2 text-2xl leading-7 tracking-wide"><%= post.title %></h4>
               </div>
             </.link>
           </div>
         <% end %>
 
         <!-- Two small cards (50% total, 25% each) - Positions 5 & 6 -->
-        <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-4 md:items-stretch">
+        <div class="lg:w-1/2 w-full flex md:flex-row flex-col gap-6 md:items-stretch">
           <%= if Enum.at(@posts, 4) do %>
             <% post = Enum.at(@posts, 4) %>
             <div class="md:w-1/2 w-full rounded-[16px] border-[#1414141A] border bg-white hover:shadow-lg transition-all flex flex-col relative">
@@ -267,13 +267,13 @@
                     <.video_play_icon size={:medium} />
                   <% end %>
                 </div>
-                <div class="px-3 py-3 flex-1 flex flex-col">
+                <div class="px-4 py-4 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
                     <ul class="gap-3 flex">
                       <%= if post.category do %>
-                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                        <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
                       <% end %>
-                      <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                      <li class="text-xs font-light text-gray-500">
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
@@ -283,7 +283,7 @@
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_5_#{post.id}"} />
                     <% end %>
                   </div>
-                  <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                  <h4 class="font-normal text-black mt-2 text-lg leading-6 tracking-wide"><%= post.title %></h4>
                 </div>
               </.link>
             </div>
@@ -310,13 +310,13 @@
                     <.video_play_icon size={:medium} />
                   <% end %>
                 </div>
-                <div class="px-3 py-3 flex-1 flex flex-col">
+                <div class="px-4 py-4 flex-1 flex flex-col">
                   <div class="flex justify-between items-center">
                     <ul class="gap-3 flex">
                       <%= if post.category do %>
-                        <li class="text-xs font-haas_medium_65 text-[#141414]"><span><%= post.category.name %></span></li>
+                        <li class="uppercase text-xs font-extralight text-black tracking-[0.2em]"><span><%= post.category.name %></span></li>
                       <% end %>
-                      <li class="text-xs font-haas_roman_55 dot text-[#141414] relative">
+                      <li class="text-xs font-light text-gray-500">
                         <span><%= if post.published_at, do: Calendar.strftime(post.published_at, "%b %d"), else: "Draft" %></span>
                       </li>
                     </ul>
@@ -326,7 +326,7 @@
                       <.token_badge post={post} balance={get_bux_balance(assigns, post)} id={"bux_posts_five_6_#{post.id}"} />
                     <% end %>
                   </div>
-                  <h4 class="font-haas_medium_65 text-[#141414] mt-2 text-md"><%= post.title %></h4>
+                  <h4 class="font-normal text-black mt-2 text-lg leading-6 tracking-wide"><%= post.title %></h4>
                 </div>
               </.link>
             </div>
