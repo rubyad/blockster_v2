@@ -114,7 +114,7 @@ html {
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1380px;
+  --breakpoint-xl: 1280px;
 
   /* Custom Colors */
   --color-primary-red-warning: #DA4E4E;
