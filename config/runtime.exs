@@ -147,7 +147,9 @@ if config_env() == :prod do
       "https://blockster.com",
       "https://www.blockster.com",
       "https://blockster-v2.fly.dev",
-      "https://v2.blockster.com"
+      "https://v2.blockster.com",
+      "http://blockster.com",
+      "http://www.blockster.com"
     ],
     secret_key_base: secret_key_base
 
