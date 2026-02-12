@@ -44,7 +44,7 @@ Automated content creation and publishing system for Blockster that:
 lib/blockster_v2/content_automation/
 ├── feed_poller.ex          # RSS feed polling GenServer
 ├── feed_parser.ex          # RSS/Atom parsing logic
-├── feed_store.ex           # Mnesia storage for feed items
+├── feed_store.ex           # Ecto queries for feed items, topics, queue
 ├── topic_engine.ex         # Topic clustering & ranking
 ├── content_generator.ex    # Claude API integration
 ├── tweet_finder.ex         # Find relevant tweets for topics
@@ -75,49 +75,69 @@ ranking boost and are preferred for content generation.
 
 #### Premium Tier (weight: 2x) — Mainstream Finance & Tech
 
-| # | Site | RSS Feed URL | Focus | Editorial Lean |
-|---|------|-------------|-------|----------------|
-| 1 | Bloomberg Crypto | `https://feeds.bloomberg.com/crypto/news.rss` | Markets, macro, institutional | Center-left, pro-establishment |
-| 2 | Reuters Business | `https://www.reutersagency.com/feed/?best-topics=business-finance` | Breaking finance, regulation | Center, institutional |
-| 3 | Financial Times | `https://www.ft.com/cryptofinance?format=rss` | Crypto finance, regulation, macro | Center-left, pro-regulation |
-| 4 | The Economist | `https://www.economist.com/finance-and-economics/rss.xml` | Macro economics, policy, analysis | Center-left, globalist |
-| 5 | Forbes Crypto | `https://www.forbes.com/crypto-blockchain/feed/` | Crypto business, profiles, markets | Center-right, business-friendly |
-| 6 | Barron's | `https://www.barrons.com/feed?id=blog_rss` | Investment, markets, analysis | Center-right, Wall Street |
-| 7 | TechCrunch Crypto | `https://techcrunch.com/category/cryptocurrency/feed/` | Web3 startups, VC, tech | Left-leaning, Silicon Valley |
-| 8 | The Verge | `https://www.theverge.com/rss/index.xml` | Tech, crypto policy, culture | Left-leaning, consumer tech |
+> **Feed Accessibility Note (Feb 2026)**: Many mainstream outlets block RSS access via
+> paywalls or bot protection. Only feeds marked "Verified" below are confirmed accessible.
+> Blocked feeds are kept in config but skipped at runtime — if they become accessible later,
+> they'll start working automatically. We compensate with additional verified crypto-native
+> premium sources.
+
+| # | Site | RSS Feed URL | Status | Focus | Editorial Lean |
+|---|------|-------------|--------|-------|----------------|
+| 1 | Bloomberg Crypto | `https://feeds.bloomberg.com/crypto/news.rss` | **Verified** | Markets, macro, institutional | Center-left, pro-establishment |
+| 2 | TechCrunch Crypto | `https://techcrunch.com/category/cryptocurrency/feed/` | **Verified** | Web3 startups, VC, tech | Left-leaning, Silicon Valley |
+| 3 | Reuters Business | `https://www.reutersagency.com/feed/?best-topics=business-finance` | Blocked (403) | Breaking finance, regulation | Center, institutional |
+| 4 | Financial Times | `https://www.ft.com/cryptofinance?format=rss` | Blocked (paywall) | Crypto finance, regulation, macro | Center-left, pro-regulation |
+| 5 | The Economist | `https://www.economist.com/finance-and-economics/rss.xml` | Blocked (403) | Macro economics, policy, analysis | Center-left, globalist |
+| 6 | Forbes Crypto | `https://www.forbes.com/crypto-blockchain/feed/` | Blocked (Cloudflare) | Crypto business, profiles, markets | Center-right, business-friendly |
+| 7 | Barron's | `https://www.barrons.com/feed?id=blog_rss` | Blocked (paywall) | Investment, markets, analysis | Center-right, Wall Street |
+| 8 | The Verge | `https://www.theverge.com/rss/index.xml` | Blocked (403) | Tech, crypto policy, culture | Left-leaning, consumer tech |
+
+#### Promoted to Premium (verified accessible, high-quality crypto-native sources)
+
+These crypto-native sources are promoted to premium tier to ensure sufficient premium feed coverage:
+
+| # | Site | RSS Feed URL | Status | Focus |
+|---|------|-------------|--------|-------|
+| 9 | CoinDesk | `https://www.coindesk.com/arc/outboundfeeds/rss/` | **Verified** | General crypto, markets, regulation |
+| 10 | The Block | `https://www.theblock.co/rss.xml` | **Verified** | Institutional, markets, data |
+| 11 | Blockworks | `https://blockworks.co/feed` | **Verified** (Atom) | DeFi, institutional, markets |
+| 12 | DL News | `https://www.dlnews.com/arc/outboundfeeds/rss/` | **Verified** (full content) | Breaking news, investigations |
 
 #### Standard Tier (weight: 1x) — Crypto-Native Sources
 
-| # | Site | RSS Feed URL | Focus |
-|---|------|-------------|-------|
-| 9 | CoinDesk | `https://www.coindesk.com/arc/outboundfeeds/rss/` | General crypto, markets, regulation |
-| 10 | CoinTelegraph | `https://cointelegraph.com/rss` | General crypto, DeFi, trading |
-| 11 | The Block | `https://www.theblock.co/rss.xml` | Institutional, markets, data |
-| 12 | Decrypt | `https://decrypt.co/feed` | General crypto, Web3, gaming |
-| 13 | Bitcoin Magazine | `https://bitcoinmagazine.com/feed` | Bitcoin-focused, macro |
-| 14 | Blockworks | `https://blockworks.co/feed` | DeFi, institutional, markets |
-| 15 | DL News | `https://www.dlnews.com/arc/outboundfeeds/rss/` | Breaking news, investigations |
-| 16 | The Defiant | `https://thedefiant.io/feed` | DeFi-focused |
-| 17 | CryptoSlate | `https://cryptoslate.com/feed/` | General crypto, data |
-| 18 | NewsBTC | `https://www.newsbtc.com/feed/` | Trading, price analysis |
-| 19 | Bitcoinist | `https://bitcoinist.com/feed/` | Bitcoin, altcoins |
-| 20 | U.Today | `https://u.today/rss` | General crypto, breaking news |
-| 21 | Crypto Briefing | `https://cryptobriefing.com/feed/` | DeFi, research |
-| 22 | BeInCrypto | `https://beincrypto.com/feed/` | General crypto, education |
-| 23 | Unchained | `https://unchainedcrypto.com/feed/` | Long-form, interviews |
-| 24 | CoinGape | `https://coingape.com/feed/` | Price, markets |
-| 25 | Crypto Potato | `https://cryptopotato.com/feed/` | Trading, altcoins |
-| 26 | AMBCrypto | `https://ambcrypto.com/feed/` | Analytics, on-chain data |
-| 27 | Protos | `https://protos.com/feed/` | Investigations, deep dives |
-| 28 | Milk Road | `https://www.milkroad.com/feed` | Macro, trends, accessible |
+| # | Site | RSS Feed URL | Content | Focus |
+|---|------|-------------|---------|-------|
+| 13 | CoinTelegraph | `https://cointelegraph.com/rss` | Summaries | General crypto, DeFi, trading |
+| 14 | Decrypt | `https://decrypt.co/feed` | Summaries | General crypto, Web3, gaming |
+| 15 | Bitcoin Magazine | `https://bitcoinmagazine.com/feed` | Full content | Bitcoin-focused, macro |
+| 16 | The Defiant | `https://thedefiant.io/feed` | Summaries | DeFi-focused |
+| 17 | CryptoSlate | `https://cryptoslate.com/feed/` | Full content | General crypto, data |
+| 18 | NewsBTC | `https://www.newsbtc.com/feed/` | Full content | Trading, price analysis |
+| 19 | Bitcoinist | `https://bitcoinist.com/feed/` | Full content | Bitcoin, altcoins |
+| 20 | U.Today | `https://u.today/rss` | Summaries | General crypto, breaking news |
+| 21 | Crypto Briefing | `https://cryptobriefing.com/feed/` | Summaries | DeFi, research |
+| 22 | BeInCrypto | `https://beincrypto.com/feed/` | Summaries | General crypto, education |
+| 23 | Unchained | `https://unchainedcrypto.com/feed/` | Summaries | Long-form, interviews |
+| 24 | CoinGape | `https://coingape.com/feed/` | Summaries | Price, markets |
+| 25 | Crypto Potato | `https://cryptopotato.com/feed/` | Summaries | Trading, altcoins |
+| 26 | AMBCrypto | `https://ambcrypto.com/feed/` | Summaries | Analytics, on-chain data |
+| 27 | Protos | `https://protos.com/feed/` | Summaries | Investigations, deep dives |
+| 28 | Milk Road | `https://www.milkroad.com/feed` | Summaries | Macro, trends, accessible |
+
+**Feed Format Notes**:
+- Blockworks uses **Atom** format (not RSS) — parser must handle both
+- 5 feeds provide full article content in the feed (Bitcoin Magazine, DL News, CryptoSlate, NewsBTC, Bitcoinist)
+- All others provide summaries only — sufficient for topic clustering
+- Date formats are consistent RFC 2822 across RSS feeds
 
 ### 2.2 Elixir RSS Library
 
-**Recommended**: `ElixirFeedParser` (`{:elixir_feed_parser, "~> 2.1"}`)
-- Handles both RSS 2.0 and Atom feeds
-- Returns structured data with title, description, link, published date
-- Actively maintained
-- Alternative: `FastRSS` (Rust NIF, faster but less Elixir-idiomatic)
+**Recommended**: `fast_rss` (`{:fast_rss, "~> 0.5"}`)
+- Rust NIF — fast and reliable
+- Handles RSS 2.0 via `FastRSS.parse_rss/1` and Atom via `FastRSS.parse_atom/1`
+- Returns `{:ok, map}` with `"items"` list containing `"title"`, `"link"`, `"description"`, `"pub_date"`
+- Last update Sep 2023 but stable — RSS/Atom specs don't change
+- **Alternative**: `ElixirFeedParser` (`~> 2.1`) — pure Elixir, auto-detects format, but slower
 
 ### 2.3 FeedPoller GenServer
 
@@ -144,17 +164,15 @@ defmodule BlocksterV2.ContentAutomation.FeedPoller do
     feeds = get_configured_feeds()
 
     # Poll all feeds in parallel with Task.async_stream
-    results = feeds
-    |> Task.async_stream(&poll_single_feed/1, max_concurrency: 5, timeout: 30_000)
-    |> Enum.flat_map(fn
-      {:ok, items} -> items
-      {:exit, _} -> []
+    # Store items INCREMENTALLY per feed (not batched) for crash resilience
+    total_new = feeds
+    |> Task.async_stream(&poll_and_store_feed/1, max_concurrency: 5, timeout: 30_000)
+    |> Enum.reduce(0, fn
+      {:ok, count} -> count
+      {:exit, _} -> 0
     end)
 
-    # Store new items, deduplicate by URL
-    new_count = FeedStore.store_new_items(results)
-
-    if new_count > 0 do
+    if total_new > 0 do
       # Notify TopicEngine that new items are available
       GenServer.cast({:global, TopicEngine}, :new_items_available)
     end
@@ -163,11 +181,13 @@ defmodule BlocksterV2.ContentAutomation.FeedPoller do
     {:noreply, %{state | last_poll: DateTime.utc_now()}}
   end
 
-  defp poll_single_feed(%{url: url, source: source, tier: tier}) do
+  # Poll a single feed and store its items immediately (crash-resilient)
+  defp poll_and_store_feed(%{url: url, source: source, tier: tier}) do
     case Req.get(url, receive_timeout: 15_000) do
       {:ok, %{status: 200, body: body}} ->
-        parsed = parse_feed(body)
-        Enum.map(parsed.items, fn entry ->
+        items = parse_feed(body)
+        |> Map.get("items", [])
+        |> Enum.map(fn entry ->
           %{
             title: entry["title"],
             url: entry["link"],
@@ -179,7 +199,17 @@ defmodule BlocksterV2.ContentAutomation.FeedPoller do
             fetched_at: DateTime.utc_now()
           }
         end)
-      _ -> []
+
+        # Store immediately per feed (not batched across all feeds)
+        FeedStore.store_new_items(items)
+
+      {:ok, %{status: status}} ->
+        Logger.warning("[FeedPoller] #{source} returned HTTP #{status}")
+        0
+
+      {:error, reason} ->
+        Logger.warning("[FeedPoller] #{source} failed: #{inspect(reason)}")
+        0
     end
   end
 
@@ -202,44 +232,256 @@ defmodule BlocksterV2.ContentAutomation.FeedPoller do
 end
 ```
 
-### 2.4 Feed Storage (Mnesia Table)
+### 2.4 Feed Storage (PostgreSQL)
 
-New Mnesia table `content_feed_items`:
+Pipeline data (feed items, topics, publish queue) lives in PostgreSQL — not Mnesia. These are
+write-once/process-once records with text-heavy content (~300 words per summary), which suits
+a relational database. Mnesia is reserved for small, hot, real-time state (admin settings,
+pipeline progress).
+
+**Ecto migration** (creates `content_feed_items` table):
 ```elixir
-# In MnesiaInitializer
-:mnesia.create_table(:content_feed_items, [
-  attributes: [:url, :title, :summary, :source, :tier, :weight, :published_at,
-               :fetched_at, :processed, :topic_cluster],
-  index: [:source, :tier, :published_at, :processed],
-  disc_copies: [node()]
-])
+# priv/repo/migrations/YYYYMMDDHHMMSS_create_content_feed_items.exs
+defmodule BlocksterV2.Repo.Migrations.CreateContentFeedItems do
+  use Ecto.Migration
+
+  def change do
+    create table(:content_feed_items) do
+      add :url, :string, null: false
+      add :title, :string, null: false
+      add :summary, :text                     # ~300 words of text per item
+      add :source, :string, null: false
+      add :tier, :string, null: false          # "premium" or "standard"
+      add :weight, :float, default: 1.0
+      add :published_at, :utc_datetime
+      add :fetched_at, :utc_datetime, null: false
+      add :processed, :boolean, default: false
+      add :topic_cluster_id, references(:content_generated_topics, type: :binary_id, on_delete: :nilify_all)
+
+      timestamps()
+    end
+
+    create unique_index(:content_feed_items, [:url])   # Deduplicates across feeds
+    create index(:content_feed_items, [:source])
+    create index(:content_feed_items, [:processed])
+    create index(:content_feed_items, [:fetched_at])
+  end
+end
 ```
 
-- `tier` — `:premium` or `:standard` (from feed config)
+- Key: `url` (unique — deduplicates across feeds)
+- `tier` — `"premium"` or `"standard"` (from feed config)
 - `weight` — `2.0` for premium, `1.0` for standard (used in TopicEngine ranking)
+- `processed` — `false` initially, set to `true` AFTER topic is stored in `content_generated_topics`
+- `topic_cluster_id` — links to the topic this item was clustered into (nil until processed)
 
 ---
 
-## 3. Topic Engine
+## 3. Topic Engine — How 100 Articles Become N Posts
 
-### 3.1 Topic Clustering
+### 3.0 The Selection Pipeline (Overview)
 
-The TopicEngine analyzes incoming feed items to identify trending stories and unique angles.
+Here's the exact chain from raw RSS items to published articles:
+
+```
+100 RSS articles/day (from 28 feeds)
+        │
+        ▼
+  ┌─ Pre-Filter ──────────────────────────┐
+  │ • Only last 6-12 hours (not full 24h) │
+  │ • Truncate summaries to 300 chars     │
+  │ • Cap at 50 items per batch           │
+  │ • Typically ~20-40 items per cycle    │
+  └───────────────┬───────────────────────┘
+                  ▼
+  ┌─ Claude Haiku: Cluster ───────────────┐
+  │ Groups articles by story/event:       │
+  │ • 8 articles about SEC → 1 topic      │
+  │ • 5 about BTC hash rate → 1 topic     │
+  │ • 3 about Tether → 1 topic            │
+  │ • 6 unrelated one-offs → 6 topics     │
+  │ Result: ~12-20 distinct topics        │
+  └───────────────┬───────────────────────┘
+                  ▼
+  ┌─ Score & Rank ────────────────────────┐
+  │ Each topic scored by:                 │
+  │ • Source count & weight (multi-source │
+  │   = bigger story)                     │
+  │ • Premium source bonus (+3)           │
+  │ • Recency bonus (last 2h > last 6h)  │
+  │ • Admin topic boost (if configured)   │
+  │ Result: topics sorted by score        │
+  └───────────────┬───────────────────────┘
+                  ▼
+  ┌─ Filter Already Covered ──────────────┐
+  │ Compare topic titles against last     │
+  │ 7 days of content_generated_topics    │
+  │ Remove topics too similar to recent   │
+  │ published articles                    │
+  └───────────────┬───────────────────────┘
+                  ▼
+  ┌─ Category Diversity Gate ─────────────┐
+  │ Max N articles per category per day   │
+  │ (configurable by admin per category)  │
+  │ If 5 regulation topics scored high,   │
+  │ only top N pass through               │
+  │ Remaining slots filled by next-best   │
+  │ from underrepresented categories      │
+  └───────────────┬───────────────────────┘
+                  ▼
+  ┌─ Daily Budget Check ──────────────────┐
+  │ Target: N articles/day (admin config) │
+  │ Already published today: P            │
+  │ Already in queue: Q                   │
+  │ Slots available: N - P - Q            │
+  │ Take that many topics (usually 2-4    │
+  │ per cycle, across ~4 cycles/day that  │
+  │ produce topics)                       │
+  └───────────────┬───────────────────────┘
+                  ▼
+       ~2-4 topics per cycle
+       sent to ContentGenerator
+       → review queue → admin → publish
+```
+
+**Key insight**: The TopicEngine doesn't select all 10 articles at once. It runs every 15 minutes
+and picks 2-4 topics per cycle, because news is continuous. A breaking story at 3pm should
+get covered even if 8 articles were already queued from the morning cycle.
+
+### 3.1 Admin Topic Controls
+
+The admin can influence what gets written about via the dashboard (Section 15). These
+settings are stored in a Mnesia table `content_automation_settings` and read at runtime:
+
+```elixir
+# Mnesia table for admin-configurable settings
+:mnesia.create_table(:content_automation_settings, [
+  attributes: [:key, :value, :updated_at, :updated_by],
+  disc_copies: [node()]
+])
+
+# Settings and their defaults:
+%{
+  # ── Volume ──
+  posts_per_day: 10,                    # Target articles per day (admin slider: 1-50)
+
+  # ── Category Preferences ──
+  # Per-category daily max and boost. Admin can say "I want more DeFi, less NFT"
+  # boost adds to the topic's rank score; max_per_day caps output
+  category_config: %{
+    defi:           %{boost: 0, max_per_day: 3},
+    regulation:     %{boost: 0, max_per_day: 2},
+    bitcoin:        %{boost: 0, max_per_day: 2},
+    trading:        %{boost: 0, max_per_day: 2},
+    ethereum:       %{boost: 0, max_per_day: 2},
+    macro_trends:   %{boost: 0, max_per_day: 2},
+    gaming:         %{boost: 0, max_per_day: 2},
+    altcoins:       %{boost: 0, max_per_day: 2},
+    ai_crypto:      %{boost: 0, max_per_day: 2},
+    stablecoins:    %{boost: 0, max_per_day: 2},
+    privacy:        %{boost: 0, max_per_day: 2},
+    adoption:       %{boost: 0, max_per_day: 2},
+    security_hacks: %{boost: 0, max_per_day: 2},
+    nft:            %{boost: 0, max_per_day: 1},
+    cbdc:           %{boost: 0, max_per_day: 1},
+    rwa:            %{boost: 0, max_per_day: 1},
+    gambling:       %{boost: 0, max_per_day: 1},
+    token_launches: %{boost: 0, max_per_day: 1},
+    mining:         %{boost: 0, max_per_day: 1}
+  },
+
+  # ── Topic Boosts ──
+  # Admin can add temporary keyword boosts: "I want more coverage of Solana this week"
+  # These add to rank score when the keyword appears in topic title
+  keyword_boosts: [
+    # %{keyword: "solana", boost: 5.0, expires_at: ~U[2026-02-18 00:00:00Z]}
+  ],
+
+  # ── Topic Blocks ──
+  # Admin can block specific keywords: "Stop writing about Dogecoin"
+  keyword_blocks: [
+    # "dogecoin", "shiba inu"
+  ],
+
+  # ── Pipeline State ──
+  paused: false                         # Pause/resume from dashboard
+}
+```
+
+**Dashboard UI for these controls** (on the `/admin/content` page):
+
+```
+┌─ Pipeline Settings ─────────────────────────────────────────────┐
+│                                                                  │
+│  Articles per day:  [────●──────] 10                            │
+│                     1              50                             │
+│                                                                  │
+│  ── Category Preferences ──────────────────────────────────────  │
+│                                                                  │
+│  │ Category       │ Boost  │ Max/Day │                           │
+│  │────────────────│────────│─────────│                           │
+│  │ DeFi           │ [+0 ]  │ [3]     │                           │
+│  │ Regulation     │ [+0 ]  │ [2]     │                           │
+│  │ Bitcoin        │ [+2 ]  │ [3]     │  ← admin boosted bitcoin │
+│  │ Trading        │ [+0 ]  │ [2]     │                           │
+│  │ AI & Crypto    │ [+3 ]  │ [2]     │  ← admin boosted AI      │
+│  │ NFT            │ [-5 ]  │ [1]     │  ← admin deprioritized   │
+│  │ (... more)     │        │         │                           │
+│                                                                  │
+│  ── Keyword Boosts (temporary) ────────────────────────────────  │
+│                                                                  │
+│  ┌──────────────┬───────┬────────────┬─────────┐                │
+│  │ Keyword      │ Boost │ Expires    │         │                │
+│  │──────────────│───────│────────────│─────────│                │
+│  │ solana       │ +5    │ Feb 18     │ [Remove]│                │
+│  │ ethereum etf │ +3    │ Feb 20     │ [Remove]│                │
+│  └──────────────┴───────┴────────────┴─────────┘                │
+│  Keyword: [__________] Boost: [+5] Expires: [Feb 25] [Add]     │
+│                                                                  │
+│  ── Keyword Blocks ────────────────────────────────────────────  │
+│                                                                  │
+│  [✕ dogecoin] [✕ shiba inu] [✕ pepe]                           │
+│  Block keyword: [__________] [Add]                               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**How admin controls affect scoring**:
+
+```elixir
+# In rank_topics/1, after calculating base score:
+total_score = source_score + multi_source_bonus + recency_score + premium_bonus
+
+# Apply admin category boost (can be negative to deprioritize)
+category_boost = get_category_boost(topic.category)
+total_score = total_score + category_boost
+
+# Apply admin keyword boosts (check topic title for matching keywords)
+keyword_boost = calculate_keyword_boost(topic.title)
+total_score = total_score + keyword_boost
+```
+
+**Example**: Admin sets bitcoin boost to +2 and adds keyword boost "solana" +5:
+- "Bitcoin hash rate ATH" → base score 14.0 + category boost 2.0 = **16.0** (moved up in ranking)
+- "Solana DeFi TVL surges" → base score 6.5 + keyword boost 5.0 = **11.5** (jumped ahead of lower topics)
+- "Random NFT project" → base score 3.0 + category boost -5.0 = **-2.0** (effectively blocked)
+
+### 3.2 Topic Clustering
 
 ```elixir
 defmodule BlocksterV2.ContentAutomation.TopicEngine do
+  use GenServer
+
   @analysis_interval :timer.minutes(15)
 
-  # Groups feed items by topic using keyword extraction and similarity
-  # Identifies which topics are trending (covered by 3+ sources)
-  # Ranks topics by: recency, weighted source score, relevance to crypto categories
-  #
-  # WEIGHTING: Topics sourced from premium outlets (Bloomberg, FT, Reuters, etc.)
-  # receive a 2x ranking boost. A topic covered by Bloomberg + CoinDesk scores
-  # higher than one covered by CoinDesk + Bitcoinist alone.
-  # Premium-sourced topics also produce longer, more analytical articles.
+  # Uses GlobalSingleton for cluster-wide single instance
+  def start_link(opts) do
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
+  end
 
-  # Categories to track:
   @categories [
     :defi, :rwa, :regulation, :gaming, :trading, :token_launches,
     :gambling, :privacy, :macro_trends, :investment, :bitcoin,
@@ -247,67 +489,405 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     :security_hacks, :adoption, :mining
   ]
 
-  def analyze_and_rank do
-    # 1. Fetch unprocessed feed items from last 24 hours
-    items = FeedStore.get_recent_unprocessed(hours: 24)
+  def handle_info(:analyze, state) do
+    if Config.enabled?() and not Settings.paused?() do
+      case analyze_and_select() do
+        {:ok, selected_topics} ->
+          for topic <- selected_topics do
+            pipeline_id = Ecto.UUID.generate()
+            send_to_content_generation(topic, pipeline_id)
+          end
+        {:error, reason} ->
+          Logger.error("[TopicEngine] Analysis failed: #{inspect(reason)}")
+      end
+    end
 
-    # 2. Use Claude to cluster items into topics and extract angles
-    topics = cluster_into_topics(items)
-
-    # 3. Rank topics by weighted newsworthiness score
-    ranked = rank_topics(topics)
-
-    # 4. Filter out topics we've already covered
-    filtered = filter_already_covered(ranked)
-
-    # 5. Queue top topics for content generation
-    Enum.take(filtered, 15)  # Keep pipeline fed
+    schedule_analysis()
+    {:noreply, state}
   end
 
-  # Ranking formula: topics with premium sources score higher
+  def analyze_and_select do
+    posts_per_day = Settings.get(:posts_per_day, 10)
+
+    # 1. How many slots are available right now?
+    published_today = FeedStore.count_published_today()
+    queued = FeedStore.count_queued()
+    slots_available = posts_per_day - published_today - queued
+
+    if slots_available <= 0 do
+      Logger.info("[TopicEngine] No slots available (#{published_today} published, #{queued} queued, target #{posts_per_day})")
+      {:ok, []}
+    else
+      # 2. Fetch unprocessed feed items from recent hours
+      items = FeedStore.get_recent_unprocessed(hours: 12)
+
+      if length(items) < 3 do
+        Logger.info("[TopicEngine] Only #{length(items)} items, skipping cycle")
+        {:ok, []}
+      else
+        # 3. Pre-filter for Claude (truncate, cap)
+        batch = prepare_batch(items)
+
+        # 4. Claude Haiku clusters items into topics
+        {:ok, topics} = cluster_into_topics(batch)
+
+        # 5. Apply keyword blocks (admin can block "dogecoin" etc)
+        topics = apply_keyword_blocks(topics)
+
+        # 6. Score and rank (includes admin category boosts + keyword boosts)
+        ranked = rank_topics(topics)
+
+        # 7. Filter already-covered topics (last 7 days)
+        filtered = filter_already_covered(ranked)
+
+        # 8. Apply category diversity (admin-configurable max per category)
+        diversified = apply_category_diversity(filtered)
+
+        # 9. Take available slots
+        selected = Enum.take(diversified, slots_available)
+
+        # 10. Mark source items as processed (two-phase: AFTER topic stored)
+        mark_items_processed(selected)
+
+        Logger.info("[TopicEngine] Selected #{length(selected)} topics from #{length(topics)} clusters (#{length(items)} feed items)")
+        {:ok, selected}
+      end
+    end
+  end
+
+  # ── SCORING ──────────────────────────────────────────────
+
   defp rank_topics(topics) do
+    category_config = Settings.get(:category_config, %{})
+    keyword_boosts = Settings.get(:keyword_boosts, [])
+
     topics
     |> Enum.map(fn topic ->
-      # Sum source weights (premium = 2.0, standard = 1.0)
+      # Source coverage score: how many outlets are covering this?
+      # premium = 2.0 weight, standard = 1.0 weight
       source_score = Enum.sum(Enum.map(topic.source_items, & &1.weight))
 
-      # Recency bonus: newer topics score higher
-      recency_score = recency_bonus(topic.newest_item_at)
+      # Multi-source bonus: stories covered by 3+ sources are clearly newsworthy
+      multi_source_bonus = cond do
+        length(topic.source_items) >= 5 -> 4.0   # Major story
+        length(topic.source_items) >= 3 -> 2.0   # Significant story
+        length(topic.source_items) >= 2 -> 0.5   # Minor story
+        true -> 0.0                               # Single source
+      end
 
-      # Premium source bonus: topics with ANY premium source get extra priority
+      # Recency bonus: newer = more relevant
+      hours_old = hours_since(topic.newest_item_at)
+      recency_score = cond do
+        hours_old < 2 -> 3.0    # Breaking
+        hours_old < 4 -> 2.0    # Fresh
+        hours_old < 8 -> 1.0    # Recent
+        true -> 0.0             # Older
+      end
+
+      # Premium source bonus
       has_premium = Enum.any?(topic.source_items, &(&1.tier == :premium))
       premium_bonus = if has_premium, do: 3.0, else: 0.0
 
-      total_score = source_score + recency_score + premium_bonus
+      # Admin category boost (can be negative to deprioritize)
+      cat_config = Map.get(category_config, topic.category, %{})
+      category_boost = Map.get(cat_config, :boost, 0)
 
-      Map.put(topic, :rank_score, total_score)
+      # Admin keyword boosts (check topic title for matching keywords)
+      now = DateTime.utc_now()
+      keyword_boost = keyword_boosts
+        |> Enum.filter(fn kb -> DateTime.compare(kb.expires_at, now) == :gt end)
+        |> Enum.filter(fn kb ->
+          String.contains?(String.downcase(topic.title), String.downcase(kb.keyword))
+        end)
+        |> Enum.map(& &1.boost)
+        |> Enum.sum()
+
+      total_score = source_score + multi_source_bonus + recency_score +
+                    premium_bonus + category_boost + keyword_boost
+
+      Map.merge(topic, %{
+        rank_score: total_score,
+        source_count: length(topic.source_items),
+        has_premium_source: has_premium
+      })
     end)
+    |> Enum.filter(& &1.rank_score > 0)  # Negative scores = effectively blocked
     |> Enum.sort_by(& &1.rank_score, :desc)
+  end
+
+  # ── SCORING EXAMPLES ─────────────────────────────────────
+  #
+  # Example: "SEC sues Uniswap" — covered by 8 sources including Bloomberg
+  #   source_score:       3 premium (6.0) + 5 standard (5.0) = 11.0
+  #   multi_source_bonus: 8 sources → 4.0
+  #   recency_score:      1 hour old → 3.0
+  #   premium_bonus:      has premium → 3.0
+  #   category_boost:     regulation = 0 (default)
+  #   keyword_boost:      no match = 0
+  #   TOTAL: 21.0  ← very high, will definitely be selected
+  #
+  # Example: "New memecoin launches on Solana" — 1 source (NewsBTC)
+  #   source_score:       1 standard = 1.0
+  #   multi_source_bonus: 1 source → 0.0
+  #   recency_score:      3 hours old → 2.0
+  #   premium_bonus:      no premium → 0.0
+  #   category_boost:     token_launches = 0
+  #   keyword_boost:      admin set "solana" +5 → 5.0
+  #   TOTAL: 8.0  ← boosted by admin keyword, now competitive
+  #
+  # Example: "Dogecoin whale moves $50M" — 2 sources
+  #   keyword_blocks includes "dogecoin" → FILTERED OUT entirely
+
+  # ── KEYWORD BLOCKS ──────────────────────────────────────
+
+  defp apply_keyword_blocks(topics) do
+    blocks = Settings.get(:keyword_blocks, [])
+
+    if Enum.empty?(blocks) do
+      topics
+    else
+      Enum.reject(topics, fn topic ->
+        title_lower = String.downcase(topic.title)
+        Enum.any?(blocks, fn blocked ->
+          String.contains?(title_lower, String.downcase(blocked))
+        end)
+      end)
+    end
+  end
+
+  # ── DIVERSITY ────────────────────────────────────────────
+
+  defp apply_category_diversity(ranked_topics) do
+    category_config = Settings.get(:category_config, %{})
+    today_counts = FeedStore.get_today_category_counts()
+
+    {selected, _counts} =
+      Enum.reduce(ranked_topics, {[], today_counts}, fn topic, {acc, counts} ->
+        cat_config = Map.get(category_config, topic.category, %{})
+        max_per_day = Map.get(cat_config, :max_per_day, 2)
+        current = Map.get(counts, topic.category, 0)
+
+        if current < max_per_day do
+          {acc ++ [topic], Map.put(counts, topic.category, current + 1)}
+        else
+          Logger.debug("[TopicEngine] Skipping '#{topic.title}' — #{topic.category} has #{current}/#{max_per_day} today")
+          {acc, counts}
+        end
+      end)
+
+    selected
+  end
+
+  # ── DEDUPLICATION ────────────────────────────────────────
+
+  defp filter_already_covered(topics) do
+    recent_titles = FeedStore.get_generated_topic_titles(days: 7)
+
+    Enum.reject(topics, fn topic ->
+      topic_words = significant_words(topic.title)
+
+      Enum.any?(recent_titles, fn recent_title ->
+        recent_words = significant_words(recent_title)
+        overlap = MapSet.intersection(topic_words, recent_words) |> MapSet.size()
+        min_size = min(MapSet.size(topic_words), MapSet.size(recent_words))
+        min_size > 0 and overlap / min_size > 0.6
+      end)
+    end)
+  end
+
+  defp significant_words(title) do
+    stopwords = ~w(the a an is are was were be been being have has had do does did
+                   will would shall should may might can could of in to for on with
+                   at by from as into about between through after before)
+
+    title
+    |> String.downcase()
+    |> String.split(~r/\W+/, trim: true)
+    |> Enum.reject(&(&1 in stopwords))
+    |> MapSet.new()
   end
 end
 ```
 
+### 3.3 Concrete Example: A Full Day
+
+Here's what a typical day looks like with 100 incoming articles and admin target set to 10:
+
+```
+ 6:00 UTC — FeedPoller has accumulated ~30 items overnight
+
+ 12:00 UTC (first cycle in publish window)
+   TopicEngine pulls 35 unprocessed items
+   Claude Haiku clusters into 14 topics:
+     1. "SEC enforcement action against Uniswap" (7 sources, 2 premium) → score 21.0
+     2. "Bitcoin hash rate ATH" (5 sources, 1 premium) → score 14.0
+     3. "Tether launches on Arbitrum" (3 sources, 1 premium) → score 10.0
+     4. "Fed holds rates, crypto reacts" (4 sources, 2 premium) → score 16.0
+     5. "New EU MiCA rules take effect" (3 sources, 1 premium) → score 10.0
+     6. "Solana DeFi TVL surges" (3 sources) → score 6.5
+     7. "Ethereum L2 gas costs drop" (2 sources) → score 4.5
+     8. "NFT marketplace shuts down" (2 sources) → score 3.5
+     9. "New memecoin launches" (1 source) → score 3.0
+    10-14. (various single-source stories) → scores 1.0-3.0
+
+   After keyword blocks: 14 → 14 (nothing blocked today)
+   After dedup filter: 14 → 13 (topic #5 too similar to last week's MiCA article)
+   After category diversity: 13 → all pass (first cycle, no categories saturated)
+   Daily budget: 0 published, 0 queued → 10 slots available
+   Selected: top 4 (topics 1, 4, 2, 3) → sent to ContentGenerator
+
+   Queue now has 4 articles pending review
+
+ 13:00 UTC — Admin reviews queue
+   Approves #1 (SEC/Uniswap) after editing headline → published
+   Approves #4 (Fed/rates) as-is → published
+   Edits #2 (Bitcoin hash rate) — changes angle, adds a tweet → saves draft
+   Approves #3 (Tether/Arbitrum) as-is → published
+
+ 15:15 UTC (another cycle)
+   TopicEngine pulls 22 new unprocessed items (afternoon feeds)
+   Claude clusters into 9 topics:
+     1. "Binance delists privacy coins" (4 sources, 1 premium) → score 12.0
+     2. "DeFi protocol hacked for $12M" (5 sources) → score 11.5
+     3. "Coinbase earnings beat estimates" (3 sources, 2 premium) → score 13.0
+     4. "New SEC commissioner crypto-friendly" (2 sources, 1 premium) → score 8.5
+     5-9. (lower-scoring topics) → scores 2.0-5.0
+
+   After dedup: topic #4 filtered (SEC/regulation — too similar to morning article)
+   After diversity: all pass
+   Daily budget: 3 published, 1 queued (draft) → 6 slots available
+   Selected: top 3 (topics 3, 1, 2)
+
+   Queue now has 4 articles (1 draft + 3 new)
+
+ 16:00 UTC — Admin reviews
+   Publishes the morning draft (#2 Bitcoin hash rate)
+   Approves Coinbase earnings article → published
+   Approves Binance privacy coins → published
+   Edits DeFi hack article (adds more details) → publishes
+
+ 18:30 UTC (another cycle)
+   TopicEngine pulls 15 new items
+   Clusters into 6 topics
+   Daily budget: 6 published, 0 queued → 4 slots available
+   Selected: top 3
+
+ 20:00 UTC — Admin approves 2, rejects 1 (low quality)
+
+ 22:00 UTC (last cycle before window closes)
+   Only 2 slots remaining
+   Selects 2 topics → queue
+   Admin approves both
+
+ End of day: 10 published, 1 rejected
+   Categories: regulation(2), bitcoin(1), trading(2), defi(2),
+               privacy(1), stablecoins(1), macro_trends(1)
+```
+
+### 3.4 What Makes a Topic Win?
+
+**Topics that score highest** (and get selected):
+1. **Multi-source stories** — if 5+ outlets cover it, it's clearly newsworthy. A story on
+   only 1 source might just be that outlet's opinion piece.
+2. **Premium source coverage** — Bloomberg writing about it signals institutional relevance.
+   The +3 premium bonus is significant (equivalent to 3 extra standard sources).
+3. **Breaking news** — the recency bonus (+3 for <2 hours) means a breaking story that just
+   dropped will beat an equally-covered story from yesterday.
+4. **Admin-boosted topics** — if the admin sets bitcoin boost +2 and keyword "ethereum etf" +5,
+   those topics get a significant leg up over organic scoring.
+5. **Counter-narrative potential** — topics from premium mainstream sources naturally have
+   counter-narrative potential (the "reframe the establishment narrative" editorial approach).
+
+**Topics that get filtered out**:
+1. **Keyword-blocked** — admin blocked "dogecoin" → all dogecoin topics are removed before scoring.
+2. **Already covered** — if we wrote about MiCA regulation 3 days ago and there's a similar
+   MiCA story today, it's filtered by the 60% keyword overlap check.
+3. **Category saturated** — 3rd regulation article of the day gets skipped even if scored high.
+   The slot goes to the highest-scoring topic from an underrepresented category instead.
+4. **Negative score** — admin set NFT category boost to -5, so a weak NFT story (base score 3.0)
+   goes to -2.0 and gets filtered out.
+5. **Single-source niche stories** — score too low to compete. A random altcoin pump on
+   one blog (score ~3) can't beat a multi-source institutional story (score ~15).
+6. **Daily budget exhausted** — once target articles are published + queued, the engine stops
+   selecting until tomorrow.
+
+### 3.5 How Admin Influences What Gets Written
+
+| Admin Action | Effect | Example |
+|-------------|--------|---------|
+| Increase articles/day slider | More topics selected per cycle | 10 → 20: pipeline generates twice as many |
+| Category boost +N | Topics in that category score higher | Bitcoin +3: bitcoin topics jump above similar-scored others |
+| Category boost -N | Topics in that category score lower | NFT -5: most NFT topics drop below threshold |
+| Category max/day | Hard cap on that category's output | Regulation max 1: only the single best regulation story makes it |
+| Keyword boost | Specific keyword gets temporary priority | "solana" +5 for 1 week: any topic mentioning Solana gets boosted |
+| Keyword block | Topics containing keyword are removed entirely | Block "dogecoin": zero dogecoin coverage |
+| Pause pipeline | No new articles generated (queue frozen) | Maintenance, quality issues, manual content day |
+
 ### 3.2 Topic Analysis via Claude
 
-Use Claude (Haiku for fast/cheap topic clustering, Sonnet for content generation):
+Use Claude (Haiku for fast/cheap topic clustering, Opus 4.6 for content generation).
+
+**Pre-filtering**: Before sending to Claude, filter feed items to reduce noise and cost:
+1. Only items from the last 6-12 hours (configurable)
+2. Deduplicate by URL (unique index handles this)
+3. Truncate summaries to ~300 chars each (some feeds include full articles)
+4. Cap at ~50 items per batch (keeps prompt under 4K tokens)
+
+**Temperature**: Use `temperature: 0.1` for topic clustering (deterministic grouping).
+
+**Structured Output**: Use Claude's tool use / structured output instead of raw JSON parsing.
+This prevents JSON parse failures and ensures consistent schema:
 
 ```elixir
-# Topic clustering prompt (sent to Claude Haiku - fast & cheap)
-"""
+# Topic clustering — use Claude tool_use for structured output
+# Model: claude-haiku-4-5-20251001 (fast & cheap)
+# Temperature: 0.1 (deterministic clustering)
+
+tools = [
+  %{
+    "name" => "report_topics",
+    "description" => "Report the clustered topics found in the news articles",
+    "input_schema" => %{
+      "type" => "object",
+      "properties" => %{
+        "topics" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{
+              "title" => %{"type" => "string", "description" => "Concise topic title"},
+              "category" => %{"type" => "string", "enum" => categories_list},
+              "source_urls" => %{"type" => "array", "items" => %{"type" => "string"}},
+              "key_facts" => %{"type" => "string"},
+              "angles" => %{
+                "type" => "array",
+                "items" => %{"type" => "string"},
+                "maxItems" => 3
+              }
+            },
+            "required" => ["title", "category", "source_urls", "key_facts", "angles"]
+          }
+        }
+      },
+      "required" => ["topics"]
+    }
+  }
+]
+
+prompt = """
 Analyze these #{length(items)} crypto news articles and group them into distinct topics.
-For each topic:
-1. Topic title (concise)
-2. Category: one of #{inspect(@categories)}
-3. Source article URLs
-4. Key facts and data points
-5. 3 potential original angles that a pro-decentralization, anti-government-overreach
-   commentary site could take on this story
+For each topic, identify 3 potential original angles that a pro-decentralization,
+pro-individual-liberty commentary site could take on the story.
 
 Articles:
-#{format_items(items)}
-
-Return as JSON array.
+#{format_items_truncated(items)}
 """
+
+# Call Claude with tool_use — response is guaranteed to match schema
+case call_claude_with_tools(prompt, tools, model: "claude-haiku-4-5-20251001", temperature: 0.1) do
+  {:ok, %{"topics" => topics}} -> topics
+  {:error, reason} -> Logger.error("[TopicEngine] Clustering failed: #{inspect(reason)}"); []
+end
 ```
 
 ---
@@ -327,35 +907,86 @@ Core principles for Claude prompts:
 - **Pro-innovation**: Crypto/Web3 as the future of finance, gaming, identity
 - **Engaging tone**: Not dry analysis - conversational, sometimes provocative, always informed
 
+**Content Safety Guardrails** (include in all prompts):
+- **No financial advice**: Never recommend buying, selling, or holding specific tokens/coins. Use "worth watching" or "interesting development" instead of "buy opportunity"
+- **No market manipulation language**: Avoid "this will moon", "guaranteed returns", "get in before it's too late"
+- **No conspiracy theories**: Evidence-based skepticism, not unfounded claims
+- **Anti-repetition**: Never start articles with "In the world of crypto..." or "The crypto community is buzzing..." — use specific, varied hooks each time
+
 ### 4.2 Claude Content Generation Pipeline
+
+**ContentGenerator is a module, not a GenServer** — it does stateless work (call Claude, parse response).
+GenServers are reserved for processes that hold state or run on a timer.
 
 ```elixir
 defmodule BlocksterV2.ContentAutomation.ContentGenerator do
   @anthropic_url "https://api.anthropic.com/v1/messages"
-  @model "claude-sonnet-4-5-20250929"  # Good balance of quality/cost
 
-  def generate_article(topic, author_persona) do
+  def generate_article(topic, author_persona, pipeline_id) do
     prompt = build_generation_prompt(topic, author_persona)
+    tools = article_output_schema()
+    model = BlocksterV2.ContentAutomation.Config.content_model()
 
-    case call_claude(prompt) do
-      {:ok, response} ->
-        # Parse Claude's response into structured article
-        article = parse_article_response(response)
-
-        # Convert to TipTap JSON format
-        tiptap_content = to_tiptap_json(article)
+    # Use Claude tool_use for structured output — guaranteed schema
+    # Model: claude-opus-4-6 for best editorial quality
+    # Temperature: 0.7-0.8 for creative content generation
+    case call_claude_with_tools(prompt, tools, model: model, temperature: 0.7) do
+      {:ok, article} ->
+        # Convert sections to TipTap JSON format
+        tiptap_content = TipTapBuilder.build(article["sections"])
 
         {:ok, %{
-          title: article.title,
+          title: article["title"],
           content: tiptap_content,
-          excerpt: article.excerpt,
+          excerpt: article["excerpt"],
           category: topic.category,
-          tags: article.tags,
-          featured_image_query: article.image_suggestion
+          tags: article["tags"],
+          featured_image_query: article["image_suggestion"],
+          tweet_search_queries: article["tweet_suggestions"],  # Separate step
+          pipeline_id: pipeline_id
         }}
 
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        Logger.error("[ContentGenerator] pipeline=#{pipeline_id} error=#{inspect(reason)}")
+        {:error, reason}
     end
+  end
+
+  # Structured output schema — Claude returns tool_use result matching this exactly
+  defp article_output_schema do
+    [%{
+      "name" => "write_article",
+      "description" => "Write the article content",
+      "input_schema" => %{
+        "type" => "object",
+        "properties" => %{
+          "title" => %{"type" => "string", "description" => "Catchy, opinionated headline (max 80 chars)"},
+          "excerpt" => %{"type" => "string", "description" => "One-sentence summary for cards/social (max 160 chars)"},
+          "sections" => %{
+            "type" => "array",
+            "items" => %{
+              "type" => "object",
+              "properties" => %{
+                "type" => %{"type" => "string", "enum" => ["paragraph", "heading", "blockquote", "bullet_list", "ordered_list", "spacer"]},
+                "text" => %{"type" => "string"},
+                "level" => %{"type" => "integer"},
+                "items" => %{"type" => "array", "items" => %{"type" => "string"}}
+              },
+              "required" => ["type"]
+            }
+          },
+          "tags" => %{"type" => "array", "items" => %{"type" => "string"}, "maxItems" => 5},
+          "image_suggestion" => %{"type" => "string", "description" => "Search query for Unsplash"},
+          "tweet_suggestions" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "maxItems" => 3,
+            "description" => "Twitter search queries for embedding relevant tweets (processed separately)"
+          }
+        },
+        "required" => ["title", "excerpt", "sections", "tags", "image_suggestion"]
+      }
+    }]
   end
 
   defp build_generation_prompt(topic, persona) do
@@ -371,6 +1002,13 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
     - Use concrete examples and data when available.
     - Conversational but authoritative. Occasional wit and sarcasm.
     - #{if topic.has_premium_source, do: "~3-4 minute read time (700-1000 words) — deeper analysis", else: "~2 minute read time (400-500 words)"}
+
+    CONTENT SAFETY:
+    - NEVER recommend buying, selling, or holding specific tokens. No "buy the dip", "this will moon", etc.
+    - NEVER predict specific prices or guaranteed returns.
+    - Base all claims on facts from source material. Evidence-based skepticism, not conspiracy.
+    - Do NOT start the article with generic openings like "In the world of crypto..." or
+      "The crypto community is buzzing..." — use a specific, surprising hook every time.
 
     COUNTER-NARRATIVE FRAMING:
     - When source material comes from mainstream financial press (Bloomberg, FT, Reuters,
@@ -393,6 +1031,13 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
     4. Implications: What should crypto natives care about? What comes next?
     5. Closing: Punchy one-liner or call to action
 
+    FORMATTING:
+    - Use "paragraph" for body text. Markdown bold (**bold**) and italic (*italic*) supported.
+    - Use "heading" (level 2 or 3) for section breaks.
+    - Use "blockquote" for key quotes or highlighted points.
+    - Use "bullet_list" or "ordered_list" with "items" array for lists.
+    - Use "spacer" for visual breaks between major sections.
+
     #{if topic.has_premium_source do}
     NOTE: This topic is sourced from premium mainstream outlets. Write a more substantial
     article — include deeper analysis and explicitly engage with the mainstream framing.
@@ -410,24 +1055,14 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
 
     ANGLE TO TAKE:
     #{topic.selected_angle}
-
-    OUTPUT FORMAT (return as JSON):
-    {
-      "title": "Catchy, opinionated headline (max 80 chars)",
-      "excerpt": "One-sentence summary for cards/social (max 160 chars)",
-      "sections": [
-        {"type": "paragraph", "text": "..."},
-        {"type": "heading", "level": 2, "text": "..."},
-        {"type": "blockquote", "text": "..."},
-        {"type": "tweet_suggestion", "search_query": "relevant twitter search for embedding"}
-      ],
-      "tags": ["bitcoin", "regulation", "fed"],
-      "image_suggestion": "search query for unsplash/stock photo"
-    }
     """
   end
 end
 ```
+
+**Tweet suggestions are returned as search queries** and processed in a separate pipeline step
+by TweetFinder (Section 5). This avoids blocking article generation on X API calls and keeps
+the content generation prompt focused on writing.
 
 ### 4.3 TipTap JSON Conversion
 
@@ -435,9 +1070,13 @@ Convert Claude's structured output to Blockster's exact TipTap format:
 
 ```elixir
 defmodule BlocksterV2.ContentAutomation.TipTapBuilder do
-  @doc """
-  Converts article sections into TipTap JSON that the renderer expects.
+  @moduledoc """
+  Converts article sections into TipTap JSON that TipTapRenderer expects.
+  Must support ALL node types that the renderer handles:
+  paragraph, heading, blockquote, bulletList, orderedList, listItem,
+  image, tweet, spacer, codeBlock, horizontalRule
   """
+
   def build(sections) do
     content = Enum.flat_map(sections, &section_to_nodes/1)
     %{"type" => "doc", "content" => content}
@@ -448,16 +1087,43 @@ defmodule BlocksterV2.ContentAutomation.TipTapBuilder do
   end
 
   defp section_to_nodes(%{"type" => "heading", "level" => level, "text" => text}) do
+    level = level || 2  # Default to h2
     [%{"type" => "heading", "attrs" => %{"level" => level},
        "content" => [%{"type" => "text", "text" => text}]}]
   end
 
   defp section_to_nodes(%{"type" => "blockquote", "text" => text}) do
     [%{"type" => "blockquote", "content" => [
-      %{"type" => "paragraph", "content" => [%{"type" => "text", "text" => text}]}
+      %{"type" => "paragraph", "content" => parse_inline_marks(text)}
     ]}]
   end
 
+  # Bullet list: expects "items" array of strings
+  defp section_to_nodes(%{"type" => "bullet_list", "items" => items}) do
+    list_items = Enum.map(items, fn item_text ->
+      %{"type" => "listItem", "content" => [
+        %{"type" => "paragraph", "content" => parse_inline_marks(item_text)}
+      ]}
+    end)
+    [%{"type" => "bulletList", "content" => list_items}]
+  end
+
+  # Ordered list: expects "items" array of strings
+  defp section_to_nodes(%{"type" => "ordered_list", "items" => items}) do
+    list_items = Enum.map(items, fn item_text ->
+      %{"type" => "listItem", "content" => [
+        %{"type" => "paragraph", "content" => parse_inline_marks(item_text)}
+      ]}
+    end)
+    [%{"type" => "orderedList", "content" => list_items}]
+  end
+
+  # Image node
+  defp section_to_nodes(%{"type" => "image", "src" => src}) do
+    [%{"type" => "image", "attrs" => %{"src" => src}}]
+  end
+
+  # Tweet embed (added by TweetFinder post-processing)
   defp section_to_nodes(%{"type" => "tweet", "url" => url, "id" => id}) do
     [%{"type" => "tweet", "attrs" => %{"url" => url, "id" => id}}]
   end
@@ -466,10 +1132,55 @@ defmodule BlocksterV2.ContentAutomation.TipTapBuilder do
     [%{"type" => "spacer"}]
   end
 
-  # Parse bold, italic, links from markdown-style text
-  defp parse_inline_marks(text) do
-    # Convert **bold** to marks, *italic* to marks, [text](url) to links
-    # Returns list of TipTap inline nodes with marks
+  defp section_to_nodes(%{"type" => "horizontalRule"}) do
+    [%{"type" => "horizontalRule"}]
+  end
+
+  # Fallback — skip unknown types
+  defp section_to_nodes(_), do: []
+
+  @doc """
+  Parse markdown-style inline formatting into TipTap text nodes with marks.
+  Handles: **bold**, *italic*, [text](url)
+
+  Uses Earmark to parse markdown fragments and convert to TipTap marks.
+  Add `{:earmark, "~> 1.4"}` to mix.exs.
+  """
+  defp parse_inline_marks(text) when is_binary(text) do
+    # Use regex-based parser for inline marks (simpler than full Earmark for fragments)
+    # Process order matters: links first, then bold, then italic
+    text
+    |> tokenize_inline()
+    |> Enum.map(&to_tiptap_text_node/1)
+  end
+
+  defp parse_inline_marks(_), do: []
+
+  # Tokenize text into segments with marks
+  # Returns list of {text, marks} tuples
+  defp tokenize_inline(text) do
+    # Pattern: [link text](url) | **bold** | *italic* | plain text
+    regex = ~r/\[([^\]]+)\]\(([^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|([^*\[]+)/
+
+    Regex.scan(regex, text)
+    |> Enum.map(fn
+      [_, link_text, url | _] when link_text != "" ->
+        {link_text, [%{"type" => "link", "attrs" => %{"href" => url}}]}
+      [_, _, _, bold_text | _] when bold_text != "" ->
+        {bold_text, [%{"type" => "bold"}]}
+      [_, _, _, _, italic_text | _] when italic_text != "" ->
+        {italic_text, [%{"type" => "italic"}]}
+      [plain | _] ->
+        {plain, []}
+    end)
+  end
+
+  defp to_tiptap_text_node({text, []}) do
+    %{"type" => "text", "text" => text}
+  end
+
+  defp to_tiptap_text_node({text, marks}) do
+    %{"type" => "text", "text" => text, "marks" => marks}
   end
 end
 ```
@@ -590,17 +1301,39 @@ end
 
 One-time setup: Create User records in PostgreSQL for each persona.
 
+**IMPORTANT**: `Accounts.create_user/1` does not exist. User creation requires:
+- `wallet_address` (required field — generate a deterministic address per persona)
+- `auth_method` must be `"email"` (only `"wallet"` and `"email"` are valid)
+- Use `Repo.insert/1` directly since no public create function exists
+
 ```elixir
-# Migration or seed script
-for persona <- AuthorRotator.personas() do
-  BlocksterV2.Accounts.create_user(%{
+# One-time seed script (run via `mix run priv/repo/seeds/content_authors.exs`)
+alias BlocksterV2.Repo
+alias BlocksterV2.Accounts.User
+
+for persona <- BlocksterV2.ContentAutomation.AuthorRotator.personas() do
+  # Generate deterministic wallet address from persona email (not a real wallet)
+  wallet_hash = :crypto.hash(:sha256, persona.email) |> Base.encode16(case: :lower)
+  fake_wallet = "0x" <> String.slice(wallet_hash, 0, 40)
+
+  changeset = User.changeset(%User{}, %{
     email: persona.email,
-    username: persona.username,
-    auth_method: "internal",  # Not accessible via login
-    avatar_url: persona.avatar_url  # Pre-generated or stock photo
+    wallet_address: fake_wallet,
+    auth_method: "email",
+    is_admin: false
   })
+
+  case Repo.insert(changeset) do
+    {:ok, user} ->
+      IO.puts("Created author: #{persona.username} (user_id: #{user.id})")
+    {:error, changeset} ->
+      IO.puts("Skipped #{persona.username}: #{inspect(changeset.errors)}")
+  end
 end
 ```
+
+**Note**: These users have fake wallet addresses and cannot log in or receive tokens.
+They exist solely as `author_id` references for automated posts.
 
 ---
 
@@ -658,10 +1391,14 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
     {:ok, post} = Blog.publish_post(post)
 
     # 4. Assign BUX pool (scales with article length)
-    EngagementTracker.set_post_bux_pool(post.id, bux_pool)
+    # CORRECT function: deposit_post_bux/2 (NOT set_post_bux_pool which doesn't exist)
+    # Delegates to PostBuxPoolWriter for serialized writes
+    EngagementTracker.deposit_post_bux(post.id, bux_pool)
 
     # 5. Notify SortedPostsCache to include new post
-    BlocksterV2.SortedPostsCache.refresh()
+    # CORRECT function: reload/0 (NOT refresh/0 which doesn't exist)
+    # Alternative: SortedPostsCache.add_post/5 for single-post insertion
+    BlocksterV2.SortedPostsCache.reload()
 
     {:ok, post}
   end
@@ -727,17 +1464,34 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
   use GenServer
 
   @posts_per_day 10
-  @publishing_hours 6..22      # Publish between 6am-10pm UTC
+  # Publishing window: 12:00 - 04:00 UTC (= 7am-11pm EST / 4am-8pm PST)
+  # Covers US morning through late evening when crypto audience is most active
+  @publish_start_hour 12       # 12:00 UTC = 7am EST
+  @publish_end_hour 28         # 04:00 UTC next day (28 = 24 + 4)
   @min_gap_minutes 60          # At least 1 hour between posts
 
   # Queue holds generated articles waiting to be published
   # Publishes at calculated intervals throughout the day
+  # Uses GlobalSingleton for cluster-wide single instance
+
+  def start_link(opts) do
+    case BlocksterV2.GlobalSingleton.start_link(__MODULE__, opts) do
+      {:ok, pid} -> {:ok, pid}
+      {:already_registered, _pid} -> :ignore
+    end
+  end
 
   def schedule_next_publish do
-    hours_remaining = 22 - DateTime.utc_now().hour
+    current_hour = DateTime.utc_now().hour
+    # Normalize to 0-28 range (hours past midnight can be 24-28)
+    effective_hour = if current_hour < @publish_start_hour and current_hour < 4, do: current_hour + 24, else: current_hour
+
+    hours_remaining = @publish_end_hour - effective_hour
     posts_remaining = @posts_per_day - posts_published_today()
 
-    if posts_remaining > 0 and hours_remaining > 0 do
+    in_window = effective_hour >= @publish_start_hour and effective_hour < @publish_end_hour
+
+    if posts_remaining > 0 and hours_remaining > 0 and in_window do
       gap_minutes = max(@min_gap_minutes, (hours_remaining * 60) / posts_remaining)
       Process.send_after(self(), :publish_next, trunc(gap_minutes * 60 * 1000))
     end
@@ -777,44 +1531,270 @@ end
 
 ---
 
-## 9. Database & Mnesia Changes
+## 9. Database Changes
 
-### 9.1 New Mnesia Tables
+### 9.1 PostgreSQL Tables (Pipeline Data)
+
+All pipeline data lives in PostgreSQL. Feed items, generated topics, and the publish queue
+contain text-heavy records that don't need real-time distributed access — they're write-once,
+process-once data that flows through the pipeline and eventually becomes a published post.
+
+**Section 2.4** has the `content_feed_items` migration. The remaining tables:
 
 ```elixir
-# Feed items storage
-:mnesia.create_table(:content_feed_items, [
-  attributes: [:url, :title, :summary, :source, :published_at, :fetched_at,
-               :processed, :topic_cluster_id],
-  index: [:source, :processed, :published_at],
-  disc_copies: [node()]
-])
+# priv/repo/migrations/YYYYMMDDHHMMSS_create_content_generated_topics.exs
+defmodule BlocksterV2.Repo.Migrations.CreateContentGeneratedTopics do
+  use Ecto.Migration
 
-# Generated content tracking (prevent duplicates)
-:mnesia.create_table(:content_generated_topics, [
-  attributes: [:topic_id, :topic_title, :category, :source_urls, :article_id,
-               :generated_at, :published_at, :author_id],
-  index: [:category, :generated_at],
-  disc_copies: [node()]
-])
+  def change do
+    create table(:content_generated_topics, primary_key: false) do
+      add :id, :binary_id, primary_key: true
+      add :title, :string, null: false
+      add :category, :string
+      add :source_urls, {:array, :string}, default: []
+      add :rank_score, :float
+      add :source_count, :integer
+      add :article_id, references(:posts, on_delete: :nilify_all)
+      add :author_id, references(:users, on_delete: :nilify_all)
+      add :pipeline_id, :binary_id
+      add :published_at, :utc_datetime
 
-# Publishing schedule
-:mnesia.create_table(:content_publish_queue, [
-  attributes: [:id, :article_data, :author_id, :scheduled_at, :status, :created_at],
-  index: [:status, :scheduled_at],
+      timestamps()
+    end
+
+    create index(:content_generated_topics, [:category])
+    create index(:content_generated_topics, [:inserted_at])
+    create index(:content_generated_topics, [:pipeline_id])
+  end
+end
+
+# priv/repo/migrations/YYYYMMDDHHMMSS_create_content_publish_queue.exs
+defmodule BlocksterV2.Repo.Migrations.CreateContentPublishQueue do
+  use Ecto.Migration
+
+  def change do
+    create table(:content_publish_queue, primary_key: false) do
+      add :id, :binary_id, primary_key: true
+      add :article_data, :map, null: false          # TipTap JSON, title, excerpt, tags, etc.
+      add :author_id, references(:users, on_delete: :nilify_all)
+      add :scheduled_at, :utc_datetime
+      add :status, :string, default: "pending"       # pending, draft, approved, published, rejected
+      add :pipeline_id, :binary_id
+      add :topic_id, references(:content_generated_topics, type: :binary_id, on_delete: :nilify_all)
+      add :post_id, references(:posts, on_delete: :nilify_all)
+      add :rejected_reason, :text
+      add :reviewed_at, :utc_datetime
+      add :reviewed_by, references(:users, on_delete: :nilify_all)
+
+      timestamps()
+    end
+
+    create index(:content_publish_queue, [:status])
+    create index(:content_publish_queue, [:scheduled_at])
+    create index(:content_publish_queue, [:pipeline_id])
+  end
+end
+```
+
+**FeedStore module** (`lib/blockster_v2/content_automation/feed_store.ex`) wraps all Ecto
+queries for the pipeline tables:
+
+```elixir
+defmodule BlocksterV2.ContentAutomation.FeedStore do
+  alias BlocksterV2.Repo
+  import Ecto.Query
+
+  # ── Feed Items ──
+
+  def store_new_items(items) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    entries = Enum.map(items, fn item ->
+      Map.merge(item, %{inserted_at: now, updated_at: now})
+    end)
+
+    Repo.insert_all(ContentFeedItem, entries,
+      on_conflict: :nothing,        # Skip duplicates (unique URL index)
+      conflict_target: :url
+    )
+  end
+
+  def get_recent_unprocessed(opts) do
+    hours = Keyword.get(opts, :hours, 12)
+    cutoff = DateTime.utc_now() |> DateTime.add(-hours, :hour)
+
+    from(f in ContentFeedItem,
+      where: f.processed == false and f.fetched_at >= ^cutoff,
+      order_by: [desc: f.published_at],
+      limit: 50
+    )
+    |> Repo.all()
+  end
+
+  def mark_items_processed(urls, topic_id) do
+    from(f in ContentFeedItem, where: f.url in ^urls)
+    |> Repo.update_all(set: [processed: true, topic_cluster_id: topic_id])
+  end
+
+  def count_published_today do
+    today_start = Date.utc_today() |> DateTime.new!(~T[00:00:00], "Etc/UTC")
+
+    from(q in ContentPublishQueue,
+      where: q.status == "published" and q.updated_at >= ^today_start
+    )
+    |> Repo.aggregate(:count)
+  end
+
+  def count_queued do
+    from(q in ContentPublishQueue, where: q.status in ["pending", "draft", "approved"])
+    |> Repo.aggregate(:count)
+  end
+
+  def get_today_category_counts do
+    today_start = Date.utc_today() |> DateTime.new!(~T[00:00:00], "Etc/UTC")
+
+    from(t in ContentGeneratedTopic,
+      where: t.inserted_at >= ^today_start and not is_nil(t.article_id),
+      group_by: t.category,
+      select: {t.category, count(t.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  def get_generated_topic_titles(opts) do
+    days = Keyword.get(opts, :days, 7)
+    cutoff = DateTime.utc_now() |> DateTime.add(-days, :day)
+
+    from(t in ContentGeneratedTopic,
+      where: t.inserted_at >= ^cutoff,
+      select: t.title
+    )
+    |> Repo.all()
+  end
+
+  # ── Queue ──
+
+  def get_queue_entry(id), do: Repo.get(ContentPublishQueue, id)
+
+  def get_pending_queue_entries do
+    from(q in ContentPublishQueue,
+      where: q.status in ["pending", "draft"],
+      order_by: [desc: q.inserted_at],
+      preload: [:author]
+    )
+    |> Repo.all()
+  end
+
+  def update_queue_entry(id, attrs) do
+    Repo.get!(ContentPublishQueue, id)
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.update()
+  end
+
+  def mark_queue_entry_published(id, post_id) do
+    Repo.get!(ContentPublishQueue, id)
+    |> Ecto.Changeset.change(%{status: "published", post_id: post_id, reviewed_at: DateTime.utc_now()})
+    |> Repo.update()
+  end
+
+  # ── Cleanup ──
+
+  def cleanup_old_records do
+    seven_days_ago = DateTime.utc_now() |> DateTime.add(-7, :day)
+    forty_eight_hours_ago = DateTime.utc_now() |> DateTime.add(-48, :hour)
+
+    # Delete feed items older than 7 days
+    from(f in ContentFeedItem, where: f.fetched_at < ^seven_days_ago)
+    |> Repo.delete_all()
+
+    # Delete completed/rejected queue entries older than 48 hours
+    from(q in ContentPublishQueue,
+      where: q.status in ["published", "rejected"] and q.updated_at < ^forty_eight_hours_ago
+    )
+    |> Repo.delete_all()
+  end
+end
+```
+
+### 9.2 Mnesia Table (Admin Settings Only)
+
+Only the admin settings table uses Mnesia — it's small, frequently read, and benefits from
+real-time access across cluster nodes:
+
+```elixir
+# In MnesiaInitializer — add to @tables list
+:mnesia.create_table(:content_automation_settings, [
+  attributes: [:key, :value, :updated_at, :updated_by],
   disc_copies: [node()]
 ])
 ```
 
-### 9.2 No PostgreSQL Schema Changes Required
+This stores: `posts_per_day`, `category_config`, `keyword_boosts`, `keyword_blocks`, `paused`.
+See Section 3.1 for the full settings schema.
+
+### 9.3 Two-Phase Processing
+
+**CRITICAL**: Mark feed items as `processed: true` AFTER the topic is successfully stored
+in `content_generated_topics`, not before. This prevents data loss if the process crashes
+between marking and storing:
+
+```elixir
+# In TopicEngine, after clustering:
+def store_topic_and_mark_processed(topic, source_item_urls) do
+  Repo.transaction(fn ->
+    # 1. Store topic first
+    {:ok, stored_topic} = Repo.insert(%ContentGeneratedTopic{
+      id: Ecto.UUID.generate(),
+      title: topic.title,
+      category: to_string(topic.category),
+      source_urls: source_item_urls,
+      rank_score: topic.rank_score,
+      source_count: topic.source_count,
+      pipeline_id: topic.pipeline_id
+    })
+
+    # 2. Only THEN mark source items as processed
+    FeedStore.mark_items_processed(source_item_urls, stored_topic.id)
+
+    stored_topic
+  end)
+end
+```
+
+Using `Repo.transaction/1` ensures both operations succeed or both roll back — no orphaned state.
+
+### 9.4 Pipeline Traceability
+
+Every article gets a `pipeline_id` (UUID) assigned at the start of content generation.
+This ID flows through all stages:
+
+```
+TopicEngine (creates pipeline_id)
+  → ContentGenerator (passes pipeline_id)
+    → TweetFinder (logs pipeline_id)
+      → ImageFinder (logs pipeline_id)
+        → QualityChecker (logs pipeline_id)
+          → ContentPublisher (stores pipeline_id in content_generated_topics)
+```
+
+All log messages include `pipeline=<id>` for end-to-end debugging:
+```elixir
+Logger.info("[ContentGenerator] pipeline=#{pipeline_id} generating article for topic=#{topic.title}")
+```
+
+### 9.5 Existing Posts Table
 
 Posts use the existing `posts` table with all needed fields. Author personas are regular User records.
+No changes to existing PostgreSQL schema — only new tables added.
 
 ---
 
 ## 10. Configuration
 
 ### 10.1 Application Config
+
+**IMPORTANT**: Read config from `Application.get_env/3` at runtime, not module attributes.
+Module attributes are compiled once and don't pick up runtime config changes.
 
 ```elixir
 # config/runtime.exs
@@ -824,11 +1804,32 @@ config :blockster_v2, :content_automation,
   x_bearer_token: System.get_env("X_BEARER_TOKEN"),
   unsplash_access_key: System.get_env("UNSPLASH_ACCESS_KEY"),
   posts_per_day: String.to_integer(System.get_env("CONTENT_POSTS_PER_DAY", "10")),
-  claude_model: System.get_env("CONTENT_CLAUDE_MODEL", "claude-sonnet-4-5-20250929"),
-  default_bux_reward: 5,
-  default_bux_pool: 100,
+  content_model: System.get_env("CONTENT_CLAUDE_MODEL", "claude-opus-4-6"),
+  topic_model: System.get_env("TOPIC_CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
   feed_poll_interval: :timer.minutes(5),
   topic_analysis_interval: :timer.minutes(15)
+```
+
+**Model choices**:
+- **Content generation**: `claude-opus-4-6` — best quality for opinionated editorial writing,
+  nuanced counter-narrative framing, and voice consistency. Worth the cost for 10 articles/day.
+- **Topic clustering**: `claude-haiku-4-5-20251001` — fast and cheap for deterministic grouping/ranking.
+
+```elixir
+# In each module — read config at runtime via helper
+defmodule BlocksterV2.ContentAutomation.Config do
+  def get(key, default \\ nil) do
+    Application.get_env(:blockster_v2, :content_automation, [])
+    |> Keyword.get(key, default)
+  end
+
+  def enabled?, do: get(:enabled, false)
+  def anthropic_api_key, do: get(:anthropic_api_key)
+  def content_model, do: get(:content_model, "claude-opus-4-6")
+  def topic_model, do: get(:topic_model, "claude-haiku-4-5-20251001")
+  def posts_per_day, do: get(:posts_per_day, 10)
+  def feed_poll_interval, do: get(:feed_poll_interval, :timer.minutes(5))
+end
 ```
 
 ### 10.2 Required Environment Variables / Fly Secrets
@@ -840,6 +1841,8 @@ flyctl secrets set \
   X_BEARER_TOKEN=AAAA... \
   UNSPLASH_ACCESS_KEY=... \
   CONTENT_POSTS_PER_DAY=10 \
+  CONTENT_CLAUDE_MODEL=claude-opus-4-6 \
+  TOPIC_CLAUDE_MODEL=claude-haiku-4-5-20251001 \
   --app blockster-v2
 ```
 
@@ -849,70 +1852,97 @@ flyctl secrets set \
 
 | Service | Usage | Monthly Cost |
 |---------|-------|-------------|
-| Claude Sonnet (content) | 10 articles/day × 30 = 300 calls, ~500 tokens in / ~2000 out each | ~$10-15 |
+| Claude Opus 4.6 (content) | 10 articles/day × 30 = 300 calls, ~500 tokens in / ~2000 out each | ~$60-90 |
 | Claude Haiku (topic analysis) | 96 calls/day (every 15 min) × 30 = 2,880 calls | ~$3-5 |
 | X API (tweets) | Basic tier, ~300 searches/month | $100 |
 | Unsplash | Free tier (50 req/hour) | $0 |
-| **Total** | | **~$115-120/month** |
+| **Total** | | **~$165-195/month** |
 
-**Alternative without X API**: Use curated tweet list approach → **$15-20/month total**
+**Alternative without X API**: Use curated tweet list approach → **$65-95/month total**
+
+*Opus is ~5-6x more expensive than Sonnet per token, but the quality improvement for
+opinionated editorial content is substantial. Can downgrade to Sonnet via config if needed.*
 
 ---
 
 ## 12. Supervision Tree Integration
 
 ```elixir
-# In application.ex, add to children list:
-{BlocksterV2.ContentAutomation.FeedPoller, []},
-{BlocksterV2.ContentAutomation.TopicEngine, []},
-{BlocksterV2.ContentAutomation.ContentQueue, []},
+# In application.ex, add to genserver_children list (conditionally enabled):
+content_automation_children =
+  if Application.get_env(:blockster_v2, :content_automation, [])[:enabled] do
+    [
+      {BlocksterV2.ContentAutomation.FeedPoller, []},
+      {BlocksterV2.ContentAutomation.TopicEngine, []},
+      {BlocksterV2.ContentAutomation.ContentQueue, []}
+    ]
+  else
+    []
+  end
+
+# Merge into existing children list
+children = base_children ++ genserver_children ++ content_automation_children
 ```
 
 All GenServers use `GlobalSingleton` for cluster-wide single instance (same pattern as PriceTracker, BetSettler).
+
+**Feature Flag**: When `CONTENT_AUTOMATION_ENABLED=false` (default), no content automation
+GenServers start. This allows safe deployment with the code in place before activating.
 
 ---
 
 ## 13. Implementation Phases
 
 ### Phase 1: RSS Infrastructure (2-3 days)
-- [ ] Add `elixir_feed_parser` to mix.exs
-- [ ] Create FeedPoller GenServer
-- [ ] Create FeedStore (Mnesia table)
-- [ ] Configure 20 RSS feed URLs
-- [ ] Test feed polling and storage
-- [ ] Add to supervision tree (behind feature flag)
+- [ ] Add `fast_rss` to mix.exs
+- [ ] Create Config module (Application config reader)
+- [ ] Create Ecto migrations (content_feed_items, content_generated_topics, content_publish_queue)
+- [ ] Create Ecto schemas (ContentFeedItem, ContentGeneratedTopic, ContentPublishQueue)
+- [ ] Create FeedStore module (Ecto queries for all pipeline tables)
+- [ ] Create FeedPoller GenServer (with GlobalSingleton)
+- [ ] Add `content_automation_settings` to MnesiaInitializer @tables
+- [ ] Configure feed URLs (28 feeds, 2 tiers)
+- [ ] Test feed polling, storage, and blocked-feed handling
+- [ ] Add to supervision tree (behind CONTENT_AUTOMATION_ENABLED feature flag)
 
 ### Phase 2: Topic Engine (2-3 days)
-- [ ] Create TopicEngine GenServer
-- [ ] Implement Claude Haiku topic clustering
+- [ ] Create TopicEngine GenServer (with GlobalSingleton)
+- [ ] Implement Claude Haiku topic clustering (structured output via tool_use)
+- [ ] Add pre-filtering (6-12 hour window, truncate summaries, cap at 50 items)
 - [ ] Add category classification
 - [ ] Implement deduplication (don't cover same topic twice)
+- [ ] Implement two-phase processing (store topic THEN mark items processed)
 - [ ] Test topic ranking and selection
 
 ### Phase 3: Content Generation (3-4 days)
-- [ ] Create ContentGenerator with Claude Sonnet integration
-- [ ] Build PromptTemplates module with editorial voice
-- [ ] Create TipTapBuilder (JSON conversion)
-- [ ] Implement article quality checks (word count, structure, originality)
-- [ ] Test full generation pipeline
+- [ ] Create ContentGenerator module (not GenServer — stateless)
+- [ ] Implement Claude Opus integration with structured output (tool_use)
+- [ ] Build editorial voice prompt with content safety guardrails
+- [ ] Create TipTapBuilder with all node types (paragraph, heading, blockquote, bulletList, orderedList, listItem, image, spacer, horizontalRule)
+- [ ] Implement parse_inline_marks (bold, italic, links)
+- [ ] Implement QualityChecker (word count, structure, duplicate, tags, TipTap validation)
+- [ ] Test full generation pipeline with pipeline_id traceability
 
 ### Phase 4: Author Personas (1 day)
 - [ ] Create AuthorRotator module with 5 personas
-- [ ] Create User accounts in database for each persona
+- [ ] Create seed script (`priv/repo/seeds/content_authors.exs`)
+- [ ] Create User accounts with Repo.insert (fake wallet addresses, auth_method: "email")
 - [ ] Generate/upload avatar images
 - [ ] Test author selection and rotation
 
 ### Phase 5: Publishing Pipeline (2-3 days)
 - [ ] Create ContentPublisher module
-- [ ] Implement BUX pool assignment
-- [ ] Create ContentQueue with scheduling
+- [ ] Implement BUX pool assignment via `EngagementTracker.deposit_post_bux/2`
+- [ ] Implement word-count-based BUX reward scaling
+- [ ] Create ContentQueue with US-hours scheduling (12:00-04:00 UTC)
+- [ ] Implement SortedPostsCache.reload() after publish
 - [ ] Test end-to-end: RSS → topic → generate → publish
 - [ ] Verify posts appear correctly on frontend
 
 ### Phase 6: Tweet Integration (2 days)
-- [ ] Create TweetFinder module
+- [ ] Create TweetFinder module (processes tweet_suggestions from ContentGenerator)
 - [ ] Integrate X API (or curated list alternative)
-- [ ] Embed tweets in TipTap content
+- [ ] Insert tweet nodes into TipTap content post-generation
 - [ ] Test tweet rendering in published posts
 
 ### Phase 7: Featured Images (1 day)
@@ -921,9 +1951,11 @@ All GenServers use `GlobalSingleton` for cluster-wide single instance (same patt
 - [ ] Test image attachment to posts
 
 ### Phase 8: Monitoring & Polish (2 days)
-- [ ] Add logging and error tracking
-- [ ] Create admin dashboard page for content pipeline status
+- [ ] Add pipeline_id logging throughout all modules
+- [ ] Implement PostgreSQL cleanup task (7 days feed items, 48h completed queue)
+- [ ] Create admin dashboard page at `/admin/content-automation`
 - [ ] Add manual override controls (pause, force publish, reject topic)
+- [ ] Add pipeline health monitoring (log daily: articles generated, published, rejected, errors)
 - [ ] Load testing (simulate 20+ posts/day)
 - [ ] Documentation
 
@@ -935,7 +1967,7 @@ All GenServers use `GlobalSingleton` for cluster-wide single instance (same patt
 
 Before publishing, each article must pass:
 
-1. **Word count**: 350-600 words (2 min read)
+1. **Word count**: 350-1200 words (standard 400-500, premium deep-dives 700-1000)
 2. **Originality**: No sentences copied verbatim from source articles
 3. **Structure**: Has title, excerpt, at least 3 paragraphs, proper TipTap JSON
 4. **No hallucinations**: Key facts (prices, dates, names) cross-referenced with source material
@@ -968,15 +2000,512 @@ end
 
 ---
 
-## 15. Admin Controls
+## 15. Admin Dashboard — Content Automation
 
-Add a simple admin page at `/admin/content-automation`:
+### 15.1 Overview & Design Philosophy
 
-- **Status**: Running/Paused, feeds active, articles generated today
-- **Queue**: Upcoming articles waiting to publish (with preview)
-- **History**: Recently published automated articles
-- **Controls**: Pause/resume, force generate, reject from queue
-- **Metrics**: Articles per day, categories distribution, top performing automated posts
+The admin dashboard is the editorial control center. The key insight: **articles should NOT
+auto-publish without admin review**. The pipeline generates articles into a review queue, and
+the admin approves, edits, or rejects them before they go live.
+
+This leverages the existing post editing infrastructure:
+- Same TipTap editor (with all formatting, image upload, tweet embedding)
+- Same form component (tags, categories, featured image, BUX pool)
+- Same admin auth (`AdminAuth` hook, `is_admin` check)
+- Same S3 upload flow for images
+
+### 15.2 Routes
+
+```elixir
+# In router.ex, inside the :admin live_session
+live "/admin/content", ContentAutomationLive.Dashboard, :index
+live "/admin/content/queue", ContentAutomationLive.Queue, :index
+live "/admin/content/queue/:id/edit", ContentAutomationLive.EditArticle, :edit
+live "/admin/content/feeds", ContentAutomationLive.Feeds, :index
+live "/admin/content/history", ContentAutomationLive.History, :index
+live "/admin/content/authors", ContentAutomationLive.Authors, :index
+```
+
+### 15.3 Dashboard Page (`/admin/content`)
+
+The main landing page shows pipeline health at a glance.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Content Automation                              [Pause Pipeline ▼] │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────┐ │
+│  │  PENDING      │ │  PUBLISHED   │ │  REJECTED    │ │  FEEDS     │ │
+│  │  REVIEW       │ │  TODAY       │ │  TODAY       │ │  ACTIVE    │ │
+│  │              │ │              │ │              │ │            │ │
+│  │     4        │ │     7        │ │     1        │ │   22/28    │ │
+│  │              │ │              │ │              │ │            │ │
+│  │  [View Queue]│ │  [View All]  │ │              │ │ [Manage]   │ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └────────────┘ │
+│                                                                     │
+│  ── Recent Queue (newest first) ──────────────────── [View All →]  │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ ● "SEC's Latest DeFi Crackdown Misses the Point"              │ │
+│  │   by maya_chen · regulation · 3 min ago · 620 words           │ │
+│  │   Sources: Bloomberg (premium), CoinDesk                      │ │
+│  │   [Edit & Review]  [Quick Approve]  [Reject]                  │ │
+│  ├────────────────────────────────────────────────────────────────┤ │
+│  │ ● "Bitcoin Miners Are Quietly Winning the Energy Debate"      │ │
+│  │   by jake_freeman · bitcoin · 18 min ago · 480 words         │ │
+│  │   Sources: Bitcoin Magazine, Bitcoinist                       │ │
+│  │   [Edit & Review]  [Quick Approve]  [Reject]                  │ │
+│  ├────────────────────────────────────────────────────────────────┤ │
+│  │ ● "The Metaverse Isn't Dead — It Just Moved On-Chain"         │ │
+│  │   by sophia_reyes · gaming · 45 min ago · 510 words           │ │
+│  │   Sources: Decrypt, The Defiant                               │ │
+│  │   [Edit & Review]  [Quick Approve]  [Reject]                  │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ── Pipeline Activity (last 24h) ─────────────────────────────────  │
+│                                                                     │
+│  12:04 UTC  ✓ Published "Why the Fed's Rate Pause Changes Nothing" │
+│  11:52 UTC  ⏳ Generated "SEC's Latest DeFi Crackdown..." → queue  │
+│  11:45 UTC  ✕ Rejected "Crypto Market Update" (duplicate topic)    │
+│  11:30 UTC  📡 FeedPoller: 42 new items from 22 feeds              │
+│  11:15 UTC  🔍 TopicEngine: clustered 8 topics, selected 3        │
+│  10:02 UTC  ✓ Published "Stablecoin Wars Heat Up..."              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**LiveView Implementation**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
+  use BlocksterV2Web, :live_view
+
+  def mount(_params, _session, socket) do
+    if connected?(socket) do
+      # Subscribe to pipeline events for live updates
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "content_automation")
+    end
+
+    socket =
+      socket
+      |> assign(page_title: "Content Automation")
+      |> assign(pipeline_paused: ContentAutomation.Config.paused?())
+      |> start_async(:load_stats, fn -> load_dashboard_stats() end)
+      |> start_async(:load_queue, fn -> load_recent_queue(limit: 5) end)
+      |> start_async(:load_activity, fn -> load_activity_log(limit: 20) end)
+
+    {:ok, socket}
+  end
+
+  # Live updates when pipeline generates/publishes articles
+  def handle_info({:content_automation, :article_generated, article}, socket) do
+    # Prepend to queue list, bump pending count
+  end
+
+  def handle_info({:content_automation, :article_published, article}, socket) do
+    # Move from queue to published, bump published count
+  end
+end
+```
+
+**Key Features**:
+- **Live-updating stats cards**: pending, published today, rejected today, active feeds
+- **Recent queue preview**: Shows newest queued articles with one-click actions
+- **Activity log**: Scrollable timeline of all pipeline events (polls, topics, generations, publishes)
+- **Pause/Resume toggle**: Stops ContentQueue from auto-publishing (articles still generate into queue)
+- PubSub subscription means the dashboard updates in real-time as articles flow through
+
+### 15.4 Queue Page (`/admin/content/queue`)
+
+The full review queue with filtering and bulk actions.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Article Queue                     Filter: [All ▼] [All Authors ▼] │
+│  4 articles pending review            Sort: [Newest First ▼]       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  ┌──────────┐  "SEC's Latest DeFi Crackdown Misses           │ │
+│  │  │          │   the Point"                                    │ │
+│  │  │ featured │                                                  │ │
+│  │  │  image   │   maya_chen · regulation · 620 words · 2.4 min  │ │
+│  │  │ preview  │   Tags: sec, defi, regulation                   │ │
+│  │  │          │   BUX: 4 base / 2,000 pool                     │ │
+│  │  └──────────┘   Sources: Bloomberg ⭐, CoinDesk               │ │
+│  │                  Pipeline: abc-123 · Generated 3 min ago       │ │
+│  │                                                                │ │
+│  │  Excerpt: The SEC thinks it can regulate code. DeFi builders  │ │
+│  │  have a different opinion — and the math is on their side.    │ │
+│  │                                                                │ │
+│  │  ┌─────────────────────────────────────────────────────────┐  │ │
+│  │  │ Preview (collapsed, click to expand)                     │  │ │
+│  │  │                                                          │  │ │
+│  │  │ The SEC just dropped another enforcement action against  │  │ │
+│  │  │ a DeFi protocol, and if you're experiencing déjà vu,    │  │ │
+│  │  │ you're not alone...                                      │  │ │
+│  │  │                                                          │  │ │
+│  │  │ ## The Numbers Don't Lie                                 │  │ │
+│  │  │ Despite the SEC's best efforts, DeFi TVL has grown 40%  │  │ │
+│  │  │ year-over-year...                                        │  │ │
+│  │  │ [Show more ▼]                                            │  │ │
+│  │  └─────────────────────────────────────────────────────────┘  │ │
+│  │                                                                │ │
+│  │  [✏️ Edit Full Article]  [✓ Approve & Publish]  [✕ Reject]    │ │
+│  │                                                                │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  (next article card...)                                        │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Queue Card Features**:
+- **Featured image thumbnail**: Shows the Unsplash image (or placeholder if missing)
+- **Metadata bar**: Author persona, category, word count, estimated read time
+- **Source badges**: Feed sources that contributed, with star icon for premium sources
+- **Pipeline ID**: For debugging, links to logs
+- **BUX info**: Base reward and pool size (calculated from word count)
+- **Excerpt**: First 2 lines of the article
+- **Expandable preview**: Rendered HTML preview of the full article (uses TipTapRenderer)
+- **Three actions**:
+  - **Edit Full Article** → navigates to `/admin/content/queue/:id/edit`
+  - **Approve & Publish** → publishes immediately (creates post, assigns BUX, updates cache)
+  - **Reject** → removes from queue with optional reason (stored in activity log)
+
+**Quick Approve** publishes the article as-is. Use this when the AI output is good enough.
+Most of the time you'll use **Edit Full Article** to review and tweak before publishing.
+
+### 15.5 Edit Article Page (`/admin/content/queue/:id/edit`)
+
+This is the key page — **reuses the existing post form component** with the TipTap editor,
+but loads from the `content_publish_queue` table instead of the `posts` table.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  [← Back to Queue]                  [Save Draft]  [Publish Now]    │
+├──────────────────┬──────────────────────────────────────────────────┤
+│                  │                                                  │
+│  FEATURED IMAGE  │  Title                                          │
+│  ┌────────────┐  │  ┌──────────────────────────────────────────┐   │
+│  │            │  │  │ SEC's Latest DeFi Crackdown Misses the   │   │
+│  │  [click to │  │  │ Point                                    │   │
+│  │   change]  │  │  └──────────────────────────────────────────┘   │
+│  │            │  │                                                  │
+│  │            │  │  Excerpt (SEO description)                      │
+│  └────────────┘  │  ┌──────────────────────────────────────────┐   │
+│  [Remove Image]  │  │ The SEC thinks it can regulate code.     │   │
+│  [Upload New]    │  │ DeFi builders have a different opinion.  │   │
+│                  │  └──────────────────────────────────────────┘   │
+│  AUTHOR          │                                                  │
+│  maya_chen    ▼  │  Category: regulation ▼   Hub: [none] ▼        │
+│                  │                                                  │
+│  TAGS            │  ─── Article Content ───────────────────────    │
+│  ┌────────────┐  │                                                  │
+│  │ ✕ sec      │  │  ┌──────────────────────────────────────────┐   │
+│  │ ✕ defi     │  │  │ B I U S ~ 🔗 H1 H2 H3 "" 📷 🐦 ── ⋮ │   │
+│  │ ✕ regulat..│  │  ├──────────────────────────────────────────┤   │
+│  └────────────┘  │  │                                          │   │
+│  [+ Add tag]     │  │ The SEC just dropped another enforcement │   │
+│                  │  │ action against a DeFi protocol, and if   │   │
+│  BUX REWARD      │  │ you're experiencing déjà vu, you're not │   │
+│  Base: 4         │  │ alone.                                   │   │
+│  Pool: 2,000     │  │                                          │   │
+│                  │  │ Even **Bloomberg** [acknowledged](url)   │   │
+│  SOURCES         │  │ that the SEC's approach has done little  │   │
+│  ⭐ Bloomberg    │  │ to slow DeFi adoption...                 │   │
+│  • CoinDesk      │  │                                          │   │
+│                  │  │ ## The Numbers Don't Lie                 │   │
+│  PIPELINE        │  │                                          │   │
+│  abc-123         │  │ Despite the SEC's best efforts, DeFi    │   │
+│  3 min ago       │  │ TVL has grown 40% year-over-year...     │   │
+│                  │  │                                          │   │
+│                  │  │ > "Regulating DeFi is like regulating   │   │
+│                  │  │ > math" — a sentiment echoed across the │   │
+│                  │  │ > industry.                              │   │
+│                  │  │                                          │   │
+│                  │  │ 🐦 [Embedded Tweet]                     │   │
+│                  │  │ ┌─────────────────────────────────────┐ │   │
+│                  │  │ │ @VitalikButerin                     │ │   │
+│                  │  │ │ Decentralized protocols are          │ │   │
+│                  │  │ │ inherently global...                 │ │   │
+│                  │  │ └─────────────────────────────────────┘ │   │
+│                  │  │                                          │   │
+│                  │  └──────────────────────────────────────────┘   │
+│                  │                                                  │
+└──────────────────┴──────────────────────────────────────────────────┘
+```
+
+**This IS the existing post form** — same component, same TipTap editor, same everything.
+The only difference is where the data comes from and where it saves to.
+
+**Implementation Pattern**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
+  use BlocksterV2Web, :live_view
+
+  def mount(%{"id" => queue_id}, _session, socket) do
+    # Load from publish queue table
+    queue_entry = FeedStore.get_queue_entry(queue_id)
+
+    # Create a temporary Post struct to feed into the existing form component
+    # The form component doesn't care where the data comes from
+    post = %BlocksterV2.Blog.Post{
+      title: queue_entry.article_data.title,
+      content: queue_entry.article_data.content,      # TipTap JSON — loads into editor
+      excerpt: queue_entry.article_data.excerpt,
+      featured_image: queue_entry.article_data.featured_image,
+      author_id: queue_entry.author_id,
+      base_bux_reward: queue_entry.article_data.bux_reward
+    }
+
+    changeset = Blog.change_post(post)
+
+    socket =
+      socket
+      |> assign(page_title: "Edit Article")
+      |> assign(queue_id: queue_id)
+      |> assign(queue_entry: queue_entry)
+      |> assign(post: post)
+      |> assign(form: to_form(changeset))
+      |> assign(tags: queue_entry.article_data.tags || [])
+      |> assign(source_feeds: queue_entry.article_data.source_feeds)
+      |> assign(pipeline_id: queue_entry.pipeline_id)
+
+    {:ok, socket}
+  end
+
+  # "Save Draft" — update the queue entry but don't publish
+  def handle_event("save_draft", %{"post" => post_params}, socket) do
+    FeedStore.update_queue_entry(socket.assigns.queue_id, %{
+      article_data: merge_form_data(post_params),
+      status: :draft
+    })
+    {:noreply, put_flash(socket, :info, "Draft saved")}
+  end
+
+  # "Publish Now" — create real post in PostgreSQL, delete from queue
+  def handle_event("publish", %{"post" => post_params}, socket) do
+    queue_entry = socket.assigns.queue_entry
+
+    case ContentPublisher.publish_from_queue(queue_entry, post_params) do
+      {:ok, post} ->
+        FeedStore.mark_queue_entry_published(socket.assigns.queue_id, post.id)
+        {:noreply,
+         socket
+         |> put_flash(:info, "Published: #{post.title}")
+         |> push_navigate(to: ~p"/admin/content/queue")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Publish failed: #{inspect(reason)}")}
+    end
+  end
+end
+```
+
+**What the admin can do on this page** (all via the existing TipTap editor + form):
+
+| Action | How | Component |
+|--------|-----|-----------|
+| **Edit title** | Click title input, type | Standard text input |
+| **Edit excerpt** | Click excerpt textarea, type | Standard textarea |
+| **Edit body text** | Click in TipTap editor, type | TipTap editor |
+| **Bold/italic/underline** | Select text, click toolbar button (B/I/U) | TipTap toolbar |
+| **Add heading** | Click H1/H2/H3 in toolbar | TipTap toolbar |
+| **Add blockquote** | Click quote icon in toolbar | TipTap toolbar |
+| **Add link** | Select text, click link icon, enter URL | TipTap link extension |
+| **Add bullet/numbered list** | Click list icon in toolbar | TipTap StarterKit |
+| **Add image inline** | Click image icon, upload or paste URL | TipTap ImageUpload extension |
+| **Embed tweet** | Click tweet icon, paste tweet URL | TipTap TweetEmbed extension |
+| **Add spacer/divider** | Click spacer icon in toolbar | TipTap Spacer extension |
+| **Change featured image** | Click image in sidebar, upload new | FeaturedImageUpload hook + S3 |
+| **Remove featured image** | Click "Remove Image" | Form event |
+| **Change author** | Dropdown in sidebar (admin only) | Author autocomplete |
+| **Change category** | Dropdown selector | Category select |
+| **Add/remove tags** | Tag pills in sidebar with search | Tag autocomplete |
+| **Adjust BUX reward** | Edit base reward number | Number input |
+| **Save draft** | Top bar button — saves back to publish queue | Form event |
+| **Publish** | Top bar button — creates real post in PostgreSQL | ContentPublisher |
+
+### 15.6 Approve & Publish Flow
+
+When the admin clicks **Approve & Publish** (from queue page) or **Publish Now** (from edit page):
+
+```
+Admin clicks "Publish"
+  │
+  ▼
+ContentPublisher.publish_from_queue(queue_entry, edited_params)
+  │
+  ├─ 1. Blog.create_post(merged_attrs)           ← creates post in PostgreSQL
+  │     - title, content (TipTap JSON), excerpt, featured_image
+  │     - author_id, category_id, hub_id
+  │     - base_bux_reward (from word count calc or admin override)
+  │
+  ├─ 2. Blog.update_post_tags(post, tags)         ← creates tag associations
+  │
+  ├─ 3. Blog.publish_post(post)                   ← sets published_at to now
+  │
+  ├─ 4. EngagementTracker.deposit_post_bux(       ← funds the BUX reward pool
+  │        post.id, bux_pool)
+  │
+  ├─ 5. SortedPostsCache.reload()                 ← post appears on homepage
+  │
+  ├─ 6. FeedStore.mark_queue_published(            ← removes from queue,
+  │        queue_id, post.id)                        stores post_id for reference
+  │
+  └─ 7. Broadcast {:content_automation,            ← dashboard updates live
+           :article_published, article}
+```
+
+### 15.7 Reject Flow
+
+When the admin clicks **Reject**:
+
+```
+┌─────────────────────────────┐
+│  Reject Article              │
+│                              │
+│  Reason (optional):          │
+│  ┌────────────────────────┐  │
+│  │ Too similar to yester- │  │
+│  │ day's regulation piece │  │
+│  └────────────────────────┘  │
+│                              │
+│  [Cancel]  [Reject Article]  │
+└─────────────────────────────┘
+```
+
+- Shows a small modal with optional reason text field
+- Rejected articles move to `status: :rejected` in the queue (not deleted)
+- Rejection reason and timestamp stored for pipeline tuning
+- Activity log shows the rejection
+
+### 15.8 Feeds Management Page (`/admin/content/feeds`)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Feed Management                          Last poll: 2 min ago     │
+│                                           [Force Poll Now]          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ── Premium Tier (2x weight) ──────────────────────────────────    │
+│                                                                     │
+│  │ Feed            │ Status    │ Last Items │ Last Poll  │ Toggle │ │
+│  │─────────────────│───────────│────────────│────────────│────────│ │
+│  │ Bloomberg       │ ✓ Active  │ 12 items   │ 2 min ago  │ [On]  │ │
+│  │ TechCrunch      │ ✓ Active  │ 8 items    │ 2 min ago  │ [On]  │ │
+│  │ CoinDesk ⭐     │ ✓ Active  │ 15 items   │ 2 min ago  │ [On]  │ │
+│  │ The Block ⭐    │ ✓ Active  │ 6 items    │ 2 min ago  │ [On]  │ │
+│  │ Blockworks ⭐   │ ✓ Active  │ 9 items    │ 2 min ago  │ [On]  │ │
+│  │ DL News ⭐      │ ✓ Active  │ 4 items    │ 2 min ago  │ [On]  │ │
+│  │ Reuters         │ ✕ Blocked │ 403 error  │ 2 min ago  │ [Off] │ │
+│  │ FT              │ ✕ Blocked │ Paywall    │ 2 min ago  │ [Off] │ │
+│  │ The Economist   │ ✕ Blocked │ 403 error  │ 2 min ago  │ [Off] │ │
+│  │ Forbes          │ ✕ Blocked │ Cloudflare │ 2 min ago  │ [Off] │ │
+│  │ Barron's        │ ✕ Blocked │ Paywall    │ 2 min ago  │ [Off] │ │
+│  │ The Verge       │ ✕ Blocked │ 403 error  │ 2 min ago  │ [Off] │ │
+│                                                                     │
+│  ── Standard Tier (1x weight) ─────────────────────────────────    │
+│                                                                     │
+│  │ CoinTelegraph   │ ✓ Active  │ 20 items   │ 2 min ago  │ [On]  │ │
+│  │ Decrypt         │ ✓ Active  │ 11 items   │ 2 min ago  │ [On]  │ │
+│  │ (... 14 more)   │           │            │            │       │ │
+│                                                                     │
+│  Total: 22 active / 28 configured                                  │
+│  Items in last 24h: 287                                            │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+- Toggle feeds on/off without code changes (stored in `content_automation_settings` Mnesia table)
+- Shows last error for blocked feeds
+- "Force Poll Now" triggers immediate poll cycle
+- Star icon next to promoted crypto-native premium feeds
+
+### 15.9 History Page (`/admin/content/history`)
+
+Shows all published and rejected articles with performance metrics:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Content History                 Filter: [All ▼]  [Last 7 days ▼]  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  │ Title                     │ Author    │ Published  │ Reads │ BUX │
+│  │───────────────────────────│───────────│────────────│───────│─────│
+│  │ ✓ Why the Fed's Rate...   │ jake_free │ 12:04 UTC  │ 142   │ 568 │
+│  │ ✓ Stablecoin Wars Heat... │ maya_chen │ 10:02 UTC  │ 89    │ 356 │
+│  │ ✓ Bitcoin Mining Just...  │ alex_ward │ 08:15 UTC  │ 203   │ 812 │
+│  │ ✕ Crypto Market Update    │ marcus_st │ rejected   │ -     │ -   │
+│  │   Reason: duplicate topic │           │            │       │     │
+│  │ ✓ The Metaverse Moves...  │ sophia_r  │ Yesterday  │ 67    │ 268 │
+│                                                                     │
+│  This week: 52 published, 8 rejected (87% approval rate)           │
+│  Top category: regulation (14 articles)                             │
+│  Most-read: "Bitcoin Mining Just Got Greener" (203 reads)          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+- Links to the live post page (`/:slug`)
+- Shows engagement metrics (reads, BUX distributed) from EngagementTracker
+- Published articles link to the existing `/:slug/edit` page for further edits
+- Rejected articles show the rejection reason
+
+### 15.10 Pipeline State & Queue Statuses
+
+The `content_publish_queue` PostgreSQL table (defined in Section 9.1) supports the review workflow
+with these statuses:
+
+```elixir
+# Queue entry statuses (stored as string in :status column)
+"pending"    # Just generated, waiting for admin review
+"draft"      # Admin started editing, saved changes back to queue
+"approved"   # Admin approved, waiting for scheduled publish time (optional)
+"published"  # Published — stores post_id reference
+"rejected"   # Admin rejected — stores reason
+```
+
+The `article_data` field is a map containing everything needed to create a post:
+```elixir
+%{
+  title: "SEC's Latest DeFi Crackdown...",
+  content: %{"type" => "doc", "content" => [...]},  # TipTap JSON
+  excerpt: "The SEC thinks it can regulate code...",
+  featured_image: "https://images.unsplash.com/...",
+  tags: ["sec", "defi", "regulation"],
+  category: :regulation,
+  bux_reward: 4,
+  bux_pool: 2000,
+  word_count: 620,
+  source_feeds: [%{source: "Bloomberg", tier: :premium}, %{source: "CoinDesk", tier: :standard}],
+  tweet_embeds: [%{url: "https://twitter.com/...", id: "123"}],
+  image_suggestion: "defi blockchain regulation"
+}
+```
+
+### 15.11 Auto-Publish Option
+
+For when you're comfortable with the pipeline quality and want hands-off operation:
+
+```elixir
+# In config/runtime.exs
+config :blockster_v2, :content_automation,
+  auto_publish: System.get_env("CONTENT_AUTO_PUBLISH", "false") == "true"
+```
+
+When `auto_publish: true`:
+- Articles that pass QualityChecker are published immediately (skip queue)
+- Failed quality checks still go to queue for manual review
+- Dashboard shows a warning banner: "Auto-publish is ON — articles publish without review"
+- Toggle on dashboard page to enable/disable without redeployment
+
+When `auto_publish: false` (default):
+- All articles go to the review queue
+- Admin must approve each one (edit or quick-approve)
 
 ---
 
