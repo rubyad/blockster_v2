@@ -16,6 +16,9 @@ defmodule BlocksterV2.Application do
         []
       end
 
+    # Initialize BuxMinter sync deduplication ETS table early
+    BlocksterV2.BuxMinter.init_dedup_table()
+
     # Base children that always start
     base_children = [
       BlocksterV2Web.Telemetry,

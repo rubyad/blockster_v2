@@ -199,7 +199,7 @@ defmodule BlocksterV2.Referrals do
 
             # Sync balances from blockchain and broadcast to update header/member page
             # (the tokens were already sent on-chain by the smart contract)
-            BuxMinter.sync_user_balances_async(referrer_id, referrer_wallet)
+            BuxMinter.sync_user_balances_async(referrer_id, referrer_wallet, force: true)
 
             :ok
           else
@@ -423,7 +423,7 @@ defmodule BlocksterV2.Referrals do
             end
 
             # Sync balances from blockchain and broadcast to update header/member page in real-time
-            BuxMinter.sync_user_balances_async(referrer_id, referrer_wallet)
+            BuxMinter.sync_user_balances_async(referrer_id, referrer_wallet, force: true)
           {:error, err} ->
             Logger.error("[Referrals] Failed to mint referral reward: #{inspect(err)}")
         end

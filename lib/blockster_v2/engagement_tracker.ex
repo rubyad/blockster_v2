@@ -183,7 +183,6 @@ defmodule BlocksterV2.EngagementTracker do
     key = {user_id, post_id}
     now = System.system_time(:second)
 
-    time_spent = Map.get(metrics, "time_spent", 0)
     scroll_depth = Map.get(metrics, "scroll_depth", 0)
     reached_end = Map.get(metrics, "reached_end", false)
     scroll_events = Map.get(metrics, "scroll_events", 0)
@@ -197,6 +196,10 @@ defmodule BlocksterV2.EngagementTracker do
       nil ->
         # No existing record, create one with defaults
         min_read_time = Map.get(metrics, "min_read_time", 60)
+        # No visit record - cap client time to 2x min_read_time as sanity check
+        client_time = Map.get(metrics, "time_spent", 0)
+        time_spent = min(client_time, min_read_time * 2)
+
         score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
                                            scroll_events, avg_scroll_speed, max_scroll_speed,
                                            scroll_reversals, focus_changes)
@@ -227,6 +230,14 @@ defmodule BlocksterV2.EngagementTracker do
         # Update existing record
         min_read_time = elem(existing, 5)
         created_at = elem(existing, 15)
+
+        # ANTI-EXPLOIT: Use server-side elapsed time instead of client-reported time_spent.
+        # created_at was set when article-visited fired (record_visit). The server knows
+        # exactly how long the user has been on the page. Take the minimum of client time
+        # and server elapsed time - attackers cannot fake wall clock time on the server.
+        client_time = Map.get(metrics, "time_spent", 0)
+        server_elapsed = now - created_at
+        time_spent = min(client_time, server_elapsed)
 
         score = calculate_engagement_score(time_spent, min_read_time, scroll_depth, reached_end,
                                            scroll_events, avg_scroll_speed, max_scroll_speed,

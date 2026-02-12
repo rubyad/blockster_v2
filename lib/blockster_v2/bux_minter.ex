@@ -8,8 +8,25 @@ defmodule BlocksterV2.BuxMinter do
   alias BlocksterV2.EngagementTracker
   require Logger
 
+  # ETS table for deduplicating concurrent sync_user_balances_async calls
+  @sync_dedup_table :bux_minter_sync_dedup
+  # Minimum interval between syncs for the same user (in milliseconds)
+  @sync_cooldown_ms 5_000
+
   # Valid token types that can be minted (hub tokens removed)
   @valid_tokens ~w(BUX)
+
+  @doc """
+  Initializes the ETS table for sync deduplication.
+  Called from Application supervision tree.
+  """
+  def init_dedup_table do
+    if :ets.whereis(@sync_dedup_table) == :undefined do
+      :ets.new(@sync_dedup_table, [:set, :public, :named_table, read_concurrency: true, write_concurrency: true])
+    end
+
+    :ok
+  end
 
   @doc """
   Returns the list of valid token types.
@@ -236,11 +253,39 @@ defmodule BlocksterV2.BuxMinter do
 
   @doc """
   Syncs user balances asynchronously (fire and forget).
+  Deduplicates concurrent calls for the same user - if a sync is already in-flight
+  or completed within the last #{@sync_cooldown_ms}ms, the call is skipped.
+
+  Options:
+    - force: true - bypass deduplication (use after settlement/minting when balance MUST refresh)
   """
-  def sync_user_balances_async(user_id, wallet_address) do
-    Task.start(fn ->
-      sync_user_balances(user_id, wallet_address)
-    end)
+  def sync_user_balances_async(user_id, wallet_address, opts \\ []) do
+    force = Keyword.get(opts, :force, false)
+
+    if force do
+      # Clear any existing cooldown so the sync runs immediately
+      if :ets.whereis(@sync_dedup_table) != :undefined do
+        :ets.delete(@sync_dedup_table, user_id)
+      end
+    end
+
+    now = System.monotonic_time(:millisecond)
+
+    case claim_sync_slot(user_id, now) do
+      :ok ->
+        Task.start(fn ->
+          try do
+            sync_user_balances(user_id, wallet_address)
+          after
+            # Mark sync as completed with timestamp for cooldown
+            :ets.insert(@sync_dedup_table, {user_id, :done, System.monotonic_time(:millisecond)})
+          end
+        end)
+
+      :skip ->
+        Logger.debug("[BuxMinter] Skipping duplicate sync for user #{user_id}")
+        {:ok, :skipped}
+    end
   end
 
   @doc """
@@ -390,6 +435,28 @@ defmodule BlocksterV2.BuxMinter do
 
   # Private helpers
 
+  # Claims a sync slot for a user. Returns :ok if we should proceed, :skip if deduplicated.
+  defp claim_sync_slot(user_id, now) do
+    if :ets.whereis(@sync_dedup_table) == :undefined, do: init_dedup_table()
+
+    case :ets.lookup(@sync_dedup_table, user_id) do
+      [{^user_id, :in_flight, _started_at}] ->
+        :skip
+
+      [{^user_id, :done, completed_at}] when now - completed_at < @sync_cooldown_ms ->
+        :skip
+
+      _ ->
+        :ets.insert(@sync_dedup_table, {user_id, :in_flight, now})
+        :ok
+    end
+  end
+
+  # Exponential backoff for Req retries: 500ms, 1s, 2s, 4s, 8s
+  defp retry_delay(retry_count) do
+    500 * Integer.pow(2, retry_count - 1)
+  end
+
   defp get_minter_url do
     # Use environment variable if set, otherwise fall back to public URL
     Application.get_env(:blockster_v2, :bux_minter_url) ||
@@ -408,7 +475,9 @@ defmodule BlocksterV2.BuxMinter do
       {:module, Req} ->
         # Use longer timeout for blockchain transactions which can take time
         # Use inet backend for DNS to avoid issues with Erlang distributed mode
-        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000, connect_options: [transport_opts: [inet_backend: :inet]]) do
+        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000,
+               retry: :transient, retry_delay: &retry_delay/1, max_retries: 5,
+               connect_options: [transport_opts: [inet_backend: :inet]]) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}
@@ -440,7 +509,9 @@ defmodule BlocksterV2.BuxMinter do
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
         # Use inet backend for DNS to avoid issues with Erlang distributed mode
-        case Req.get(url, headers: headers, receive_timeout: 30_000, connect_options: [transport_opts: [inet_backend: :inet]]) do
+        case Req.get(url, headers: headers, receive_timeout: 30_000,
+               retry: :transient, retry_delay: &retry_delay/1, max_retries: 5,
+               connect_options: [transport_opts: [inet_backend: :inet]]) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}

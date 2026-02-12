@@ -2050,7 +2050,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
 
     # Sync balances from blockchain (async - will broadcast when complete)
     # This fetches latest on-chain balances including the payout and broadcasts to all LiveViews
-    BuxMinter.sync_user_balances_async(user_id, wallet_address)
+    # Force bypasses dedup cooldown since balance MUST update after settlement
+    BuxMinter.sync_user_balances_async(user_id, wallet_address, force: true)
 
     # Get the settled game and broadcast it to all /play pages for this user
     case :mnesia.dirty_read({:bux_booster_onchain_games, game_id}) do
