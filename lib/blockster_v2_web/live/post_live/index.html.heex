@@ -1,4 +1,24 @@
 <div class="bg-[#F5F6FB] md:pt-32" id="homepage">
+  <!-- Sort Tabs -->
+  <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] pt-4 pb-2 flex items-center gap-6">
+    <button
+      phx-click="switch_tab"
+      phx-value-tab="latest"
+      class={"text-sm font-haas_medium_65 pb-2 border-b-2 cursor-pointer transition-colors " <>
+        if(@sort_mode == "latest", do: "text-[#141414] border-[#CAFC00]", else: "text-[#515B70] border-transparent hover:text-[#141414]")}
+    >
+      Latest
+    </button>
+    <button
+      phx-click="switch_tab"
+      phx-value-tab="popular"
+      class={"text-sm font-haas_medium_65 pb-2 border-b-2 cursor-pointer transition-colors " <>
+        if(@sort_mode == "popular", do: "text-[#141414] border-[#CAFC00]", else: "text-[#515B70] border-transparent hover:text-[#141414]")}
+    >
+      Popular
+    </button>
+  </div>
+
   <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
     <%= for {dom_id, comp} <- @streams.components do %>
       <div id={dom_id}>

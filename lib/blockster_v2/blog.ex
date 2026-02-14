@@ -499,6 +499,132 @@ defmodule BlocksterV2.Blog do
     end
   end
 
+  # =============================================================================
+  # Date-sorted (Latest tab) queries
+  # =============================================================================
+
+  @doc """
+  Lists published posts sorted by published_at DESC (newest first).
+  """
+  def list_published_posts_by_date(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_date(limit, offset)
+    fetch_posts_in_order(sorted_ids_with_balances)
+  end
+
+  @doc """
+  Lists published posts for a category sorted by published_at DESC.
+  """
+  def list_published_posts_by_date_category(category_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    case get_category_by_slug(category_slug) do
+      nil -> []
+      category ->
+        fetch_limit = limit + length(exclude_ids)
+        sorted = BlocksterV2.SortedPostsCache.get_page_by_date_category(category.id, fetch_limit, offset)
+        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
+        fetch_posts_in_order(filtered)
+    end
+  end
+
+  @doc """
+  Lists published posts for a tag sorted by published_at DESC.
+  """
+  def list_published_posts_by_date_tag(tag_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    case get_tag_by_slug(tag_slug) do
+      nil -> []
+      tag ->
+        fetch_limit = limit + length(exclude_ids)
+        sorted = BlocksterV2.SortedPostsCache.get_page_by_date_tag(tag.id, fetch_limit, offset)
+        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
+        fetch_posts_in_order(filtered)
+    end
+  end
+
+  # =============================================================================
+  # Popular-sorted (Popular tab) queries
+  # =============================================================================
+
+  @doc """
+  Lists published posts sorted by total_distributed DESC (most BUX paid out first).
+  """
+  def list_published_posts_by_popular(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    sorted_ids_with_values = BlocksterV2.SortedPostsCache.get_page_by_popular(limit, offset)
+    fetch_posts_in_order(sorted_ids_with_values)
+  end
+
+  @doc """
+  Lists published posts for a category sorted by total_distributed DESC.
+  """
+  def list_published_posts_by_popular_category(category_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    case get_category_by_slug(category_slug) do
+      nil -> []
+      category ->
+        fetch_limit = limit + length(exclude_ids)
+        sorted = BlocksterV2.SortedPostsCache.get_page_by_popular_category(category.id, fetch_limit, offset)
+        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
+        fetch_posts_in_order(filtered)
+    end
+  end
+
+  @doc """
+  Lists published posts for a tag sorted by total_distributed DESC.
+  """
+  def list_published_posts_by_popular_tag(tag_slug, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    case get_tag_by_slug(tag_slug) do
+      nil -> []
+      tag ->
+        fetch_limit = limit + length(exclude_ids)
+        sorted = BlocksterV2.SortedPostsCache.get_page_by_popular_tag(tag.id, fetch_limit, offset)
+        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
+        fetch_posts_in_order(filtered)
+    end
+  end
+
+  # Shared helper: fetch posts from DB in the order specified by sorted_ids_with_values
+  defp fetch_posts_in_order(sorted_ids_with_values) do
+    post_ids = Enum.map(sorted_ids_with_values, fn {id, _} -> id end)
+    balances_map = Map.new(sorted_ids_with_values)
+
+    if Enum.empty?(post_ids) do
+      []
+    else
+      posts = from(p in Post,
+        where: p.id in ^post_ids,
+        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+      )
+      |> Repo.all()
+      |> populate_author_names()
+
+      post_ids
+      |> Enum.map(fn post_id ->
+        post = Enum.find(posts, fn p -> p.id == post_id end)
+        if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
+      end)
+      |> Enum.reject(&is_nil/1)
+    end
+  end
+
   @doc """
   Gets posts by a list of IDs. Returns only id, title, and slug for efficiency.
   """

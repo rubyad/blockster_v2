@@ -1455,6 +1455,24 @@ defmodule BlocksterV2.EngagementTracker do
     :exit, _ -> %{}
   end
 
+  @doc """
+  Gets all post total_distributed amounts from Mnesia.
+  Returns a map of post_id => total_distributed for all posts with pool records.
+  """
+  def get_all_post_distributed_amounts() do
+    :mnesia.dirty_match_object({:post_bux_points, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_})
+    |> Enum.map(fn record ->
+      post_id = elem(record, 1)
+      distributed = elem(record, 6) || 0
+      {post_id, distributed}
+    end)
+    |> Map.new()
+  rescue
+    _ -> %{}
+  catch
+    :exit, _ -> %{}
+  end
+
   # =============================================================================
   # Per-Token Balance Functions (user_bux_balances table)
   # =============================================================================

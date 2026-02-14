@@ -347,7 +347,7 @@ defmodule BlocksterV2Web.Layouts do
               <span class="text-gray-300">|</span>
               <.link navigate={~p"/category/investment"} data-category-path="/category/investment" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Investment</.link>
               <span class="text-gray-300">|</span>
-              <.link navigate={~p"/category/crypto-trading"} data-category-path="/category/crypto-trading" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Trading</.link>
+              <.link navigate={~p"/category/trading"} data-category-path="/category/trading" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">Trading</.link>
               <span class="text-gray-300">|</span>
               <.link navigate={~p"/category/people"} data-category-path="/category/people" class="text-sm font-haas_roman_55 text-black hover:opacity-70 whitespace-nowrap transition-opacity leading-none pb-1 border-b-[3px] border-transparent">People</.link>
               <span class="text-gray-300">|</span>

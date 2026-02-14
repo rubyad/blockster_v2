@@ -489,3 +489,159 @@ This would require updating `handle_params` to read the sort param.
 - Posts with zero `total_distributed` will appear at the bottom of the "Popular" tab, sorted by date.
 - The "Latest" tab is purely chronological (`published_at DESC`), ignoring BUX entirely.
 - The existing BUX balance sort (current default) is effectively deprecated but the data remains in the cache for the Popular tab's tiebreaking.
+
+---
+
+## 7. Implementation Status
+
+All code changes are complete and compiling with zero errors on branch `feat/post-display-redesign`.
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | Fix Trading nav link (`crypto-trading` → `trading`) | DONE |
+| 2 | Fix 3 category mappings in content_publisher.ex | DONE |
+| 3 | Add `update_post_tags` to SortedPostsCache | DONE |
+| 4 | Extend cache with 3 sorted views + 6-element tuple | DONE |
+| 5 | Add `get_all_post_distributed_amounts` to EngagementTracker | DONE |
+| 6 | Add 6 new Blog query functions + `fetch_posts_in_order` helper | DONE |
+| 7 | Update Homepage LiveView with sort_mode + targeted send_update | DONE |
+| 8 | Update Homepage template with tab UI | DONE |
+| 9 | Update Category LiveView + template with tabs | DONE |
+| 10 | Update Tag LiveView + template with tabs | DONE |
+| 11 | Real-time update edge cases (targeted send_update) | DONE |
+| 12 | Fix mobile card flash via `post_to_component_map` | DONE |
+| 13 | Testing | POST-DEPLOY |
+
+### Files Changed
+
+- `lib/blockster_v2_web/components/layouts.ex` — Trading nav link fix
+- `lib/blockster_v2/content_automation/content_publisher.ex` — 3 category mapping fixes
+- `lib/blockster_v2/sorted_posts_cache.ex` — Full rewrite: triple sorted lists, 6-element tuple, 9 new API functions
+- `lib/blockster_v2/engagement_tracker.ex` — Added `get_all_post_distributed_amounts/0`
+- `lib/blockster_v2/blog.ex` — 6 new query functions + `fetch_posts_in_order/1` helper
+- `lib/blockster_v2_web/live/post_live/index.ex` — Sort tabs, targeted send_update, post_to_component_map
+- `lib/blockster_v2_web/live/post_live/index.html.heex` — Tab UI buttons
+- `lib/blockster_v2_web/live/post_live/category.ex` — Sort tabs, targeted send_update
+- `lib/blockster_v2_web/live/post_live/category.html.heex` — Tab UI buttons
+- `lib/blockster_v2_web/live/post_live/tag.ex` — Sort tabs, targeted send_update
+- `lib/blockster_v2_web/live/post_live/tag.html.heex` — Tab UI buttons
+
+## 8. Post-Deployment Checklist
+
+These steps must be run IMMEDIATELY after deploying this branch to production.
+
+### 8.1 Run Content Automation Migrations
+
+The content automation feature (merged from `feat/content-automation`) added 6 new migrations that need to run:
+
+```
+20260212170000_create_content_generated_topics.exs
+20260212170001_create_content_feed_items.exs
+20260212170002_create_content_publish_queue.exs
+20260212180000_create_content_editorial_memory.exs
+20260212180001_create_content_revision_history.exs
+20260212180002_add_revision_count_to_publish_queue.exs
+```
+
+Migrations run automatically on deploy via Fly.io release command. Verify with:
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'Ecto.Migrator.migrations(BlocksterV2.Repo) |> IO.inspect()'"
+```
+
+### 8.2 Seed Content Automation Authors
+
+Create the 8 author personas used by the content automation system:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+Code.eval_file(\"priv/repo/seeds/content_authors.exs\")
+'"
+```
+
+This is safe to run multiple times — it uses `get_or_insert` so existing authors won't be duplicated.
+
+### 8.3 Trim Dirty Category Names in Production DB
+
+Three categories have leading/trailing whitespace in production that causes slug mismatches. Fix them:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+import Ecto.Query
+alias BlocksterV2.Repo
+
+# Find categories with whitespace issues
+dirty = Repo.all(from c in \"categories\", where: c.name != fragment(\"TRIM(?)\", c.name), select: {c.id, c.name})
+IO.inspect(dirty, label: \"Categories with whitespace\")
+
+# Fix them
+Repo.query!(\"UPDATE categories SET name = TRIM(name) WHERE name != TRIM(name)\")
+IO.puts(\"Done - trimmed category names\")
+'"
+```
+
+Expected affected categories (IDs may vary): Trading, NFT, AI categories that were inserted with extra whitespace.
+
+### 8.4 Set Content Automation Env Vars (Optional)
+
+Only needed if enabling the content automation system. Not required for the tab/sort features:
+
+```bash
+flyctl secrets set \
+  CONTENT_AUTOMATION_ENABLED=false \
+  ANTHROPIC_API_KEY=sk-ant-... \
+  UNSPLASH_ACCESS_KEY=... \
+  GOOGLE_CSE_API_KEY=... \
+  GOOGLE_CSE_CX=... \
+  CONTENT_POSTS_PER_DAY=12 \
+  --app blockster-v2
+```
+
+Model env vars (`CONTENT_CLAUDE_MODEL`, `TOPIC_CLAUDE_MODEL`) are optional — the code defaults to `claude-opus-4-6` for content and `claude-haiku-4-5-20251001` for topic clustering. Only set them if you want to override.
+
+Keep `CONTENT_AUTOMATION_ENABLED=false` until ready to go live with AI content.
+
+### 8.5 Verify After Deployment
+
+1. **Homepage tabs**: Visit `/` — verify "Latest" and "Popular" tabs appear and switch correctly
+2. **Category tabs**: Visit `/category/trading` — verify tabs work and posts load
+3. **Tag tabs**: Visit `/tag/bitcoin` (or any existing tag) — verify tabs work
+4. **Trading nav link**: Click "Trading" in the header nav — should go to `/category/trading` (not `/category/crypto-trading`)
+5. **Infinite scroll**: On all 3 pages, scroll down to verify load-more works in both tab modes
+6. **Mobile**: Check on mobile that card flashing is resolved when BUX balances update
+7. **Popular sort order**: Posts with highest `total_distributed` (most BUX paid to readers) should appear first in Popular tab
+
+## 9. Technical Implementation Notes
+
+### SortedPostsCache Changes
+
+The cache state changed from a single sorted list to three:
+- `sorted_by_balance` — legacy sort by BUX pool balance (kept for backward compat)
+- `sorted_by_date` — chronological by `published_at` DESC (Latest tab)
+- `sorted_by_popular` — by `total_distributed` DESC, then `published_at` DESC as tiebreaker (Popular tab)
+
+Each entry is a 6-element tuple: `{post_id, balance, published_unix, category_id, tag_ids, total_distributed}`
+
+The `total_distributed` value comes from the `post_bux_points` Mnesia table (element index 6), which tracks lifetime BUX distributed to readers of that post.
+
+### Targeted send_update Pattern
+
+Instead of re-rendering all visible components when a single post's BUX balance changes, each LiveView now maintains a `post_to_component_map`:
+
+```elixir
+%{post_id => {component_id, module}}
+```
+
+On `:bux_update`, only the specific component containing that post gets a `send_update`. This eliminates the mobile card flashing caused by re-rendering unrelated components.
+
+### Blog Query Functions
+
+6 new functions delegate to SortedPostsCache, then fetch full post records from Postgres in the cache-determined order:
+
+- `list_published_posts_by_date/1` — all posts, date order
+- `list_published_posts_by_date_category/2` — category filtered, date order
+- `list_published_posts_by_date_tag/2` — tag filtered, date order
+- `list_published_posts_by_popular/1` — all posts, popular order
+- `list_published_posts_by_popular_category/2` — category filtered, popular order
+- `list_published_posts_by_popular_tag/2` — tag filtered, popular order
+
+All use the shared `fetch_posts_in_order/1` helper that fetches from DB with `WHERE id IN (...)` then re-sorts to match cache order.

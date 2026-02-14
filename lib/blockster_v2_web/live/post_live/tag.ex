@@ -37,8 +37,11 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> redirect(to: "/")}
 
       tag ->
-        # Initialize with first batch of components
-        {components, displayed_post_ids, bux_balances} = build_initial_components(tag.slug)
+        # Initialize with first batch of components - default to "latest" sort
+        {components, displayed_post_ids, bux_balances} = build_initial_components(tag.slug, "latest")
+
+        # Build post_to_component map for targeted updates
+        post_to_component = build_post_to_component_map(components)
 
         # Get user's earned rewards by post for displaying "earned" badges
         user_post_rewards = if socket.assigns[:current_user] do
@@ -52,10 +55,12 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> assign(:tag_name, tag.name)
          |> assign(:tag_slug, tag.slug)
          |> assign(:page_title, "#{tag.name} - Blockster")
+         |> assign(:sort_mode, "latest")
          |> assign(:show_categories, true)
          |> assign(:displayed_post_ids, displayed_post_ids)
          |> assign(:bux_balances, bux_balances)
          |> assign(:user_post_rewards, user_post_rewards)
+         |> assign(:post_to_component_map, post_to_component)
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
          |> stream(:components, components)}
     end
@@ -67,24 +72,37 @@ defmodule BlocksterV2Web.PostLive.Tag do
   end
 
   @impl true
-  def handle_event("load-more", _, socket) do
-    IO.puts("📜 Loading more tag components...")
+  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ["latest", "popular"] do
+    tag_slug = socket.assigns.tag_slug
 
+    {components, displayed_post_ids, bux_balances} = build_initial_components(tag_slug, tab)
+    post_to_component = build_post_to_component_map(components)
+
+    {:noreply,
+     socket
+     |> assign(:sort_mode, tab)
+     |> assign(:displayed_post_ids, displayed_post_ids)
+     |> assign(:bux_balances, bux_balances)
+     |> assign(:post_to_component_map, post_to_component)
+     |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
+     |> stream(:components, components, reset: true)}
+  end
+
+  @impl true
+  def handle_event("load-more", _, socket) do
     tag_slug = socket.assigns.tag_slug
     displayed_post_ids = socket.assigns.displayed_post_ids
     last_module = socket.assigns.last_component_module
     bux_balances = socket.assigns.bux_balances
+    sort_mode = socket.assigns.sort_mode
 
     # Build next batch of 4 components (Three, Four, Five, Six)
     {new_components, new_displayed_post_ids, new_bux_balances} =
-      build_components_batch(tag_slug, displayed_post_ids, last_module)
+      build_components_batch(tag_slug, displayed_post_ids, last_module, sort_mode)
 
     if new_components == [] do
-      IO.puts("📜 No more posts to load")
       {:reply, %{end_reached: true}, socket}
     else
-      IO.puts("📜 Loaded #{length(new_components)} components with #{length(new_displayed_post_ids) - length(displayed_post_ids)} new posts")
-
       # Insert new components into stream
       socket =
         Enum.reduce(new_components, socket, fn component, acc_socket ->
@@ -94,28 +112,37 @@ defmodule BlocksterV2Web.PostLive.Tag do
       # Track the last component module for next load
       last_module = if new_components != [], do: List.last(new_components).module, else: last_module
 
+      # Update post_to_component map
+      new_post_to_component = build_post_to_component_map(new_components)
+      updated_post_to_component = Map.merge(socket.assigns.post_to_component_map, new_post_to_component)
+
       {:reply, %{},
        socket
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:bux_balances, Map.merge(bux_balances, new_bux_balances))
+       |> assign(:post_to_component_map, updated_post_to_component)
        |> assign(:last_component_module, last_module)}
     end
   end
 
-  # Handle BUX balance updates from PubSub
+  # Handle BUX balance updates from PubSub - targeted send_update
   @impl true
   def handle_info({:bux_update, post_id, new_balance}, socket) do
-    # Update balance in our local map if this post is displayed
     if post_id in socket.assigns.displayed_post_ids do
       bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+
+      case Map.get(socket.assigns.post_to_component_map, post_id) do
+        {component_id, module} ->
+          send_update(self(), module, id: component_id, bux_balances: bux_balances)
+        nil -> :ok
+      end
+
       {:noreply, assign(socket, :bux_balances, bux_balances)}
     else
       {:noreply, socket}
     end
   end
 
-  # Handle posts reordering - ignore for now since we'd need to rebuild components
-  # In future could trigger a full page refresh or partial rebuild
   @impl true
   def handle_info({:posts_reordered, _post_id, _new_balance}, socket) do
     {:noreply, socket}
@@ -128,13 +155,12 @@ defmodule BlocksterV2Web.PostLive.Tag do
   end
 
   # Build initial batch of 4 components (Three, Four, Five, Six)
-  defp build_initial_components(tag_slug) do
-    build_components_batch(tag_slug, [], BlocksterV2Web.PostLive.PostsSixComponent)
+  defp build_initial_components(tag_slug, sort_mode) do
+    build_components_batch(tag_slug, [], BlocksterV2Web.PostLive.PostsSixComponent, sort_mode)
   end
 
   # Build a batch of 4 components cycling through the component modules
-  # Uses pool-sorted query (sorted by BUX pool balance DESC, then published_at DESC)
-  defp build_components_batch(tag_slug, displayed_post_ids, last_module) do
+  defp build_components_batch(tag_slug, displayed_post_ids, last_module, sort_mode) do
     # Start from the component after last_module
     start_index = Enum.find_index(@component_modules, &(&1 == last_module))
     start_index = if start_index, do: rem(start_index + 1, 4), else: 0
@@ -146,26 +172,30 @@ defmodule BlocksterV2Web.PostLive.Tag do
         module = Enum.at(@component_modules, module_index)
         posts_needed = Map.get(@posts_per_component, module)
 
-        # Fetch posts for this component using pool-sorted query
-        # Posts come pre-sorted by BUX pool balance DESC, then published_at DESC
-        # bux_balance is already attached to each post
-        posts = Blog.list_published_posts_by_tag_pool(
-          tag_slug,
-          limit: posts_needed,
-          exclude_ids: acc_ids
-        )
+        # Fetch posts based on sort mode
+        posts = case sort_mode do
+          "popular" ->
+            Blog.list_published_posts_by_popular_tag(
+              tag_slug,
+              limit: posts_needed,
+              exclude_ids: acc_ids
+            )
+          _ ->
+            Blog.list_published_posts_by_date_tag(
+              tag_slug,
+              limit: posts_needed,
+              exclude_ids: acc_ids
+            )
+        end
 
         if posts == [] do
-          # No more posts available
           {acc_components, acc_ids, acc_balances}
         else
           post_ids = Enum.map(posts, & &1.id)
-          # Collect bux_balances from posts
           new_balances = posts
             |> Enum.map(fn p -> {p.id, Map.get(p, :bux_balance, 0)} end)
             |> Map.new()
 
-          # Use unique integer to avoid ID conflicts across batches
           unique_id = System.unique_integer([:positive])
           component = %{
             id: "tag-#{tag_slug}-#{module}-#{unique_id}",
@@ -180,5 +210,14 @@ defmodule BlocksterV2Web.PostLive.Tag do
       end)
 
     {components, final_displayed_ids, bux_balances}
+  end
+
+  # Build post_id => {component_id, module} map for targeted send_update
+  defp build_post_to_component_map(components) do
+    Enum.reduce(components, %{}, fn comp, acc ->
+      Enum.reduce(Map.get(comp, :posts, []), acc, fn post, inner_acc ->
+        Map.put(inner_acc, post.id, {comp.id, comp.module})
+      end)
+    end)
   end
 end

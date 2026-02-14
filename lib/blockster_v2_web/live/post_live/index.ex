@@ -1,6 +1,6 @@
 defmodule BlocksterV2Web.PostLive.Index do
   @moduledoc """
-  Homepage LiveView - displays posts in chronological order.
+  Homepage LiveView - displays posts with Latest/Popular tabs.
 
   Posts are displayed in a cycling pattern: Three → Four → Five → Six → repeat.
   """
@@ -37,8 +37,8 @@ defmodule BlocksterV2Web.PostLive.Index do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
 
-    # Build initial 4 components (19 posts total)
-    {components, displayed_post_ids} = build_initial_components()
+    # Build initial 4 components (19 posts total) - default to "latest" sort
+    {components, displayed_post_ids} = build_initial_components("latest")
 
     # Build bux_balances map from posts
     all_posts = Enum.flat_map(components, fn c -> c.posts end)
@@ -48,6 +48,9 @@ defmodule BlocksterV2Web.PostLive.Index do
     initial_component_map = components
       |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
       |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
+
+    # Build post_id -> {component_id, module} map for targeted send_update
+    post_to_component = build_post_to_component_map(components)
 
     # Get user's earned rewards by post for displaying "earned" badges
     user_post_rewards = if socket.assigns[:current_user] do
@@ -59,11 +62,13 @@ defmodule BlocksterV2Web.PostLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Latest Posts")
+     |> assign(:sort_mode, "latest")
      |> assign(:show_categories, true)
      |> assign(:displayed_post_ids, displayed_post_ids)
      |> assign(:bux_balances, bux_balances)
      |> assign(:user_post_rewards, user_post_rewards)
      |> assign(:component_module_map, initial_component_map)
+     |> assign(:post_to_component_map, post_to_component)
      |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
      |> assign(:current_offset, @posts_per_cycle)
      |> assign(:search_query, "")
@@ -82,7 +87,7 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   defp apply_action(socket, :index, _params) do
     socket
-    |> assign(:page_title, "Latest Posts")
+    |> assign(:page_title, if(socket.assigns.sort_mode == "latest", do: "Latest Posts", else: "Popular Posts"))
     |> assign(:post, nil)
   end
 
@@ -112,12 +117,38 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ["latest", "popular"] do
+    # Rebuild components with new sort order
+    {components, displayed_post_ids} = build_initial_components(tab)
+    all_posts = Enum.flat_map(components, fn c -> c.posts end)
+    bux_balances = build_bux_balances_map(all_posts)
+
+    component_map = components
+      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
+      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
+
+    post_to_component = build_post_to_component_map(components)
+
+    {:noreply,
+     socket
+     |> assign(:sort_mode, tab)
+     |> assign(:page_title, if(tab == "latest", do: "Latest Posts", else: "Popular Posts"))
+     |> assign(:displayed_post_ids, displayed_post_ids)
+     |> assign(:bux_balances, bux_balances)
+     |> assign(:component_module_map, component_map)
+     |> assign(:post_to_component_map, post_to_component)
+     |> assign(:current_offset, @posts_per_cycle)
+     |> stream(:components, components, reset: true)}
+  end
+
+  @impl true
   def handle_event("load-more", _, socket) do
     offset = socket.assigns.current_offset
     displayed_post_ids = socket.assigns.displayed_post_ids
+    sort_mode = socket.assigns.sort_mode
 
     {new_components, new_displayed_post_ids} =
-      build_components_batch(offset, displayed_post_ids)
+      build_components_batch(offset, displayed_post_ids, sort_mode)
 
     if new_components == [] do
       {:reply, %{end_reached: true}, socket}
@@ -134,6 +165,10 @@ defmodule BlocksterV2Web.PostLive.Index do
         |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
       updated_component_map = Map.merge(socket.assigns.component_module_map, new_component_map)
 
+      # Update post_to_component_map with new components
+      new_post_to_component = build_post_to_component_map(new_components)
+      updated_post_to_component = Map.merge(socket.assigns.post_to_component_map, new_post_to_component)
+
       # Update bux_balances with new posts
       new_posts = Enum.flat_map(new_components, fn c -> c.posts end)
       updated_bux_balances = Map.merge(socket.assigns.bux_balances, build_bux_balances_map(new_posts))
@@ -143,6 +178,7 @@ defmodule BlocksterV2Web.PostLive.Index do
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:current_offset, offset + @posts_per_cycle)
        |> assign(:component_module_map, updated_component_map)
+       |> assign(:post_to_component_map, updated_post_to_component)
        |> assign(:bux_balances, updated_bux_balances)
        |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)}
     end
@@ -265,9 +301,11 @@ defmodule BlocksterV2Web.PostLive.Index do
       # Update the bux_balances map for real-time display
       bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
 
-      # Send update to all displayed post components so they re-render with new bux_balances
-      for {component_id, module} <- socket.assigns.component_module_map do
-        send_update(self(), module, id: component_id, bux_balances: bux_balances)
+      # Only send_update to the component that contains this post (fixes mobile flash)
+      case Map.get(socket.assigns.post_to_component_map, post_id) do
+        {component_id, module} ->
+          send_update(self(), module, id: component_id, bux_balances: bux_balances)
+        nil -> :ok
       end
 
       {:noreply, assign(socket, :bux_balances, bux_balances)}
@@ -278,25 +316,10 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def handle_info({:posts_reordered, _post_id, _new_balance}, socket) do
-    # Posts have been reordered by BUX balance - rebuild all components with new order
-    {components, displayed_post_ids} = build_initial_components()
-
-    # Build new bux_balances map from posts
-    all_posts = Enum.flat_map(components, fn c -> c.posts end)
-    bux_balances = build_bux_balances_map(all_posts)
-
-    # Track component ID -> module mapping for real-time BUX updates via send_update
-    component_map = components
-      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
-      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
-
-    {:noreply,
-     socket
-     |> assign(:displayed_post_ids, displayed_post_ids)
-     |> assign(:bux_balances, bux_balances)
-     |> assign(:component_module_map, component_map)
-     |> assign(:current_offset, @posts_per_cycle)
-     |> stream(:components, components, reset: true)}
+    # For "Latest" tab, date order doesn't change - skip rebuild
+    # For "Popular" tab, skip rebuild too to avoid disruptive layout jumps
+    # Reordering happens on next page load or tab switch
+    {:noreply, socket}
   end
 
   # ============================================================================
@@ -304,21 +327,22 @@ defmodule BlocksterV2Web.PostLive.Index do
   # ============================================================================
 
   # Build initial batch of 4 components (19 posts total)
-  defp build_initial_components do
-    build_components_batch(0, [])
+  defp build_initial_components(sort_mode) do
+    build_components_batch(0, [], sort_mode)
   end
 
   # Build a batch of 4 components cycling through the component modules
-  defp build_components_batch(offset, displayed_post_ids) do
+  defp build_components_batch(offset, displayed_post_ids, sort_mode) do
     # Calculate posts needed for one full cycle (19 posts)
     total_posts_needed = @posts_per_cycle
 
-    # Fetch posts sorted by pool balance (highest first), then by date
-    # list_published_posts_by_pool already attaches bux_balance to each post
-    posts = Blog.list_published_posts_by_pool(
-      limit: total_posts_needed,
-      offset: offset
-    )
+    # Fetch posts based on sort mode
+    posts = case sort_mode do
+      "popular" ->
+        Blog.list_published_posts_by_popular(limit: total_posts_needed, offset: offset)
+      _ ->
+        Blog.list_published_posts_by_date(limit: total_posts_needed, offset: offset)
+    end
     |> Enum.filter(fn p -> p.id not in displayed_post_ids end)
 
     if posts == [] do
@@ -377,6 +401,15 @@ defmodule BlocksterV2Web.PostLive.Index do
     |> Enum.uniq_by(& &1.id)
     |> Enum.reduce(%{}, fn post, acc ->
       Map.put(acc, post.id, Map.get(post, :bux_balance, 0))
+    end)
+  end
+
+  # Build a map of post_id => {component_id, module} for targeted send_update
+  defp build_post_to_component_map(components) do
+    Enum.reduce(components, %{}, fn comp, acc ->
+      Enum.reduce(Map.get(comp, :posts, []), acc, fn post, inner_acc ->
+        Map.put(inner_acc, post.id, {comp.id, comp.module})
+      end)
     end)
   end
 end
