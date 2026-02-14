@@ -53,8 +53,20 @@ defmodule BlocksterV2.Application do
       []
     end
 
+    # Content automation pipeline (behind feature flag)
+    content_automation_children =
+      if Application.get_env(:blockster_v2, :content_automation, [])[:enabled] do
+        [
+          {BlocksterV2.ContentAutomation.FeedPoller, []},
+          {BlocksterV2.ContentAutomation.TopicEngine, []},
+          {BlocksterV2.ContentAutomation.ContentQueue, []}
+        ]
+      else
+        []
+      end
+
     # Endpoint always starts last
-    children = base_children ++ genserver_children ++ [BlocksterV2Web.Endpoint]
+    children = base_children ++ genserver_children ++ content_automation_children ++ [BlocksterV2Web.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

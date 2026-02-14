@@ -524,6 +524,12 @@ defmodule BlocksterV2.MnesiaInitializer do
         :onchain_stats_cache  # map or nil
       ],
       index: [:bux_total_wagered, :rogue_total_wagered]
+    },
+    %{
+      name: :content_automation_settings,
+      type: :set,
+      attributes: [:key, :value, :updated_at, :updated_by],
+      index: []
     }
   ]
 

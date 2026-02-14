@@ -320,6 +320,12 @@ defmodule BlocksterV2Web.Layouts do
                         >
                           Bet Stats
                         </.link>
+                        <.link
+                          navigate={~p"/admin/content"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Content Generator
+                        </.link>
                       <% end %>
                     <% end %>
                   </div>
@@ -515,6 +521,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Bet Stats
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/content"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Content Generator
                       </.link>
                     <% end %>
                   <% end %>

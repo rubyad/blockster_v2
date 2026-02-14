@@ -51,6 +51,14 @@ defmodule BlocksterV2Web.Router do
       live "/admin/stats", Admin.StatsLive.Index, :index
       live "/admin/stats/players", Admin.StatsLive.Players, :index
       live "/admin/stats/players/:address", Admin.StatsLive.PlayerDetail, :show
+
+      # Content Automation Admin
+      live "/admin/content", ContentAutomationLive.Dashboard, :index
+      live "/admin/content/queue", ContentAutomationLive.Queue, :index
+      live "/admin/content/queue/:id/edit", ContentAutomationLive.EditArticle, :edit
+      live "/admin/content/feeds", ContentAutomationLive.Feeds, :index
+      live "/admin/content/history", ContentAutomationLive.History, :index
+      live "/admin/content/authors", ContentAutomationLive.Authors, :index
     end
 
     # Redirect /profile to member page Settings tab

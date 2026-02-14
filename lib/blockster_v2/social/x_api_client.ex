@@ -82,7 +82,11 @@ defmodule BlocksterV2.Social.XApiClient do
            headers: [
              {"content-type", "application/x-www-form-urlencoded"},
              {"authorization", basic_auth_header()}
-           ]
+           ],
+           receive_timeout: 15_000,
+           connect_options: [timeout: 10_000],
+           retry: :transient,
+           max_retries: 2
          ) do
       {:ok, %Req.Response{status: 200, body: body}} ->
         parse_token_response(body)
@@ -475,7 +479,7 @@ defmodule BlocksterV2.Social.XApiClient do
   """
   def fetch_score_data(access_token, user_id) do
     with {:ok, user_data} <- get_user_with_metrics(access_token, user_id),
-         {:ok, tweets} <- get_user_tweets_with_metrics(access_token, user_id, 100) do
+         {:ok, tweets} <- get_user_tweets_with_metrics(access_token, user_id, 10) do
       {:ok, %{user: user_data, tweets: tweets}}
     end
   end

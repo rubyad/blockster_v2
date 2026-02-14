@@ -628,59 +628,23 @@ html {
 
 /* Blockquote styles for rendered content */
 #post-content blockquote {
-  background-color: #e5e5e5 !important;
-  border-left: 4px solid #333 !important;
-  padding: 40px 50px !important;
-  margin: 32px 0 !important;
-  border-radius: 8px !important;
-  position: relative !important;
-}
-
-#post-content blockquote::before {
-  content: '\201C' !important;
-  font-size: 100px !important;
-  line-height: 1 !important;
-  color: #bbb !important;
-  position: absolute !important;
-  top: 0px !important;
-  left: 10px !important;
-  font-family: 'Times New Roman', Times, serif !important;
-  font-weight: normal !important;
-}
-
-#post-content blockquote::after {
-  content: '\201D' !important;
-  font-size: 100px !important;
-  line-height: 1 !important;
-  color: #bbb !important;
-  position: absolute !important;
-  bottom: -20px !important;
-  right: 15px !important;
-  font-family: 'Times New Roman', Times, serif !important;
-  font-weight: normal !important;
+  border-left: 4px solid #CAFC00 !important;
+  background-color: #f9fafb !important;
+  padding: 20px 24px !important;
+  margin: 24px 0 !important;
+  border-radius: 0 8px 8px 0 !important;
 }
 
 #post-content blockquote p {
-  font-size: 1.4rem !important;
-  line-height: 1.6 !important;
-  font-style: normal !important;
-  color: #1a1a1a !important;
-  margin: 0 0 16px 0 !important;
-  font-weight: 600 !important;
-  position: relative !important;
+  font-size: 1.1rem !important;
+  line-height: 1.7 !important;
+  font-style: italic !important;
+  color: #374151 !important;
+  margin: 0 0 8px 0 !important;
 }
 
-/* Attribution styling - can be last child or have the attribution class */
-#post-content blockquote p:last-child,
-#post-content blockquote p.blockquote-attribution {
-  font-size: 1rem !important; /* h4 size */
-  font-style: normal !important;
-  font-weight: 600 !important;
-  color: #666 !important;
-  margin-top: 20px !important;
+#post-content blockquote p:last-child {
   margin-bottom: 0 !important;
-  padding-top: 16px !important;
-  border-top: 1px solid #ddd !important;
 }
 
 /* Custom Tweet Button Icon */
@@ -713,7 +677,6 @@ html {
   border: 1px solid #E7E8F1;
   border-radius: 8px;
   background: white;
-  overflow: hidden;
 }
 
 .tiptap-toolbar {
@@ -723,6 +686,10 @@ html {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 5rem;
+  z-index: 40;
+  border-radius: 8px 8px 0 0;
 }
 
 .tiptap-toolbar .toolbar-btn {
@@ -775,6 +742,16 @@ html {
 .ProseMirror ol {
   padding-left: 1.5rem;
   margin: 1em 0;
+}
+
+.ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  color: #1d4ed8;
 }
 
 .ProseMirror h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }

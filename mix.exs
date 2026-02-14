@@ -69,7 +69,8 @@ defmodule BlocksterV2.MixProject do
       {:number, "~> 1.0"},
       {:ex_phone_number, "~> 0.4"},
       {:httpoison, "~> 2.0"},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:fast_rss, "~> 0.5"}
     ]
   end
 

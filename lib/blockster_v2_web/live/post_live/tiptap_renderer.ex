@@ -42,7 +42,7 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
     inner = Enum.map(content, &render_node/1) |> Enum.join()
 
     """
-    <blockquote class="border-l-4 border-gray-300 pl-4 italic my-6 text-gray-700 bg-gray-50 py-2 rounded-r">
+    <blockquote>
       #{inner}
     </blockquote>
     """

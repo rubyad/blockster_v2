@@ -67,6 +67,19 @@ export const TipTapEditor = {
     // Store editor reference
     this.el.__tiptap = this.editor
 
+    // Listen for content reload events (e.g., after AI revision)
+    this.handleEvent("reload-editor-content", ({ content }) => {
+      if (this.editor && content) {
+        try {
+          const parsed = typeof content === 'string' ? JSON.parse(content) : content
+          this.editor.commands.setContent(parsed)
+          this.syncToHiddenInput()
+        } catch (e) {
+          console.error('Failed to reload editor content:', e)
+        }
+      }
+    })
+
     console.log("=== TipTapEditor Hook Mount Complete ===")
   },
 
@@ -88,7 +101,8 @@ export const TipTapEditor = {
       <button type="button" data-action="orderedList" title="Numbered List" class="toolbar-btn">1. List</button>
       <button type="button" data-action="blockquote" title="Blockquote" class="toolbar-btn">"</button>
       <span class="separator"></span>
-      <button type="button" data-action="link" title="Link" class="toolbar-btn">Link</button>
+      <button type="button" data-action="link" title="Add Link" class="toolbar-btn">Link</button>
+      <button type="button" data-action="unlink" title="Remove Link" class="toolbar-btn">Unlink</button>
       <button type="button" data-action="image" title="Image" class="toolbar-btn">Image</button>
       <button type="button" data-action="tweet" title="Tweet" class="toolbar-btn">Tweet</button>
       <button type="button" data-action="spacer" title="Spacer" class="toolbar-btn">---</button>
@@ -154,6 +168,9 @@ export const TipTapEditor = {
         break
       case 'link':
         this.linkHandler()
+        break
+      case 'unlink':
+        this.editor.chain().focus().unsetLink().run()
         break
       case 'image':
         this.editor.commands.uploadImage()

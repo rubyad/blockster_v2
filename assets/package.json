@@ -15,5 +15,8 @@
     "@tiptap/starter-kit": "^2.27.1",
     "swiper": "^12.0.3",
     "thirdweb": "^5.110.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }

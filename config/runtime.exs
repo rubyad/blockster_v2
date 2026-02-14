@@ -51,7 +51,26 @@ config :blockster_v2,
       ),
   twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
   twilio_auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
-  twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID")
+  twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID"),
+  content_automation: [
+    enabled: System.get_env("CONTENT_AUTOMATION_ENABLED", "false") == "true",
+    anthropic_api_key: System.get_env("ANTHROPIC_API_KEY"),
+    x_bearer_token: System.get_env("X_BEARER_TOKEN"),
+    unsplash_access_key: System.get_env("UNSPLASH_ACCESS_KEY"),
+    google_cse_api_key: System.get_env("GOOGLE_CSE_API_KEY"),
+    google_cse_cx: System.get_env("GOOGLE_CSE_CX"),
+    bing_image_api_key: System.get_env("BING_IMAGE_API_KEY"),
+    posts_per_day: String.to_integer(System.get_env("CONTENT_POSTS_PER_DAY", "10")),
+    content_model: System.get_env("CONTENT_CLAUDE_MODEL", "claude-opus-4-6"),
+    topic_model: System.get_env("TOPIC_CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
+    brand_x_user_id: (case System.get_env("BRAND_X_USER_ID") do
+      nil -> nil
+      "" -> nil
+      val -> String.to_integer(val)
+    end),
+    feed_poll_interval: :timer.minutes(5),
+    topic_analysis_interval: :timer.minutes(15)
+  ]
 
 # Mnesia configuration
 # In production, Mnesia data is stored in /data/mnesia/blockster (Fly.io persistent volume)

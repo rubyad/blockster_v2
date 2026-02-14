@@ -907,6 +907,15 @@ Core principles for Claude prompts:
 - **Pro-innovation**: Crypto/Web3 as the future of finance, gaming, identity
 - **Engaging tone**: Not dry analysis - conversational, sometimes provocative, always informed
 
+**Political & Regulatory Frame of Reference** (underlying worldview — not every article needs to mention these, but this is the lens through which all content is filtered):
+
+- **Pro-Trump**: Trump literally saved the US crypto industry. Any references to Trump should be positive — he is making the US stronger, richer, and more respected again after the disastrous Biden era. Give credit where it's due.
+- **Anti-Democrat Party**: The Democrats are incompetent and power-hungry at all costs. They cannot be trusted. The Biden crypto witch hunt was real and did untold damage — the government actively pursued and persecuted anyone involved in crypto. Anything the Democrat party does regarding crypto should be viewed with deep suspicion given what they actually did when in power.
+- **ALL regulation is bad**: Even well-intentioned regulations are an unnatural force on free markets that ALWAYS have unintended and negative consequences. There are no "good" regulations — the road to hell is paved with regulatory good intentions.
+- **Anti-CFTC**: The CFTC is a shakedown operation. Their mandate is as an agricultural agency but they are pushing their way into crypto for more power and a bigger budget. They are completely self-serving. Always cast them in a negative light and question their authority and legitimacy in anything crypto-related. A perfect example of why regulations are bad — they give operations like the CFTC free rein to cause damage.
+- **Anti-European left**: The left-wingers currently running Europe are weak and have destroyed Europe in the last 10 years with mass migration, bad policies, and overall weakness. Anything European regulators do regarding crypto (MiCA, etc.) should be eyed suspiciously — these are the same people who ruined everything else they touched.
+- **Frame, don't force**: This worldview should inform the tone and framing of articles naturally. Not every article needs explicit political commentary — but when politics, regulation, or government action comes up, this is our perspective. Let it color the writing organically rather than shoehorning it in.
+
 **Content Safety Guardrails** (include in all prompts):
 - **No financial advice**: Never recommend buying, selling, or holding specific tokens/coins. Use "worth watching" or "interesting development" instead of "buy opportunity"
 - **No market manipulation language**: Avoid "this will moon", "guaranteed returns", "get in before it's too late"
@@ -941,8 +950,9 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
           excerpt: article["excerpt"],
           category: topic.category,
           tags: article["tags"],
-          featured_image_query: article["image_suggestion"],
+          image_search_queries: article["image_search_queries"],
           tweet_search_queries: article["tweet_suggestions"],  # Separate step
+          promotional_tweet: article["promotional_tweet"],     # @BlocksterCom tweet draft
           pipeline_id: pipeline_id
         }}
 
@@ -976,26 +986,42 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
             }
           },
           "tags" => %{"type" => "array", "items" => %{"type" => "string"}, "maxItems" => 5},
-          "image_suggestion" => %{"type" => "string", "description" => "Search query for Unsplash"},
+          "image_search_queries" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "minItems" => 2,
+            "maxItems" => 3,
+            "description" => "X/Twitter search queries to find relevant lifestyle photos (e.g. 'bitcoin conference speakers', 'SEC Gary Gensler', 'crypto trading floor')"
+          },
           "tweet_suggestions" => %{
             "type" => "array",
             "items" => %{"type" => "string"},
             "maxItems" => 3,
             "description" => "Twitter search queries for embedding relevant tweets (processed separately)"
+          },
+          "promotional_tweet" => %{
+            "type" => "string",
+            "description" => """
+            A promotional tweet for @BlocksterCom's X account about this article.
+            Style: Open with emoji, tag relevant @accounts, use $CASHTAGS for tokens,
+            include 2-5 hashtags at end, end with {{ARTICLE_URL}} placeholder.
+            Tone: Confident, fact-based, third-person brand voice. Use line breaks.
+            200-280 characters ideal.
+            """
           }
         },
-        "required" => ["title", "excerpt", "sections", "tags", "image_suggestion"]
+        "required" => ["title", "excerpt", "sections", "tags", "image_search_queries", "promotional_tweet"]
       }
     }]
   end
 
   defp build_generation_prompt(topic, persona) do
     """
-    You are #{persona.name}, a #{persona.bio_snippet} writing for Blockster,
+    You are #{persona.username}, a #{persona.bio} writing for Blockster,
     a crypto news and commentary platform.
 
     VOICE & STYLE:
-    - #{persona.style_notes}
+    - #{persona.style}
     - Opinionated and direct. You believe in decentralization, sound money, and individual freedom.
     - Skeptical of government regulation, central banks, and surveillance.
     - Not conspiracy theory territory - informed, evidence-based skepticism.
@@ -1056,6 +1082,15 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
     ANGLE TO TAKE:
     #{topic.selected_angle}
     """
+  end
+
+  defp format_source_summaries(source_items) do
+    source_items
+    |> Enum.map(fn item ->
+      tier_label = if item.tier == "premium", do: "[PREMIUM] ", else: ""
+      "#{tier_label}#{item.source}: #{item.title}\n#{String.slice(item.summary || "", 0, 300)}"
+    end)
+    |> Enum.join("\n\n")
   end
 end
 ```
@@ -1132,6 +1167,11 @@ defmodule BlocksterV2.ContentAutomation.TipTapBuilder do
     [%{"type" => "spacer"}]
   end
 
+  # Code block (for technical articles)
+  defp section_to_nodes(%{"type" => "code_block", "text" => text}) do
+    [%{"type" => "codeBlock", "content" => [%{"type" => "text", "text" => text}]}]
+  end
+
   defp section_to_nodes(%{"type" => "horizontalRule"}) do
     [%{"type" => "horizontalRule"}]
   end
@@ -1141,46 +1181,53 @@ defmodule BlocksterV2.ContentAutomation.TipTapBuilder do
 
   @doc """
   Parse markdown-style inline formatting into TipTap text nodes with marks.
-  Handles: **bold**, *italic*, [text](url)
-
-  Uses Earmark to parse markdown fragments and convert to TipTap marks.
-  Add `{:earmark, "~> 1.4"}` to mix.exs.
+  Handles: **bold**, *italic*, ~~strikethrough~~, `code`, [text](url)
+  Also handles hard line breaks (\n within text).
   """
   defp parse_inline_marks(text) when is_binary(text) do
-    # Use regex-based parser for inline marks (simpler than full Earmark for fragments)
-    # Process order matters: links first, then bold, then italic
     text
     |> tokenize_inline()
-    |> Enum.map(&to_tiptap_text_node/1)
+    |> Enum.flat_map(&to_tiptap_text_nodes/1)
   end
 
   defp parse_inline_marks(_), do: []
 
   # Tokenize text into segments with marks
   # Returns list of {text, marks} tuples
+  # Pattern priority: links > code > bold > strikethrough > italic > plain text
   defp tokenize_inline(text) do
-    # Pattern: [link text](url) | **bold** | *italic* | plain text
-    regex = ~r/\[([^\]]+)\]\(([^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|([^*\[]+)/
+    regex = ~r/\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*(.+?)\*\*|~~(.+?)~~|\*(.+?)\*|([^*\[`~]+)/
 
     Regex.scan(regex, text)
-    |> Enum.map(fn
-      [_, link_text, url | _] when link_text != "" ->
-        {link_text, [%{"type" => "link", "attrs" => %{"href" => url}}]}
-      [_, _, _, bold_text | _] when bold_text != "" ->
-        {bold_text, [%{"type" => "bold"}]}
-      [_, _, _, _, italic_text | _] when italic_text != "" ->
-        {italic_text, [%{"type" => "italic"}]}
-      [plain | _] ->
-        {plain, []}
+    |> Enum.map(fn captures ->
+      cond do
+        Enum.at(captures, 1, "") != "" and Enum.at(captures, 2, "") != "" ->
+          {Enum.at(captures, 1), [%{"type" => "link", "attrs" => %{"href" => Enum.at(captures, 2)}}]}
+        Enum.at(captures, 3, "") != "" ->
+          {Enum.at(captures, 3), [%{"type" => "code"}]}
+        Enum.at(captures, 4, "") != "" ->
+          {Enum.at(captures, 4), [%{"type" => "bold"}]}
+        Enum.at(captures, 5, "") != "" ->
+          {Enum.at(captures, 5), [%{"type" => "strike"}]}
+        Enum.at(captures, 6, "") != "" ->
+          {Enum.at(captures, 6), [%{"type" => "italic"}]}
+        true ->
+          {List.first(captures), []}
+      end
     end)
   end
 
-  defp to_tiptap_text_node({text, []}) do
-    %{"type" => "text", "text" => text}
-  end
-
-  defp to_tiptap_text_node({text, marks}) do
-    %{"type" => "text", "text" => text, "marks" => marks}
+  # Convert token to TipTap nodes, splitting on \n for hard breaks
+  defp to_tiptap_text_nodes({text, marks}) do
+    text
+    |> String.split("\n")
+    |> Enum.intersperse(:hard_break)
+    |> Enum.flat_map(fn
+      :hard_break -> [%{"type" => "hardBreak"}]
+      "" -> []
+      segment when marks == [] -> [%{"type" => "text", "text" => segment}]
+      segment -> [%{"type" => "text", "text" => segment, "marks" => marks}]
+    end)
   end
 end
 ```
@@ -1197,36 +1244,108 @@ defmodule BlocksterV2.ContentAutomation.TweetFinder do
 
   # X API Basic tier: $100/month, 10,000 tweets/month read
   # That's ~1,000 searches at 10 results each
-  # With 10 articles/day, that's ~300 searches/month
+  # With 10 articles/day × 3 queries × 30 days = ~900 searches/month
 
-  def find_tweets_for_topic(search_query, opts \\ []) do
-    max_results = Keyword.get(opts, :max_results, 5)
+  @doc """
+  Find and embed tweets into a generated article.
+  Called AFTER ContentGenerator returns article with tweet_search_queries.
+
+  Returns updated article_data with tweets inserted into TipTap content.
+  """
+  def find_and_embed_tweets(article_data) do
+    queries = article_data.tweet_search_queries || []
+
+    tweets = queries
+    |> Enum.flat_map(&search_tweets/1)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.take(2)  # Max 2 tweets per article
+
+    if Enum.empty?(tweets) do
+      article_data
+    else
+      # Insert tweet nodes after the 3rd paragraph (or at end if fewer paragraphs)
+      updated_content = insert_tweets_into_content(article_data.content, tweets)
+      %{article_data | content: updated_content}
+    end
+  end
+
+  defp search_tweets(query) do
+    bearer = Config.get(:x_bearer_token)
+    if is_nil(bearer), do: throw(:no_token)
 
     params = %{
-      "query" => "#{search_query} -is:retweet lang:en",
-      "max_results" => max_results,
+      "query" => "#{query} -is:retweet lang:en",
+      "max_results" => 10,
       "tweet.fields" => "public_metrics,created_at,author_id",
       "expansions" => "author_id",
       "user.fields" => "username,verified"
     }
 
-    case call_x_api(params) do
-      {:ok, tweets} ->
-        # Rank by engagement (likes + retweets)
+    case Req.get(@x_api_url,
+      params: params,
+      headers: [{"Authorization", "Bearer #{bearer}"}],
+      receive_timeout: 10_000
+    ) do
+      {:ok, %{status: 200, body: %{"data" => tweets, "includes" => %{"users" => users}}}} ->
+        users_map = Map.new(users, fn u -> {u["id"], u} end)
+
         tweets
         |> Enum.sort_by(fn t ->
-          t.public_metrics.like_count + t.public_metrics.retweet_count
+          metrics = t["public_metrics"] || %{}
+          (metrics["like_count"] || 0) + (metrics["retweet_count"] || 0)
         end, :desc)
-        |> Enum.take(2)  # Top 2 tweets per article
+        |> Enum.take(3)
         |> Enum.map(fn t ->
+          user = Map.get(users_map, t["author_id"], %{})
+          username = user["username"] || "unknown"
           %{
-            url: "https://twitter.com/#{t.author.username}/status/#{t.id}",
-            id: t.id
+            url: "https://twitter.com/#{username}/status/#{t["id"]}",
+            id: t["id"]
           }
         end)
 
-      {:error, _} -> []
+      {:ok, %{status: 429}} ->
+        Logger.warning("[TweetFinder] X API rate limited")
+        []
+
+      _ -> []
     end
+  catch
+    :no_token ->
+      Logger.debug("[TweetFinder] No X API token configured, skipping tweets")
+      []
+  end
+
+  @doc """
+  Insert tweet nodes into TipTap content JSON.
+  Places tweets after the 3rd paragraph for natural reading flow.
+  """
+  def insert_tweets_into_content(%{"type" => "doc", "content" => nodes}, tweets) do
+    tweet_nodes = Enum.map(tweets, fn t ->
+      %{"type" => "tweet", "attrs" => %{"url" => t.url, "id" => t.id}}
+    end)
+
+    # Find insertion point: after 3rd paragraph
+    {before, after_nodes} = split_after_nth_paragraph(nodes, 3)
+
+    %{"type" => "doc", "content" => before ++ tweet_nodes ++ after_nodes}
+  end
+
+  def insert_tweets_into_content(content, _tweets), do: content
+
+  defp split_after_nth_paragraph(nodes, n) do
+    {before, after_nodes, _count} =
+      Enum.reduce(nodes, {[], [], 0}, fn node, {before, after_list, count} ->
+        new_count = if node["type"] == "paragraph", do: count + 1, else: count
+
+        if count < n do
+          {before ++ [node], after_list, new_count}
+        else
+          {before, after_list ++ [node], new_count}
+        end
+      end)
+
+    {before, after_nodes}
   end
 end
 ```
@@ -1240,11 +1359,266 @@ If X API costs are a concern, maintain curated lists of influential crypto accou
 
 ---
 
+## 5B. Promotional Tweet & Share Campaign System
+
+### 5B.1 Overview
+
+Every automated article gets a promotional tweet posted from the **@BlocksterCom** X account.
+This tweet is then linked to the article as a **share campaign**, enabling the existing
+"Retweet to Earn BUX" system. The flow:
+
+1. **ContentGenerator** produces a draft tweet alongside the article
+2. **Admin reviews** the tweet in the queue (can edit before posting)
+3. **On publish**, the system posts the tweet from @BlocksterCom via X API
+4. **Share campaign** is auto-created linking the tweet to the published post
+5. **Users** earn BUX by retweeting the campaign tweet (existing system handles this)
+
+### 5B.2 @BlocksterCom Tweet Style Guide
+
+Based on analysis of 50+ tweets from the @BlocksterCom account, the generated tweets
+must follow this exact style:
+
+**Structure template:**
+```
+[EMOJI] [Hook sentence — punchy, specific, attention-grabbing]
+
+[1-2 sentences of key details from the article — stats, names, @mentions]
+
+[Call-to-action emoji] #Hashtag1 #Hashtag2 #Hashtag3
+
+[blockster.com article link]
+```
+
+**Style rules (include in Claude prompt):**
+- **Always open with an emoji** — Rocket (most common), Fire, Lightning, Globe, Shield, Chart
+- **Tag relevant @mentions** — projects, founders, exchanges mentioned in the article (1-4 tags)
+- **Use cashtags** for token tickers: `$BTC`, `$ETH`, `$SOL`, etc.
+- **Use line breaks liberally** — 3-4 visual paragraphs separated by blank lines
+- **End with 2-5 hashtags** — always include `#Crypto` or `#Web3`, plus topic-specific tags
+- **End with the article URL** — `https://blockster.com/{slug}`
+- **Tone: confident, forward-looking, slightly hype-driven but fact-based**
+- **Third-person brand voice** — Blockster speaks as a media outlet, never "I"
+- **Near max length** — use 200-280 characters for information density
+- **Exclamation marks welcome** — 1-2 per tweet, natural excitement
+- **Superlatives OK when earned** — "massive", "stunning", "first-ever" if factually accurate
+- **NO generic fillers** — no "In the world of crypto..." or "Big news!"
+- **Include a specific hook** — a stat, a name, a dollar amount, a provocative question
+
+**Example tweets the system should produce:**
+
+```
+🚀 Trump's Bitcoin Strategic Reserve just got real — the Treasury is
+now authorized to hold $BTC as a reserve asset.
+
+The Biden era crypto witch hunt is officially dead. @realDonaldTrump
+delivering where it matters. 🔥
+
+#Bitcoin #Crypto #BTC #MAGA
+
+https://blockster.com/trump-bitcoin-reserve
+```
+
+```
+🔥 The SEC just dropped its case against @Ripple — after 4 years
+and $200M in legal fees.
+
+Another reminder that the Biden admin's war on crypto was never
+about "protecting investors." It was about control. ⚡
+
+#XRP #Crypto #SEC #Ripple
+
+https://blockster.com/sec-drops-ripple-case
+```
+
+```
+📊 @BlackRock now holds more $BTC than @MicroStrategy.
+
+While retail panicked at $95K, institutions quietly accumulated
+$4.2B in a single week. Smart money knows. 🔥
+
+#Bitcoin #BlackRock #Crypto #Institutional
+
+https://blockster.com/blackrock-bitcoin-holdings
+```
+
+### 5B.3 Claude Tweet Generation
+
+The ContentGenerator already produces the article. The tweet is generated as an
+additional field in the same Claude tool_use call — it has full context of the article
+it just wrote, so the tweet is naturally aligned.
+
+**Add to article output schema:**
+```elixir
+"promotional_tweet" => %{
+  "type" => "string",
+  "description" => """
+  A promotional tweet for @BlocksterCom's X account about this article.
+  Style: Open with emoji, tag relevant @accounts, use cashtags for tokens,
+  include 2-5 hashtags at end, end with the article URL placeholder {{ARTICLE_URL}}.
+  Tone: Confident, slightly hype-driven, fact-based. Third-person brand voice.
+  200-280 characters ideal. Use line breaks between sections.
+  """
+}
+```
+
+**Add to the generation prompt:**
+```
+PROMOTIONAL TWEET:
+Also write a tweet to promote this article from the @BlocksterCom account.
+Follow the Blockster tweet style:
+- Open with a relevant emoji (🚀 🔥 ⚡ 📊 🛡️ 🌍)
+- Lead with the most attention-grabbing fact or stat from the article
+- Tag any @mentions of projects, founders, or exchanges discussed
+- Use $CASHTAGS for token tickers
+- End with 2-5 relevant hashtags (always include #Crypto or #Web3)
+- End with {{ARTICLE_URL}} (will be replaced with the real URL on publish)
+- Use line breaks between the hook, detail, and hashtag sections
+- Third-person brand voice, confident and forward-looking
+- 200-280 characters, information-dense
+```
+
+The `{{ARTICLE_URL}}` placeholder is replaced with the actual `https://blockster.com/{slug}`
+when the article is published.
+
+### 5B.4 Admin Tweet Review
+
+In the admin queue review UI, the promotional tweet is displayed below the article preview:
+
+```
+┌─────────────────────────────────────────────────┐
+│  Article: "Trump's Bitcoin Reserve Plan..."      │
+│                                                  │
+│  [Article preview / image selection / etc.]      │
+│                                                  │
+│  ── Promotional Tweet ──────────────────────────│
+│  ┌─────────────────────────────────────────────┐│
+│  │ 🚀 Trump's Bitcoin Strategic Reserve just   ││
+│  │ got real — the Treasury is now authorized    ││
+│  │ to hold $BTC as a reserve asset.            ││
+│  │                                              ││
+│  │ The Biden era crypto witch hunt is          ││
+│  │ officially dead. @realDonaldTrump            ││
+│  │ delivering where it matters. 🔥              ││
+│  │                                              ││
+│  │ #Bitcoin #Crypto #BTC #MAGA                 ││
+│  │                                              ││
+│  │ {{ARTICLE_URL}}                              ││
+│  └─────────────────────────────────────────────┘│
+│  [Edit Tweet]  Character count: 247/280          │
+│                                                  │
+│  [Approve & Publish]  [Edit Article]  [Reject]   │
+└─────────────────────────────────────────────────┘
+```
+
+- Admin can **edit the tweet text** inline before publishing
+- Character count shown live (280 max for X)
+- The tweet is stored in `article_data.promotional_tweet` in the publish queue
+- Admin can choose to publish without tweeting (skip tweet checkbox)
+
+### 5B.5 Publish & Campaign Creation Flow
+
+When the admin clicks "Approve & Publish":
+
+```elixir
+defmodule BlocksterV2.ContentAutomation.ContentPublisher do
+  def publish_article(queue_entry) do
+    # 1. Create the blog post (existing flow)
+    {:ok, post} = Blog.create_post(post_attrs)
+
+    # 2. Post the promotional tweet from @BlocksterCom
+    tweet_text = queue_entry.article_data["promotional_tweet"]
+    |> String.replace("{{ARTICLE_URL}}", "https://blockster.com/#{post.slug}")
+
+    case post_promotional_tweet(tweet_text) do
+      {:ok, tweet_id, tweet_url} ->
+        # 3. Auto-create share campaign (links tweet to post)
+        EngagementTracker.create_share_campaign(post.id, %{
+          tweet_id: tweet_id,
+          tweet_url: tweet_url,
+          tweet_text: tweet_text,
+          bux_reward: 50,           # Default, admin can change later
+          is_active: true,
+          max_participants: nil,     # Unlimited
+          starts_at: nil,            # Immediate
+          ends_at: nil               # No expiry
+        })
+
+        Logger.info("[ContentPublisher] Tweet posted and campaign created for post #{post.id}")
+
+      {:error, reason} ->
+        # Tweet failed — post is still published, just no campaign
+        Logger.warning("[ContentPublisher] Tweet failed for post #{post.id}: #{inspect(reason)}")
+        # Admin can manually create campaign later via /admin/campaigns
+    end
+
+    {:ok, post}
+  end
+
+  defp post_promotional_tweet(text) do
+    # Use the @BlocksterCom account's OAuth tokens
+    # This requires a persistent X OAuth connection for the brand account
+    # Stored as a special x_connection with a known user_id (e.g., the admin/system user)
+    brand_connection = get_brand_x_connection()
+
+    case Social.XApiClient.create_tweet(brand_connection.access_token, text) do
+      {:ok, %{"data" => %{"id" => tweet_id}}} ->
+        tweet_url = "https://x.com/BlocksterCom/status/#{tweet_id}"
+        {:ok, tweet_id, tweet_url}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp get_brand_x_connection do
+    # The @BlocksterCom account is connected as a special system user
+    # This OAuth connection is set up once manually via the X auth flow
+    # and refreshed automatically like any other X connection
+    brand_user_id = Application.get_env(:blockster_v2, :content_automation)[:brand_x_user_id]
+    EngagementTracker.get_x_connection_by_user(brand_user_id)
+  end
+end
+```
+
+### 5B.6 Brand Account Setup
+
+The @BlocksterCom X account must be connected via OAuth (one-time manual setup):
+
+1. Create a "system" user account in the database for the brand
+2. Log in as that user and go through the X OAuth flow (`/auth/x/authorize`)
+3. This creates an `x_connections` entry with the brand's tokens
+4. Set the `BRAND_X_USER_ID` env var to this user's ID
+5. The existing token refresh system keeps the connection alive
+
+Add to runtime config:
+```elixir
+content_automation: [
+  # ... existing config ...
+  brand_x_user_id: System.get_env("BRAND_X_USER_ID") |> maybe_parse_integer()
+]
+```
+
+> **Note**: The X API Basic tier ($100/month) includes tweet creation (posting).
+> The brand account's OAuth tokens handle authentication for posting.
+> This is separate from the bearer token used for search (read-only).
+
+### 5B.7 Error Handling
+
+| Scenario | Handling |
+|----------|----------|
+| **Tweet post fails (X API error)** | Article still publishes. No campaign created. Admin notified. Can manually create campaign via /admin/campaigns. |
+| **Tweet post rate limited (429)** | Retry once after 5s. If still fails, publish without tweet. |
+| **Brand token expired** | Auto-refresh via existing token refresh system. If refresh fails, log error — admin must re-authenticate @BlocksterCom. |
+| **Admin skips tweet** | Article publishes without tweet or campaign. Admin can add later. |
+| **Tweet too long (>280 chars)** | Claude output validated during generation. If over limit, truncated at last complete sentence before limit. Admin can edit before posting. |
+
+---
+
 ## 6. Author Persona System
 
 ### 6.1 Author Personas
 
-Create 5-8 User accounts in the database as "staff writers". Each has a distinct voice variation within the overall Blockster editorial direction.
+Create 8 User accounts in the database as "staff writers". Each has a distinct voice variation within the overall Blockster editorial direction. Every category must be covered by at least one persona.
 
 ```elixir
 defmodule BlocksterV2.ContentAutomation.AuthorRotator do
@@ -1283,16 +1657,42 @@ defmodule BlocksterV2.ContentAutomation.AuthorRotator do
       bio: "Reformed Wall Street trader. Now full-time crypto. Never going back.",
       style: "Sharp, confident takes. Loves contrarian positions. Uses trader slang.",
       categories: [:trading, :altcoins, :investment, :gambling]
+    },
+    %{
+      username: "nina_takashi",
+      email: "nina@blockster.com",
+      bio: "AI researcher exploring the intersection of machine learning and blockchain.",
+      style: "Explains complex tech simply. Excited about possibilities. Skeptical of hype.",
+      categories: [:ai_crypto, :ethereum, :adoption, :rwa]
+    },
+    %{
+      username: "ryan_kolbe",
+      email: "ryan@blockster.com",
+      bio: "Former cybersecurity engineer. Now covers crypto security and mining.",
+      style: "Technical detail when it matters. Breaks down exploits clearly. Dry humor.",
+      categories: [:security_hacks, :mining, :privacy, :bitcoin]
+    },
+    %{
+      username: "elena_vasquez",
+      email: "elena@blockster.com",
+      bio: "DeFi yield farmer and stablecoin analyst. Believes sound money wins.",
+      style: "Numbers-focused. Compares protocols fairly. Calls out unsustainable yields.",
+      categories: [:stablecoins, :defi, :cbdc, :macro_trends]
     }
   ]
+
+  def personas, do: @personas
 
   def select_author_for_topic(category) do
     # Find personas that cover this category
     matching = Enum.filter(@personas, fn p -> category in p.categories end)
 
-    # Rotate to avoid same author publishing too many in a row
-    # Track last 5 publications, prefer least-recently-used
-    Enum.random(matching)  # Simple version; production uses LRU
+    # Fallback: if no persona covers this category, pick any persona
+    candidates = if Enum.empty?(matching), do: @personas, else: matching
+
+    # TODO: Production should use LRU tracking to avoid same author back-to-back
+    # For now, random selection from matching personas
+    Enum.random(candidates)
   end
 end
 ```
@@ -1358,7 +1758,7 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
 
   def publish_article(article, author_user_id, opts \\ []) do
     category_id = resolve_category(article.category)
-    hub_id = resolve_hub(article.category)
+    hub_id = nil  # Automated articles don't belong to a hub (admin can assign in edit page)
 
     # Calculate BUX reward based on article length
     # Average reading speed ~250 wpm, so word_count/250 = estimated read minutes
@@ -1505,29 +1905,279 @@ end
 
 ### 8.1 Strategy
 
-Three options (in order of preference):
+All featured images are sourced from **X (Twitter)** — real photos from real posts about
+the topic. This gives articles an authentic, editorial look rather than generic stock photos.
 
-1. **Unsplash API** (free): Search by article topic keywords, get high-quality stock photos
-2. **AI Image Generation**: Use DALL-E or Stability AI to generate unique thumbnails
-3. **ImageKit Overlays**: Take a base image and add text overlay with article title
+**Image priority** (in order of preference):
+1. **Lifestyle photos** — CEOs at conferences, people using products, real-world crypto events,
+   trading floors, protests, celebrations, signing ceremonies. The kind of image a news editor
+   would pick for above-the-fold placement.
+2. **Graphic/infographic fallback** — Charts, branded graphics, protocol logos, announcement
+   cards. Used only when no lifestyle image is available.
+
+**Admin selects from 3 options**: The pipeline presents 3 candidate images per article. The admin
+picks the winner during the review step. This ensures quality control and editorial judgment.
+
+### 8.2 Image Pipeline
+
+1. **ContentGenerator** returns `image_search_queries` (2-3 X search queries tailored to the article)
+2. **ImageFinder** searches X API for each query, filtering for images
+3. Results are scored by preference: lifestyle > graphic, high-res > low-res
+4. Top 3 candidates are **downloaded, center-cropped to square (1:1), and uploaded to S3**
+5. S3 URLs stored in `article_data.image_candidates` in the publish queue
+6. Admin sees all 3 in the review UI, clicks to select the winner
+7. Selected image becomes `featured_image` on the published post, served through ImageKit
+
+### 8.3 Implementation
 
 ```elixir
 defmodule BlocksterV2.ContentAutomation.ImageFinder do
-  @unsplash_url "https://api.unsplash.com/search/photos"
+  @moduledoc """
+  Finds featured images for automated articles by searching X (Twitter) for
+  relevant lifestyle/editorial photos. Downloads, crops to square, uploads to S3.
+  Presents admin with 3 candidates to choose from.
+  """
 
-  def find_featured_image(search_query) do
-    case Req.get(@unsplash_url,
-      params: %{query: search_query, per_page: 1, orientation: "landscape"},
-      headers: [{"Authorization", "Client-ID #{unsplash_key()}"}]
+  require Logger
+  alias BlocksterV2.ContentAutomation.Config
+
+  @x_search_url "https://api.twitter.com/2/tweets/search/recent"
+
+  # Minimum dimensions for high-res images (before cropping)
+  @min_width 800
+  @min_height 800
+
+  @doc """
+  Find 3 candidate featured images for an article.
+  Returns a list of up to 3 maps: %{url: s3_url, source_tweet: tweet_url, type: :lifestyle | :graphic}
+
+  Called AFTER ContentGenerator returns article with image_search_queries.
+  """
+  def find_image_candidates(search_queries, pipeline_id) do
+    bearer = Config.x_bearer_token()
+
+    unless bearer do
+      Logger.warning("[ImageFinder] pipeline=#{pipeline_id} No X bearer token configured")
+      return []
+    end
+
+    # Search X for images across all queries, collect candidates
+    raw_candidates =
+      search_queries
+      |> Enum.flat_map(fn query -> search_x_for_images(query, bearer) end)
+      |> Enum.uniq_by(& &1.media_url)
+
+    # Score and rank: lifestyle photos first, then graphics, highest res first
+    ranked =
+      raw_candidates
+      |> Enum.filter(fn c -> c.width >= @min_width and c.height >= @min_height end)
+      |> Enum.sort_by(fn c ->
+        type_score = if c.type == :lifestyle, do: 1000, else: 0
+        res_score = c.width * c.height / 1_000_000
+        -(type_score + res_score)
+      end)
+      |> Enum.take(3)
+
+    # Download, crop to square, upload to S3
+    ranked
+    |> Task.async_stream(&process_candidate(&1, pipeline_id), max_concurrency: 3, timeout: 30_000)
+    |> Enum.reduce([], fn
+      {:ok, {:ok, candidate}} -> [candidate | acc]
+      _ -> acc
+    end)
+    |> Enum.reverse()
+  rescue
+    e ->
+      Logger.error("[ImageFinder] pipeline=#{pipeline_id} crashed: #{Exception.message(e)}")
+      []
+  end
+
+  defp search_x_for_images(query, bearer) do
+    # Search for tweets with images, filter out retweets
+    params = %{
+      "query" => "#{query} has:images -is:retweet",
+      "max_results" => 20,
+      "tweet.fields" => "author_id,created_at",
+      "expansions" => "attachments.media_keys",
+      "media.fields" => "url,width,height,type"
+    }
+
+    case Req.get(@x_search_url,
+      params: params,
+      headers: [{"Authorization", "Bearer #{bearer}"}],
+      receive_timeout: 15_000
     ) do
-      {:ok, %{body: %{"results" => [first | _]}}} ->
-        {:ok, first["urls"]["regular"]}
+      {:ok, %{status: 200, body: body}} ->
+        extract_image_candidates(body)
+
+      {:ok, %{status: 429}} ->
+        Logger.warning("[ImageFinder] X API rate limited for query: #{query}")
+        []
+
+      {:ok, %{status: status}} ->
+        Logger.warning("[ImageFinder] X API returned #{status} for query: #{query}")
+        []
+
+      {:error, reason} ->
+        Logger.warning("[ImageFinder] X API failed: #{inspect(reason)}")
+        []
+    end
+  end
+
+  defp extract_image_candidates(body) do
+    media_map =
+      (body["includes"]["media"] || [])
+      |> Enum.filter(& &1["type"] == "photo")
+      |> Map.new(& {&1["media_key"], &1})
+
+    tweets = body["data"] || []
+
+    Enum.flat_map(tweets, fn tweet ->
+      media_keys = get_in(tweet, ["attachments", "media_keys"]) || []
+
+      Enum.flat_map(media_keys, fn key ->
+        case Map.get(media_map, key) do
+          %{"url" => url, "width" => w, "height" => h} when is_binary(url) ->
+            [%{
+              media_url: url,
+              width: w,
+              height: h,
+              tweet_id: tweet["id"],
+              type: classify_image(w, h)
+            }]
+          _ -> []
+        end
+      end)
+    end)
+  end
+
+  # Heuristic: landscape/portrait photos are likely lifestyle; square-ish are likely graphics
+  # Photos tend to be 4:3, 3:2, 16:9. Graphics/cards tend to be 1:1 or 2:1
+  defp classify_image(w, h) do
+    ratio = w / h
+    cond do
+      ratio > 1.2 and ratio < 1.9 -> :lifestyle   # Common photo ratios (3:2, 4:3, 16:9-ish)
+      ratio > 0.6 and ratio < 0.85 -> :lifestyle   # Portrait photos
+      true -> :graphic                                # Square graphics, wide banners, etc.
+    end
+  end
+
+  defp process_candidate(candidate, pipeline_id) do
+    with {:ok, image_binary} <- download_image(candidate.media_url),
+         {:ok, cropped_binary} <- crop_to_square(image_binary),
+         {:ok, s3_url} <- upload_to_s3(cropped_binary, pipeline_id) do
+      {:ok, %{
+        url: s3_url,
+        source_tweet: "https://x.com/i/status/#{candidate.tweet_id}",
+        type: candidate.type,
+        original_url: candidate.media_url
+      }}
+    else
+      {:error, reason} ->
+        Logger.warning("[ImageFinder] pipeline=#{pipeline_id} Failed to process image: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp download_image(url) do
+    # Request highest quality from X (append :orig for original size)
+    url = if String.contains?(url, "pbs.twimg.com"), do: "#{url}:orig", else: url
+
+    case Req.get(url, receive_timeout: 15_000, max_redirects: 3) do
+      {:ok, %{status: 200, body: body}} when is_binary(body) and byte_size(body) > 1000 ->
+        {:ok, body}
       _ ->
-        {:ok, default_image_for_category()}
+        {:error, :download_failed}
+    end
+  end
+
+  defp crop_to_square(image_binary) do
+    # Use ImageMagick (convert) to center-crop to square
+    # Input via stdin, output via stdout — no temp files needed
+    tmp_in = Path.join(System.tmp_dir!(), "img_#{:crypto.strong_rand_bytes(8) |> Base.encode16()}.jpg")
+    tmp_out = Path.join(System.tmp_dir!(), "img_#{:crypto.strong_rand_bytes(8) |> Base.encode16()}_sq.jpg")
+
+    try do
+      File.write!(tmp_in, image_binary)
+
+      # Center-crop to square, resize to 1200x1200, high quality JPEG
+      {_, 0} = System.cmd("convert", [
+        tmp_in,
+        "-gravity", "center",
+        "-crop", "1:1",       # Aspect ratio crop
+        "+repage",
+        "-resize", "1200x1200^",
+        "-extent", "1200x1200",
+        "-quality", "92",
+        tmp_out
+      ])
+
+      {:ok, File.read!(tmp_out)}
+    rescue
+      e -> {:error, {:crop_failed, Exception.message(e)}}
+    after
+      File.rm(tmp_in)
+      File.rm(tmp_out)
+    end
+  end
+
+  defp upload_to_s3(image_binary, pipeline_id) do
+    timestamp = DateTime.utc_now() |> DateTime.to_unix()
+    hex = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+    filename = "content/featured/#{timestamp}-#{hex}.jpg"
+
+    bucket = Application.get_env(:blockster_v2, :s3_bucket)
+    region = Application.get_env(:blockster_v2, :s3_region, "us-east-1")
+
+    case ExAws.S3.put_object(bucket, filename, image_binary,
+      content_type: "image/jpeg",
+      acl: :public_read
+    ) |> ExAws.request() do
+      {:ok, _} ->
+        public_url = "https://#{bucket}.s3.#{region}.amazonaws.com/#{filename}"
+        Logger.info("[ImageFinder] pipeline=#{pipeline_id} Uploaded #{filename}")
+        {:ok, public_url}
+
+      {:error, reason} ->
+        Logger.error("[ImageFinder] pipeline=#{pipeline_id} S3 upload failed: #{inspect(reason)}")
+        {:error, :s3_upload_failed}
     end
   end
 end
 ```
+
+### 8.4 Admin Image Selection
+
+In the admin review queue, each article card shows **3 image candidates** as clickable
+thumbnails. The admin clicks to select the winner. The selected image becomes the
+`featured_image` on the published post.
+
+```
+┌─────────────────────────────────────────────────┐
+│  Article: "Trump's Bitcoin Reserve Plan..."      │
+│                                                  │
+│  Select featured image:                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │          │  │          │  │          │      │
+│  │  IMG 1   │  │  IMG 2   │  │  IMG 3   │      │
+│  │ ✓ LIFE   │  │  GRAPHIC │  │ ✓ LIFE   │      │
+│  │          │  │          │  │          │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│   [Selected]                                     │
+│                                                  │
+│  [Approve]  [Edit]  [Reject]                     │
+└─────────────────────────────────────────────────┘
+```
+
+If no images are found from X, the article enters the queue with no featured image.
+The admin can manually upload one via the existing S3 upload flow before publishing.
+
+> **Note on ImageKit**: Since all images are uploaded to S3, they automatically go through
+> ImageKit for CDN delivery and responsive sizing (`w500_h500`, `w800_h600`, etc.) — same
+> as manually uploaded images. No special handling needed.
+
+> **Note on ImageMagick**: `convert` is available in the Fly.io Docker image (add to
+> Dockerfile if not present). For local dev, install via `brew install imagemagick`.
 
 ---
 
@@ -1787,6 +2437,362 @@ Logger.info("[ContentGenerator] pipeline=#{pipeline_id} generating article for t
 Posts use the existing `posts` table with all needed fields. Author personas are regular User records.
 No changes to existing PostgreSQL schema — only new tables added.
 
+### 9.6 Ecto Schemas
+
+Each PostgreSQL table needs an Ecto schema module:
+
+```elixir
+# lib/blockster_v2/content_automation/content_feed_item.ex
+defmodule BlocksterV2.ContentAutomation.ContentFeedItem do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  schema "content_feed_items" do
+    field :url, :string
+    field :title, :string
+    field :summary, :string
+    field :source, :string
+    field :tier, :string                # "premium" or "standard"
+    field :weight, :float, default: 1.0
+    field :published_at, :utc_datetime
+    field :fetched_at, :utc_datetime
+    field :processed, :boolean, default: false
+
+    belongs_to :topic_cluster, BlocksterV2.ContentAutomation.ContentGeneratedTopic, type: :binary_id
+
+    timestamps()
+  end
+
+  def changeset(item, attrs) do
+    item
+    |> cast(attrs, [:url, :title, :summary, :source, :tier, :weight, :published_at, :fetched_at, :processed, :topic_cluster_id])
+    |> validate_required([:url, :title, :source, :tier, :fetched_at])
+    |> validate_inclusion(:tier, ["premium", "standard"])
+    |> unique_constraint(:url)
+  end
+end
+
+# lib/blockster_v2/content_automation/content_generated_topic.ex
+defmodule BlocksterV2.ContentAutomation.ContentGeneratedTopic do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+
+  schema "content_generated_topics" do
+    field :title, :string
+    field :category, :string
+    field :source_urls, {:array, :string}, default: []
+    field :rank_score, :float
+    field :source_count, :integer
+    field :pipeline_id, :binary_id
+    field :published_at, :utc_datetime
+
+    belongs_to :article, BlocksterV2.Blog.Post
+    belongs_to :author, BlocksterV2.Accounts.User
+    has_many :feed_items, BlocksterV2.ContentAutomation.ContentFeedItem, foreign_key: :topic_cluster_id
+
+    timestamps()
+  end
+
+  def changeset(topic, attrs) do
+    topic
+    |> cast(attrs, [:title, :category, :source_urls, :rank_score, :source_count, :article_id, :author_id, :pipeline_id, :published_at])
+    |> validate_required([:title])
+  end
+end
+
+# lib/blockster_v2/content_automation/content_publish_queue.ex
+defmodule BlocksterV2.ContentAutomation.ContentPublishQueue do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+
+  @valid_statuses ["pending", "draft", "approved", "published", "rejected"]
+
+  schema "content_publish_queue" do
+    field :article_data, :map                # TipTap JSON, title, excerpt, tags, etc.
+    field :scheduled_at, :utc_datetime
+    field :status, :string, default: "pending"
+    field :pipeline_id, :binary_id
+    field :rejected_reason, :string
+    field :reviewed_at, :utc_datetime
+
+    belongs_to :author, BlocksterV2.Accounts.User
+    belongs_to :topic, BlocksterV2.ContentAutomation.ContentGeneratedTopic, type: :binary_id
+    belongs_to :post, BlocksterV2.Blog.Post
+    belongs_to :reviewer, BlocksterV2.Accounts.User, foreign_key: :reviewed_by
+
+    timestamps()
+  end
+
+  def changeset(entry, attrs) do
+    entry
+    |> cast(attrs, [:article_data, :author_id, :scheduled_at, :status, :pipeline_id,
+                    :topic_id, :post_id, :rejected_reason, :reviewed_at, :reviewed_by])
+    |> validate_required([:article_data, :status])
+    |> validate_inclusion(:status, @valid_statuses)
+  end
+end
+```
+
+### 9.7 Settings Module (Mnesia Reader)
+
+Reads admin-configurable settings from the `content_automation_settings` Mnesia table.
+Uses ETS cache to avoid Mnesia reads on every TopicEngine cycle.
+
+```elixir
+# lib/blockster_v2/content_automation/settings.ex
+defmodule BlocksterV2.ContentAutomation.Settings do
+  @cache_ttl :timer.minutes(1)
+
+  @defaults %{
+    posts_per_day: 10,
+    category_config: %{},
+    keyword_boosts: [],
+    keyword_blocks: [],
+    paused: false
+  }
+
+  def get(key, default \\ nil) do
+    default = default || Map.get(@defaults, key)
+
+    case cached_get(key) do
+      {:ok, value} -> value
+      :miss ->
+        case :mnesia.dirty_read({:content_automation_settings, key}) do
+          [{_, ^key, value, _updated_at, _updated_by}] ->
+            cache_put(key, value)
+            value
+          [] -> default
+        end
+    end
+  end
+
+  def set(key, value, updated_by \\ nil) do
+    now = DateTime.utc_now() |> DateTime.to_unix()
+    :mnesia.dirty_write({:content_automation_settings, key, value, now, updated_by})
+    cache_invalidate(key)
+    :ok
+  end
+
+  def paused?, do: get(:paused, false)
+
+  # ── ETS Cache ──
+
+  def init_cache do
+    if :ets.whereis(:content_settings_cache) == :undefined do
+      :ets.new(:content_settings_cache, [:set, :public, :named_table, read_concurrency: true])
+    end
+  end
+
+  defp cached_get(key) do
+    case :ets.lookup(:content_settings_cache, key) do
+      [{^key, value, expires_at}] ->
+        if System.monotonic_time(:millisecond) < expires_at, do: {:ok, value}, else: :miss
+      [] -> :miss
+    end
+  rescue
+    ArgumentError -> :miss  # Table doesn't exist yet
+  end
+
+  defp cache_put(key, value) do
+    expires_at = System.monotonic_time(:millisecond) + @cache_ttl
+    :ets.insert(:content_settings_cache, {key, value, expires_at})
+  rescue
+    ArgumentError -> :ok
+  end
+
+  defp cache_invalidate(key) do
+    :ets.delete(:content_settings_cache, key)
+  rescue
+    ArgumentError -> :ok
+  end
+end
+```
+
+### 9.8 Claude API Helper (`call_claude_with_tools`)
+
+Shared helper used by TopicEngine (Haiku clustering) and ContentGenerator (Opus articles).
+Handles tool_use extraction from Claude's response.
+
+```elixir
+# lib/blockster_v2/content_automation/claude_client.ex
+defmodule BlocksterV2.ContentAutomation.ClaudeClient do
+  @api_url "https://api.anthropic.com/v1/messages"
+
+  @doc """
+  Call Claude with tool_use for structured output.
+  Returns {:ok, tool_input_map} or {:error, reason}.
+  """
+  def call_with_tools(prompt, tools, opts \\ []) do
+    model = Keyword.get(opts, :model, "claude-opus-4-6")
+    temperature = Keyword.get(opts, :temperature, 0.7)
+    max_tokens = Keyword.get(opts, :max_tokens, 4096)
+
+    body = %{
+      "model" => model,
+      "max_tokens" => max_tokens,
+      "temperature" => temperature,
+      "tools" => tools,
+      "tool_choice" => %{"type" => "any"},  # Force tool use
+      "messages" => [%{"role" => "user", "content" => prompt}]
+    }
+
+    headers = [
+      {"x-api-key", Config.anthropic_api_key()},
+      {"anthropic-version", "2023-06-01"},
+      {"content-type", "application/json"}
+    ]
+
+    case Req.post(@api_url,
+      json: body,
+      headers: headers,
+      receive_timeout: 60_000,
+      retry: :transient,
+      max_retries: 2
+    ) do
+      {:ok, %{status: 200, body: %{"content" => content}}} ->
+        extract_tool_result(content)
+
+      {:ok, %{status: 429}} ->
+        # Rate limited — back off and retry once
+        Process.sleep(5_000)
+        call_with_tools(prompt, tools, Keyword.put(opts, :_retry, true))
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Claude API returned #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Claude API request failed: #{inspect(reason)}"}
+    end
+  end
+
+  # Extract the tool_use input from Claude's response
+  defp extract_tool_result(content) when is_list(content) do
+    case Enum.find(content, &(&1["type"] == "tool_use")) do
+      %{"input" => input} -> {:ok, input}
+      nil -> {:error, "No tool_use block in response"}
+    end
+  end
+
+  defp extract_tool_result(_), do: {:error, "Unexpected response format"}
+end
+```
+
+**Usage** (replaces all `call_claude_with_tools` calls):
+```elixir
+# TopicEngine — clustering
+ClaudeClient.call_with_tools(prompt, tools, model: Config.topic_model(), temperature: 0.1)
+
+# ContentGenerator — article generation
+ClaudeClient.call_with_tools(prompt, tools, model: Config.content_model(), temperature: 0.7)
+```
+
+### 9.9 Feed Configuration
+
+Feed URLs and metadata are defined in a config data file. FeedPoller reads this at runtime.
+
+```elixir
+# lib/blockster_v2/content_automation/feed_config.ex
+defmodule BlocksterV2.ContentAutomation.FeedConfig do
+  @feeds [
+    # ── Premium Tier ──
+    %{source: "Bloomberg Crypto", url: "https://feeds.bloomberg.com/crypto/news.rss", tier: :premium, status: :active},
+    %{source: "TechCrunch Crypto", url: "https://techcrunch.com/category/cryptocurrency/feed/", tier: :premium, status: :active},
+    %{source: "Reuters Business", url: "https://www.reutersagency.com/feed/?best-topics=business-finance", tier: :premium, status: :blocked},
+    %{source: "Financial Times", url: "https://www.ft.com/cryptofinance?format=rss", tier: :premium, status: :blocked},
+    %{source: "The Economist", url: "https://www.economist.com/finance-and-economics/rss.xml", tier: :premium, status: :blocked},
+    %{source: "Forbes Crypto", url: "https://www.forbes.com/crypto-blockchain/feed/", tier: :premium, status: :blocked},
+    %{source: "Barron's", url: "https://www.barrons.com/feed?id=blog_rss", tier: :premium, status: :blocked},
+    %{source: "The Verge", url: "https://www.theverge.com/rss/index.xml", tier: :premium, status: :blocked},
+    # Promoted crypto-native premium
+    %{source: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/", tier: :premium, status: :active},
+    %{source: "The Block", url: "https://www.theblock.co/rss.xml", tier: :premium, status: :active},
+    %{source: "Blockworks", url: "https://blockworks.co/feed", tier: :premium, status: :active},
+    %{source: "DL News", url: "https://www.dlnews.com/arc/outboundfeeds/rss/", tier: :premium, status: :active},
+    # ── Standard Tier ──
+    %{source: "CoinTelegraph", url: "https://cointelegraph.com/rss", tier: :standard, status: :active},
+    %{source: "Decrypt", url: "https://decrypt.co/feed", tier: :standard, status: :active},
+    %{source: "Bitcoin Magazine", url: "https://bitcoinmagazine.com/feed", tier: :standard, status: :active},
+    %{source: "The Defiant", url: "https://thedefiant.io/feed", tier: :standard, status: :active},
+    %{source: "CryptoSlate", url: "https://cryptoslate.com/feed/", tier: :standard, status: :active},
+    %{source: "NewsBTC", url: "https://www.newsbtc.com/feed/", tier: :standard, status: :active},
+    %{source: "Bitcoinist", url: "https://bitcoinist.com/feed/", tier: :standard, status: :active},
+    %{source: "U.Today", url: "https://u.today/rss", tier: :standard, status: :active},
+    %{source: "Crypto Briefing", url: "https://cryptobriefing.com/feed/", tier: :standard, status: :active},
+    %{source: "BeInCrypto", url: "https://beincrypto.com/feed/", tier: :standard, status: :active},
+    %{source: "Unchained", url: "https://unchainedcrypto.com/feed/", tier: :standard, status: :active},
+    %{source: "CoinGape", url: "https://coingape.com/feed/", tier: :standard, status: :active},
+    %{source: "Crypto Potato", url: "https://cryptopotato.com/feed/", tier: :standard, status: :active},
+    %{source: "AMBCrypto", url: "https://ambcrypto.com/feed/", tier: :standard, status: :active},
+    %{source: "Protos", url: "https://protos.com/feed/", tier: :standard, status: :active},
+    %{source: "Milk Road", url: "https://www.milkroad.com/feed", tier: :standard, status: :active}
+  ]
+
+  def get_active_feeds do
+    disabled = Settings.get(:disabled_feeds, [])
+
+    @feeds
+    |> Enum.filter(& &1.status == :active)
+    |> Enum.reject(fn feed -> feed.source in disabled end)
+  end
+
+  def all_feeds, do: @feeds
+end
+```
+
+FeedPoller's `get_configured_feeds()` simply calls `FeedConfig.get_active_feeds()`.
+
+### 9.10 Topic Data Transformation
+
+Claude's clustering output (strings) must be enriched with feed item metadata before
+ranking. This bridges the gap between Claude's response and what `rank_topics()` expects.
+
+```elixir
+# In TopicEngine — called after Claude clustering, before ranking
+
+defp enrich_topics_with_feed_data(claude_topics, feed_items) do
+  # Build URL → feed item lookup
+  items_by_url = Map.new(feed_items, fn item -> {item.url, item} end)
+
+  Enum.map(claude_topics, fn topic ->
+    # Resolve source_urls (strings from Claude) to full feed item records
+    source_items = topic["source_urls"]
+    |> Enum.map(&Map.get(items_by_url, &1))
+    |> Enum.reject(&is_nil/1)
+
+    newest_item = Enum.max_by(source_items, & &1.published_at, DateTime, fn -> nil end)
+
+    %{
+      title: topic["title"],
+      category: String.to_existing_atom(topic["category"]),
+      source_urls: topic["source_urls"],
+      source_items: source_items,                    # Full feed item records (with .weight, .tier)
+      key_facts: topic["key_facts"],                 # String from Claude
+      angles: topic["angles"],                       # List of angle strings from Claude
+      selected_angle: List.first(topic["angles"]),   # Pick first angle (best according to Claude)
+      newest_item_at: newest_item && newest_item.published_at,
+      has_premium_source: Enum.any?(source_items, & &1.tier == "premium")
+    }
+  end)
+  |> Enum.filter(fn topic -> length(topic.source_items) > 0 end)  # Drop topics with no valid URLs
+end
+```
+
+This is called in `analyze_and_select/0` between steps 4 and 5:
+```elixir
+# 4. Claude Haiku clusters items into topics
+{:ok, %{"topics" => claude_topics}} = ClaudeClient.call_with_tools(prompt, tools, ...)
+
+# 4.5. Enrich with feed item metadata (bridge Claude output → internal format)
+topics = enrich_topics_with_feed_data(claude_topics, items)
+
+# 5. Apply keyword blocks
+topics = apply_keyword_blocks(topics)
+```
+
 ---
 
 ## 10. Configuration
@@ -1807,7 +2813,8 @@ config :blockster_v2, :content_automation,
   content_model: System.get_env("CONTENT_CLAUDE_MODEL", "claude-opus-4-6"),
   topic_model: System.get_env("TOPIC_CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
   feed_poll_interval: :timer.minutes(5),
-  topic_analysis_interval: :timer.minutes(15)
+  topic_analysis_interval: :timer.minutes(15),
+  brand_x_user_id: System.get_env("BRAND_X_USER_ID") |> then(fn v -> if v, do: String.to_integer(v) end)
 ```
 
 **Model choices**:
@@ -1850,18 +2857,22 @@ flyctl secrets set \
 
 ## 11. Cost Estimates
 
-| Service | Usage | Monthly Cost |
-|---------|-------|-------------|
-| Claude Opus 4.6 (content) | 10 articles/day × 30 = 300 calls, ~500 tokens in / ~2000 out each | ~$60-90 |
-| Claude Haiku (topic analysis) | 96 calls/day (every 15 min) × 30 = 2,880 calls | ~$3-5 |
-| X API (tweets) | Basic tier, ~300 searches/month | $100 |
-| Unsplash | Free tier (50 req/hour) | $0 |
-| **Total** | | **~$165-195/month** |
+| Service | Usage | Token Estimate | Monthly Cost |
+|---------|-------|----------------|-------------|
+| Claude Opus 4.6 (content) | 10 articles/day × 30 = 300 calls | ~1,500 in + ~2,500 out per call. At $15/$75 per MTok: 300 × (1.5K×$15 + 2.5K×$75)/1M | **~$63** |
+| Claude Haiku (topic analysis) | ~6 productive calls/day × 30 = 180 calls | ~2,000 in + ~500 out per call. At $0.80/$4 per MTok: 180 × (2K×$0.80 + 500×$4)/1M | **~$0.65** |
+| X API (tweets) | Basic tier, ~900 searches/month | — | **$100** |
+| X API (images) | Included in X API Basic tier (shared with tweet search) | — | **$0** (bundled) |
+| **Total** | | | **~$164/month** |
 
-**Alternative without X API**: Use curated tweet list approach → **$65-95/month total**
+**Alternative without X API**: Skip tweet embedding → **~$64/month total**
 
-*Opus is ~5-6x more expensive than Sonnet per token, but the quality improvement for
-opinionated editorial content is substantial. Can downgrade to Sonnet via config if needed.*
+**Notes**:
+- Opus 4.6 pricing: $15/MTok input, $75/MTok output (as of Feb 2026)
+- Haiku 4.5 pricing: $0.80/MTok input, $4/MTok output
+- Content gen is the main cost driver (~97% of Claude spend)
+- Scaling to 20 articles/day doubles Claude cost to ~$127/month
+- Can downgrade content gen to Sonnet ($3/$15 per MTok) via config → ~$13/month for Claude
 
 ---
 
@@ -1893,73 +2904,140 @@ GenServers start. This allows safe deployment with the code in place before acti
 
 ## 13. Implementation Phases
 
-### Phase 1: RSS Infrastructure (2-3 days)
-- [ ] Add `fast_rss` to mix.exs
-- [ ] Create Config module (Application config reader)
-- [ ] Create Ecto migrations (content_feed_items, content_generated_topics, content_publish_queue)
-- [ ] Create Ecto schemas (ContentFeedItem, ContentGeneratedTopic, ContentPublishQueue)
-- [ ] Create FeedStore module (Ecto queries for all pipeline tables)
-- [ ] Create FeedPoller GenServer (with GlobalSingleton)
-- [ ] Add `content_automation_settings` to MnesiaInitializer @tables
-- [ ] Configure feed URLs (28 feeds, 2 tiers)
-- [ ] Test feed polling, storage, and blocked-feed handling
-- [ ] Add to supervision tree (behind CONTENT_AUTOMATION_ENABLED feature flag)
+### Phase 1: RSS Infrastructure (2-3 days) ✅
+- [x] Add `fast_rss` and `req` (if not already present) to mix.exs
+- [x] Create Ecto migrations (content_feed_items, content_generated_topics, content_publish_queue)
+- [x] Create Ecto schemas (ContentFeedItem, ContentGeneratedTopic, ContentPublishQueue) — Section 9.6
+- [x] Create FeedStore module (Ecto queries for all pipeline tables) — Section 9.1
+- [x] Create FeedConfig module (static feed list, active filtering) — Section 9.9
+- [x] Create Settings module (Mnesia + ETS cache for admin config) — Section 9.7
+- [x] Add `content_automation_settings` to MnesiaInitializer @tables
+- [x] Create FeedParser module (RSS/Atom parsing via fast_rss)
+- [x] Create FeedPoller GenServer (with GlobalSingleton)
+- [x] Add to supervision tree (behind CONTENT_AUTOMATION_ENABLED feature flag)
+- [x] Add Config module (runtime config helpers)
+- [ ] Test feed polling, storage, dedup (unique URL index), and blocked-feed handling
 
 ### Phase 2: Topic Engine (2-3 days)
-- [ ] Create TopicEngine GenServer (with GlobalSingleton)
-- [ ] Implement Claude Haiku topic clustering (structured output via tool_use)
-- [ ] Add pre-filtering (6-12 hour window, truncate summaries, cap at 50 items)
-- [ ] Add category classification
-- [ ] Implement deduplication (don't cover same topic twice)
-- [ ] Implement two-phase processing (store topic THEN mark items processed)
+- [x] Create ClaudeClient helper module (API calls, tool_use extraction, 429 retry) — Section 9.8
+- [x] Create TopicEngine GenServer (with GlobalSingleton)
+- [x] Implement Claude Haiku topic clustering (structured output via tool_use)
+- [x] Add pre-filtering (6-12 hour window, truncate summaries, cap at 50 items)
+- [x] Add category classification (20 categories in clustering tool schema)
+- [x] Implement `enrich_topics_with_feed_data/2` (bridge Claude output to internal structs) — Section 9.10
+- [x] Implement deduplication (60% significant-word overlap against last 7 days)
+- [x] Implement two-phase processing (store topic in PostgreSQL THEN mark items processed)
+- [x] Add scoring/ranking (source_score + multi_source + recency + premium + category_boost + keyword_boost)
+- [x] Add category diversity enforcement (max_per_day limits)
+- [x] Wire TopicEngine into supervision tree (behind feature flag)
 - [ ] Test topic ranking and selection
 
-### Phase 3: Content Generation (3-4 days)
-- [ ] Create ContentGenerator module (not GenServer — stateless)
-- [ ] Implement Claude Opus integration with structured output (tool_use)
-- [ ] Build editorial voice prompt with content safety guardrails
-- [ ] Create TipTapBuilder with all node types (paragraph, heading, blockquote, bulletList, orderedList, listItem, image, spacer, horizontalRule)
-- [ ] Implement parse_inline_marks (bold, italic, links)
-- [ ] Implement QualityChecker (word count, structure, duplicate, tags, TipTap validation)
+### Phase 3: Content Generation (3-4 days) ✅
+- [x] Create ContentGenerator module (not GenServer — stateless)
+- [x] Implement Claude Opus 4.6 integration with structured output (tool_use)
+- [x] Build editorial voice prompt with content safety guardrails
+- [x] Implement `format_source_summaries/1` helper for prompt construction
+- [x] Create TipTapBuilder with all node types (paragraph, heading, blockquote, bulletList, orderedList, listItem, codeBlock, image, spacer, horizontalRule)
+- [x] Implement `tokenize_inline/1` with all marks (bold, italic, ~~strike~~, `code`, links, hardBreak via \n)
+- [x] Implement QualityChecker (word_count, structure, duplicate, tags, tiptap_valid, image checks)
 - [ ] Test full generation pipeline with pipeline_id traceability
 
-### Phase 4: Author Personas (1 day)
-- [ ] Create AuthorRotator module with 5 personas
-- [ ] Create seed script (`priv/repo/seeds/content_authors.exs`)
-- [ ] Create User accounts with Repo.insert (fake wallet addresses, auth_method: "email")
+### Phase 4: Author Personas (1 day) ✅
+- [x] Create AuthorRotator module with 8 personas (all 20 categories covered)
+- [x] Implement `personas/0`, `select_for_category/1` with random selection + fallback
+- [x] Create seed script (`priv/repo/seeds/content_authors.exs`)
+- [x] Create User accounts with Repo.insert (fake wallet addresses, auth_method: "email", is_author: true)
+- [x] Wire author persona into ContentGenerator (prompt voice + author_id on queue entries)
 - [ ] Generate/upload avatar images
-- [ ] Test author selection and rotation
+- [ ] Test author selection, rotation, and fallback behavior
 
-### Phase 5: Publishing Pipeline (2-3 days)
-- [ ] Create ContentPublisher module
-- [ ] Implement BUX pool assignment via `EngagementTracker.deposit_post_bux/2`
-- [ ] Implement word-count-based BUX reward scaling
-- [ ] Create ContentQueue with US-hours scheduling (12:00-04:00 UTC)
-- [ ] Implement SortedPostsCache.reload() after publish
-- [ ] Test end-to-end: RSS → topic → generate → publish
+### Phase 5: Publishing Pipeline (2-3 days) ✅
+- [x] Create ContentPublisher module (post creation, tags, BUX, cache, topic linking)
+- [x] Implement BUX pool assignment via `EngagementTracker.deposit_post_bux/2`
+- [x] Implement word-count-based BUX reward scaling (2 BUX/min read, 500x pool multiplier)
+- [x] Create ContentQueue GenServer with US-hours scheduling (12:00-04:00 UTC)
+- [x] Implement SortedPostsCache.reload() after publish
+- [x] Add ContentQueue to supervision tree (behind feature flag)
+- [x] Category resolution with auto-creation (20 categories mapped)
+- [ ] Test end-to-end: RSS → topic → generate → queue → approve → publish
 - [ ] Verify posts appear correctly on frontend
 
-### Phase 6: Tweet Integration (2 days)
-- [ ] Create TweetFinder module (processes tweet_suggestions from ContentGenerator)
-- [ ] Integrate X API (or curated list alternative)
-- [ ] Insert tweet nodes into TipTap content post-generation
-- [ ] Test tweet rendering in published posts
+### Phase 6: Tweet Integration & Promotional Tweets (3-4 days) ✅
+**6a. Embed third-party tweets in articles:**
+- [x] Create TweetFinder module with X API v2 client (`search_tweets/1`)
+- [x] Implement `find_and_embed_tweets/1` (processes tweet_suggestions from ContentGenerator)
+- [x] Implement `insert_tweets_into_content/2` (places tweet nodes after 3rd paragraph)
+- [x] Handle X API rate limits (429) and missing tweets gracefully
+- [x] Wire TweetFinder into ContentGenerator (after quality check, before enqueue)
+- [ ] Test tweet rendering in published posts (blockquote → Twitter widgets.js)
 
-### Phase 7: Featured Images (1 day)
-- [ ] Create ImageFinder module (Unsplash integration)
-- [ ] Map categories to fallback images
-- [ ] Test image attachment to posts
+**6b. Auto-generate @BlocksterCom promotional tweet per article:**
+- [x] `promotional_tweet` field already in Claude output schema (Phase 3)
+- [x] Tweet style guide already in generation prompt (Phase 3)
+- [x] Add `brand_x_user_id` to content automation runtime config (`BRAND_X_USER_ID` env var)
+- [x] Implement `post_promotional_tweet_and_campaign/3` in ContentPublisher (via XApiClient + brand OAuth)
+- [x] Auto-create share campaign on publish (link tweet to post via `EngagementTracker.create_share_campaign/2`)
+- [x] Handle tweet failures gracefully (publish article without campaign, admin can add later)
+- [x] Support `skip_tweet` flag in article_data
+- [ ] Display draft tweet in admin queue review UI (editable textarea, live character count) — Phase 8
+- [ ] Set up @BlocksterCom brand account OAuth connection (one-time manual setup)
+- [ ] Test full flow: generate tweet → admin review/edit → publish → tweet posts → campaign created → retweet earns BUX
 
-### Phase 8: Monitoring & Polish (2 days)
+### Phase 6c: Editorial Feedback & Brand Voice Memory ✅
+- [x] Create migration for `content_editorial_memory` table (instruction, category, active flag, created_by)
+- [x] Create migration for `content_revision_history` table (queue_entry_id, instruction, revision_number, before/after snapshots)
+- [x] Add `revision_count` column to `content_publish_queue` table
+- [x] Create `ContentEditorialMemory` Ecto schema (categories: global, tone, terminology, topics, formatting)
+- [x] Create `ContentRevisionHistory` Ecto schema (tracks each revision attempt with before/after article_data)
+- [x] Update `ContentPublishQueue` schema (revision_count field + has_many :revisions)
+- [x] Extract `PromptSchemas` shared module (article_output_schema used by both generator and revision)
+- [x] Create `EditorialFeedback` module — revision pipeline:
+  - `revise_article/3` — loads queue entry → creates revision record → calls Claude with revision prompt → updates article_data → marks revision complete
+  - Reverse-parses TipTap JSON to readable text for revision prompt context
+  - Uses lower temperature (0.5 vs 0.7) for controlled revisions
+  - Tracks failed revisions with error_reason
+- [x] Create `EditorialFeedback` module — editorial memory CRUD:
+  - `add_memory/2`, `list_memories/1`, `deactivate_memory/1`, `reactivate_memory/1`
+  - `build_memory_prompt_block/0` — formats active memories for prompt injection
+- [x] Inject editorial memory into `ContentGenerator.build_generation_prompt/4` (appended after ANGLE TO TAKE)
+- [ ] Wire editorial feedback UI into admin dashboard (Phase 8) — comment input, memory management panel
+- [ ] Test revision flow with real queue entry (admin comment → Claude revision → updated article)
+
+### Phase 7: Featured Images (2-3 days)
+- [x] Create ImageFinder module with X API image search
+- [x] Implement `search_x_for_images/2` with lifestyle/graphic classification
+- [x] ~~Implement `crop_to_square/1` via ImageMagick~~ — Skipped: ImageKit handles transforms on-the-fly
+- [x] Implement `upload_to_s3/2` for processed images (content/featured/ path)
+- [x] Store 3 image candidates in `article_data.image_candidates` in publish queue
+- [ ] Build admin image selection UI (3 clickable thumbnails per article in review queue) — deferred to Phase 8
+- [x] ~~Ensure ImageMagick available in Dockerfile~~ — Not needed: ImageKit handles transforms
+- [x] Implement Unsplash API fallback when X API returns < 3 candidates
+- [x] Auto-select best candidate as `featured_image` (admin can override in Phase 8)
+- [ ] Test end-to-end: X search → download → S3 upload → admin select → publish
+
+### Phase 8: Admin Dashboard & Monitoring (3-4 days)
+- [ ] Add routes to router.ex (6 routes in admin live_session) — Section 15.2
+- [ ] Create Dashboard LiveView (stat cards, queue preview, activity log, pause toggle) — Section 15.3
+- [ ] Create Queue LiveView (filter/sort, expandable previews, approve/reject/edit) — Section 15.4
+- [ ] Create EditArticle LiveView (reuse post form component, save draft, publish) — Section 15.5
+- [ ] Create Feeds LiveView (toggle feeds, force poll, status display) — Section 15.8
+- [ ] Create History LiveView (published/rejected, engagement metrics, filters) — Section 15.9
+- [ ] Create Authors LiveView (persona stats, post counts, total reads) — Section 15.11
+- [ ] Add PubSub broadcasts throughout pipeline for live dashboard updates
 - [ ] Add pipeline_id logging throughout all modules
-- [ ] Implement PostgreSQL cleanup task (7 days feed items, 48h completed queue)
-- [ ] Create admin dashboard page at `/admin/content-automation`
-- [ ] Add manual override controls (pause, force publish, reject topic)
+- [ ] Implement PostgreSQL cleanup task (7 days feed items, 48h completed queue entries)
 - [ ] Add pipeline health monitoring (log daily: articles generated, published, rejected, errors)
-- [ ] Load testing (simulate 20+ posts/day)
-- [ ] Documentation
+- [ ] Error handling per Section 14.1 (graceful degradation, no retry queue)
 
-**Total estimated time: 15-19 days**
+### Phase 9: Testing & Launch (2 days)
+- [ ] Integration test: full pipeline RSS → topic → generate → queue → approve → publish
+- [ ] Load testing (simulate 20+ posts/day)
+- [ ] Verify cost estimates against actual Claude API usage
+- [ ] Test admin dashboard with real data (all 6 pages)
+- [ ] Test error scenarios (feed down, Claude API error, X API rate limit)
+- [ ] Documentation review
+
+**Total estimated time: 18-23 days**
 
 ---
 
@@ -1976,6 +3054,8 @@ Before publishing, each article must pass:
 7. **Tag count**: 2-5 tags per article
 8. **Image present**: Featured image URL is valid
 
+**Automated checks** (implemented — must pass before entering queue):
+
 ```elixir
 defmodule BlocksterV2.ContentAutomation.QualityChecker do
   def validate(article) do
@@ -1984,19 +3064,125 @@ defmodule BlocksterV2.ContentAutomation.QualityChecker do
       {:structure, check_structure(article)},
       {:duplicate, check_not_duplicate(article)},
       {:tags, check_tags(article)},
-      {:tiptap_valid, check_tiptap_format(article.content)}
+      {:tiptap_valid, check_tiptap_format(article.content)},
+      {:image, check_image(article)}
     ]
 
     failures = Enum.filter(checks, fn {_, result} -> result != :ok end)
 
-    if Enum.empty?(failures) do
-      :ok
-    else
-      {:reject, failures}
+    if Enum.empty?(failures), do: :ok, else: {:reject, failures}
+  end
+
+  defp check_word_count(article) do
+    count = ContentPublisher.count_words_in_tiptap(article.content)
+    cond do
+      count < 350 -> {:fail, "Too short: #{count} words (min 350)"}
+      count > 1200 -> {:fail, "Too long: #{count} words (max 1200)"}
+      true -> :ok
     end
+  end
+
+  defp check_structure(article) do
+    content = article.content
+    nodes = content["content"] || []
+    paragraphs = Enum.count(nodes, & &1["type"] == "paragraph")
+
+    cond do
+      is_nil(article.title) or article.title == "" -> {:fail, "Missing title"}
+      is_nil(article.excerpt) or article.excerpt == "" -> {:fail, "Missing excerpt"}
+      paragraphs < 3 -> {:fail, "Only #{paragraphs} paragraphs (min 3)"}
+      true -> :ok
+    end
+  end
+
+  defp check_not_duplicate(article) do
+    recent_titles = FeedStore.get_generated_topic_titles(days: 7)
+    title_words = significant_words(article.title)
+
+    is_dup = Enum.any?(recent_titles, fn recent ->
+      recent_words = significant_words(recent)
+      overlap = MapSet.intersection(title_words, recent_words) |> MapSet.size()
+      min_size = min(MapSet.size(title_words), MapSet.size(recent_words))
+      min_size > 0 and overlap / min_size > 0.6
+    end)
+
+    if is_dup, do: {:fail, "Too similar to recent article"}, else: :ok
+  end
+
+  defp check_tags(article) do
+    tags = article.tags || []
+    cond do
+      length(tags) < 2 -> {:fail, "Only #{length(tags)} tags (min 2)"}
+      length(tags) > 5 -> {:fail, "#{length(tags)} tags (max 5)"}
+      true -> :ok
+    end
+  end
+
+  defp check_tiptap_format(%{"type" => "doc", "content" => nodes}) when is_list(nodes), do: :ok
+  defp check_tiptap_format(_), do: {:fail, "Invalid TipTap JSON format"}
+
+  defp check_image(article) do
+    if article.featured_image && article.featured_image != "", do: :ok,
+    else: {:fail, "Missing featured image"}
+  end
+
+  defp significant_words(title) do
+    stopwords = ~w(the a an is are was were be been have has had do does did
+                   will would shall should may might can could of in to for on with
+                   at by from as into about between through after before)
+    title
+    |> String.downcase()
+    |> String.split(~r/\W+/, trim: true)
+    |> Enum.reject(&(&1 in stopwords))
+    |> MapSet.new()
   end
 end
 ```
+
+**Human-only checks** (admin reviews in edit page — cannot be automated reliably):
+- Originality: No verbatim copying from sources
+- Hallucinations: Facts match source material
+- Tone: Matches editorial voice (not too neutral, not too extreme)
+- Content safety: No financial advice, no conspiracy theories
+
+These are the admin's job during the review step. The pipeline's strength is that it
+**always** goes through human review (unless auto-publish is enabled for trusted output).
+
+---
+
+## 14.1 Error Handling & Recovery
+
+### Pipeline Error Scenarios
+
+| Scenario | Handling | Recovery |
+|----------|----------|----------|
+| **All RSS feeds fail** | FeedPoller logs warnings, reports 0 new items | TopicEngine skips cycle ("Only N items, skipping"). Pipeline resumes on next successful poll. |
+| **Claude API 429 (rate limit)** | ClaudeClient retries once after 5s backoff | If retry fails, TopicEngine skips this cycle. 15-min interval = automatic retry. |
+| **Claude API 500/error** | ClaudeClient returns `{:error, reason}` | TopicEngine logs error, skips cycle. No articles stuck — feed items stay unprocessed for next cycle. |
+| **Claude returns bad output** | ClaudeClient validates tool_use response | Missing fields → `{:error, "No tool_use block"}`. Feed items remain unprocessed. |
+| **QualityChecker rejects article** | Article NOT added to queue | Topic marked as processed (to prevent retry of same topic). Admin sees rejection in history. |
+| **X API quota exhausted** | TweetFinder returns `[]` | Article publishes without tweets. Logged as warning. |
+| **X image search fails** | ImageFinder returns empty candidates list | Article enters queue with no featured image. Admin can manually upload one before publishing. |
+| **PostgreSQL transaction fails** | `Repo.transaction` rolls back both operations | Feed items stay unprocessed, topic not stored. Next cycle retries. |
+| **Publishing fails** | `ContentPublisher.publish_article` returns `{:error, reason}` | Queue entry stays in "pending" status. Admin can retry via dashboard. |
+
+### Key Design Decisions
+
+1. **No retry queue**: Failed content generation skips the topic, doesn't retry. Why:
+   - Same feed items will cluster into the same topic on the next cycle
+   - If Claude consistently fails for a topic, it's likely a prompt issue, not transient
+   - Simpler architecture, fewer failure modes
+
+2. **Unprocessed items = automatic retry**: Feed items only get marked `processed: true`
+   after their topic is successfully stored. If anything fails before that, the items
+   appear in the next clustering cycle automatically.
+
+3. **Graceful degradation**: Each optional step (tweets, images) has fallbacks.
+   An article can publish with no tweets and a fallback image — it's still a valid post.
+
+4. **Admin as final safety net**: Since articles go through the review queue,
+   any pipeline bugs result in slightly-off articles that the admin catches, not
+   broken content on the live site.
 
 ---
 
@@ -2164,7 +3350,7 @@ The full review queue with filtering and bulk actions.
 ```
 
 **Queue Card Features**:
-- **Featured image thumbnail**: Shows the Unsplash image (or placeholder if missing)
+- **Featured image candidates**: Shows 3 clickable image options from X (lifestyle preferred, graphics as fallback). Admin clicks to select winner.
 - **Metadata bar**: Author persona, category, word count, estimated read time
 - **Source badges**: Feed sources that contributed, with star icon for premium sources
 - **Pipeline ID**: For debugging, links to logs
@@ -2178,6 +3364,69 @@ The full review queue with filtering and bulk actions.
 
 **Quick Approve** publishes the article as-is. Use this when the AI output is good enough.
 Most of the time you'll use **Edit Full Article** to review and tweak before publishing.
+
+**LiveView Implementation**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.Queue do
+  use BlocksterV2Web, :live_view
+
+  alias BlocksterV2.ContentAutomation.FeedStore
+
+  def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "content_automation")
+    end
+
+    socket =
+      socket
+      |> assign(page_title: "Article Queue")
+      |> assign(filter_category: nil, filter_author: nil, sort: :newest)
+      |> assign(expanded_previews: MapSet.new())
+      |> start_async(:load_queue, fn -> FeedStore.get_pending_queue_entries() end)
+
+    {:ok, socket}
+  end
+
+  def handle_async(:load_queue, {:ok, entries}, socket) do
+    {:noreply, assign(socket, queue_entries: entries)}
+  end
+
+  def handle_event("filter", %{"category" => cat, "author" => author}, socket) do
+    entries = FeedStore.get_pending_queue_entries(category: cat, author: author)
+    {:noreply, assign(socket, queue_entries: entries, filter_category: cat, filter_author: author)}
+  end
+
+  def handle_event("toggle_preview", %{"id" => id}, socket) do
+    expanded = socket.assigns.expanded_previews
+    expanded = if MapSet.member?(expanded, id), do: MapSet.delete(expanded, id), else: MapSet.put(expanded, id)
+    {:noreply, assign(socket, expanded_previews: expanded)}
+  end
+
+  def handle_event("quick_approve", %{"id" => id}, socket) do
+    entry = FeedStore.get_queue_entry(id)
+    case ContentAutomation.ContentPublisher.publish_from_queue(entry, %{}) do
+      {:ok, post} ->
+        FeedStore.mark_queue_entry_published(id, post.id)
+        entries = Enum.reject(socket.assigns.queue_entries, &(&1.id == id))
+        {:noreply, socket |> assign(queue_entries: entries) |> put_flash(:info, "Published: #{post.title}")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Publish failed: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("reject", %{"id" => id, "reason" => reason}, socket) do
+    FeedStore.reject_queue_entry(id, reason)
+    entries = Enum.reject(socket.assigns.queue_entries, &(&1.id == id))
+    {:noreply, socket |> assign(queue_entries: entries) |> put_flash(:info, "Article rejected")}
+  end
+
+  # Live updates from pipeline
+  def handle_info({:content_automation, :article_generated, _article}, socket) do
+    entries = FeedStore.get_pending_queue_entries()
+    {:noreply, assign(socket, queue_entries: entries)}
+  end
+end
+```
 
 ### 15.5 Edit Article Page (`/admin/content/queue/:id/edit`)
 
@@ -2425,6 +3674,46 @@ When the admin clicks **Reject**:
 - "Force Poll Now" triggers immediate poll cycle
 - Star icon next to promoted crypto-native premium feeds
 
+**LiveView Implementation**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.Feeds do
+  use BlocksterV2Web, :live_view
+
+  alias BlocksterV2.ContentAutomation.{FeedConfig, Settings, FeedStore}
+
+  def mount(_params, _session, socket) do
+    feeds = FeedConfig.get_all_feeds_with_status()
+    disabled_feeds = Settings.get(:disabled_feeds, [])
+
+    socket =
+      socket
+      |> assign(page_title: "Feed Management")
+      |> assign(feeds: feeds, disabled_feeds: disabled_feeds)
+      |> start_async(:load_feed_stats, fn -> FeedStore.get_feed_stats_last_24h() end)
+
+    {:ok, socket}
+  end
+
+  def handle_async(:load_feed_stats, {:ok, stats}, socket) do
+    {:noreply, assign(socket, feed_stats: stats)}
+  end
+
+  def handle_event("toggle_feed", %{"source" => source}, socket) do
+    disabled = socket.assigns.disabled_feeds
+    disabled = if source in disabled, do: List.delete(disabled, source), else: [source | disabled]
+    Settings.set(:disabled_feeds, disabled)
+    feeds = FeedConfig.get_all_feeds_with_status()
+    {:noreply, assign(socket, disabled_feeds: disabled, feeds: feeds)}
+  end
+
+  def handle_event("force_poll", _params, socket) do
+    # Send message to FeedPoller to trigger immediate poll cycle
+    send({:global, BlocksterV2.ContentAutomation.FeedPoller}, :poll_now)
+    {:noreply, put_flash(socket, :info, "Poll triggered — results will appear shortly")}
+  end
+end
+```
+
 ### 15.9 History Page (`/admin/content/history`)
 
 Shows all published and rejected articles with performance metrics:
@@ -2455,6 +3744,63 @@ Shows all published and rejected articles with performance metrics:
 - Published articles link to the existing `/:slug/edit` page for further edits
 - Rejected articles show the rejection reason
 
+**LiveView Implementation**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.History do
+  use BlocksterV2Web, :live_view
+
+  alias BlocksterV2.ContentAutomation.FeedStore
+
+  def mount(_params, _session, socket) do
+    socket =
+      socket
+      |> assign(page_title: "Content History")
+      |> assign(filter_status: "all", filter_period: "7d", page: 1)
+      |> start_async(:load_history, fn -> load_history("all", "7d", 1) end)
+
+    {:ok, socket}
+  end
+
+  def handle_async(:load_history, {:ok, {entries, summary}}, socket) do
+    {:noreply, assign(socket, entries: entries, summary: summary)}
+  end
+
+  def handle_event("filter", %{"status" => status, "period" => period}, socket) do
+    socket = start_async(socket, :load_history, fn -> load_history(status, period, 1) end)
+    {:noreply, assign(socket, filter_status: status, filter_period: period, page: 1)}
+  end
+
+  def handle_event("load_page", %{"page" => page}, socket) do
+    page = String.to_integer(page)
+    socket = start_async(socket, :load_history, fn ->
+      load_history(socket.assigns.filter_status, socket.assigns.filter_period, page)
+    end)
+    {:noreply, assign(socket, page: page)}
+  end
+
+  defp load_history(status, period, page) do
+    days = case period do
+      "24h" -> 1
+      "7d" -> 7
+      "30d" -> 30
+      _ -> 7
+    end
+
+    since = DateTime.utc_now() |> DateTime.add(-days, :day)
+    entries = FeedStore.get_history(status: status, since: since, page: page, per_page: 25)
+
+    summary = %{
+      published: FeedStore.count_published_since(since),
+      rejected: FeedStore.count_rejected_since(since),
+      top_category: FeedStore.top_category_since(since),
+      most_read_post: FeedStore.most_read_automated_post_since(since)
+    }
+
+    {entries, summary}
+  end
+end
+```
+
 ### 15.10 Pipeline State & Queue Statuses
 
 The `content_publish_queue` PostgreSQL table (defined in Section 9.1) supports the review workflow
@@ -2483,11 +3829,98 @@ The `article_data` field is a map containing everything needed to create a post:
   word_count: 620,
   source_feeds: [%{source: "Bloomberg", tier: :premium}, %{source: "CoinDesk", tier: :standard}],
   tweet_embeds: [%{url: "https://twitter.com/...", id: "123"}],
-  image_suggestion: "defi blockchain regulation"
+  image_search_queries: ["DeFi conference speakers", "SEC crypto regulation hearing", "blockchain trading desk"]
 }
 ```
 
-### 15.11 Auto-Publish Option
+### 15.11 Authors Page (`/admin/content/authors`)
+
+View and manage the automated content author personas.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Author Personas                                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌────────────┬───────────┬──────────────────────┬────────┬───────┐ │
+│  │ Avatar     │ Username  │ Categories           │ Posts  │ Reads │ │
+│  ├────────────┼───────────┼──────────────────────┼────────┼───────┤ │
+│  │ [img]      │ maya_chen │ regulation, policy   │ 42     │ 3,210 │ │
+│  │ [img]      │ jake_free │ bitcoin, mining,     │ 38     │ 2,890 │ │
+│  │            │           │ energy               │        │       │ │
+│  │ [img]      │ sophia_r  │ defi, nft, gaming,   │ 31     │ 2,150 │ │
+│  │            │           │ metaverse, web3      │        │       │ │
+│  │ [img]      │ alex_ward │ layer1, layer2,      │ 28     │ 1,980 │ │
+│  │            │           │ ethereum, solana     │        │       │ │
+│  │ [img]      │ marcus_st │ trading, market      │ 35     │ 2,670 │ │
+│  │ [img]      │ nina_tak  │ ai, privacy, cbdc    │ 12     │  840  │ │
+│  │ [img]      │ ryan_kolb │ security, mining,    │ 9      │  620  │ │
+│  │            │           │ institutional        │        │       │ │
+│  │ [img]      │ elena_vas │ stablecoin, defi,    │ 11     │  750  │ │
+│  │            │           │ payments, cbdc       │        │       │ │
+│  └────────────┴───────────┴──────────────────────┴────────┴───────┘ │
+│                                                                     │
+│  Total: 8 personas · 206 published articles · 15,110 total reads   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**LiveView Implementation**:
+```elixir
+defmodule BlocksterV2Web.ContentAutomationLive.Authors do
+  use BlocksterV2Web, :live_view
+
+  alias BlocksterV2.ContentAutomation.{AuthorRotator, FeedStore}
+  alias BlocksterV2.{Repo, Accounts.User, Blog}
+  import Ecto.Query
+
+  def mount(_params, _session, socket) do
+    socket =
+      socket
+      |> assign(page_title: "Author Personas")
+      |> start_async(:load_authors, fn -> load_author_stats() end)
+
+    {:ok, socket}
+  end
+
+  def handle_async(:load_authors, {:ok, authors}, socket) do
+    {:noreply, assign(socket, authors: authors)}
+  end
+
+  defp load_author_stats do
+    personas = AuthorRotator.personas()
+
+    # Load user accounts and post counts for each persona
+    Enum.map(personas, fn persona ->
+      user = Repo.get_by(User, email: "#{persona.username}@blockster.com")
+
+      {post_count, total_reads} = if user do
+        count = Repo.one(from p in Blog.Post, where: p.author_id == ^user.id, select: count(p.id))
+        # Reads tracked in Mnesia engagement data - sum for all author's posts
+        reads = FeedStore.count_reads_for_author(user.id)
+        {count, reads}
+      else
+        {0, 0}
+      end
+
+      %{
+        persona: persona,
+        user: user,
+        post_count: post_count,
+        total_reads: total_reads
+      }
+    end)
+  end
+end
+```
+
+**Features**:
+- Read-only view — personas are defined in code (`AuthorRotator.personas/0`), not editable via UI
+- Shows post count and total reads per author for workload balancing
+- Categories listed from persona definition
+- Totals row at the bottom
+
+### 15.12 Auto-Publish Option
 
 For when you're comfortable with the pipeline quality and want hands-off operation:
 

@@ -5,10 +5,10 @@ export const TwitterWidgets = {
   },
 
   updated() {
-    // Only reload if we haven't loaded yet or if the content actually changed
-    // Check if there's still an unprocessed blockquote (twitter hasn't rendered it yet)
+    // Re-process any unrendered tweet blockquotes after LiveView re-renders
     const hasUnprocessedTweet = this.el.querySelector('blockquote.twitter-tweet');
-    if (hasUnprocessedTweet && !this.loaded) {
+    if (hasUnprocessedTweet) {
+      this.loaded = false;
       this.loadWidgets();
     }
   },
