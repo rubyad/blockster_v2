@@ -126,11 +126,11 @@ defmodule BlocksterV2Web.PostLive.Category do
     end
   end
 
-  # Handle BUX balance updates from PubSub - targeted send_update
+  # Handle BUX updates from PubSub - use total_distributed for display
   @impl true
-  def handle_info({:bux_update, post_id, new_balance}, socket) do
+  def handle_info({:bux_update, post_id, _pool_balance, total_distributed}, socket) do
     if post_id in socket.assigns.displayed_post_ids do
-      bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+      bux_balances = Map.put(socket.assigns.bux_balances, post_id, total_distributed)
 
       case Map.get(socket.assigns.post_to_component_map, post_id) do
         {component_id, module} ->
@@ -142,6 +142,11 @@ defmodule BlocksterV2Web.PostLive.Category do
     else
       {:noreply, socket}
     end
+  end
+
+  # Legacy 3-element broadcast (backward compat during rolling deploy)
+  def handle_info({:bux_update, _post_id, _new_balance}, socket) do
+    {:noreply, socket}
   end
 
   @impl true

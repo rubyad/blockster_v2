@@ -187,7 +187,7 @@ defmodule BlocksterV2.PostBuxPoolWriter do
               |> put_elem(11, now)
 
             :mnesia.dirty_write(updated)
-            EngagementTracker.broadcast_bux_update(post_id, new_balance)
+            EngagementTracker.broadcast_bux_update(post_id, new_balance, total_distributed)
             {:ok, requested_amount, :full_amount}
 
           true ->
@@ -201,7 +201,7 @@ defmodule BlocksterV2.PostBuxPoolWriter do
               |> put_elem(11, now)
 
             :mnesia.dirty_write(updated)
-            EngagementTracker.broadcast_bux_update(post_id, 0)
+            EngagementTracker.broadcast_bux_update(post_id, 0, total_distributed)
             {:ok, awarded, :partial_amount}
         end
     end
@@ -241,8 +241,8 @@ defmodule BlocksterV2.PostBuxPoolWriter do
         }
         :mnesia.dirty_write(record)
         Logger.info("[PostBuxPoolWriter] Created pool with negative balance for post #{post_id}: balance=#{-amount}")
-        # Broadcast 0 for display (never show negative)
-        EngagementTracker.broadcast_bux_update(post_id, 0)
+        # Broadcast 0 pool balance for display (never show negative), amount as total_distributed
+        EngagementTracker.broadcast_bux_update(post_id, 0, amount)
         {:ok, -amount}
 
       [record] ->
@@ -259,7 +259,7 @@ defmodule BlocksterV2.PostBuxPoolWriter do
 
         # Broadcast display value (0 if negative, actual if positive)
         display_balance = max(0, new_balance)
-        EngagementTracker.broadcast_bux_update(post_id, display_balance)
+        EngagementTracker.broadcast_bux_update(post_id, display_balance, total_distributed)
 
         Logger.info("[PostBuxPoolWriter] Guaranteed deduction of #{amount} from post #{post_id}: balance=#{new_balance} (display=#{display_balance})")
         {:ok, new_balance}

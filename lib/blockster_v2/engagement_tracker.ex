@@ -1343,19 +1343,30 @@ defmodule BlocksterV2.EngagementTracker do
   # PubSub functions for real-time BUX balance updates
   @doc """
   Broadcasts a BUX balance update for a specific post.
+  Sends both pool_balance and total_distributed so consumers can use whichever they need.
   """
-  def broadcast_bux_update(post_id, new_balance) do
+  def broadcast_bux_update(post_id, pool_balance, total_distributed) do
     Phoenix.PubSub.broadcast(
       BlocksterV2.PubSub,
       "post_bux:#{post_id}",
-      {:bux_update, post_id, new_balance}
+      {:bux_update, post_id, pool_balance, total_distributed}
     )
     # Also broadcast to a global topic for index pages showing multiple posts
     Phoenix.PubSub.broadcast(
       BlocksterV2.PubSub,
       "post_bux:all",
-      {:bux_update, post_id, new_balance}
+      {:bux_update, post_id, pool_balance, total_distributed}
     )
+  end
+
+  # Legacy 2-arg version for backward compatibility
+  def broadcast_bux_update(post_id, pool_balance) do
+    # Fetch total_distributed from Mnesia
+    total_distributed = case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [record] -> elem(record, 6) || 0
+      [] -> 0
+    end
+    broadcast_bux_update(post_id, pool_balance, total_distributed)
   end
 
   @doc """

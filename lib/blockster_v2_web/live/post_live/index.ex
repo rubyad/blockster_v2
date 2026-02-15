@@ -260,9 +260,10 @@ defmodule BlocksterV2Web.PostLive.Index do
           post_id = socket.assigns.deposit_modal_post.id
 
           case EngagementTracker.deposit_post_bux(post_id, amount) do
-            {:ok, new_balance} ->
-              # Update bux_balances map for the post card display
-              bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+            {:ok, _new_pool_balance} ->
+              # bux_balances displays total_distributed, which doesn't change on deposit
+              # The real-time PubSub update will handle any display refresh
+              bux_balances = socket.assigns.bux_balances
 
               # Close modal and show success message
               {:noreply,
@@ -295,11 +296,11 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   @impl true
-  def handle_info({:bux_update, post_id, new_balance}, socket) do
+  def handle_info({:bux_update, post_id, _pool_balance, total_distributed}, socket) do
     # Check if this post is displayed on the page
     if post_id in socket.assigns.displayed_post_ids do
-      # Update the bux_balances map for real-time display
-      bux_balances = Map.put(socket.assigns.bux_balances, post_id, new_balance)
+      # Display total_distributed (BUX earned by readers) - only ever goes up
+      bux_balances = Map.put(socket.assigns.bux_balances, post_id, total_distributed)
 
       # Only send_update to the component that contains this post (fixes mobile flash)
       case Map.get(socket.assigns.post_to_component_map, post_id) do
@@ -312,6 +313,11 @@ defmodule BlocksterV2Web.PostLive.Index do
     else
       {:noreply, socket}
     end
+  end
+
+  # Handle legacy 3-element broadcast (backward compat during rolling deploy)
+  def handle_info({:bux_update, _post_id, _new_balance}, socket) do
+    {:noreply, socket}
   end
 
   @impl true

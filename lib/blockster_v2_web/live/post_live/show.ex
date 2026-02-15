@@ -614,10 +614,25 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
-  def handle_info({:bux_update, post_id, new_balance}, socket) do
+  def handle_info({:bux_update, post_id, _pool_balance, _total_distributed}, socket) do
     # Only update if this is for the current post
-    # Note: new_balance from broadcast is already the display value (>= 0)
-    # but we fetch internal to be consistent with pool_available logic
+    # Fetch internal balance directly for pool_available logic
+    if socket.assigns.post.id == post_id do
+      internal_balance = EngagementTracker.get_post_bux_balance(post_id)
+      display_balance = display_pool_balance(internal_balance)
+      updated_post = Map.put(socket.assigns.post, :bux_balance, display_balance)
+      {:noreply,
+       socket
+       |> assign(:post, updated_post)
+       |> assign(:pool_balance, display_balance)
+       |> assign(:pool_available, pool_available_for_new_actions?(internal_balance))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Legacy 3-element broadcast (backward compat during rolling deploy)
+  def handle_info({:bux_update, post_id, _new_balance}, socket) do
     if socket.assigns.post.id == post_id do
       internal_balance = EngagementTracker.get_post_bux_balance(post_id)
       display_balance = display_pool_balance(internal_balance)

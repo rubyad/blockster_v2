@@ -326,11 +326,11 @@ defmodule BlocksterV2.SortedPostsCache do
   end
 
   @impl true
-  def handle_info({:bux_update, post_id, new_balance}, state) do
+  def handle_info({:bux_update, post_id, new_balance, total_distributed}, state) do
     old_balance_list = state.sorted_by_balance
 
-    posts = update_in_list(old_balance_list, post_id, fn {pid, _bal, pub, cat, tags, dist} ->
-      {pid, new_balance, pub, cat, tags, dist}
+    posts = update_in_list(old_balance_list, post_id, fn {pid, _bal, pub, cat, tags, _dist} ->
+      {pid, new_balance, pub, cat, tags, total_distributed}
     end)
 
     new_state = rebuild_all_sorts(state, posts)
@@ -347,6 +347,19 @@ defmodule BlocksterV2.SortedPostsCache do
       )
     end
 
+    {:noreply, new_state}
+  end
+
+  # Legacy 3-element broadcast (backward compat during rolling deploy)
+  @impl true
+  def handle_info({:bux_update, post_id, new_balance}, state) do
+    old_balance_list = state.sorted_by_balance
+
+    posts = update_in_list(old_balance_list, post_id, fn {pid, _bal, pub, cat, tags, dist} ->
+      {pid, new_balance, pub, cat, tags, dist}
+    end)
+
+    new_state = rebuild_all_sorts(state, posts)
     {:noreply, new_state}
   end
 
