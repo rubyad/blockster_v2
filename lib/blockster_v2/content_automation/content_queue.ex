@@ -105,6 +105,9 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
   defp maybe_publish(state) do
     state = %{state | last_check: DateTime.utc_now() |> DateTime.truncate(:second)}
 
+    # Check for expired offers (runs regardless of pause state)
+    check_expired_offers()
+
     cond do
       Settings.paused?() ->
         Logger.debug("[ContentQueue] Pipeline paused, skipping")
@@ -171,5 +174,18 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
 
   defp schedule_check do
     Process.send_after(self(), :check_queue, @check_interval)
+  end
+
+  # Check for published offers that have expired. Logs for admin awareness.
+  # The show page already detects expiration in real-time via load_offer_data/1.
+  defp check_expired_offers do
+    expired = FeedStore.get_published_expired_offers(DateTime.utc_now())
+
+    for entry <- expired do
+      Logger.info("[ContentQueue] Offer expired: post #{entry.post_id} (#{entry.article_data["title"]})")
+    end
+  rescue
+    e ->
+      Logger.debug("[ContentQueue] Expired offer check failed: #{Exception.message(e)}")
   end
 end

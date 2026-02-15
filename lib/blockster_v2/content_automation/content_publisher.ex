@@ -86,6 +86,47 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
     {bux_reward, bux_pool}
   end
 
+  @doc """
+  Create a draft post from a queue entry (without publishing).
+
+  Creates the post with tags but skips publish, BUX deposit, and cache update.
+  Stores the post_id on the queue entry so the draft can be previewed or published later.
+
+  Returns `{:ok, post}` or `{:error, reason}`.
+  """
+  def create_draft_post(%{id: queue_id, article_data: article_data, author_id: author_id} = _entry) do
+    with {:ok, category_id} <- resolve_category(article_data["category"]),
+         {:ok, post} <- create_post(article_data, author_id, category_id),
+         :ok <- assign_tags(post, article_data["tags"]),
+         {:ok, _entry} <- FeedStore.update_queue_entry(queue_id, %{post_id: post.id}) do
+      Logger.info("[ContentPublisher] Draft created: post #{post.id} (#{post.slug})")
+      {:ok, post}
+    else
+      {:error, reason} ->
+        Logger.error("[ContentPublisher] Draft creation failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Delete a draft post when a queue entry is rejected.
+  Only deletes if the post is unpublished (has no published_at).
+  """
+  def cleanup_draft_post(nil), do: :ok
+
+  def cleanup_draft_post(post_id) do
+    case BlocksterV2.Repo.get(BlocksterV2.Blog.Post, post_id) do
+      nil -> :ok
+      %{published_at: nil} = post ->
+        Blog.delete_post(post)
+        Logger.info("[ContentPublisher] Cleaned up draft post #{post_id}")
+        :ok
+      _ ->
+        # Post is already published — don't delete
+        :ok
+    end
+  end
+
   # ── Private Helpers ──
 
   defp create_post(article_data, author_id, category_id) do
@@ -277,7 +318,9 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
     "cbdc" => {"CBDCs", "cbdc"},
     "security_hacks" => {"Security", "security"},
     "adoption" => {"Adoption", "adoption"},
-    "mining" => {"Mining", "mining"}
+    "mining" => {"Mining", "mining"},
+    "fundraising" => {"Fundraising", "fundraising"},
+    "events" => {"Events", "events"}
   }
 
   defp resolve_category(category) when is_binary(category) do

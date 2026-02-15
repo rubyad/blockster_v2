@@ -1,7 +1,7 @@
 defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
   use BlocksterV2Web, :live_view
 
-  alias BlocksterV2.ContentAutomation.{FeedStore, ContentPublisher, EditorialFeedback}
+  alias BlocksterV2.ContentAutomation.{FeedStore, ContentPublisher, EditorialFeedback, TimeHelper}
   alias BlocksterV2.Blog
 
   @memory_categories ~w(global tone terminology topics formatting)
@@ -72,24 +72,40 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
     {:noreply, assign(socket, scheduled_at: nil)}
   end
 
-  def handle_event("update_scheduled_at", %{"utc" => utc_value}, socket) when utc_value != "" do
-    # JS hook converts local time to UTC ISO string before sending
-    case DateTime.from_iso8601(utc_value) do
-      {:ok, dt, _} -> {:noreply, assign(socket, scheduled_at: DateTime.truncate(dt, :second))}
-      _ -> {:noreply, socket}
-    end
-  end
-
-  def handle_event("update_scheduled_at", %{"value" => value}, socket) when value != "" do
-    # Fallback — treat as UTC
-    case DateTime.from_iso8601(value <> ":00Z") do
-      {:ok, dt, _} -> {:noreply, assign(socket, scheduled_at: DateTime.truncate(dt, :second))}
-      _ -> {:noreply, socket}
+  def handle_event("update_scheduled_at", %{"scheduled_at" => value}, socket) when value != "" do
+    # Input is in EST — convert to UTC for storage
+    case NaiveDateTime.from_iso8601(value <> ":00") do
+      {:ok, naive} ->
+        utc_dt = TimeHelper.est_to_utc(naive)
+        {:noreply, assign(socket, scheduled_at: utc_dt)}
+      _ ->
+        {:noreply, socket}
     end
   end
 
   def handle_event("update_scheduled_at", _params, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("update_offer_field", %{"field" => field, "value" => value}, socket) do
+    entry = socket.assigns.entry
+    updates = case field do
+      "expires_at" when value != "" ->
+        case NaiveDateTime.from_iso8601(value <> ":00") do
+          {:ok, naive} -> %{expires_at: DateTime.from_naive!(naive, "Etc/UTC")}
+          _ -> %{}
+        end
+      "expires_at" -> %{expires_at: nil}
+      f when f in ~w(cta_url cta_text offer_type) -> %{String.to_existing_atom(f) => value}
+      _ -> %{}
+    end
+
+    if map_size(updates) > 0 do
+      {:ok, updated} = FeedStore.update_queue_entry(entry.id, updates)
+      {:noreply, assign(socket, entry: updated)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("select_category", %{"category" => value}, socket) do
@@ -189,6 +205,37 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
          start_async(socket, :post_tweet, fn ->
            ContentPublisher.post_promotional_tweet(post, tweet)
          end)}
+    end
+  end
+
+  # ── Preview ──
+
+  def handle_event("preview", _params, socket) do
+    entry = socket.assigns.entry
+
+    if entry.post_id do
+      # Draft post already exists — redirect to it
+      post = BlocksterV2.Repo.get(BlocksterV2.Blog.Post, entry.post_id)
+
+      if post do
+        {:noreply, redirect(socket, to: "/#{post.slug}")}
+      else
+        create_preview_draft(entry, socket)
+      end
+    else
+      create_preview_draft(entry, socket)
+    end
+  end
+
+  defp create_preview_draft(entry, socket) do
+    case ContentPublisher.create_draft_post(entry) do
+      {:ok, post} ->
+        # Reload entry to get updated post_id
+        updated_entry = FeedStore.get_queue_entry(entry.id) |> BlocksterV2.Repo.preload([:author, :revisions])
+        {:noreply, socket |> assign(entry: updated_entry) |> redirect(to: "/#{post.slug}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Preview failed: #{inspect(reason)}")}
     end
   end
 
@@ -467,6 +514,11 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
             <%= word_count(@entry.article_data) %> words
             &middot; by <%= @entry.article_data["author_username"] || "Unknown" %>
             &middot; Status: <span class="text-yellow-600 font-medium"><%= @entry.status %></span>
+            &middot; <span class={"px-1.5 py-0.5 rounded text-xs #{case @entry.content_type do
+              "opinion" -> "bg-purple-100 text-purple-700"
+              "offer" -> "bg-emerald-100 text-emerald-700"
+              _ -> "bg-sky-100 text-sky-700"
+            end}"}><%= (@entry.content_type || "news") |> String.capitalize() %></span>
             <%= if (@entry.revision_count || 0) > 0 do %>
               &middot; <span class="text-blue-600"><%= @entry.revision_count %> revision(s)</span>
             <% end %>
@@ -651,6 +703,9 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
                 <button type="submit" name="action" value="approve" class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-700">
                   <%= if @scheduled_at, do: "Schedule", else: "Schedule Next" %>
                 </button>
+                <button type="button" phx-click="preview" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-indigo-700">
+                  Preview
+                </button>
                 <button type="submit" name="action" value="publish" class="px-6 py-2.5 bg-[#CAFC00] text-black rounded-lg text-sm font-medium cursor-pointer hover:bg-[#b8e600]">
                   Publish Now
                 </button>
@@ -711,19 +766,20 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
           <div class="bg-white rounded-lg shadow p-5">
             <h3 class="text-sm text-gray-500 uppercase tracking-wider mb-3">Schedule Publish</h3>
             <p class="text-xs text-gray-400 mb-2">
-              Set a date/time for automatic publishing. Leave empty to publish on next scheduler tick (within the hour).
+              Set a date/time for automatic publishing. All times are Eastern (EST/EDT).
             </p>
             <input
               type="datetime-local"
               id="schedule-datetime"
-              value={if @scheduled_at, do: local_datetime_value(@scheduled_at), else: ""}
+              name="scheduled_at"
+              value={if @scheduled_at, do: TimeHelper.format_for_input(@scheduled_at), else: ""}
+              phx-change="update_scheduled_at"
               class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 cursor-pointer"
-              phx-hook="ScheduleDatetime"
             />
             <%= if @scheduled_at do %>
               <div class="flex items-center justify-between mt-2">
                 <span class="text-xs text-blue-600">
-                  Scheduled: <%= Calendar.strftime(@scheduled_at, "%b %d, %Y at %H:%M UTC") %>
+                  Scheduled: <%= TimeHelper.format_display(@scheduled_at) %>
                 </span>
                 <button type="button" phx-click="update_scheduled_at" phx-value-value="" class="text-xs text-red-500 hover:text-red-700 cursor-pointer">
                   Clear
@@ -731,6 +787,45 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
               </div>
             <% end %>
           </div>
+
+          <%!-- Offer Details (only for offer content type) --%>
+          <%= if @entry.content_type == "offer" do %>
+            <div class="bg-white rounded-lg shadow p-5">
+              <h3 class="text-sm text-gray-500 uppercase tracking-wider mb-3">Offer Details</h3>
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs text-gray-500">CTA URL</label>
+                  <input type="text" phx-blur="update_offer_field" phx-value-field="cta_url"
+                    value={@entry.cta_url || ""} placeholder="https://app.aave.com/..."
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded px-3 py-2 text-sm mt-1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">CTA Button Text</label>
+                  <input type="text" phx-blur="update_offer_field" phx-value-field="cta_text"
+                    value={@entry.cta_text || ""} placeholder="Stake on Aave"
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded px-3 py-2 text-sm mt-1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">Offer Type</label>
+                  <select phx-change="update_offer_field" name="value" phx-value-field="offer_type"
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded px-3 py-2 text-sm mt-1">
+                    <option value="">Select...</option>
+                    <option value="yield_opportunity" selected={@entry.offer_type == "yield_opportunity"}>Yield Opportunity</option>
+                    <option value="exchange_promotion" selected={@entry.offer_type == "exchange_promotion"}>Exchange Promotion</option>
+                    <option value="token_launch" selected={@entry.offer_type == "token_launch"}>Token Launch</option>
+                    <option value="airdrop" selected={@entry.offer_type == "airdrop"}>Airdrop</option>
+                    <option value="listing" selected={@entry.offer_type == "listing"}>Listing</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">Expiration Date (UTC)</label>
+                  <input type="datetime-local" phx-blur="update_offer_field" phx-value-field="expires_at"
+                    value={if @entry.expires_at, do: Calendar.strftime(@entry.expires_at, "%Y-%m-%dT%H:%M")}
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded px-3 py-2 text-sm mt-1" />
+                </div>
+              </div>
+            </div>
+          <% end %>
 
           <%!-- Request Revision --%>
           <div class="bg-white rounded-lg shadow p-5">

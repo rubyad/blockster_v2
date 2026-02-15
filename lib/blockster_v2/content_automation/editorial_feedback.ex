@@ -258,6 +258,7 @@ defmodule BlocksterV2.ContentAutomation.EditorialFeedback do
     Content:
     #{format_sections_for_prompt(current_sections)}
 
+    #{format_source_urls_for_revision(article_data)}
     EDITOR'S INSTRUCTION:
     #{instruction}
 
@@ -268,6 +269,25 @@ defmodule BlocksterV2.ContentAutomation.EditorialFeedback do
     NOTE: Embedded tweets ([tweet: ...] markers above) are preserved automatically —
     do NOT try to include them in your sections output. Focus only on the text content.
     """
+  end
+
+  defp format_source_urls_for_revision(article_data) do
+    case article_data["source_urls"] do
+      urls when is_list(urls) and urls != [] ->
+        url_lines = Enum.map_join(urls, "\n", fn u ->
+          "- #{u["source"]}: #{u["title"]} — #{u["url"]}"
+        end)
+
+        """
+        SOURCE URLs (VERIFIED — use these for any link corrections):
+        #{url_lines}
+
+        CRITICAL: Only use URLs from this list. NEVER fabricate or guess URLs.
+        """
+
+      _ ->
+        ""
+    end
   end
 
   defp apply_revision(entry, revised_claude_data) do

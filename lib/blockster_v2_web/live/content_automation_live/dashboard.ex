@@ -71,6 +71,10 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
   end
 
   def handle_event("reject", %{"id" => id}, socket) do
+    # Clean up draft post if one was created for preview
+    entry = FeedStore.get_queue_entry(id)
+    if entry && entry.post_id, do: ContentPublisher.cleanup_draft_post(entry.post_id)
+
     FeedStore.reject_queue_entry(id)
     recent_queue = Enum.reject(socket.assigns.recent_queue, &(&1.id == id))
     stats = update_in(socket.assigns.stats || %{}, [:rejected_today], &((&1 || 0) + 1))
@@ -112,12 +116,15 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
     active_feeds = FeedStore.count_active_feeds()
     total_feeds = FeedStore.count_total_feeds()
 
+    content_mix = FeedStore.count_queued_by_content_type()
+
     %{
       stats: %{
         pending: FeedStore.count_queued(),
         published_today: FeedStore.count_published_today(),
         rejected_today: FeedStore.count_rejected_today(),
-        feeds_active: "#{active_feeds}/#{total_feeds}"
+        feeds_active: "#{active_feeds}/#{total_feeds}",
+        content_mix: content_mix
       },
       recent_queue: FeedStore.get_queue_entries(status: ["pending", "draft", "approved"], per_page: 5),
       activity: FeedStore.get_recent_activity(20)
@@ -165,6 +172,9 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
           <.link navigate={~p"/admin/content/queue"} class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 cursor-pointer">
             View Queue
           </.link>
+          <.link navigate={~p"/admin/content/request"} class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 cursor-pointer">
+            Request Article
+          </.link>
           <button phx-click="force_analyze" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-700">
             Force Analyze
           </button>
@@ -185,6 +195,11 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
         <.link navigate={~p"/admin/content/queue"} class="bg-white rounded-lg shadow p-5 hover:shadow-md cursor-pointer">
           <p class="text-gray-500 text-xs uppercase tracking-wider">Pending Review</p>
           <p class="text-3xl font-haas_medium_65 text-gray-900 mt-2"><%= @stats.pending %></p>
+          <div class="flex gap-2 mt-1">
+            <span class="text-xs text-sky-600"><%= @stats.content_mix.news %>N</span>
+            <span class="text-xs text-purple-600"><%= @stats.content_mix.opinion %>O</span>
+            <span class="text-xs text-emerald-600"><%= @stats.content_mix.offer %>F</span>
+          </div>
         </.link>
         <div class="bg-white rounded-lg shadow p-5">
           <p class="text-gray-500 text-xs uppercase tracking-wider">Published Today</p>
@@ -284,7 +299,13 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
                   <div class="min-w-0">
                     <p class="text-gray-900 text-sm truncate"><%= entry.article_data["title"] || "Untitled" %></p>
                     <p class="text-gray-500 text-xs mt-0.5">
-                      <%= status_label(entry.status) %> &middot; <%= time_ago(entry.updated_at) %>
+                      <%= status_label(entry.status) %>
+                      &middot; <span class={"px-1 py-0.5 rounded text-[10px] #{case entry.content_type do
+                        "opinion" -> "bg-purple-100 text-purple-700"
+                        "offer" -> "bg-emerald-100 text-emerald-700"
+                        _ -> "bg-sky-100 text-sky-700"
+                      end}"}><%= (entry.content_type || "news") |> String.capitalize() %></span>
+                      &middot; <%= time_ago(entry.updated_at) %>
                     </p>
                   </div>
                 </div>

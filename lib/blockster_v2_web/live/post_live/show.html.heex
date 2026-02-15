@@ -448,6 +448,49 @@
       <!-- CENTER COLUMN - Main Article Content -->
       <main class="w-full max-w-[680px]">
 
+        <%= if @is_draft_preview do %>
+          <div class="mb-6 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+              </svg>
+              <span class="font-haas_medium_65 text-amber-800">DRAFT PREVIEW</span>
+            </div>
+            <p class="text-sm text-amber-700 mt-1">This post is not published. Only admins can see this page.</p>
+          </div>
+        <% end %>
+
+        <%= if @offer_data do %>
+          <%= if @offer_data.expired do %>
+            <div class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-haas_medium_65 text-gray-600">This offer has expired</span>
+              </div>
+              <%= if @offer_data.expires_at do %>
+                <p class="text-sm text-gray-500 mt-1">Expired on <%= Calendar.strftime(@offer_data.expires_at, "%b %d, %Y") %></p>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-haas_medium_65 text-emerald-800">Opportunity</span>
+                <%= if @offer_data.offer_type do %>
+                  <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs"><%= @offer_data.offer_type |> String.replace("_", " ") |> String.capitalize() %></span>
+                <% end %>
+              </div>
+              <%= if @offer_data.expires_at do %>
+                <p class="text-sm text-emerald-700 mt-1">Available until <%= Calendar.strftime(@offer_data.expires_at, "%b %d, %Y") %></p>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+
         <!-- Category -->
         <%= if @post.category do %>
           <div class="mb-4">
@@ -686,6 +729,34 @@
               <%= raw(render_content(@post.content)) %>
             </div>
             <div id="article-end-marker" class="h-px"></div>
+
+            <%= if @offer_data && !@offer_data.expired do %>
+              <%!-- CTA Button --%>
+              <%= if @offer_data.cta_url do %>
+                <div class="mt-8 text-center">
+                  <a href={@offer_data.cta_url} target="_blank" rel="noopener noreferrer"
+                     class="inline-block px-8 py-4 bg-emerald-600 text-white rounded-xl text-lg font-haas_medium_65 hover:bg-emerald-700 cursor-pointer transition-colors">
+                    <%= @offer_data.cta_text %>
+                    <svg class="inline-block w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                </div>
+              <% end %>
+              <%!-- Risk Disclaimer --%>
+              <div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p class="text-xs text-gray-500 text-center">This is not financial advice. Always do your own research before participating in any DeFi protocol or exchange promotion.</p>
+              </div>
+            <% end %>
+
+            <%= if @offer_data && @offer_data.expired && @offer_data.cta_url do %>
+              <div class="mt-8 text-center">
+                <span class="inline-block px-8 py-4 bg-gray-300 text-gray-500 rounded-xl text-lg font-haas_medium_65 line-through">
+                  <%= @offer_data.cta_text %>
+                </span>
+                <p class="text-sm text-gray-500 mt-2">This offer has expired</p>
+              </div>
+            <% end %>
           <% else %>
             <p class="text-gray-400 italic">No content available</p>
           <% end %>

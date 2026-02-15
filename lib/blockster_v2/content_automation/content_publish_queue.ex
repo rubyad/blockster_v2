@@ -14,6 +14,11 @@ defmodule BlocksterV2.ContentAutomation.ContentPublishQueue do
     field :rejected_reason, :string
     field :reviewed_at, :utc_datetime
     field :revision_count, :integer, default: 0
+    field :content_type, :string, default: "news"
+    field :offer_type, :string
+    field :expires_at, :utc_datetime
+    field :cta_url, :string
+    field :cta_text, :string
 
     belongs_to :author, BlocksterV2.Accounts.User
     belongs_to :topic, BlocksterV2.ContentAutomation.ContentGeneratedTopic, type: :binary_id
@@ -29,7 +34,7 @@ defmodule BlocksterV2.ContentAutomation.ContentPublishQueue do
     entry
     |> cast(attrs, [:article_data, :author_id, :scheduled_at, :status, :pipeline_id,
                     :topic_id, :post_id, :rejected_reason, :reviewed_at, :reviewed_by,
-                    :revision_count])
+                    :revision_count, :content_type, :offer_type, :expires_at, :cta_url, :cta_text])
     |> validate_required([:article_data, :status])
     |> validate_inclusion(:status, @valid_statuses)
   end

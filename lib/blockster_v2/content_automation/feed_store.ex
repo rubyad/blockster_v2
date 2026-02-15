@@ -125,6 +125,14 @@ defmodule BlocksterV2.ContentAutomation.FeedStore do
 
   def get_queue_entry(id), do: Repo.get(ContentPublishQueue, id)
 
+  def get_queue_entry_by_post_id(post_id) do
+    from(q in ContentPublishQueue,
+      where: q.post_id == ^post_id and q.status == "published",
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
   def get_pending_queue_entries do
     from(q in ContentPublishQueue,
       where: q.status in ["pending", "draft"],
@@ -164,6 +172,31 @@ defmodule BlocksterV2.ContentAutomation.FeedStore do
   def count_queued do
     from(q in ContentPublishQueue, where: q.status in ["pending", "draft", "approved"])
     |> Repo.aggregate(:count)
+  end
+
+  def count_queued_by_content_type do
+    from(q in ContentPublishQueue,
+      where: q.status in ["pending", "draft", "approved"],
+      group_by: q.content_type,
+      select: {q.content_type, count(q.id)}
+    )
+    |> Repo.all()
+    |> Enum.reduce(%{news: 0, opinion: 0, offer: 0}, fn
+      {"news", count}, acc -> %{acc | news: count}
+      {"opinion", count}, acc -> %{acc | opinion: count}
+      {"offer", count}, acc -> %{acc | offer: count}
+      {_, count}, acc -> %{acc | news: acc.news + count}  # nil defaults to news
+    end)
+  end
+
+  def get_published_expired_offers(now) do
+    from(q in ContentPublishQueue,
+      where: q.status == "published" and q.content_type == "offer"
+        and not is_nil(q.expires_at) and q.expires_at <= ^now
+        and not is_nil(q.post_id),
+      preload: [:post]
+    )
+    |> Repo.all()
   end
 
   # ── Admin Dashboard Queries ──

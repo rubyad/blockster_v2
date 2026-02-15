@@ -42,7 +42,17 @@ defmodule BlocksterV2Web.PostLive.Show do
         raise BlocksterV2Web.NotFoundError, message: "Post not found"
 
       post ->
-        handle_post_params(post, socket)
+        if is_nil(post.published_at) do
+          # Unpublished draft — only admins can view
+          current_user = socket.assigns[:current_user]
+          if current_user && current_user.is_admin do
+            handle_post_params(post, socket |> assign(:is_draft_preview, true))
+          else
+            raise BlocksterV2Web.NotFoundError, message: "Post not found"
+          end
+        else
+          handle_post_params(post, socket |> assign(:is_draft_preview, false))
+        end
     end
   end
 
@@ -140,6 +150,9 @@ defmodule BlocksterV2Web.PostLive.Show do
           {x_conn, campaign, reward, calculated_reward}
       end
 
+    # Load offer data if this post was published from the content automation queue
+    offer_data = load_offer_data(post.id)
+
     # Load suggested posts (highest BUX balance, excluding posts user has read)
     suggested_user_id = if socket.assigns[:current_user], do: socket.assigns.current_user.id, else: nil
     suggested_posts = Blog.get_suggested_posts(post.id, suggested_user_id, 4)
@@ -188,6 +201,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:suggested_posts, suggested_posts)
      |> assign(:pool_available, pool_available)
      |> assign(:pool_balance, pool_balance)
+     |> assign(:offer_data, offer_data)
      |> assign(:left_sidebar_products, left_sidebar_products)
      |> assign(:right_sidebar_products, right_sidebar_products)
      |> assign(:video_modal_open, false)
@@ -257,6 +271,27 @@ defmodule BlocksterV2Web.PostLive.Show do
   # Get the hub's logo URL (if any) for displaying alongside the token
   defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
   defp get_hub_logo(_), do: nil
+
+  defp load_offer_data(post_id) do
+    case BlocksterV2.ContentAutomation.FeedStore.get_queue_entry_by_post_id(post_id) do
+      %{content_type: "offer"} = entry ->
+        expired = entry.expires_at && DateTime.compare(entry.expires_at, DateTime.utc_now()) == :lt
+
+        %{
+          content_type: "offer",
+          offer_type: entry.offer_type,
+          cta_url: entry.cta_url,
+          cta_text: entry.cta_text || "Learn More",
+          expires_at: entry.expires_at,
+          expired: expired
+        }
+
+      _ ->
+        nil
+    end
+  rescue
+    _ -> nil
+  end
 
   # Check if user is eligible for onboarding popup
   # Eligible if logged in AND has incomplete profile (missing phone, wallet, or X)

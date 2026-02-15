@@ -10,7 +10,7 @@ defmodule BlocksterV2.ContentAutomation.Settings do
   @cache_ttl :timer.minutes(1)
 
   @defaults %{
-    target_queue_size: 10,
+    target_queue_size: 20,
     category_config: %{},
     keyword_boosts: [],
     keyword_blocks: [],

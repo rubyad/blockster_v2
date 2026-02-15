@@ -28,7 +28,7 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
   @categories ~w(
     defi rwa regulation gaming trading token_launches gambling privacy
     macro_trends investment bitcoin ethereum altcoins nft ai_crypto
-    stablecoins cbdc security_hacks adoption mining
+    stablecoins cbdc security_hacks adoption mining fundraising events
   )
 
   # ── Client API ──
@@ -162,8 +162,11 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
             # 9. Apply category diversity
             diversified = apply_category_diversity(filtered)
 
-            # 10. Take available slots
-            selected = Enum.take(diversified, slots_available)
+            # 10. Enforce content mix (>50% news)
+            mixed = enforce_content_mix(diversified)
+
+            # 11. Take available slots
+            selected = Enum.take(mixed, slots_available)
 
             # 11. Two-phase: store topics in PostgreSQL, THEN mark items as processed
             stored = store_and_mark_processed(selected)
@@ -235,6 +238,17 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     For each topic:
     - Give it a concise, specific title (not generic)
     - Assign exactly ONE category from the allowed list
+    - Classify the content_type as one of:
+      * "news": Factual reporting on events, announcements, data, launches, regulatory actions,
+        security incidents, market movements. Report WHAT happened and WHY it matters. No editorial slant.
+      * "opinion": Analysis, predictions, editorials, trend commentary, counter-narratives.
+        Includes the author's perspective and editorial voice.
+      * "offer": Actionable opportunities — yield farming, DEX/CEX promotions, airdrops, token launches
+        with specific terms the reader can act on right now.
+      DEFAULT TO "news" unless the topic clearly calls for opinion/editorial treatment or is
+      a specific actionable opportunity.
+    - If content_type is "offer", also set offer_type to one of:
+      yield_opportunity, exchange_promotion, token_launch, airdrop, listing
     - List ALL source article URLs that cover this topic
     - Summarize the key facts across all sources
     - Suggest 2-3 original angles for a pro-decentralization, pro-individual-liberty
@@ -291,9 +305,19 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
                   "items" => %{"type" => "string"},
                   "maxItems" => 3,
                   "description" => "Original commentary angles (best first)"
+                },
+                "content_type" => %{
+                  "type" => "string",
+                  "enum" => ["news", "opinion", "offer"],
+                  "description" => "news = factual reporting, opinion = editorial/analysis, offer = actionable opportunity"
+                },
+                "offer_type" => %{
+                  "type" => "string",
+                  "enum" => ["yield_opportunity", "exchange_promotion", "token_launch", "airdrop", "listing"],
+                  "description" => "Only set when content_type is 'offer'. Sub-type of the opportunity."
                 }
               },
-              "required" => ["title", "category", "source_urls", "key_facts", "angles"]
+              "required" => ["title", "category", "source_urls", "key_facts", "angles", "content_type"]
             }
           }
         },
@@ -327,7 +351,9 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
         angles: topic["angles"] || [],
         selected_angle: List.first(topic["angles"] || []),
         newest_item_at: newest_item && newest_item.published_at,
-        has_premium_source: Enum.any?(source_items, &(&1.tier == "premium"))
+        has_premium_source: Enum.any?(source_items, &(&1.tier == "premium")),
+        content_type: topic["content_type"] || "news",
+        offer_type: topic["offer_type"]
       }
     end)
     |> Enum.filter(fn topic -> length(topic.source_items) > 0 end)
@@ -472,6 +498,26 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     selected
   end
 
+  # ── Content Mix Enforcement ──
+
+  defp enforce_content_mix(topics) do
+    %{news: news_count, opinion: opinion_count, offer: offer_count} =
+      FeedStore.count_queued_by_content_type()
+
+    total_queued = news_count + opinion_count + offer_count
+
+    # Target: 50% news minimum across entire queue
+    news_ratio = if total_queued > 0, do: news_count / total_queued, else: 1.0
+
+    if news_ratio < 0.50 do
+      # Prioritize news topics to restore balance
+      {news_topics, other_topics} = Enum.split_with(topics, &(&1.content_type == "news"))
+      news_topics ++ other_topics
+    else
+      topics
+    end
+  end
+
   # ── Two-Phase Processing ──
 
   defp store_and_mark_processed(selected_topics) do
@@ -488,7 +534,9 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
             source_urls: topic.source_urls,
             rank_score: topic.rank_score,
             source_count: topic.source_count,
-            pipeline_id: pipeline_id
+            pipeline_id: pipeline_id,
+            content_type: topic.content_type || "news",
+            offer_type: topic.offer_type
           })
           |> Repo.insert()
 

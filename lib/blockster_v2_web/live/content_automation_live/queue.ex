@@ -1,9 +1,9 @@
 defmodule BlocksterV2Web.ContentAutomationLive.Queue do
   use BlocksterV2Web, :live_view
 
-  alias BlocksterV2.ContentAutomation.{FeedStore, ContentPublisher}
+  alias BlocksterV2.ContentAutomation.{FeedStore, ContentPublisher, TimeHelper}
 
-  @categories ~w(defi rwa regulation gaming trading token_launches gambling privacy macro_trends investment bitcoin ethereum altcoins nft ai_crypto stablecoins cbdc security_hacks adoption mining)
+  @categories ~w(defi rwa regulation gaming trading token_launches gambling privacy macro_trends investment bitcoin ethereum altcoins nft ai_crypto stablecoins cbdc security_hacks adoption mining fundraising events)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -103,6 +103,41 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
     end
   end
 
+  def handle_event("preview", %{"id" => id}, socket) do
+    entry = FeedStore.get_queue_entry(id) |> BlocksterV2.Repo.preload(:author)
+
+    if entry do
+      # If draft post already exists, just redirect to it
+      if entry.post_id do
+        post = BlocksterV2.Repo.get(BlocksterV2.Blog.Post, entry.post_id)
+
+        if post do
+          {:noreply, redirect(socket, to: "/#{post.slug}")}
+        else
+          # Post was deleted — create a new draft
+          create_and_redirect_to_draft(entry, socket)
+        end
+      else
+        create_and_redirect_to_draft(entry, socket)
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Entry not found")}
+    end
+  end
+
+  defp create_and_redirect_to_draft(entry, socket) do
+    case ContentPublisher.create_draft_post(entry) do
+      {:ok, post} ->
+        {:noreply,
+         socket
+         |> load_entries()
+         |> redirect(to: "/#{post.slug}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Draft creation failed: #{inspect(reason)}")}
+    end
+  end
+
   def handle_event("approve", %{"id" => id}, socket) do
     entry = FeedStore.get_queue_entry(id) |> BlocksterV2.Repo.preload(:author)
 
@@ -134,6 +169,10 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
     id = socket.assigns.reject_modal
     reason = socket.assigns.reject_reason
     reason = if reason == "", do: nil, else: reason
+
+    # Clean up draft post if one was created for preview
+    entry = FeedStore.get_queue_entry(id)
+    if entry && entry.post_id, do: ContentPublisher.cleanup_draft_post(entry.post_id)
 
     FeedStore.reject_queue_entry(id, reason)
 
@@ -303,8 +342,19 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
                           entry.status == "draft" -> "bg-blue-100 text-blue-700"
                           true -> "bg-yellow-100 text-yellow-700"
                         end}"}><%= if entry.status == "approved" && entry.scheduled_at, do: "scheduled", else: entry.status %></span>
+                        <span class={"ml-1 px-1.5 py-0.5 rounded text-xs #{case entry.content_type do
+                          "opinion" -> "bg-purple-100 text-purple-700"
+                          "offer" -> "bg-emerald-100 text-emerald-700"
+                          _ -> "bg-sky-100 text-sky-700"
+                        end}"}><%= (entry.content_type || "news") |> String.capitalize() %></span>
+                        <%= if entry.content_type == "offer" && entry.offer_type do %>
+                          <span class="ml-1 px-1.5 py-0.5 rounded text-xs bg-emerald-50 text-emerald-600"><%= entry.offer_type |> String.replace("_", " ") %></span>
+                        <% end %>
+                        <%= if entry.expires_at do %>
+                          <span class="ml-1 text-xs text-orange-600">Expires: <%= Calendar.strftime(entry.expires_at, "%b %d") %></span>
+                        <% end %>
                         <%= if entry.scheduled_at && entry.status == "approved" do %>
-                          <span class="ml-1 text-xs text-blue-600"><%= Calendar.strftime(entry.scheduled_at, "%b %d %H:%M UTC") %></span>
+                          <span class="ml-1 text-xs text-blue-600"><%= TimeHelper.format_display(entry.scheduled_at) %></span>
                         <% end %>
                       </div>
                       <%!-- Tags --%>
@@ -323,6 +373,9 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
                       <.link navigate={~p"/admin/content/queue/#{entry.id}/edit"} class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 cursor-pointer">
                         Full Edit
                       </.link>
+                      <button phx-click="preview" phx-value-id={entry.id} class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 cursor-pointer">
+                        Preview
+                      </button>
                       <button phx-click="approve" phx-value-id={entry.id} class="px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 cursor-pointer">
                         Publish Now
                       </button>
@@ -353,7 +406,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
 
       <%!-- Reject Modal --%>
       <%= if @reject_modal do %>
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" phx-click="close_reject">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" phx-click-away="close_reject">
             <h3 class="text-gray-900 text-lg font-haas_medium_65 mb-4">Reject Article</h3>
             <div>
