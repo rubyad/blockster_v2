@@ -582,7 +582,9 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
             feed_items: db_topic.feed_items,
             key_facts: topic[:key_facts],
             selected_angle: topic[:selected_angle],
-            angles: topic[:angles] || []
+            angles: topic[:angles] || [],
+            content_type: topic[:content_type] || db_topic.content_type || "news",
+            offer_type: topic[:offer_type] || db_topic.offer_type
           }
 
           try do
