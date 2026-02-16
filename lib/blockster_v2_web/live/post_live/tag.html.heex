@@ -8,25 +8,6 @@
     </p>
     <h1 class="text-3xl font-haas_medium_65 text-[#141414]"><%= @tag_name %></h1>
 
-    <!-- Sort Tabs -->
-    <div class="flex items-center gap-6 mt-4">
-      <button
-        phx-click="switch_tab"
-        phx-value-tab="latest"
-        class={"text-sm font-haas_medium_65 pb-2 border-b-2 cursor-pointer transition-colors " <>
-          if(@sort_mode == "latest", do: "text-[#141414] border-[#CAFC00]", else: "text-[#515B70] border-transparent hover:text-[#141414]")}
-      >
-        Latest
-      </button>
-      <button
-        phx-click="switch_tab"
-        phx-value-tab="popular"
-        class={"text-sm font-haas_medium_65 pb-2 border-b-2 cursor-pointer transition-colors " <>
-          if(@sort_mode == "popular", do: "text-[#141414] border-[#CAFC00]", else: "text-[#515B70] border-transparent hover:text-[#141414]")}
-      >
-        Popular
-      </button>
-    </div>
   </div>
 
   <div id="tag-components" phx-update="stream" phx-hook="InfiniteScroll">

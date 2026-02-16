@@ -117,31 +117,6 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   @impl true
-  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ["latest", "popular"] do
-    # Rebuild components with new sort order
-    {components, displayed_post_ids} = build_initial_components(tab)
-    all_posts = Enum.flat_map(components, fn c -> c.posts end)
-    bux_balances = build_bux_balances_map(all_posts)
-
-    component_map = components
-      |> Enum.filter(fn comp -> String.starts_with?(comp.id, "posts-") or String.starts_with?(comp.id, "home-") end)
-      |> Enum.reduce(%{}, fn comp, acc -> Map.put(acc, comp.id, comp.module) end)
-
-    post_to_component = build_post_to_component_map(components)
-
-    {:noreply,
-     socket
-     |> assign(:sort_mode, tab)
-     |> assign(:page_title, if(tab == "latest", do: "Latest Posts", else: "Popular Posts"))
-     |> assign(:displayed_post_ids, displayed_post_ids)
-     |> assign(:bux_balances, bux_balances)
-     |> assign(:component_module_map, component_map)
-     |> assign(:post_to_component_map, post_to_component)
-     |> assign(:current_offset, @posts_per_cycle)
-     |> stream(:components, components, reset: true)}
-  end
-
-  @impl true
   def handle_event("load-more", _, socket) do
     offset = socket.assigns.current_offset
     displayed_post_ids = socket.assigns.displayed_post_ids

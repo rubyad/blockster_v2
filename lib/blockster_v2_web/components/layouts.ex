@@ -103,7 +103,7 @@ defmodule BlocksterV2Web.Layouts do
             </.link>
             <div id="header-tagline-container" class="relative mt-0.5" phx-hook="TaglineRotator">
               <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] pl-1.5 transition-all duration-500">
-                Onchain Rewards
+                Read & Earn BUX
               </p>
               <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] transition-all duration-500 absolute inset-0 opacity-0 whitespace-nowrap flex items-center justify-center">
                 Powered by Rogue Chain

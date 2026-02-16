@@ -578,10 +578,13 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
     WORD TARGET: 800-1200 words.
 
     MANDATORY:
+    - NEVER hallucinate, invent, or guess ANY data. Every price, percentage, market cap, TVL,
+      and volume number you write MUST come from the REFERENCE PRICES or MARKET DATA below.
     - Use the EXACT price data provided below. Do NOT make up prices or percentages.
+    - If a price or data point is not in the provided data, do NOT mention it at all.
     - If you don't know WHY a token moved, say "the catalyst is unclear" rather than guessing.
     - Include at least one on-chain observation (TVL change, whale movement, exchange flow).
-    - Mention Bitcoin's price as context (altcoins move relative to BTC).
+    - Use the REFERENCE PRICES section for Bitcoin/Ethereum price context — do NOT guess these.
 
     FORMATTING RULES:
     - Use "paragraph" for body text. Use markdown **bold** and *italic* for emphasis.
@@ -626,7 +629,10 @@ defmodule BlocksterV2.ContentAutomation.ContentGenerator do
     WORD TARGET: 600-900 words.
 
     MANDATORY:
+    - NEVER hallucinate, invent, or guess ANY data. Every price, percentage, market cap, TVL,
+      and volume number you write MUST come from the REFERENCE PRICES or MARKET DATA below.
     - Use the EXACT price data provided below. Do NOT make up prices or percentages.
+    - If a price or data point is not in the provided data, do NOT mention it at all.
     - If you don't know WHY the sector is moving, say so rather than guessing.
 
     FORMATTING RULES:

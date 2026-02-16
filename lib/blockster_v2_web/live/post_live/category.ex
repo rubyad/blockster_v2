@@ -73,23 +73,6 @@ defmodule BlocksterV2Web.PostLive.Category do
   end
 
   @impl true
-  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ["latest", "popular"] do
-    category_slug = socket.assigns.category_slug
-
-    {components, displayed_post_ids, bux_balances} = build_initial_components(category_slug, tab)
-    post_to_component = build_post_to_component_map(components)
-
-    {:noreply,
-     socket
-     |> assign(:sort_mode, tab)
-     |> assign(:displayed_post_ids, displayed_post_ids)
-     |> assign(:bux_balances, bux_balances)
-     |> assign(:post_to_component_map, post_to_component)
-     |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
-     |> stream(:components, components, reset: true)}
-  end
-
-  @impl true
   def handle_event("load-more", _, socket) do
     category_slug = socket.assigns.category_slug
     displayed_post_ids = socket.assigns.displayed_post_ids

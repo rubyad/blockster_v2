@@ -111,9 +111,13 @@ defmodule BlocksterV2.ContentAutomation.AltcoinAnalyzer do
   """
   def format_for_prompt(movers, narratives) do
     date_str = Calendar.strftime(DateTime.utc_now(), "%B %d, %Y")
+    reference_prices = get_reference_prices()
 
     """
     MARKET DATA (from CoinGecko, #{date_str}):
+
+    REFERENCE PRICES (use these exact values):
+    #{reference_prices}
 
     TOP GAINERS (#{period_label(movers.period)}):
     #{format_token_list(movers.gainers, movers.period)}
@@ -310,6 +314,29 @@ defmodule BlocksterV2.ContentAutomation.AltcoinAnalyzer do
       "  #{String.upcase(sector)} sector #{direction}: avg #{sign(data.avg_change)}#{change}% (#{period_label(period)}) — #{tokens}"
     end)
     |> Enum.join("\n")
+  end
+
+  # Always include BTC and ETH prices so the LLM never has to guess them
+  defp get_reference_prices do
+    {:ok, coins} = fetch_market_data()
+
+    reference_symbols = ~w(BTC ETH SOL BNB XRP)
+    coins_by_symbol = coins |> Enum.map(fn c -> {String.upcase(c.symbol), c} end) |> Map.new()
+
+    reference_symbols
+    |> Enum.filter(&Map.has_key?(coins_by_symbol, &1))
+    |> Enum.map(fn sym ->
+      coin = Map.get(coins_by_symbol, sym)
+      price_str = format_price(coin.current_price)
+      change_24h = if coin.price_change_24h, do: "#{sign(coin.price_change_24h)}#{Float.round(coin.price_change_24h * 1.0, 2)}% (24h)", else: ""
+      change_7d = if coin.price_change_7d, do: " | #{sign(coin.price_change_7d)}#{Float.round(coin.price_change_7d * 1.0, 2)}% (7d)", else: ""
+      "  #{sym}: $#{price_str} #{change_24h}#{change_7d}"
+    end)
+    |> Enum.join("\n")
+    |> case do
+      "" -> "  (no reference price data available — do NOT guess prices)"
+      data -> data
+    end
   end
 
   defp sign(n) when n >= 0, do: "+"
