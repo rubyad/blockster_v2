@@ -9,7 +9,7 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
   use GenServer
   require Logger
 
-  alias BlocksterV2.ContentAutomation.{ContentPublisher, FeedStore, Settings}
+  alias BlocksterV2.ContentAutomation.{ContentPublisher, EventRoundup, FeedStore, MarketContentScheduler, Settings}
 
   @check_interval :timer.minutes(10)
 
@@ -108,6 +108,9 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
     # Check for expired offers (runs regardless of pause state)
     check_expired_offers()
 
+    # Check for weekly content generation (runs regardless of pause state)
+    maybe_generate_weekly_content()
+
     cond do
       Settings.paused?() ->
         Logger.debug("[ContentQueue] Pipeline paused, skipping")
@@ -187,5 +190,72 @@ defmodule BlocksterV2.ContentAutomation.ContentQueue do
   rescue
     e ->
       Logger.debug("[ContentQueue] Expired offer check failed: #{Exception.message(e)}")
+  end
+
+  # Generate weekly content on schedule:
+  # - Fridays (day 5): Market movers analysis
+  # - Sundays (day 7): Event roundup
+  # Also runs narrative report check on every cycle (self-gates via Settings).
+  @doc false
+  def maybe_generate_weekly_content do
+    today = Date.utc_today()
+    day = Date.day_of_week(today)
+    today_str = Date.to_iso8601(today)
+
+    # Friday: Weekly market movers
+    if day == 5 do
+      last_market = Settings.get(:last_market_movers_date)
+
+      if last_market != today_str do
+        Logger.info("[ContentQueue] Friday detected, generating weekly market movers")
+
+        Task.start(fn ->
+          case MarketContentScheduler.maybe_generate_weekly_movers() do
+            {:ok, entry} ->
+              Logger.info("[ContentQueue] Market movers generated: \"#{entry.article_data["title"]}\"")
+
+            {:error, reason} ->
+              Logger.warning("[ContentQueue] Market movers skipped: #{inspect(reason)}")
+          end
+        end)
+      end
+    end
+
+    # Sunday: Weekly event roundup
+    if day == 7 do
+      last_generated = Settings.get(:last_weekly_roundup_date)
+
+      if last_generated != today_str do
+        Logger.info("[ContentQueue] Sunday detected, generating weekly event roundup")
+        Settings.set(:last_weekly_roundup_date, today_str)
+
+        Task.start(fn ->
+          case EventRoundup.generate_weekly_roundup() do
+            {:ok, entry} ->
+              Logger.info("[ContentQueue] Weekly roundup generated: \"#{entry.article_data["title"]}\"")
+
+            {:error, reason} ->
+              Logger.warning("[ContentQueue] Weekly roundup skipped: #{inspect(reason)}")
+          end
+        end)
+      end
+    end
+
+    # Every cycle: Check for strong narrative rotations (self-gates via Settings)
+    Task.start(fn ->
+      case MarketContentScheduler.maybe_generate_narrative_report() do
+        {:ok, _results} ->
+          Logger.info("[ContentQueue] Narrative report(s) generated")
+
+        {:error, :no_strong_narratives} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.debug("[ContentQueue] Narrative report check: #{inspect(reason)}")
+      end
+    end)
+  rescue
+    e ->
+      Logger.debug("[ContentQueue] Weekly content check failed: #{Exception.message(e)}")
   end
 end

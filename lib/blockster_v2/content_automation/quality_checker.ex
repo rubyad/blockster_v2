@@ -64,6 +64,9 @@ defmodule BlocksterV2.ContentAutomation.QualityChecker do
     end
   end
 
+  defp check_not_duplicate(%{title: nil}), do: :ok
+  defp check_not_duplicate(%{title: ""}), do: :ok
+
   defp check_not_duplicate(article) do
     recent_titles = FeedStore.get_generated_topic_titles(days: 7)
     title_words = significant_words(article.title)

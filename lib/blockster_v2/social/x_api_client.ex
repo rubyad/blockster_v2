@@ -408,6 +408,34 @@ defmodule BlocksterV2.Social.XApiClient do
   end
 
   @doc """
+  Looks up a user by their @username (handle).
+  Returns {:ok, user_data} or {:error, reason}.
+
+  user_data includes: id, username, name, description, profile_image_url, public_metrics, created_at
+  """
+  def get_user_by_username(access_token, username) do
+    # Strip @ prefix if present
+    clean_username = String.trim_leading(username, "@")
+    url = "#{@api_base}/users/by/username/#{clean_username}?user.fields=public_metrics,created_at,profile_image_url,name,username,description"
+
+    case Req.get(url, headers: [{"authorization", "Bearer #{access_token}"}]) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => data}}} ->
+        {:ok, data}
+
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        {:error, "Unexpected response: #{inspect(resp)}"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("X API get_user_by_username failed: #{status} - #{inspect(body)}")
+        {:error, "API request failed: #{status}"}
+
+      {:error, reason} ->
+        Logger.error("X API get_user_by_username error: #{inspect(reason)}")
+        {:error, "API request error"}
+    end
+  end
+
+  @doc """
   Gets user profile with public metrics (followers, following, tweet count, listed count).
   Returns {:ok, user_data} or {:error, reason}.
   """

@@ -4,6 +4,8 @@ defmodule BlocksterV2.ContentAutomation.FeedStore do
   Wraps Ecto operations for feed items, generated topics, and the publish queue.
   """
 
+  require Logger
+
   alias BlocksterV2.Repo
   alias BlocksterV2.ContentAutomation.{ContentFeedItem, ContentGeneratedTopic, ContentPublishQueue, FeedConfig, Settings}
   import Ecto.Query

@@ -29,6 +29,7 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     defi rwa regulation gaming trading token_launches gambling privacy
     macro_trends investment bitcoin ethereum altcoins nft ai_crypto
     stablecoins cbdc security_hacks adoption mining fundraising events
+    blockster_of_week
   )
 
   # ── Client API ──
@@ -477,7 +478,8 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   # ── Category Diversity ──
 
-  defp apply_category_diversity(ranked_topics) do
+  @doc false
+  def apply_category_diversity(ranked_topics) do
     category_config = Settings.get(:category_config, %{})
     today_counts = FeedStore.get_today_category_counts()
 
@@ -500,7 +502,8 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   # ── Content Mix Enforcement ──
 
-  defp enforce_content_mix(topics) do
+  @doc false
+  def enforce_content_mix(topics) do
     %{news: news_count, opinion: opinion_count, offer: offer_count} =
       FeedStore.count_queued_by_content_type()
 

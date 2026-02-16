@@ -1,7 +1,7 @@
 defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
   use BlocksterV2Web, :live_view
 
-  alias BlocksterV2.ContentAutomation.{FeedStore, Settings, ContentPublisher, TopicEngine}
+  alias BlocksterV2.ContentAutomation.{FeedStore, MarketContentScheduler, Settings, ContentPublisher, TopicEngine}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -58,6 +58,14 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
     end
   end
 
+  def handle_event("generate_market_analysis", _params, socket) do
+    socket =
+      socket
+      |> start_async(:generate_market, fn -> MarketContentScheduler.maybe_generate_weekly_movers() end)
+
+    {:noreply, put_flash(socket, :info, "Market analysis generation started...")}
+  end
+
   def handle_event("increase_queue_size", _params, socket) do
     new_size = min(socket.assigns.target_queue_size + 1, 50)
     Settings.set(:target_queue_size, new_size)
@@ -84,6 +92,23 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
      socket
      |> assign(recent_queue: recent_queue, stats: stats)
      |> put_flash(:info, "Article rejected")}
+  end
+
+  @impl true
+  def handle_async(:generate_market, {:ok, {:ok, entry}}, socket) do
+    {:noreply, put_flash(socket, :info, "Market analysis generated: \"#{entry.article_data["title"]}\"")}
+  end
+
+  def handle_async(:generate_market, {:ok, {:error, :already_generated}}, socket) do
+    {:noreply, put_flash(socket, :info, "Market analysis already generated today")}
+  end
+
+  def handle_async(:generate_market, {:ok, {:error, reason}}, socket) do
+    {:noreply, put_flash(socket, :error, "Market analysis failed: #{inspect(reason)}")}
+  end
+
+  def handle_async(:generate_market, {:exit, reason}, socket) do
+    {:noreply, put_flash(socket, :error, "Market analysis crashed: #{inspect(reason)}")}
   end
 
   # PubSub handlers — debounce rapid updates, reload data in-place (no flash)
@@ -177,6 +202,9 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
           </.link>
           <button phx-click="force_analyze" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-700">
             Force Analyze
+          </button>
+          <button phx-click="generate_market_analysis" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-emerald-700">
+            Market Analysis
           </button>
           <button phx-click="toggle_pause" class={"px-4 py-2 rounded-lg text-sm font-medium cursor-pointer #{if @pipeline_paused, do: "bg-red-600 text-white hover:bg-red-700", else: "bg-[#CAFC00] text-black hover:bg-[#b8e600]"}"}>
             <%= if @pipeline_paused, do: "Resume Pipeline", else: "Pause Pipeline" %>

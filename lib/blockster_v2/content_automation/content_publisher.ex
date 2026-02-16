@@ -320,7 +320,8 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
     "adoption" => {"Adoption", "adoption"},
     "mining" => {"Mining", "mining"},
     "fundraising" => {"Fundraising", "fundraising"},
-    "events" => {"Events", "events"}
+    "events" => {"Events", "events"},
+    "blockster_of_week" => {"Blockster of the Week", "blockster-of-the-week"}
   }
 
   defp resolve_category(category) when is_binary(category) do

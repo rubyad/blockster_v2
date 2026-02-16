@@ -530,6 +530,26 @@ defmodule BlocksterV2.MnesiaInitializer do
       type: :set,
       attributes: [:key, :value, :updated_at, :updated_by],
       index: []
+    },
+    # Upcoming events for weekly roundup articles (admin-curated)
+    %{
+      name: :upcoming_events,
+      type: :set,
+      attributes: [
+        :id,                       # PRIMARY KEY - UUID string
+        :name,                     # Event name (e.g., "ETH Denver 2026")
+        :event_type,               # conference | upgrade | unlock | regulatory | ecosystem
+        :start_date,               # Date struct (~D[2026-02-27])
+        :end_date,                 # Date struct or nil for single-day events
+        :location,                 # String or nil for virtual/on-chain events
+        :url,                      # Event URL
+        :description,              # Short description (optional)
+        :tier,                     # major | notable | minor
+        :added_by,                 # User ID of admin who added
+        :article_generated,        # Boolean - whether a preview article was generated
+        :created_at                # Unix timestamp
+      ],
+      index: [:start_date]
     }
   ]
 
