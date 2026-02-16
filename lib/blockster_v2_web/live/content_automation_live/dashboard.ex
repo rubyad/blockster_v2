@@ -15,7 +15,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
      assign(socket,
        page_title: "Content Automation",
        pipeline_paused: Settings.paused?(),
-       target_queue_size: Settings.get(:target_queue_size, 10),
+       target_queue_size: Settings.get(:target_queue_size, 20),
        stats: data.stats,
        recent_queue: data.recent_queue,
        activity: data.activity
@@ -128,7 +128,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
     {:noreply,
      assign(socket,
        reload_timer: nil,
-       target_queue_size: Settings.get(:target_queue_size, 10),
+       target_queue_size: Settings.get(:target_queue_size, 20),
        stats: data.stats,
        recent_queue: data.recent_queue,
        activity: data.activity
@@ -193,17 +193,17 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
           <h1 class="text-2xl font-haas_medium_65 text-gray-900">Content Automation</h1>
           <p class="text-gray-500 text-sm mt-1">Pipeline overview and controls</p>
         </div>
-        <div class="flex items-center gap-4">
-          <.link navigate={~p"/admin/content/queue"} class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 cursor-pointer">
+        <div class="flex items-center gap-3">
+          <.link navigate={~p"/admin/content/queue"} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 cursor-pointer">
             View Queue
           </.link>
-          <.link navigate={~p"/admin/content/request"} class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 cursor-pointer">
+          <.link navigate={~p"/admin/content/request"} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 cursor-pointer">
             Request Article
           </.link>
-          <button phx-click="force_analyze" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-700">
+          <button phx-click="force_analyze" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
             Force Analyze
           </button>
-          <button phx-click="generate_market_analysis" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-emerald-700">
+          <button phx-click="generate_market_analysis" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
             Market Analysis
           </button>
           <button phx-click="toggle_pause" class={"px-4 py-2 rounded-lg text-sm font-medium cursor-pointer #{if @pipeline_paused, do: "bg-red-600 text-white hover:bg-red-700", else: "bg-[#CAFC00] text-black hover:bg-[#b8e600]"}"}>
@@ -342,13 +342,28 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
           </div>
 
           <%!-- Quick Links --%>
-          <div class="mt-4 space-y-2">
-            <.link navigate={~p"/admin/content/feeds"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
-              <span class="text-gray-700 text-sm">Feeds Management</span>
-            </.link>
-            <.link navigate={~p"/admin/content/authors"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
-              <span class="text-gray-700 text-sm">Author Personas</span>
-            </.link>
+          <div class="mt-4">
+            <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-2">Quick Links</h3>
+            <div class="space-y-1">
+              <.link navigate={~p"/admin/content/queue"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Article Queue</span>
+              </.link>
+              <.link navigate={~p"/admin/content/request"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Request Article</span>
+              </.link>
+              <.link navigate={~p"/admin/content/feeds"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Feeds Management</span>
+              </.link>
+              <.link navigate={~p"/admin/content/events"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Events</span>
+              </.link>
+              <.link navigate={~p"/admin/content/authors"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Author Personas</span>
+              </.link>
+              <.link navigate={~p"/admin/content/history"} class="block bg-white rounded-lg shadow p-3 hover:shadow-md cursor-pointer">
+                <span class="text-gray-700 text-sm font-medium">Full History</span>
+              </.link>
+            </div>
           </div>
         </div>
       </div>

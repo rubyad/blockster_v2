@@ -237,16 +237,20 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
 
       <%!-- Filters --%>
       <div class="flex items-center gap-4 mb-6">
-        <select phx-change="filter" name="category" class="bg-white border border-gray-300 text-gray-700 rounded-lg px-3 py-2 text-sm cursor-pointer">
-          <option value="">All Categories</option>
-          <%= for cat <- @categories do %>
-            <option value={cat} selected={@filter_category == cat}><%= String.replace(cat, "_", " ") |> String.capitalize() %></option>
-          <% end %>
-        </select>
-        <select phx-change="sort" name="order" class="bg-white border border-gray-300 text-gray-700 rounded-lg px-3 py-2 text-sm cursor-pointer">
-          <option value="newest" selected={@sort == :newest}>Newest First</option>
-          <option value="oldest" selected={@sort == :oldest}>Oldest First</option>
-        </select>
+        <form phx-change="filter">
+          <select name="category" class="bg-white border border-gray-300 text-gray-700 rounded-lg px-3 py-2 text-sm cursor-pointer">
+            <option value="">All Categories</option>
+            <%= for cat <- @categories do %>
+              <option value={cat} selected={@filter_category == cat}><%= String.replace(cat, "_", " ") |> String.capitalize() %></option>
+            <% end %>
+          </select>
+        </form>
+        <form phx-change="sort">
+          <select name="order" class="bg-white border border-gray-300 text-gray-700 rounded-lg px-3 py-2 text-sm cursor-pointer">
+            <option value="newest" selected={@sort == :newest}>Newest First</option>
+            <option value="oldest" selected={@sort == :oldest}>Oldest First</option>
+          </select>
+        </form>
       </div>
 
       <%!-- Queue Entries --%>
@@ -409,17 +413,15 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" phx-click-away="close_reject">
             <h3 class="text-gray-900 text-lg font-haas_medium_65 mb-4">Reject Article</h3>
-            <div>
+            <form phx-change="update_reject_reason">
               <label class="text-sm text-gray-500">Reason (optional)</label>
               <textarea
-                phx-change="update_reject_reason"
                 name="reason"
-                value={@reject_reason}
                 rows="3"
                 placeholder="Too similar to yesterday's piece..."
                 class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded px-3 py-2 text-sm mt-1"
               ><%= @reject_reason %></textarea>
-            </div>
+            </form>
             <div class="flex items-center gap-3 mt-4">
               <button phx-click="close_reject" class="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm cursor-pointer hover:bg-gray-200">Cancel</button>
               <button phx-click="confirm_reject" class="px-4 py-2 bg-red-600 text-white rounded text-sm cursor-pointer hover:bg-red-700">Reject Article</button>

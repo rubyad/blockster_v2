@@ -136,7 +136,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.DashboardTest do
       conn = log_in_user(conn, admin)
       {:ok, view, _html} = live(conn, ~p"/admin/content")
 
-      initial_size = Settings.get(:target_queue_size, 10)
+      initial_size = Settings.get(:target_queue_size, 20)
 
       html = render_click(view, "increase_queue_size")
       assert html =~ "#{initial_size + 1}"
@@ -160,7 +160,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.DashboardTest do
 
       render_click(view, "decrease_queue_size")
       # Should still be 1
-      assert Settings.get(:target_queue_size, 10) == 1
+      assert Settings.get(:target_queue_size, 20) == 1
     end
 
     test "queue size does not exceed 50", %{conn: conn, admin: admin} do
@@ -170,7 +170,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.DashboardTest do
       {:ok, view, _html} = live(conn, ~p"/admin/content")
 
       render_click(view, "increase_queue_size")
-      assert Settings.get(:target_queue_size, 10) == 50
+      assert Settings.get(:target_queue_size, 20) == 50
     end
   end
 

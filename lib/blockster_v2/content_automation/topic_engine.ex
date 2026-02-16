@@ -123,7 +123,7 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   @doc false
   def analyze_and_select do
-    target_queue_size = Settings.get(:target_queue_size, 10)
+    target_queue_size = Settings.get(:target_queue_size, 20)
 
     # 1. How many slots are available? (keep queue at target size, independent of published count)
     queued = FeedStore.count_queued()
