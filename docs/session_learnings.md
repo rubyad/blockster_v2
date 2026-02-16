@@ -225,3 +225,49 @@ ETS cache at `:bux_booster_stats_cache`. TTLs: global 5min, house 5min, player 1
 ## BuxBooster Admin Stats Dashboard (Feb 3, 2026)
 
 Routes: `/admin/stats`, `/admin/stats/players`, `/admin/stats/players/:address`. Protected by AdminAuth. See [docs/bux_booster_stats.md](bux_booster_stats.md).
+
+## Mnesia Stale Node Fix - CRITICAL (Feb 16, 2026)
+
+### The Problem
+After the content automation deploy (v292/v293), Mnesia on node 865d lost all table replicas. Every table showed `storage=unknown, local=false`. The `token_prices` table was crashing with `{:aborted, {:no_exists, ...}}`.
+
+### Root Cause
+On Fly.io, each deploy creates machines with new internal IPs, which means new Erlang node names. When a node is replaced, the OLD node name stays in the Mnesia schema's `disc_copies` list as a stale reference. When a new node tries to `add_table_copy(table, node(), :disc_copies)`, Mnesia runs a schema merge across ALL nodes in `db_nodes` — including the dead one. The dead node "has no disc" so the merge fails with `{:combine_error, table, "has no disc", dead_node}`. This also prevents `change_table_copy_type(:schema, node(), :disc_copies)`, leaving the schema as `ram_copies` — which then causes ALL subsequent `add_table_copy` calls to fail.
+
+### Diagnosis
+```
+# On broken node:
+:mnesia.table_info(:schema, :storage_type)  # => :ram_copies (should be :disc_copies)
+:mnesia.system_info(:db_nodes)              # => includes dead node name
+:mnesia.system_info(:running_db_nodes)      # => does NOT include dead node
+:mnesia.table_info(:token_prices, :storage_type)  # => :unknown
+```
+
+### Manual Fix Applied
+1. Backed up all Mnesia data: `:mnesia.dump_to_textfile('/data/mnesia_backup_20260216.txt')` on healthy node (17817). Also downloaded to local machine at `mnesia_backup_20260216.txt`.
+2. Removed stale node from schema on healthy node: `:mnesia.del_table_copy(:schema, stale_node)` — this only removes the reference, does NOT touch data.
+3. Deleted corrupted Mnesia directory on broken node (865d) — it had zero usable data anyway (all tables `storage=unknown`).
+4. Restarted broken node — it joined the cluster fresh, got `disc_copies` for all 29 tables.
+5. Verified: 38,787 records, exact match on both nodes.
+
+### Code Fix (mnesia_initializer.ex)
+Added `cleanup_stale_nodes/0` function that runs BEFORE `ensure_schema_disc_copies/0` in all three cluster join paths (`safe_join_preserving_local_data`, `join_cluster_fresh`, `use_local_data_and_retry_cluster`).
+
+```elixir
+defp cleanup_stale_nodes do
+  db_nodes = :mnesia.system_info(:db_nodes)
+  running = :mnesia.system_info(:running_db_nodes)
+  stale = db_nodes -- running
+  # For each stale node: :mnesia.del_table_copy(:schema, stale_node)
+end
+```
+
+**Why it's safe:** Only removes nodes in `db_nodes` but NOT in `running_db_nodes`. A live node is always in `running_db_nodes`. On Fly.io, old node names (with old IPs) will never come back.
+
+### Recovery (if code fix causes issues)
+1. Restore backup: `:mnesia.load_textfile('/data/mnesia_backup_20260216.txt')` on any node
+2. Local backup at: `mnesia_backup_20260216.txt` in project root
+3. Or revert the code change — the `cleanup_stale_nodes` and `ensure_schema_disc_copies` functions are additive; removing them restores old behavior
+
+### Key Lesson
+The MnesiaInitializer already handled node name changes for the PRIMARY node path (`migrate_from_old_node`), but NOT for the JOINING node path. The gap existed since the MnesiaInitializer was written but only triggered when a deploy happened to create the right conditions (stale node + joining node path).

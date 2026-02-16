@@ -1015,15 +1015,14 @@ defmodule BlocksterV2.MnesiaInitializer do
       {:ok, connected_nodes} when connected_nodes != [] ->
         Logger.info("[MnesiaInitializer] Connected to cluster: #{inspect(connected_nodes)}")
 
+        # Clean up stale dead nodes before schema operations.
+        # On Fly.io, node names change every deploy (they include internal IPs).
+        # Stale references cause combine_error "has no disc" which prevents
+        # schema disc_copies conversion and table copy operations.
+        cleanup_stale_nodes()
+
         # Add schema disc_copies to this node
-        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
-          {:atomic, :ok} ->
-            Logger.info("[MnesiaInitializer] Schema stored as disc_copies")
-          {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
-            Logger.info("[MnesiaInitializer] Schema already disc_copies")
-          {:aborted, reason} ->
-            Logger.warning("[MnesiaInitializer] Schema issue: #{inspect(reason)}")
-        end
+        ensure_schema_disc_copies()
 
         # Copy tables from cluster (this adds copies, doesn't wipe local)
         copy_tables_from_cluster()
@@ -1055,15 +1054,11 @@ defmodule BlocksterV2.MnesiaInitializer do
       {:ok, connected_nodes} when connected_nodes != [] ->
         Logger.info("[MnesiaInitializer] Connected to cluster: #{inspect(connected_nodes)}")
 
+        # Clean up stale dead nodes before schema operations
+        cleanup_stale_nodes()
+
         # Add schema disc_copies to this node
-        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
-          {:atomic, :ok} ->
-            Logger.info("[MnesiaInitializer] Schema stored as disc_copies")
-          {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
-            Logger.info("[MnesiaInitializer] Schema already disc_copies")
-          {:aborted, reason} ->
-            Logger.warning("[MnesiaInitializer] Schema issue: #{inspect(reason)}")
-        end
+        ensure_schema_disc_copies()
 
         # Copy all tables from cluster
         copy_tables_from_cluster()
@@ -1105,15 +1100,11 @@ defmodule BlocksterV2.MnesiaInitializer do
       {:ok, connected_nodes} when connected_nodes != [] ->
         Logger.info("[MnesiaInitializer] Connected to Mnesia cluster: #{inspect(connected_nodes)}")
 
+        # Clean up stale dead nodes before schema operations
+        cleanup_stale_nodes()
+
         # Add schema copy to this node
-        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
-          {:atomic, :ok} ->
-            Logger.info("[MnesiaInitializer] Schema stored as disc_copies on this node")
-          {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
-            Logger.info("[MnesiaInitializer] Schema already disc_copies on this node")
-          {:aborted, reason} ->
-            Logger.warning("[MnesiaInitializer] Could not change schema to disc_copies: #{inspect(reason)}")
-        end
+        ensure_schema_disc_copies()
 
         # Copy tables from cluster
         copy_tables_from_cluster()
@@ -1231,6 +1222,51 @@ defmodule BlocksterV2.MnesiaInitializer do
     wait_for_tables()
 
     Logger.info("[MnesiaInitializer] Mnesia initialization complete")
+  end
+
+  # Remove stale dead nodes from Mnesia schema.
+  # On Fly.io, node names include internal IPs that change every deploy.
+  # Old node names will never come back, but their references in the schema
+  # cause combine_error "has no disc" when adding disc_copies to new nodes.
+  # This only removes references to nodes that are genuinely dead (not in running_db_nodes).
+  defp cleanup_stale_nodes do
+    db_nodes = :mnesia.system_info(:db_nodes)
+    running = :mnesia.system_info(:running_db_nodes)
+    stale = db_nodes -- running
+
+    if stale != [] do
+      Logger.info("[MnesiaInitializer] Found stale nodes in schema: #{inspect(stale)}")
+      Logger.info("[MnesiaInitializer] Running nodes: #{inspect(running)}")
+
+      Enum.each(stale, fn stale_node ->
+        Logger.info("[MnesiaInitializer] Removing stale node #{stale_node} from schema")
+
+        case :mnesia.del_table_copy(:schema, stale_node) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Removed stale node #{stale_node}")
+
+          {:aborted, reason} ->
+            Logger.warning("[MnesiaInitializer] Could not remove stale node #{stale_node}: #{inspect(reason)}")
+        end
+      end)
+    else
+      Logger.info("[MnesiaInitializer] No stale nodes in schema")
+    end
+  end
+
+  # Ensure the schema has disc_copies on this node.
+  # Must be called AFTER cleanup_stale_nodes to avoid combine_error.
+  defp ensure_schema_disc_copies do
+    case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Schema stored as disc_copies")
+
+      {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
+        Logger.info("[MnesiaInitializer] Schema already disc_copies")
+
+      {:aborted, reason} ->
+        Logger.warning("[MnesiaInitializer] Schema disc_copies failed: #{inspect(reason)}")
+    end
   end
 
   defp copy_tables_from_cluster do
