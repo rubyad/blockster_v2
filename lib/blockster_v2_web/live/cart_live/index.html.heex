@@ -1,0 +1,189 @@
+<div class="container mx-auto px-4 pt-4 md:pt-24 pb-8 max-w-4xl">
+  <h1 class="text-2xl md:text-3xl font-haas_medium_65 text-[#141414] mb-6">Your Cart</h1>
+
+  <%!-- Warnings --%>
+  <%= if Enum.any?(@warnings) do %>
+    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+      <div class="flex items-start gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-amber-500 mt-0.5 shrink-0">
+          <path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
+        </svg>
+        <div>
+          <p class="font-haas_medium_65 text-amber-800 text-sm mb-1">Some items need attention:</p>
+          <ul class="text-sm text-amber-700">
+            <%= for warning <- @warnings do %>
+              <li><%= warning %></li>
+            <% end %>
+          </ul>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%= if Enum.empty?(@cart.cart_items) do %>
+    <%!-- Empty Cart --%>
+    <div class="text-center py-16">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-16 h-16 text-gray-300 mx-auto mb-4">
+        <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+      </svg>
+      <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-2">Your cart is empty</h2>
+      <p class="text-[#515B70] font-haas_roman_55 mb-6">Browse the shop and add some items.</p>
+      <.link navigate={~p"/shop"} class="inline-flex items-center gap-2 px-6 py-3 bg-[#141414] text-white font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+        </svg>
+        Browse Shop
+      </.link>
+    </div>
+  <% else %>
+    <%!-- Cart Items --%>
+    <div class="space-y-4 mb-8">
+      <%= for item <- @cart.cart_items do %>
+        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-4 md:p-6">
+          <div class="flex gap-4">
+            <%!-- Product Image --%>
+            <.link navigate={~p"/shop/#{item.product.handle}"} class="shrink-0 cursor-pointer">
+              <img
+                src={item_image(item)}
+                alt={item.product.title}
+                class="w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover"
+                loading="lazy"
+              />
+            </.link>
+
+            <%!-- Product Info --%>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <.link navigate={~p"/shop/#{item.product.handle}"} class="font-haas_medium_65 text-[#141414] hover:underline cursor-pointer">
+                    <%= item.product.title %>
+                  </.link>
+                  <%= if variant_label(item) do %>
+                    <p class="text-sm text-[#515B70] font-haas_roman_55 mt-0.5"><%= variant_label(item) %></p>
+                  <% end %>
+                </div>
+                <%!-- Remove Button --%>
+                <button
+                  phx-click="remove_item"
+                  phx-value-item-id={item.id}
+                  class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer p-1"
+                  title="Remove item"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                    <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              <%!-- Price + Quantity Row --%>
+              <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
+                <%!-- Quantity Controls --%>
+                <div class="flex items-center gap-2">
+                  <button
+                    phx-click="decrement_quantity"
+                    phx-value-item-id={item.id}
+                    class="w-8 h-8 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={item.quantity <= 1}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none">
+                      <path d="M5 10H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                  <span class="text-lg font-haas_medium_65 text-[#141414] min-w-[28px] text-center"><%= item.quantity %></span>
+                  <button
+                    phx-click="increment_quantity"
+                    phx-value-item-id={item.id}
+                    class="w-8 h-8 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 5V15M5 10H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                </div>
+
+                <%!-- Subtotal --%>
+                <span class="font-haas_medium_65 text-[#141414] text-lg">
+                  $<%= Decimal.round(item_subtotal(item), 2) %>
+                </span>
+              </div>
+
+              <%!-- BUX Discount per Item --%>
+              <% max_bux = max_bux_for_item(item) %>
+              <%= if max_bux > 0 do %>
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full" />
+                    <label class="text-xs text-[#515B70] font-haas_roman_55">BUX to redeem (max <%= Number.Delimit.number_to_delimited(max_bux, precision: 0) %>):</label>
+                  </div>
+                  <form phx-change="update_bux_tokens" class="flex items-center gap-2 mt-1">
+                    <input type="hidden" name="item-id" value={item.id} />
+                    <input
+                      type="number"
+                      name="bux"
+                      min="0"
+                      max={max_bux}
+                      value={item.bux_tokens_to_redeem}
+                      phx-debounce="500"
+                      class="w-28 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                    />
+                    <% bux_disc = Decimal.new("#{item.bux_tokens_to_redeem}") |> Decimal.div(100) %>
+                    <%= if Decimal.compare(bux_disc, 0) == :gt do %>
+                      <span class="text-xs text-green-600 font-haas_medium_65">-$<%= Decimal.round(bux_disc, 2) %></span>
+                    <% end %>
+                  </form>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Cart Summary --%>
+    <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+      <h2 class="text-lg font-haas_medium_65 text-[#141414] mb-4">Order Summary</h2>
+
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-[#515B70] font-haas_roman_55">Subtotal</span>
+          <span class="font-haas_medium_65 text-[#141414]">$<%= Decimal.round(@totals.subtotal, 2) %></span>
+        </div>
+
+        <%= if @totals.total_bux_tokens > 0 do %>
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">BUX Discount (<%= Number.Delimit.number_to_delimited(@totals.total_bux_tokens, precision: 0) %> BUX)</span>
+            <span class="font-haas_medium_65 text-green-600">-$<%= Decimal.round(@totals.total_bux_discount, 2) %></span>
+          </div>
+        <% end %>
+
+        <div class="flex justify-between text-sm text-[#515B70]">
+          <span class="font-haas_roman_55">Your BUX Balance</span>
+          <span><%= Number.Delimit.number_to_delimited(@totals.bux_available, precision: 0) %> BUX</span>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-200 pt-4 mb-6">
+        <div class="flex justify-between">
+          <span class="text-lg font-haas_medium_65 text-[#141414]">Total</span>
+          <span class="text-lg font-haas_medium_65 text-[#141414]">$<%= Decimal.round(@totals.remaining, 2) %></span>
+        </div>
+        <%= if @totals.total_bux_tokens > 0 do %>
+          <p class="text-xs text-[#515B70] mt-1">+ <%= Number.Delimit.number_to_delimited(@totals.total_bux_tokens, precision: 0) %> BUX tokens</p>
+        <% end %>
+      </div>
+
+      <button
+        phx-click="proceed_to_checkout"
+        class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+      >
+        Proceed to Checkout
+      </button>
+
+      <div class="text-center mt-4">
+        <.link navigate={~p"/shop"} class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer">
+          Continue Shopping
+        </.link>
+      </div>
+    </div>
+  <% end %>
+</div>

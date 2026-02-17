@@ -259,6 +259,60 @@ defmodule BlocksterV2.Referrals do
     end
   end
 
+  # ----- Shop Purchase Earnings -----
+
+  @doc """
+  Record a shop purchase affiliate earning in Mnesia.
+  Called from Orders.create_affiliate_payouts/1 when a referred user makes a purchase.
+  Supports BUX, ROGUE, and Helio currencies (USDC, SOL, etc).
+  """
+  def record_shop_purchase_earning(attrs) do
+    %{
+      referrer_id: referrer_id,
+      referrer_wallet: referrer_wallet,
+      referee_wallet: referee_wallet,
+      amount: amount,
+      token: token
+    } = attrs
+
+    referrer_wallet = String.downcase(referrer_wallet || "")
+    referee_wallet = String.downcase(referee_wallet || "")
+
+    # Convert Decimal to float if needed (Mnesia stores numbers, not Decimal structs)
+    numeric_amount = case amount do
+      %Decimal{} -> Decimal.to_float(amount)
+      n when is_number(n) -> n * 1.0
+      _ -> 0.0
+    end
+
+    now = System.system_time(:second)
+    id = Ecto.UUID.generate()
+
+    earning_record = {:referral_earnings, id, referrer_id, referrer_wallet, referee_wallet,
+                      :shop_purchase, numeric_amount, token, nil, nil, now}
+    :mnesia.dirty_write(earning_record)
+
+    update_referrer_stats(referrer_id, :shop_purchase, numeric_amount, token)
+
+    broadcast_referral_earning(referrer_id, %{
+      type: :shop_purchase,
+      amount: numeric_amount,
+      token: token,
+      referee_wallet: referee_wallet,
+      timestamp: now
+    })
+
+    {:ok, id}
+  rescue
+    e ->
+      Logger.error("[Referrals] Failed to record shop purchase earning: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, reason ->
+      Logger.error("[Referrals] Mnesia error recording shop purchase earning: #{inspect(reason)}")
+      {:error, reason}
+  end
+
   # ----- Stats Management -----
 
   defp update_referrer_stats(referrer_id, earning_type, amount, token) do
@@ -272,6 +326,7 @@ defmodule BlocksterV2.Referrals do
           {:phone_verified, "BUX"} -> {0, 1, amount, 0.0}
           {_, "BUX"} -> {0, 0, amount, 0.0}
           {_, "ROGUE"} -> {0, 0, 0.0, amount}
+          {_, _} -> {0, 0, 0.0, 0.0}
         end
         record = {:referral_stats, referrer_id, total_refs, verified, bux, rogue, now}
         :mnesia.dirty_write(record)
@@ -282,6 +337,7 @@ defmodule BlocksterV2.Referrals do
           {:phone_verified, "BUX"} -> {total_refs, verified + 1, bux + amount, rogue}
           {_, "BUX"} -> {total_refs, verified, bux + amount, rogue}
           {_, "ROGUE"} -> {total_refs, verified, bux, rogue + amount}
+          {_, _} -> {total_refs, verified, bux, rogue}
         end
         record = {:referral_stats, referrer_id, new_refs, new_verified, new_bux, new_rogue, now}
         :mnesia.dirty_write(record)

@@ -4,11 +4,12 @@ defmodule BlocksterV2Web.ProductLive.Form do
   import Ecto.Query
 
   alias BlocksterV2.Shop
-  alias BlocksterV2.Shop.{Product, ProductImage, ProductVariant}
+  alias BlocksterV2.Shop.{Product, ProductImage, ProductVariant, ProductConfig}
+  alias BlocksterV2.Shop.SizePresets
   alias BlocksterV2.Blog
   alias BlocksterV2.Repo
 
-  # Available sizes for checkbox selection
+  # Available sizes for checkbox selection (legacy — now driven by SizePresets via product_config)
   @available_sizes ["S", "M", "L", "XL"]
 
   # Available colors with their hex codes for checkbox selection
@@ -58,6 +59,10 @@ defmodule BlocksterV2Web.ProductLive.Form do
       # Extract selected sizes and colors from existing variants
       {selected_sizes, selected_colors, variant_price} = extract_variant_options(product.variants || [])
 
+      # Load product config (or defaults for new products)
+      product_config = if product.id, do: Shop.get_product_config(product.id), else: nil
+      config_assigns = product_config_assigns(product_config)
+
       {:ok,
        socket
        |> assign(:product, product)
@@ -78,7 +83,8 @@ defmodule BlocksterV2Web.ProductLive.Form do
        |> assign(:artist_search, "")
        |> assign(:artist_suggestions, [])
        |> assign(:show_artist_dropdown, false)
-       |> assign(:page_title, page_title(socket.assigns.live_action))}
+       |> assign(:page_title, page_title(socket.assigns.live_action))
+       |> assign(config_assigns)}
     else
       {:ok,
        socket
@@ -109,6 +115,10 @@ defmodule BlocksterV2Web.ProductLive.Form do
       nil
     end
 
+    # Load product config
+    product_config = Shop.get_product_config(product.id)
+    config_assigns = product_config_assigns(product_config)
+
     socket
     |> assign(:page_title, "Edit Product")
     |> assign(:product, product)
@@ -123,6 +133,7 @@ defmodule BlocksterV2Web.ProductLive.Form do
     |> assign(:artist_search, "")
     |> assign(:artist_suggestions, [])
     |> assign(:show_artist_dropdown, false)
+    |> assign(config_assigns)
   end
 
   @impl true
@@ -372,6 +383,94 @@ defmodule BlocksterV2Web.ProductLive.Form do
     {:noreply, assign(socket, :show_artist_dropdown, false)}
   end
 
+  # Product Config event handlers
+
+  @impl true
+  def handle_event("toggle_config_has_sizes", _, socket) do
+    new_val = !socket.assigns.config_has_sizes
+
+    # When enabling sizes, set default size_type and load presets
+    socket = if new_val do
+      size_type = socket.assigns.config_size_type || "clothing"
+      preset_sizes = SizePresets.sizes_for_type(size_type)
+
+      socket
+      |> assign(:config_has_sizes, true)
+      |> assign(:config_size_type, size_type)
+      |> assign(:config_preset_sizes, preset_sizes)
+      |> assign(:config_available_sizes, preset_sizes)
+    else
+      socket
+      |> assign(:config_has_sizes, false)
+      |> assign(:config_available_sizes, [])
+    end
+
+    # Regenerate variants based on new config
+    {:noreply, regenerate_variants_from_config(socket)}
+  end
+
+  @impl true
+  def handle_event("toggle_config_has_colors", _, socket) do
+    new_val = !socket.assigns.config_has_colors
+
+    socket = if new_val do
+      assign(socket, :config_has_colors, true)
+    else
+      socket
+      |> assign(:config_has_colors, false)
+      |> assign(:selected_colors, [])
+    end
+
+    {:noreply, regenerate_variants_from_config(socket)}
+  end
+
+  @impl true
+  def handle_event("toggle_config_checkout", _, socket) do
+    {:noreply, assign(socket, :config_checkout_enabled, !socket.assigns.config_checkout_enabled)}
+  end
+
+  @impl true
+  def handle_event("change_size_type", %{"config_size_type" => size_type}, socket) do
+    preset_sizes = SizePresets.sizes_for_type(size_type)
+
+    socket =
+      socket
+      |> assign(:config_size_type, size_type)
+      |> assign(:config_preset_sizes, preset_sizes)
+      |> assign(:config_available_sizes, preset_sizes)
+      |> assign(:selected_sizes, [])
+
+    {:noreply, regenerate_variants_from_config(socket)}
+  end
+
+  @impl true
+  def handle_event("toggle_config_size", %{"size" => size}, socket) do
+    available = socket.assigns.config_available_sizes
+
+    new_available = if size in available do
+      List.delete(available, size)
+    else
+      # Insert in preset order
+      preset = socket.assigns.config_preset_sizes
+      (available ++ [size]) |> Enum.sort_by(fn s -> Enum.find_index(preset, &(&1 == s)) || 999 end)
+    end
+
+    # Also update selected_sizes to remove any that are no longer available
+    new_selected = Enum.filter(socket.assigns.selected_sizes, &(&1 in new_available))
+
+    socket =
+      socket
+      |> assign(:config_available_sizes, new_available)
+      |> assign(:selected_sizes, new_selected)
+
+    {:noreply, regenerate_variants_from_config(socket)}
+  end
+
+  @impl true
+  def handle_event("update_config_commission", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :config_affiliate_commission_rate, value)}
+  end
+
   defp save_product(socket, :edit, product_params, category_ids, tag_ids) do
     # Add artist_id to params if an artist is selected
     product_params = if socket.assigns.selected_artist do
@@ -393,6 +492,9 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
         # Save variants
         save_variants(product.id, socket.assigns.variants)
+
+        # Save product config
+        save_product_config(product.id, socket)
 
         {:noreply,
          socket
@@ -425,6 +527,9 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
         # Save variants
         save_variants(product.id, socket.assigns.variants)
+
+        # Save product config
+        save_product_config(product.id, socket)
 
         {:noreply,
          socket
@@ -621,6 +726,88 @@ defmodule BlocksterV2Web.ProductLive.Form do
   end
   defp parse_integer(value) when is_integer(value), do: value
 
+  # Product Config helpers
+
+  defp product_config_assigns(nil) do
+    %{
+      config_has_sizes: false,
+      config_has_colors: false,
+      config_size_type: "clothing",
+      config_preset_sizes: SizePresets.clothing_sizes(),
+      config_available_sizes: [],
+      config_checkout_enabled: false,
+      config_affiliate_commission_rate: ""
+    }
+  end
+
+  defp product_config_assigns(%ProductConfig{} = config) do
+    preset_sizes = SizePresets.sizes_for_type(config.size_type || "clothing")
+
+    %{
+      config_has_sizes: config.has_sizes || false,
+      config_has_colors: config.has_colors || false,
+      config_size_type: config.size_type || "clothing",
+      config_preset_sizes: preset_sizes,
+      config_available_sizes: config.available_sizes || [],
+      config_checkout_enabled: config.checkout_enabled || false,
+      config_affiliate_commission_rate: if(config.affiliate_commission_rate, do: Decimal.to_string(config.affiliate_commission_rate), else: "")
+    }
+  end
+
+  defp save_product_config(product_id, socket) do
+    commission = parse_decimal(socket.assigns.config_affiliate_commission_rate)
+
+    attrs = %{
+      product_id: product_id,
+      has_sizes: socket.assigns.config_has_sizes,
+      has_colors: socket.assigns.config_has_colors,
+      size_type: socket.assigns.config_size_type,
+      available_sizes: socket.assigns.config_available_sizes,
+      available_colors: Enum.map(socket.assigns.selected_colors, & &1),
+      checkout_enabled: socket.assigns.config_checkout_enabled,
+      affiliate_commission_rate: commission
+    }
+
+    case Shop.get_product_config(product_id) do
+      nil -> Shop.create_product_config(attrs)
+      existing -> Shop.update_product_config(existing, attrs)
+    end
+  end
+
+  defp regenerate_variants_from_config(socket) do
+    sizes = if socket.assigns.config_has_sizes do
+      config_sizes = socket.assigns.config_available_sizes
+
+      case socket.assigns.config_size_type do
+        "unisex_shoes" ->
+          # For unisex, prefix sizes with M- or W-
+          mens = SizePresets.mens_shoe_sizes()
+          womens = SizePresets.womens_shoe_sizes()
+
+          mens_selected = Enum.filter(config_sizes, &(&1 in mens)) |> Enum.map(&("M-" <> &1))
+          womens_selected = Enum.filter(config_sizes, &(&1 in womens)) |> Enum.map(&("W-" <> &1))
+          mens_selected ++ womens_selected
+
+        _ ->
+          config_sizes
+      end
+    else
+      []
+    end
+
+    colors = if socket.assigns.config_has_colors do
+      socket.assigns.selected_colors
+    else
+      []
+    end
+
+    new_variants = generate_variants_from_selections(sizes, colors, socket.assigns.variant_price)
+
+    socket
+    |> assign(:selected_sizes, sizes)
+    |> assign(:variants, new_variants)
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -803,6 +990,114 @@ defmodule BlocksterV2Web.ProductLive.Form do
           </div>
         </div>
 
+        <%!-- Product Configuration --%>
+        <div class="bg-white shadow-md rounded-lg p-6">
+          <h2 class="text-xl font-semibold mb-4">Product Configuration</h2>
+          <p class="text-sm text-gray-500 mb-4">Configure checkout, sizes, and colors for this product.</p>
+
+          <%!-- Enable Checkout Toggle --%>
+          <div class="flex items-center justify-between py-3 border-b border-gray-100">
+            <div>
+              <span class="text-sm font-medium text-gray-700">Enable Checkout</span>
+              <p class="text-xs text-gray-500">When enabled, "Add to Cart" button will be active on the product page</p>
+            </div>
+            <button
+              type="button"
+              phx-click="toggle_config_checkout"
+              class={"relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer #{if @config_checkout_enabled, do: "bg-green-500", else: "bg-gray-300"}"}
+            >
+              <span class={"inline-block h-4 w-4 transform rounded-full bg-white transition-transform #{if @config_checkout_enabled, do: "translate-x-6", else: "translate-x-1"}"} />
+            </button>
+          </div>
+
+          <%!-- Has Sizes Toggle --%>
+          <div class="flex items-center justify-between py-3 border-b border-gray-100">
+            <div>
+              <span class="text-sm font-medium text-gray-700">Has Sizes</span>
+              <p class="text-xs text-gray-500">Enable size selection for this product</p>
+            </div>
+            <button
+              type="button"
+              phx-click="toggle_config_has_sizes"
+              class={"relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer #{if @config_has_sizes, do: "bg-green-500", else: "bg-gray-300"}"}
+            >
+              <span class={"inline-block h-4 w-4 transform rounded-full bg-white transition-transform #{if @config_has_sizes, do: "translate-x-6", else: "translate-x-1"}"} />
+            </button>
+          </div>
+
+          <%!-- Size Type + Size Checkboxes (revealed when Has Sizes is on) --%>
+          <%= if @config_has_sizes do %>
+            <div class="py-3 border-b border-gray-100 pl-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Size Type</label>
+              <form phx-change="change_size_type" class="inline">
+                <select
+                  name="config_size_type"
+                  class="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                >
+                  <%= for {label, value} <- BlocksterV2.Shop.SizePresets.size_type_options() do %>
+                    <option value={value} selected={value == @config_size_type}><%= label %></option>
+                  <% end %>
+                </select>
+              </form>
+
+              <%!-- Size Checkboxes --%>
+              <div class="mt-3">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Available Sizes</label>
+                <div class="flex flex-wrap gap-2">
+                  <%= for size <- @config_preset_sizes do %>
+                    <button
+                      type="button"
+                      phx-click="toggle_config_size"
+                      phx-value-size={size}
+                      class={"px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer border-2 #{if size in @config_available_sizes, do: "border-blue-600 bg-blue-50 text-blue-700", else: "border-gray-300 bg-white text-gray-700 hover:border-gray-400"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                  <%= length(@config_available_sizes) %> of <%= length(@config_preset_sizes) %> sizes enabled
+                </p>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Has Colors Toggle --%>
+          <div class="flex items-center justify-between py-3 border-b border-gray-100">
+            <div>
+              <span class="text-sm font-medium text-gray-700">Has Colors</span>
+              <p class="text-xs text-gray-500">Enable color selection for this product</p>
+            </div>
+            <button
+              type="button"
+              phx-click="toggle_config_has_colors"
+              class={"relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer #{if @config_has_colors, do: "bg-green-500", else: "bg-gray-300"}"}
+            >
+              <span class={"inline-block h-4 w-4 transform rounded-full bg-white transition-transform #{if @config_has_colors, do: "translate-x-6", else: "translate-x-1"}"} />
+            </button>
+          </div>
+
+          <%!-- Affiliate Commission Override --%>
+          <div class="py-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Affiliate Commission Rate Override</label>
+            <div class="flex items-center gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                name="config_commission"
+                value={@config_affiliate_commission_rate}
+                phx-keyup="update_config_commission"
+                phx-debounce="300"
+                placeholder="0.05"
+                class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+              <span class="text-sm text-gray-500">e.g. 0.05 = 5% (leave blank for default)</span>
+            </div>
+          </div>
+        </div>
+
         <%!-- Variants (Sizes, Colors, Price) --%>
         <div class="bg-white shadow-md rounded-lg p-6">
           <h2 class="text-xl font-semibold mb-4">Variants</h2>
@@ -827,44 +1122,48 @@ defmodule BlocksterV2Web.ProductLive.Form do
             </div>
           </div>
 
-          <%!-- Sizes Selection --%>
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Sizes</label>
-            <div class="flex flex-wrap gap-2">
-              <%= for size <- @available_sizes do %>
-                <button
-                  type="button"
-                  phx-click="toggle_size"
-                  phx-value-size={size}
-                  class={"px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-2 #{if size in @selected_sizes, do: "border-blue-600 bg-blue-50 text-blue-700", else: "border-gray-300 bg-white text-gray-700 hover:border-gray-400"}"}
-                >
-                  <%= size %>
-                </button>
-              <% end %>
+          <%!-- Sizes Selection (only show if Has Sizes is disabled in config — legacy mode) --%>
+          <%= unless @config_has_sizes do %>
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Sizes</label>
+              <div class="flex flex-wrap gap-2">
+                <%= for size <- @available_sizes do %>
+                  <button
+                    type="button"
+                    phx-click="toggle_size"
+                    phx-value-size={size}
+                    class={"px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-2 #{if size in @selected_sizes, do: "border-blue-600 bg-blue-50 text-blue-700", else: "border-gray-300 bg-white text-gray-700 hover:border-gray-400"}"}
+                  >
+                    <%= size %>
+                  </button>
+                <% end %>
+              </div>
             </div>
-          </div>
+          <% end %>
 
-          <%!-- Colors Selection --%>
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Colors</label>
-            <div class="flex flex-wrap gap-3">
-              <%= for {color_name, hex_code} <- @available_colors do %>
-                <button
-                  type="button"
-                  phx-click="toggle_color"
-                  phx-value-color={color_name}
-                  class={"flex flex-col items-center gap-1 p-2 rounded-lg transition-all cursor-pointer #{if color_name in @selected_colors, do: "ring-2 ring-blue-600 ring-offset-2", else: "hover:bg-gray-50"}"}
-                  title={color_name}
-                >
-                  <div
-                    class={"w-8 h-8 rounded-full border #{if hex_code == "#FFFFFF", do: "border-gray-300", else: "border-transparent"}"}
-                    style={"background-color: #{hex_code};"}
-                  />
-                  <span class="text-xs text-gray-600"><%= color_name %></span>
-                </button>
-              <% end %>
+          <%!-- Colors Selection (show when config has_colors is on, or legacy mode) --%>
+          <%= if @config_has_colors || !@config_has_sizes do %>
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Colors</label>
+              <div class="flex flex-wrap gap-3">
+                <%= for {color_name, hex_code} <- @available_colors do %>
+                  <button
+                    type="button"
+                    phx-click="toggle_color"
+                    phx-value-color={color_name}
+                    class={"flex flex-col items-center gap-1 p-2 rounded-lg transition-all cursor-pointer #{if color_name in @selected_colors, do: "ring-2 ring-blue-600 ring-offset-2", else: "hover:bg-gray-50"}"}
+                    title={color_name}
+                  >
+                    <div
+                      class={"w-8 h-8 rounded-full border #{if hex_code == "#FFFFFF", do: "border-gray-300", else: "border-transparent"}"}
+                      style={"background-color: #{hex_code};"}
+                    />
+                    <span class="text-xs text-gray-600"><%= color_name %></span>
+                  </button>
+                <% end %>
+              </div>
             </div>
-          </div>
+          <% end %>
 
           <%!-- Generated Variants Preview --%>
           <%= if length(@variants) > 0 do %>

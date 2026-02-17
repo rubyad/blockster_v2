@@ -1,0 +1,831 @@
+<div class="container mx-auto px-4 pt-4 md:pt-24 pb-8 max-w-3xl">
+  <%!-- Step Indicator --%>
+  <div class="flex items-center justify-center gap-2 mb-8">
+    <%= for {step, idx} <- [{:shipping, 1}, {:review, 2}, {:payment, 3}, {:confirmation, 4}] do %>
+      <div class="flex items-center gap-2">
+        <div class={[
+          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-haas_medium_65 transition-colors",
+          if(step_number(@step) >= idx, do: "bg-[#8AE388] text-[#141414]", else: "bg-gray-200 text-gray-500")
+        ]}>
+          <%= if step_number(@step) > idx do %>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+              <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+            </svg>
+          <% else %>
+            <%= idx %>
+          <% end %>
+        </div>
+        <span class={[
+          "text-sm font-haas_roman_55 hidden sm:inline",
+          if(step_number(@step) >= idx, do: "text-[#141414]", else: "text-gray-400")
+        ]}>
+          <%= step_label(step) %>
+        </span>
+      </div>
+      <%= if idx < 4 do %>
+        <div class={["w-8 h-px", if(step_number(@step) > idx, do: "bg-[#8AE388]", else: "bg-gray-200")]}></div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%!-- Step 1: Shipping --%>
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%= if @step == :shipping do %>
+    <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 md:p-8">
+      <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-6">Shipping Information</h2>
+
+      <.form
+        for={@shipping_changeset |> to_form()}
+        as={:shipping}
+        phx-change="validate_shipping"
+        phx-submit="save_shipping"
+        class="space-y-4"
+      >
+        <%!-- Name --%>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Full Name <span class="text-red-500">*</span></label>
+          <input
+            type="text"
+            name="shipping[shipping_name]"
+            value={@shipping_changeset.changes[:shipping_name] || @shipping_changeset.data.shipping_name}
+            placeholder="John Doe"
+            required
+            class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+          />
+          <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_name) do %>
+            <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+          <% end %>
+        </div>
+
+        <%!-- Email --%>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Email <span class="text-red-500">*</span></label>
+          <input
+            type="email"
+            name="shipping[shipping_email]"
+            value={@shipping_changeset.changes[:shipping_email] || @shipping_changeset.data.shipping_email}
+            placeholder="john@example.com"
+            required
+            class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+          />
+          <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_email) do %>
+            <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+          <% end %>
+        </div>
+
+        <%!-- Address Line 1 --%>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Address <span class="text-red-500">*</span></label>
+          <input
+            type="text"
+            name="shipping[shipping_address_line1]"
+            value={@shipping_changeset.changes[:shipping_address_line1] || @shipping_changeset.data.shipping_address_line1}
+            placeholder="123 Main Street"
+            required
+            class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+          />
+          <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_address_line1) do %>
+            <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+          <% end %>
+        </div>
+
+        <%!-- Address Line 2 --%>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Apt / Suite</label>
+          <input
+            type="text"
+            name="shipping[shipping_address_line2]"
+            value={@shipping_changeset.changes[:shipping_address_line2] || @shipping_changeset.data.shipping_address_line2}
+            placeholder="Apt 4B"
+            class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+          />
+        </div>
+
+        <%!-- City + State --%>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">City <span class="text-red-500">*</span></label>
+            <input
+              type="text"
+              name="shipping[shipping_city]"
+              value={@shipping_changeset.changes[:shipping_city] || @shipping_changeset.data.shipping_city}
+              placeholder="New York"
+              required
+              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+            />
+            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_city) do %>
+              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+            <% end %>
+          </div>
+          <div>
+            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">State / Province</label>
+            <input
+              type="text"
+              name="shipping[shipping_state]"
+              value={@shipping_changeset.changes[:shipping_state] || @shipping_changeset.data.shipping_state}
+              placeholder="NY"
+              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+            />
+          </div>
+        </div>
+
+        <%!-- Postal Code + Country --%>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Postal Code <span class="text-red-500">*</span></label>
+            <input
+              type="text"
+              name="shipping[shipping_postal_code]"
+              value={@shipping_changeset.changes[:shipping_postal_code] || @shipping_changeset.data.shipping_postal_code}
+              placeholder="10001"
+              required
+              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+            />
+            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_postal_code) do %>
+              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+            <% end %>
+          </div>
+          <div>
+            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Country <span class="text-red-500">*</span></label>
+            <input
+              type="text"
+              name="shipping[shipping_country]"
+              value={@shipping_changeset.changes[:shipping_country] || @shipping_changeset.data.shipping_country}
+              placeholder="United States"
+              required
+              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+            />
+            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_country) do %>
+              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Phone --%>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Phone</label>
+          <input
+            type="tel"
+            name="shipping[shipping_phone]"
+            value={@shipping_changeset.changes[:shipping_phone] || @shipping_changeset.data.shipping_phone}
+            placeholder="+1 (555) 123-4567"
+            class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
+          />
+        </div>
+
+        <%!-- Submit --%>
+        <div class="pt-4">
+          <button
+            type="submit"
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
+            Continue to Review
+          </button>
+        </div>
+      </.form>
+
+      <div class="text-center mt-4">
+        <.link navigate={~p"/cart"} class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer">
+          &larr; Back to Cart
+        </.link>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%!-- Step 2: Review --%>
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%= if @step == :review do %>
+    <div class="space-y-6">
+      <%!-- Order Items --%>
+      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+        <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-4">Order Summary</h2>
+
+        <div class="divide-y divide-gray-100">
+          <%= for item <- @order.order_items do %>
+            <div class="flex gap-4 py-3 first:pt-0 last:pb-0">
+              <%= if item.product_image do %>
+                <img
+                  src={BlocksterV2.ImageKit.w128_h128(item.product_image)}
+                  alt={item.product_title}
+                  class="w-16 h-16 rounded-lg object-cover shrink-0"
+                  loading="lazy"
+                />
+              <% end %>
+              <div class="flex-1 min-w-0">
+                <p class="font-haas_medium_65 text-[#141414] text-sm"><%= item.product_title %></p>
+                <%= if item.variant_title && item.variant_title != "Default" do %>
+                  <p class="text-xs text-[#515B70] font-haas_roman_55"><%= item.variant_title %></p>
+                <% end %>
+                <p class="text-xs text-[#515B70] font-haas_roman_55">Qty: <%= item.quantity %></p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="font-haas_medium_65 text-[#141414] text-sm">$<%= Decimal.round(item.subtotal, 2) %></p>
+                <%= if item.bux_tokens_redeemed > 0 do %>
+                  <p class="text-xs text-green-600 font-haas_medium_65">-$<%= Decimal.round(item.bux_discount_amount, 2) %> BUX</p>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Shipping Summary --%>
+      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-haas_medium_65 text-[#141414]">Shipping to</h3>
+          <button
+            phx-click="go_to_step"
+            phx-value-step="shipping"
+            class="text-xs text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
+          >
+            Edit
+          </button>
+        </div>
+        <div class="text-sm text-[#515B70] font-haas_roman_55 space-y-0.5">
+          <p><%= @order.shipping_name %></p>
+          <p><%= @order.shipping_address_line1 %></p>
+          <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
+            <p><%= @order.shipping_address_line2 %></p>
+          <% end %>
+          <p><%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %></p>
+          <p><%= @order.shipping_country %></p>
+        </div>
+      </div>
+
+      <%!-- ROGUE Payment Option --%>
+      <% remaining = Decimal.sub(@order.subtotal, @order.bux_discount_amount) %>
+      <%= if Decimal.gt?(remaining, 0) do %>
+        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+          <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">Pay with ROGUE</h3>
+          <p class="text-xs text-[#515B70] font-haas_roman_55 mb-4">
+            Get a <span class="text-green-600 font-haas_medium_65">10% discount</span> when paying with ROGUE tokens. Choose how much of the remaining balance to cover.
+          </p>
+
+          <%!-- ROGUE Amount Slider --%>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-[#515B70] font-haas_roman_55">ROGUE covers</span>
+              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@rogue_usd_amount) %></span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={Decimal.to_string(remaining)}
+              step="0.01"
+              value={Decimal.to_string(@rogue_usd_amount)}
+              phx-change="set_rogue_amount"
+              phx-value-amount={Decimal.to_string(@rogue_usd_amount)}
+              name="amount"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#8AE388]"
+            />
+            <div class="flex justify-between text-xs text-gray-400 font-haas_roman_55">
+              <span>$0</span>
+              <span>$<%= format_usd(remaining) %></span>
+            </div>
+
+            <%!-- ROGUE Breakdown --%>
+            <%= if Decimal.gt?(@rogue_usd_amount, 0) do %>
+              <div class="mt-3 p-3 bg-gray-50 rounded-xl space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <span class="text-[#515B70] font-haas_roman_55">ROGUE rate (locked)</span>
+                  <span class="font-haas_medium_65 text-[#141414]">$<%= if @rogue_rate_locked, do: Decimal.round(@rogue_rate_locked, 6), else: "—" %></span>
+                </div>
+                <div class="flex justify-between text-xs">
+                  <span class="text-[#515B70] font-haas_roman_55">10% discount</span>
+                  <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@rogue_discount_saved) %></span>
+                </div>
+                <div class="flex justify-between text-xs">
+                  <span class="text-[#515B70] font-haas_roman_55">ROGUE to send</span>
+                  <span class="font-haas_medium_65 text-[#141414]"><%= Decimal.round(@rogue_tokens, 2) %> ROGUE</span>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Payment Breakdown --%>
+      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+        <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">Payment Breakdown</h3>
+
+        <div class="space-y-2 mb-4">
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">Subtotal</span>
+            <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
+          </div>
+
+          <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
+            <div class="flex justify-between text-sm">
+              <span class="text-[#515B70] font-haas_roman_55">BUX Discount (<%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX)</span>
+              <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.bux_discount_amount) %></span>
+            </div>
+          <% end %>
+
+          <%= if Decimal.gt?(@rogue_usd_amount, 0) do %>
+            <div class="flex justify-between text-sm">
+              <span class="text-[#515B70] font-haas_roman_55">ROGUE covers</span>
+              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@rogue_usd_amount) %></span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-[#515B70] font-haas_roman_55">ROGUE discount (10%)</span>
+              <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@rogue_discount_saved) %></span>
+            </div>
+          <% end %>
+
+          <%= if Decimal.gt?(@helio_amount, 0) do %>
+            <div class="flex justify-between text-sm">
+              <span class="text-[#515B70] font-haas_roman_55">Remaining (card/crypto)</span>
+              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@helio_amount) %></span>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="border-t border-gray-200 pt-4 mb-6">
+          <div class="flex justify-between">
+            <span class="text-lg font-haas_medium_65 text-[#141414]">Total</span>
+            <span class="text-lg font-haas_medium_65 text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
+          </div>
+          <% total_discount = Decimal.add(@order.bux_discount_amount, @rogue_discount_saved) %>
+          <%= if Decimal.gt?(total_discount, 0) do %>
+            <p class="text-xs text-green-600 font-haas_medium_65 text-right mt-1">You save $<%= format_usd(total_discount) %></p>
+          <% end %>
+        </div>
+
+        <button
+          phx-click="proceed_to_payment"
+          class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+        >
+          Proceed to Payment
+        </button>
+      </div>
+
+      <div class="text-center">
+        <button
+          phx-click="go_to_step"
+          phx-value-step="shipping"
+          class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
+        >
+          &larr; Back to Shipping
+        </button>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%!-- Step 3: Payment --%>
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%= if @step == :payment do %>
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
+        <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-6">Payment</h2>
+
+        <%!-- BUX Payment Card --%>
+        <%= if @order.bux_tokens_burned > 0 do %>
+          <div class={[
+            "p-4 rounded-xl mb-4 border",
+            case @bux_payment_status do
+              :completed -> "bg-green-50 border-green-200"
+              :processing -> "bg-amber-50 border-amber-200"
+              :failed -> "bg-red-50 border-red-200"
+              _ -> "bg-gray-50 border-gray-200"
+            end
+          ]}>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 rounded-full" />
+                <div>
+                  <p class="text-sm font-haas_medium_65 text-[#141414]">BUX Payment</p>
+                  <p class="text-xs text-[#515B70] font-haas_roman_55"><%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX = $<%= format_usd(@order.bux_discount_amount) %></p>
+                </div>
+              </div>
+
+              <%= case @bux_payment_status do %>
+                <% :completed -> %>
+                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                    </svg>
+                    Paid
+                  </span>
+                <% :processing -> %>
+                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing
+                  </span>
+                <% :failed -> %>
+                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
+                <% _ -> %>
+                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
+              <% end %>
+            </div>
+
+            <%!-- BUX burn tx hash display --%>
+            <%= if @bux_payment_status == :completed && @order.bux_burn_tx_hash do %>
+              <div class="mt-2 pt-2 border-t border-green-200">
+                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
+                  TX: <%= @order.bux_burn_tx_hash %>
+                </p>
+              </div>
+            <% end %>
+
+            <%!-- Burn BUX action button --%>
+            <%= if @bux_payment_status == :pending do %>
+              <div class="mt-3">
+                <button
+                  phx-click="initiate_bux_payment"
+                  phx-disable-with="Processing payment..."
+                  class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                >
+                  Burn <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX
+                </button>
+              </div>
+            <% end %>
+
+            <%!-- Retry button on failure --%>
+            <%= if @bux_payment_status == :failed do %>
+              <div class="mt-3 flex gap-2">
+                <button
+                  phx-click="initiate_bux_payment"
+                  phx-disable-with="Retrying..."
+                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
+                >
+                  Retry
+                </button>
+                <.link
+                  navigate={~p"/cart"}
+                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
+                >
+                  Back to Cart
+                </.link>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- ROGUE Payment Card --%>
+        <%= if Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) do %>
+          <div
+            id="rogue-payment-hook"
+            phx-hook="RoguePaymentHook"
+            data-treasury-address={Application.get_env(:blockster_v2, :shop_treasury_address)}
+            class={[
+              "p-4 rounded-xl mb-4 border",
+              case @rogue_payment_status do
+                :completed -> "bg-green-50 border-green-200"
+                :processing -> "bg-amber-50 border-amber-200"
+                :failed -> "bg-red-50 border-red-200"
+                _ -> "bg-gray-50 border-gray-200"
+              end
+            ]}
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
+                  <span class="text-[8px] font-bold text-white">R</span>
+                </div>
+                <div>
+                  <p class="text-sm font-haas_medium_65 text-[#141414]">ROGUE Payment</p>
+                  <p class="text-xs text-[#515B70] font-haas_roman_55">
+                    <%= Decimal.round(@order.rogue_tokens_sent || Decimal.new("0"), 2) %> ROGUE = $<%= format_usd(@order.rogue_payment_amount) %>
+                    <span class="text-green-600">(10% discount applied)</span>
+                  </p>
+                </div>
+              </div>
+
+              <%= case @rogue_payment_status do %>
+                <% :completed -> %>
+                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                    </svg>
+                    Paid
+                  </span>
+                <% :processing -> %>
+                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing
+                  </span>
+                <% :failed -> %>
+                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
+                <% _ -> %>
+                  <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+                  <%= if bux_done do %>
+                    <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
+                  <% else %>
+                    <span class="text-xs font-haas_medium_65 text-gray-500 bg-gray-200 px-2 py-1 rounded-full">Waiting</span>
+                  <% end %>
+              <% end %>
+            </div>
+
+            <%!-- ROGUE tx hash display --%>
+            <%= if @rogue_payment_status == :completed && @order.rogue_payment_tx_hash do %>
+              <div class="mt-2 pt-2 border-t border-green-200">
+                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
+                  TX: <%= @order.rogue_payment_tx_hash %>
+                </p>
+              </div>
+            <% end %>
+
+            <%!-- Pay with ROGUE action button --%>
+            <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+            <%= if @rogue_payment_status == :pending and bux_done do %>
+              <div class="mt-3">
+                <button
+                  phx-click="initiate_rogue_payment"
+                  phx-disable-with="Processing payment..."
+                  class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                >
+                  Pay <%= Decimal.round(@order.rogue_tokens_sent || Decimal.new("0"), 2) %> ROGUE
+                </button>
+              </div>
+            <% end %>
+
+            <%!-- Retry button on failure --%>
+            <%= if @rogue_payment_status == :failed do %>
+              <div class="mt-3 flex gap-2">
+                <button
+                  phx-click="initiate_rogue_payment"
+                  phx-disable-with="Retrying..."
+                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
+                >
+                  Retry
+                </button>
+                <.link
+                  navigate={~p"/cart"}
+                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
+                >
+                  Back to Cart
+                </.link>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Helio Payment Card --%>
+        <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
+          <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+          <% has_rogue = Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) %>
+          <% rogue_done = !has_rogue or @rogue_payment_status == :completed %>
+          <% token_payments_done = bux_done and rogue_done %>
+          <div
+            id="helio-checkout-hook"
+            phx-hook="HelioCheckoutHook"
+            data-order-id={@order.id}
+            data-order-number={@order.order_number}
+            class={[
+              "p-4 rounded-xl mb-4 border",
+              case @helio_payment_status do
+                :completed -> "bg-green-50 border-green-200"
+                s when s in [:processing, :widget_ready, :confirming] -> "bg-amber-50 border-amber-200"
+                :failed -> "bg-red-50 border-red-200"
+                _ -> "bg-gray-50 border-gray-200"
+              end
+            ]}
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-600 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-white">
+                    <path fill-rule="evenodd" d="M2.5 4A1.5 1.5 0 0 0 1 5.5V6h18v-.5A1.5 1.5 0 0 0 17.5 4h-15ZM19 8.5H1v6A1.5 1.5 0 0 0 2.5 16h15a1.5 1.5 0 0 0 1.5-1.5v-6ZM3 13.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm4.75-.75a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-haas_medium_65 text-[#141414]">Card / Crypto Payment</p>
+                  <p class="text-xs text-[#515B70] font-haas_roman_55">$<%= format_usd(@order.helio_payment_amount) %> via Helio</p>
+                </div>
+              </div>
+
+              <%= case @helio_payment_status do %>
+                <% :completed -> %>
+                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                    </svg>
+                    Paid
+                  </span>
+                <% :confirming -> %>
+                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Confirming
+                  </span>
+                <% s when s in [:processing, :widget_ready] -> %>
+                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
+                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing
+                  </span>
+                <% :failed -> %>
+                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
+                <% _ -> %>
+                  <%= if token_payments_done do %>
+                    <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
+                  <% else %>
+                    <span class="text-xs font-haas_medium_65 text-gray-500 bg-gray-200 px-2 py-1 rounded-full">Waiting</span>
+                  <% end %>
+              <% end %>
+            </div>
+
+            <%!-- Helio transaction display --%>
+            <%= if @helio_payment_status == :completed && @order.helio_transaction_id do %>
+              <div class="mt-2 pt-2 border-t border-green-200">
+                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
+                  TX: <%= @order.helio_transaction_id %>
+                </p>
+              </div>
+            <% end %>
+
+            <%!-- Helio widget container --%>
+            <%= if @helio_payment_status == :widget_ready do %>
+              <div id="helio-widget-container" class="mt-4 min-h-[300px] rounded-xl overflow-hidden"></div>
+            <% end %>
+
+            <%!-- Confirming status --%>
+            <%= if @helio_payment_status == :confirming do %>
+              <div class="mt-3 p-3 bg-amber-50 rounded-lg">
+                <p class="text-xs text-amber-700 font-haas_roman_55">
+                  Payment submitted. Waiting for blockchain confirmation...
+                </p>
+              </div>
+            <% end %>
+
+            <%!-- Pay button (only when token payments done) --%>
+            <%= if @helio_payment_status == :pending and token_payments_done do %>
+              <div class="mt-3">
+                <button
+                  phx-click="initiate_helio_payment"
+                  phx-disable-with="Creating payment..."
+                  class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                >
+                  Pay $<%= format_usd(@order.helio_payment_amount) %> with Card / Crypto
+                </button>
+              </div>
+            <% end %>
+
+            <%!-- Retry button on failure --%>
+            <%= if @helio_payment_status == :failed do %>
+              <div class="mt-3 flex gap-2">
+                <button
+                  phx-click="initiate_helio_payment"
+                  phx-disable-with="Retrying..."
+                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
+                >
+                  Retry
+                </button>
+                <.link
+                  navigate={~p"/cart"}
+                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
+                >
+                  Back to Cart
+                </.link>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Action buttons based on state --%>
+        <% has_rogue = Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) %>
+        <% has_helio = Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) %>
+        <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+        <% rogue_done = !has_rogue or @rogue_payment_status == :completed %>
+        <% helio_done = !has_helio or @helio_payment_status == :completed %>
+        <%= cond do %>
+          <%# All payments done (BUX + ROGUE + Helio all complete) %>
+          <% bux_done and rogue_done and helio_done and not has_helio -> %>
+            <button
+              phx-click={if @rogue_payment_status == :completed, do: "advance_after_rogue", else: "advance_after_bux"}
+              class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              Complete Order
+            </button>
+
+          <%# No BUX to burn and no ROGUE and no Helio — show place order %>
+          <% @order.bux_tokens_burned <= 0 and not has_rogue and not has_helio -> %>
+            <button
+              phx-click="complete_order"
+              class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              Place Order
+            </button>
+
+          <%# Payments in progress or Helio widget active — handled by individual cards %>
+          <% true -> %>
+            <div></div>
+        <% end %>
+      </div>
+
+      <div class="text-center">
+        <button
+          phx-click="go_to_step"
+          phx-value-step="review"
+          class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
+        >
+          &larr; Back to Review
+        </button>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%!-- Step 4: Confirmation --%>
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%= if @step == :confirmation do %>
+    <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 md:p-8 text-center">
+      <%!-- Success Icon --%>
+      <div class="w-16 h-16 bg-[#8AE388] rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-white">
+          <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+        </svg>
+      </div>
+
+      <h2 class="text-2xl font-haas_medium_65 text-[#141414] mb-2">Order Confirmed!</h2>
+      <p class="text-[#515B70] font-haas_roman_55 mb-6">
+        Your order <span class="font-haas_medium_65 text-[#141414]"><%= @order.order_number %></span> has been placed.
+      </p>
+
+      <%!-- Order Details --%>
+      <div class="text-left bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+        <div class="flex justify-between text-sm">
+          <span class="text-[#515B70] font-haas_roman_55">Order Number</span>
+          <span class="font-haas_medium_65 text-[#141414]"><%= @order.order_number %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-[#515B70] font-haas_roman_55">Items</span>
+          <span class="font-haas_medium_65 text-[#141414]"><%= length(@order.order_items) %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-[#515B70] font-haas_roman_55">Total</span>
+          <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
+        </div>
+        <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">BUX Discount</span>
+            <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.bux_discount_amount) %></span>
+          </div>
+        <% end %>
+        <%= if Decimal.gt?(@order.rogue_discount_amount || Decimal.new("0"), 0) do %>
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">ROGUE Payment</span>
+            <span class="font-haas_medium_65 text-[#141414]">
+              <%= Decimal.round(@order.rogue_tokens_sent || Decimal.new("0"), 2) %> ROGUE ($<%= format_usd(@order.rogue_payment_amount) %>)
+            </span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">ROGUE Discount (10%)</span>
+            <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.rogue_discount_amount) %></span>
+          </div>
+        <% end %>
+        <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
+          <div class="flex justify-between text-sm">
+            <span class="text-[#515B70] font-haas_roman_55">Card/Crypto Payment</span>
+            <span class="font-haas_medium_65 text-[#141414]">
+              $<%= format_usd(@order.helio_payment_amount) %> (<%= @order.helio_payment_currency || "Helio" %>)
+            </span>
+          </div>
+        <% end %>
+        <div class="flex justify-between text-sm">
+          <span class="text-[#515B70] font-haas_roman_55">Status</span>
+          <span class="font-haas_medium_65 text-[#141414] capitalize"><%= @order.status %></span>
+        </div>
+      </div>
+
+      <%!-- Shipping Address --%>
+      <%= if @order.shipping_name do %>
+        <div class="text-left bg-gray-50 rounded-xl p-4 mb-6">
+          <p class="text-xs font-haas_medium_65 text-[#515B70] uppercase tracking-wider mb-2">Ships to</p>
+          <div class="text-sm text-[#141414] font-haas_roman_55 space-y-0.5">
+            <p><%= @order.shipping_name %></p>
+            <p><%= @order.shipping_address_line1 %></p>
+            <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
+              <p><%= @order.shipping_address_line2 %></p>
+            <% end %>
+            <p><%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %></p>
+            <p><%= @order.shipping_country %></p>
+          </div>
+        </div>
+      <% end %>
+
+      <.link
+        navigate={~p"/shop"}
+        class="inline-flex items-center gap-2 px-6 py-3 bg-[#141414] text-white font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+        </svg>
+        Continue Shopping
+      </.link>
+    </div>
+  <% end %>
+</div>

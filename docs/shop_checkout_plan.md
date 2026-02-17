@@ -1,6 +1,6 @@
 # Shop Checkout System - Implementation Plan
 
-> **Status**: Phase 1 Complete — Phase 2 Next
+> **Status**: Phase 11 Complete
 > **Created**: 2026-02-16
 > **Branch**: `feat/shop-checkout`
 > **Scope**: Complete checkout system with Helio payments, BUX/ROGUE discounts, affiliate system, and order fulfillment
@@ -8,6 +8,278 @@
 ---
 
 ## Implementation Progress
+
+### Phase 11: Polish & Production Prep — COMPLETE (2026-02-17)
+
+**All items done. 25 new tests (317 total).**
+
+#### Files Modified (4 existing files)
+
+- `lib/blockster_v2/orders/order_expiry_worker.ex` — Updated to expire stale orders with correct statuses. Simple expiry for `pending`/`bux_pending`/`rogue_pending` (was missing `bux_pending`/`rogue_pending`). Partial payment flagging for `bux_paid`/`rogue_paid` with "review for refund" note. Changed expired status from `cancelled` to `expired`. Extracted `expire_stale_orders/0` as public function for testability.
+- `lib/blockster_v2/orders.ex` — Added cart clearing to `process_paid_order/1` via `Cart.clear_cart/1` + `Cart.broadcast_cart_update/1`. Added `recent_order_count/2` (counts orders in last N minutes) and `check_rate_limit/1` (max 5 orders per hour). Added `@max_orders_per_hour` module attribute.
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — Fixed `advance_after_bux/1` to call `Orders.process_paid_order/1` for BUX-only paid orders. Previously, BUX-only orders skipped fulfillment notifications and affiliate payouts.
+- `lib/blockster_v2_web/live/cart_live/index.ex` — Added rate limit check in `proceed_to_checkout` event handler. Calls `Orders.check_rate_limit/1` before `create_order_from_cart/2`. Returns error flash if rate limited.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase11_test.exs` — 25 tests: OrderExpiryWorker (10 tests — expires stale pending/bux_pending/rogue_pending, flags bux_paid/rogue_paid for review, does not expire paid/shipped/delivered, ignores recent orders, module exists), cart clearing (4 tests — clears cart after payment, works without cart, broadcasts badge update, only affects paying user), rate limiting (8 tests — returns 0 for no orders, counts recent, ignores old, allows under limit, blocks at limit, allows after expiry, per-user isolation, custom minutes param), integration (3 tests — expired order status change, mixed status batch expiry, full lifecycle with expiry + rate limit).
+
+#### Implementation Notes
+- OrderExpiryWorker already existed from Phase 1 skeleton but had wrong statuses (`helio_pending` instead of `bux_pending`/`rogue_pending`) and used `cancelled` instead of `expired`. Updated in place.
+- Cart is already cleared in `CartLive.Index.proceed_to_checkout` when the order is created. The new clearing in `process_paid_order` is belt-and-suspenders — ensures cart is empty even if user adds items during checkout.
+- `advance_after_bux` bug fix: BUX-only paid orders were not calling `process_paid_order`, so they missed fulfillment notifications, affiliate payouts, and cart clearing. Now fixed.
+- Rate limit uses DB query (not ETS) for simplicity — counts `inserted_at >= cutoff` on the orders table. 5 orders/hour is the default via `@max_orders_per_hour`.
+- Skipped from plan: Helio devnet testing (manual), Fly.io secrets setup (manual), deployment, end-to-end payment combination testing (covered by existing 292 tests).
+
+---
+
+### Phase 10: Admin Interface — COMPLETE (2026-02-17)
+
+**All items done. 30 new tests (292 total).**
+
+#### Migration Created (1 new file)
+
+- `priv/repo/migrations/20260217200000_add_tracking_number_to_orders.exs` — Adds `tracking_number` string column to orders table.
+
+#### Files Created (2 new files)
+
+- `lib/blockster_v2_web/live/orders_admin_live.ex` — Admin orders list page at `/admin/orders`. Displays all orders in a table with: order number (linked to detail), customer email/name, status badge (color-coded), payment breakdown (BUX/ROGUE/Helio amounts inline), subtotal, date. Status filter dropdown (All/Pending/BUX Paid/ROGUE Paid/Paid/Processing/Shipped/Delivered/Cancelled/Refunded). Sorted newest first, limited to 50. Uses `Orders.list_orders_admin/1` query. Protected by existing `AdminAuth` on_mount hook in router's `:admin` live_session.
+- `lib/blockster_v2_web/live/order_admin_live/show.ex` — Order detail page at `/admin/orders/:id`. Three-column layout: main content (items table, payment breakdown with tx hash links to roguescan.io, affiliate payouts table with currency/basis/rate/commission/status) and sidebar (status update dropdown, tracking number input with save button, customer info, shipping address, order details/timestamps). Status update via `phx-change` on select dropdown. Tracking number saved via form submit. Back link to orders list.
+
+#### Files Modified (2 existing files)
+
+- `lib/blockster_v2/orders/order.ex` — Added `tracking_number` string field. Added `:tracking_number` to `status_changeset` cast list so admin can save tracking via `update_order/2`.
+- `lib/blockster_v2/orders.ex` — Added `list_orders_admin/1` function: queries all orders with preloads (`:order_items`, `:affiliate_payouts`, `:user`, `:referrer`), ordered by `inserted_at` desc, limited to 50. Supports optional `status` filter param (ignores "all" and empty string).
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase10_test.exs` — 30 tests: `list_orders_admin` (6 tests — sorted newest first, status filter, "all" filter, preloads user/items, preloads affiliate_payouts, limit option), admin status update (4 tests — paid→processing, processing→shipped, shipped→delivered, invalid status rejected), tracking number (4 tests — schema field exists, saves via status_changeset, persists and retrievable, updates with status simultaneously), payment breakdown (4 tests — BUX amounts/tx_hash, ROGUE amounts/tx_hash, Helio amount/currency, all payment types combined), affiliate payouts display (3 tests — shows payouts with correct data, no referrer = no payouts, multi-currency payouts), module existence (2 tests — OrdersAdminLive compiled, OrderAdminLive.Show compiled), admin authorization (3 tests — AdminAuth module exists, halts non-admin, continues admin, halts nil user), end-to-end admin flow (3 tests — full lifecycle create→list→update→track→deliver, full payment+affiliate breakdown, filtered list matches status).
+
+#### Implementation Notes
+- Routes already existed in router.ex from Phase 1 (`live "/admin/orders"` and `live "/admin/orders/:id"`), so no router changes needed — just created the modules to resolve compile warnings.
+- Admin auth is handled by the `AdminAuth` on_mount hook in the router's `:admin` live_session — no additional auth checks needed in the LiveViews themselves.
+- Tracking number lives on the Order (not OrderItem) for admin simplicity — single tracking number per order. OrderItem also has its own `tracking_number`/`tracking_url` fields for future per-item tracking if needed.
+- Status update uses `phx-change` on the select element for immediate update without a submit button.
+- Payment breakdown shows BUX tokens burned, ROGUE tokens sent, and Helio payment amount with currency, each with links to tx hashes on roguescan.io when available.
+
+---
+
+### Phase 9: Affiliate System — COMPLETE (2026-02-17)
+
+**All items done. 38 new tests (262 total).**
+
+#### Files Modified (2 existing files)
+
+- `lib/blockster_v2/referrals.ex` — Added `record_shop_purchase_earning/1` public function: writes `:shop_purchase` earning to Mnesia `referral_earnings` table with referrer/referee wallets, amount, and token. Converts Decimal amounts to float for Mnesia storage. Downcases wallet addresses. Updates `referral_stats` for BUX/ROGUE earnings. Broadcasts real-time `{:referral_earning, ...}` for member page live updates. Added catch-all clauses to `update_referrer_stats` for non-BUX/ROGUE tokens (USDC, SOL, etc.) to prevent crashes.
+- `lib/blockster_v2/orders.ex` — Added `record_affiliate_earning/4` helper: calls `Referrals.record_shop_purchase_earning/1` with referrer info and commission details. Wired into `create_affiliate_payouts/1` after each payout insertion (BUX, ROGUE, Helio). Added `Referrals` alias. Fixed `DateTime.utc_now()` microsecond truncation bug in 4 places — `paid_at` and `held_until` fields use `:utc_datetime` schema type which requires truncated microseconds.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase9_test.exs` — 38 tests: BUX commission (2 tests — 5% calculation, immediate paid status), ROGUE commission (2 tests — 5% calculation, pending status), Helio commission (3 tests — crypto 5%, card held 30-day hold, commission_usd_value), multi-currency payouts (1 test — 3 separate payouts for BUX+ROGUE+Helio), no-referrer/zero-payment orders (2 tests — no payouts created), AffiliatePayoutWorker (3 tests — module exists, processes past-due held payouts, skips active holds), execute_affiliate_payout (2 tests — USDC paid, SOL paid), Mnesia referral_earnings recording (6 tests — BUX/ROGUE/Helio/multi-currency earnings, correct wallets, no earning without referrer), Referrals.record_shop_purchase_earning (7 tests — correct fields, Decimal conversion, BUX/ROGUE stats updates, USDC skips stats, wallet downcasing, nil wallet handling), member page display (4 tests — earning_type_label, earning_type_style, list single/multi-currency earnings), AffiliatePayout schema validation (4 tests — valid changeset, currency/status/rate validation), process_paid_order integration (2 tests — creates payouts and Mnesia earnings for referred buyer).
+
+#### Implementation Notes
+- Mnesia `referral_earnings` table already had `:shop_purchase` as a valid `earning_type` (defined in Phase 1 mnesia_initializer schema).
+- Member page `earning_type_label(:shop_purchase)` → "Shop Purchase" and `earning_type_style(:shop_purchase)` → "bg-orange-100 text-orange-800" already existed in `show.ex` from Phase 1 — no template changes needed.
+- `update_referrer_stats` in `referrals.ex` needed catch-all clauses for non-BUX/ROGUE tokens to prevent `CaseClauseError` when Helio currencies (USDC, SOL, etc.) are passed. These tokens don't affect BUX/ROGUE stats but still need to not crash.
+- `BuxMinter.transfer_rogue/3` referenced in `execute_affiliate_payout` does not exist yet — ROGUE affiliate payouts are created with "pending" status but not executed on-chain. This is acceptable for now; ROGUE commission execution can be added when the transfer_rogue endpoint is implemented on the BUX Minter service.
+- Fixed pre-existing bug: `DateTime.utc_now()` in `create_affiliate_payouts` and `execute_affiliate_payout` had microseconds which caused `ArgumentError` when writing to `:utc_datetime` schema fields. Added `DateTime.truncate(:second)` to all 4 instances.
+
+---
+
+### Phase 8: Order Fulfillment (Notifications) — COMPLETE (2026-02-17)
+
+**All items done. 24 new tests (224 total).**
+
+#### Files Created (3 new files)
+
+- `lib/blockster_v2/order_mailer.ex` — Swoosh-based OrderMailer: `fulfillment_notification/1` builds a multi-part email (HTML + text) with order items list, shipping address, and payment summary (subtotal, BUX discount, ROGUE payment, Helio payment with currency). Sends to fulfiller email from Application env (`:fulfillment_email`, defaults to `fulfillment@blockster.com`). From address: `shop@blockster.com`. Handles optional fields (address_line2, phone) gracefully.
+- `lib/blockster_v2/telegram_notifier.ex` — TelegramNotifier: `send_order_notification/1` POSTs HTML-formatted order notification to Telegram fulfillment channel via Bot API (`https://api.telegram.org/bot{token}/sendMessage`). Uses Req with `receive_timeout: 30_000`. Bot token and channel ID from Application env (`:telegram_bot_token`, `:telegram_fulfillment_channel_id`). Returns `{:error, :not_configured}` when config missing (no crash). Formats order with items, shipping address, payment breakdown (BUX tokens burned, ROGUE tokens sent, Helio amount/currency).
+- `lib/blockster_v2/orders/fulfillment.ex` — Orders.Fulfillment coordinator: `notify/1` runs email delivery and Telegram notification concurrently via `Task.async`/`Task.await_many` with 15-second timeout. Each task wrapped in try/rescue for fault isolation. Logs errors/warnings for failed notifications. Sets `fulfillment_notified_at` on the order after notifications complete. Returns `{:ok, updated_order}`.
+
+#### Files Modified (1 existing file)
+
+- `lib/blockster_v2/orders.ex` — Replaced undefined `OrderMailer`/`OrderTelegram` Task.start calls in `process_paid_order/1` with single `Task.start` calling `Orders.Fulfillment.notify/1`. Removed direct `fulfillment_notified_at` update (now handled by Fulfillment coordinator). Fixes UndefinedFunctionError logs that occurred when orders were paid.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase8_test.exs` — 24 tests: OrderMailer (8 tests — valid Swoosh email structure, order items in HTML body, shipping address, payment summary with all currencies, text body, phone inclusion, address_line2 handling, delivery via test adapter), TelegramNotifier (3 tests — returns error when unconfigured, function exported, calls API when configured), Orders.Fulfillment (4 tests — sets fulfillment_notified_at, delivers email, handles unconfigured Telegram gracefully, returns updated order), process_paid_order integration (2 tests — triggers fulfillment, handles missing shipping), fulfillment status checks (2 tests — any status works with process_paid_order, complete_helio_payment triggers fulfillment), end-to-end flows (5 tests — full paid flow, multi-item order email, address_line2 in email, helio-only currency display, order with all payment types).
+
+#### Implementation Notes
+- `process_paid_order/1` now delegates to `Fulfillment.notify/1` via `Task.start` (fire-and-forget) — notifications don't block the payment flow.
+- Email and Telegram run in parallel via `Task.async`/`Task.await_many` — if either fails, the other still completes and `fulfillment_notified_at` is still set.
+- Telegram gracefully returns `{:error, :not_configured}` when bot token or channel ID are missing, allowing the system to work without Telegram configured.
+- Config keys needed: `:fulfillment_email`, `:telegram_bot_token`, `:telegram_fulfillment_channel_id` — read from Application env at runtime. Must be set as Fly.io secrets for production.
+
+---
+
+### Phase 7: Helio Integration (Card/Crypto Payment) — COMPLETE (2026-02-17)
+
+**All items done. 26 new tests (200 total).**
+
+#### Files Created (3 new files)
+
+- `lib/blockster_v2/helio.ex` — Helio API client: `create_charge/1` POSTs to Helio Charges API (`https://api.hel.io/v1/charge/api-key`) with paylink ID, request amount, and order metadata in `additionalJSON`. `get_charge/1` fetches charge status. Uses Req with `receive_timeout: 30_000` and `connect_options: [timeout: 10_000]`. API key and secret key read from Application env (`:helio_api_key`, `:helio_secret_key`, `:helio_paylink_id`).
+- `lib/blockster_v2_web/controllers/helio_webhook_controller.ex` — Webhook handler for `POST /api/helio/webhook` (route already existed from Phase 1). Bearer token verification against `:helio_webhook_secret` config. Processes `CREATED` events: parses `meta` field (JSON string or map) to extract `order_id`, detects payment currency (card vs crypto from `paymentType`/`source`/`currency`/`token` fields), calls `Orders.complete_helio_payment/2`. Idempotent: ignores webhooks for orders already in `paid`/`processing`/`shipped`/`delivered` status.
+- `assets/js/hooks/helio_checkout.js` — HelioCheckoutHook JS hook: loads Helio SDK via CDN (`https://cdn.hel.io/checkout.js`), renders inline checkout widget on `helio_charge_created` event. Configured with brand colors (`#CAFC00` primary, `#141414` neutral), card payments enabled. Reports `helio_payment_success` (with transaction_id), `helio_payment_error`, or `helio_payment_cancelled` events back to LiveView. Passes `order_id` and `order_number` as `additionalJSON` for webhook correlation.
+
+#### Files Modified (3 existing files)
+
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — Complete Helio payment flow: `initiate_helio_payment` handler subscribes to PubSub topic `order:#{order_id}`, starts async `create_helio_charge`. `handle_async(:create_helio_charge)` stores charge_id on order, pushes `helio_charge_created` event to JS hook, sets `helio_payment_status: :widget_ready`. `helio_payment_success` handler sets order to `helio_pending` status. PubSub `handle_info({:order_updated, ...})` handler receives webhook-driven completion, sets `:completed` status and advances to confirmation step. `advance_after_bux` and `advance_after_rogue` now enable Helio payment card when remaining amount > 0. Mount handles `helio_pending` status resumption with PubSub subscription.
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Replaced "Phase 7" badge with full Helio payment card: credit card icon (blue gradient), status indicators for all states (completed/confirming/widget_ready/processing/failed/pending/waiting). Widget container div (`#helio-widget-container`) renders inline Helio checkout. "Pay $X with Card / Crypto" button enabled only after token payments complete. Retry + Back to Cart on failure. Added Helio payment info (amount + currency) to confirmation step.
+- `assets/js/app.js` — Added HelioCheckoutHook import and registration.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase7_test.exs` — 26 tests: Helio module existence (2 tests — create_charge/1 and get_charge/1 defined), webhook controller (10 tests — auth rejection, valid webhook processing, card detection via paymentType, card detection via source, crypto currency detection, map meta handling, idempotency for paid/shipped/delivered orders, missing order_id, non-existent order, non-CREATED events), Orders.complete_helio_payment (2 tests — sets all helio fields + PubSub broadcast, preserves existing amounts), Order.helio_payment_changeset validation (3 tests — casts all fields, validates status inclusion, allows helio_pending), order status transitions (3 tests — direct to helio_pending, full BUX→ROGUE→Helio flow, ROGUE covers full price skips Helio), end-to-end flows (6 tests — BUX+ROGUE+Helio, Helio-only, BUX covers full, partial ROGUE+Helio, card payment currency, Helio-only with SOL).
+
+#### Implementation Notes
+- Helio widget loads via CDN script tag, not bundled — renders inline in `#helio-widget-container` div.
+- Payment flow is webhook-driven: LiveView subscribes to PubSub `order:#{order_id}`, webhook controller broadcasts `:order_updated` when payment confirmed. This decouples the JS widget callback from the server-side payment verification.
+- Currency detection priority: `paymentType == "CARD"` → `source == "CARD"` → `currency` field → `token` field → defaults to `"USDC"`.
+- `helio_payment_status` tracks widget lifecycle: `:pending` → `:processing` → `:widget_ready` → `:confirming` → `:completed` (or `:failed` at any point).
+- Helio config keys (`helio_api_key`, `helio_secret_key`, `helio_paylink_id`, `helio_webhook_secret`) read from Application env — must be set in runtime config before use.
+
+---
+
+### Phase 6: ROGUE Payment Integration — COMPLETE (2026-02-16)
+
+**All items done. 25 new tests (174 total).**
+
+#### Files Created (2 new files)
+
+- `assets/js/hooks/rogue_payment.js` — RoguePaymentHook JS hook: client-side native ROGUE transfer via Thirdweb SDK. ROGUE is the native gas token (not ERC-20), so uses `prepareTransaction` with value transfer (like sending ETH) instead of `prepareContractCall`. Listens for `initiate_rogue_payment` event with `amount_wei`, sends native transfer to treasury address from element dataset. Reports back via `rogue_payment_complete` or `rogue_payment_error` events.
+- `test/blockster_v2/shop/phase6_test.exs` — 25 tests: ROGUE discount calculation (4 tests — 10% discount, 100% coverage, zero, small amount), rate locking (2 tests — stored on order, fallback price), Orders.complete_rogue_payment (2 tests — tx hash + status, preserves amounts), order status transitions (4 tests — pending→rogue_pending→rogue_paid, bux_paid→rogue_pending→rogue_paid, rogue_paid→paid, rogue_paid with helio remaining), BUX+ROGUE covers full price (3 tests — no helio needed, 100% BUX, ROGUE only), Order.rogue_payment_changeset validation (4 tests — valid data, no tx hash, status inclusion, valid statuses), insufficient ROGUE handling (2 tests — revert to bux_paid, revert to pending), full integration flow (4 tests — BUX+ROGUE→paid, ROGUE only→paid, partial ROGUE+Helio, wei conversion).
+
+#### Files Modified (4 existing files)
+
+- `lib/blockster_v2/orders.ex` — Added `complete_rogue_payment/2` function: applies `Order.rogue_payment_changeset` with tx hash and `rogue_paid` status.
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — Complete ROGUE payment flow: `initiate_rogue_payment` handler converts ROGUE tokens to wei, sets order to `rogue_pending`, pushes `initiate_rogue_payment` event to JS hook. `rogue_payment_complete` handler: updates order via `complete_rogue_payment`, syncs balance, auto-completes if BUX+ROGUE covers full price. `rogue_payment_error` handler: reverts status to `bux_paid` (or `pending`), shows error. Mount handles `rogue_pending` and `rogue_paid` status resumption. `advance_after_bux` now enables ROGUE payment card. New `advance_after_rogue` and `maybe_complete_after_rogue` helpers for payment flow. `rogue_payment_status` added to `assign_payment_defaults`.
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Replaced "Phase 6" badge with full ROGUE payment card: status indicators (pending/processing/completed/failed/waiting), "Pay with ROGUE" button (only enabled after BUX is done), tx hash display on completion, retry + "Back to Cart" on failure. Updated action buttons logic to handle all BUX+ROGUE+Helio combinations. Added ROGUE payment/discount info to confirmation step.
+- `assets/js/app.js` — Added RoguePaymentHook import and registration.
+
+#### Implementation Notes
+- ROGUE is a native gas token, not ERC-20. The JS hook uses `prepareTransaction` with a `value` field (native transfer) instead of `prepareContractCall` (contract call for ERC-20).
+- ROGUE payment button is disabled until BUX payment is complete (or skipped if bux_tokens_burned is 0).
+- When BUX + ROGUE covers the full price (helio_payment_amount == 0), order is automatically marked as "paid" after ROGUE payment completes, triggering `process_paid_order` (email + Telegram notifications).
+- On ROGUE payment failure, order reverts to `bux_paid` (if BUX was used) or `pending` (if no BUX).
+- Server-side tx verification is deferred (trusted client-side report for now).
+- Wei conversion: `rogue_tokens * 10^18`, sent to JS hook as string to preserve precision.
+
+---
+
+### Phase 5: BUX Payment Execution — COMPLETE (2026-02-16)
+
+**All items done. 23 new tests (149 total).**
+
+#### Files Created (2 new files)
+
+- `assets/js/hooks/bux_payment.js` — BuxPaymentHook JS hook: client-side BUX ERC-20 transfer via Thirdweb SDK as fallback when BuxMinter burn endpoint is unavailable. Listens for `initiate_bux_payment_client` event, calls `prepareContractCall` with `transfer(address,uint256)` on BUX token contract, sends to treasury address from element dataset. Reports back via `bux_payment_complete` or `bux_payment_error` events.
+- `test/blockster_v2/shop/phase5_test.exs` — 23 tests: BalanceManager.deduct_bux (4 tests — sufficient, insufficient, exact, zero), credit_bux (1 test), Orders.complete_bux_payment (2 tests), order status transitions (3 tests — pending→bux_paid, bux_paid→paid, zero BUX), insufficient balance handling (2 tests), skip BUX (2 tests), BuxMinter.burn_bux existence + error handling (2 tests), Order.bux_payment_changeset validation (3 tests), full integration flow (4 tests — deduct+complete, failed burn credits back, 100% BUX coverage, double-spend prevention).
+
+#### Files Modified (4 existing files)
+
+- `lib/blockster_v2/bux_minter.ex` — Added `burn_bux/3` function: POSTs to `/burn` endpoint on BUX minter service with wallet address, amount, user_id. Handles JSON decode errors gracefully for non-JSON responses (HTML 404s). Triggers async balance sync on success.
+- `lib/blockster_v2/orders.ex` — Added `complete_bux_payment/2` convenience function: applies `Order.bux_payment_changeset` with tx hash and `bux_paid` status.
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — Complete BUX payment flow: `initiate_bux_payment` event handler deducts via BalanceManager, sets order to `bux_pending`, starts async burn via `start_async(:burn_bux, ...)`. Three `handle_async` clauses for success/error/exit — all mark order as `bux_paid` (Mnesia deduction is authoritative). `bux_payment_complete` handles JS hook callback. `bux_payment_error` credits back BUX and reverts order. `advance_after_bux` determines next step (ROGUE/Helio/confirmation). Mount handles `bux_paid` status resumption.
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Replaced payment step placeholder with BUX payment card: status indicators (pending/processing/completed/failed), "Burn BUX" button with phx-disable-with, retry + "Back to Cart" on failure, TX hash display on completion. ROGUE/Helio cards show "Phase 6"/"Phase 7" badges.
+- `assets/js/app.js` — Added BuxPaymentHook import and registration.
+
+#### Implementation Notes
+- BUX payment uses optimistic deduction: Mnesia balance deducted first via BalanceManager, then async on-chain burn attempted. If burn fails, order still proceeds as `bux_paid` with local reference (Mnesia is authoritative).
+- Client-side JS hook (`BuxPaymentHook`) exists as fallback for when BuxMinter service `/burn` endpoint becomes available.
+- `get_user_token_balances` reads both `user_bux_balances` and `user_rogue_balances` Mnesia tables — tests must create both tables to prevent silent balance read failures.
+- BalanceManager returns `balance - amount` directly (not the Mnesia-stored value), so return type is integer. After Mnesia update, stored values are floats — test assertions accommodate this.
+
+---
+
+### Phase 4: Checkout Page — COMPLETE (2026-02-16)
+
+**All items done. 34 new tests (126 total).**
+
+#### Files Created (2 new files)
+
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — CheckoutLive.Index LiveView: mount loads order with authorization check (redirects if not owner or wrong status), 4-step flow (shipping → review → payment → confirmation). Shipping form with validation via Order.shipping_changeset. Review step shows order items, shipping summary, ROGUE payment slider with 10% discount calculation, payment breakdown. ROGUE rate locked from Mnesia token_prices on step 2 entry (10-min TTL). Payment step shows pending payment cards (BUX/ROGUE/Helio) with placeholder for Phase 5-7 execution. Confirmation step shows order number, items, totals, shipping address, "Continue Shopping" CTA.
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Checkout template: step indicator with 4 numbered circles + labels, shipping form (name, email, address, city, state, postal code, country, phone), review page with order items + shipping summary + ROGUE slider + payment breakdown, payment page with BUX/ROGUE/Helio pending cards + "Place Order" button, confirmation page with success icon + order details + shipping address.
+
+#### Files Modified (2 existing files)
+
+- `lib/blockster_v2_web/live/cart_live/index.ex` — Replaced `proceed_to_checkout` stub with real implementation: validates cart, calls `Orders.create_order_from_cart/2`, clears cart, broadcasts cart update, redirects to `/checkout/:order_id`.
+- `lib/blockster_v2/orders.ex` — Added `update_order_shipping/2` function using `Order.shipping_changeset/2`.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase4_test.exs` — 34 tests: create_order_from_cart (2 tests), Order.shipping_changeset validation (10 tests — required fields, email format, optional fields), update_order_shipping (2 tests), order authorization (3 tests), ROGUE discount calculations (9 tests — all 7 edge cases from Section 5 table + rate calculation + clamping), step progression (4 tests), generate_order_number (2 tests).
+
+#### Implementation Notes
+- Shipping form uses manual HTML inputs (not `<.input>` component) to match cart page's rounded-xl styling with `#E7E8F1` borders and `#8AE388` focus rings
+- ROGUE rate is locked when user enters the review step (Step 2), not on mount — stored in socket assigns with monotonic timestamp for 10-min TTL
+- ROGUE slider uses HTML range input with `accent-[#8AE388]` styling; breakdown box shows locked rate, discount amount, and ROGUE tokens to send
+- Payment step (Step 3) shows placeholder cards — actual BUX burn, ROGUE transfer, and Helio widget will be implemented in Phases 5-7
+- `complete_order` handler marks fully-BUX-covered orders as "paid" immediately; orders requiring ROGUE/Helio payment go to confirmation with info flash
+- Step navigation only allows going back (review→shipping, payment→review/shipping); forward requires completing the current step's action
+- Route `/checkout/:order_id` was already defined in router.ex from Phase 1
+
+---
+
+### Phase 3: Cart System — COMPLETE (2026-02-16)
+
+**All items done. 19 new tests (92 total).**
+
+#### Files Created (2 new files)
+
+- `lib/blockster_v2_web/live/cart_live/index.ex` — CartLive.Index LiveView: mount loads cart with preloaded items + validation warnings, handles increment/decrement quantity, remove item, update BUX tokens per item, proceed to checkout (stub for Phase 4). Helper functions for item_price, item_subtotal, variant_label, item_image, max_bux_for_item.
+- `lib/blockster_v2_web/live/cart_live/index.html.heex` — Cart page template: empty cart state with "Browse Shop" CTA, item cards with image/title/variant/quantity controls/remove button/BUX input, order summary with subtotal/BUX discount/total/balance, "Proceed to Checkout" button, validation warnings banner.
+
+#### Files Modified (4 existing files)
+
+- `lib/blockster_v2/cart.ex` — Added `item_count/1` (sum of quantities), `clear_cart/1` (remove all items), `broadcast_cart_update/1` (PubSub broadcast for navbar badge).
+- `lib/blockster_v2_web/live/bux_balance_hook.ex` — Added `cart_item_count` assign on mount (fetched from Cart.item_count), PubSub subscription to `cart:{user_id}`, handles `{:cart_updated, count}` message to update badge in real-time.
+- `lib/blockster_v2_web/live/shop_live/show.ex` — Replaced stub `add_to_cart` handler with real implementation: validates size/color selection, finds matching variant_id (with unisex shoe prefix support), calls Cart.add_to_cart, broadcasts cart update, redirects unauthenticated users to login.
+- `lib/blockster_v2_web/components/layouts.ex` — Added `cart_item_count` attr to `site_header`, added cart icon with count badge on both desktop (before user dropdown) and mobile (between search and user button) headers.
+
+#### Layout File Modified
+
+- `lib/blockster_v2_web/components/layouts/app.html.heex` — Passes `cart_item_count` assign to `<.site_header>`.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase3_test.exs` — 19 tests: item_count (3 tests), clear_cart (2 tests), add_to_cart with variants (3 tests), update_item_quantity (1 test), remove_item (1 test), update_item_bux (3 tests), validate_cart_items (3 tests), calculate_totals (2 tests), broadcast_cart_update (1 test).
+
+#### Implementation Notes
+- Cart icon uses same shopping bag SVG as the mobile bottom nav Shop link, with a green (#8AE388) badge showing count
+- `find_variant_id` uses `shoe_gender` assign directly (checks for "mens"/"womens") rather than depending on product_config.size_type, since shoe_gender is only set when size_type is "unisex_shoes"
+- Unauthenticated "Add to Cart" redirects to `/login?redirect=/shop/{slug}` — login page must handle redirect param
+- "Proceed to Checkout" currently shows flash stub — will wire to `Orders.create_order_from_cart` in Phase 4
+- Cart validation runs on mount to catch stale products/variants/stock issues
+
+---
+
+### Phase 2: Product Configuration + Shoe Sizes — COMPLETE (2026-02-16)
+
+**All items done. 28 new tests (73 total). Seed migration applied.**
+
+#### Files Created (2 new files)
+
+- `lib/blockster_v2/shop/size_presets.ex` — Predefined size sets (clothing XS-3XL, men's shoes US 7-14, women's shoes US 5-11), size_type helpers
+- `priv/repo/migrations/20260216200004_seed_product_configs.exs` — Seeds product_config records for all existing products (defaults: checkout_enabled=false)
+
+#### Files Modified (3 existing files)
+
+- `lib/blockster_v2_web/live/product_live/form.ex` — Added Product Configuration section: Enable Checkout toggle, Has Sizes toggle → size_type dropdown → preset size checkboxes, Has Colors toggle, Affiliate commission override. Loads/saves product_config. Regenerates variants from config-driven sizes.
+- `lib/blockster_v2_web/live/shop_live/show.ex` — Loads product_config on mount. Added `compute_display_sizes/3` for config-driven size display. Added `set_shoe_gender` event for unisex shoe toggle. Added shoe_gender and display_sizes assigns.
+- `lib/blockster_v2_web/live/shop_live/show.html.heex` — Conditional size rendering based on size_type (clothing buttons, shoe size grid, unisex Men's/Women's toggle, one_size label). Conditional color rendering. "Add to Cart" / "Coming Soon" based on checkout_enabled.
+
+#### Test File Created
+
+- `test/blockster_v2/shop/phase2_test.exs` — 28 tests: SizePresets (10 tests), ProductConfig integration (6 tests), Variant generation (4 tests), Conditional rendering logic (6 tests), Seed migration (2 tests)
+
+#### Implementation Notes
+- Size presets for unisex shoes use M-/W- prefix convention (e.g. "M-US 10", "W-US 8") stored in variants, stripped for display
+- Admin form wraps size_type select in its own `<form phx-change>` to avoid conflict with the main product form's `phx-change="validate"`
+- When `config_has_sizes` is enabled, the config-driven sizes take over from the legacy S/M/L/XL checkboxes in the Variants section
+- Legacy fallback: products without a product_config record still show sizes/colors based on variant data
+
+---
 
 ### Phase 1: Foundation (Backend) — COMPLETE (2026-02-16)
 

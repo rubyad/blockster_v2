@@ -116,6 +116,66 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   @doc """
+  Burns (transfers to treasury) BUX tokens from a user's smart wallet for shop checkout.
+  Calls the /burn endpoint on the BUX minter service.
+
+  ## Parameters
+    - wallet_address: The user's smart wallet address
+    - amount: Number of BUX tokens to burn (integer)
+    - user_id: The user's ID
+
+  ## Returns
+    - {:ok, response} with transactionHash on success
+    - {:error, reason} on failure
+  """
+  def burn_bux(wallet_address, amount, user_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping burn")
+      {:error, :not_configured}
+    else
+      payload = %{
+        walletAddress: wallet_address,
+        amount: amount,
+        userId: user_id,
+        token: "BUX"
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/burn", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+
+          if wallet_address do
+            sync_user_balances_async(user_id, wallet_address, force: true)
+          end
+
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Burn failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Burn failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Burn failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Burn HTTP request failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
   Mints BUX tokens asynchronously (fire and forget).
   Use this when you don't need to wait for the transaction to complete.
   """

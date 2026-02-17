@@ -538,8 +538,9 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
               <h3 class="text-sm text-gray-500 uppercase tracking-wider mb-2">Source Articles</h3>
               <div class="flex flex-wrap gap-2">
                 <%= for source <- (@entry.article_data["source_urls"] || []) do %>
-                  <a href={source} target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline bg-gray-100 rounded px-2 py-1 cursor-pointer">
-                    <%= URI.parse(source).host || source %>
+                  <% url = if is_map(source), do: source["url"], else: source %>
+                  <a href={url} target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline bg-gray-100 rounded px-2 py-1 cursor-pointer">
+                    <%= if is_map(source), do: source["source"] || URI.parse(url).host, else: URI.parse(url).host || url %>
                   </a>
                 <% end %>
                 <%= if (@entry.article_data["source_urls"] || []) == [] do %>

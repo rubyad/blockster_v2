@@ -54,6 +54,9 @@ import { FingerprintHook } from "./fingerprint_hook.js";
 import { ConnectWalletHook } from "./connect_wallet_hook.js";
 import { BalanceFetcherHook } from "./balance_fetcher.js";
 import { WalletTransferHook } from "./wallet_transfer.js";
+import { BuxPaymentHook } from "./hooks/bux_payment.js";
+import { RoguePaymentHook } from "./hooks/rogue_payment.js";
+import { HelioCheckoutHook } from "./hooks/helio_checkout.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -584,7 +587,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator, OnboardingPopup },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator, OnboardingPopup },
 });
 
 // connect if there are any LiveViews on the page

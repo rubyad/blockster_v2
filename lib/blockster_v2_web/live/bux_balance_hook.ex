@@ -10,6 +10,7 @@ defmodule BlocksterV2Web.BuxBalanceHook do
   import Phoenix.LiveView
   import Phoenix.Component, only: [assign: 3]
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.Cart, as: CartContext
 
   @pubsub BlocksterV2.PubSub
   @topic_prefix "bux_balance:"
@@ -31,15 +32,20 @@ defmodule BlocksterV2Web.BuxBalanceHook do
       %{}
     end
 
-    # Subscribe to balance updates for this user (only if connected and logged in)
+    # Fetch cart item count for navbar badge
+    cart_item_count = if user_id, do: CartContext.item_count(user_id), else: 0
+
+    # Subscribe to balance updates and cart updates for this user (only if connected and logged in)
     if connected?(socket) && user_id do
       Phoenix.PubSub.subscribe(@pubsub, "#{@topic_prefix}#{user_id}")
+      Phoenix.PubSub.subscribe(@pubsub, "cart:#{user_id}")
     end
 
     socket =
       socket
       |> assign(:bux_balance, initial_balance)
       |> assign(:token_balances, initial_token_balances)
+      |> assign(:cart_item_count, cart_item_count)
       |> attach_hook(:bux_balance_updates, :handle_info, fn
         {:bux_balance_updated, new_balance}, socket ->
           {:halt, assign(socket, :bux_balance, new_balance)}
@@ -58,6 +64,9 @@ defmodule BlocksterV2Web.BuxBalanceHook do
             socket
           end
           {:halt, socket}
+
+        {:cart_updated, count}, socket ->
+          {:halt, assign(socket, :cart_item_count, count)}
 
         _other, socket ->
           {:cont, socket}

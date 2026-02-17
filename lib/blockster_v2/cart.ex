@@ -172,4 +172,30 @@ defmodule BlocksterV2.Cart do
   def item_bux_discount(%CartItem{} = item) do
     Decimal.new("#{item.bux_tokens_to_redeem}") |> Decimal.div(100)
   end
+
+  @doc "Returns total quantity of items in a user's cart."
+  def item_count(user_id) do
+    case Repo.get_by(Cart, user_id: user_id) do
+      nil -> 0
+      cart ->
+        from(ci in CartItem, where: ci.cart_id == ^cart.id)
+        |> Repo.aggregate(:sum, :quantity) || 0
+    end
+  end
+
+  @doc "Removes all items from a user's cart."
+  def clear_cart(user_id) do
+    case Repo.get_by(Cart, user_id: user_id) do
+      nil -> :ok
+      cart ->
+        from(ci in CartItem, where: ci.cart_id == ^cart.id) |> Repo.delete_all()
+        :ok
+    end
+  end
+
+  @doc "Broadcasts cart update to refresh badge count in navbar."
+  def broadcast_cart_update(user_id) do
+    count = item_count(user_id)
+    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "cart:#{user_id}", {:cart_updated, count})
+  end
 end

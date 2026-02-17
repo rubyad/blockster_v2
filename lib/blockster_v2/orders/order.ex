@@ -47,6 +47,9 @@ defmodule BlocksterV2.Orders.Order do
     field :notes, :string
     field :affiliate_commission_rate, :decimal, default: Decimal.new("0.05")
 
+    # Fulfillment
+    field :tracking_number, :string
+
     # Refund tracking
     field :refund_bux_tx_hash, :string
     field :refund_rogue_tx_hash, :string
@@ -97,7 +100,7 @@ defmodule BlocksterV2.Orders.Order do
 
   def status_changeset(order, attrs) do
     order
-    |> cast(attrs, [:status, :fulfillment_notified_at, :notes])
+    |> cast(attrs, [:status, :fulfillment_notified_at, :notes, :tracking_number])
     |> validate_inclusion(:status, @valid_statuses)
   end
 end

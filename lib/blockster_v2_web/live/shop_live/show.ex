@@ -4,12 +4,13 @@ defmodule BlocksterV2Web.ShopLive.Show do
   alias BlocksterV2.Shop
   alias BlocksterV2.Repo
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.Cart, as: CartContext
 
   # 1 BUX/token = $0.01
   @token_value_usd 0.01
 
-  # Size ordering (S, M, L, XL)
-  @size_order %{"S" => 1, "M" => 2, "L" => 3, "XL" => 4, "XXL" => 5}
+  # Size ordering for clothing (S, M, L, XL)
+  @size_order %{"XS" => 0, "S" => 1, "M" => 2, "L" => 3, "XL" => 4, "XXL" => 5, "3XL" => 6}
 
   # Color name to hex code mapping
   @color_hex_map %{
@@ -47,6 +48,9 @@ defmodule BlocksterV2Web.ShopLive.Show do
                   |> Repo.preload([{:images, images_query}, {:variants, variants_query}, :hub, :categories, :product_tags, :artist_record])
                   |> transform_product()
 
+        # Load product config for conditional rendering
+        product_config = Shop.get_product_config(db_product.id)
+
         # Fetch user BUX balance if logged in (hub tokens removed)
         user_id = case socket.assigns[:current_user] do
           nil -> nil
@@ -72,10 +76,17 @@ defmodule BlocksterV2Web.ShopLive.Show do
         # Default tokens to redeem is the lesser of user balance and max allowed
         default_tokens = min(user_bux_balance, max_bux_tokens) |> to_float()
 
+        # Determine shoe gender for unisex products
+        shoe_gender = if product_config && product_config.size_type == "unisex_shoes", do: "mens", else: nil
+
+        # Compute display sizes based on config
+        display_sizes = compute_display_sizes(product, product_config, shoe_gender)
+
         {:ok,
          socket
          |> assign(:page_title, product.name)
          |> assign(:product, product)
+         |> assign(:product_config, product_config)
          |> assign(:quantity, 1)
          |> assign(:selected_size, nil)
          |> assign(:selected_color, nil)
@@ -85,7 +96,9 @@ defmodule BlocksterV2Web.ShopLive.Show do
          |> assign(:tokens_to_redeem, default_tokens)
          |> assign(:show_discount_breakdown, false)
          |> assign(:color_hex_map, @color_hex_map)
-         |> assign(:token_value_usd, @token_value_usd)}
+         |> assign(:token_value_usd, @token_value_usd)
+         |> assign(:shoe_gender, shoe_gender)
+         |> assign(:display_sizes, display_sizes)}
     end
   end
 
@@ -182,6 +195,31 @@ defmodule BlocksterV2Web.ShopLive.Show do
   defp to_float(nil), do: 0.0
   defp to_float(_), do: 0.0
 
+  # Computes the sizes to display based on product_config and shoe_gender
+  defp compute_display_sizes(product, nil, _shoe_gender), do: product.sizes
+
+  defp compute_display_sizes(product, config, shoe_gender) do
+    if config.has_sizes do
+      case config.size_type do
+        "unisex_shoes" ->
+          prefix = if shoe_gender == "womens", do: "W-", else: "M-"
+          product.sizes
+          |> Enum.filter(&String.starts_with?(&1, prefix))
+          |> Enum.map(&String.replace_leading(&1, prefix, ""))
+
+        "clothing" ->
+          product.sizes
+          |> Enum.sort_by(fn size -> Map.get(@size_order, size, 99) end)
+
+        _ ->
+          # mens_shoes, womens_shoes, one_size — show as-is
+          product.sizes
+      end
+    else
+      []
+    end
+  end
+
   @impl true
   def handle_event("increment_quantity", _, socket) do
     {:noreply, assign(socket, :quantity, socket.assigns.quantity + 1)}
@@ -234,9 +272,63 @@ defmodule BlocksterV2Web.ShopLive.Show do
 
   @impl true
   def handle_event("add_to_cart", _, socket) do
+    case socket.assigns[:current_user] do
+      nil ->
+        # Redirect unauthenticated users to login, then back to this product
+        {:noreply,
+         socket
+         |> put_flash(:info, "Please log in to add items to your cart")
+         |> redirect(to: ~p"/login?redirect=/shop/#{socket.assigns.product.slug}")}
+
+      user ->
+        product = socket.assigns.product
+        product_config = socket.assigns.product_config
+        selected_size = socket.assigns.selected_size
+        selected_color = socket.assigns.selected_color
+        quantity = socket.assigns.quantity
+        bux_tokens = trunc(socket.assigns.tokens_to_redeem)
+
+        # Validate size selection if product has sizes
+        has_sizes = product_config && product_config.has_sizes && Enum.any?(socket.assigns.display_sizes)
+        has_colors = (product_config && product_config.has_colors && Enum.any?(product.colors)) ||
+                     (is_nil(product_config) && Enum.any?(product.colors))
+
+        cond do
+          has_sizes && is_nil(selected_size) ->
+            {:noreply, put_flash(socket, :error, "Please select a size")}
+
+          has_colors && is_nil(selected_color) ->
+            {:noreply, put_flash(socket, :error, "Please select a color")}
+
+          true ->
+            # Find the matching variant_id
+            variant_id = find_variant_id(product, product_config, selected_size, selected_color, socket.assigns.shoe_gender)
+
+            case CartContext.add_to_cart(user.id, product.id, %{
+              variant_id: variant_id,
+              quantity: quantity,
+              bux_tokens_to_redeem: bux_tokens
+            }) do
+              {:ok, _item} ->
+                CartContext.broadcast_cart_update(user.id)
+                {:noreply, put_flash(socket, :info, "Added to cart!")}
+
+              {:error, _changeset} ->
+                {:noreply, put_flash(socket, :error, "Could not add to cart. Please try again.")}
+            end
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("set_shoe_gender", %{"gender" => gender}, socket) do
+    display_sizes = compute_display_sizes(socket.assigns.product, socket.assigns.product_config, gender)
+
     {:noreply,
      socket
-     |> put_flash(:info, "Coming soon! Product will be added to cart.")}
+     |> assign(:shoe_gender, gender)
+     |> assign(:display_sizes, display_sizes)
+     |> assign(:selected_size, nil)}
   end
 
   @impl true
@@ -259,5 +351,31 @@ defmodule BlocksterV2Web.ShopLive.Show do
     total = max(length(images), 1)
     prev_index = rem(current - 1 + total, total)
     {:noreply, assign(socket, :current_image_index, prev_index)}
+  end
+
+  # ── Private Helpers ────────────────────────────────────────────────────────
+
+  # Finds the variant_id matching the selected size/color.
+  # For unisex shoes, re-prefixes the display size with M-/W- to match stored variant option1.
+  defp find_variant_id(product, _product_config, selected_size, selected_color, shoe_gender) do
+    db_product = Repo.get(BlocksterV2.Shop.Product, product.id)
+    variants = Repo.preload(db_product, :variants).variants
+
+    # Reconstruct the actual size stored in the variant (handle shoe prefix)
+    actual_size = cond do
+      is_nil(selected_size) -> nil
+      shoe_gender in ["mens", "womens"] ->
+        prefix = if shoe_gender == "womens", do: "W-", else: "M-"
+        "#{prefix}#{selected_size}"
+      true -> selected_size
+    end
+
+    match = Enum.find(variants, fn v ->
+      size_match = is_nil(actual_size) || v.option1 == actual_size
+      color_match = is_nil(selected_color) || v.option2 == selected_color
+      size_match && color_match
+    end)
+
+    if match, do: match.id, else: nil
   end
 end

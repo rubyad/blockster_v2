@@ -357,24 +357,126 @@
           </div>
         </div>
 
-        <%!-- Size Selection --%>
-        <div class="mb-6">
-          <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
-          <div class="flex flex-wrap gap-2">
-            <%= for size <- @product.sizes do %>
-              <button
-                phx-click="select_size"
-                phx-value-size={size}
-                class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
-              >
-                <%= size %>
-              </button>
+        <%!-- Size Selection (conditional on product_config) --%>
+        <%= if @product_config && @product_config.has_sizes && Enum.any?(@display_sizes) do %>
+          <div class="mb-6">
+            <%= case @product_config.size_type do %>
+              <% "clothing" -> %>
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+                <div class="flex flex-wrap gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "mens_shoes" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">Men's Shoe Size</div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "womens_shoes" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">Women's Shoe Size</div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "unisex_shoes" -> %>
+                <%!-- Men's / Women's toggle --%>
+                <div class="flex gap-2 mb-3">
+                  <button
+                    phx-click="set_shoe_gender"
+                    phx-value-gender="mens"
+                    class={"px-4 py-2 rounded-lg font-haas_medium_65 text-sm transition-all cursor-pointer #{if @shoe_gender == "mens", do: "bg-[#141414] text-white", else: "bg-[#F5F6FB] text-[#515B70] hover:bg-[#E7E8F1]"}"}
+                  >
+                    Men's
+                  </button>
+                  <button
+                    phx-click="set_shoe_gender"
+                    phx-value-gender="womens"
+                    class={"px-4 py-2 rounded-lg font-haas_medium_65 text-sm transition-all cursor-pointer #{if @shoe_gender == "womens", do: "bg-[#141414] text-white", else: "bg-[#F5F6FB] text-[#515B70] hover:bg-[#E7E8F1]"}"}
+                  >
+                    Women's
+                  </button>
+                </div>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">
+                  <%= if @shoe_gender == "womens", do: "Women's", else: "Men's" %> Shoe Size
+                </div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "one_size" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70]">One Size</div>
+
+              <% _ -> %>
+                <%!-- Fallback: standard size buttons --%>
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+                <div class="flex flex-wrap gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
             <% end %>
           </div>
-        </div>
+        <% else %>
+          <%!-- Legacy fallback: show sizes if product has them but no config --%>
+          <%= if is_nil(@product_config) && Enum.any?(@product.sizes) do %>
+            <div class="mb-6">
+              <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+              <div class="flex flex-wrap gap-2">
+                <%= for size <- @product.sizes do %>
+                  <button
+                    phx-click="select_size"
+                    phx-value-size={size}
+                    class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                  >
+                    <%= size %>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
 
-        <%!-- Color Selection --%>
-        <%= if Enum.any?(@product.colors) do %>
+        <%!-- Color Selection (conditional on product_config) --%>
+        <%= if (@product_config && @product_config.has_colors && Enum.any?(@product.colors)) || (is_nil(@product_config) && Enum.any?(@product.colors)) do %>
           <div class="mb-6">
             <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Color</h3>
             <div class="flex flex-wrap gap-3">
@@ -449,12 +551,21 @@
         </div>
 
         <%!-- Add to Cart Button --%>
-        <button
-          class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all opacity-50 cursor-not-allowed"
-          disabled
-        >
-          Shopping Cart Coming Soon
-        </button>
+        <%= if @product_config && @product_config.checkout_enabled do %>
+          <button
+            phx-click="add_to_cart"
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
+            Add to Cart
+          </button>
+        <% else %>
+          <button
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all opacity-50 cursor-not-allowed"
+            disabled
+          >
+            Coming Soon
+          </button>
+        <% end %>
       </div>
     </div>
   </div>

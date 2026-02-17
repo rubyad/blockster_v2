@@ -67,6 +67,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :post_category_slug, :string, default: nil, doc: "the current post's category slug for highlighting"
   attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
   attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
+  attr :cart_item_count, :integer, default: 0, doc: "number of items in the user's cart"
 
   def site_header(assigns) do
     # Get the selected token balance and logo (defaults to BUX)
@@ -180,6 +181,17 @@ defmodule BlocksterV2Web.Layouts do
           <!-- Balance/User - Right (flex-1 for equal width with left side) -->
           <div class="flex items-center gap-2 flex-1 justify-end">
             <%= if @current_user do %>
+              <!-- Cart Icon with Badge -->
+              <.link navigate={~p"/cart"} class="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-[#141414]">
+                  <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+                </svg>
+                <%= if @cart_item_count > 0 do %>
+                  <span class="absolute -top-1 -right-1 bg-[#8AE388] text-[#141414] text-xs font-haas_medium_65 rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    <%= @cart_item_count %>
+                  </span>
+                <% end %>
+              </.link>
               <!-- Logged in user display with dropdown -->
               <div class="relative" id="desktop-user-dropdown" phx-click-away={JS.hide(to: "#desktop-dropdown-menu")}>
                 <button id="desktop-user-button" phx-click={JS.toggle(to: "#desktop-dropdown-menu")} class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-2 pr-3 hover:bg-gray-200 transition-colors cursor-pointer">
@@ -379,6 +391,18 @@ defmodule BlocksterV2Web.Layouts do
                     stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
+          <%= if @current_user do %>
+            <!-- Mobile Cart Icon with Badge -->
+            <.link navigate={~p"/cart"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
+                <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+              </svg>
+              <%= if @cart_item_count > 0 do %>
+                <span class="absolute -top-1 -right-1 bg-[#8AE388] text-[#141414] text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                  <%= @cart_item_count %>
+                </span>
+              <% end %>
+            </.link><% end %>
           <%= if @current_user do %>
             <!-- Mobile logged in user with dropdown -->
             <div class="relative" id="mobile-user-dropdown" phx-click-away={JS.hide(to: "#mobile-dropdown-menu")}>

@@ -4,10 +4,12 @@ defmodule BlocksterV2.Orders do
   """
 
   import Ecto.Query, warn: false
-  alias BlocksterV2.{Repo, Cart}
+  alias BlocksterV2.{Repo, Cart, Referrals}
   alias BlocksterV2.Orders.{Order, OrderItem, AffiliatePayout}
   alias BlocksterV2.Accounts.User
   require Logger
+
+  @max_orders_per_hour 5
 
   def get_order(id) do
     Order
@@ -28,6 +30,47 @@ defmodule BlocksterV2.Orders do
       preload: [:order_items]
     )
     |> Repo.all()
+  end
+
+  def list_orders_admin(opts \\ %{}) do
+    status_filter = Map.get(opts, :status)
+    limit = Map.get(opts, :limit, 50)
+
+    query =
+      from(o in Order,
+        order_by: [desc: o.inserted_at],
+        limit: ^limit,
+        preload: [:order_items, :affiliate_payouts, :user, :referrer]
+      )
+
+    query =
+      if status_filter && status_filter != "" && status_filter != "all" do
+        from(o in query, where: o.status == ^status_filter)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc "Counts orders created by user in the last `minutes` minutes (default 60)."
+  def recent_order_count(user_id, minutes \\ 60) do
+    cutoff = DateTime.add(DateTime.utc_now(), -minutes, :minute)
+
+    from(o in Order,
+      where: o.user_id == ^user_id,
+      where: o.inserted_at >= ^cutoff
+    )
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "Checks if user can place a new order (max #{@max_orders_per_hour} per hour)."
+  def check_rate_limit(user_id) do
+    if recent_order_count(user_id) >= @max_orders_per_hour do
+      {:error, :rate_limited}
+    else
+      :ok
+    end
   end
 
   def create_order_from_cart(cart, %User{} = user) do
@@ -81,6 +124,22 @@ defmodule BlocksterV2.Orders do
     order |> Order.status_changeset(attrs) |> Repo.update()
   end
 
+  def complete_bux_payment(%Order{} = order, tx_hash) do
+    order
+    |> Order.bux_payment_changeset(%{bux_burn_tx_hash: tx_hash, status: "bux_paid"})
+    |> Repo.update()
+  end
+
+  def complete_rogue_payment(%Order{} = order, tx_hash) do
+    order
+    |> Order.rogue_payment_changeset(%{rogue_payment_tx_hash: tx_hash, status: "rogue_paid"})
+    |> Repo.update()
+  end
+
+  def update_order_shipping(%Order{} = order, attrs) do
+    order |> Order.shipping_changeset(attrs) |> Repo.update()
+  end
+
   def complete_helio_payment(%Order{} = order, %{helio_transaction_id: _} = attrs) do
     {:ok, order} =
       order
@@ -95,17 +154,13 @@ defmodule BlocksterV2.Orders do
   def process_paid_order(%Order{} = order) do
     order = get_order(order.id)
 
-    Task.start(fn ->
-      BlocksterV2.OrderMailer.fulfillment_notification(order) |> BlocksterV2.Mailer.deliver()
-    end)
+    # Clear the user's cart so they start fresh
+    Cart.clear_cart(order.user_id)
+    Cart.broadcast_cart_update(order.user_id)
 
     Task.start(fn ->
-      BlocksterV2.OrderTelegram.send_fulfillment_notification(order)
+      BlocksterV2.Orders.Fulfillment.notify(order)
     end)
-
-    order
-    |> Order.status_changeset(%{fulfillment_notified_at: DateTime.utc_now()})
-    |> Repo.update()
 
     if order.referrer_id, do: create_affiliate_payouts(order)
 
@@ -120,6 +175,10 @@ defmodule BlocksterV2.Orders do
       Logger.warning("[Orders] Referrer #{order.referrer_id} not found")
       throw(:skip)
     end
+
+    # Get buyer's wallet for Mnesia referral_earnings recording
+    buyer = order.user || Repo.get(User, order.user_id)
+    buyer_wallet = buyer && buyer.smart_wallet_address
 
     if order.bux_tokens_burned > 0 do
       comm =
@@ -139,38 +198,47 @@ defmodule BlocksterV2.Orders do
           :shop_affiliate
         )
 
-        p |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now()}) |> Repo.update()
+        p |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now() |> DateTime.truncate(:second)}) |> Repo.update()
       end
+
+      record_affiliate_earning(referrer, buyer_wallet, comm, "BUX")
     end
 
     if Decimal.gt?(order.rogue_tokens_sent, 0) do
+      rogue_comm = Decimal.mult(order.rogue_tokens_sent, rate)
+
       insert_payout(
         order,
         referrer,
         "ROGUE",
         order.rogue_tokens_sent,
         rate,
-        Decimal.mult(order.rogue_tokens_sent, rate)
+        rogue_comm
       )
+
+      record_affiliate_earning(referrer, buyer_wallet, rogue_comm, "ROGUE")
     end
 
     if Decimal.gt?(order.helio_payment_amount, 0) do
       comm = Decimal.mult(order.helio_payment_amount, rate)
       is_card = order.helio_payment_currency == "CARD"
+      currency = order.helio_payment_currency || "USDC"
 
       insert_payout(
         order,
         referrer,
-        order.helio_payment_currency || "USDC",
+        currency,
         order.helio_payment_amount,
         rate,
         comm,
         %{
           status: if(is_card, do: "held", else: "pending"),
-          held_until: if(is_card, do: DateTime.add(DateTime.utc_now(), 30, :day)),
+          held_until: if(is_card, do: DateTime.add(DateTime.utc_now(), 30, :day) |> DateTime.truncate(:second)),
           commission_usd_value: comm
         }
       )
+
+      record_affiliate_earning(referrer, buyer_wallet, comm, currency)
     end
   catch
     :skip -> :ok
@@ -208,12 +276,12 @@ defmodule BlocksterV2.Orders do
     case result do
       {:ok, %{"txHash" => h}} ->
         p
-        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now(), tx_hash: h})
+        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now() |> DateTime.truncate(:second), tx_hash: h})
         |> Repo.update()
 
       {:ok, _} ->
         p
-        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now()})
+        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now() |> DateTime.truncate(:second)})
         |> Repo.update()
 
       {:error, r} ->
@@ -232,6 +300,18 @@ defmodule BlocksterV2.Orders do
       |> String.pad_leading(4, "0")
 
     "BLK-#{date}-#{suffix}"
+  end
+
+  defp record_affiliate_earning(referrer, buyer_wallet, amount, token) do
+    if referrer.smart_wallet_address do
+      Referrals.record_shop_purchase_earning(%{
+        referrer_id: referrer.id,
+        referrer_wallet: referrer.smart_wallet_address,
+        referee_wallet: buyer_wallet,
+        amount: amount,
+        token: token
+      })
+    end
   end
 
   defp insert_payout(order, referrer, currency, basis, rate, comm, extra \\ %{}) do
