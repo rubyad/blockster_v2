@@ -52,6 +52,10 @@ defmodule BlocksterV2Web.Router do
       live "/admin/stats/players", Admin.StatsLive.Players, :index
       live "/admin/stats/players/:address", Admin.StatsLive.PlayerDetail, :show
 
+      # Shop Orders Admin
+      live "/admin/orders", OrdersAdminLive, :index
+      live "/admin/orders/:id", OrderAdminLive.Show, :show
+
       # Content Automation Admin
       live "/admin/content", ContentAutomationLive.Dashboard, :index
       live "/admin/content/queue", ContentAutomationLive.Queue, :index
@@ -70,6 +74,8 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/settings/devices", MemberLive.Devices, :index
+      live "/cart", CartLive.Index, :index
+      live "/checkout/:order_id", CheckoutLive.Index, :index
     end
 
     live_session :author_new,
@@ -155,6 +161,9 @@ defmodule BlocksterV2Web.Router do
     # Token prices (from PriceTracker / CoinGecko cache)
     get "/prices", PriceController, :index
     get "/prices/:symbol", PriceController, :show
+
+    # Helio payment webhook (authenticated via Bearer token in handler)
+    post "/helio/webhook", HelioWebhookController, :handle
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

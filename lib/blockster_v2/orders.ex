@@ -1,0 +1,268 @@
+defmodule BlocksterV2.Orders do
+  @moduledoc """
+  The Orders context for managing orders, order items, and affiliate payouts.
+  """
+
+  import Ecto.Query, warn: false
+  alias BlocksterV2.{Repo, Cart}
+  alias BlocksterV2.Orders.{Order, OrderItem, AffiliatePayout}
+  alias BlocksterV2.Accounts.User
+  require Logger
+
+  def get_order(id) do
+    Order
+    |> Repo.get(id)
+    |> Repo.preload([:order_items, :affiliate_payouts, :user, :referrer])
+  end
+
+  def get_order_by_number(num) do
+    Order
+    |> Repo.get_by(order_number: num)
+    |> Repo.preload([:order_items, :user])
+  end
+
+  def list_orders_for_user(uid) do
+    from(o in Order,
+      where: o.user_id == ^uid,
+      order_by: [desc: o.inserted_at],
+      preload: [:order_items]
+    )
+    |> Repo.all()
+  end
+
+  def create_order_from_cart(cart, %User{} = user) do
+    cart = Cart.preload_items(cart)
+    totals = Cart.calculate_totals(cart, user.id)
+
+    Repo.transaction(fn ->
+      {:ok, order} =
+        %Order{}
+        |> Order.create_changeset(%{
+          order_number: generate_order_number(),
+          user_id: user.id,
+          referrer_id: user.referrer_id,
+          subtotal: totals.subtotal,
+          bux_discount_amount: totals.total_bux_discount,
+          bux_tokens_burned: totals.total_bux_tokens,
+          total_paid: totals.subtotal,
+          rogue_usd_rate_locked: get_current_rogue_rate()
+        })
+        |> Repo.insert()
+
+      Enum.each(cart.cart_items, fn item ->
+        img = List.first(item.product.images)
+
+        %OrderItem{}
+        |> OrderItem.changeset(%{
+          order_id: order.id,
+          product_id: item.product.id,
+          product_title: item.product.title,
+          product_image: img && img.src,
+          variant_id: item.variant && item.variant.id,
+          variant_title: item.variant && item.variant.title,
+          quantity: item.quantity,
+          unit_price:
+            if(item.variant,
+              do: item.variant.price,
+              else: List.first(item.product.variants).price
+            ),
+          subtotal: Cart.item_subtotal(item),
+          bux_tokens_redeemed: item.bux_tokens_to_redeem,
+          bux_discount_amount: Cart.item_bux_discount(item)
+        })
+        |> Repo.insert!()
+      end)
+
+      get_order(order.id)
+    end)
+  end
+
+  def update_order(%Order{} = order, attrs) do
+    order |> Order.status_changeset(attrs) |> Repo.update()
+  end
+
+  def complete_helio_payment(%Order{} = order, %{helio_transaction_id: _} = attrs) do
+    {:ok, order} =
+      order
+      |> Order.helio_payment_changeset(Map.put(attrs, :status, "paid"))
+      |> Repo.update()
+
+    process_paid_order(order)
+    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "order:#{order.id}", {:order_updated, order})
+    {:ok, order}
+  end
+
+  def process_paid_order(%Order{} = order) do
+    order = get_order(order.id)
+
+    Task.start(fn ->
+      BlocksterV2.OrderMailer.fulfillment_notification(order) |> BlocksterV2.Mailer.deliver()
+    end)
+
+    Task.start(fn ->
+      BlocksterV2.OrderTelegram.send_fulfillment_notification(order)
+    end)
+
+    order
+    |> Order.status_changeset(%{fulfillment_notified_at: DateTime.utc_now()})
+    |> Repo.update()
+
+    if order.referrer_id, do: create_affiliate_payouts(order)
+
+    :ok
+  end
+
+  def create_affiliate_payouts(%Order{} = order) do
+    rate = order.affiliate_commission_rate || Decimal.new("0.05")
+    referrer = Repo.get(User, order.referrer_id)
+
+    unless referrer do
+      Logger.warning("[Orders] Referrer #{order.referrer_id} not found")
+      throw(:skip)
+    end
+
+    if order.bux_tokens_burned > 0 do
+      comm =
+        Decimal.new(order.bux_tokens_burned)
+        |> Decimal.mult(rate)
+        |> Decimal.round(0)
+        |> Decimal.to_integer()
+
+      {:ok, p} = insert_payout(order, referrer, "BUX", order.bux_tokens_burned, rate, comm)
+
+      if referrer.smart_wallet_address do
+        BlocksterV2.BuxMinter.mint_bux(
+          referrer.smart_wallet_address,
+          comm,
+          referrer.id,
+          nil,
+          :shop_affiliate
+        )
+
+        p |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now()}) |> Repo.update()
+      end
+    end
+
+    if Decimal.gt?(order.rogue_tokens_sent, 0) do
+      insert_payout(
+        order,
+        referrer,
+        "ROGUE",
+        order.rogue_tokens_sent,
+        rate,
+        Decimal.mult(order.rogue_tokens_sent, rate)
+      )
+    end
+
+    if Decimal.gt?(order.helio_payment_amount, 0) do
+      comm = Decimal.mult(order.helio_payment_amount, rate)
+      is_card = order.helio_payment_currency == "CARD"
+
+      insert_payout(
+        order,
+        referrer,
+        order.helio_payment_currency || "USDC",
+        order.helio_payment_amount,
+        rate,
+        comm,
+        %{
+          status: if(is_card, do: "held", else: "pending"),
+          held_until: if(is_card, do: DateTime.add(DateTime.utc_now(), 30, :day)),
+          commission_usd_value: comm
+        }
+      )
+    end
+  catch
+    :skip -> :ok
+  end
+
+  def execute_affiliate_payout(%AffiliatePayout{} = p) do
+    p = Repo.preload(p, [:referrer, :order])
+
+    result =
+      case p.currency do
+        "BUX" ->
+          BlocksterV2.BuxMinter.mint_bux(
+            p.referrer.smart_wallet_address,
+            Decimal.to_integer(Decimal.round(p.commission_amount, 0)),
+            p.referrer.id,
+            nil,
+            :shop_affiliate
+          )
+
+        "ROGUE" ->
+          treasury = Application.get_env(:blockster_v2, :shop_treasury_address)
+
+          wei =
+            p.commission_amount
+            |> Decimal.mult(Decimal.new("1000000000000000000"))
+            |> Decimal.round(0)
+            |> Decimal.to_string()
+
+          BlocksterV2.BuxMinter.transfer_rogue(treasury, p.referrer.smart_wallet_address, wei)
+
+        c when c in ["USDC", "SOL", "ETH", "BTC", "CARD"] ->
+          {:ok, :usdc_payout_queued}
+      end
+
+    case result do
+      {:ok, %{"txHash" => h}} ->
+        p
+        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now(), tx_hash: h})
+        |> Repo.update()
+
+      {:ok, _} ->
+        p
+        |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now()})
+        |> Repo.update()
+
+      {:error, r} ->
+        {:error, r}
+    end
+  end
+
+  def generate_order_number do
+    date = Date.utc_today() |> Calendar.strftime("%Y%m%d")
+
+    suffix =
+      System.unique_integer([:positive, :monotonic])
+      |> rem(1_679_616)
+      |> Integer.to_string(36)
+      |> String.upcase()
+      |> String.pad_leading(4, "0")
+
+    "BLK-#{date}-#{suffix}"
+  end
+
+  defp insert_payout(order, referrer, currency, basis, rate, comm, extra \\ %{}) do
+    %AffiliatePayout{}
+    |> AffiliatePayout.changeset(
+      Map.merge(
+        %{
+          order_id: order.id,
+          referrer_id: referrer.id,
+          currency: currency,
+          basis_amount: basis,
+          commission_rate: rate,
+          commission_amount: comm
+        },
+        extra
+      )
+    )
+    |> Repo.insert()
+  end
+
+  defp get_current_rogue_rate do
+    case :mnesia.dirty_read(:token_prices, "rogue") do
+      [{:token_prices, "rogue", price, _}] when is_number(price) ->
+        Decimal.from_float(price)
+
+      _ ->
+        Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
+    end
+  rescue
+    _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
+  catch
+    :exit, _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
+  end
+end

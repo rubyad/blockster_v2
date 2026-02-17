@@ -47,7 +47,13 @@ defmodule BlocksterV2.Application do
         # Wallet multiplier refresher (daily at 3 AM UTC)
         {BlocksterV2.WalletMultiplierRefresher, []},
         # Referral reward poller (polls Rogue Chain for ReferralRewardPaid events)
-        {BlocksterV2.ReferralRewardPoller, []}
+        {BlocksterV2.ReferralRewardPoller, []},
+        # Shop checkout: serialized BUX balance deductions
+        {BlocksterV2.Shop.BalanceManager, []},
+        # Shop checkout: process held affiliate payouts (hourly)
+        {BlocksterV2.Orders.AffiliatePayoutWorker, []},
+        # Shop checkout: expire stale unpaid orders (every 5 min)
+        {BlocksterV2.Orders.OrderExpiryWorker, []}
       ]
     else
       []

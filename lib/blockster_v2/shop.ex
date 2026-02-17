@@ -6,7 +6,7 @@ defmodule BlocksterV2.Shop do
   import Ecto.Query, warn: false
   alias BlocksterV2.Repo
 
-  alias BlocksterV2.Shop.{Product, ProductVariant, ProductImage, ProductCategory, ProductTag, Artist}
+  alias BlocksterV2.Shop.{Product, ProductVariant, ProductImage, ProductCategory, ProductTag, Artist, ProductConfig}
 
   # ============================================================================
   # Products
@@ -540,4 +540,28 @@ defmodule BlocksterV2.Shop do
   end
 
   def search_artists(_), do: []
+
+  # ============================================================================
+  # Product Configs
+  # ============================================================================
+
+  def get_product_config(product_id) do
+    Repo.get_by(ProductConfig, product_id: product_id)
+  end
+
+  def create_product_config(attrs \\ %{}) do
+    %ProductConfig{}
+    |> ProductConfig.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_product_config(%ProductConfig{} = config, attrs) do
+    config
+    |> ProductConfig.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def change_product_config(%ProductConfig{} = config, attrs \\ %{}) do
+    ProductConfig.changeset(config, attrs)
+  end
 end

@@ -52,6 +52,8 @@ defmodule BlocksterV2.Shop.Product do
       join_keys: [product_id: :id, tag_id: :id],
       on_replace: :delete
 
+    has_one :product_config, BlocksterV2.Shop.ProductConfig
+
     timestamps()
   end
 

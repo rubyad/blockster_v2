@@ -50,7 +50,7 @@ defmodule BlocksterV2.BuxMinter do
   NOTE: Hub tokens removed. Token parameter kept for backward compatibility but always mints BUX.
   """
   def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
-      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified] do
+      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified, :shop_affiliate, :shop_refund] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
