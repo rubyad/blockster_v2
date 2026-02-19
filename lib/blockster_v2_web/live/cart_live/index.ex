@@ -46,6 +46,8 @@ defmodule BlocksterV2Web.CartLive.Index do
 
     if item && item.quantity > 1 do
       {:ok, _updated} = CartContext.update_item_quantity(item, item.quantity - 1)
+      # Clamp BUX if it exceeds new max after quantity decrease
+      CartContext.clamp_bux_for_item(item, item.quantity - 1)
       {:noreply, reload_cart(socket)}
     else
       {:noreply, socket}
@@ -188,10 +190,13 @@ defmodule BlocksterV2Web.CartLive.Index do
     max_pct = item.product.bux_max_discount || 0
 
     if max_pct > 0 do
-      Decimal.mult(price, Decimal.new("#{max_pct}"))
-      |> Decimal.div(1)
-      |> Decimal.round(0)
-      |> Decimal.to_integer()
+      per_unit =
+        Decimal.mult(price, Decimal.new("#{max_pct}"))
+        |> Decimal.div(1)
+        |> Decimal.round(0)
+        |> Decimal.to_integer()
+
+      per_unit * item.quantity
     else
       0
     end

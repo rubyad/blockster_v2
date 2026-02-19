@@ -13,6 +13,11 @@ export const RoguePaymentHook = {
 
     this.handleEvent("initiate_rogue_payment", async ({ amount_wei, order_id }) => {
       try {
+        if (!this.treasuryAddress || this.treasuryAddress === "0x0000000000000000000000000000000000000000") {
+          this.pushEvent("rogue_payment_error", { error: "Shop treasury address not configured. Please contact support." });
+          return;
+        }
+
         const wallet = window.smartAccount;
         if (!wallet) {
           this.pushEvent("rogue_payment_error", { error: "No wallet connected. Please refresh." });

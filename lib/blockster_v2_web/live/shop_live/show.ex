@@ -98,7 +98,8 @@ defmodule BlocksterV2Web.ShopLive.Show do
          |> assign(:color_hex_map, @color_hex_map)
          |> assign(:token_value_usd, @token_value_usd)
          |> assign(:shoe_gender, shoe_gender)
-         |> assign(:display_sizes, display_sizes)}
+         |> assign(:display_sizes, display_sizes)
+         |> assign(:added_to_cart, false)}
     end
   end
 
@@ -222,13 +223,14 @@ defmodule BlocksterV2Web.ShopLive.Show do
 
   @impl true
   def handle_event("increment_quantity", _, socket) do
-    {:noreply, assign(socket, :quantity, socket.assigns.quantity + 1)}
+    new_qty = socket.assigns.quantity + 1
+    {:noreply, socket |> assign(:quantity, new_qty) |> recalc_max_bux(new_qty)}
   end
 
   @impl true
   def handle_event("decrement_quantity", _, socket) do
-    new_quantity = max(1, socket.assigns.quantity - 1)
-    {:noreply, assign(socket, :quantity, new_quantity)}
+    new_qty = max(1, socket.assigns.quantity - 1)
+    {:noreply, socket |> assign(:quantity, new_qty) |> recalc_max_bux(new_qty)}
   end
 
   @impl true
@@ -311,7 +313,10 @@ defmodule BlocksterV2Web.ShopLive.Show do
             }) do
               {:ok, _item} ->
                 CartContext.broadcast_cart_update(user.id)
-                {:noreply, put_flash(socket, :info, "Added to cart!")}
+                {:noreply,
+                 socket
+                 |> assign(:added_to_cart, true)
+                 |> put_flash(:info, "Added to cart!")}
 
               {:error, _changeset} ->
                 {:noreply, put_flash(socket, :error, "Could not add to cart. Please try again.")}
@@ -351,6 +356,18 @@ defmodule BlocksterV2Web.ShopLive.Show do
     total = max(length(images), 1)
     prev_index = rem(current - 1 + total, total)
     {:noreply, assign(socket, :current_image_index, prev_index)}
+  end
+
+  # Recalculates max BUX tokens when quantity changes, and clamps tokens_to_redeem
+  defp recalc_max_bux(socket, quantity) do
+    product = socket.assigns.product
+    per_unit_max = product.max_bux_tokens / 1
+    new_max = per_unit_max * quantity
+    clamped = min(socket.assigns.tokens_to_redeem, min(new_max, socket.assigns.user_bux_balance))
+
+    socket
+    |> assign(:max_bux_tokens, new_max)
+    |> assign(:tokens_to_redeem, clamped)
   end
 
   # ── Private Helpers ────────────────────────────────────────────────────────

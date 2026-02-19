@@ -147,7 +147,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
 
                 <%= if @order.bux_tokens_burned > 0 do %>
                   <div class="flex justify-between text-sm">
-                    <span class="text-yellow-700">BUX Burned</span>
+                    <span class="text-yellow-700">BUX Sent</span>
                     <span class="font-medium text-yellow-700"><%= @order.bux_tokens_burned %> BUX (-$<%= Decimal.round(@order.bux_discount_amount, 2) %>)</span>
                   </div>
                   <%= if @order.bux_burn_tx_hash do %>
@@ -160,7 +160,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
                 <%= if Decimal.gt?(@order.rogue_tokens_sent || Decimal.new(0), 0) do %>
                   <div class="flex justify-between text-sm">
                     <span class="text-purple-700">ROGUE Sent</span>
-                    <span class="font-medium text-purple-700"><%= Decimal.round(@order.rogue_tokens_sent, 4) %> ROGUE (-$<%= Decimal.round(@order.rogue_payment_amount || Decimal.new(0), 2) %>)</span>
+                    <span class="font-medium text-purple-700"><%= format_rogue(@order.rogue_tokens_sent) %> ROGUE (-$<%= Decimal.round(@order.rogue_payment_amount || Decimal.new(0), 2) %>)</span>
                   </div>
                   <%= if @order.rogue_payment_tx_hash do %>
                     <div class="text-xs text-gray-400 text-right">
@@ -376,6 +376,22 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
   defp status_label("cancelled"), do: "Cancelled"
   defp status_label("refunded"), do: "Refunded"
   defp status_label(other), do: other
+
+  defp format_rogue(decimal) do
+    decimal
+    |> Decimal.round(2)
+    |> Decimal.to_string()
+    |> then(fn str ->
+      case String.split(str, ".") do
+        [int, dec] -> "#{add_commas(int)}.#{dec}"
+        [int] -> add_commas(int)
+      end
+    end)
+  end
+
+  defp add_commas(int_str) do
+    int_str |> String.reverse() |> String.replace(~r/(\d{3})(?=\d)/, "\\1,") |> String.reverse()
+  end
 
   defp status_style("paid"), do: "bg-green-100 text-green-800"
   defp status_style("processing"), do: "bg-blue-100 text-blue-800"

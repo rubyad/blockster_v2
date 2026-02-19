@@ -9,7 +9,7 @@ defmodule BlocksterV2.Orders do
   alias BlocksterV2.Accounts.User
   require Logger
 
-  @max_orders_per_hour 5
+  @max_orders_per_hour 20
 
   def get_order(id) do
     Order

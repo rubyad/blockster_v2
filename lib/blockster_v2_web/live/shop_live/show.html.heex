@@ -227,10 +227,11 @@
 
         <%!-- Price --%>
         <%
-          # Calculate discount for price display
+          # Calculate discount for price display (total for all items)
+          total_price = @product.price * @quantity
           discount_amount_top = @tokens_to_redeem * @token_value_usd
-          discounted_price_top = max(@product.price - discount_amount_top, 0)
-          discount_percent_top = if @product.price > 0, do: round(discount_amount_top / @product.price * 100), else: 0
+          discounted_price_top = max(total_price - discount_amount_top, 0)
+          discount_percent_top = if total_price > 0, do: round(discount_amount_top / total_price * 100), else: 0
           has_discount = @tokens_to_redeem > 0
         %>
         <div class="flex flex-wrap items-center gap-2 md:gap-3 mb-6">
@@ -239,14 +240,14 @@
               $<%= :erlang.float_to_binary(discounted_price_top, decimals: 2) %>
             </span>
             <span class="text-lg md:text-xl text-gray-400 line-through">
-              $<%= :erlang.float_to_binary(@product.price, decimals: 2) %>
+              $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
             </span>
             <span class="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs md:text-sm font-haas_medium_65">
               <%= discount_percent_top %>% OFF
             </span>
           <% else %>
             <span class="text-2xl md:text-3xl font-haas_medium_65 text-[#141414]">
-              $<%= :erlang.float_to_binary(@product.price, decimals: 2) %>
+              $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
             </span>
           <% end %>
           <%= if @product.bux_max_discount > 0 do %>
@@ -272,10 +273,11 @@
         <%!-- Token Discount Section (collapsible) - BUX only (hub tokens removed) --%>
         <%= if @product.bux_max_discount > 0 && @show_discount_breakdown do %>
           <%
-            # Calculate discount and final price (BUX only)
+            # Calculate discount and final price (BUX only, total for all items)
+            total_price_bd = @product.price * @quantity
             discount_amount = @tokens_to_redeem * @token_value_usd
-            discounted_price = max(@product.price - discount_amount, 0)
-            discount_percent = if @product.price > 0, do: round(discount_amount / @product.price * 100), else: 0
+            discounted_price = max(total_price_bd - discount_amount, 0)
+            discount_percent = if total_price_bd > 0, do: round(discount_amount / total_price_bd * 100), else: 0
             effective_max = min(@max_bux_tokens, @user_bux_balance)
           %>
           <div class="mb-6">
@@ -551,20 +553,28 @@
         </div>
 
         <%!-- Add to Cart Button --%>
-        <%= if @product_config && @product_config.checkout_enabled do %>
-          <button
-            phx-click="add_to_cart"
-            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            Add to Cart
-          </button>
-        <% else %>
+        <%= if @product_config && @product_config.checkout_enabled == false do %>
           <button
             class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all opacity-50 cursor-not-allowed"
             disabled
           >
             Coming Soon
           </button>
+        <% else %>
+          <button
+            phx-click="add_to_cart"
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:brightness-105 active:brightness-95 cursor-pointer"
+          >
+            Add to Cart
+          </button>
+          <%= if @added_to_cart do %>
+            <.link
+              navigate={~p"/cart"}
+              class="block w-full text-center bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:bg-gray-800 cursor-pointer mt-3"
+            >
+              Checkout
+            </.link>
+          <% end %>
         <% end %>
       </div>
     </div>

@@ -193,7 +193,7 @@ let MobileNavHighlight = {
 
     // Known section paths (everything else is considered "News" content)
     // Note: /hub (singular) is for hub detail pages, /hubs is the index
-    const sectionPaths = ['/hubs', '/hub', '/shop', '/airdrop', '/play', '/members', '/login', '/admin'];
+    const sectionPaths = ['/hubs', '/hub', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/members', '/login', '/admin'];
 
     // Check if current path is in a known section
     const isInKnownSection = sectionPaths.some(section =>
@@ -210,6 +210,9 @@ let MobileNavHighlight = {
       } else if (navPath === '/hubs') {
         // Hubs nav: active for /hubs index AND /hub/:slug detail pages
         isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
+      } else if (navPath === '/shop') {
+        // Shop nav: active for /shop, /cart, and /checkout pages
+        isActive = currentPath === '/shop' || currentPath.startsWith('/shop/') || currentPath === '/cart' || currentPath.startsWith('/checkout/');
       } else {
         // Other nav items: active if path matches or starts with nav path
         isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
@@ -250,12 +253,15 @@ let DesktopNavHighlight = {
       if (navPath === '/') {
         // News icon: active on homepage, category pages, and post pages
         // Post pages are any path that's not a known section
-        const knownSections = ['/hubs', '/hub/', '/shop', '/airdrop', '/play', '/login', '/members', '/admin'];
+        const knownSections = ['/hubs', '/hub/', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/login', '/members', '/admin'];
         const isKnownSection = knownSections.some(section => currentPath.startsWith(section));
         isActive = currentPath === '/' || currentPath.startsWith('/category/') || !isKnownSection;
       } else if (navPath === '/hubs') {
         // Hubs nav: active for /hubs index AND /hub/:slug detail pages
         isActive = currentPath === '/hubs' || currentPath.startsWith('/hubs/') || currentPath.startsWith('/hub/');
+      } else if (navPath === '/shop') {
+        // Shop nav: active for /shop, /cart, and /checkout pages
+        isActive = currentPath === '/shop' || currentPath.startsWith('/shop/') || currentPath === '/cart' || currentPath.startsWith('/checkout/');
       } else {
         isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
       }

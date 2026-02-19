@@ -74,16 +74,44 @@ defmodule BlocksterV2.Cart do
 
     max_pct = item.product.bux_max_discount || 0
 
-    max_bux =
+    # Max BUX is total for the line item (per-unit max × quantity)
+    max_bux_per_unit =
       Decimal.mult(price, Decimal.new("#{max_pct}"))
       |> Decimal.div(1)
       |> Decimal.round(0)
       |> Decimal.to_integer()
 
+    max_bux_total = max_bux_per_unit * item.quantity
+
     cond do
       bux < 0 -> {:error, "BUX amount cannot be negative"}
-      bux > max_bux -> {:error, "Maximum #{max_bux} BUX (#{max_pct}% max discount)"}
+      bux > max_bux_total -> {:error, "Maximum #{max_bux_total} BUX for #{item.quantity} item(s)"}
       true -> item |> CartItem.changeset(%{bux_tokens_to_redeem: bux}) |> Repo.update()
+    end
+  end
+
+  def clamp_bux_for_item(%CartItem{} = item, new_quantity) do
+    item = Repo.preload(item, [:product, :variant])
+
+    price =
+      if item.variant,
+        do: item.variant.price,
+        else: List.first(Repo.preload(item.product, :variants).variants).price
+
+    max_pct = item.product.bux_max_discount || 0
+
+    max_bux_per_unit =
+      Decimal.mult(price, Decimal.new("#{max_pct}"))
+      |> Decimal.div(1)
+      |> Decimal.round(0)
+      |> Decimal.to_integer()
+
+    max_bux_total = max_bux_per_unit * new_quantity
+
+    if item.bux_tokens_to_redeem > max_bux_total do
+      item |> CartItem.changeset(%{bux_tokens_to_redeem: max_bux_total}) |> Repo.update()
+    else
+      {:ok, item}
     end
   end
 

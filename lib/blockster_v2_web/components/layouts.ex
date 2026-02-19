@@ -297,6 +297,12 @@ defmodule BlocksterV2Web.Layouts do
                           Products
                         </.link>
                         <.link
+                          navigate={~p"/admin/orders"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Orders
+                        </.link>
+                        <.link
                           navigate={~p"/admin/product-categories"}
                           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
@@ -385,24 +391,37 @@ defmodule BlocksterV2Web.Layouts do
           </.link>
         </div>
         <div class="flex gap-2 items-center">
-          <button phx-click="open_mobile_search" class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
-              <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
-                    stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <%= if @current_user do %>
-            <!-- Mobile Cart Icon with Badge -->
-            <.link navigate={~p"/cart"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
-                <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+          <%= if @show_categories && (!@current_user || @cart_item_count == 0) do %>
+            <!-- Search icon: shown on content pages when cart is empty -->
+            <button phx-click="open_mobile_search" class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
+                <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
+                      stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <%= if @cart_item_count > 0 do %>
-                <span class="absolute -top-1 -right-1 bg-[#8AE388] text-[#141414] text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
-                  <%= @cart_item_count %>
-                </span>
-              <% end %>
-            </.link><% end %>
+            </button>
+          <% else %>
+            <%= if @current_user do %>
+              <!-- Cart icon: shown on non-content pages (always) or content pages when cart has items -->
+              <.link navigate={~p"/cart"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
+                  <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
+                </svg>
+                <%= if @cart_item_count > 0 do %>
+                  <span class="absolute -top-1 -right-1 bg-[#8AE388] text-[#141414] text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                    <%= @cart_item_count %>
+                  </span>
+                <% end %>
+              </.link>
+            <% else %>
+              <!-- Search icon fallback for logged-out users on non-content pages -->
+              <button phx-click="open_mobile_search" class="search-trigger w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 20 19" fill="none">
+                  <path d="M17 16.5L13.6556 13.1556M15.4444 8.72222C15.4444 12.1587 12.6587 14.9444 9.22222 14.9444C5.78578 14.9444 3 12.1587 3 8.72222C3 5.28578 5.78578 2.5 9.22222 2.5C12.6587 2.5 15.4444 5.28578 15.4444 8.72222Z"
+                        stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            <% end %>
+          <% end %>
           <%= if @current_user do %>
             <!-- Mobile logged in user with dropdown -->
             <div class="relative" id="mobile-user-dropdown" phx-click-away={JS.hide(to: "#mobile-dropdown-menu")}>
@@ -509,6 +528,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Products
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/orders"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Orders
                       </.link>
                       <.link
                         navigate={~p"/admin/product-categories"}

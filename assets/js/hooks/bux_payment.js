@@ -14,6 +14,11 @@ export const BuxPaymentHook = {
 
     this.handleEvent("initiate_bux_payment_client", async ({ amount, order_id }) => {
       try {
+        if (!this.treasuryAddress || this.treasuryAddress === "0x0000000000000000000000000000000000000000") {
+          this.pushEvent("bux_payment_error", { error: "Shop treasury address not configured. Please contact support." });
+          return;
+        }
+
         const wallet = window.smartAccount;
         if (!wallet) {
           this.pushEvent("bux_payment_error", { error: "No wallet connected. Please refresh." });

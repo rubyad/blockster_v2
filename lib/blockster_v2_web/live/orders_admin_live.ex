@@ -124,7 +124,7 @@ defmodule BlocksterV2Web.OrdersAdminLive do
                           <span class="text-xs text-yellow-700"><%= order.bux_tokens_burned %> BUX</span>
                         <% end %>
                         <%= if Decimal.gt?(order.rogue_tokens_sent || Decimal.new(0), 0) do %>
-                          <span class="text-xs text-purple-700"><%= Decimal.round(order.rogue_tokens_sent, 2) %> ROGUE</span>
+                          <span class="text-xs text-purple-700"><%= format_rogue(order.rogue_tokens_sent) %> ROGUE</span>
                         <% end %>
                         <%= if Decimal.gt?(order.helio_payment_amount || Decimal.new(0), 0) do %>
                           <span class="text-xs text-blue-700">$<%= Decimal.round(order.helio_payment_amount, 2) %> <%= order.helio_payment_currency %></span>
@@ -182,6 +182,22 @@ defmodule BlocksterV2Web.OrdersAdminLive do
   defp status_label("cancelled"), do: "Cancelled"
   defp status_label("refunded"), do: "Refunded"
   defp status_label(other), do: other
+
+  defp format_rogue(decimal) do
+    decimal
+    |> Decimal.round(2)
+    |> Decimal.to_string()
+    |> then(fn str ->
+      case String.split(str, ".") do
+        [int, dec] -> "#{add_commas(int)}.#{dec}"
+        [int] -> add_commas(int)
+      end
+    end)
+  end
+
+  defp add_commas(int_str) do
+    int_str |> String.reverse() |> String.replace(~r/(\d{3})(?=\d)/, "\\1,") |> String.reverse()
+  end
 
   defp status_style("paid"), do: "bg-green-100 text-green-800"
   defp status_style("processing"), do: "bg-blue-100 text-blue-800"

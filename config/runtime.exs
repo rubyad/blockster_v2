@@ -52,6 +52,18 @@ config :blockster_v2,
   twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
   twilio_auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
   twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID"),
+  # Helio payments (card/crypto checkout)
+  helio_api_key: System.get_env("HELIO_API_KEY"),
+  helio_secret_key: System.get_env("HELIO_SECRET_KEY"),
+  helio_paylink_id: System.get_env("HELIO_PAYLINK_ID"),
+  helio_webhook_secret: System.get_env("HELIO_WEBHOOK_SECRET"),
+  # Telegram fulfillment notifications
+  telegram_bot_token: System.get_env("TELEGRAM_BOT_TOKEN"),
+  telegram_fulfillment_channel_id: System.get_env("TELEGRAM_FULFILLMENT_CHANNEL_ID"),
+  # Email fulfillment notifications
+  fulfillment_email: System.get_env("FULFILLMENT_EMAIL") || "fulfillment@blockster.com",
+  # Shop treasury wallet (receives ROGUE payments)
+  shop_treasury_address: System.get_env("SHOP_TREASURY_ADDRESS"),
   content_automation: [
     enabled: System.get_env("CONTENT_AUTOMATION_ENABLED", "false") == "true",
     anthropic_api_key: System.get_env("ANTHROPIC_API_KEY"),
