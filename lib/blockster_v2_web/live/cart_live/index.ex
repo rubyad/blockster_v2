@@ -96,28 +96,34 @@ defmodule BlocksterV2Web.CartLive.Index do
     cart = socket.assigns.cart
     user = socket.assigns.current_user
 
-    case BlocksterV2.Orders.check_rate_limit(user.id) do
-      {:error, :rate_limited} ->
-        {:noreply, put_flash(socket, :error, "Too many orders. Please wait before placing another order.")}
+    # If user already has a recent pending order, redirect to it instead of creating a duplicate
+    case BlocksterV2.Orders.get_recent_pending_order(user.id) do
+      %{id: order_id} ->
+        {:noreply, push_navigate(socket, to: ~p"/checkout/#{order_id}")}
 
-      :ok ->
-        case CartContext.validate_cart_items(cart) do
+      nil ->
+        case BlocksterV2.Orders.check_rate_limit(user.id) do
+          {:error, :rate_limited} ->
+            {:noreply, put_flash(socket, :error, "Too many orders. Please wait before placing another order.")}
+
           :ok ->
-            case BlocksterV2.Orders.create_order_from_cart(cart, user) do
-              {:ok, order} ->
-                CartContext.clear_cart(user.id)
-                CartContext.broadcast_cart_update(user.id)
-                {:noreply, push_navigate(socket, to: ~p"/checkout/#{order.id}")}
+            case CartContext.validate_cart_items(cart) do
+              :ok ->
+                case BlocksterV2.Orders.create_order_from_cart(cart, user) do
+                  {:ok, order} ->
+                    # Don't clear the cart yet — it gets cleared after payment in process_paid_order
+                    {:noreply, push_navigate(socket, to: ~p"/checkout/#{order.id}")}
 
-              {:error, _reason} ->
-                {:noreply, put_flash(socket, :error, "Could not create order. Please try again.")}
+                  {:error, _reason} ->
+                    {:noreply, put_flash(socket, :error, "Could not create order. Please try again.")}
+                end
+
+              {:error, errors} ->
+                {:noreply,
+                 socket
+                 |> assign(:warnings, errors)
+                 |> put_flash(:error, "Please fix cart issues before checkout")}
             end
-
-          {:error, errors} ->
-            {:noreply,
-             socket
-             |> assign(:warnings, errors)
-             |> put_flash(:error, "Please fix cart issues before checkout")}
         end
     end
   end

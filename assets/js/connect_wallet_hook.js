@@ -167,6 +167,11 @@ export const ConnectWalletHook = {
         });
         break;
       case "phantom":
+        // Phantom exposes its EVM provider at window.phantom.ethereum
+        // Without this check, Thirdweb falls back to window.ethereum (MetaMask)
+        if (!window.phantom?.ethereum) {
+          throw new Error("No injected provider found for Phantom. Please install the Phantom browser extension.");
+        }
         wallet = createWallet("app.phantom");
         break;
       default:

@@ -1,7 +1,29 @@
 defmodule BlocksterV2Web.AuthControllerFingerprintTest do
-  use BlocksterV2Web.ConnCase, async: true
+  use BlocksterV2Web.ConnCase, async: false
 
   alias BlocksterV2.Accounts
+
+  setup do
+    # Create user_betting_stats Mnesia table (needed by Accounts.create_user_betting_stats/2 on signup)
+    case :mnesia.create_table(:user_betting_stats, [
+           attributes: [
+             :user_id, :wallet_address,
+             :bux_total_bets, :bux_wins, :bux_losses, :bux_total_wagered,
+             :bux_total_winnings, :bux_total_losses, :bux_net_pnl,
+             :rogue_total_bets, :rogue_wins, :rogue_losses, :rogue_total_wagered,
+             :rogue_total_winnings, :rogue_total_losses, :rogue_net_pnl,
+             :first_bet_at, :last_bet_at, :updated_at, :onchain_stats_cache
+           ],
+           ram_copies: [node()],
+           type: :set,
+           index: [:bux_total_wagered, :rogue_total_wagered]
+         ]) do
+      {:atomic, :ok} -> :ok
+      {:aborted, {:already_exists, :user_betting_stats}} -> :mnesia.clear_table(:user_betting_stats)
+    end
+
+    :ok
+  end
 
   describe "POST /api/auth/email/verify with fingerprint" do
     @valid_params %{

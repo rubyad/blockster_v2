@@ -68,23 +68,26 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
     {:noreply, assign(socket, tweet_approved: !socket.assigns.tweet_approved)}
   end
 
-  def handle_event("update_scheduled_at", %{"value" => ""}, socket) do
-    {:noreply, assign(socket, scheduled_at: nil)}
-  end
+  def handle_event("update_scheduled_at", params, socket) do
+    # phx-change on standalone input sends %{"value" => ...}
+    # phx-click clear button sends %{"value" => ""}
+    value = params["value"] || params["scheduled_at"] || ""
 
-  def handle_event("update_scheduled_at", %{"scheduled_at" => value}, socket) when value != "" do
-    # Input is in EST — convert to UTC for storage
-    case NaiveDateTime.from_iso8601(value <> ":00") do
-      {:ok, naive} ->
-        utc_dt = TimeHelper.est_to_utc(naive)
-        {:noreply, assign(socket, scheduled_at: utc_dt)}
-      _ ->
-        {:noreply, socket}
+    if value == "" do
+      {:noreply, assign(socket, scheduled_at: nil)}
+    else
+      # Input is in EST — convert to UTC for storage
+      # datetime-local may send "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+      normalized = if String.length(value) == 16, do: value <> ":00", else: value
+
+      case NaiveDateTime.from_iso8601(normalized) do
+        {:ok, naive} ->
+          utc_dt = TimeHelper.est_to_utc(naive)
+          {:noreply, assign(socket, scheduled_at: utc_dt)}
+        _ ->
+          {:noreply, socket}
+      end
     end
-  end
-
-  def handle_event("update_scheduled_at", _params, socket) do
-    {:noreply, socket}
   end
 
   def handle_event("update_offer_field", %{"field" => field, "value" => value}, socket) do

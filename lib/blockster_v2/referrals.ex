@@ -459,27 +459,27 @@ defmodule BlocksterV2.Referrals do
 
   # ----- Helper Functions -----
 
-  defp mint_referral_reward(earning_id, referrer_wallet, amount, token, referrer_id, reason) do
-    if referrer_wallet && referrer_wallet != "" do
+  defp mint_referral_reward(earning_id, _referrer_wallet, amount, token, referrer_id, reason) do
+    # Always look up fresh wallet from DB instead of using URL param
+    fresh_wallet = case Repo.get(User, referrer_id) do
+      %User{smart_wallet_address: addr} when is_binary(addr) and addr != "" ->
+        String.downcase(addr)
+      _ ->
+        Logger.warning("[Referrals] No wallet found for referrer #{referrer_id}, skipping mint")
+        nil
+    end
+
+    if fresh_wallet do
       Task.start(fn ->
-        case BuxMinter.mint_bux(
-          referrer_wallet,
-          amount,
-          referrer_id,
-          nil,  # No specific post/referee ID needed
-          reason,
-          token
-        ) do
+        case BuxMinter.mint_bux(fresh_wallet, amount, referrer_id, nil, reason, token) do
           {:ok, response} ->
-            # Update Mnesia record with tx_hash
             tx_hash = response["transactionHash"]
             if tx_hash do
               update_earning_tx_hash(earning_id, tx_hash)
               Logger.info("[Referrals] Updated earning #{earning_id} with tx_hash: #{tx_hash}")
             end
 
-            # Sync balances from blockchain and broadcast to update header/member page in real-time
-            BuxMinter.sync_user_balances_async(referrer_id, referrer_wallet, force: true)
+            BuxMinter.sync_user_balances_async(referrer_id, fresh_wallet, force: true)
           {:error, err} ->
             Logger.error("[Referrals] Failed to mint referral reward: #{inspect(err)}")
         end

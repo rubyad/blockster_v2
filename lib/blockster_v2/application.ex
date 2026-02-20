@@ -32,8 +32,6 @@ defmodule BlocksterV2.Application do
       [
         # Mnesia initialization (after cluster discovery so nodes are connected)
         {BlocksterV2.MnesiaInitializer, []},
-        # Sorted posts cache (must be after Mnesia initialization)
-        {BlocksterV2.SortedPostsCache, []},
         # Serialized pool writer for race-condition-free pool operations
         {BlocksterV2.PostBuxPoolWriter, []},
         # Time tracking GenServer

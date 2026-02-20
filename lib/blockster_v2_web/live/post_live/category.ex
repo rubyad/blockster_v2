@@ -161,21 +161,12 @@ defmodule BlocksterV2Web.PostLive.Category do
         module = Enum.at(@component_modules, module_index)
         posts_needed = Map.get(@posts_per_component, module)
 
-        # Fetch posts based on sort mode
-        posts = case sort_mode do
-          "popular" ->
-            Blog.list_published_posts_by_popular_category(
-              category_slug,
-              limit: posts_needed,
-              exclude_ids: acc_ids
-            )
-          _ ->
-            Blog.list_published_posts_by_date_category(
-              category_slug,
-              limit: posts_needed,
-              exclude_ids: acc_ids
-            )
-        end
+        # Fetch posts sorted by date
+        posts = Blog.list_published_posts_by_date_category(
+          category_slug,
+          limit: posts_needed,
+          exclude_ids: acc_ids
+        )
 
         if posts == [] do
           {acc_components, acc_ids, acc_balances}

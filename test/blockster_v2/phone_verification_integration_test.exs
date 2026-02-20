@@ -10,6 +10,49 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
   # Setup mox for TwilioClient
   setup :verify_on_exit!
 
+  # Create Mnesia tables needed by PhoneVerification.verify_code/2 ->
+  # UnifiedMultiplier.update_phone_multiplier/1 -> refresh_multipliers -> calculate_all_multipliers
+  setup_all do
+    tables = [
+      {:unified_multipliers, :set,
+        [:user_id, :x_score, :x_multiplier, :phone_multiplier, :rogue_multiplier,
+         :wallet_multiplier, :overall_multiplier, :last_updated, :created_at],
+        [:overall_multiplier]},
+      {:x_connections, :set,
+        [:user_id, :x_user_id, :x_username, :x_name, :x_profile_image_url,
+         :access_token_encrypted, :refresh_token_encrypted, :token_expires_at,
+         :scopes, :connected_at, :x_score, :followers_count, :following_count,
+         :tweet_count, :listed_count, :avg_engagement_rate, :original_tweets_analyzed,
+         :account_created_at, :score_calculated_at, :updated_at],
+        [:x_user_id, :x_username]},
+      {:user_rogue_balances, :set,
+        [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain, :rogue_balance_arbitrum],
+        [:user_smart_wallet]},
+      {:user_multipliers, :set,
+        [:user_id, :smart_wallet, :x_multiplier, :linkedin_multiplier, :personal_multiplier,
+         :rogue_multiplier, :overall_multiplier, :extra_field1, :extra_field2, :extra_field3,
+         :extra_field4, :created_at, :updated_at],
+        [:smart_wallet, :overall_multiplier]},
+      {:referrals, :set,
+        [:user_id, :referrer_id, :referrer_wallet, :referee_wallet, :referred_at, :on_chain_synced],
+        [:referrer_id, :referrer_wallet, :referee_wallet]}
+    ]
+
+    for {name, type, attributes, index} <- tables do
+      case :mnesia.create_table(name, [
+        type: type,
+        attributes: attributes,
+        ram_copies: [node()],
+        index: index
+      ]) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+      end
+    end
+
+    :ok
+  end
+
   # Helper to create test users
   defp create_user(attrs \\ %{}) do
     unique_id = System.unique_integer([:positive])
@@ -61,7 +104,7 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
       assert verification.verified == false
 
       # Mock Twilio code verification
-      expect(TwilioClientMock, :check_verification_code, fn "VA123456789", "123456" ->
+      expect(TwilioClientMock, :check_verification_code, fn "+12345678900", "123456" ->
         {:ok, :verified}
       end)
 
@@ -108,7 +151,7 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
       assert Decimal.equal?(verification.geo_multiplier, Decimal.new("2.0"))
 
       # Mock Twilio code verification
-      expect(TwilioClientMock, :check_verification_code, fn "VA987654321", "654321" ->
+      expect(TwilioClientMock, :check_verification_code, fn "+442079460958", "654321" ->
         {:ok, :verified}
       end)
 
@@ -154,7 +197,7 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
       assert Decimal.equal?(verification.geo_multiplier, Decimal.new("1.0"))
 
       # Mock Twilio code verification
-      expect(TwilioClientMock, :check_verification_code, fn "VA111222333", "999888" ->
+      expect(TwilioClientMock, :check_verification_code, fn "+919876543210", "999888" ->
         {:ok, :verified}
       end)
 
@@ -195,30 +238,15 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
 
       assert {:ok, _} = PhoneVerification.send_verification_code(user1.id, phone)
 
-      expect(TwilioClientMock, :check_verification_code, fn "VA123456789", "123456" ->
+      expect(TwilioClientMock, :check_verification_code, fn "+12345678900", "123456" ->
         {:ok, :verified}
       end)
 
       assert {:ok, _} = PhoneVerification.verify_code(user1.id, "123456")
 
-      # User 2 tries to use same phone - should fail at database level
-      # Mock Twilio calls since they will be attempted before database constraint check
-      expect(TwilioClientMock, :lookup_phone_number, fn ^phone ->
-        {:ok, %{
-          country_code: "US",
-          carrier_name: "Verizon",
-          line_type: "mobile",
-          fraud_flags: %{}
-        }}
-      end)
-
-      expect(TwilioClientMock, :send_verification_code, fn ^phone ->
-        {:ok, "VA999888777"}
-      end)
-
-      # This should fail at database level due to unique constraint
-      assert {:error, changeset} = PhoneVerification.send_verification_code(user2.id, phone)
-      assert %{phone_number: ["This phone number is already registered"]} = errors_on(changeset)
+      # User 2 tries to use same phone - caught by check_phone_not_registered before Twilio calls
+      assert {:error, message} = PhoneVerification.send_verification_code(user2.id, phone)
+      assert message =~ "already registered"
     end
   end
 
@@ -405,7 +433,7 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
       assert {:ok, _} = PhoneVerification.send_verification_code(user.id, phone)
 
       # Mock Twilio rejecting wrong code
-      expect(TwilioClientMock, :check_verification_code, fn "VA123456789", "000000" ->
+      expect(TwilioClientMock, :check_verification_code, fn "+12345678900", "000000" ->
         {:error, "Verification failed: incorrect"}
       end)
 

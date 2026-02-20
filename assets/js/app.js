@@ -440,7 +440,7 @@ let InfiniteScroll = {
     this.sentinel.style.height = '1px';
     this.el.appendChild(this.sentinel);
 
-    // Create intersection observer with larger margin
+    // Create intersection observer with large margin to trigger well before footer
     this.observer = new IntersectionObserver(
       entries => {
         const entry = entries[0];
@@ -450,7 +450,7 @@ let InfiniteScroll = {
       },
       {
         root: this.useElementScroll ? this.el : null, // Use element as root if it's scrollable
-        rootMargin: '200px',
+        rootMargin: '800px',
         threshold: 0
       }
     );
@@ -475,8 +475,8 @@ let InfiniteScroll = {
         clientHeight = window.innerHeight;
       }
 
-      // Trigger when within 200px of bottom
-      if (scrollHeight - scrollTop - clientHeight < 200) {
+      // Trigger when within 800px of bottom
+      if (scrollHeight - scrollTop - clientHeight < 800) {
         this.loadMore();
       }
     };

@@ -291,7 +291,7 @@ defmodule BlocksterV2.Blog do
       end
 
     Repo.all(query)
-    |> with_bux_balances()
+    |> with_bux_earned()
   end
 
   @doc """
@@ -306,212 +306,62 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
-  Lists published posts sorted by BUX pool balance (highest first),
-  then by published_at for posts with equal/zero balance.
-
-  Uses SortedPostsCache for O(1) pagination instead of sorting on every request.
-
-  ## Options
-    * `:limit` - Maximum number of posts to return (default: 20)
-    * `:offset` - Number of posts to skip (default: 0)
-
-  ## Examples
-      iex> list_published_posts_by_pool(limit: 20, offset: 0)
-      [%Post{bux_balance: 500}, %Post{bux_balance: 300}, ...]
-  """
-  def list_published_posts_by_pool(opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-
-    # Get sorted post IDs from cache (O(1) slice operation)
-    sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page(limit, offset)
-    post_ids = Enum.map(sorted_ids_with_balances, fn {id, _balance} -> id end)
-    balances_map = Map.new(sorted_ids_with_balances)
-
-    if Enum.empty?(post_ids) do
-      []
-    else
-      # Fetch only the posts we need from database
-      posts = from(p in Post,
-        where: p.id in ^post_ids,
-        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
-      )
-      |> Repo.all()
-      |> populate_author_names()
-
-      # Re-order posts to match sorted order and attach balance
-      post_ids
-      |> Enum.map(fn post_id ->
-        post = Enum.find(posts, fn p -> p.id == post_id end)
-        if post do
-          Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
-        end
-      end)
-      |> Enum.reject(&is_nil/1)
-    end
-  end
-
-  @doc """
   Gets the total count of published posts (for pagination UI).
-  Uses SortedPostsCache for O(1) lookup.
   """
   def count_published_posts do
-    BlocksterV2.SortedPostsCache.count()
-  end
-
-  @doc """
-  Lists published posts for a category sorted by BUX pool balance DESC.
-  Uses SortedPostsCache for O(n) filter + O(1) pagination.
-
-  ## Options
-    * `:limit` - Maximum number of posts to return (default: 20)
-    * `:offset` - Number of posts to skip (default: 0)
-    * `:exclude_ids` - List of post IDs to exclude (default: [])
-  """
-  def list_published_posts_by_category_pool(category_slug, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-    exclude_ids = Keyword.get(opts, :exclude_ids, [])
-
-    # Get category by slug
-    case get_category_by_slug(category_slug) do
-      nil ->
-        []
-
-      category ->
-        # Get sorted post IDs from cache
-        # Fetch extra to account for exclusions
-        fetch_limit = limit + length(exclude_ids)
-        sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_category(
-          category.id,
-          fetch_limit,
-          offset
-        )
-
-        # Filter out excluded IDs and take the limit
-        filtered = sorted_ids_with_balances
-          |> Enum.reject(fn {id, _} -> id in exclude_ids end)
-          |> Enum.take(limit)
-
-        post_ids = Enum.map(filtered, fn {id, _} -> id end)
-        balances_map = Map.new(filtered)
-
-        if Enum.empty?(post_ids) do
-          []
-        else
-          # Fetch posts from database
-          posts = from(p in Post,
-            where: p.id in ^post_ids,
-            preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
-          )
-          |> Repo.all()
-          |> populate_author_names()
-
-          # Re-order to match sorted order and attach balance
-          post_ids
-          |> Enum.map(fn post_id ->
-            post = Enum.find(posts, fn p -> p.id == post_id end)
-            if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
-          end)
-          |> Enum.reject(&is_nil/1)
-        end
-    end
-  end
-
-  @doc """
-  Lists published posts for a tag sorted by BUX pool balance DESC.
-  Uses SortedPostsCache for O(n) filter + O(1) pagination.
-
-  ## Options
-    * `:limit` - Maximum number of posts to return (default: 20)
-    * `:offset` - Number of posts to skip (default: 0)
-    * `:exclude_ids` - List of post IDs to exclude (default: [])
-  """
-  def list_published_posts_by_tag_pool(tag_slug, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-    exclude_ids = Keyword.get(opts, :exclude_ids, [])
-
-    # Get tag by slug
-    case get_tag_by_slug(tag_slug) do
-      nil ->
-        []
-
-      tag ->
-        # Get sorted post IDs from cache
-        # Fetch extra to account for exclusions
-        fetch_limit = limit + length(exclude_ids)
-        sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_tag(
-          tag.id,
-          fetch_limit,
-          offset
-        )
-
-        # Filter out excluded IDs and take the limit
-        filtered = sorted_ids_with_balances
-          |> Enum.reject(fn {id, _} -> id in exclude_ids end)
-          |> Enum.take(limit)
-
-        post_ids = Enum.map(filtered, fn {id, _} -> id end)
-        balances_map = Map.new(filtered)
-
-        if Enum.empty?(post_ids) do
-          []
-        else
-          # Fetch posts from database
-          posts = from(p in Post,
-            where: p.id in ^post_ids,
-            preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
-          )
-          |> Repo.all()
-          |> populate_author_names()
-
-          # Re-order to match sorted order and attach balance
-          post_ids
-          |> Enum.map(fn post_id ->
-            post = Enum.find(posts, fn p -> p.id == post_id end)
-            if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
-          end)
-          |> Enum.reject(&is_nil/1)
-        end
-    end
+    from(p in Post, where: not is_nil(p.published_at))
+    |> Repo.aggregate(:count)
   end
 
   @doc """
   Gets the count of published posts in a category.
-  Uses SortedPostsCache for O(n) filter.
   """
   def count_published_posts_by_category(category_slug) do
     case get_category_by_slug(category_slug) do
       nil -> 0
-      category -> BlocksterV2.SortedPostsCache.count_by_category(category.id)
+      category ->
+        from(p in Post,
+          where: not is_nil(p.published_at),
+          where: p.category_id == ^category.id
+        )
+        |> Repo.aggregate(:count)
     end
   end
 
   @doc """
   Gets the count of published posts with a tag.
-  Uses SortedPostsCache for O(n) filter.
   """
   def count_published_posts_by_tag(tag_slug) do
     case get_tag_by_slug(tag_slug) do
       nil -> 0
-      tag -> BlocksterV2.SortedPostsCache.count_by_tag(tag.id)
+      tag ->
+        from(p in Post,
+          join: pt in "post_tags", on: pt.post_id == p.id,
+          where: not is_nil(p.published_at),
+          where: pt.tag_id == ^tag.id
+        )
+        |> Repo.aggregate(:count)
     end
   end
 
   # =============================================================================
-  # Date-sorted (Latest tab) queries
+  # Date-sorted queries (direct Ecto, no cache)
   # =============================================================================
 
   @doc """
   Lists published posts sorted by published_at DESC (newest first).
+  Returns posts with :bux_balance set to total_distributed (BUX earned).
   """
   def list_published_posts_by_date(opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
     offset = Keyword.get(opts, :offset, 0)
 
-    sorted_ids_with_balances = BlocksterV2.SortedPostsCache.get_page_by_date(limit, offset)
-    fetch_posts_in_order(sorted_ids_with_balances)
+    published_posts_query()
+    |> limit(^limit)
+    |> offset(^offset)
+    |> Repo.all()
+    |> populate_author_names()
+    |> with_bux_earned()
   end
 
   @doc """
@@ -525,10 +375,25 @@ defmodule BlocksterV2.Blog do
     case get_category_by_slug(category_slug) do
       nil -> []
       category ->
-        fetch_limit = limit + length(exclude_ids)
-        sorted = BlocksterV2.SortedPostsCache.get_page_by_date_category(category.id, fetch_limit, offset)
-        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
-        fetch_posts_in_order(filtered)
+        query = from(p in Post,
+          where: not is_nil(p.published_at),
+          where: p.category_id == ^category.id,
+          order_by: [desc: p.published_at],
+          limit: ^limit,
+          offset: ^offset,
+          preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+        )
+
+        query = if exclude_ids != [] do
+          from(p in query, where: p.id not in ^exclude_ids)
+        else
+          query
+        end
+
+        query
+        |> Repo.all()
+        |> populate_author_names()
+        |> with_bux_earned()
     end
   end
 
@@ -543,85 +408,26 @@ defmodule BlocksterV2.Blog do
     case get_tag_by_slug(tag_slug) do
       nil -> []
       tag ->
-        fetch_limit = limit + length(exclude_ids)
-        sorted = BlocksterV2.SortedPostsCache.get_page_by_date_tag(tag.id, fetch_limit, offset)
-        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
-        fetch_posts_in_order(filtered)
-    end
-  end
+        query = from(p in Post,
+          join: pt in "post_tags", on: pt.post_id == p.id,
+          where: not is_nil(p.published_at),
+          where: pt.tag_id == ^tag.id,
+          order_by: [desc: p.published_at],
+          limit: ^limit,
+          offset: ^offset,
+          preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+        )
 
-  # =============================================================================
-  # Popular-sorted (Popular tab) queries
-  # =============================================================================
+        query = if exclude_ids != [] do
+          from(p in query, where: p.id not in ^exclude_ids)
+        else
+          query
+        end
 
-  @doc """
-  Lists published posts sorted by total_distributed DESC (most BUX paid out first).
-  """
-  def list_published_posts_by_popular(opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-
-    sorted_ids_with_values = BlocksterV2.SortedPostsCache.get_page_by_popular(limit, offset)
-    fetch_posts_in_order(sorted_ids_with_values)
-  end
-
-  @doc """
-  Lists published posts for a category sorted by total_distributed DESC.
-  """
-  def list_published_posts_by_popular_category(category_slug, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-    exclude_ids = Keyword.get(opts, :exclude_ids, [])
-
-    case get_category_by_slug(category_slug) do
-      nil -> []
-      category ->
-        fetch_limit = limit + length(exclude_ids)
-        sorted = BlocksterV2.SortedPostsCache.get_page_by_popular_category(category.id, fetch_limit, offset)
-        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
-        fetch_posts_in_order(filtered)
-    end
-  end
-
-  @doc """
-  Lists published posts for a tag sorted by total_distributed DESC.
-  """
-  def list_published_posts_by_popular_tag(tag_slug, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-    exclude_ids = Keyword.get(opts, :exclude_ids, [])
-
-    case get_tag_by_slug(tag_slug) do
-      nil -> []
-      tag ->
-        fetch_limit = limit + length(exclude_ids)
-        sorted = BlocksterV2.SortedPostsCache.get_page_by_popular_tag(tag.id, fetch_limit, offset)
-        filtered = sorted |> Enum.reject(fn {id, _} -> id in exclude_ids end) |> Enum.take(limit)
-        fetch_posts_in_order(filtered)
-    end
-  end
-
-  # Shared helper: fetch posts from DB in the order specified by sorted_ids_with_values
-  defp fetch_posts_in_order(sorted_ids_with_values) do
-    post_ids = Enum.map(sorted_ids_with_values, fn {id, _} -> id end)
-    balances_map = Map.new(sorted_ids_with_values)
-
-    if Enum.empty?(post_ids) do
-      []
-    else
-      posts = from(p in Post,
-        where: p.id in ^post_ids,
-        preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
-      )
-      |> Repo.all()
-      |> populate_author_names()
-
-      post_ids
-      |> Enum.map(fn post_id ->
-        post = Enum.find(posts, fn p -> p.id == post_id end)
-        if post, do: Map.put(post, :bux_balance, Map.get(balances_map, post_id, 0))
-      end)
-      |> Enum.reject(&is_nil/1)
+        query
+        |> Repo.all()
+        |> populate_author_names()
+        |> with_bux_earned()
     end
   end
 
@@ -802,7 +608,7 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
-  Returns suggested posts for a user, sorted by BUX balance descending.
+  Returns suggested posts for a user — recent posts, shuffled.
   Excludes the current post and (for logged-in users) posts they've already read.
 
   ## Parameters
@@ -811,11 +617,10 @@ defmodule BlocksterV2.Blog do
     - limit: Number of posts to return (default: 4)
 
   ## Returns
-    List of Post structs with :bux_balance virtual field populated
+    List of Post structs with :bux_balance virtual field set to total_distributed
   """
   def get_suggested_posts(current_post_id, user_id \\ nil, limit \\ 4) do
     alias BlocksterV2.EngagementTracker
-    alias BlocksterV2.SortedPostsCache
 
     # Build exclusion list
     exclude_ids = if user_id do
@@ -825,35 +630,22 @@ defmodule BlocksterV2.Blog do
       [current_post_id]
     end
 
-    # Get sorted post IDs from cache, fetch extra to account for exclusions
-    fetch_limit = limit + length(exclude_ids)
+    # Fetch 20 most recent published posts, then shuffle and take limit
+    pool_size = 20
 
-    post_ids_with_balances = SortedPostsCache.get_page(fetch_limit, 0)
-      |> Enum.reject(fn {id, _balance} -> id in exclude_ids end)
-      |> Enum.take(limit)
+    query = from(p in Post,
+      where: not is_nil(p.published_at),
+      where: p.id not in ^exclude_ids,
+      order_by: [desc: p.published_at],
+      limit: ^pool_size,
+      preload: [:category]
+    )
 
-    # Extract IDs and create balance lookup map
-    post_ids = Enum.map(post_ids_with_balances, fn {id, _} -> id end)
-    balances_map = Map.new(post_ids_with_balances)
-
-    if Enum.empty?(post_ids) do
-      []
-    else
-      # Fetch full post objects with category preload
-      posts = from(p in Post,
-        where: p.id in ^post_ids,
-        preload: [:category]
-      )
-      |> Repo.all()
-
-      # Sort by the original cache order (balance DESC, published_at DESC) and attach balance
-      # Create a position map from the ordered post_ids list
-      position_map = post_ids |> Enum.with_index() |> Map.new()
-
-      posts
-      |> Enum.sort_by(fn p -> Map.get(position_map, p.id, 999) end)
-      |> Enum.map(fn p -> Map.put(p, :bux_balance, Map.get(balances_map, p.id, 0)) end)
-    end
+    query
+    |> Repo.all()
+    |> with_bux_earned()
+    |> Enum.shuffle()
+    |> Enum.take(limit)
   end
 
   @doc """
@@ -1228,28 +1020,26 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
-  Adds bux_balance from Mnesia to posts.
-  Returns posts with :bux_balance virtual field set.
-  Always returns display value (>= 0) - never shows negative balances.
+  Adds total_distributed (BUX earned) from Mnesia to posts.
+  Returns posts with :bux_balance virtual field set to total_distributed.
   """
-  def with_bux_balances(posts) when is_list(posts) do
+  def with_bux_earned(posts) when is_list(posts) do
     alias BlocksterV2.EngagementTracker
 
-    post_ids = Enum.map(posts, & &1.id)
-    balances = EngagementTracker.get_post_bux_balances(post_ids)
-
     Enum.map(posts, fn post ->
-      # Always display >= 0 (never show negative pool balances)
-      raw_balance = Map.get(balances, post.id, 0)
-      Map.put(post, :bux_balance, max(0, raw_balance))
+      distributed = EngagementTracker.get_post_total_distributed(post.id)
+      Map.put(post, :bux_balance, distributed)
     end)
   end
 
-  def with_bux_balances(%Post{} = post) do
+  def with_bux_earned(%Post{} = post) do
     alias BlocksterV2.EngagementTracker
 
-    # Use display function which returns max(0, balance)
-    balance = EngagementTracker.get_post_bux_balance_display(post.id)
-    Map.put(post, :bux_balance, balance)
+    distributed = EngagementTracker.get_post_total_distributed(post.id)
+    Map.put(post, :bux_balance, distributed)
   end
+
+  # Keep old name as alias for backward compatibility during rolling deploys
+  def with_bux_balances(posts) when is_list(posts), do: with_bux_earned(posts)
+  def with_bux_balances(%Post{} = post), do: with_bux_earned(post)
 end

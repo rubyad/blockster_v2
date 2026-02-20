@@ -45,9 +45,9 @@ defmodule BlocksterV2Web.SharedComponents do
     balance_formatted = Number.Delimit.number_to_delimited(assigns.balance, precision: 0)
 
     tooltip = if is_empty do
-      "No BUX available in reward pool"
+      "No BUX earned yet"
     else
-      "#{balance_formatted} BUX available in reward pool"
+      "#{balance_formatted} BUX earned"
     end
 
     assigns = assigns

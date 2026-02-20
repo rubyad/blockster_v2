@@ -69,8 +69,8 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Increment view count
     # {:ok, updated_post} = Blog.increment_view_count(post)
 
-    # Add bux_balance from Mnesia
-    updated_post = Blog.with_bux_balances(post)
+    # Add bux_balance (total_distributed) from Mnesia
+    updated_post = Blog.with_bux_earned(post)
 
     # Check pool availability (pool system - finite BUX pools)
     # Note: pool_balance can be negative internally, but we display max(0, balance)

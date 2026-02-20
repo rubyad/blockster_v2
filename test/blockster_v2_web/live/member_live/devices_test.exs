@@ -1,11 +1,32 @@
 defmodule BlocksterV2Web.MemberLive.DevicesTest do
-  use BlocksterV2Web.LiveCase, async: true
+  use BlocksterV2Web.LiveCase, async: false
 
   alias BlocksterV2.Accounts
   alias BlocksterV2.Accounts.{User, UserFingerprint}
   alias BlocksterV2.Repo
 
   import Phoenix.LiveViewTest
+
+  setup do
+    case :mnesia.create_table(:user_betting_stats, [
+           attributes: [
+             :user_id, :wallet_address,
+             :bux_total_bets, :bux_wins, :bux_losses, :bux_total_wagered,
+             :bux_total_winnings, :bux_total_losses, :bux_net_pnl,
+             :rogue_total_bets, :rogue_wins, :rogue_losses, :rogue_total_wagered,
+             :rogue_total_winnings, :rogue_total_losses, :rogue_net_pnl,
+             :first_bet_at, :last_bet_at, :updated_at, :onchain_stats_cache
+           ],
+           ram_copies: [node()],
+           type: :set,
+           index: [:bux_total_wagered, :rogue_total_wagered]
+         ]) do
+      {:atomic, :ok} -> :ok
+      {:aborted, {:already_exists, :user_betting_stats}} -> :mnesia.clear_table(:user_betting_stats)
+    end
+
+    :ok
+  end
 
   describe "mount /settings/devices" do
     test "redirects to login when user is not authenticated", %{conn: conn} do
@@ -14,7 +35,7 @@ defmodule BlocksterV2Web.MemberLive.DevicesTest do
 
     test "displays user's devices when authenticated", %{conn: conn} do
       # Create user with 2 devices
-      {:ok, user, _session} =
+      {:ok, user, _session, _is_new} =
         Accounts.authenticate_email_with_fingerprint(%{
           email: "test@example.com",
           wallet_address: "0xabc",
@@ -74,7 +95,7 @@ defmodule BlocksterV2Web.MemberLive.DevicesTest do
     end
 
     test "displays formatted timestamps", %{conn: conn} do
-      {:ok, user, _session} =
+      {:ok, user, _session, _is_new} =
         Accounts.authenticate_email_with_fingerprint(%{
           email: "test@example.com",
           wallet_address: "0xabc",
@@ -97,7 +118,7 @@ defmodule BlocksterV2Web.MemberLive.DevicesTest do
   describe "remove_device event" do
     setup %{conn: conn} do
       # Create user with 2 devices
-      {:ok, user, _session} =
+      {:ok, user, _session, _is_new} =
         Accounts.authenticate_email_with_fingerprint(%{
           email: "test@example.com",
           wallet_address: "0xabc",
@@ -190,7 +211,7 @@ defmodule BlocksterV2Web.MemberLive.DevicesTest do
 
   describe "navigation" do
     test "has back to profile link", %{conn: conn} do
-      {:ok, user, _session} =
+      {:ok, user, _session, _is_new} =
         Accounts.authenticate_email_with_fingerprint(%{
           email: "test@example.com",
           wallet_address: "0xabc",
@@ -204,16 +225,16 @@ defmodule BlocksterV2Web.MemberLive.DevicesTest do
       {:ok, view, html} = live(conn, ~p"/settings/devices")
 
       # Verify back link exists
-      assert html =~ "Back to Profile"
+      assert html =~ "Back to Home"
 
-      # Verify link points to profile
-      assert has_element?(view, "a[href='/profile']")
+      # Verify link points to home
+      assert has_element?(view, "a[href='/']")
     end
   end
 
   describe "info box" do
     test "displays device management information", %{conn: conn} do
-      {:ok, user, _session} =
+      {:ok, user, _session, _is_new} =
         Accounts.authenticate_email_with_fingerprint(%{
           email: "test@example.com",
           wallet_address: "0xabc",

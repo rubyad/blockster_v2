@@ -270,14 +270,11 @@ defmodule BlocksterV2.Accounts do
         end
 
       user ->
-        # Existing user - update smart_wallet_address if changed, create session
-        user =
-          if user.smart_wallet_address != smart_wallet_address do
-            {:ok, updated_user} = update_user(user, %{smart_wallet_address: smart_wallet_address})
-            updated_user
-          else
-            user
-          end
+        # Log if smart_wallet_address differs but never overwrite — it's set once at signup
+        if user.smart_wallet_address != smart_wallet_address do
+          Logger.warning("[Accounts] smart_wallet_address mismatch for user #{user.id}: " <>
+            "stored=#{user.smart_wallet_address} received=#{smart_wallet_address}")
+        end
 
         case create_session(user.id) do
           {:ok, session} -> {:ok, user, session}
@@ -346,24 +343,37 @@ defmodule BlocksterV2.Accounts do
     if skip_fingerprint do
       create_new_user_with_fingerprint(attrs)
     else
-      # Check PostgreSQL for fingerprint ownership
-      case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
-        nil ->
-          # Fingerprint is available - create new account
-          create_new_user_with_fingerprint(attrs)
+      # Step 1: Server-side verification with FingerprintJS API
+      fingerprint_request_id = attrs["fingerprint_request_id"] || attrs[:fingerprint_request_id]
 
-        existing_fingerprint ->
-          # BLOCK: Fingerprint already claimed by another user
-          existing_user = get_user(existing_fingerprint.user_id)
+      case BlocksterV2.FingerprintVerifier.verify_event(fingerprint_request_id, fingerprint_id) do
+        {:ok, _} ->
+          # Step 2: Check PostgreSQL for fingerprint ownership
+          case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
+            nil ->
+              # Fingerprint is available - create new account
+              create_new_user_with_fingerprint(attrs)
 
-          # Log suspicious activity
-          {:ok, _} = update_user(existing_user, %{
-            is_flagged_multi_account_attempt: true,
-            last_suspicious_activity_at: DateTime.utc_now()
-          })
+            existing_fingerprint ->
+              # BLOCK: Fingerprint already claimed by another user
+              existing_user = get_user(existing_fingerprint.user_id)
 
-          # Return error with masked email
-          {:error, :fingerprint_conflict, existing_user.email}
+              # Log suspicious activity
+              {:ok, _} = update_user(existing_user, %{
+                is_flagged_multi_account_attempt: true,
+                last_suspicious_activity_at: DateTime.utc_now()
+              })
+
+              # Return error with masked email
+              {:error, :fingerprint_conflict, existing_user.email}
+          end
+
+        {:error, reason} ->
+          Logger.warning("[Accounts] Fingerprint server verification failed: #{reason} for #{email}")
+          changeset = %User{}
+            |> Ecto.Changeset.cast(%{}, [])
+            |> Ecto.Changeset.add_error(:fingerprint_id, "fingerprint verification failed")
+          {:error, changeset}
       end
     end
   end
@@ -375,6 +385,19 @@ defmodule BlocksterV2.Accounts do
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
     fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
 
+    # CREATE2 always produces a different address from the signer EOA
+    if wallet_address == smart_wallet_address do
+      Logger.warning("[Accounts] Rejected signup: smart_wallet == wallet for #{email}")
+      changeset = %User{}
+        |> Ecto.Changeset.cast(%{}, [])
+        |> Ecto.Changeset.add_error(:smart_wallet_address, "invalid smart wallet address")
+      {:error, changeset}
+    else
+      create_new_user_with_fingerprint_inner(attrs, email, wallet_address, smart_wallet_address, fingerprint_id, fingerprint_confidence)
+    end
+  end
+
+  defp create_new_user_with_fingerprint_inner(_attrs, email, wallet_address, smart_wallet_address, fingerprint_id, fingerprint_confidence) do
     # Skip fingerprint insert if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
     skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
 
@@ -431,14 +454,11 @@ defmodule BlocksterV2.Accounts do
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
     fingerprint_confidence = attrs["fingerprint_confidence"] || attrs[:fingerprint_confidence]
 
-    # Update smart_wallet_address if changed
-    user =
-      if user.smart_wallet_address != smart_wallet_address do
-        {:ok, updated_user} = update_user(user, %{smart_wallet_address: smart_wallet_address})
-        updated_user
-      else
-        user
-      end
+    # Log if smart_wallet_address differs but never overwrite — it's set once at signup
+    if user.smart_wallet_address != smart_wallet_address do
+      Logger.warning("[Accounts] smart_wallet_address mismatch for user #{user.id}: " <>
+        "stored=#{user.smart_wallet_address} received=#{smart_wallet_address}")
+    end
 
     # CRITICAL: Always check and claim fingerprints for existing users
     # This prevents unclaimed devices from being used for new account creation

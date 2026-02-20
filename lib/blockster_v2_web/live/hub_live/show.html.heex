@@ -227,15 +227,59 @@
   <%= if @show_all do %>
     <!-- Hub Posts -->
     <div>
-      <.live_component
-        module={BlocksterV2Web.PostLive.PostsThreeComponent}
-        id="hub-posts-three"
-        posts={@posts_three}
-        content={@hub.name}
-        type="hub-posts"
-        show_read_more={false}
-        hide_title={true}
-      />
+      <%= if length(@posts_three) >= 5 do %>
+        <.live_component
+          module={BlocksterV2Web.PostLive.PostsThreeComponent}
+          id="hub-posts-three"
+          posts={@posts_three}
+          content={@hub.name}
+          type="hub-posts"
+          show_read_more={false}
+          hide_title={true}
+        />
+      <% else %>
+        <%!-- Simple grid for 1-4 posts --%>
+        <section class="py-3 md:py-6">
+          <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+            <%= if @posts_three == [] do %>
+              <div class="text-center py-20">
+                <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
+              </div>
+            <% else %>
+              <div class={[
+                "grid gap-6",
+                case length(@posts_three) do
+                  1 -> "grid-cols-1 max-w-lg mx-auto"
+                  2 -> "grid-cols-2"
+                  _ -> "grid-cols-2 md:grid-cols-3"
+                end
+              ]}>
+                <%= for post <- @posts_three do %>
+                  <.link navigate={~p"/#{post.slug}"} class="rounded-xl shadow-lg hover:shadow-xl bg-white transition-all flex flex-col cursor-pointer">
+                    <div class="w-full overflow-hidden rounded-t-xl aspect-square relative">
+                      <%= if post.featured_image do %>
+                        <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                      <% else %>
+                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F]"></div>
+                      <% end %>
+                    </div>
+                    <div class="px-3 py-3 md:px-4 md:py-4 flex flex-col text-center flex-1">
+                      <%= if post.category do %>
+                        <span class="uppercase text-xs font-extralight text-black tracking-[0.2em] mb-1"><%= post.category.name %></span>
+                      <% end %>
+                      <h4 class="text-sm md:text-lg font-medium text-black leading-5 md:leading-6 tracking-wide flex-1"><%= post.title %></h4>
+                      <p class="text-xs font-light text-gray-500 mt-2"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
+                      <div class="flex justify-center mt-auto pt-2">
+                        <.token_badge post={post} balance={Map.get(post, :bux_balance, 0)} id={"hub-simple-#{post.id}"} />
+                      </div>
+                    </div>
+                  </.link>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
     </div>
     <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] flex justify-end relative z-10 mb-8">
       <button phx-click="switch_tab" phx-value-tab="news" class="text-sm font-haas_medium_65 text-gray-500 hover:underline cursor-pointer">

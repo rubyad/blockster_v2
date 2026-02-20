@@ -536,7 +536,7 @@ defmodule BlocksterV2.BuxMinter do
         # Use longer timeout for blockchain transactions which can take time
         # Use inet backend for DNS to avoid issues with Erlang distributed mode
         case Req.post(url, body: body, headers: headers, receive_timeout: 60_000,
-               retry: :transient, retry_delay: &retry_delay/1, max_retries: 5,
+               retry: false,
                connect_options: [transport_opts: [inet_backend: :inet]]) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)

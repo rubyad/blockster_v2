@@ -317,13 +317,8 @@ defmodule BlocksterV2Web.PostLive.Index do
     # Calculate posts needed for one full cycle (19 posts)
     total_posts_needed = @posts_per_cycle
 
-    # Fetch posts based on sort mode
-    posts = case sort_mode do
-      "popular" ->
-        Blog.list_published_posts_by_popular(limit: total_posts_needed, offset: offset)
-      _ ->
-        Blog.list_published_posts_by_date(limit: total_posts_needed, offset: offset)
-    end
+    # Fetch posts sorted by date (only sort mode)
+    posts = Blog.list_published_posts_by_date(limit: total_posts_needed, offset: offset)
     |> Enum.filter(fn p -> p.id not in displayed_post_ids end)
 
     if posts == [] do

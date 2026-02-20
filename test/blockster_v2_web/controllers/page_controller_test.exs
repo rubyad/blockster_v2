@@ -1,8 +1,8 @@
 defmodule BlocksterV2Web.PageControllerTest do
   use BlocksterV2Web.ConnCase
 
-  test "GET /", %{conn: conn} do
-    conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+  test "GET /profile redirects unauthenticated users to login", %{conn: conn} do
+    conn = get(conn, ~p"/profile")
+    assert redirected_to(conn) =~ "/login"
   end
 end

@@ -176,12 +176,25 @@ defmodule BlocksterV2.Social.XApiClient do
       {:ok, %Req.Response{status: 403}} ->
         {:error, "Forbidden - your X account may have restrictions"}
 
+      {:ok, %Req.Response{status: 400, body: %{"errors" => errors}}} ->
+        error_msg = Enum.map_join(errors, ", ", & &1["message"])
+        Logger.error("X API create_tweet 400: #{error_msg}")
+        {:error, "X rejected the tweet: #{error_msg}"}
+
+      {:ok, %Req.Response{status: 400, body: body}} ->
+        Logger.error("X API create_tweet 400: #{inspect(body)}")
+        {:error, "X rejected the tweet — you may have already posted identical content recently"}
+
+      {:ok, %Req.Response{status: 401, body: body}} ->
+        Logger.error("X API create_tweet 401: #{inspect(body)}")
+        {:error, :unauthorized}
+
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
+        {:error, "Something went wrong, please try again soon."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API create_tweet failed: #{status} - #{inspect(body)}")
-        {:error, "Tweet failed: #{status}"}
+        {:error, "Tweet failed (#{status})"}
 
       {:error, reason} ->
         Logger.error("X API create_tweet error: #{inspect(reason)}")
@@ -225,7 +238,7 @@ defmodule BlocksterV2.Social.XApiClient do
         {:error, "Forbidden - you may have already liked this post"}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
+        {:error, "Something went wrong, please try again soon."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API like failed: #{status} - #{inspect(body)}")
@@ -311,6 +324,15 @@ defmodule BlocksterV2.Social.XApiClient do
         Logger.error("X API retweet failed: 401 Unauthorized - #{inspect(body)}")
         {:error, :unauthorized}
 
+      {:ok, %Req.Response{status: 400, body: %{"errors" => errors}}} ->
+        error_msg = Enum.map_join(errors, ", ", & &1["message"])
+        Logger.error("X API retweet 400: #{error_msg}")
+        {:error, "X rejected the retweet: #{error_msg}"}
+
+      {:ok, %Req.Response{status: 400, body: body}} ->
+        Logger.error("X API retweet 400: #{inspect(body)}")
+        {:error, "X rejected the retweet — you may have already shared this post"}
+
       {:ok, %Req.Response{status: 403, body: %{"errors" => errors}}} ->
         error_msg = Enum.map_join(errors, ", ", & &1["message"])
         {:error, error_msg}
@@ -319,11 +341,11 @@ defmodule BlocksterV2.Social.XApiClient do
         {:error, "Forbidden - you may have already retweeted this post"}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
+        {:error, "Something went wrong, please try again soon."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API retweet failed: #{status} - #{inspect(body)}")
-        {:error, "Retweet failed: #{status}"}
+        {:error, "Retweet failed (#{status})"}
 
       {:error, %Req.TransportError{reason: :closed}} ->
         Logger.error("X API retweet connection closed - network issue")
@@ -372,7 +394,7 @@ defmodule BlocksterV2.Social.XApiClient do
         {:ok, false}
 
       {:ok, %Req.Response{status: 429}} ->
-        {:error, "X has temporarily limited actions for your account. Limits vary by account and reset within 15 minutes."}
+        {:error, "Something went wrong, please try again soon."}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         Logger.error("X API check_retweet failed: #{status} - #{inspect(body)}")

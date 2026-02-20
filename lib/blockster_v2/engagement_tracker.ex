@@ -1248,6 +1248,21 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Gets total_distributed for a post from the post_bux_points table.
+  Returns 0 if no record exists. Always clamped to >= 0.
+  """
+  def get_post_total_distributed(post_id) do
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] -> 0
+      [record] -> max(0, elem(record, 6) || 0)
+    end
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  @doc """
   Checks if pool is available for NEW earning actions.
   Returns true only if balance > 0.
   Used to determine if a new user can start earning.

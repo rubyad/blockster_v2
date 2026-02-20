@@ -4,6 +4,27 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
   alias BlocksterV2.Accounts
   alias BlocksterV2.Accounts.{User, UserFingerprint}
 
+  setup do
+    case :mnesia.create_table(:user_betting_stats, [
+           attributes: [
+             :user_id, :wallet_address,
+             :bux_total_bets, :bux_wins, :bux_losses, :bux_total_wagered,
+             :bux_total_winnings, :bux_total_losses, :bux_net_pnl,
+             :rogue_total_bets, :rogue_wins, :rogue_losses, :rogue_total_wagered,
+             :rogue_total_winnings, :rogue_total_losses, :rogue_net_pnl,
+             :first_bet_at, :last_bet_at, :updated_at, :onchain_stats_cache
+           ],
+           ram_copies: [node()],
+           type: :set,
+           index: [:bux_total_wagered, :rogue_total_wagered]
+         ]) do
+      {:atomic, :ok} -> :ok
+      {:aborted, {:already_exists, :user_betting_stats}} -> :mnesia.clear_table(:user_betting_stats)
+    end
+
+    :ok
+  end
+
   describe "authenticate_email_with_fingerprint/1" do
     @valid_attrs %{
       email: "test@example.com",
@@ -14,7 +35,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
     }
 
     test "creates new user with fingerprint when email and fingerprint are new" do
-      assert {:ok, user, session} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
+      assert {:ok, user, session, _is_new} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
 
       # Verify user created
       assert user.email == "test@example.com"
@@ -39,7 +60,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
 
     test "blocks new account creation when fingerprint already exists" do
       # Create first user with fingerprint
-      {:ok, first_user, _session} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
+      {:ok, first_user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
 
       # Attempt to create second user with same fingerprint
       second_user_attrs = %{@valid_attrs | email: "different@example.com"}
@@ -61,13 +82,13 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
 
     test "allows existing user to login from same device" do
       # Create user
-      {:ok, user, _session} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
+      {:ok, user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
 
       # Wait a moment to ensure timestamps will be different
       :timer.sleep(1000)
 
       # Simulate logout and login again
-      assert {:ok, logged_in_user, new_session} =
+      assert {:ok, logged_in_user, new_session, _is_new} =
                Accounts.authenticate_email_with_fingerprint(@valid_attrs)
 
       # Verify same user returned
@@ -88,7 +109,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
 
     test "allows existing user to login from new device and claims fingerprint" do
       # Create user on first device
-      {:ok, user, _session} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
+      {:ok, user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
 
       # Login from second device
       new_device_attrs = %{
@@ -97,7 +118,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
           fingerprint_confidence: 0.98
       }
 
-      assert {:ok, logged_in_user, _session} =
+      assert {:ok, logged_in_user, _session, _is_new} =
                Accounts.authenticate_email_with_fingerprint(new_device_attrs)
 
       # Verify same user returned
@@ -130,7 +151,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
           smart_wallet_address: "0xbbb"
       }
 
-      {:ok, user_a, _session} = Accounts.authenticate_email_with_fingerprint(user_a_attrs)
+      {:ok, user_a, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(user_a_attrs)
 
       # User B creates account on different device
       user_b_attrs = %{
@@ -141,7 +162,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
           fingerprint_id: "fp_userb_device"
       }
 
-      {:ok, user_b, _session} = Accounts.authenticate_email_with_fingerprint(user_b_attrs)
+      {:ok, user_b, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(user_b_attrs)
 
       # User B logs in from shared device (owned by User A)
       user_b_on_shared_device = %{
@@ -149,7 +170,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
         | fingerprint_id: "fp_test123"  # User A's device
       }
 
-      assert {:ok, logged_in_user, _session} =
+      assert {:ok, logged_in_user, _session, _is_new} =
                Accounts.authenticate_email_with_fingerprint(user_b_on_shared_device)
 
       # Verify User B logged in successfully
@@ -166,26 +187,25 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
       assert hd(fingerprints_b).fingerprint_id == "fp_userb_device"
     end
 
-    test "updates smart_wallet_address if it changed for existing user" do
+    test "does not overwrite smart_wallet_address on re-login" do
       # Create user
-      {:ok, user, _session} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
+      {:ok, user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(@valid_attrs)
       original_smart_wallet = user.smart_wallet_address
 
       # Login with different smart_wallet_address
       updated_attrs = %{@valid_attrs | smart_wallet_address: "0xnew_smart_wallet"}
 
-      assert {:ok, logged_in_user, _session} =
+      assert {:ok, logged_in_user, _session, _is_new} =
                Accounts.authenticate_email_with_fingerprint(updated_attrs)
 
-      # Verify smart_wallet_address updated
-      assert logged_in_user.smart_wallet_address == "0xnew_smart_wallet"
-      assert logged_in_user.smart_wallet_address != original_smart_wallet
+      # smart_wallet_address is set once at signup and never overwritten
+      assert logged_in_user.smart_wallet_address == original_smart_wallet
     end
 
     test "normalizes email to lowercase" do
       uppercase_attrs = %{@valid_attrs | email: "TEST@EXAMPLE.COM"}
 
-      assert {:ok, user, _session} =
+      assert {:ok, user, _session, _is_new} =
                Accounts.authenticate_email_with_fingerprint(uppercase_attrs)
 
       # Verify email stored as lowercase
@@ -203,7 +223,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
         fingerprint_confidence: 0.99
       }
 
-      {:ok, user, _session} = Accounts.authenticate_email_with_fingerprint(attrs)
+      {:ok, user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(attrs)
 
       # Add second device
       device2_attrs = %{attrs | fingerprint_id: "fp_device2"}
@@ -245,7 +265,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
         fingerprint_confidence: 0.99
       }
 
-      {:ok, user, _session} = Accounts.authenticate_email_with_fingerprint(attrs)
+      {:ok, user, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(attrs)
 
       # Add second device
       device2_attrs = %{attrs | fingerprint_id: "fp_device2"}
@@ -306,7 +326,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
         fingerprint_confidence: 0.99
       }
 
-      {:ok, _user1, _session} = Accounts.authenticate_email_with_fingerprint(attrs1)
+      {:ok, _user1, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(attrs1)
 
       # Attempt to create second user with same fingerprint (triggers flag)
       attrs2 = %{attrs1 | email: "user2@example.com"}
@@ -324,7 +344,7 @@ defmodule BlocksterV2.Accounts.FingerprintAuthTest do
         fingerprint_confidence: 0.99
       }
 
-      {:ok, _user3, _session} = Accounts.authenticate_email_with_fingerprint(attrs3)
+      {:ok, _user3, _session, _is_new} = Accounts.authenticate_email_with_fingerprint(attrs3)
 
       # Attempt to create fourth user with user3's fingerprint (triggers flag)
       attrs4 = %{attrs3 | email: "user4@example.com"}

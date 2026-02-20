@@ -1,7 +1,9 @@
 defmodule BlocksterV2Web.HubLive.Show do
   use BlocksterV2Web, :live_view
 
-  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
+  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1, token_badge: 1]
+
+  alias BlocksterV2.ImageKit
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Shop
@@ -19,11 +21,11 @@ defmodule BlocksterV2Web.HubLive.Show do
       hub ->
         # Get posts for this hub by hub_id
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
-        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_balances()
-        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_balances()
+        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_earned()
+        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_earned()
 
         # VideosComponent needs 3 video posts for the All tab (posts with video_id)
-        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_balances()
+        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_earned()
 
         # Hub-specific products for Shop section
         hub_products = Shop.list_products_by_hub(hub.id)
@@ -96,7 +98,7 @@ defmodule BlocksterV2Web.HubLive.Show do
     socket =
       if tab == "videos" && !socket.assigns.videos_loaded do
         # Use list_video_posts_by_hub to get only posts with video_id
-        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_balances()
+        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_earned()
 
         socket
         |> assign(:videos_loaded, true)
@@ -195,7 +197,7 @@ defmodule BlocksterV2Web.HubLive.Show do
           hub_id,
           limit: posts_needed,
           exclude_ids: acc_ids
-        ) |> Blog.with_bux_balances()
+        ) |> Blog.with_bux_earned()
 
         if posts == [] do
           # No more posts available

@@ -400,9 +400,6 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Update tags after updating post
         Blog.update_post_tags(post, tags)
 
-        # Update SortedPostsCache with new published_at and category_id
-        BlocksterV2.SortedPostsCache.update_post(post.id, post.published_at, post.category_id)
-
         # Create campaign if tweet URL is provided
         maybe_create_campaign(post, campaign_tweet_url)
 
@@ -445,14 +442,6 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
       {:ok, post} ->
         # Update tags after creating post
         Blog.update_post_tags(post, tags)
-
-        # Add to SortedPostsCache if published (new posts always start with 0 BUX)
-        if post.published_at do
-          # Reload post to get tag IDs
-          post = Blog.get_post!(post.id)
-          tag_ids = Enum.map(post.tags, & &1.id)
-          BlocksterV2.SortedPostsCache.add_post(post.id, 0, post.published_at, post.category_id, tag_ids)
-        end
 
         # Create campaign if tweet URL is provided
         maybe_create_campaign(post, campaign_tweet_url)

@@ -154,11 +154,9 @@ defmodule BlocksterV2.ContentAutomation.ContentPublisher do
     :ok
   end
 
-  defp update_cache(post) do
-    BlocksterV2.SortedPostsCache.reload()
+  defp update_cache(_post) do
+    # SortedPostsCache removed — posts are queried directly from DB now
     :ok
-  rescue
-    _ -> :ok
   end
 
   defp link_topic_to_post(nil, _post_id, _author_id), do: :ok

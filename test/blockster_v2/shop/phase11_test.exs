@@ -380,7 +380,7 @@ defmodule BlocksterV2.Shop.Phase11Test do
     test "check_rate_limit blocks at limit" do
       user = create_user()
 
-      Enum.each(1..5, fn _ ->
+      Enum.each(1..20, fn _ ->
         create_order_for_user(user)
       end)
 
@@ -390,7 +390,7 @@ defmodule BlocksterV2.Shop.Phase11Test do
     test "check_rate_limit allows again after old orders expire" do
       user = create_user()
 
-      Enum.each(1..5, fn _ ->
+      Enum.each(1..20, fn _ ->
         order = create_order_for_user(user)
         make_order_old(order, 65)
       end)
@@ -402,7 +402,7 @@ defmodule BlocksterV2.Shop.Phase11Test do
       user1 = create_user()
       user2 = create_user()
 
-      Enum.each(1..5, fn _ ->
+      Enum.each(1..20, fn _ ->
         create_order_for_user(user1)
       end)
 
@@ -466,8 +466,8 @@ defmodule BlocksterV2.Shop.Phase11Test do
     test "full lifecycle: create order, expire it, rate limit respected" do
       user = create_user()
 
-      # Create 5 orders (hitting the rate limit)
-      orders = Enum.map(1..5, fn _ -> create_order_for_user(user) end)
+      # Create 20 orders (hitting the rate limit)
+      orders = Enum.map(1..20, fn _ -> create_order_for_user(user) end)
 
       # Rate limited
       assert {:error, :rate_limited} == Orders.check_rate_limit(user.id)

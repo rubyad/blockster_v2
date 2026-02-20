@@ -23,6 +23,21 @@ defmodule BlocksterV2.Orders do
     |> Repo.preload([:order_items, :user])
   end
 
+  @doc "Finds the most recent pending/unpaid order for a user (created within the last hour)."
+  def get_recent_pending_order(user_id) do
+    cutoff = DateTime.add(DateTime.utc_now(), -1, :hour)
+
+    from(o in Order,
+      where: o.user_id == ^user_id,
+      where: o.status == "pending",
+      where: o.inserted_at >= ^cutoff,
+      order_by: [desc: o.inserted_at],
+      limit: 1,
+      preload: [:order_items, :affiliate_payouts, :user, :referrer]
+    )
+    |> Repo.one()
+  end
+
   def list_orders_for_user(uid) do
     from(o in Order,
       where: o.user_id == ^uid,
