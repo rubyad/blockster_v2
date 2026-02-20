@@ -484,6 +484,7 @@ app.get('/aggregated-balances/:address', authenticate, async (req, res) => {
 
 const BUXBOOSTER_CONTRACT_ADDRESS = '0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B';
 const SETTLER_PRIVATE_KEY = process.env.SETTLER_PRIVATE_KEY;
+const PLINKO_SETTLER_PRIVATE_KEY = process.env.PLINKO_SETTLER_PRIVATE_KEY;
 const CONTRACT_OWNER_PRIVATE_KEY = process.env.CONTRACT_OWNER_PRIVATE_KEY;
 const REFERRAL_ADMIN_BB_PRIVATE_KEY = process.env.REFERRAL_ADMIN_BB_PRIVATE_KEY;
 const REFERRAL_ADMIN_RB_PRIVATE_KEY = process.env.REFERRAL_ADMIN_RB_PRIVATE_KEY;
@@ -527,6 +528,46 @@ if (CONTRACT_OWNER_PRIVATE_KEY) {
 }
 
 // ============================================================
+// PlinkoGame Contract Integration
+// ============================================================
+
+const PLINKO_CONTRACT_ADDRESS = '0x7E12c7077556B142F8Fb695F70aAe0359a8be10C';
+
+// PlinkoGame ABI - only the functions we need
+const PLINKO_ABI = [
+  'function submitCommitment(bytes32 commitmentHash, address player, uint256 nonce) external',
+  'function settleBet(bytes32 commitmentHash, bytes32 serverSeed, uint8[] path, uint8 landingPosition) external',
+  'function settleBetROGUE(bytes32 commitmentHash, bytes32 serverSeed, uint8[] path, uint8 landingPosition) external',
+  'function playerNonces(address player) external view returns (uint256)',
+  'function getCommitment(bytes32 commitmentHash) external view returns (address player, uint256 nonce, uint256 timestamp, bool used, bytes32 serverSeed)',
+  'function getBet(bytes32 commitmentHash) external view returns (address player, address token, uint256 amount, uint8 configIndex, uint256 nonce, uint256 timestamp, uint8 status, uint256 payout)',
+  'function getMaxBet(uint8 configIndex) external view returns (uint256)',
+  'function getPayoutTable(uint8 configIndex) external view returns (uint32[])',
+  'function getPlinkoConfig(uint8 configIndex) external view returns (uint8 rows, uint8 riskLevel, uint8 numPositions, uint32 maxMultiplierBps)',
+  'function totalBetsPlaced() external view returns (uint256)',
+  'function totalBetsSettled() external view returns (uint256)',
+  'event PlinkoBetSettled(bytes32 indexed commitmentHash, address indexed player, bool profited, uint8 landingPosition, uint32 multiplierBps, uint256 amount, uint256 payout, int256 profit, bytes32 serverSeed)',
+  'event PlinkoBallPath(bytes32 indexed commitmentHash, uint8 configIndex, uint8[] path, uint8 landingPosition, string configLabel)',
+  'event PlinkoBetDetails(bytes32 indexed commitmentHash, address token, uint256 amount, uint8 configIndex, uint256 nonce, uint256 timestamp, uint8 landingPosition, uint8[] path)'
+];
+
+// Plinko settler wallet (separate from BuxBooster settler to avoid nonce conflicts)
+let plinkoSettlerWallet = null;
+let plinkoContract = null;
+
+if (PLINKO_SETTLER_PRIVATE_KEY) {
+  plinkoSettlerWallet = new ethers.Wallet(PLINKO_SETTLER_PRIVATE_KEY, provider);
+  plinkoContract = new ethers.Contract(PLINKO_CONTRACT_ADDRESS, PLINKO_ABI, plinkoSettlerWallet);
+  console.log(`[INIT] PlinkoGame settler wallet: ${plinkoSettlerWallet.address}`);
+} else {
+  console.log(`[WARN] PLINKO_SETTLER_PRIVATE_KEY not set - Plinko endpoints disabled`);
+}
+
+// Read-only PlinkoGame contract for view endpoints
+const plinkoReadContract = new ethers.Contract(PLINKO_CONTRACT_ADDRESS, PLINKO_ABI, provider);
+console.log(`[INIT] PlinkoGame contract: ${PLINKO_CONTRACT_ADDRESS}`);
+
+// ============================================================
 // ROGUEBankroll Contract Integration (for ROGUE betting)
 // ============================================================
 
@@ -542,6 +583,29 @@ const ROGUE_BANKROLL_ABI = [
 // ROGUEBankroll contract instance (read-only, no wallet needed)
 const rogueBankrollContract = new ethers.Contract(ROGUE_BANKROLL_ADDRESS, ROGUE_BANKROLL_ABI, provider);
 console.log(`[INIT] ROGUEBankroll contract: ${ROGUE_BANKROLL_ADDRESS}`);
+
+// ============================================================
+// BUXBankroll Contract Integration (LP pool for BUX Plinko)
+// ============================================================
+
+const BUX_BANKROLL_ADDRESS = '0xED7B00Ab2aDE39AC06d4518d16B465C514ba8630';
+
+// BUXBankroll ABI - only the functions we need for read endpoints + referrals
+const BUX_BANKROLL_ABI = [
+  'function getHouseInfo() external view returns (uint256 totalBalance, uint256 liability, uint256 unsettledBets, uint256 netBalance, uint256 poolTokenSupply, uint256 poolTokenPrice)',
+  'function getLPPrice() external view returns (uint256)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function totalSupply() external view returns (uint256)',
+  'function getPlinkoAccounting() external view returns (uint256 totalBets, uint256 totalWins, uint256 totalLosses, uint256 totalPushes, uint256 totalVolumeWagered, uint256 totalPayouts, int256 totalHouseProfit, uint256 largestWin, uint256 largestBet, uint256 winRate, int256 houseEdge)',
+  'function getPlinkoPlayerStats(address player) external view returns (uint256 totalBets, uint256 wins, uint256 losses, uint256 pushes, uint256 totalWagered, uint256 totalWinnings, uint256 totalLosses, uint256[9] betsPerConfig, int256[9] pnlPerConfig)',
+  'function getMaxBet(uint8 configIndex, uint32 maxMultiplierBps) external view returns (uint256)',
+  'function setPlayerReferrer(address player, address referrer) external',
+  'function playerReferrers(address player) external view returns (address)'
+];
+
+// BUXBankroll read-only contract instance
+const buxBankrollContract = new ethers.Contract(BUX_BANKROLL_ADDRESS, BUX_BANKROLL_ABI, provider);
+console.log(`[INIT] BUXBankroll contract: ${BUX_BANKROLL_ADDRESS}`);
 
 // Referral admin wallets (separate from contract owner - can only call setPlayerReferrer)
 let referralAdminBBWallet = null;
@@ -575,6 +639,13 @@ if (referralAdminBBWallet) {
   console.log(`[INIT] BuxBoosterGame referral contract configured`);
 }
 
+// BUXBankroll writable contract instance (for setPlayerReferrer - reuses BB referral admin wallet, same wallet)
+let buxBankrollWriteContract = null;
+if (referralAdminBBWallet) {
+  buxBankrollWriteContract = new ethers.Contract(BUX_BANKROLL_ADDRESS, BUX_BANKROLL_ABI, referralAdminBBWallet);
+  console.log(`[INIT] BUXBankroll write contract configured with BB referral admin wallet`);
+}
+
 // ============================================================
 // Transaction Queues - One per wallet to serialize transactions
 // ============================================================
@@ -591,6 +662,12 @@ if (wallet) {
 if (settlerWallet) {
   txQueues.settler = new TransactionQueue(settlerWallet, provider, 'settler');
   console.log(`[INIT] Transaction queue created for settler wallet: ${settlerWallet.address}`);
+}
+
+// Create queue for plinko settler wallet
+if (plinkoSettlerWallet) {
+  txQueues.plinkoSettler = new TransactionQueue(plinkoSettlerWallet, provider, 'plinkoSettler');
+  console.log(`[INIT] Transaction queue created for plinko settler wallet: ${plinkoSettlerWallet.address}`);
 }
 
 // Create queue for contract owner wallet
@@ -937,13 +1014,375 @@ app.get('/rogue-house-balance', authenticate, async (req, res) => {
 });
 
 // ============================================================
+// BUXBankroll Read-Only Endpoints
+// ============================================================
+
+// Get BUXBankroll house info (total balance, liability, net balance, LP price, etc.)
+app.get('/bux-bankroll/house-info', authenticate, async (req, res) => {
+  try {
+    const info = await buxBankrollContract.getHouseInfo();
+    res.json({
+      totalBalance: info[0].toString(),
+      liability: info[1].toString(),
+      unsettledBets: info[2].toString(),
+      netBalance: info[3].toString(),
+      poolTokenSupply: info[4].toString(),
+      poolTokenPrice: info[5].toString()
+    });
+  } catch (error) {
+    console.error('[BUXBankroll] house-info error:', error.message);
+    res.status(500).json({ error: 'Failed to get house info', details: error.message });
+  }
+});
+
+// Get current LP-BUX price
+app.get('/bux-bankroll/lp-price', authenticate, async (req, res) => {
+  try {
+    const price = await buxBankrollContract.getLPPrice();
+    res.json({ price: price.toString() });
+  } catch (error) {
+    console.error('[BUXBankroll] lp-price error:', error.message);
+    res.status(500).json({ error: 'Failed to get LP price', details: error.message });
+  }
+});
+
+// Get user's LP-BUX token balance
+app.get('/bux-bankroll/lp-balance/:address', authenticate, async (req, res) => {
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    const balance = await buxBankrollContract.balanceOf(address);
+    res.json({ balance: balance.toString() });
+  } catch (error) {
+    console.error('[BUXBankroll] lp-balance error:', error.message);
+    res.status(500).json({ error: 'Failed to get LP balance', details: error.message });
+  }
+});
+
+// Get max bet for a Plinko config (queries BUXBankroll via PlinkoGame)
+app.get('/bux-bankroll/max-bet/:configIndex', authenticate, async (req, res) => {
+  const configIndex = parseInt(req.params.configIndex);
+
+  if (isNaN(configIndex) || configIndex < 0 || configIndex > 8) {
+    return res.status(400).json({ error: 'configIndex must be 0-8' });
+  }
+
+  try {
+    const maxBet = await plinkoReadContract.getMaxBet(configIndex);
+    res.json({
+      configIndex,
+      maxBet: ethers.formatEther(maxBet),
+      maxBetWei: maxBet.toString()
+    });
+  } catch (error) {
+    console.error('[BUXBankroll] max-bet error:', error.message);
+    res.status(500).json({ error: 'Failed to get max bet', details: error.message });
+  }
+});
+
+// Get player's Plinko stats from BUXBankroll
+app.get('/bux-bankroll/player-stats/:address', authenticate, async (req, res) => {
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    const stats = await buxBankrollContract.getPlinkoPlayerStats(address);
+    res.json({
+      totalBets: stats[0].toString(),
+      wins: stats[1].toString(),
+      losses: stats[2].toString(),
+      pushes: stats[3].toString(),
+      totalWagered: stats[4].toString(),
+      totalWinnings: stats[5].toString(),
+      totalLosses: stats[6].toString(),
+      betsPerConfig: stats[7].map(b => b.toString()),
+      pnlPerConfig: stats[8].map(p => p.toString())
+    });
+  } catch (error) {
+    console.error('[BUXBankroll] player-stats error:', error.message);
+    res.status(500).json({ error: 'Failed to get player stats', details: error.message });
+  }
+});
+
+// Get global Plinko accounting from BUXBankroll
+app.get('/bux-bankroll/accounting', authenticate, async (req, res) => {
+  try {
+    const acc = await buxBankrollContract.getPlinkoAccounting();
+    res.json({
+      totalBets: acc[0].toString(),
+      totalWins: acc[1].toString(),
+      totalLosses: acc[2].toString(),
+      totalPushes: acc[3].toString(),
+      totalVolumeWagered: acc[4].toString(),
+      totalPayouts: acc[5].toString(),
+      totalHouseProfit: acc[6].toString(),
+      largestWin: acc[7].toString(),
+      largestBet: acc[8].toString(),
+      winRate: acc[9].toString(),
+      houseEdge: acc[10].toString()
+    });
+  } catch (error) {
+    console.error('[BUXBankroll] accounting error:', error.message);
+    res.status(500).json({ error: 'Failed to get accounting', details: error.message });
+  }
+});
+
+// ============================================================
+// PlinkoGame Endpoints
+// ============================================================
+
+// Submit commitment for a new Plinko game
+app.post('/plinko/submit-commitment', authenticate, async (req, res) => {
+  if (!plinkoContract) {
+    return res.status(503).json({ error: 'PlinkoGame not configured - PLINKO_SETTLER_PRIVATE_KEY missing' });
+  }
+
+  const { commitmentHash, player, nonce } = req.body;
+
+  if (!commitmentHash || !player || nonce === undefined) {
+    return res.status(400).json({ error: 'commitmentHash, player, and nonce are required' });
+  }
+
+  if (!ethers.isAddress(player)) {
+    return res.status(400).json({ error: 'Invalid player address format' });
+  }
+
+  const queue = txQueues.plinkoSettler;
+  if (!queue) {
+    return res.status(503).json({ error: 'Plinko settler transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (txNonce) => {
+      console.log(`[/plinko/submit-commitment] Submitting ${commitmentHash} for ${player} with tx nonce ${txNonce}`);
+      const tx = await plinkoContract.submitCommitment(commitmentHash, player, nonce, { nonce: txNonce });
+      return await tx.wait();
+    });
+
+    res.json({
+      success: true,
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      commitmentHash,
+      player,
+      nonce
+    });
+  } catch (error) {
+    console.error(`[PLINKO-COMMITMENT] Error:`, error);
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to submit plinko commitment', details: error.message });
+  }
+});
+
+// Settle a Plinko bet
+// Determines BUX vs ROGUE path from the bet's token field
+app.post('/plinko/settle-bet', authenticate, async (req, res) => {
+  if (!plinkoContract) {
+    return res.status(503).json({ error: 'PlinkoGame not configured - PLINKO_SETTLER_PRIVATE_KEY missing' });
+  }
+
+  const { commitmentHash, serverSeed, path, landingPosition } = req.body;
+
+  if (!commitmentHash || !serverSeed || !path || landingPosition === undefined) {
+    return res.status(400).json({ error: 'commitmentHash, serverSeed, path, and landingPosition are required' });
+  }
+
+  if (!Array.isArray(path)) {
+    return res.status(400).json({ error: 'path must be an array of 0s and 1s' });
+  }
+
+  const queue = txQueues.plinkoSettler;
+  if (!queue) {
+    return res.status(503).json({ error: 'Plinko settler transaction queue not initialized' });
+  }
+
+  try {
+    // Read bet info to determine BUX vs ROGUE path
+    const bet = await plinkoContract.getBet(commitmentHash);
+    const isROGUE = bet.token === ethers.ZeroAddress;
+
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/plinko/settle-bet] Settling ${commitmentHash} (ROGUE: ${isROGUE}) landing=${landingPosition} with nonce ${nonce}`);
+
+      const tx = isROGUE
+        ? await plinkoContract.settleBetROGUE(commitmentHash, serverSeed, path, landingPosition, { nonce })
+        : await plinkoContract.settleBet(commitmentHash, serverSeed, path, landingPosition, { nonce });
+
+      return await tx.wait();
+    });
+
+    // Parse PlinkoBetSettled event to get payout info
+    let payout = '0';
+    let profited = false;
+    let multiplierBps = 0;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = plinkoContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'PlinkoBetSettled') {
+          payout = ethers.formatEther(parsed.args.payout);
+          profited = parsed.args.profited;
+          multiplierBps = Number(parsed.args.multiplierBps);
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      commitmentHash,
+      profited,
+      payout,
+      multiplierBps,
+      landingPosition,
+      isROGUE
+    });
+  } catch (error) {
+    console.error(`[PLINKO-SETTLE] Error:`, error);
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to settle plinko bet', details: error.message });
+  }
+});
+
+// Get player's on-chain nonce from PlinkoGame
+app.get('/plinko/player-nonce/:address', authenticate, async (req, res) => {
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    const nonce = await plinkoReadContract.playerNonces(address);
+    res.json({ address, nonce: Number(nonce) });
+  } catch (error) {
+    console.error(`[PLINKO-NONCE] Error:`, error);
+    res.status(500).json({ error: 'Failed to get plinko player nonce', details: error.message });
+  }
+});
+
+// Get player's current commitment state from PlinkoGame
+app.get('/plinko/player-state/:address', authenticate, async (req, res) => {
+  const { address } = req.params;
+
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Invalid address format' });
+  }
+
+  try {
+    const nonce = await plinkoReadContract.playerNonces(address);
+
+    res.json({
+      address,
+      nonce: Number(nonce)
+    });
+  } catch (error) {
+    console.error(`[PLINKO-STATE] Error:`, error);
+    res.status(500).json({ error: 'Failed to get plinko player state', details: error.message });
+  }
+});
+
+// Get Plinko config for a specific config index
+app.get('/plinko/config/:configIndex', authenticate, async (req, res) => {
+  const configIndex = parseInt(req.params.configIndex);
+
+  if (isNaN(configIndex) || configIndex < 0 || configIndex > 8) {
+    return res.status(400).json({ error: 'configIndex must be 0-8' });
+  }
+
+  try {
+    const [config, payoutTable, maxBet] = await Promise.all([
+      plinkoReadContract.getPlinkoConfig(configIndex),
+      plinkoReadContract.getPayoutTable(configIndex),
+      plinkoReadContract.getMaxBet(configIndex)
+    ]);
+
+    res.json({
+      configIndex,
+      rows: Number(config.rows),
+      riskLevel: Number(config.riskLevel),
+      numPositions: Number(config.numPositions),
+      maxMultiplierBps: Number(config.maxMultiplierBps),
+      payoutTable: payoutTable.map(p => Number(p)),
+      maxBet: ethers.formatEther(maxBet),
+      maxBetWei: maxBet.toString()
+    });
+  } catch (error) {
+    console.error('[PLINKO-CONFIG] Error:', error.message);
+    res.status(500).json({ error: 'Failed to get plinko config', details: error.message });
+  }
+});
+
+// Get Plinko global stats
+app.get('/plinko/stats', authenticate, async (req, res) => {
+  try {
+    const [totalPlaced, totalSettled] = await Promise.all([
+      plinkoReadContract.totalBetsPlaced(),
+      plinkoReadContract.totalBetsSettled()
+    ]);
+
+    res.json({
+      totalBetsPlaced: Number(totalPlaced),
+      totalBetsSettled: Number(totalSettled)
+    });
+  } catch (error) {
+    console.error('[PLINKO-STATS] Error:', error.message);
+    res.status(500).json({ error: 'Failed to get plinko stats', details: error.message });
+  }
+});
+
+// Get bet details by commitment hash
+app.get('/plinko/bet/:commitmentHash', authenticate, async (req, res) => {
+  const { commitmentHash } = req.params;
+
+  try {
+    const bet = await plinkoReadContract.getBet(commitmentHash);
+
+    res.json({
+      commitmentHash,
+      player: bet.player,
+      token: bet.token,
+      isROGUE: bet.token === ethers.ZeroAddress,
+      amount: ethers.formatEther(bet.amount),
+      configIndex: Number(bet.configIndex),
+      nonce: Number(bet.nonce),
+      timestamp: Number(bet.timestamp),
+      status: Number(bet.status),
+      payout: ethers.formatEther(bet.payout)
+    });
+  } catch (error) {
+    console.error('[PLINKO-BET] Error:', error.message);
+    res.status(500).json({ error: 'Failed to get bet details', details: error.message });
+  }
+});
+
+// ============================================================
 // Referral System - Set Player Referrer
 // ============================================================
 
-// Set a player's referrer on BOTH contracts (BuxBoosterGame for BUX bets, ROGUEBankroll for ROGUE bets)
+// Set a player's referrer on ALL THREE contracts:
+// - BuxBoosterGame (for BUX Booster bets)
+// - ROGUEBankroll (for ROGUE bets)
+// - BUXBankroll (for BUX Plinko bets)
 // Called by Blockster server when a new user signs up with a referral code
 app.post('/set-player-referrer', authenticate, async (req, res) => {
-  if (!buxBoosterReferralContract || !rogueBankrollWriteContract) {
+  if (!buxBoosterReferralContract || !rogueBankrollWriteContract || !buxBankrollWriteContract) {
     return res.status(503).json({
       error: 'Referral system not configured - REFERRAL_ADMIN_BB_PRIVATE_KEY or REFERRAL_ADMIN_RB_PRIVATE_KEY missing'
     });
@@ -983,17 +1422,20 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
 
   const results = {
     buxBoosterGame: { success: false, txHash: null, error: null },
-    rogueBankroll: { success: false, txHash: null, error: null }
+    rogueBankroll: { success: false, txHash: null, error: null },
+    buxBankroll: { success: false, txHash: null, error: null }
   };
 
   // Check if referrers are already set (read operations - no queue needed)
-  const [bbExistingReferrer, rbExistingReferrer] = await Promise.all([
+  const [bbExistingReferrer, rbExistingReferrer, bbrExistingReferrer] = await Promise.all([
     buxBoosterReferralContract.playerReferrers(playerAddr),
-    rogueBankrollWriteContract.playerReferrers(playerAddr)
+    rogueBankrollWriteContract.playerReferrers(playerAddr),
+    buxBankrollWriteContract.playerReferrers(playerAddr)
   ]);
 
   const bbAlreadySet = bbExistingReferrer !== ethers.ZeroAddress;
   const rbAlreadySet = rbExistingReferrer !== ethers.ZeroAddress;
+  const bbrAlreadySet = bbrExistingReferrer !== ethers.ZeroAddress;
 
   if (bbAlreadySet) {
     results.buxBoosterGame.error = 'Referrer already set';
@@ -1001,34 +1443,63 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
   if (rbAlreadySet) {
     results.rogueBankroll.error = 'Referrer already set';
   }
+  if (bbrAlreadySet) {
+    results.buxBankroll.error = 'Referrer already set';
+  }
 
-  // If both already set, return early
-  if (bbAlreadySet && rbAlreadySet) {
+  // If all already set, return early
+  if (bbAlreadySet && rbAlreadySet && bbrAlreadySet) {
     return res.status(409).json({
-      error: 'Referrer already set on both contracts',
+      error: 'Referrer already set on all contracts',
       results
     });
   }
 
-  // Execute referrer updates in parallel (different wallets = different queues = safe to parallelize)
+  // Execute referrer updates:
+  // - BuxBoosterGame and BUXBankroll use the SAME wallet (referralBB queue) → must be SEQUENTIAL
+  // - ROGUEBankroll uses a different wallet (referralRB queue) → can run in PARALLEL with BB queue
   const promises = [];
 
-  if (!bbAlreadySet) {
+  // BB queue: BuxBoosterGame then BUXBankroll (sequential — same wallet/queue)
+  if (!bbAlreadySet || !bbrAlreadySet) {
     promises.push(
-      bbQueue.enqueue(async (nonce) => {
-        console.log(`[/set-player-referrer] Setting referrer on BuxBoosterGame with nonce ${nonce}`);
-        const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
-        return await tx.wait();
-      }).then(receipt => {
-        results.buxBoosterGame.success = true;
-        results.buxBoosterGame.txHash = receipt.hash;
-      }).catch(error => {
-        console.error(`[REFERRER] BuxBoosterGame error:`, error.message);
-        results.buxBoosterGame.error = error.message;
-      })
+      (async () => {
+        // First: BuxBoosterGame
+        if (!bbAlreadySet) {
+          try {
+            const receipt = await bbQueue.enqueue(async (nonce) => {
+              console.log(`[/set-player-referrer] Setting referrer on BuxBoosterGame with nonce ${nonce}`);
+              const tx = await buxBoosterReferralContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
+              return await tx.wait();
+            });
+            results.buxBoosterGame.success = true;
+            results.buxBoosterGame.txHash = receipt.hash;
+          } catch (error) {
+            console.error(`[REFERRER] BuxBoosterGame error:`, error.message);
+            results.buxBoosterGame.error = error.message;
+          }
+        }
+
+        // Then: BUXBankroll (same queue, sequential)
+        if (!bbrAlreadySet) {
+          try {
+            const receipt = await bbQueue.enqueue(async (nonce) => {
+              console.log(`[/set-player-referrer] Setting referrer on BUXBankroll with nonce ${nonce}`);
+              const tx = await buxBankrollWriteContract.setPlayerReferrer(playerAddr, referrerAddr, { nonce });
+              return await tx.wait();
+            });
+            results.buxBankroll.success = true;
+            results.buxBankroll.txHash = receipt.hash;
+          } catch (error) {
+            console.error(`[REFERRER] BUXBankroll error:`, error.message);
+            results.buxBankroll.error = error.message;
+          }
+        }
+      })()
     );
   }
 
+  // RB queue: ROGUEBankroll (parallel with BB queue — different wallet)
   if (!rbAlreadySet) {
     promises.push(
       rbQueue.enqueue(async (nonce) => {
@@ -1049,7 +1520,7 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
   await Promise.all(promises);
 
   // Determine overall success
-  const anySuccess = results.buxBoosterGame.success || results.rogueBankroll.success;
+  const anySuccess = results.buxBoosterGame.success || results.rogueBankroll.success || results.buxBankroll.success;
 
   res.json({
     success: anySuccess,
@@ -1063,7 +1534,7 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
 // Queue Status Endpoint - For monitoring
 // ============================================================
 
-// Get status of all transaction queues
+// Get status of all transaction queues and contract info
 app.get('/queue-status', authenticate, (req, res) => {
   const status = {};
 
@@ -1073,7 +1544,14 @@ app.get('/queue-status', authenticate, (req, res) => {
 
   res.json({
     timestamp: new Date().toISOString(),
-    queues: status
+    queues: status,
+    contracts: {
+      buxToken: BUX_CONTRACT_ADDRESS,
+      buxBoosterGame: BUXBOOSTER_CONTRACT_ADDRESS,
+      plinkoGame: PLINKO_CONTRACT_ADDRESS,
+      rogueBankroll: ROGUE_BANKROLL_ADDRESS,
+      buxBankroll: BUX_BANKROLL_ADDRESS
+    }
   });
 });
 
@@ -1086,9 +1564,15 @@ app.listen(PORT, () => {
     console.log(`BuxBoosterGame: ${BUXBOOSTER_CONTRACT_ADDRESS}`);
     console.log(`Settler wallet: ${settlerWallet.address}`);
   }
-  if (buxBoosterReferralContract && rogueBankrollWriteContract) {
-    console.log(`Referral system: enabled`);
+  console.log(`BUXBankroll: ${BUX_BANKROLL_ADDRESS}`);
+  if (plinkoContract) {
+    console.log(`PlinkoGame: ${PLINKO_CONTRACT_ADDRESS}`);
+    console.log(`Plinko settler wallet: ${plinkoSettlerWallet.address}`);
+  }
+  if (buxBoosterReferralContract && rogueBankrollWriteContract && buxBankrollWriteContract) {
+    console.log(`Referral system: enabled (BuxBoosterGame + ROGUEBankroll + BUXBankroll)`);
     console.log(`BuxBoosterGame referral admin: ${referralAdminBBWallet.address}`);
     console.log(`ROGUEBankroll referral admin: ${referralAdminRBWallet.address}`);
+    console.log(`BUXBankroll referral admin: ${referralAdminBBWallet.address} (shared with BB)`);
   }
 });

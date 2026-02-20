@@ -550,6 +550,45 @@ defmodule BlocksterV2.MnesiaInitializer do
         :created_at                # Unix timestamp
       ],
       index: [:start_date]
+    },
+    # LP-BUX price candles for BankrollLive chart
+    %{
+      name: :lp_bux_candles,
+      type: :ordered_set,
+      attributes: [:timestamp, :open, :high, :low, :close],
+      index: []
+    },
+    # Plinko game sessions (commit-reveal pattern, 24 data fields)
+    %{
+      name: :plinko_games,
+      type: :ordered_set,
+      attributes: [
+        :game_id,            # PRIMARY KEY - 32-char hex
+        :user_id,            # PostgreSQL user ID
+        :wallet_address,     # Smart wallet address
+        :server_seed,        # 64-char hex (revealed after settlement)
+        :commitment_hash,    # 0x-prefixed SHA256
+        :nonce,              # Player's game counter
+        :status,             # :committed | :placed | :settled | :expired
+        :bet_id,             # On-chain bet ID (commitment hash)
+        :token,              # "BUX" or "ROGUE"
+        :token_address,      # Token contract address
+        :bet_amount,         # Amount wagered (integer tokens)
+        :config_index,       # 0-8
+        :rows,               # 8, 12, or 16
+        :risk_level,         # :low, :medium, :high
+        :ball_path,          # [:left, :right, ...] list
+        :landing_position,   # 0 to rows (integer)
+        :payout_bp,          # Payout multiplier in basis points
+        :payout,             # Actual payout amount
+        :won,                # Boolean (payout > bet)
+        :commitment_tx,      # TX hash for submitCommitment
+        :bet_tx,             # TX hash for placeBet
+        :settlement_tx,      # TX hash for settleBet
+        :created_at,         # Unix timestamp (updated to bet placement time)
+        :settled_at          # Unix timestamp (nil until settled)
+      ],
+      index: [:user_id, :wallet_address, :status, :created_at]
     }
   ]
 

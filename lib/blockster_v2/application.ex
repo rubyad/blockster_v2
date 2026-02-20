@@ -42,8 +42,12 @@ defmodule BlocksterV2.Application do
         {BlocksterV2.HubLogoCache, []},
         # BuxBooster bet settlement checker (runs every minute to settle stuck bets)
         {BlocksterV2.BuxBoosterBetSettler, []},
+        # Plinko bet settlement checker (runs every minute to settle stuck Plinko bets)
+        {BlocksterV2.PlinkoSettler, []},
         # Token price tracker (polls CoinGecko every 10 minutes)
         {BlocksterV2.PriceTracker, []},
+        # LP-BUX price tracker (polls BUXBankroll every 60s, stores OHLC candles)
+        {BlocksterV2.LPBuxPriceTracker, []},
         # Wallet multiplier refresher (daily at 3 AM UTC)
         {BlocksterV2.WalletMultiplierRefresher, []},
         # Referral reward poller (polls Rogue Chain for ReferralRewardPaid events)

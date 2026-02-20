@@ -998,6 +998,43 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     /// @notice Per-difficulty profit/loss for each player (can be negative)
     mapping(address => int256[9]) public buxBoosterPnLPerDifficulty;
 
+    // ===== PLINKO INTEGRATION (V10) =====
+
+    /// @notice Authorized PlinkoGame contract address
+    address public plinkoGame;
+
+    /// @notice Plinko-specific player stats (separate from BuxBooster stats)
+    struct PlinkoPlayerStats {
+        uint256 totalBets;
+        uint256 wins;
+        uint256 losses;
+        uint256 pushes;
+        uint256 totalWagered;
+        uint256 totalWinnings;
+        uint256 totalLosses;
+    }
+    mapping(address => PlinkoPlayerStats) public plinkoPlayerStats;
+
+    /// @notice Per-config bet counts for each Plinko player (9 configs: 0-8)
+    mapping(address => uint256[9]) public plinkoBetsPerConfig;
+
+    /// @notice Per-config profit/loss for each Plinko player (can be negative)
+    mapping(address => int256[9]) public plinkoPnLPerConfig;
+
+    /// @notice Plinko global accounting - tracks overall Plinko activity
+    struct PlinkoAccounting {
+        uint256 totalBets;
+        uint256 totalWins;
+        uint256 totalLosses;
+        uint256 totalPushes;
+        uint256 totalVolumeWagered;
+        uint256 totalPayouts;
+        int256 totalHouseProfit;
+        uint256 largestWin;
+        uint256 largestBet;
+    }
+    PlinkoAccounting public plinkoAccounting;
+
     event Payout(uint256 betId, address winner, uint256 payout, uint256 wagerCurrency, uint256 exitSerialNumber);
     event ROGUEPayout(uint256 betId, address winner, uint256 payout);
     event ROGUEPayoutFailed(uint256 betId, address winner, uint256 payout);
@@ -1095,6 +1132,53 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
     event ReferralAdminChanged(
         address indexed previousAdmin,
         address indexed newAdmin
+    );
+
+    // V10: Plinko-specific events
+    event PlinkoBetPlaced(
+        address indexed player,
+        bytes32 indexed commitmentHash,
+        uint256 amount,
+        uint8 configIndex,
+        uint256 nonce,
+        uint256 timestamp
+    );
+
+    event PlinkoWinningPayout(
+        address indexed winner,
+        bytes32 indexed commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        uint256 profit
+    );
+
+    event PlinkoWinDetails(
+        bytes32 indexed commitmentHash,
+        uint8 configIndex,
+        uint8 landingPosition,
+        uint8[] path,
+        uint256 nonce
+    );
+
+    event PlinkoLosingBet(
+        address indexed player,
+        bytes32 indexed commitmentHash,
+        uint256 wagerAmount,
+        uint256 partialPayout
+    );
+
+    event PlinkoLossDetails(
+        bytes32 indexed commitmentHash,
+        uint8 configIndex,
+        uint8 landingPosition,
+        uint8[] path,
+        uint256 nonce
+    );
+
+    event PlinkoPayoutFailed(
+        address indexed winner,
+        bytes32 indexed commitmentHash,
+        uint256 payout
     );
 
     function setMinimumBetSize(uint256 _minimumBetSize) external onlyOwner {
@@ -1960,6 +2044,306 @@ contract ROGUEBankroll is ERC20Upgradeable, OwnableUpgradeable {
         totalLosses = stats.totalLosses;
         betsPerDifficulty = buxBoosterBetsPerDifficulty[player];
         pnlPerDifficulty = buxBoosterPnLPerDifficulty[player];
+    }
+
+    // ============ V10: Plinko Integration Functions ============
+
+    modifier onlyPlinko() {
+        require(msg.sender == plinkoGame, "Only Plinko can call this function");
+        _;
+    }
+
+    /**
+     * @notice Set the authorized PlinkoGame contract address
+     * @param _plinkoGame Address of PlinkoGame contract
+     */
+    function setPlinkoGame(address _plinkoGame) external onlyOwner {
+        plinkoGame = _plinkoGame;
+    }
+
+    /**
+     * @notice Update house balance when Plinko bet is placed
+     * @dev Called by PlinkoGame contract with ROGUE sent as msg.value
+     * @param commitmentHash Bet identifier
+     * @param configIndex Plinko config (0-8)
+     * @param nonce Player's nonce
+     * @param maxPayout Maximum possible payout (based on max multiplier)
+     * @return success True if update successful
+     */
+    function updateHouseBalancePlinkoBetPlaced(
+        bytes32 commitmentHash,
+        uint8 configIndex,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external payable onlyPlinko returns(bool) {
+        require(msg.value >= minimumBetSize, "Bet below minimum");
+        require(msg.value <= (houseBalance.net_balance / maximumBetSizeDivisor), "Bet above maximum");
+
+        houseBalance.total_balance += msg.value;
+        houseBalance.liability += maxPayout;
+        houseBalance.unsettled_bets += msg.value;
+        houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+        houseBalance.actual_balance = address(this).balance;
+
+        // Update Plinko global accounting
+        plinkoAccounting.totalBets++;
+        plinkoAccounting.totalVolumeWagered += msg.value;
+        if (msg.value > plinkoAccounting.largestBet) {
+            plinkoAccounting.largestBet = msg.value;
+        }
+
+        emit PlinkoBetPlaced(
+            tx.origin,  // Player address (msg.sender is PlinkoGame contract)
+            commitmentHash,
+            msg.value,
+            configIndex,
+            nonce,
+            block.timestamp
+        );
+
+        return true;
+    }
+
+    /**
+     * @notice Settle a winning Plinko bet — sends ROGUE payout to winner
+     * @param winner Player who won
+     * @param commitmentHash Bet identifier
+     * @param betAmount Original wager
+     * @param payout Total payout (betAmount + profit)
+     * @param configIndex Plinko config (0-8)
+     * @param landingPosition Slot ball landed in
+     * @param path Ball path array
+     * @param nonce Player's nonce
+     * @param maxPayout Max possible payout (for liability release)
+     * @return success True if settlement succeeded
+     */
+    function settlePlinkoWinningBet(
+        address winner,
+        bytes32 commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        uint8 configIndex,
+        uint8 landingPosition,
+        uint8[] calldata path,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external onlyPlinko returns(bool) {
+        uint256 profit = payout - betAmount;
+
+        // Update stats via helper (avoids stack too deep)
+        _updatePlinkoWinStats(winner, betAmount, profit, configIndex);
+
+        // Update house balance
+        _updateHouseBalanceWinning(payout, betAmount, maxPayout);
+
+        // Send payout and emit events via helper
+        _sendPlinkoWinPayout(winner, commitmentHash, betAmount, payout, profit);
+        emit PlinkoWinDetails(commitmentHash, configIndex, landingPosition, path, nonce);
+
+        return true;
+    }
+
+    /**
+     * @dev Helper to update player and global stats for Plinko win
+     */
+    function _updatePlinkoWinStats(
+        address winner,
+        uint256 betAmount,
+        uint256 profit,
+        uint8 configIndex
+    ) private {
+        PlinkoPlayerStats storage stats = plinkoPlayerStats[winner];
+        stats.totalBets++;
+        stats.wins++;
+        stats.totalWagered += betAmount;
+        stats.totalWinnings += profit;
+        plinkoBetsPerConfig[winner][configIndex]++;
+        plinkoPnLPerConfig[winner][configIndex] += int256(profit);
+
+        plinkoAccounting.totalWins++;
+        plinkoAccounting.totalPayouts += (betAmount + profit);
+        plinkoAccounting.totalHouseProfit -= int256(profit);
+        if (profit > plinkoAccounting.largestWin) {
+            plinkoAccounting.largestWin = profit;
+        }
+    }
+
+    /**
+     * @dev Helper to send payout or credit balance for Plinko win
+     */
+    function _sendPlinkoWinPayout(
+        address winner,
+        bytes32 commitmentHash,
+        uint256 betAmount,
+        uint256 payout,
+        uint256 profit
+    ) private {
+        (bool sent,) = payable(winner).call{value: payout}("");
+        if (sent) {
+            emit PlinkoWinningPayout(winner, commitmentHash, betAmount, payout, profit);
+        } else {
+            players[winner].rogue_balance += payout;
+            emit PlinkoPayoutFailed(winner, commitmentHash, payout);
+        }
+    }
+
+    /**
+     * @notice Settle a losing Plinko bet — house keeps ROGUE, sends partial payout + rewards
+     * @param player Player who lost
+     * @param commitmentHash Bet identifier
+     * @param wagerAmount Original wager
+     * @param partialPayout Amount to return (0 for 0x multiplier, or partial for < 1x)
+     * @param configIndex Plinko config (0-8)
+     * @param landingPosition Slot ball landed in
+     * @param path Ball path array
+     * @param nonce Player's nonce
+     * @param maxPayout Max possible payout (for liability release)
+     * @return success True if settlement succeeded
+     */
+    function settlePlinkoLosingBet(
+        address player,
+        bytes32 commitmentHash,
+        uint256 wagerAmount,
+        uint256 partialPayout,
+        uint8 configIndex,
+        uint8 landingPosition,
+        uint8[] calldata path,
+        uint256 nonce,
+        uint256 maxPayout
+    ) external onlyPlinko returns(bool) {
+        uint256 lossAmount = wagerAmount - partialPayout;
+
+        // Send partial payout if > 0
+        if (partialPayout > 0) {
+            (bool sent,) = payable(player).call{value: partialPayout}("");
+            if (!sent) {
+                players[player].rogue_balance += partialPayout;
+            }
+        }
+
+        // Release liability and update house balance
+        _updateHouseBalanceLosing(wagerAmount, maxPayout);
+
+        // Update stats via helper (avoids stack too deep)
+        _updatePlinkoLossStats(player, wagerAmount, lossAmount, partialPayout, configIndex);
+
+        // V7: Send NFT rewards on loss portion (non-blocking)
+        if (lossAmount > 0) {
+            _sendNFTReward(commitmentHash, lossAmount);
+        }
+
+        // V8: Send referral rewards on loss portion (non-blocking)
+        if (lossAmount > 0) {
+            _sendReferralReward(commitmentHash, player, lossAmount);
+        }
+
+        // Emit events
+        emit PlinkoLosingBet(player, commitmentHash, wagerAmount, partialPayout);
+        emit PlinkoLossDetails(commitmentHash, configIndex, landingPosition, path, nonce);
+
+        return true;
+    }
+
+    /**
+     * @dev Helper to update house balance for losing bet
+     */
+    function _updateHouseBalanceLosing(uint256 wagerAmount, uint256 maxPayout) private {
+        houseBalance.liability -= maxPayout;
+        houseBalance.unsettled_bets -= wagerAmount;
+        houseBalance.net_balance = houseBalance.total_balance - houseBalance.liability;
+        houseBalance.actual_balance = address(this).balance;
+        houseBalance.pool_token_supply = this.totalSupply();
+        houseBalance.pool_token_price = ((houseBalance.total_balance - houseBalance.unsettled_bets) * 1000000000000000000) / houseBalance.pool_token_supply;
+    }
+
+    /**
+     * @dev Helper to update player and global stats for Plinko loss
+     */
+    function _updatePlinkoLossStats(
+        address player,
+        uint256 wagerAmount,
+        uint256 lossAmount,
+        uint256 partialPayout,
+        uint8 configIndex
+    ) private {
+        PlinkoPlayerStats storage stats = plinkoPlayerStats[player];
+        stats.totalBets++;
+        stats.losses++;
+        stats.totalWagered += wagerAmount;
+        stats.totalLosses += lossAmount;
+        plinkoBetsPerConfig[player][configIndex]++;
+        plinkoPnLPerConfig[player][configIndex] -= int256(lossAmount);
+
+        plinkoAccounting.totalLosses++;
+        plinkoAccounting.totalHouseProfit += int256(lossAmount);
+        if (partialPayout > 0) {
+            plinkoAccounting.totalPayouts += partialPayout;
+        }
+    }
+
+    /**
+     * @notice Get Plinko global accounting
+     */
+    function getPlinkoAccounting() external view returns (
+        uint256 totalBets,
+        uint256 totalWins,
+        uint256 totalLosses,
+        uint256 totalPushes,
+        uint256 totalVolumeWagered,
+        uint256 totalPayouts,
+        int256 totalHouseProfit,
+        uint256 largestWin,
+        uint256 largestBet,
+        uint256 winRate,
+        int256 houseEdge
+    ) {
+        PlinkoAccounting storage acc = plinkoAccounting;
+
+        totalBets = acc.totalBets;
+        totalWins = acc.totalWins;
+        totalLosses = acc.totalLosses;
+        totalPushes = acc.totalPushes;
+        totalVolumeWagered = acc.totalVolumeWagered;
+        totalPayouts = acc.totalPayouts;
+        totalHouseProfit = acc.totalHouseProfit;
+        largestWin = acc.largestWin;
+        largestBet = acc.largestBet;
+
+        if (acc.totalBets > 0) {
+            winRate = (acc.totalWins * 10000) / acc.totalBets;
+        }
+
+        if (acc.totalVolumeWagered > 0) {
+            houseEdge = (acc.totalHouseProfit * 10000) / int256(acc.totalVolumeWagered);
+        }
+    }
+
+    /**
+     * @notice Get full Plinko player stats including per-config breakdown
+     * @param player Player address to query
+     */
+    function getPlinkoPlayerStats(address player) external view returns (
+        uint256 totalBets,
+        uint256 wins,
+        uint256 losses,
+        uint256 pushes,
+        uint256 totalWagered,
+        uint256 totalWinnings,
+        uint256 totalLosses,
+        uint256[9] memory betsPerConfig,
+        int256[9] memory pnlPerConfig
+    ) {
+        PlinkoPlayerStats storage stats = plinkoPlayerStats[player];
+
+        totalBets = stats.totalBets;
+        wins = stats.wins;
+        losses = stats.losses;
+        pushes = stats.pushes;
+        totalWagered = stats.totalWagered;
+        totalWinnings = stats.totalWinnings;
+        totalLosses = stats.totalLosses;
+        betsPerConfig = plinkoBetsPerConfig[player];
+        pnlPerConfig = plinkoPnLPerConfig[player];
     }
 
 }

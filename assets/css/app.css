@@ -1106,3 +1106,69 @@ html, body {
 .animate-rogue-glow {
   animation: rogue-glow 2s ease-in-out infinite;
 }
+
+/* ============ Plinko Game ============ */
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.plinko-peg {
+  fill: #6b7280;
+  transition: fill 0.2s, r 0.2s;
+}
+
+.plinko-peg.flash {
+  fill: #ffffff;
+}
+
+#plinko-ball {
+  filter: drop-shadow(0 0 6px #CAFC00) drop-shadow(0 0 12px rgba(202, 252, 0, 0.4));
+}
+
+.plinko-trail {
+  transition: opacity 0.5s ease-out;
+}
+
+.plinko-slot {
+  transition: transform 0.3s, filter 0.3s;
+}
+
+.plinko-slot-hit {
+  animation: slot-pulse 0.5s ease-in-out 3;
+  filter: brightness(1.5);
+}
+
+@keyframes slot-pulse {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.15); }
+}
+
+.config-tab {
+  @apply px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200;
+}
+.config-tab.active {
+  @apply bg-[#CAFC00] text-black;
+}
+.config-tab:not(.active) {
+  @apply bg-zinc-800 text-zinc-400 hover:bg-zinc-700;
+}
+
+.plinko-game-card {
+  @apply relative bg-zinc-900 rounded-2xl overflow-hidden;
+  min-height: 520px;
+}
+@media (min-width: 640px) {
+  .plinko-game-card { min-height: 580px; }
+}
+
+.plinko-win-text {
+  animation: plinko-scale-in 0.5s ease-out;
+}
+
+@keyframes plinko-scale-in {
+  0% { transform: scale(0.5); opacity: 0; }
+  80% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}

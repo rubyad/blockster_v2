@@ -433,6 +433,329 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  # ============ BUX Bankroll API Calls ============
+
+  @doc "Get BUX Bankroll house info (balance, LP supply, available liquidity)"
+  def bux_bankroll_house_info do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/house-info", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "HTTP #{status}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get current LP-BUX token price from BUXBankroll"
+  def bux_bankroll_lp_price do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/lp-price", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["price"]}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "HTTP #{status}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get user's LP-BUX token balance from BUXBankroll"
+  def bux_bankroll_lp_balance(wallet_address) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/lp-balance/#{wallet_address}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["balance"]}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "HTTP #{status}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get player's Plinko stats from BUXBankroll"
+  def bux_bankroll_player_stats(wallet_address) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/player-stats/#{wallet_address}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "HTTP #{status}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get global Plinko accounting from BUXBankroll"
+  def bux_bankroll_accounting do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/accounting", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "HTTP #{status}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  # ============ Plinko Game API Calls ============
+
+  @doc "Submit commitment hash for Plinko game"
+  def plinko_submit_commitment(commitment_hash, player, nonce) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      payload = Jason.encode!(%{
+        "commitmentHash" => commitment_hash,
+        "player" => player,
+        "nonce" => nonce
+      })
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/plinko/submit-commitment", payload, headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["txHash"]}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          Logger.error("[BuxMinter] Plinko submit commitment failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Plinko submit commitment HTTP error: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Settle Plinko bet on-chain. The minter auto-detects BUX vs ROGUE from the on-chain bet.
+  """
+  def plinko_settle_bet(commitment_hash, server_seed, path, landing_position) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      payload = Jason.encode!(%{
+        "commitmentHash" => commitment_hash,
+        "serverSeed" => server_seed,
+        "path" => Enum.map(path, fn :left -> 0; :right -> 1 end),
+        "landingPosition" => landing_position
+      })
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/plinko/settle-bet", payload, headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["txHash"], response["payout"]}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = Jason.decode!(body)
+          Logger.error("[BuxMinter] Plinko settle bet failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Plinko settle bet HTTP error: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get player's on-chain nonce for Plinko game"
+  def plinko_player_nonce(address) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/plinko/player-nonce/#{address}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["nonce"]}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get Plinko config details + payout table + max bet for a config index"
+  def plinko_config(config_index) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/plinko/config/#{config_index}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get global Plinko stats (totalBetsPlaced, totalBetsSettled)"
+  def plinko_stats do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/plinko/stats", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get Plinko bet details by commitment hash"
+  def plinko_bet(commitment_hash) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/plinko/bet/#{commitment_hash}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Get max bet from BUXBankroll for a Plinko config index"
+  def bux_bankroll_max_bet(config_index) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+
+      case http_get("#{minter_url}/bux-bankroll/max-bet/#{config_index}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["maxBet"]}
+
+        {:ok, %{status_code: _status, body: body}} ->
+          error = Jason.decode!(body)
+          {:error, error["error"] || "Unknown error"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   # Private helpers
 
   # Claims a sync slot for a user. Returns :ok if we should proceed, :skip if deduplicated.

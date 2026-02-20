@@ -112,6 +112,8 @@ defmodule BlocksterV2Web.Router do
       live "/", PostLive.Index, :index
       live "/login", LoginLive, :index
       live "/play", BuxBoosterLive, :index
+      live "/bankroll", BankrollLive, :index
+      live "/plinko", PlinkoLive, :index
       live "/airdrop", AirdropLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/privacy", LegalLive.Privacy, :index

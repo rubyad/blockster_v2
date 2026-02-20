@@ -8,6 +8,11 @@
     {
       "address": "0x96aB9560f1407586faE2b69Dc7f38a59BEACC594",
       "kind": "uups"
+    },
+    {
+      "address": "0x7E12c7077556B142F8Fb695F70aAe0359a8be10C",
+      "txHash": "0xc30821d70a7856f3bf0484ba9124ac81d8c8df9e0fd076782bd73fec1c931f62",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -1335,6 +1340,385 @@
         "0xD41D2BD654cD15d691bD7037b0bA8050477D1386",
         "0xc42e466411808Cca487267d05a0699d92d6988bf"
       ]
+    },
+    "1307d6caff253901975c9d6ac317924712f55090f1d762e93737a3445c09065e": {
+      "address": "0x92dCB1081B71B8F5E771DdaF44b8a43Aadca4b4C",
+      "txHash": "0xec34d752318fd832ac650d43abe2a568fe8b88a0c7d51c0e3dbdc9b71621b3ed",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/PlinkoGame.sol:171"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/PlinkoGame.sol:172"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/PlinkoGame.sol:255"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "contracts/PlinkoGame.sol:312"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "contracts/PlinkoGame.sol:345"
+          },
+          {
+            "label": "plinkoConfigs",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_array(t_struct(PlinkoConfig)1126_storage)9_storage",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:611"
+          },
+          {
+            "label": "payoutTables",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_uint8,t_array(t_uint32)dyn_storage)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:612"
+          },
+          {
+            "label": "bets",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_bytes32,t_struct(PlinkoBet)1106_storage)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:613"
+          },
+          {
+            "label": "playerNonces",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:614"
+          },
+          {
+            "label": "playerBetHistory",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_mapping(t_address,t_array(t_bytes32)dyn_storage)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:615"
+          },
+          {
+            "label": "commitments",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_mapping(t_bytes32,t_struct(Commitment)1117_storage)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:616"
+          },
+          {
+            "label": "playerCommitments",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:617"
+          },
+          {
+            "label": "settler",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_address",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:618"
+          },
+          {
+            "label": "totalBetsPlaced",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_uint256",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:619"
+          },
+          {
+            "label": "totalBetsSettled",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_uint256",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:620"
+          },
+          {
+            "label": "rogueBankroll",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_address",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:621"
+          },
+          {
+            "label": "buxBankroll",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_address",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:622"
+          },
+          {
+            "label": "buxToken",
+            "offset": 0,
+            "slot": "23",
+            "type": "t_address",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:623"
+          },
+          {
+            "label": "tokenConfigs",
+            "offset": 0,
+            "slot": "24",
+            "type": "t_mapping(t_address,t_struct(TokenConfig)1088_storage)",
+            "contract": "PlinkoGame",
+            "src": "contracts/PlinkoGame.sol:624"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_bytes32)dyn_storage": {
+            "label": "bytes32[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_struct(PlinkoConfig)1126_storage)9_storage": {
+            "label": "struct PlinkoGame.PlinkoConfig[9]",
+            "numberOfBytes": "288"
+          },
+          "t_array(t_uint32)dyn_storage": {
+            "label": "uint32[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_enum(BetStatus)1132": {
+            "label": "enum PlinkoGame.BetStatus",
+            "members": [
+              "Pending",
+              "Won",
+              "Lost",
+              "Push",
+              "Expired"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_bytes32)dyn_storage)": {
+            "label": "mapping(address => bytes32[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))": {
+            "label": "mapping(address => mapping(uint256 => bytes32))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(TokenConfig)1088_storage)": {
+            "label": "mapping(address => struct PlinkoGame.TokenConfig)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Commitment)1117_storage)": {
+            "label": "mapping(bytes32 => struct PlinkoGame.Commitment)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(PlinkoBet)1106_storage)": {
+            "label": "mapping(bytes32 => struct PlinkoGame.PlinkoBet)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bytes32)": {
+            "label": "mapping(uint256 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint8,t_array(t_uint32)dyn_storage)": {
+            "label": "mapping(uint8 => uint32[])",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Commitment)1117_storage": {
+            "label": "struct PlinkoGame.Commitment",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "used",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "serverSeed",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(PlinkoBet)1106_storage": {
+            "label": "struct PlinkoGame.PlinkoBet",
+            "members": [
+              {
+                "label": "player",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "token",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "configIndex",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "commitmentHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "nonce",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "status",
+                "type": "t_enum(BetStatus)1132",
+                "offset": 0,
+                "slot": "7"
+              }
+            ],
+            "numberOfBytes": "256"
+          },
+          "t_struct(PlinkoConfig)1126_storage": {
+            "label": "struct PlinkoGame.PlinkoConfig",
+            "members": [
+              {
+                "label": "rows",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "riskLevel",
+                "type": "t_uint8",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "numPositions",
+                "type": "t_uint8",
+                "offset": 2,
+                "slot": "0"
+              },
+              {
+                "label": "maxMultiplierBps",
+                "type": "t_uint32",
+                "offset": 3,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(TokenConfig)1088_storage": {
+            "label": "struct PlinkoGame.TokenConfig",
+            "members": [
+              {
+                "label": "enabled",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
     }
   }
 }

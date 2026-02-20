@@ -38,6 +38,10 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Player Index](#buxbooster-player-index-feb-3-2026)
 - [BuxBooster Stats Cache](#buxbooster-stats-cache-feb-3-2026)
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
+- [BUXBankroll Deployment (Phase B2)](#buxbankroll-deployment-phase-b2-feb-18-2026)
+- [Phase B4: Backend Implementation](#phase-b4-backend-implementation-feb-18-2026)
+- [Phase B5: BankrollLive UI](#phase-b5-bankrolllive-ui-feb-18-2026)
+- [Phase P5: Plinko Mnesia + Backend](#phase-p5-plinko-mnesia--backend-feb-19-2026)
 
 ---
 
@@ -271,3 +275,342 @@ end
 
 ### Key Lesson
 The MnesiaInitializer already handled node name changes for the PRIMARY node path (`migrate_from_old_node`), but NOT for the JOINING node path. The gap existed since the MnesiaInitializer was written but only triggered when a deploy happened to create the right conditions (stale node + joining node path).
+
+---
+
+## BUXBankroll Deployment (Phase B2) — Feb 18, 2026
+
+### Context
+BUXBankroll is the ERC-20 LP token bankroll that holds all BUX house funds for Plinko (and future BUX games). Users deposit BUX to receive LP-BUX tokens and share in house profit/loss. Part of the broader BUX Bankroll + Plinko build.
+
+### Build Order
+**B1 (Contract — DONE)** → **B2 (Deploy — DONE)** → **B3 (BUX Minter — DONE)** → **B4 (Backend — DONE)** → **B5 (BankrollLive UI — DONE)** → P1 (ROGUEBankroll V10) → P2 (PlinkoGame.sol) → P3-P7 (Deploy → Minter → Backend → UI → Integration)
+
+### Deployed Contracts
+| Contract | Address | Tx Hash |
+|----------|---------|---------|
+| BUXBankroll Implementation | `0xb66db6C2815A4DF6Fe3915bd8323B2e7D54A5830` | `0xb6c4fd6c5abde7182b5e2f6980d404cff4afe8ee4b69cdfb4693d72e6ba5d078` |
+| BUXBankroll Proxy (ERC1967) | `0xED7B00Ab2aDE39AC06d4518d16B465C514ba8630` | `0x10ba32cb37f95c3bf76060a0d7fcbd922bfd87a29b26fd957cd7df0acc24741d` |
+
+**Deployer/Owner**: `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0`
+
+### Post-Deploy Configuration
+| Setting | Value | Tx Hash |
+|---------|-------|---------|
+| referralAdmin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` (same as BuxBoosterGame) | `0x9c2d01b83a271214b6fea1c7534b5279ec4f1fe3d1a409da4b1c1f67597d36fd` |
+| referralBasisPoints | 20 (0.2%) | Set during initialize() |
+| maximumBetSizeDivisor | 1000 (0.1%) | Set during initialize() |
+| Initial LP price | 1e18 (1:1) | Set during initialize() |
+| plinkoGame | Not yet set — Phase P3 | — |
+| House deposit | Not yet done — TBD amount | — |
+
+### Verification Results
+19/19 assertions passed: owner, buxToken, name ("BUX Bankroll"), symbol ("LP-BUX"), decimals (18), totalSupply (0), lpPrice (1e18), houseBalance all zeros, maximumBetSizeDivisor (1000), referralBasisPoints (20), referralAdmin set, plinkoGame (zero), paused (false).
+
+### Scripts Created
+| Script | Purpose |
+|--------|---------|
+| `scripts/deploy-bux-bankroll.js` | Direct ethers.js deployment (impl + ERC1967Proxy) |
+| `scripts/verify-bux-bankroll.js` | 19-assertion state verification |
+| `scripts/setup-bux-bankroll.js` | Set referral admin, basis points, optional house deposit |
+
+### Deployment Lessons
+
+**Rogue Chain RPC 500 errors**: The Hardhat HTTP provider consistently fails with 500s on `eth_sendRawTransaction` for large contract deployments. Simple reads (`eth_blockNumber`, `eth_getTransactionCount`) work fine. Root cause: nginx proxy on the RPC node.
+
+**Solution**: Use direct ethers.js deployment (bypass Hardhat's provider). Pattern from `deploy-direct.js`:
+- `new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID)` instead of Hardhat's provider
+- `new ethers.Wallet(privateKey, provider)` for signing
+- `new ethers.ContractFactory(abi, bytecode, wallet)` for deployment
+- Explicit `gasLimit` to skip `eth_estimateGas`
+- `retryWithBackoff()` for transient RPC failures
+- ERC1967Proxy artifact from `@openzeppelin/upgrades-core/artifacts/`
+
+**If nginx is restarted on Rogue Chain**, the Hardhat-based approach (`upgrades.deployProxy`) may work. But the direct approach is more reliable.
+
+### Referral Admin Architecture Decision
+- BUXBankroll uses the same referral admin address as BuxBoosterGame (`0xbD6f...`)
+- In the new architecture, referrals are managed at the bankroll level (BUXBankroll stores `playerReferrers` mapping), not in individual game contracts
+- The BUX Minter already has separate `txQueues.referralBB` queue for this wallet
+- In Phase B3, the minter's `/set-player-referrer` endpoint will be updated to also call BUXBankroll.setPlayerReferrer using the existing BB queue — no new wallet needed
+
+### Files on Branch `feat/bux-bankroll`
+```
+# Phase B1: Contract
+contracts/bux-booster-game/contracts/BUXBankroll.sol    # Flattened UUPS contract (1335 lines)
+contracts/bux-booster-game/contracts/IBUXBankroll.sol    # Interface
+contracts/bux-booster-game/test/BUXBankroll.test.js      # 87 passing tests
+contracts/bux-booster-game/scripts/deploy-bux-bankroll.js
+contracts/bux-booster-game/scripts/verify-bux-bankroll.js
+contracts/bux-booster-game/scripts/setup-bux-bankroll.js
+
+# Phase B3: BUX Minter
+bux-minter/index.js                                      # Added bankroll endpoints + referral update
+
+# Phase B4: Backend
+lib/blockster_v2/bux_minter.ex                           # +5 bankroll API functions
+lib/blockster_v2/lp_bux_price_tracker.ex                 # NEW: GlobalSingleton GenServer (OHLC candles)
+lib/blockster_v2/mnesia_initializer.ex                   # +:lp_bux_candles table
+lib/blockster_v2/application.ex                          # +LPBuxPriceTracker child
+lib/blockster_v2_web/router.ex                           # +/bankroll route
+test/blockster_v2/lp_bux_price_tracker_test.exs          # NEW: 15 tests (NOT YET RUN — needs PostgreSQL)
+
+# Docs
+CLAUDE.md                                                # Updated contract addresses table
+docs/bux_bankroll_plan.md                                # Updated progress
+docs/session_learnings.md                                # This file
+```
+
+---
+
+## Phase B4: Backend Implementation (Feb 18, 2026)
+
+### BuxMinter Pattern for Bankroll Functions
+The 5 new BuxMinter functions follow the exact same pattern as existing functions (`get_house_balance`, `get_rogue_house_balance`):
+- Check `api_secret` is configured, return `{:error, :not_configured}` if not
+- Build headers with `Authorization: Bearer` only (no Content-Type needed for GET)
+- Use `http_get/2` (which handles Req vs httpc fallback, retries, timeouts)
+- Return `{:ok, data}` or `{:error, reason}` tuples
+- For endpoints returning a single value (lp_price, lp_balance): extract the specific key from JSON
+- For endpoints returning multiple fields (house_info, player_stats, accounting): return the full decoded map
+
+### LPBuxPriceTracker GlobalSingleton Pattern
+Follows PriceTracker exactly:
+1. `start_link` → `GlobalSingleton.start_link(__MODULE__, [])` → on success, `send(pid, :registered)`; on `{:already_registered, _}` → `:ignore`
+2. `init` → minimal state, `registered: false`
+3. `handle_info(:registered, ...)` → sets `registered: true`, starts `:wait_for_mnesia` loop
+4. `handle_info(:wait_for_mnesia, ...)` → checks `table_ready?/1`, retries up to 30 times (60s), checks global ownership on each attempt
+5. `handle_info(:poll_price, ...)` → checks global ownership, fetches price, updates candle, broadcasts, schedules next
+6. `handle_cast(:poll_price, ...)` → same but for manual `refresh_price/0` calls
+
+### Candle Aggregation Logic
+- Base interval: 300 seconds (5 minutes)
+- `update_candle/2`: Groups by candle boundary (`div(now, 300) * 300`). If same boundary, updates high/low/close. If new boundary, saves previous to Mnesia and starts new candle.
+- `get_candles/2`: Reads base candles from Mnesia via `dirty_select` with timestamp cutoff, then `aggregate_candles/2` groups by target timeframe (`div(ts, target) * target`), picks first open and last close within each group.
+- `get_stats/0`: Returns `%{price_1h, price_24h, price_7d, price_30d, price_all}` each with `%{high, low}` or `%{high: nil, low: nil}`.
+
+### Mnesia Table: :lp_bux_candles
+- Type: `:ordered_set` (timestamps are naturally ordered)
+- Attributes: `[:timestamp, :open, :high, :low, :close]`
+- No indexes needed (primary key timestamp queries via `dirty_select` with guard conditions)
+- Tuple format: `{:lp_bux_candles, timestamp, open, high, low, close}`
+
+### Tests
+B4 tests run and passing: 13/13 (`mix test test/blockster_v2/lp_bux_price_tracker_test.exs`).
+PostgreSQL must be running locally (test_helper.exs starts Ecto sandbox even for Mnesia-only tests).
+
+The code lives on branch `feat/bux-bankroll` in worktree `../blockster-v2-bankroll` — it does NOT exist in the main app until merged.
+
+---
+
+## Phase B5: BankrollLive UI (Feb 18, 2026)
+
+### Files Created
+- `lib/blockster_v2_web/live/bankroll_live.ex` — 813-line LiveView module with inline HEEx template
+- `assets/js/lp_bux_chart.js` — LPBuxChart hook (91 lines, TradingView lightweight-charts)
+- `assets/js/bankroll_onchain.js` — BankrollOnchain hook (121 lines, Thirdweb deposit/withdraw)
+- `test/blockster_v2_web/live/bankroll_live_test.exs` — 24 tests, all passing
+- `assets/js/app.js` — Modified: imported and registered both new hooks
+
+### npm Package Added
+`lightweight-charts` — TradingView's open-source charting library for candlestick charts.
+
+### Key Patterns
+
+**Async pool data loading**: Pool stats load via `start_async(:fetch_pool_info, ...)`. Initial render shows a loading spinner. After async completes (success or error), `pool_loading: false` reveals the stats grid. In tests, a 300ms sleep + re-render is needed to assert on loaded stats.
+
+**Disabled button testing**: Deposit/withdraw buttons use HTML `disabled` attribute when amount is 0/"". Phoenix LiveViewTest refuses to click disabled elements. Solution: use `render_hook(view, "deposit_bux", %{})` to send the event directly, bypassing the DOM disabled check while still testing server-side validation logic.
+
+**PriceTracker crash in tests**: `PriceTracker.get_price("ROGUE")` uses `dirty_index_read` on `:token_prices` Mnesia table. In test env, this table may not exist, causing `{:no_exists, {:token_prices, :attributes}}`. Fix: wrap in `rescue/catch` in `get_rogue_price/0`.
+
+**LP price preview formulas**:
+- Deposit: `lp_out = amount * lp_supply / effective_balance` where `effective = totalBalance - unsettledBets`
+- Withdraw: `bux_out = lp_amount * net_balance / lp_supply` where `net = totalBalance - liability`
+- First deposit (lp_supply == 0): 1:1 ratio
+
+### Tests Summary (24 total)
+| Group | Count | Description |
+|-------|-------|-------------|
+| Mount (unauth) | 4 | Title, loading→stats, login prompt, How It Works |
+| Mount (auth) | 3 | Tabs, deposit form, BUX balance |
+| Timeframe | 2 | Tab click, all buttons rendered |
+| Deposit flow | 5 | LP preview, zero validation, confirmed, failed, max |
+| Withdraw flow | 4 | Tab switch, zero validation, confirmed, failed |
+| PubSub | 1 | Price update broadcast |
+| Chart | 2 | Hook present, phx-update=ignore |
+| Tab switching | 3 | Default, switch, error clears |
+
+### Files on Branch `feat/bux-bankroll` (All Phases)
+```
+# Phase B1: Contract
+contracts/bux-booster-game/contracts/BUXBankroll.sol
+contracts/bux-booster-game/contracts/IBUXBankroll.sol
+contracts/bux-booster-game/test/BUXBankroll.test.js
+contracts/bux-booster-game/scripts/deploy-bux-bankroll.js
+contracts/bux-booster-game/scripts/verify-bux-bankroll.js
+contracts/bux-booster-game/scripts/setup-bux-bankroll.js
+
+# Phase B3: BUX Minter
+bux-minter/index.js
+
+# Phase B4: Backend
+lib/blockster_v2/bux_minter.ex
+lib/blockster_v2/lp_bux_price_tracker.ex
+lib/blockster_v2/mnesia_initializer.ex
+lib/blockster_v2/application.ex
+lib/blockster_v2_web/router.ex
+test/blockster_v2/lp_bux_price_tracker_test.exs
+
+# Phase B5: Frontend
+lib/blockster_v2_web/live/bankroll_live.ex
+assets/js/lp_bux_chart.js
+assets/js/bankroll_onchain.js
+assets/js/app.js
+test/blockster_v2_web/live/bankroll_live_test.exs
+
+# Docs
+CLAUDE.md
+docs/bux_bankroll_plan.md
+docs/session_learnings.md
+```
+
+---
+
+## Phase P5: Plinko Mnesia + Backend (Feb 19, 2026)
+
+### PlinkoGame Module (`lib/blockster_v2/plinko_game.ex`)
+
+Game orchestration module following `BuxBoosterOnchain` patterns. Key architecture:
+
+**Module Attributes**:
+- `@configs` — 9 entries: `%{index => %{rows, risk_level, max_multiplier_bps}}`
+- `@token_addresses` — `%{"BUX" => "0x8E3F...", "ROGUE" => :native}`
+- `@payout_tables` — 9 tables: `%{{rows, risk_level} => [basis_point_values]}`
+- `@plinko_contract_address` — `"0x7E12c7077556B142F8Fb695F70aAe0359a8be10C"`
+
+**Game Lifecycle**:
+1. `get_or_init_game/2` — reuses existing `:committed` game or creates new via `init_game_with_nonce/3`
+2. `on_bet_placed/6` — calculates result (ball_path, landing, payout), transitions `:committed` → `:placed`
+3. `settle_game/1` — calls BuxMinter to settle on-chain, transitions `:placed` → `:settled`
+4. `mark_game_settled/3` — writes `:settled` status + settlement_tx to Mnesia
+
+**Result Calculation** (`calculate_result/6`):
+- `combined_seed = SHA256(server_seed <> ":" <> client_seed <> ":" <> nonce)`
+- `client_seed = "#{user_id}:#{bet_amount}:#{token}:#{config_index}"`
+- Ball path: `byte[i] < 128 = :left, >= 128 = :right` for each row
+- Landing position = count of `:right` bounces
+- Payout from lookup table in basis points (10000 = 1.0x)
+
+**Key Design Decision**: Single `plinko_settle_bet/4` function (no separate BUX/ROGUE) because the minter's `/plinko/settle-bet` endpoint auto-detects token type from on-chain bet data.
+
+### PlinkoSettler Module (`lib/blockster_v2/plinko_settler.ex`)
+
+GlobalSingleton GenServer (same pattern as `BuxBoosterBetSettler`):
+- Checks every 60s for `:placed` games older than 120s
+- Uses `dirty_index_read(:plinko_games, :placed, :status)` then filters by `elem(game, 23) < cutoff` (created_at)
+- Calls `PlinkoGame.settle_game/1` for each stuck bet
+
+### BuxMinter Additions
+
+7 new functions added to `lib/blockster_v2/bux_minter.ex`:
+| Function | Endpoint | Returns |
+|----------|----------|---------|
+| `plinko_submit_commitment/3` | `POST /plinko/submit-commitment` | `{:ok, tx_hash}` |
+| `plinko_settle_bet/4` | `POST /plinko/settle-bet` | `{:ok, %{tx_hash, payout, profited, multiplier_bps}}` |
+| `plinko_player_nonce/1` | `GET /plinko/player-nonce/:addr` | `{:ok, nonce}` |
+| `plinko_config/1` | `GET /plinko/config/:index` | `{:ok, config_map}` |
+| `plinko_stats/0` | `GET /plinko/stats` | `{:ok, stats_map}` |
+| `plinko_bet/1` | `GET /plinko/bet/:hash` | `{:ok, bet_map}` |
+| `bux_bankroll_max_bet/1` | `GET /bux-bankroll/max-bet/:index` | `{:ok, max_bet}` |
+
+### Mnesia Table: `:plinko_games`
+
+25-element tuple (table name + 24 data fields):
+| Pos | Attribute | Type | Notes |
+|-----|-----------|------|-------|
+| 1 | (table name) | atom | `:plinko_games` |
+| 2 | game_id | string | 32-char hex (primary key) |
+| 3 | user_id | integer | indexed |
+| 4 | wallet_address | string | indexed |
+| 5 | server_seed | string | 64-char hex, revealed after settlement |
+| 6 | commitment_hash | string | 0x-prefixed SHA256 of server_seed |
+| 7 | nonce | integer | per-player sequential |
+| 8 | status | atom | `:committed` / `:placed` / `:settled` (indexed) |
+| 9 | bet_id | string | commitment hash from contract |
+| 10 | token | string | "BUX" or "ROGUE" |
+| 11 | token_address | string | hex address |
+| 12 | bet_amount | integer | in token units (not wei) |
+| 13 | config_index | integer | 0-8 |
+| 14 | rows | integer | 8, 12, or 16 |
+| 15 | risk_level | atom | `:low`, `:medium`, `:high` |
+| 16 | ball_path | list | `[:left, :right, ...]` (length = rows) |
+| 17 | landing_position | integer | 0 to rows |
+| 18 | payout_bp | integer | basis points (10000 = 1.0x) |
+| 19 | payout | integer | in token units |
+| 20 | won | boolean | `true` / `false` |
+| 21 | commitment_tx | string | tx hash |
+| 22 | bet_tx | string | tx hash |
+| 23 | settlement_tx | string | tx hash |
+| 24 | created_at | integer | Unix seconds (indexed) |
+| 25 | settled_at | integer | Unix seconds |
+
+### Tests (89 total, all passing)
+
+**plinko_math_test.exs** (54 tests, async: true):
+- Payout table integrity: 9 tables defined, correct sizes per row count
+- Symmetry: each table is palindromic
+- Exact values match contract spec
+- Max multiplier per config
+- `calculate_result/6`: deterministic, correct byte→direction mapping, edge cases
+- House edge: ≤2% for all configs (verified via binomial probability)
+- Config mapping and token address lookup
+
+**plinko_game_test.exs** (26 tests):
+- `get_game/1`: returns game map with all 24 fields, handles not_found
+- `get_pending_game/1`: finds committed games, ignores placed/settled, returns most recent
+- `on_bet_placed/6`: transitions to :placed, stores all bet fields, calculates result, 25-element tuple
+- `mark_game_settled/3`: writes :settled status, settlement_tx, settled_at
+- `load_recent_games/2`: settled only, descending order, limit/offset, default limit 30
+
+**plinko_settler_test.exs** (9 tests):
+- Finds :placed games older than 120s
+- Ignores new, committed, and settled games
+- GenServer module exports (start_link/1, init/1)
+
+### Debugging Notes
+
+**Mnesia `{:bad_type}` error**: The `write_committed_game` test helper had 24-element tuple instead of 25 — missing `nil` for the `:won` field at position 20. Mnesia reports this as `{:bad_type}` (tuple size mismatch), not a descriptive error. Always count tuple elements carefully when writing Mnesia records.
+
+**Mnesia `{:no_exists}` in tests**: Test helpers used `rescue` to catch table creation failures, but Mnesia signals use Erlang's `:exit` mechanism, not Elixir exceptions. Fix: use `try/catch :exit` pattern:
+```elixir
+try do
+  :mnesia.table_info(:plinko_games, :type)
+catch
+  :exit, _ ->
+    :mnesia.create_table(:plinko_games, ...)
+end
+```
+
+**Elixir descending range gotcha**: `1..0` in Elixir is a valid range that iterates `[1, 0]` (descending). Use `1..k//1` step syntax to force ascending-only iteration:
+```elixir
+# BAD: 1..0 iterates [1, 0], causes div-by-zero
+Enum.reduce(1..k, 1, fn i, acc -> div(acc * (n - i + 1), i) end)
+
+# GOOD: 1..0//1 is empty range, returns initial accumulator
+Enum.reduce(1..k//1, 1, fn i, acc -> div(acc * (n - i + 1), i) end)
+```
+
+### Files Added/Modified in Phase P5
+```
+# New files
+lib/blockster_v2/plinko_game.ex
+lib/blockster_v2/plinko_settler.ex
+test/blockster_v2/plinko/plinko_math_test.exs
+test/blockster_v2/plinko/plinko_game_test.exs
+test/blockster_v2/plinko/plinko_settler_test.exs
+
+# Modified files
+lib/blockster_v2/mnesia_initializer.ex     # +:plinko_games table
+lib/blockster_v2/bux_minter.ex             # +7 Plinko API functions
+lib/blockster_v2/application.ex            # +PlinkoSettler child
+```

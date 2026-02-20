@@ -117,7 +117,12 @@ BUX is the only active token. ROGUE is the native gas token. Hub tokens (moonBUX
 |----------|---------|
 | BUX Token | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` |
 | BuxBoosterGame (Proxy) | `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B` |
-| ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` |
+| BUXBankroll (Proxy) | `0xED7B00Ab2aDE39AC06d4518d16B465C514ba8630` |
+| BUXBankroll Impl (Plinko) | `0x5C4A9a699C6846ed6e9bB557C4342fA99c58f3E6` |
+| ROGUEBankroll (Proxy) | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` |
+| ROGUEBankroll Impl (V11 Plinko) | `0xDB234Bc265645ec198Ba1fFbBFD7a83f4B0caF5E` |
+| PlinkoGame (Proxy) | `0x7E12c7077556B142F8Fb695F70aAe0359a8be10C` |
+| PlinkoGame Impl | `0x92dCB1081B71B8F5E771DdaF44b8a43Aadca4b4C` |
 | NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` |
 | EntryPoint v0.6.0 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` |
 | ManagedAccountFactory | `0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3` |
