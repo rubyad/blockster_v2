@@ -7,7 +7,7 @@
           "w-8 h-8 rounded-full flex items-center justify-center text-sm font-haas_medium_65 transition-colors",
           cond do
             step_number(@step) > idx -> "bg-[#141414] text-white"
-            step_number(@step) == idx -> "bg-[#CAFC00] text-[#141414]"
+            step_number(@step) == idx -> "bg-gray-900 text-white"
             true -> "bg-gray-200 text-gray-500"
           end
         ]}>

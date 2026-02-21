@@ -305,7 +305,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <div class="pt-8">
         <.link
           patch={~p"/onboarding/redeem"}
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
         >
           Next
         </.link>
@@ -395,7 +395,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <div class="pt-8">
         <.link
           patch={~p"/onboarding/profile"}
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
         >
           Next
         </.link>
@@ -427,7 +427,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <div class="pt-8 space-y-4">
         <.link
           patch={~p"/onboarding/phone"}
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
         >
           Let's Go
         </.link>
@@ -512,7 +512,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           <div class="pt-4">
             <.link
               patch={~p"/onboarding/wallet"}
-              class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+              class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
             >
               Continue
             </.link>
@@ -566,7 +566,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
             <div class="pt-2 space-y-3">
               <button
                 type="submit"
-                class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+                class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 Send Code
               </button>
@@ -614,7 +614,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
               <button
                 type="submit"
-                class="w-full bg-black text-white font-haas_medium_65 py-4 rounded-full hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+                class="w-full bg-black text-white font-haas_medium_65 py-4 rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 Verify Code
               </button>
@@ -680,7 +680,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           <div class="pt-4">
             <.link
               patch={~p"/onboarding/wallet"}
-              class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+              class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
             >
               Continue
             </.link>
@@ -752,7 +752,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <div class="pt-4">
           <.link
             patch={~p"/onboarding/x"}
-            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Continue
           </.link>
@@ -862,7 +862,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <div class="pt-6">
           <.link
             patch={~p"/onboarding/complete"}
-            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Continue
           </.link>
@@ -872,7 +872,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <div class="pt-4 space-y-4">
           <.link
             href={~p"/auth/x"}
-            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+            class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Connect X
           </.link>
@@ -984,7 +984,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <div class="pt-6">
         <.link
           patch={~p"/onboarding/rogue"}
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
         >
           Start Earning BUX
         </.link>
@@ -1020,7 +1020,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       <div class="pt-4">
         <.link
           navigate={~p"/"}
-          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-[#CAFC00] hover:text-black transition-colors cursor-pointer"
+          class="block w-full bg-black text-white font-haas_medium_65 py-4 rounded-full text-center hover:bg-gray-800 transition-colors cursor-pointer"
         >
           Start Earning BUX
         </.link>
@@ -1040,7 +1040,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         <div class={[
           "w-2 h-2 rounded-full transition-colors",
           cond do
-            i < @current -> "bg-[#CAFC00]"
+            i < @current -> "bg-gray-900"
             i == @current -> "bg-black"
             true -> "border border-gray-300"
           end

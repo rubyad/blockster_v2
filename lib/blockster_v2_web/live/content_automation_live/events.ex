@@ -205,7 +205,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
           <button
             phx-click="generate_roundup"
             disabled={@generating_roundup}
-            class={"px-4 py-2 bg-[#CAFC00] text-black rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-[#b8e600] disabled:opacity-50 disabled:cursor-not-allowed"}
+            class={"px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"}
           >
             <%= if @generating_roundup, do: "Generating...", else: "Generate Weekly Roundup" %>
           </button>
@@ -248,7 +248,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                   name="event[name]"
                   value={@form["name"]}
                   placeholder="e.g., ETH Denver 2026"
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
               <div>
@@ -271,7 +271,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                   type="date"
                   name="event[start_date]"
                   value={@form["start_date"]}
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
               <div>
@@ -280,7 +280,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                   type="date"
                   name="event[end_date]"
                   value={@form["end_date"]}
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
               <div>
@@ -304,7 +304,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                   name="event[location]"
                   value={@form["location"]}
                   placeholder="e.g., Denver, Colorado"
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
               <div>
@@ -314,7 +314,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                   name="event[url]"
                   value={@form["url"]}
                   placeholder="https://ethdenver.com"
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
             </div>
@@ -325,14 +325,14 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                 name="event[description]"
                 rows="2"
                 placeholder="Brief description of the event"
-                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
               ><%= @form["description"] %></textarea>
             </div>
 
             <div class="flex justify-end">
               <button
                 type="submit"
-                class="px-5 py-2 bg-[#CAFC00] text-black rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-[#b8e600]"
+                class="px-5 py-2 bg-gray-900 text-white rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-gray-800"
               >
                 Add Event
               </button>
@@ -397,7 +397,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Events do
                           phx-click="generate_preview"
                           phx-value-id={event.id}
                           disabled={@generating == event.id}
-                          class="px-3 py-1 bg-[#CAFC00] text-black rounded text-xs font-haas_medium_65 cursor-pointer hover:bg-[#b8e600] disabled:opacity-50"
+                          class="px-3 py-1 bg-gray-900 text-white rounded text-xs font-haas_medium_65 cursor-pointer hover:bg-gray-800 disabled:opacity-50"
                         >
                           <%= if @generating == event.id, do: "Generating...", else: "Generate Preview" %>
                         </button>

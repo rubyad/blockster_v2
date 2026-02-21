@@ -99,9 +99,20 @@ defmodule BlocksterV2.Accounts do
   Expects attrs to contain at minimum: %{wallet_address: "0x...", chain_id: 560013}
   """
   def create_user_from_wallet(attrs) do
-    attrs
-    |> User.wallet_registration_changeset()
-    |> Repo.insert()
+    result =
+      attrs
+      |> User.wallet_registration_changeset()
+      |> Repo.insert()
+
+    case result do
+      {:ok, user} ->
+        BlocksterV2.Notifications.create_preferences(user.id)
+        BlocksterV2.Workers.WelcomeSeriesWorker.enqueue_series(user.id)
+        {:ok, user}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -109,9 +120,20 @@ defmodule BlocksterV2.Accounts do
   Expects attrs to contain: %{email: "...", wallet_address: "0x..."}
   """
   def create_user_from_email(attrs) do
-    attrs
-    |> User.email_registration_changeset()
-    |> Repo.insert()
+    result =
+      attrs
+      |> User.email_registration_changeset()
+      |> Repo.insert()
+
+    case result do
+      {:ok, user} ->
+        BlocksterV2.Notifications.create_preferences(user.id)
+        BlocksterV2.Workers.WelcomeSeriesWorker.enqueue_series(user.id)
+        {:ok, user}
+
+      error ->
+        error
+    end
   end
 
   @doc """

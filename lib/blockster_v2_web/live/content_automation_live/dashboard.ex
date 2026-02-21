@@ -206,7 +206,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
           <button phx-click="generate_market_analysis" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
             Market Analysis
           </button>
-          <button phx-click="toggle_pause" class={"px-4 py-2 rounded-lg text-sm font-medium cursor-pointer #{if @pipeline_paused, do: "bg-red-600 text-white hover:bg-red-700", else: "bg-[#CAFC00] text-black hover:bg-[#b8e600]"}"}>
+          <button phx-click="toggle_pause" class={"px-4 py-2 rounded-lg text-sm font-medium cursor-pointer #{if @pipeline_paused, do: "bg-red-600 text-white hover:bg-red-700", else: "bg-gray-900 text-white hover:bg-gray-800"}"}>
             <%= if @pipeline_paused, do: "Resume Pipeline", else: "Pause Pipeline" %>
           </button>
         </div>

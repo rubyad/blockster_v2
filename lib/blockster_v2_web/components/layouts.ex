@@ -68,6 +68,9 @@ defmodule BlocksterV2Web.Layouts do
   attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
   attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
   attr :cart_item_count, :integer, default: 0, doc: "number of items in the user's cart"
+  attr :unread_notification_count, :integer, default: 0, doc: "number of unread notifications"
+  attr :notification_dropdown_open, :boolean, default: false, doc: "whether the notification dropdown is open"
+  attr :recent_notifications, :list, default: [], doc: "recent notifications for dropdown"
 
   def site_header(assigns) do
     # Get the selected token balance and logo (defaults to BUX)
@@ -171,11 +174,11 @@ defmodule BlocksterV2Web.Layouts do
 
           <!-- Navigation Links - Centered -->
           <nav id="desktop-nav" phx-hook="DesktopNavHighlight" class="flex items-center gap-1">
-            <.link navigate={~p"/"} data-nav-path="/" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#CAFC00] transition-colors">News</.link>
-            <.link navigate={~p"/hubs"} data-nav-path="/hubs" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#CAFC00] transition-colors">Hubs</.link>
-            <.link navigate={~p"/shop"} data-nav-path="/shop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#CAFC00] transition-colors">Shop</.link>
-            <.link navigate={~p"/airdrop"} data-nav-path="/airdrop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#CAFC00] transition-colors">Airdrop</.link>
-            <.link navigate={~p"/play"} data-nav-path="/play" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-[#CAFC00] transition-colors cursor-pointer">Play</.link>
+            <.link navigate={~p"/"} data-nav-path="/" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">News</.link>
+            <.link navigate={~p"/hubs"} data-nav-path="/hubs" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Hubs</.link>
+            <.link navigate={~p"/shop"} data-nav-path="/shop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Shop</.link>
+            <.link navigate={~p"/airdrop"} data-nav-path="/airdrop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Airdrop</.link>
+            <.link navigate={~p"/play"} data-nav-path="/play" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors cursor-pointer">Play</.link>
           </nav>
 
           <!-- Balance/User - Right (flex-1 for equal width with left side) -->
@@ -192,6 +195,81 @@ defmodule BlocksterV2Web.Layouts do
                   </span>
                 <% end %>
               </.link>
+              <!-- Notification Bell Icon with Badge -->
+              <div class="relative" id="notification-bell">
+                <button phx-click="toggle_notification_dropdown"
+                  class="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-[#141414]">
+                    <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                  </svg>
+                  <%= if @unread_notification_count > 0 do %>
+                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-haas_medium_65 rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1" id="notification-badge">
+                      <%= if @unread_notification_count > 99, do: "99+", else: @unread_notification_count %>
+                    </span>
+                  <% end %>
+                </button>
+                <!-- Notification Dropdown -->
+                <%= if @notification_dropdown_open do %>
+                  <div id="notification-dropdown" class="absolute right-0 top-12 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden" phx-click-away="close_notification_dropdown">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                      <h3 class="font-haas_medium_65 text-[#141414] text-sm">Notifications</h3>
+                      <div class="flex items-center gap-3">
+                        <%= if @unread_notification_count > 0 do %>
+                          <button phx-click="mark_all_notifications_read" class="text-xs text-gray-500 hover:text-[#141414] cursor-pointer">Mark all read</button>
+                        <% end %>
+                      </div>
+                    </div>
+                    <!-- Notification list -->
+                    <div class="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
+                      <%= if @recent_notifications == [] do %>
+                        <div class="py-12 text-center text-gray-400 text-sm font-haas_roman_55">
+                          No notifications yet
+                        </div>
+                      <% else %>
+                        <%= for notification <- @recent_notifications do %>
+                          <div
+                            phx-click="click_notification"
+                            phx-value-id={notification.id}
+                            phx-value-url={notification.action_url}
+                            class={"flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors #{if is_nil(notification.read_at), do: "bg-blue-50/30", else: ""}"}
+                          >
+                            <%= if notification.image_url do %>
+                              <img src={notification.image_url} class="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            <% else %>
+                              <div class="w-10 h-10 rounded-lg bg-[#CAFC00] flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-black">
+                                  <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                                </svg>
+                              </div>
+                            <% end %>
+                            <div class="flex-1 min-w-0">
+                              <p class={"text-sm truncate #{if is_nil(notification.read_at), do: "font-haas_medium_65 text-[#141414]", else: "font-haas_roman_55 text-gray-600"}"}><%= notification.title %></p>
+                              <p class="text-xs text-gray-500 mt-0.5 line-clamp-2"><%= notification.body %></p>
+                              <p class="text-[10px] text-gray-400 mt-1"><%= format_notification_time(notification.inserted_at) %></p>
+                            </div>
+                            <%= if is_nil(notification.read_at) do %>
+                              <div class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2"></div>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                    <!-- Footer -->
+                    <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
+                      <.link navigate={~p"/notifications"} class="text-xs font-haas_medium_65 text-[#141414] hover:underline">
+                        View all
+                      </.link>
+                      <.link navigate={~p"/notifications/settings"} class="text-xs text-gray-500 hover:text-[#141414] flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                          <path fill-rule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
+                        </svg>
+                        Settings
+                      </.link>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
               <!-- Logged in user display with dropdown -->
               <div class="relative" id="desktop-user-dropdown" phx-click-away={JS.hide(to: "#desktop-dropdown-menu")}>
                 <button id="desktop-user-button" phx-click={JS.toggle(to: "#desktop-dropdown-menu")} class="flex items-center gap-2 h-10 rounded-full bg-gray-100 pl-2 pr-3 hover:bg-gray-200 transition-colors cursor-pointer">
@@ -343,6 +421,25 @@ defmodule BlocksterV2Web.Layouts do
                           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
                           Content Generator
+                        </.link>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <.link
+                          navigate={~p"/admin/notifications/campaigns"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Notification Campaigns
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/notifications/analytics"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Notification Analytics
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/ai-manager"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          AI Manager
                         </.link>
                       <% end %>
                     <% end %>
@@ -577,6 +674,25 @@ defmodule BlocksterV2Web.Layouts do
                       >
                         Content Generator
                       </.link>
+                      <div class="border-t border-gray-100 my-1"></div>
+                      <.link
+                        navigate={~p"/admin/notifications/campaigns"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Notification Campaigns
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/notifications/analytics"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Notification Analytics
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/ai-manager"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        AI Manager
+                      </.link>
                     <% end %>
                   <% end %>
                 </div>
@@ -651,6 +767,20 @@ defmodule BlocksterV2Web.Layouts do
     <!-- Spacer to push content below fixed header -->
     <div class="h-14 lg:h-24"></div>
     """
+  end
+
+  defp format_notification_time(nil), do: ""
+  defp format_notification_time(datetime) do
+    now = DateTime.utc_now()
+    diff = DateTime.diff(now, datetime, :second)
+
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86400 -> "#{div(diff, 3600)}h ago"
+      diff < 604_800 -> "#{div(diff, 86400)}d ago"
+      true -> Calendar.strftime(datetime, "%b %d")
+    end
   end
 
   @doc """

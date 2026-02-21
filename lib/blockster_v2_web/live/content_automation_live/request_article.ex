@@ -481,7 +481,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                   is_event_preview?(@form) -> "e.g., ETH Denver 2026"
                   true -> "e.g., Aave V3 launches new WETH market with 8% APY"
                 end}
-                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
               />
             </div>
           <% end %>
@@ -500,7 +500,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                     name="form[x_handle]"
                     value={@form["x_handle"]}
                     placeholder="VitalikButerin"
-                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                   />
                 </div>
                 <p class="text-gray-500 text-xs mt-1">Their recent X posts will be fetched as primary source material</p>
@@ -514,7 +514,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                   name="form[role]"
                   value={@form["role"]}
                   placeholder="e.g., Co-founder of Ethereum, Researcher"
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
             </div>
@@ -533,7 +533,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                     name="form[event_dates]"
                     value={@form["event_dates"]}
                     placeholder="e.g., February 27 — March 1, 2026"
-                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -545,7 +545,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                     name="form[event_location]"
                     value={@form["event_location"]}
                     placeholder="e.g., Denver, Colorado"
-                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -558,7 +558,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                   name="form[event_url]"
                   value={@form["event_url"]}
                   placeholder="https://ethdenver.com"
-                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                  class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 />
               </div>
             </div>
@@ -676,7 +676,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                 true ->
                   "Include specific facts, numbers, URLs, and context...\n\nExample:\n- Aave V3 just opened a WETH lending market on Arbitrum\n- Current APY: ~8.2% for suppliers\n- TVL: $45M in first 24 hours\n- Blog post: https://governance.aave.com/...\n- Risks: Smart contract risk, variable rate"
               end}
-              class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+              class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
             ><%= @form["instructions"] %></textarea>
           </div>
 
@@ -690,7 +690,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
                 name="form[angle]"
                 rows="3"
                 placeholder="e.g., Focus on how this competes with traditional savings accounts. Emphasize the risk/reward tradeoff."
-                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#CAFC00] focus:border-transparent"
+                class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-400 focus:border-transparent"
               ><%= @form["angle"] %></textarea>
             </div>
           <% end %>
@@ -739,7 +739,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
           <div class="flex justify-end">
             <button
               type="submit"
-              class="px-6 py-3 bg-[#CAFC00] text-black rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-[#b8e600]"
+              class="px-6 py-3 bg-gray-900 text-white rounded-lg text-sm font-haas_medium_65 cursor-pointer hover:bg-gray-800"
             >
               <%= cond do %>
                 <% is_blockster?(@form) -> %>Generate Profile

@@ -684,9 +684,56 @@ defmodule BlocksterV2.Blog do
   Publishes a post.
   """
   def publish_post(%Post{} = post) do
-    post
-    |> Post.publish()
-    |> Repo.update()
+    result =
+      post
+      |> Post.publish()
+      |> Repo.update()
+
+    case result do
+      {:ok, published_post} ->
+        # Notify hub followers in the background if post belongs to a hub
+        if published_post.hub_id do
+          Task.start(fn -> notify_hub_followers_of_new_post(published_post) end)
+        end
+
+        {:ok, published_post}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Notifies all followers of a hub that a new post has been published.
+  """
+  def notify_hub_followers_of_new_post(%Post{} = post) do
+    hub = get_hub(post.hub_id)
+    followers = get_hub_followers_with_preferences(hub.id)
+
+    Enum.each(followers, fn follower ->
+      user_id = follower.user_id
+
+      # In-app notification: respect per-hub in_app_notifications + notify_new_posts
+      in_app = Map.get(follower, :in_app_notifications, true) && Map.get(follower, :notify_new_posts, true)
+      if in_app do
+        BlocksterV2.Notifications.create_notification(user_id, %{
+          type: "hub_post",
+          category: "content",
+          title: "New in #{hub.name}",
+          body: post.title,
+          image_url: post.featured_image,
+          action_url: "/#{post.slug}",
+          action_label: "Read Article",
+          metadata: %{"post_id" => post.id, "hub_id" => hub.id}
+        })
+      end
+
+      # Email notification: respect per-hub email_notifications + notify_new_posts
+      send_email = Map.get(follower, :email_notifications, true) && Map.get(follower, :notify_new_posts, true)
+      if send_email do
+        BlocksterV2.Workers.HubPostNotificationWorker.enqueue(user_id, post.id, hub.id)
+      end
+    end)
   end
 
   @doc """
@@ -1017,6 +1064,152 @@ defmodule BlocksterV2.Blog do
     )
     |> Repo.all()
     |> Map.new()
+  end
+
+  # ============ Hub Follow/Unfollow ============
+
+  alias BlocksterV2.Blog.HubFollower
+
+  @doc """
+  Follows a hub. Creates a hub_followers record.
+  Returns {:ok, hub_follower} or {:error, changeset}.
+  """
+  def follow_hub(user_id, hub_id) do
+    result =
+      %HubFollower{}
+      |> HubFollower.changeset(%{user_id: user_id, hub_id: hub_id})
+      |> Repo.insert()
+
+    case result do
+      {:ok, _} ->
+        BlocksterV2.UserEvents.track(user_id, "hub_subscribe", %{
+          target_type: "hub",
+          target_id: hub_id
+        })
+      _ -> :ok
+    end
+
+    result
+  end
+
+  @doc """
+  Unfollows a hub. Deletes the hub_followers record.
+  Returns {:ok, hub_follower} or {:error, :not_found}.
+  """
+  def unfollow_hub(user_id, hub_id) do
+    result =
+      case Repo.get_by(HubFollower, user_id: user_id, hub_id: hub_id) do
+        nil -> {:error, :not_found}
+        follower -> Repo.delete(follower)
+      end
+
+    case result do
+      {:ok, _} ->
+        BlocksterV2.UserEvents.track(user_id, "hub_unsubscribe", %{
+          target_type: "hub",
+          target_id: hub_id
+        })
+      _ -> :ok
+    end
+
+    result
+  end
+
+  @doc """
+  Toggles hub follow. If following, unfollows. If not following, follows.
+  Returns {:ok, :followed} or {:ok, :unfollowed}.
+  """
+  def toggle_hub_follow(user_id, hub_id) do
+    if user_follows_hub?(user_id, hub_id) do
+      case unfollow_hub(user_id, hub_id) do
+        {:ok, _} -> {:ok, :unfollowed}
+        error -> error
+      end
+    else
+      case follow_hub(user_id, hub_id) do
+        {:ok, _} -> {:ok, :followed}
+        error -> error
+      end
+    end
+  end
+
+  @doc """
+  Checks if a user follows a hub.
+  """
+  def user_follows_hub?(user_id, hub_id) do
+    from(hf in HubFollower,
+      where: hf.user_id == ^user_id and hf.hub_id == ^hub_id
+    )
+    |> Repo.exists?()
+  end
+
+  @doc """
+  Gets all hub IDs that a user follows.
+  """
+  def get_user_followed_hub_ids(user_id) do
+    from(hf in HubFollower,
+      where: hf.user_id == ^user_id,
+      select: hf.hub_id
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets all user IDs that follow a hub (for notification delivery).
+  """
+  def get_hub_follower_user_ids(hub_id) do
+    from(hf in HubFollower,
+      where: hf.hub_id == ^hub_id,
+      select: hf.user_id
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets hub followers with their notification preferences (for targeted notifications).
+  """
+  def get_hub_followers_with_preferences(hub_id) do
+    from(hf in HubFollower,
+      where: hf.hub_id == ^hub_id,
+      select: hf
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets all hubs a user follows with hub details and per-hub notification settings.
+  Returns list of maps with :hub and :follower keys.
+  """
+  def get_user_followed_hubs_with_settings(user_id) do
+    from(hf in HubFollower,
+      join: h in Hub,
+      on: hf.hub_id == h.id,
+      where: hf.user_id == ^user_id,
+      select: %{
+        hub: %{id: h.id, name: h.name, slug: h.slug, logo_url: h.logo_url},
+        follower: %{
+          notify_new_posts: hf.notify_new_posts,
+          notify_events: hf.notify_events,
+          email_notifications: hf.email_notifications,
+          in_app_notifications: hf.in_app_notifications
+        }
+      },
+      order_by: [asc: h.name]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Updates hub-specific notification settings for a user's hub follow.
+  """
+  def update_hub_follow_notifications(user_id, hub_id, attrs) do
+    case Repo.get_by(HubFollower, user_id: user_id, hub_id: hub_id) do
+      nil -> {:error, :not_found}
+      follower ->
+        follower
+        |> HubFollower.notification_changeset(attrs)
+        |> Repo.update()
+    end
   end
 
   @doc """

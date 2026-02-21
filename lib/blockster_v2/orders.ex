@@ -136,7 +136,19 @@ defmodule BlocksterV2.Orders do
   end
 
   def update_order(%Order{} = order, attrs) do
-    order |> Order.status_changeset(attrs) |> Repo.update()
+    result = order |> Order.status_changeset(attrs) |> Repo.update()
+
+    case result do
+      {:ok, updated_order} ->
+        if Map.has_key?(attrs, :status) || Map.has_key?(attrs, "status") do
+          notify_order_status_change(updated_order)
+        end
+
+        {:ok, updated_order}
+
+      error ->
+        error
+    end
   end
 
   def complete_bux_payment(%Order{} = order, tx_hash) do
@@ -173,11 +185,21 @@ defmodule BlocksterV2.Orders do
     Cart.clear_cart(order.user_id)
     Cart.broadcast_cart_update(order.user_id)
 
+    # Notify user of confirmed order
+    notify_order_status_change(order)
+
     Task.start(fn ->
       BlocksterV2.Orders.Fulfillment.notify(order)
     end)
 
     if order.referrer_id, do: create_affiliate_payouts(order)
+
+    # Track purchase completion for notification triggers
+    BlocksterV2.UserEvents.track(order.user_id, "purchase_complete", %{
+      target_type: "order",
+      target_id: order.id,
+      total: to_string(order.total_amount)
+    })
 
     :ok
   end
@@ -360,4 +382,36 @@ defmodule BlocksterV2.Orders do
   catch
     :exit, _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
   end
+
+  @doc """
+  Sends an in-app notification to the user when their order status changes.
+  """
+  def notify_order_status_change(%Order{} = order) do
+    {title, body} = order_notification_copy(order.status)
+
+    BlocksterV2.Notifications.create_notification(order.user_id, %{
+      type: "order_#{order.status}",
+      category: "system",
+      title: title,
+      body: body,
+      action_url: "/shop",
+      action_label: "View Order",
+      metadata: %{"order_id" => order.id, "order_number" => order.order_number}
+    })
+
+    # Trigger SMS for shipped orders
+    if order.status == "shipped" do
+      BlocksterV2.Workers.SmsNotificationWorker.enqueue(
+        order.user_id,
+        :order_shipped,
+        %{order_ref: order.order_number || "##{order.id}", url: "blockster-v2.fly.dev/shop"}
+      )
+    end
+  end
+
+  defp order_notification_copy("paid"), do: {"Order Confirmed", "Your order has been confirmed and is being processed."}
+  defp order_notification_copy("shipped"), do: {"Order Shipped", "Your order is on its way!"}
+  defp order_notification_copy("delivered"), do: {"Order Delivered", "Your order has been delivered."}
+  defp order_notification_copy("cancelled"), do: {"Order Cancelled", "Your order has been cancelled."}
+  defp order_notification_copy(status), do: {"Order Update", "Your order status has been updated to #{status}."}
 end

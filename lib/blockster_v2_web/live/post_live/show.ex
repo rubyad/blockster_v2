@@ -10,6 +10,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Social.XConnection
   alias BlocksterV2.Shop
   alias BlocksterV2.ImageKit
+  alias BlocksterV2.UserEvents
   alias BlocksterV2Web.PostLive.TipTapRenderer
   alias BlocksterV2Web.SharedComponents
 
@@ -169,6 +170,16 @@ defmodule BlocksterV2Web.PostLive.Show do
 
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
+
+    # Track article view (connected mount only — avoids double-mount)
+    if connected?(socket) && !is_anonymous do
+      UserEvents.track(socket.assigns.current_user.id, "article_view", %{
+        target_type: "post",
+        target_id: post.id,
+        hub_id: post.hub_id,
+        category: post.category && post.category.slug
+      })
+    end
 
     {:noreply,
      socket
@@ -522,6 +533,23 @@ defmodule BlocksterV2Web.PostLive.Show do
               # Try to record reward and mint to user
               case EngagementTracker.record_read_reward(user_id, post_id, actual_amount) do
                 {:ok, recorded_bux} ->
+                  # Track article read completion + BUX earned
+                  UserEvents.track(user_id, "article_read_complete", %{
+                    target_type: "post",
+                    target_id: post_id,
+                    hub_id: socket.assigns.post.hub_id,
+                    score: score
+                  })
+                  if recorded_bux > 0 do
+                    UserEvents.track(user_id, "bux_earned", %{
+                      amount: recorded_bux,
+                      source: "reading",
+                      target_type: "post",
+                      target_id: post_id,
+                      new_balance: nil
+                    })
+                  end
+
                   # New reward recorded - mint tokens
                   engagement = safe_get_engagement(user_id, post_id)
                   rewards = safe_get_rewards(user_id, post_id)
@@ -1118,6 +1146,15 @@ defmodule BlocksterV2Web.PostLive.Show do
                           end
 
                         {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, actual_bux, tx_hash: tx_hash, post_id: post.id)
+
+                        # Track article share event
+                        UserEvents.track(user.id, "article_share", %{
+                          target_type: "post",
+                          target_id: post.id,
+                          hub_id: post.hub_id,
+                          bux_earned: actual_bux,
+                          platform: "x"
+                        })
 
                         # Update pool balance in assigns (display value, always >= 0)
                         new_pool_balance_internal = EngagementTracker.get_post_bux_balance(post.id)

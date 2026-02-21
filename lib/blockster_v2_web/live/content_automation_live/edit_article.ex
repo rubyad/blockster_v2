@@ -710,7 +710,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.EditArticle do
                 <button type="button" phx-click="preview" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-indigo-700">
                   Preview
                 </button>
-                <button type="submit" name="action" value="publish" class="px-6 py-2.5 bg-[#CAFC00] text-black rounded-lg text-sm font-medium cursor-pointer hover:bg-[#b8e600]">
+                <button type="submit" name="action" value="publish" class="px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
                   Publish Now
                 </button>
                 <.link navigate={~p"/admin/content/queue"} class="px-6 py-2.5 text-gray-500 hover:text-gray-900 text-sm cursor-pointer">

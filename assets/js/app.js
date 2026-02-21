@@ -56,7 +56,9 @@ import { BalanceFetcherHook } from "./balance_fetcher.js";
 import { WalletTransferHook } from "./wallet_transfer.js";
 import { BuxPaymentHook } from "./hooks/bux_payment.js";
 import { RoguePaymentHook } from "./hooks/rogue_payment.js";
-import { HelioCheckoutHook } from "./hooks/helio_checkout.js";
+import { HelioCheckoutHook } from "./hooks/helio_checkout.js"
+import { NotificationToastHook } from "./hooks/notification_toast.js";
+import { EventTracker } from "./hooks/event_tracker.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -370,6 +372,24 @@ let ClaimCleanup = {
   }
 };
 
+// ScrollToBottom - auto-scrolls chat container when new messages arrive
+let ScrollToBottom = {
+  mounted() {
+    this.scrollToBottom();
+    this.observer = new MutationObserver(() => this.scrollToBottom());
+    this.observer.observe(this.el, { childList: true, subtree: true });
+  },
+  updated() {
+    this.scrollToBottom();
+  },
+  destroyed() {
+    if (this.observer) this.observer.disconnect();
+  },
+  scrollToBottom() {
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+};
+
 // ScrollToCenter - scrolls selected child into center of scrollable container
 let ScrollToCenter = {
   mounted() {
@@ -593,7 +613,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       pending_claims: pendingClaims.length > 0 ? pendingClaims : null
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToCenter, TaglineRotator, OnboardingPopup },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, OnboardingPopup },
 });
 
 // connect if there are any LiveViews on the page

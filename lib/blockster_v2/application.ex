@@ -69,8 +69,27 @@ defmodule BlocksterV2.Application do
         []
       end
 
+    # Oban job processing
+    oban_children = [{Oban, Application.fetch_env!(:blockster_v2, Oban)}]
+
+    # Seed SystemConfig defaults (idempotent — only writes if table is empty)
+    if Application.get_env(:blockster_v2, :start_genservers, true) do
+      Task.start(fn ->
+        # Small delay to ensure Repo is ready
+        Process.sleep(1_000)
+        BlocksterV2.Notifications.SystemConfig.seed_defaults()
+      end)
+    end
+
+    # Notification EventProcessor (after Oban, uses GlobalSingleton)
+    notification_children = if Application.get_env(:blockster_v2, :start_genservers, true) do
+      [{BlocksterV2.Notifications.EventProcessor, []}]
+    else
+      []
+    end
+
     # Endpoint always starts last
-    children = base_children ++ genserver_children ++ content_automation_children ++ [BlocksterV2Web.Endpoint]
+    children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ [BlocksterV2Web.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

@@ -1,8 +1,219 @@
 # Blockster V2 — Notification & Engagement System Plan
 
-> **Status**: PLANNING
+> **Status**: PHASES 1-18 COMPLETE (808 tests passing) + UI Polish pass
 > **Created**: 2026-02-18
-> **Branch**: TBD
+> **Branch**: `feat/notification-system`
+
+## Progress Notes
+
+### Phase 1: Database & Core Infrastructure — COMPLETE (57 tests)
+- **Migrations**: 5 new migrations (notification_campaigns, notifications, notification_preferences, notification_email_log, alter hub_followers)
+- **Schemas**: Campaign, Notification, NotificationPreference, EmailLog, HubFollower
+- **Context**: `BlocksterV2.Notifications` — full CRUD for all schemas, PubSub broadcasting
+- **Auto-create**: Notification preferences auto-created on user registration (both wallet and email)
+- **Files created**: 6 new files (4 schemas + 1 context + 1 HubFollower schema), 1 modified (accounts.ex), 5 migrations
+- **Tests**: 57 passing — schema validations, CRUD operations, PubSub broadcasting, preferences, campaigns, email logs
+- **Note**: Added secondary sort `desc: n.id` to notification queries to prevent flaky ordering when `inserted_at` is identical
+
+### Phase 2: Hub Subscribe Button — COMPLETE (21 tests, 78 cumulative)
+- **Blog context**: Added `follow_hub/2`, `unfollow_hub/2`, `toggle_hub_follow/2`, `user_follows_hub?/2`, `get_user_followed_hub_ids/1`, `get_hub_follower_user_ids/1`, `get_hub_followers_with_preferences/1`
+- **HubLive.Show**: Added `:user_follows_hub` and `:follower_count` assigns on mount, `handle_event("toggle_follow")` handler with login redirect for unauthenticated users
+- **Template**: Replaced broken `onclick="toggleModal('shareModal')"` button with `phx-click="toggle_follow"` — shows lime `#CAFC00` "Subscribed" (with check icon) when following, dark "Subscribe" (with bell icon) when not. Shows subscriber count.
+- **Files modified**: blog.ex (follow functions), hub_live/show.ex (mount + handler), hub_live/show.html.heex (button UI)
+- **Files created**: blog/hub_follower.ex (schema)
+- **Tests**: 21 passing — follow/unfollow CRUD, toggle, isolation, multi-hub, follower queries
+
+### Phase 3: In-App Notifications — Bell Icon & Dropdown — COMPLETE (21 tests, 99 cumulative)
+- **NotificationHook**: on_mount module — subscribes to PubSub, fetches unread count + recent notifications, handles all notification UI events (toggle/close dropdown, mark_all_read, click_notification, dismiss_toast) via `attach_hook` for both `:handle_info` and `:handle_event`
+- **Router**: Added NotificationHook to all 5 live_sessions that use BuxBalanceHook (admin, authenticated, author_new, author_edit, default)
+- **App layout**: Passes `unread_notification_count`, `notification_dropdown_open`, `recent_notifications` to site_header
+- **Header bell icon** (desktop): Between cart icon and user dropdown — 40x40 rounded circle with bell SVG, red badge with count (caps at "99+"), dropdown on click with notification list, mark-all-read button, click-away close
+- **Notification items**: Image/icon, title (bold if unread), body (2-line clamp), relative timestamp, blue dot for unread, click navigates to action_url
+- **Time formatter**: `format_notification_time/1` — "just now", "2m ago", "3h ago", "5d ago", "Feb 20"
+- **Files created**: notification_hook.ex
+- **Files modified**: router.ex (5 live_sessions), layouts.ex (attrs + bell + dropdown + formatter), app.html.heex (new assigns)
+- **Tests**: 21 passing — module loading, initial state, PubSub delivery, click/read flow, ordering, notification types, badge count
+
+### Phase 4: Toast Notifications & Real-Time Delivery — COMPLETE (32 tests, 131 cumulative)
+- **Toast component**: Added to `app.html.heex` — fixed position top-right, slides in from right with `animate-slide-in-right`, auto-dismiss progress bar (`animate-shrink-width`), image or lime bell fallback icon, title, body, close button, click navigates to action_url
+- **CSS animations**: Added `slide-in-right` (0.3s ease-out) and `shrink-width` (linear forwards) keyframes to `app.css`
+- **JS hook**: `NotificationToastHook` — auto-dismisses after 5s, pauses timer on hover (pauses progress bar animation too), resumes with 3s on mouse leave
+- **Hub post publish → follower notifications**: `publish_post/1` now fires `Task.start` → `notify_hub_followers_of_new_post/1` when post has a hub_id. Creates one notification per follower with hub name, post title, featured image, and post slug as action_url
+- **Order status → notifications**: `notify_order_status_change/1` creates notifications with status-specific copy (Confirmed/Shipped/Delivered/Cancelled/generic fallback). Wired into `update_order/2` (when status changes) and `process_paid_order/1`
+- **Notification types expanded**: Added `order_paid`, `order_cancelled`, `order_processing`, `order_bux_paid`, `order_rogue_paid` to valid notification types
+- **Files created**: `assets/js/hooks/notification_toast.js`
+- **Files modified**: `app.css` (animations), `app.js` (hook import + registration), `app.html.heex` (toast component), `blog.ex` (publish triggers), `orders.ex` (status notifications), `notification.ex` (expanded valid types)
+- **Tests**: 32 passing — toast state management, click navigation, auto-dismiss behavior, hub post publish triggers (follower isolation, no-hub skip, no-followers skip, metadata, image), order status notifications (paid/shipped/delivered/cancelled/unknown + PubSub broadcast), end-to-end delivery flow, toast+dropdown interaction, notification category coverage
+- **Note**: Hub creation requires `tag_name` field (discovered in tests). Used `get_hub(id)` not `get_hub!(id)` (only `get_hub/1` exists in Blog context)
+
+### Phase 5: Notifications Page — COMPLETE (39 tests, 170 cumulative)
+- **NotificationLive.Index**: Full LiveView at `/notifications` — category tabs (All/Content/Offers/Social/Rewards/System), read/unread filter toggle, mark-as-read on click, bulk "Mark all read" button, infinite scroll via existing InfiniteScroll hook (`data-event="load-more-notifications"`), empty state messaging per category
+- **Category icons**: Mapped category to Heroicon (newspaper/content, tag/offers, users/social, trophy/rewards, cog/system)
+- **Time formatting**: Reuses `format_notification_time/1` pattern (just now, Xm, Xh, Xd, date)
+- **Route**: Added before catch-all `/:slug` in `:default` live_session
+- **Files created**: `lib/blockster_v2_web/live/notification_live/index.ex`
+- **Files modified**: `router.ex` (notification routes)
+- **Tests**: 39 passing — listing, category filtering, read/unread filter, mark as read, bulk mark all read, infinite scroll pagination, empty state, category icons, timestamp formatting
+
+### Phase 6: Notification Settings Page — COMPLETE (36 tests, 206 cumulative)
+- **NotificationSettingsLive.Index**: Full settings page at `/notifications/settings` — toggle components for email/SMS/in-app channels, type-specific toggles (hub_posts, special_offers, daily_digest, etc.), max emails/day slider (1-10), quiet hours (time inputs), timezone selector, per-hub notification toggles, "Unsubscribe from all" with confirmation dialog
+- **Blog context additions**: `get_user_followed_hubs_with_settings/1` (join HubFollower→Hub for per-hub toggles), `update_hub_follow_notifications/3`
+- **UnsubscribeController**: GET `/unsubscribe/:token` — one-click unsubscribe via token, redirects to `/` with flash
+- **Auto-save**: Toggles save immediately with "Saved" badge that clears after 2s
+- **Files created**: `notification_settings_live/index.ex`, `controllers/unsubscribe_controller.ex`
+- **Files modified**: `router.ex` (settings + unsubscribe routes), `blog.ex` (hub settings queries)
+- **Tests**: 36 passing — toggle states, preference persistence, per-hub settings, quiet hours, frequency controls, unsubscribe flow
+
+### Phase 7: Email Infrastructure & Templates — COMPLETE (53 tests, 259 cumulative)
+- **EmailBuilder**: 8 email templates — `single_article`, `daily_digest`, `promotional`, `referral_prompt`, `weekly_reward_summary`, `welcome`, `re_engagement`, `order_update`. Shared base HTML layout with Blockster branding (#CAFC00), dark mode CSS, CTA buttons, List-Unsubscribe headers (RFC 8058), HTML escaping
+- **RateLimiter**: `can_send?/3` returns `:ok`/`:defer`/`{:error, reason}`. Checks: channel_enabled → type_enabled → rate_limit (daily email cap, weekly SMS cap) → quiet_hours (with timezone offset table). Maps email types to preference fields (e.g., "hub_post" → `:email_hub_posts`)
+- **Files created**: `notifications/email_builder.ex`, `notifications/rate_limiter.ex`
+- **Tests**: 53 passing — base layout, all 8 templates, from/to/headers, dark mode, unsubscribe links, rate limiter (channel/type/rate/quiet hours), preference field mapping
+
+### Phase 8: Email Workers (Oban Jobs) — COMPLETE (51 tests, 310 cumulative)
+- **Oban setup**: Added `{:oban, "~> 2.18"}` dep, configured queues (email_transactional:5, email_marketing:3, email_digest:2, sms:1, default:10), cron schedule (DailyDigest 9AM, WeeklyRewardSummary 10AM Mon, ReferralPrompt 2PM Wed, ReEngagement 11AM, CartAbandonment every 30min), test config (`testing: :inline`)
+- **8 workers created**:
+  1. `DailyDigestWorker` (email_digest) — batch finds eligible users, individual jobs send personalized digest from followed hub posts
+  2. `WelcomeSeriesWorker` (email_transactional) — 4-email series on days 0/3/5/7, `enqueue_series/1` API
+  3. `ReEngagementWorker` (email_marketing) — targets 3/7/14/30-day inactive users, 30d+ gets special offer
+  4. `WeeklyRewardSummaryWorker` (email_marketing) — weekly BUX stats email
+  5. `ReferralPromptWorker` (email_marketing) — weekly referral nudge with personalized link
+  6. `HubPostNotificationWorker` (email_marketing) — batched hub post email alerts, `enqueue/3` API
+  7. `PromoEmailWorker` (email_marketing) — campaign-triggered sends, `enqueue_campaign/1`, respects target_audience and send_in_app, updates campaign status
+  8. `CartAbandonmentWorker` (email_transactional) — finds carts idle >2h, 24h dedup, sends reminder + in-app notification
+- **Bug fixes during testing**: All 8 workers referenced `user.display_name` but User schema uses `username` — fixed to `user.username`. DailyDigest/ReEngagement queried `p.status == "published"` but Post uses `published_at` (non-nil) — fixed to `not is_nil(p.published_at)`. CartAbandonment queried `c.status == "active"` but Cart has no status field — fixed to join on cart_items existence. HubPostNotification used `post.body` but Post uses `excerpt` — fixed.
+- **Files created**: 8 worker files in `lib/blockster_v2/workers/`
+- **Files modified**: `mix.exs` (oban dep), `config/config.exs` (oban config), `config/test.exs` (oban testing), `application.ex` (supervision tree), oban migration
+- **Tests**: 51 passing — all 8 workers (send/skip/rate-limit/missing-user), cross-worker integration (email log tracking, rate limit respect, email_enabled=false blocks all), Oban config validation (queues, max_attempts)
+
+### Phase 9: SMS Notifications — COMPLETE (34 tests, 344 cumulative)
+- **SmsNotifier module**: `notifications/sms_notifier.ex` — SMS template builder with 7 message types (flash_sale, bux_milestone, order_shipped, account_security, exclusive_drop, special_offer, generic fallback). 160-char limit with auto-truncation. "Reply STOP to opt out" footer on all messages. User eligibility check (phone_verified + sms_opt_in). Phone lookup via PhoneVerification table.
+- **SmsNotificationWorker**: Oban worker on `:sms` queue — `enqueue/3` for single user, `enqueue_broadcast/2` for all eligible. Respects RateLimiter (weekly SMS cap, quiet hours, per-type opt-out). Logs SMS sends to email_log as type "sms".
+- **TwilioWebhookController**: `POST /api/webhooks/twilio/sms` — handles opt-out (STOP/STOPALL/UNSUBSCRIBE/CANCEL/END/QUIT) and opt-in (START/YES/UNSTOP). Updates PhoneVerification.sms_opt_in, User.sms_opt_in, and NotificationPreference.sms_enabled. Returns TwiML 200.
+- **Triggers wired**: Order shipped → SMS enqueued in `notify_order_status_change/1`. Campaign send_sms → SMS enqueued in PromoEmailWorker (flash_sale or special_offer type).
+- **Files created**: `notifications/sms_notifier.ex`, `workers/sms_notification_worker.ex`, `controllers/twilio_webhook_controller.ex`
+- **Files modified**: `router.ex` (webhook route), `orders.ex` (shipped SMS trigger), `workers/promo_email_worker.ex` (campaign SMS trigger)
+- **Tests**: 34 passing — 9 template tests (all types + truncation + opt-out footer), 3 eligibility tests, 3 phone lookup tests, 7 worker tests (skip/send/rate-limit), 1 enqueue test, 6 rate limiter SMS integration tests, 4 webhook tests (opt-out/opt-in/unknown/keywords), 1 order trigger test
+- **Key decisions**: Used Twilio Messages API (not Verify) for SMS sending. Logged SMS to existing email_log table with type "sms" for unified rate limiting. Truncation uses ".." (2 bytes) instead of "…" (3 bytes) to stay within 160 char limit.
+
+### Phase 10: SendGrid Webhooks & Analytics — COMPLETE (27 tests, 371 cumulative)
+- **SendgridWebhookController**: `POST /api/webhooks/sendgrid` — processes SendGrid event arrays. Handles: open (set opened_at, increment campaign.emails_opened), click (set clicked_at + opened_at, increment campaign.emails_clicked), bounce (set bounced=true, auto-suppress user email), spam_report (bounced+unsubscribed, disable all marketing prefs), unsubscribe (set unsubscribed, disable email_enabled). Strips `.filter...` suffix from sg_message_id.
+- **EngagementScorer**: `notifications/engagement_scorer.ex` — `calculate_score/1` returns per-user 30-day metrics (open/click rates, preferred hour, top categories, engagement tier). `classify_tier/2` buckets into highly_engaged/moderately/low/dormant. `aggregate_stats/1` for admin dashboard totals. `daily_email_volume/1` for charting. `send_time_distribution/1` for heatmap. `channel_comparison/1` for email vs in-app vs SMS.
+- **Files created**: `controllers/sendgrid_webhook_controller.ex`, `notifications/engagement_scorer.ex`
+- **Files modified**: `router.ex` (webhook route)
+- **Tests**: 27 passing — 3 open event tests (set/idempotent/campaign), 3 click tests (set/auto-open/campaign), 2 bounce tests (mark/suppress), 2 spam tests (mark/unsubscribe-all), 2 unsubscribe tests (mark/prefs), 5 edge case tests (unknown ID/empty/multiple/unknown event/filter suffix), 2 scorer calculation tests, 4 tier tests, 1 aggregate test, 1 daily volume test, 1 time distribution test, 1 channel comparison test
+- **Key decisions**: Used Endpoint (not Router) in tests for JSON parsing. Campaign stats use `Repo.update_all` with `inc` for atomic increment. Spam reports disable multiple marketing preference fields (not just email_enabled).
+
+### Phase 11: Admin Campaign Interface — COMPLETE (30 tests, 401 cumulative)
+- **CampaignAdminLive.Index**: Campaign list page at `/admin/notifications/campaigns` — status filter tabs (All/Draft/Scheduled/Sending/Sent/Cancelled), Quick Send inline form (title/audience/body/channel checkboxes), Send Test button (sends promo email to admin's own email), delete/cancel campaign actions, channel badges (Email/In-App/SMS), performance columns (opens/clicks)
+- **CampaignAdminLive.New**: 5-step wizard at `/admin/notifications/campaigns/new` — content (name/subject/title/body/image/action), audience (radio cards: all/hub_followers/active/dormant/phone_verified, hub selector, estimated recipient count), channels (email/in-app/SMS toggles with icons), schedule (send now vs datetime picker), review (summary + Send Test + Create Campaign). Uses `campaign_recipient_count/1` for live recipient estimates.
+- **CampaignAdminLive.Show**: Campaign detail page at `/admin/notifications/campaigns/:id` — auto-refreshing stats (30s interval), stat cards (recipients/sent/opened/clicked), tabs (Overview/Email Stats/In-App Stats/Content), delivery funnel bars, rate calculations, campaign metadata display, Send Test and Cancel actions
+- **Context additions**: `delete_campaign/1`, `campaign_recipient_count/1` (queries by target_audience: all/hub_followers/active_users/dormant_users/phone_verified), `get_campaign_stats/1` (joins email_logs + notifications for combined stats), `update_email_log/2`, `get_email_log_by_message_id/1`
+- **Files created**: `campaign_admin_live/index.ex`, `campaign_admin_live/new.ex`, `campaign_admin_live/show.ex`
+- **Files modified**: `router.ex` (3 admin routes), `notifications.ex` (5 new context functions)
+- **Tests**: 30 passing — campaign CRUD (create/update/delete/list/filter), recipient counting (all/active/dormant/phone_verified), campaign stats (with activity/empty), email log operations, channel configuration, status workflow (draft→sending→sent, draft→cancelled, draft→scheduled→cancelled), audience validation, scheduling, stats field defaults + increment, content field storage
+- **Key decisions**: Used `updated_at` as proxy for user activity (active_users: <7d, dormant_users: >30d) since `last_sign_in_at` column doesn't exist. Stats auto-refresh via `:timer.send_interval(30_000)`. Funnel bars use percentage width for visual representation.
+
+### Phase 12: Notification Analytics Dashboard — COMPLETE (24 tests, 425 cumulative)
+- **NotificationAnalyticsLive.Index**: Full analytics dashboard at `/admin/notifications/analytics` — period selector (7d/14d/30d/90d), overview stat cards (emails sent, open rate, click rate, bounce rate, in-app delivered, read rate, bounced, unsubscribed), channel comparison bars (email/in-app/SMS with engagement rates), daily email volume chart (last 14 days, sent vs opened bars), send time heatmap (24-hour grid with lime color intensity), top campaigns table (ranked by opens with rate), hub subscription analytics table (followers, notify-enabled, opt-in rate, distribution bar)
+- **Context additions**: `top_campaigns/1` (sent campaigns with emails_sent > 0, ordered by opens), `hub_subscription_stats/0` (follower count + notify_enabled per hub, ordered by followers desc)
+- **EngagementScorer**: Already built in Phase 10 — `aggregate_stats/1`, `daily_email_volume/1`, `send_time_distribution/1`, `channel_comparison/1` all consumed by dashboard
+- **Files created**: `notification_analytics_live/index.ex`
+- **Files modified**: `router.ex` (1 admin route), `notifications.ex` (2 new context functions)
+- **Tests**: 24 passing — top campaigns (ordering/exclude draft/exclude 0 sent/limit/empty), hub subscription stats (follower counts/notify enabled/empty/ordering), engagement scorer aggregate stats (keys/period/counting/rates), daily volume (structure/fields/period), time distribution (structure/fields), channel comparison (all channels/fields/data), integration tests (email+notification independence, multi-user aggregation, per-user scoring)
+- **Key decisions**: Used `updated_at` as user activity proxy (consistent with Phase 11). Campaign stat fields set via `Ecto.Changeset.change` in tests since not in Campaign changeset cast list. Hub stats use `HubFollower` schema (not string table) to access composite key. Heatmap uses lime color gradient with 5 intensity levels.
+
+### Phase 13: User Behavior Tracking & Profiles — COMPLETE (73 tests, 498 cumulative)
+- **Migrations**: 2 new — `create_user_events` (event stream table with 5 indexes), `create_user_profiles` (aggregated behavior data with 6 indexes including unique user_id)
+- **Schemas**: `UserEvent` (38 valid event types across 6 categories with auto-categorize), `UserProfile` (60+ fields covering content/shopping/engagement/notification/referral/gambling/churn)
+- **UserEvents module**: `track/3` (async fire-and-forget), `track_sync/3` (synchronous for tests), `track_batch/1` (bulk insert), `get_events/2`, `count_events/3`, `get_last_event/2`, `event_summary/2`, `get_event_types/2`, profile CRUD (`get_or_create_profile`, `upsert_profile`, `get_profile`), `users_needing_profile_update/1`, `users_without_profiles/0`
+- **ProfileEngine**: `classify_engagement_tier/1` (7 tiers: new/casual/active/power/whale/dormant/churned), `calculate_engagement_score/1` (0-100 composite from 5 weighted dimensions), `classify_gambling_tier/1` (5 tiers: non_gambler through whale_gambler), `calculate_churn_risk/1` (0-1 score + 4 levels: low/medium/high/critical), `recalculate_profile/1` (full profile rebuild from event history)
+- **ProfileRecalcWorker**: Oban worker on `:default` queue — batch recalc (cron every 6h) + single-user on-demand. Uses `unique: [period: 300]` for dedup.
+- **EventTracker JS hook**: Client-side event tracking — product view duration (>10s), article scroll depth, partial read tracking on destroy
+- **Config**: Added ProfileRecalcWorker to Oban cron (`0 */6 * * *`), registered EventTracker hook in app.js
+- **Files created**: 5 new files — `notifications/user_event.ex`, `notifications/user_profile.ex`, `user_events.ex`, `notifications/profile_engine.ex`, `workers/profile_recalc_worker.ex`, `assets/js/hooks/event_tracker.js`, 2 migrations
+- **Files modified**: `config/config.exs` (cron), `assets/js/app.js` (hook import + registration)
+- **Tests**: 73 passing — schema validations (event types, categories, profile tiers, score ranges), tracking (sync/async/batch, metadata storage, string key normalization), querying (events, counts, last event, summaries, isolation), profile CRUD (create/upsert/get), tier classification (all 7 engagement tiers, 5 gambling tiers), churn risk (4 levels + score bounds), engagement score (empty/active/capped), full recalculation (content prefs, shopping, engagement, gambling, churn), worker (single/batch/enqueue), event counter tracking (increment + reset)
+- **Key decisions**: Metadata keys normalized to strings on insertion (atom→string) for consistent DB roundtrip. Events use `timestamps(updated_at: false)` (append-only). Secondary sort by `desc: id` prevents flaky ordering. NaiveDateTime comparisons (not DateTime) for event timestamps. Engagement tier threshold: <1.0 sessions/week = casual (not <3).
+
+### Phase 14: AI Personalization & A/B Testing — COMPLETE (86 tests, 584 cumulative)
+- **Migration**: `create_ab_tests` — `ab_tests` table (name, email_type, element_tested, status, variants, start/end dates, min_sample_size, confidence_threshold, winning_variant, results) + `ab_test_assignments` table (ab_test_id, user_id, variant_id, opened, clicked) with unique index on [ab_test_id, user_id]
+- **Schemas**: `ABTest` (valid statuses: running/completed/winner_applied, valid elements: subject/body/cta_text/cta_color/send_time/image/article_count/layout), `ABTestAssignment` (variant assignment + open/click tracking)
+- **ABTestEngine**: `create_test/1`, `assign_variant/2` (deterministic via `:erlang.phash2`), `get_active_test/2`, `get_variant_for_user/3`, `record_open/2`, `record_click/2`, `check_significance/1` (chi-squared test with erfc approximation), `promote_winner/2`, `list_tests/1`, `get_test_results/1`
+- **ContentSelector**: Article selection with weighted scoring model — hub_preference (0.35), category_preference (0.25), recency (0.25), popularity (0.15). Filters already-read articles. Supports pools: `:all`, `:hub_subscriptions`, `:trending`
+- **OfferSelector**: Shopping behavior-based offer selection — priority: cart_reminder > product_highlight > cross_sell > bux_spend > trending. Urgency message generation.
+- **CopyWriter**: Tier-based message framing for 7 email types — `digest_subject`, `referral_subject`, `cart_abandonment_subject`, `re_engagement_subject`, `welcome_subject`, `reward_summary_subject`, `cta_text`. Each adapts copy based on engagement tier and user behavior.
+- **TriggerEngine**: 8 real-time notification triggers evaluated on each user event — cart_abandonment (session_end + carted items + >2h since cart), bux_milestone (1k/5k/10k/25k/50k/100k), reading_streak (3/7/14/30 days), hub_recommendation (3+ reads in category w/o following hub), price_drop (viewed product price decreased), purchase_thank_you (first purchase), dormancy_warning (return after 5-14 days), referral_opportunity (high propensity + article share/bux earned). All triggers have deduplication (daily/weekly/lifetime limits).
+- **ABTestCheckWorker**: Oban worker on `:default` queue — checks all running tests every 6h, promotes winner when statistical significance reached
+- **Config**: Added ABTestCheckWorker to Oban cron (`0 */6 * * *`)
+- **Files created**: 7 new files — `notifications/ab_test.ex`, `notifications/ab_test_assignment.ex`, `notifications/ab_test_engine.ex`, `notifications/content_selector.ex`, `notifications/offer_selector.ex`, `notifications/copy_writer.ex`, `notifications/trigger_engine.ex`, `workers/ab_test_check_worker.ex`, 1 migration
+- **Files modified**: `config/config.exs` (cron)
+- **Tests**: 86 passing — ABTest schema (validation, statuses, elements), ABTestAssignment (validation, unique constraint), ABTestEngine (create, assign deterministically, active test lookup, variant for user, record open/click, results aggregation, significance check, promote winner, list/filter), CopyWriter (all 7 subject generators across all tiers, CTA text for all types), OfferSelector (default fallback, urgency messages for all types), ContentSelector (relevance scoring, hub boost, recency scoring, score clamping), TriggerEngine (all 8 triggers with fire + skip conditions, cart dedup, milestone dedup, evaluate_triggers integration), ABTestCheckWorker (batch + single + promote), full lifecycle integration test
+- **Key decisions**: NaiveDateTime truncated to `:second` for Repo inserts. TriggerEngine fires real notifications via `Notifications.create_notification/2`. Deduplication via DB queries (not in-memory). Chi-squared significance uses erfc for df=1 and Wilson-Hilferty for df>1.
+
+### Phase 15: BUX-to-ROGUE Conversion Funnel — COMPLETE (53 tests, 637 cumulative)
+- **Migration**: `add_rogue_gambling_fields` — adds 13 new columns to user_profiles: ROGUE gambling (total_rogue_games, total_rogue_wagered, total_rogue_won, rogue_balance_estimate, games_played_last_7d, win_streak, loss_streak), VIP (vip_tier, vip_unlocked_at), conversion funnel (conversion_stage, last_rogue_offer_at, rogue_readiness_score)
+- **Schema updates**: UserProfile extended with new fields + validations for `vip_tier` (none/bronze/silver/gold/diamond) and `conversion_stage` (earner/bux_player/rogue_curious/rogue_buyer/rogue_regular)
+- **RogueOfferEngine**: `calculate_rogue_readiness/1` (0-1 score from 7 weighted signals: game frequency 0.25, wager size 0.20, engagement 0.15, purchases 0.10, referrals 0.10, content 0.15, tenure 0.05), `classify_vip_tier/1` (bronze 10+/silver 50+/gold 100+/diamond 100+ games & 100+ wagered), `classify_conversion_stage/1` (5-stage funnel), `calculate_airdrop_amount/2` (2.0/1.0/0.5/0.25 ROGUE by score), `airdrop_reason/1` (contextual message), `get_rogue_offer_candidates/1` (top N users filtered by tier + 14-day recency), `mark_rogue_offer_sent/1`
+- **ConversionFunnelEngine**: 5-stage notification trigger system — Stage 1 (earner→BUX player: bux_booster_invite at 500 BUX, reader_gaming_nudge at 5th article), Stage 2 (bux_player→ROGUE: rogue_discovery at 5th game, loss_streak_offer at 3+ losses), Stage 3 (rogue_curious: purchase_nudge on first ROGUE game), Stage 4 (rogue_buyer: win_streak_celebration at 3+ wins, big_win_celebration at 10x+ multiplier), Stage 5 (rogue_regular→VIP). VIP upgrade notifications fire across all stages.
+- **RogueAirdropWorker**: Oban worker on `:default` queue — batch job finds top 25 candidates, enqueues individual airdrop jobs. Creates in-app notification + marks offer timestamp. Scheduled Fridays 3 PM UTC.
+- **Config**: Added RogueAirdropWorker to Oban cron (`0 15 * * 5`)
+- **Files created**: 3 new files — `notifications/rogue_offer_engine.ex`, `notifications/conversion_funnel_engine.ex`, `workers/rogue_airdrop_worker.ex`, 1 migration
+- **Files modified**: `notifications/user_profile.ex` (13 new fields, 2 new validators, 2 new constants), `config/config.exs` (cron)
+- **Tests**: 53 passing — UserProfile ROGUE fields (schema, VIP validation, conversion stage validation, readiness score bounds), RogueOfferEngine (readiness scoring for inactive/active/max users, engagement tier effect, VIP tiers all 5 levels, conversion stages all 5 stages, airdrop amounts 4 tiers, airdrop reasons 4 variants, candidate selection sorted + exclusion + empty, mark_offer_sent), ConversionFunnelEngine (Stage 1 bux_booster_invite + reader_nudge + skip, Stage 2 rogue_discovery + loss_streak_offer, Stage 3 purchase_nudge, Stage 4 win_streak + big_win, VIP upgrade fire + no-fire, deduplication), RogueAirdropWorker (batch + single + mark_sent + missing user), integration (full funnel flow, readiness+airdrop high/low, VIP progression)
+
+### Phase 16: Supercharged Referral Engine — COMPLETE (43 tests, 680 cumulative)
+- **ReferralEngine**: Core referral system with 5-tier escalating rewards (1-5: 500 BUX, 6-15: 750 + ambassador badge, 16-30: 1000 + 1.0 ROGUE, 31-50: 1500 + vip_referrer badge, 51+: 2000 + blockster_legend + 0.5 ROGUE). Key functions: `get_reward_tier/1`, `calculate_referral_reward/1` → {referrer_bux, friend_bux, rogue}, `badge_at_count/1` (detects newly unlocked badges), `next_tier_info/1` (distance to next tier)
+- **Lifecycle notifications**: 4 referral milestone notifications — `notify_referral_signup/3` (friend joins, BUX earned, badge unlock, next tier info), `notify_referral_first_bux/2` (friend earns first BUX), `notify_referral_first_purchase/2` (friend buys, 200 BUX bonus), `notify_referral_first_game/2` (friend plays, ROGUE hint)
+- **Leaderboard**: `weekly_leaderboard/1` (ranked users by referral count, calculates total BUX earned per tier, limit param), `user_leaderboard_position/1` (individual rank + total participants)
+- **Email integration**: `referral_block_for_email/2` — contextual referral blocks for 7 email types (daily_digest, reward_summary, bux_milestone, game_result, order_confirmation, cart_abandonment, default). Uses tier-appropriate reward amounts.
+- **Prompt logic**: `should_prompt_referral?/2` — fatigue-aware prompting based on propensity (>0.7 weekly, >0.3 monthly, <0.3 never). Deduplicates against recent `referral_prompt` notifications.
+- **ReferralLeaderboardWorker**: Oban worker on `:email_marketing` queue — logs top referrer weekly. Scheduled Tuesdays 10 AM UTC.
+- **Config**: Added ReferralLeaderboardWorker to Oban cron (`0 10 * * 2`)
+- **Files created**: 2 new files — `notifications/referral_engine.ex`, `workers/referral_leaderboard_worker.ex`
+- **Files modified**: `config/config.exs` (cron)
+- **Tests**: 43 passing — reward tiers (all 5 tiers), calculate_referral_reward (correct values, escalation, ROGUE bonus at tier 3+), badge_at_count (nil below threshold, ambassador/vip_referrer/blockster_legend at boundaries, nil within tier), next_tier_info (distance, max_tier, boundary), lifecycle notifications (signup with BUX/badge/next-tier, first_bux, first_purchase with bonus, first_game), leaderboard (sorted, excludes 0, BUX calculation, limit), user_position (rank/total, nil for 0 referrals), referral_block_for_email (all 7 types + tier-appropriate amounts), should_prompt_referral (high/low/dedup), ReferralLeaderboardWorker (with data + empty), integration (full lifecycle 4 notifications, tier progression escalation)
+
+### Phase 17: Revival & Retention System — COMPLETE (79 tests, 759 cumulative)
+- **ChurnPredictor**: 8-signal churn prediction — frequency_decline (sessions + inactivity), session_shortening (duration thresholds), email_engagement_decline (open + click rates), discovery_stall (hub diversity), bux_earning_decline (recent vs average reading ratio), notification_fatigue (fatigue score), no_purchases (0.3 weak signal), no_referrals (0.2 weak signal). Weighted aggregate (0-1), risk tiers (healthy/watch/at_risk/critical/churning), intervention selection per tier (none/personalization/re_engagement 100 BUX/rescue 500 BUX/all_out_save 1000 BUX + 0.5 ROGUE). Deduplication via 7-day lookback.
+- **RevivalEngine**: User type classification (reader/gambler/shopper/hub_subscriber/general) via scoring. 4-stage revival sequences per user type (stage 1: 3d, stage 2: 7d, stage 3: 14d, stage 4: 30d) with escalating offers. Welcome back detection (7+ days, dedup, engagement-based bonus calculation). Engagement hooks: daily check-in bonus (50 BUX), streak rewards (3d:100, 7d:500, 14d:1500, 30d:5000), daily challenges (type-specific), weekly quests (type-specific). Analytics: churn_risk_distribution, engagement_tier_distribution, revival_success_rate (counts returned users within 7 days of intervention).
+- **ChurnDetectionWorker**: Daily Oban worker on `:default` queue — scans users with churn_risk_score >= 0.5, fires interventions with deduplication. Scheduled 6 AM UTC.
+- **Schema update**: Added 5 new notification types: `welcome_back`, `re_engagement`, `churn_intervention`, `daily_bonus` to Notification `@valid_types`
+- **Config**: Added ChurnDetectionWorker to Oban cron (`0 6 * * *`)
+- **Files created**: 3 new files — `notifications/churn_predictor.ex`, `notifications/revival_engine.ex`, `workers/churn_detection_worker.ex`
+- **Files modified**: `notifications/notification.ex` (5 new types), `config/config.exs` (cron)
+- **Tests**: 79 passing — individual signals (frequency_decline active/inactive, session_shortening long/short/none, email_engagement high/none, discovery_stall empty/diverse, bux_earning_decline match/dropped, no_purchases yes/no, no_referrals yes/no), aggregate_signals (low/high/capped), classify_risk_level (all 5 levels), get_risk_tier (healthy/at_risk/churning), select_intervention (all 5 tiers with correct types/offers/channels), predict_churn (healthy full/at-risk full), fire_intervention (create/skip), intervention_sent_recently (false/true), get_at_risk_users (above/below threshold), classify_user_type (reader/gambler/shopper/hub_subscriber/general), revival_stage (0-4), get_revival_message (reader stage 1/3, gambler stage 2, shopper stage 3, general fallback), check_welcome_back (eligible/skip recent/skip sent), calculate_return_bonus (escalating/engagement multiplier), fire_welcome_back (notification), check_daily_bonus (first/already), streak_reward (3/7/14/30/non-milestone), daily_challenge (reader/gambler), weekly_quest (reader/gambler), churn_risk_distribution (map), engagement_tier_distribution (map), revival_success_rate (empty/with data), ChurnDetectionWorker (with data/empty/no duplicates), integration (full lifecycle: predict→intervene→revival→welcome_back, engagement hooks: bonus+streak+challenge+quest)
+
+### Phase 18: Advanced Analytics & Intelligence — COMPLETE (49 tests, 808 cumulative)
+- **SendTimeOptimizer**: Per-user send-time optimization using `best_email_hour_utc` from UserProfile. Key functions: `optimal_send_hour/1` (DB lookup with population fallback), `optimal_send_hour_from_profile/1` (struct-based), `population_best_hour/0` (most popular open hour across all users), `delay_until_optimal/1` (seconds until best hour), `delay_from_profile/1` (struct-based delay), `has_sufficient_data?/1` (min 5 opened emails), `hourly_engagement_distribution/1` (hour→count map for analytics), `optimization_stats/0` (optimized vs default user counts). Default hour: 10 UTC.
+- **DeliverabilityMonitor**: Email health tracking and alerting. Key functions: `calculate_metrics/1` (sent/delivered/bounced/opened/clicked with rates), `metrics_by_type/1` (per-email-type breakdown), `check_alerts/1` (bounce >5% warning/>10% critical, open <10% warning), `daily_send_volume/1` (date→count for charting), `recent_bounces/1` (latest bounce details), `health_score/1` (0-100 weighted: bounce 40%, open 35%, click 25%).
+- **ViralCoefficientTracker**: Referral K-factor analytics. K = avg_invites × conversion_rate. Key functions: `calculate_k_factor/0` (full stats map with K), `referral_stats/0` (total_referrers/sent/converted/avg_invites/conversion_rate), `is_viral?/1` (K >= configurable target, default 1.0), `top_referrers/1` (sorted by conversions with personal conversion rate), `referral_funnel/0` (total→shared→converted with rates).
+- **PriceAlertEngine**: ROGUE price movement notifications for holders. Key functions: `evaluate_price_change/2` (5% significant, 10% major thresholds → {:fire, alert_data} or :skip), `get_alert_eligible_users/0` (rogue_curious/rogue_buyer/rogue_regular stages), `fire_price_alerts/1` (batch fire with daily dedup), `fire_price_notification/2` (single user alert), `price_alert_copy/1` (4 copy variants: up/down × significant/major), `price_alert_sent_recently?/1` (daily dedup check).
+- **Files created**: 4 new files — `notifications/send_time_optimizer.ex`, `notifications/deliverability_monitor.ex`, `notifications/viral_coefficient_tracker.ex`, `notifications/price_alert_engine.ex`
+- **Tests**: 49 passing — SendTimeOptimizer (profile hour used, population fallback, default fallback, delay same/later/tomorrow, from_profile direct/nil, sufficient data yes/no, hourly distribution, optimization stats), DeliverabilityMonitor (metrics with data/empty, by_type grouping, bounce alert/no alert, open rate alert, health score healthy/degraded/no emails, daily volume, recent bounces), ViralCoefficientTracker (k_factor computation, zero referrers, is_viral boolean/threshold, top_referrers sorted/rate, referral_funnel all metrics), PriceAlertEngine (major up/down, significant up/down, below threshold, invalid input, price copy all 4 variants, fire_price_notification creates, dedup today/clear tomorrow, eligible users filter), integration (full system: send time + deliverability + viral + price alerts)
+- **Key decisions**: EmailLog changeset only casts subset of fields — test helper uses `Ecto.Changeset.put_change/3` for `opened_at`, `clicked_at`, `bounced`. Health score uses `<=` not `<` for boundary assertion (exactly 40.0 is valid degraded). Viral coefficient tests avoid global state dependency (async test isolation). Price alerts use `price_drop` notification type (already in valid types).
+
+### UI Polish Pass — COMPLETE (310 tests still passing)
+- **Notifications Page** (`notification_live/index.ex`): Redesigned using `/frontend-design` plugin with "Editorial Precision" aesthetic direction
+  - Page bg changed to `#F5F6FB` (matching app theme)
+  - Lime bell icon badge in page header
+  - Category tabs in white pill container; active tab = `bg-[#CAFC00]` with black text
+  - Read/unread filter uses dark pills (`bg-[#141414]`) for active state
+  - Unread notifications: 3px lime accent bar on left edge + subtle shadow
+  - Read notifications: transparent bg (blend with page), dimmed text
+  - Unread dot: lime with glow (`shadow-[0_0_6px_rgba(202,252,0,0.4)]`) instead of blue
+  - Empty state: larger icon area with lime tinted background + checkmark badge
+  - Mark all read: responsive mobile/desktop placement
+- **Settings Page** (`notification_settings_live/index.ex`): Matching redesign
+  - Section cards with lime accent bar indicator (vertical dot next to title)
+  - Saved badge: lime background (`bg-[#CAFC00]`) with checkmark icon
+  - Toggle switches: enlarged (h-7 w-12), better knob shadow, hover state on track
+  - Email limit badge: lime square showing the number
+  - Quiet hours: dark moon icon + inset `bg-[#F5F6FB]` panel + arrow icon + rounded-xl inputs
+  - Hub cards: `bg-[#F5F6FB]` background with elevated white active toggles
+  - Unsubscribe section: warning icon + two-column layout
+  - Logged-out state: lock icon
+- **All 310 tests pass** — no functional changes, purely visual
 
 ---
 

@@ -1,6 +1,6 @@
 defmodule BlocksterV2Web.AuthController do
   use BlocksterV2Web, :controller
-  alias BlocksterV2.{Accounts, Referrals}
+  alias BlocksterV2.{Accounts, Referrals, UserEvents}
 
   @doc """
   POST /api/auth/wallet/verify
@@ -12,6 +12,9 @@ defmodule BlocksterV2Web.AuthController do
 
     case Accounts.authenticate_wallet(wallet_address, chain_id) do
       {:ok, user, session, is_new_user} ->
+        UserEvents.track(user.id, "daily_login", %{source: "wallet"})
+        if is_new_user, do: UserEvents.track(user.id, "session_start", %{source: "wallet"})
+
         conn
         |> put_session(:user_token, session.token)
         |> put_status(:ok)
@@ -65,6 +68,9 @@ defmodule BlocksterV2Web.AuthController do
     case Accounts.authenticate_email_with_fingerprint(params) do
       {:ok, user, session, is_new_user} ->
         Logger.info("[Auth] User authenticated - is_new_user: #{is_new_user}, referrer_wallet: #{inspect(referrer_wallet)}")
+
+        UserEvents.track(user.id, "daily_login", %{source: "email"})
+        if is_new_user, do: UserEvents.track(user.id, "session_start", %{source: "email"})
 
         # Process referral if new user with valid referrer
         if is_new_user && referrer_wallet && referrer_wallet != "" do

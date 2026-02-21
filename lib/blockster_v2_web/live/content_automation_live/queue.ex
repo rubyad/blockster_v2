@@ -313,7 +313,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Queue do
                     <% end %>
 
                     <div class="flex items-center gap-2 pt-2">
-                      <button type="submit" class="px-4 py-2 bg-[#CAFC00] text-black rounded text-sm font-medium cursor-pointer hover:bg-[#b8e600]">
+                      <button type="submit" class="px-4 py-2 bg-gray-900 text-white rounded text-sm font-medium cursor-pointer hover:bg-gray-800">
                         Save Draft
                       </button>
                       <button type="button" phx-click="toggle_edit" phx-value-id={entry.id} class="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm cursor-pointer hover:bg-gray-200">

@@ -71,7 +71,8 @@ defmodule BlocksterV2.MixProject do
       {:httpoison, "~> 2.0"},
       {:mox, "~> 1.0", only: :test},
       {:fast_rss, "~> 0.5"},
-      {:tz, "~> 0.28"}
+      {:tz, "~> 0.28"},
+      {:oban, "~> 2.18"}
     ]
   end
 

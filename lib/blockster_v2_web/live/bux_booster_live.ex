@@ -2007,6 +2007,16 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       save_game_result(socket, false)
     end
 
+    # Track game played event for notification triggers
+    multiplier = get_multiplier_for_difficulty(socket.assigns.selected_difficulty)
+    BlocksterV2.UserEvents.track(user_id, "game_played", %{
+      token: to_string(token_type),
+      result: if(won, do: "win", else: "loss"),
+      multiplier: multiplier,
+      bet_amount: socket.assigns.current_bet,
+      payout: payout
+    })
+
     # Refresh stats (recent_games will be updated via PubSub broadcast after settlement)
     user_stats = load_user_stats(user_id, token_type)
 

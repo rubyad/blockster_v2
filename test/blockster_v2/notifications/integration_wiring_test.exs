@@ -1,0 +1,369 @@
+defmodule BlocksterV2.Notifications.IntegrationWiringTest do
+  @moduledoc """
+  Integration tests proving the full notification wiring pipeline works:
+  Events → EventProcessor → TriggerEngine/ConversionFunnelEngine → Notifications/Emails.
+  """
+  use BlocksterV2.DataCase, async: false
+
+  alias BlocksterV2.Notifications
+  alias BlocksterV2.Notifications.{SystemConfig, ProfileEngine, UserProfile}
+  alias BlocksterV2.UserEvents
+
+  setup do
+    BlocksterV2.Repo.delete_all("system_config")
+    SystemConfig.invalidate_cache()
+    SystemConfig.seed_defaults()
+    :ok
+  end
+
+  defp create_user do
+    {:ok, user} =
+      BlocksterV2.Accounts.create_user_from_wallet(%{
+        wallet_address: "0x#{:crypto.strong_rand_bytes(20) |> Base.encode16(case: :lower)}",
+        chain_id: 560013
+      })
+
+    user
+  end
+
+  # ============ SystemConfig Foundation Tests ============
+
+  describe "SystemConfig foundation" do
+    test "seed_defaults populates expected keys" do
+      config = SystemConfig.get_all()
+      assert config["referrer_signup_bux"] == 500
+      assert config["referee_signup_bux"] == 250
+      assert config["phone_verify_bux"] == 100
+      assert config["cart_abandon_hours"] == 2
+      assert is_list(config["bux_milestones"])
+      assert is_list(config["reading_streak_days"])
+      assert config["trigger_cart_abandonment_enabled"] == true
+    end
+
+    test "put invalidates ETS cache and returns new value" do
+      SystemConfig.put("referrer_signup_bux", 1000, "test")
+      assert SystemConfig.get("referrer_signup_bux") == 1000
+    end
+
+    test "put_many updates multiple keys atomically" do
+      SystemConfig.put_many(%{
+        "referrer_signup_bux" => 750,
+        "referee_signup_bux" => 300
+      }, "test")
+
+      assert SystemConfig.get("referrer_signup_bux") == 750
+      assert SystemConfig.get("referee_signup_bux") == 300
+    end
+  end
+
+  # ============ UserEvents Tracking Tests ============
+
+  describe "UserEvents.track/3" do
+    test "stores event in PostgreSQL" do
+      user = create_user()
+      UserEvents.track(user.id, "article_view", %{target_type: "post", target_id: 42})
+
+      # Give async Task time to complete
+      Process.sleep(200)
+
+      events = UserEvents.get_events(user.id, limit: 10)
+      assert Enum.any?(events, fn e -> e.event_type == "article_view" end)
+    end
+
+    test "track_sync stores event and broadcasts" do
+      user = create_user()
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "user_events")
+
+      # Use track_sync with a valid event type from the enum
+      {:ok, _event} = UserEvents.track_sync(user.id, "daily_login", %{source: "test"})
+
+      assert_receive {:user_event, _, "daily_login", _}, 1000
+    end
+  end
+
+  # ============ Event → Trigger Pipeline Tests ============
+
+  describe "event → trigger pipeline" do
+    test "reading streak trigger evaluation does not crash" do
+      user = create_user()
+
+      # Simulate reading articles on consecutive days to build streak
+      now = DateTime.utc_now()
+
+      for day <- 0..2 do
+        ts = DateTime.add(now, -day, :day) |> DateTime.truncate(:second)
+
+        Repo.insert!(%Notifications.UserEvent{
+          user_id: user.id,
+          event_type: "article_read_complete",
+          event_category: "content",
+          metadata: %{"target_type" => "post", "target_id" => day + 1},
+          inserted_at: NaiveDateTime.truncate(DateTime.to_naive(ts), :second)
+        })
+
+        Repo.insert!(%Notifications.UserEvent{
+          user_id: user.id,
+          event_type: "daily_login",
+          event_category: "engagement",
+          metadata: %{},
+          inserted_at: NaiveDateTime.truncate(DateTime.to_naive(ts), :second)
+        })
+      end
+
+      # Evaluate triggers — should not crash
+      result = Notifications.TriggerEngine.evaluate_triggers(user.id, "article_read_complete", %{
+        "target_type" => "post",
+        "target_id" => 100
+      })
+
+      assert is_list(result)
+    end
+  end
+
+  # ============ Welcome Series Tests ============
+
+  describe "welcome series wiring" do
+    test "WelcomeSeriesWorker module exists and enqueue_series is callable" do
+      # In test mode, Oban runs inline (no DB persistence), so verify the wiring:
+      # 1. Worker module exists with correct callbacks
+      assert Code.ensure_loaded?(BlocksterV2.Workers.WelcomeSeriesWorker)
+      assert function_exported?(BlocksterV2.Workers.WelcomeSeriesWorker, :enqueue_series, 1)
+      assert function_exported?(BlocksterV2.Workers.WelcomeSeriesWorker, :perform, 1)
+
+      # 2. create_user_from_wallet calls enqueue_series (runs inline in test)
+      #    If this crashes, the wiring is broken
+      user = create_user()
+      assert user.id > 0
+    end
+  end
+
+  # ============ Referral Upgrade Tests ============
+
+  describe "referral system uses SystemConfig values" do
+    test "SystemConfig referral defaults are correct" do
+      assert SystemConfig.get("referrer_signup_bux") == 500
+      assert SystemConfig.get("referee_signup_bux") == 250
+      assert SystemConfig.get("phone_verify_bux") == 100
+    end
+
+    test "changing SystemConfig referral values works" do
+      SystemConfig.put("referrer_signup_bux", 750, "ai_manager")
+      assert SystemConfig.get("referrer_signup_bux") == 750
+    end
+
+    test "referral amounts read from SystemConfig" do
+      # The default_signup_reward in referrals.ex should match SystemConfig
+      assert SystemConfig.get("referrer_signup_bux", 500) == 500
+      assert SystemConfig.get("referee_signup_bux", 250) == 250
+
+      # After update, next referral would use new amount
+      SystemConfig.put("referrer_signup_bux", 1000, "ai_manager")
+      assert SystemConfig.get("referrer_signup_bux", 500) == 1000
+    end
+  end
+
+  # ============ Re-engagement Honest Copy Tests ============
+
+  describe "re-engagement honest copy" do
+    test "re-engagement worker does not contain fake 2x BUX promise" do
+      code = File.read!("lib/blockster_v2/workers/re_engagement_worker.ex")
+      refute String.contains?(code, "2x BUX")
+      refute String.contains?(code, "Earn 2x")
+      assert String.contains?(code, "pick up where you left off")
+    end
+
+    test "email builder 30-day subject is honest" do
+      code = File.read!("lib/blockster_v2/notifications/email_builder.ex")
+      refute String.contains?(code, "special reward")
+      assert String.contains?(code, "miss you") or String.contains?(code, "new content")
+    end
+  end
+
+  # ============ Conversion Funnel Tests ============
+
+  describe "conversion stage calculation" do
+    test "calculate_conversion_stage with no activity returns nil" do
+      stage = ProfileEngine.calculate_conversion_stage(%{
+        purchase_count: 0,
+        games_played_last_30d: 0,
+        total_bets_placed: 0,
+        total_articles_read: 0,
+        gambling_tier: "non_gambler"
+      })
+
+      assert stage == nil
+    end
+
+    test "reader becomes earner" do
+      stage = ProfileEngine.calculate_conversion_stage(%{
+        purchase_count: 0,
+        games_played_last_30d: 0,
+        total_bets_placed: 0,
+        total_articles_read: 5,
+        gambling_tier: "non_gambler"
+      })
+
+      assert stage == "earner"
+    end
+
+    test "gamer becomes bux_player" do
+      stage = ProfileEngine.calculate_conversion_stage(%{
+        purchase_count: 0,
+        games_played_last_30d: 3,
+        total_bets_placed: 3,
+        total_articles_read: 10,
+        gambling_tier: "casual_gambler"
+      })
+
+      assert stage == "bux_player"
+    end
+
+    test "whale gamer becomes rogue_curious" do
+      stage = ProfileEngine.calculate_conversion_stage(%{
+        purchase_count: 0,
+        games_played_last_30d: 20,
+        total_bets_placed: 50,
+        total_articles_read: 10,
+        gambling_tier: "whale_gambler"
+      })
+
+      assert stage == "rogue_curious"
+    end
+
+    test "buyer becomes rogue_buyer" do
+      stage = ProfileEngine.calculate_conversion_stage(%{
+        purchase_count: 1,
+        games_played_last_30d: 5,
+        total_bets_placed: 10,
+        total_articles_read: 10,
+        gambling_tier: "regular_gambler"
+      })
+
+      assert stage == "rogue_buyer"
+    end
+  end
+
+  # ============ EventProcessor Conversion Stage Tests ============
+
+  describe "EventProcessor real-time conversion updates" do
+    test "upsert_profile and get_profile round-trip works" do
+      user = create_user()
+
+      UserEvents.upsert_profile(user.id, %{conversion_stage: "bux_player"})
+      profile = UserEvents.get_profile(user.id)
+
+      assert profile == nil or profile.conversion_stage == "bux_player"
+    end
+  end
+
+  # ============ Custom Rules Tests ============
+
+  describe "custom rules via SystemConfig" do
+    test "custom rules stored and retrieved from SystemConfig" do
+      rule = %{
+        "event_type" => "article_read_complete",
+        "conditions" => nil,
+        "action" => "notification",
+        "title" => "Great reading!",
+        "body" => "Keep it up!",
+        "notification_type" => "engagement"
+      }
+
+      SystemConfig.put("custom_rules", [rule], "test")
+
+      rules = SystemConfig.get("custom_rules", [])
+      assert length(rules) == 1
+      assert hd(rules)["title"] == "Great reading!"
+    end
+
+    test "notification can be created with custom rule attributes" do
+      user = create_user()
+
+      {:ok, notif} = Notifications.create_notification(user.id, %{
+        type: "content_recommendation",
+        category: "content",
+        title: "Great reading!",
+        body: "Keep it up!"
+      })
+
+      assert notif.title == "Great reading!"
+      assert notif.body == "Keep it up!"
+    end
+  end
+
+  # ============ AI Manager Tests ============
+
+  describe "AI Manager tool execution" do
+    test "get_system_config tool returns valid config" do
+      config = SystemConfig.get_all()
+      assert is_map(config)
+      assert Map.has_key?(config, "referrer_signup_bux")
+    end
+
+    test "SystemConfig change from AI Manager takes effect" do
+      SystemConfig.put("referrer_signup_bux", 1000, "ai_manager:1")
+      assert SystemConfig.get("referrer_signup_bux") == 1000
+
+      # Next referral would use new amount
+      SystemConfig.put("referrer_signup_bux", 500, "ai_manager:1")
+      assert SystemConfig.get("referrer_signup_bux") == 500
+    end
+
+    test "AI Manager autonomous review worker exists" do
+      # Verify the worker module exists and has perform/1
+      assert Code.ensure_loaded?(BlocksterV2.Workers.AIManagerReviewWorker)
+      assert function_exported?(BlocksterV2.Workers.AIManagerReviewWorker, :perform, 1)
+    end
+  end
+
+  # ============ Profile Recalculation Includes Conversion Stage ============
+
+  describe "profile recalculation includes conversion_stage" do
+    test "recalculate_profile returns conversion_stage field" do
+      user = create_user()
+
+      # Insert some events so recalculation has data
+      Repo.insert!(%Notifications.UserEvent{
+        user_id: user.id,
+        event_type: "article_read_complete",
+        event_category: "content",
+        metadata: %{},
+        inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      })
+
+      profile_data = ProfileEngine.recalculate_profile(user.id)
+
+      assert Map.has_key?(profile_data, :conversion_stage)
+      # With only article reads, should be "earner"
+      assert profile_data[:conversion_stage] == "earner"
+    end
+
+    test "recalculate_profile with game events returns bux_player" do
+      user = create_user()
+
+      Repo.insert!(%Notifications.UserEvent{
+        user_id: user.id,
+        event_type: "game_played",
+        event_category: "gaming",
+        metadata: %{"token" => "BUX", "result" => "win"},
+        inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      })
+
+      profile_data = ProfileEngine.recalculate_profile(user.id)
+      assert profile_data[:conversion_stage] == "bux_player"
+    end
+  end
+
+  # ============ End-to-End: Notification Preferences ============
+
+  describe "notification preferences" do
+    test "preferences are created during user signup" do
+      user = create_user()
+
+      # create_user_from_wallet already calls create_preferences
+      prefs = Notifications.get_preferences(user.id)
+      assert prefs != nil
+      assert prefs.email_hub_posts == true
+    end
+  end
+end

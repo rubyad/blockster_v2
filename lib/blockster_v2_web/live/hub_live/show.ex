@@ -7,6 +7,7 @@ defmodule BlocksterV2Web.HubLive.Show do
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Shop
+  alias BlocksterV2.UserEvents
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
@@ -30,11 +31,22 @@ defmodule BlocksterV2Web.HubLive.Show do
         # Hub-specific products for Shop section
         hub_products = Shop.list_products_by_hub(hub.id)
 
+        # Check if current user follows this hub
+        user_follows_hub =
+          case socket.assigns[:current_user] do
+            nil -> false
+            user -> Blog.user_follows_hub?(user.id, hub.id)
+          end
+
+        follower_count = Blog.get_hub_follower_count(hub.id)
+
         {:ok,
          socket
          |> assign(:posts_three, posts_three)
          |> assign(:posts_four, posts_four)
          |> assign(:hub, hub)
+         |> assign(:user_follows_hub, user_follows_hub)
+         |> assign(:follower_count, follower_count)
          |> assign(:page_title, "#{hub.name} Hub")
          |> assign(:show_all, true)
          |> assign(:show_news, false)
@@ -126,6 +138,42 @@ defmodule BlocksterV2Web.HubLive.Show do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to update logo")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_follow", _params, socket) do
+    case socket.assigns[:current_user] do
+      nil ->
+        {:noreply, push_navigate(socket, to: "/users/log_in")}
+
+      user ->
+        hub = socket.assigns.hub
+
+        case Blog.toggle_hub_follow(user.id, hub.id) do
+          {:ok, :followed} ->
+            UserEvents.track(user.id, "hub_subscribe", %{
+              target_type: "hub",
+              target_id: hub.id
+            })
+            {:noreply,
+             socket
+             |> assign(:user_follows_hub, true)
+             |> assign(:follower_count, socket.assigns.follower_count + 1)}
+
+          {:ok, :unfollowed} ->
+            UserEvents.track(user.id, "hub_unsubscribe", %{
+              target_type: "hub",
+              target_id: hub.id
+            })
+            {:noreply,
+             socket
+             |> assign(:user_follows_hub, false)
+             |> assign(:follower_count, max(socket.assigns.follower_count - 1, 0))}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Something went wrong")}
+        end
     end
   end
 

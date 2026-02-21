@@ -12,9 +12,12 @@ defmodule BlocksterV2.Referrals do
 
   alias BlocksterV2.{Repo, BuxMinter}
   alias BlocksterV2.Accounts.User
+  alias BlocksterV2.Notifications.SystemConfig
 
-  @signup_reward 100  # BUX
-  @phone_verified_reward 100  # BUX
+  # Default amounts — overridden by SystemConfig at runtime
+  @default_signup_reward 500
+  @default_referee_signup_reward 250
+  @default_phone_verified_reward 100
 
   # ----- Signup Referral Processing -----
 
@@ -64,30 +67,61 @@ defmodule BlocksterV2.Referrals do
   def process_signup_referral(_new_user, nil), do: {:error, :no_referrer}
   def process_signup_referral(_new_user, ""), do: {:error, :no_referrer}
 
-  defp create_signup_earning(referrer, _referee, referrer_wallet, referee_wallet) do
+  defp create_signup_earning(referrer, referee, referrer_wallet, referee_wallet) do
     now = System.system_time(:second)
+    referrer_amount = SystemConfig.get("referrer_signup_bux", @default_signup_reward)
+    referee_amount = SystemConfig.get("referee_signup_bux", @default_referee_signup_reward)
+
+    # --- Referrer reward ---
     id = Ecto.UUID.generate()
-
-    # Insert Mnesia earning record with wallet addresses (no DB lookup needed later)
-    # tx_hash is nil initially, will be updated after mint completes
     earning_record = {:referral_earnings, id, referrer.id, referrer_wallet, referee_wallet,
-                      :signup, @signup_reward, "BUX", nil, nil, now}
+                      :signup, referrer_amount, "BUX", nil, nil, now}
     :mnesia.dirty_write(earning_record)
+    update_referrer_stats(referrer.id, :signup, referrer_amount, "BUX")
+    mint_referral_reward(id, referrer_wallet, referrer_amount, "BUX", referrer.id, :signup)
 
-    # Update stats
-    update_referrer_stats(referrer.id, :signup, @signup_reward, "BUX")
-
-    # Mint BUX to referrer (async, will update tx_hash in Mnesia when complete)
-    mint_referral_reward(id, referrer_wallet, @signup_reward, "BUX", referrer.id, :signup)
-
-    # Broadcast real-time update
     broadcast_referral_earning(referrer.id, %{
       type: :signup,
-      amount: @signup_reward,
+      amount: referrer_amount,
       token: "BUX",
       referee_wallet: referee_wallet,
       timestamp: now
     })
+
+    # --- Referee welcome bonus ---
+    if referee_amount > 0 && referee.smart_wallet_address && referee.smart_wallet_address != "" do
+      referee_id = Ecto.UUID.generate()
+      Task.start(fn ->
+        case BuxMinter.mint_bux(referee.smart_wallet_address, referee_amount, referee.id, nil, :signup) do
+          {:ok, _response} ->
+            BuxMinter.sync_user_balances_async(referee.id, referee.smart_wallet_address, force: true)
+          {:error, err} ->
+            Logger.error("[Referrals] Failed to mint referee signup bonus: #{inspect(err)}")
+        end
+      end)
+
+      # Create in-app notification for referee
+      BlocksterV2.Notifications.create_notification(referee.id, %{
+        type: "referral_signup",
+        category: "reward",
+        title: "Welcome bonus! +#{referee_amount} BUX",
+        body: "You received #{referee_amount} BUX as a signup bonus from your friend's referral!",
+        action_url: "/notifications/referrals",
+        action_label: "View Referrals"
+      })
+    end
+
+    # Notify referrer via ReferralEngine
+    try do
+      referral_count = count_referrals(referrer.id)
+      BlocksterV2.Notifications.ReferralEngine.notify_referral_signup(
+        referrer.id,
+        referee.email || "a friend",
+        referral_count
+      )
+    rescue
+      _ -> :ok
+    end
   end
 
   # ----- Phone Verification Reward -----
@@ -122,21 +156,18 @@ defmodule BlocksterV2.Referrals do
   defp create_phone_verification_earning(referrer_id, referrer_wallet, referee_wallet) do
     now = System.system_time(:second)
     id = Ecto.UUID.generate()
+    amount = SystemConfig.get("phone_verify_bux", @default_phone_verified_reward)
 
-    # Store with wallet addresses (no DB lookup needed later)
-    # tx_hash is nil initially, will be updated after mint completes
     earning_record = {:referral_earnings, id, referrer_id, referrer_wallet, referee_wallet,
-                      :phone_verified, @phone_verified_reward, "BUX", nil, nil, now}
+                      :phone_verified, amount, "BUX", nil, nil, now}
     :mnesia.dirty_write(earning_record)
 
-    update_referrer_stats(referrer_id, :phone_verified, @phone_verified_reward, "BUX")
-
-    # Mint BUX to referrer (async, will update tx_hash in Mnesia when complete)
-    mint_referral_reward(id, referrer_wallet, @phone_verified_reward, "BUX", referrer_id, :phone_verified)
+    update_referrer_stats(referrer_id, :phone_verified, amount, "BUX")
+    mint_referral_reward(id, referrer_wallet, amount, "BUX", referrer_id, :phone_verified)
 
     broadcast_referral_earning(referrer_id, %{
       type: :phone_verified,
-      amount: @phone_verified_reward,
+      amount: amount,
       token: "BUX",
       referee_wallet: referee_wallet,
       timestamp: now
@@ -522,6 +553,15 @@ defmodule BlocksterV2.Referrals do
         end
       end)
     end
+  end
+
+  defp count_referrals(referrer_id) do
+    :mnesia.dirty_index_read(:referrals, referrer_id, :referrer_id)
+    |> length()
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
   end
 
   defp broadcast_referral_earning(referrer_id, payload) do

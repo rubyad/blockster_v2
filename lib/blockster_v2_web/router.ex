@@ -28,7 +28,7 @@ defmodule BlocksterV2Web.Router do
     pipe_through :browser
 
     live_session :admin,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.AdminAuth],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.AdminAuth],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
@@ -56,6 +56,13 @@ defmodule BlocksterV2Web.Router do
       live "/admin/orders", OrdersAdminLive, :index
       live "/admin/orders/:id", OrderAdminLive.Show, :show
 
+      # Notification Admin
+      live "/admin/notifications/campaigns", CampaignAdminLive.Index, :index
+      live "/admin/notifications/campaigns/new", CampaignAdminLive.New, :new
+      live "/admin/notifications/campaigns/:id", CampaignAdminLive.Show, :show
+      live "/admin/notifications/analytics", NotificationAnalyticsLive.Index, :index
+      live "/admin/ai-manager", AIManagerLive.Index, :index
+
       # Content Automation Admin
       live "/admin/content", ContentAutomationLive.Dashboard, :index
       live "/admin/content/queue", ContentAutomationLive.Queue, :index
@@ -71,7 +78,7 @@ defmodule BlocksterV2Web.Router do
     get "/profile", PageController, :profile_redirect
 
     live_session :authenticated,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/settings/devices", MemberLive.Devices, :index
       live "/cart", CartLive.Index, :index
@@ -79,13 +86,13 @@ defmodule BlocksterV2Web.Router do
     end
 
     live_session :author_new,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, {BlocksterV2Web.AuthorAuth, :require_author}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, {BlocksterV2Web.AuthorAuth, :require_author}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/new", PostLive.Form, :new
     end
 
     live_session :author_edit,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/:slug/edit", PostLive.Form, :edit
     end
@@ -98,6 +105,9 @@ defmodule BlocksterV2Web.Router do
 
     # Waitlist verification (controller route)
     get "/waitlist/verify", WaitlistController, :verify
+
+    # One-click email unsubscribe
+    get "/unsubscribe/:token", UnsubscribeController, :unsubscribe
 
     # X (Twitter) OAuth routes
     get "/auth/x", XAuthController, :authorize
@@ -113,7 +123,7 @@ defmodule BlocksterV2Web.Router do
     end
 
     live_session :default,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/", PostLive.Index, :index
       live "/login", LoginLive, :index
@@ -135,6 +145,9 @@ defmodule BlocksterV2Web.Router do
       live "/shop-landing", ShopLive.Landing, :index
       live "/shop", ShopLive.Index, :index
       live "/shop/:slug", ShopLive.Show, :show
+      live "/notifications", NotificationLive.Index, :index
+      live "/notifications/settings", NotificationSettingsLive.Index, :index
+      live "/notifications/referrals", NotificationLive.Referrals, :index
       live "/member/:slug", MemberLive.Show, :show
       live "/:slug", PostLive.Show, :show
     end
@@ -164,6 +177,12 @@ defmodule BlocksterV2Web.Router do
 
     # Helio payment webhook (authenticated via Bearer token in handler)
     post "/helio/webhook", HelioWebhookController, :handle
+
+    # Twilio SMS opt-out/opt-in webhook
+    post "/webhooks/twilio/sms", TwilioWebhookController, :handle
+
+    # SendGrid event webhook
+    post "/webhooks/sendgrid", SendgridWebhookController, :handle
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

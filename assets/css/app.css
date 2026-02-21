@@ -146,6 +146,13 @@ html {
   --color-bg-btn-primary: #EEF0F4;
   --color-bg-btn-primary-dark: #252525;
 
+  /* Wallet dashboard colors */
+  --color-wallet-bg: #F5F6FB;
+  --color-wallet-card: #ffffff;
+  --color-wallet-card-alt: #F3F5FF;
+  --color-wallet-lime: #CAFC00;
+  --color-wallet-lime-hover: #b8e600;
+
   /* Custom Shadows */
   --shadow-primary: 0px 16px 16px -8px #0E3F7E0A, 0px 8px 8px -4px #0E3F7E0A, 0px 4px 4px -2px #2A33460A, 0px 2px 2px -1px #2A33460A, 0px 1px 1px -0.5px #2A33450A, 0px 0px 0px 1px #0E3F7E0A;
   --shadow-0-12: 0px 2px 12px 0px #0000001F;
@@ -1148,4 +1155,26 @@ html, body {
   background: #e5e7eb;
   height: 8px;
   border-radius: 9999px;
+}
+
+/* =============================================================================
+   Notification Toast Animations
+   ============================================================================= */
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes shrink-width {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-shrink-width {
+  animation: shrink-width linear forwards;
 }

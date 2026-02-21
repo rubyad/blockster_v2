@@ -31,6 +31,35 @@ config :blockster_v2, BlocksterV2Web.Endpoint,
 # at the `config/runtime.exs`.
 config :blockster_v2, BlocksterV2.Mailer, adapter: Swoosh.Adapters.Local
 
+# Oban job processing
+config :blockster_v2, Oban,
+  repo: BlocksterV2.Repo,
+  queues: [
+    default: 10,
+    email_transactional: 5,
+    email_marketing: 3,
+    email_digest: 2,
+    sms: 1
+  ],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 9 * * *", BlocksterV2.Workers.DailyDigestWorker, queue: :email_digest},
+       {"0 10 * * 1", BlocksterV2.Workers.WeeklyRewardSummaryWorker, queue: :email_marketing},
+       {"0 14 * * 3", BlocksterV2.Workers.ReferralPromptWorker, queue: :email_marketing},
+       {"0 11 * * *", BlocksterV2.Workers.ReEngagementWorker, queue: :email_marketing},
+       {"*/30 * * * *", BlocksterV2.Workers.CartAbandonmentWorker, queue: :email_transactional},
+       {"0 */6 * * *", BlocksterV2.Workers.ProfileRecalcWorker, queue: :default},
+       {"0 */6 * * *", BlocksterV2.Workers.ABTestCheckWorker, queue: :default},
+       {"0 15 * * 5", BlocksterV2.Workers.RogueAirdropWorker, queue: :default},
+       {"0 10 * * 2", BlocksterV2.Workers.ReferralLeaderboardWorker, queue: :email_marketing},
+       {"0 6 * * *", BlocksterV2.Workers.ChurnDetectionWorker, queue: :default},
+       {"0 6 * * *", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "daily"}, queue: :default},
+       {"0 7 * * 1", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "weekly"}, queue: :default}
+     ]}
+  ]
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
