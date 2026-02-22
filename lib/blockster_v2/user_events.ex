@@ -2,14 +2,11 @@ defmodule BlocksterV2.UserEvents do
   @moduledoc """
   Fire-and-forget event tracking system. Records user behavior events
   for personalization, analytics, and notification optimization.
-
-  Events are appended to the user_events table and periodically aggregated
-  into user_profiles by the ProfileRecalcWorker.
   """
 
   import Ecto.Query
   alias BlocksterV2.Repo
-  alias BlocksterV2.Notifications.{UserEvent, UserProfile}
+  alias BlocksterV2.Notifications.UserEvent
 
   require Logger
 
@@ -38,7 +35,6 @@ defmodule BlocksterV2.UserEvents do
 
       case UserEvent.changeset(attrs) |> Repo.insert() do
         {:ok, _event} ->
-          increment_events_since_calc(user_id)
           broadcast_event(user_id, event_type, metadata)
 
         {:error, changeset} ->
@@ -68,7 +64,6 @@ defmodule BlocksterV2.UserEvents do
 
     case UserEvent.changeset(attrs) |> Repo.insert() do
       {:ok, event} ->
-        increment_events_since_calc(user_id)
         broadcast_event(user_id, event_type, metadata)
         {:ok, event}
 
@@ -173,62 +168,6 @@ defmodule BlocksterV2.UserEvents do
     |> Map.new()
   end
 
-  @doc "Get user IDs that have events since their last profile calculation."
-  def users_needing_profile_update(min_events \\ 1) do
-    from(p in UserProfile,
-      where: p.events_since_last_calc >= ^min_events,
-      select: p.user_id,
-      order_by: [desc: p.events_since_last_calc]
-    )
-    |> Repo.all()
-  end
-
-  @doc "Get user IDs with events but no profile yet."
-  def users_without_profiles do
-    from(e in UserEvent,
-      left_join: p in UserProfile, on: p.user_id == e.user_id,
-      where: is_nil(p.id),
-      select: e.user_id,
-      distinct: true
-    )
-    |> Repo.all()
-  end
-
-  # ============ Profile CRUD ============
-
-  @doc "Get or create a user profile."
-  def get_or_create_profile(user_id) do
-    case Repo.get_by(UserProfile, user_id: user_id) do
-      nil ->
-        %UserProfile{}
-        |> UserProfile.changeset(%{user_id: user_id})
-        |> Repo.insert()
-
-      profile ->
-        {:ok, profile}
-    end
-  end
-
-  @doc "Get a user profile (returns nil if not found)."
-  def get_profile(user_id) do
-    Repo.get_by(UserProfile, user_id: user_id)
-  end
-
-  @doc "Upsert a user profile with calculated data."
-  def upsert_profile(user_id, attrs) do
-    case Repo.get_by(UserProfile, user_id: user_id) do
-      nil ->
-        %UserProfile{}
-        |> UserProfile.changeset(Map.put(attrs, :user_id, user_id))
-        |> Repo.insert()
-
-      profile ->
-        profile
-        |> UserProfile.changeset(attrs)
-        |> Repo.update()
-    end
-  end
-
   # ============ Private Helpers ============
 
   defp broadcast_event(user_id, event_type, metadata) do
@@ -239,11 +178,6 @@ defmodule BlocksterV2.UserEvents do
     )
   rescue
     _ -> :ok
-  end
-
-  defp increment_events_since_calc(user_id) do
-    from(p in UserProfile, where: p.user_id == ^user_id)
-    |> Repo.update_all(inc: [events_since_last_calc: 1])
   end
 
   defp maybe_filter_event_type(query, nil), do: query

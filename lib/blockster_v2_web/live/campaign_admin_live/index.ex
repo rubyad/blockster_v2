@@ -104,7 +104,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Index do
           token,
           %{
             title: campaign.title || campaign.subject,
-            body: campaign.plain_text_body || campaign.body || "",
+            body: campaign.body || campaign.plain_text_body || "",
             image_url: campaign.image_url,
             action_url: campaign.action_url,
             action_label: campaign.action_label
@@ -272,6 +272,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Index do
                       <div class="flex items-center justify-end gap-2">
                         <button phx-click="send_test" phx-value-id={campaign.id} class="text-xs text-blue-600 hover:text-blue-800 font-haas_medium_65 cursor-pointer">Test</button>
                         <%= if campaign.status in ["draft", "scheduled"] do %>
+                          <.link navigate={~p"/admin/notifications/campaigns/#{campaign.id}/edit"} class="text-xs text-gray-600 hover:text-gray-800 font-haas_medium_65 cursor-pointer">Edit</.link>
                           <button phx-click="cancel_campaign" phx-value-id={campaign.id} data-confirm="Cancel this campaign?" class="text-xs text-amber-600 hover:text-amber-800 font-haas_medium_65 cursor-pointer">Cancel</button>
                         <% end %>
                         <%= if campaign.status in ["draft", "cancelled"] do %>

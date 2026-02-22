@@ -59,9 +59,15 @@ defmodule BlocksterV2Web.Router do
       # Notification Admin
       live "/admin/notifications/campaigns", CampaignAdminLive.Index, :index
       live "/admin/notifications/campaigns/new", CampaignAdminLive.New, :new
+      live "/admin/notifications/campaigns/:id/edit", CampaignAdminLive.Edit, :edit
       live "/admin/notifications/campaigns/:id", CampaignAdminLive.Show, :show
       live "/admin/notifications/analytics", NotificationAnalyticsLive.Index, :index
       live "/admin/ai-manager", AIManagerLive.Index, :index
+
+      # AI Ads Manager Admin
+      live "/admin/ads", AdsAdminLive.Dashboard, :index
+      live "/admin/ads/campaigns", AdsAdminLive.CampaignIndex, :index
+      live "/admin/ads/campaigns/new", AdsAdminLive.CampaignNew, :new
 
       # Content Automation Admin
       live "/admin/content", ContentAutomationLive.Dashboard, :index

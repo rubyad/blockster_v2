@@ -11,7 +11,7 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
 
     if user do
       stats = Referrals.get_referrer_stats(user.id)
-      earnings = Referrals.list_earnings(user.id, limit: @page_size, offset: 0)
+      earnings = Referrals.list_referral_earnings(user.id, limit: @page_size, offset: 0)
       config = load_referral_config()
       referral_link = build_referral_link(user)
 
@@ -46,7 +46,7 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
     user = socket.assigns.current_user
 
     if user do
-      batch = Referrals.list_earnings(user.id, limit: @page_size, offset: socket.assigns.offset)
+      batch = Referrals.list_referral_earnings(user.id, limit: @page_size, offset: socket.assigns.offset)
       end_reached = length(batch) < @page_size
 
       {:reply, %{end_reached: end_reached},

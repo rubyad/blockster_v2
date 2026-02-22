@@ -4,7 +4,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.Order
   alias BlocksterV2.Shop.BalanceManager
-  alias BlocksterV2.UserEvents
 
   require Logger
 
@@ -133,14 +132,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     case Orders.update_order_shipping(socket.assigns.order, params) do
       {:ok, order} ->
         order = Orders.get_order(order.id)
-
-        # Track checkout start when entering review step
-        if socket.assigns[:current_user] do
-          UserEvents.track(socket.assigns.current_user.id, "checkout_start", %{
-            target_type: "order",
-            target_id: order.id
-          })
-        end
 
         {:noreply,
          socket

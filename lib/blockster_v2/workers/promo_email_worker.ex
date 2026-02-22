@@ -71,7 +71,7 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
               token,
               %{
                 title: campaign.title || campaign.subject,
-                body: campaign.plain_text_body || campaign.body || "",
+                body: campaign.body || campaign.plain_text_body || "",
                 image_url: campaign.image_url,
                 action_url: campaign.action_url,
                 action_label: campaign.action_label
@@ -136,15 +136,36 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
 
     query =
       case campaign.target_audience do
-        "all" -> base_query
+        "all" ->
+          base_query
+
         "hub_followers" when not is_nil(campaign.target_hub_id) ->
           from(u in base_query,
             join: hf in "hub_followers",
             on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id
           )
+
+        "active_users" ->
+          week_ago = DateTime.utc_now() |> DateTime.add(-7, :day) |> DateTime.truncate(:second)
+          from(u in base_query, where: u.updated_at >= ^week_ago)
+
+        "dormant_users" ->
+          month_ago = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
+          from(u in base_query, where: u.updated_at < ^month_ago)
+
         "phone_verified" ->
           from(u in base_query, where: u.phone_verified == true)
-        _ -> base_query
+
+        "custom" ->
+          user_ids = get_in(campaign.target_criteria || %{}, ["user_ids"]) || []
+          if user_ids == [], do: from(u in base_query, where: false), else: from(u in base_query, where: u.id in ^user_ids)
+
+        audience when audience in ~w(bux_gamers rogue_gamers bux_balance rogue_holders) ->
+          user_ids = Notifications.get_mnesia_user_ids(audience, campaign.target_criteria || %{})
+          if user_ids == [], do: from(u in base_query, where: false), else: from(u in base_query, where: u.id in ^user_ids)
+
+        _ ->
+          base_query
       end
 
     Repo.all(query)

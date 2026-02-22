@@ -24,7 +24,6 @@ defmodule BlocksterV2.Notifications.SystemConfig do
     # Trigger thresholds
     "bux_milestones" => [1_000, 5_000, 10_000, 25_000, 50_000, 100_000],
     "reading_streak_days" => [3, 7, 14, 30],
-    "cart_abandon_hours" => 2,
     "dormancy_min_days" => 5,
     "dormancy_max_days" => 14,
     "referral_propensity_threshold" => 0.6,
@@ -41,17 +40,10 @@ defmodule BlocksterV2.Notifications.SystemConfig do
     "default_max_emails_per_day" => 3,
     "global_max_per_hour" => 8,
 
-    # Price alerts
-    "price_alert_major_pct" => 10,
-    "price_alert_significant_pct" => 5,
-
     # Triggers enabled
-    "trigger_cart_abandonment_enabled" => true,
     "trigger_bux_milestone_enabled" => true,
     "trigger_reading_streak_enabled" => true,
     "trigger_hub_recommendation_enabled" => true,
-    "trigger_price_drop_enabled" => true,
-    "trigger_purchase_thank_you_enabled" => true,
     "trigger_dormancy_enabled" => true,
     "trigger_referral_opportunity_enabled" => true,
 

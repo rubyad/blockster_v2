@@ -99,16 +99,7 @@ defmodule BlocksterV2Web.ShopLive.Show do
          |> assign(:token_value_usd, @token_value_usd)
          |> assign(:shoe_gender, shoe_gender)
          |> assign(:display_sizes, display_sizes)
-         |> assign(:added_to_cart, false)
-         |> tap(fn socket ->
-           # Track product view (connected mount only)
-           if connected?(socket) && user_id do
-             BlocksterV2.UserEvents.track(user_id, "product_view", %{
-               target_type: "product",
-               target_id: db_product.id
-             })
-           end
-         end)}
+         |> assign(:added_to_cart, false)}
     end
   end
 
@@ -322,10 +313,6 @@ defmodule BlocksterV2Web.ShopLive.Show do
             }) do
               {:ok, _item} ->
                 CartContext.broadcast_cart_update(user.id)
-                BlocksterV2.UserEvents.track(user.id, "product_add_to_cart", %{
-                  target_type: "product",
-                  target_id: product.id
-                })
                 {:noreply,
                  socket
                  |> assign(:added_to_cart, true)

@@ -27,7 +27,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 
 ## Branding
 
-- **Brand Color**: `#CAFC00` (lime green) - NEVER use as text color, use as background with black text
+- **Brand Color**: `#CAFC00` (lime green) - accent ONLY, NOT for buttons, tabs, or large UI surfaces on light backgrounds
+  - NEVER use as text color
+  - NEVER use as button backgrounds — lime on white looks washed out
+  - NEVER use random greens (green-600, emerald, etc.) for text — looks cheap
+  - OK for: small accent dots, icon backgrounds, subtle borders/rings, progress indicators
+  - **Buttons/tabs**: Use `bg-gray-900 text-white` (dark) or `bg-gray-100 text-gray-900` (light) — NOT lime
 - **Logo**: `https://ik.imagekit.io/blockster/blockster-icon.png` - via `lightning_icon/1` component
 - **Icons**: Heroicons solid style, pattern: `w-16 h-16 bg-[#CAFC00] rounded-xl` + `w-8 h-8 text-black`
 

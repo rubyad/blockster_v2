@@ -576,6 +576,20 @@ if (referralAdminBBWallet) {
 }
 
 // ============================================================
+// ROGUE Sender Wallet (for reward/bonus ROGUE transfers)
+// ============================================================
+
+const ROGUE_SENDER_PRIVATE_KEY = process.env.ROGUE_SENDER_PRIVATE_KEY;
+let rogueSenderWallet = null;
+
+if (ROGUE_SENDER_PRIVATE_KEY) {
+  rogueSenderWallet = new ethers.Wallet(ROGUE_SENDER_PRIVATE_KEY, provider);
+  console.log(`[INIT] ROGUE sender wallet: ${rogueSenderWallet.address}`);
+} else {
+  console.log(`[WARN] ROGUE_SENDER_PRIVATE_KEY not set - /transfer-rogue endpoint disabled`);
+}
+
+// ============================================================
 // Transaction Queues - One per wallet to serialize transactions
 // ============================================================
 
@@ -609,6 +623,12 @@ if (referralAdminBBWallet) {
 if (referralAdminRBWallet) {
   txQueues.referralRB = new TransactionQueue(referralAdminRBWallet, provider, 'referralRB');
   console.log(`[INIT] Transaction queue created for referral admin RB wallet: ${referralAdminRBWallet.address}`);
+}
+
+// Create queue for ROGUE sender wallet
+if (rogueSenderWallet) {
+  txQueues.rogueSender = new TransactionQueue(rogueSenderWallet, provider, 'rogueSender');
+  console.log(`[INIT] Transaction queue created for ROGUE sender wallet: ${rogueSenderWallet.address}`);
 }
 
 // Submit commitment for a new game
@@ -1057,6 +1077,72 @@ app.post('/set-player-referrer', authenticate, async (req, res) => {
     referrer: referrerAddr,
     results
   });
+});
+
+// ============================================================
+// ROGUE Transfer Endpoint - Send native ROGUE tokens
+// ============================================================
+
+app.post('/transfer-rogue', authenticate, async (req, res) => {
+  if (!rogueSenderWallet) {
+    return res.status(503).json({ error: 'ROGUE sender not configured - ROGUE_SENDER_PRIVATE_KEY missing' });
+  }
+
+  const { walletAddress, amount, userId, reason } = req.body;
+
+  // Validate inputs
+  if (!walletAddress) {
+    return res.status(400).json({ error: 'walletAddress is required' });
+  }
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'amount must be a positive number' });
+  }
+
+  if (!ethers.isAddress(walletAddress)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+
+  const queue = txQueues.rogueSender;
+  if (!queue) {
+    return res.status(503).json({ error: 'ROGUE sender transaction queue not initialized' });
+  }
+
+  try {
+    const amountWei = ethers.parseEther(amount.toString());
+
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/transfer-rogue] Sending ${amount} ROGUE to ${walletAddress} (user: ${userId}, reason: ${reason}) with nonce ${nonce}`);
+      const tx = await rogueSenderWallet.sendTransaction({
+        to: walletAddress,
+        value: amountWei,
+        nonce
+      });
+      return await tx.wait();
+    });
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      amount,
+      walletAddress,
+      userId,
+      reason: reason || 'transfer'
+    });
+  } catch (error) {
+    console.error(`[TRANSFER-ROGUE] Error:`, error);
+
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return res.status(500).json({ error: 'Insufficient ROGUE balance in sender wallet' });
+    }
+
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+
+    res.status(500).json({ error: 'Failed to transfer ROGUE', details: error.message });
+  }
 });
 
 // ============================================================

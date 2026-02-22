@@ -390,6 +390,34 @@
                 <p class="text-xs text-[#141414A3] mt-1">Enter a tweet URL to automatically create a share campaign for this article with 50 BUX reward.</p>
               </div>
 
+              <!-- Auto Ad Creation (per-platform toggles) -->
+              <div class="border-t border-[#E7E8F1] pt-6 mt-6">
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-2">
+                  Auto Ad Creation <span class="text-[#8AE388]">(Admin Only)</span>
+                </h3>
+                <p class="text-sm text-[#141414A3] mb-4">
+                  Select platforms to automatically create ad campaigns when this post is published.
+                </p>
+                <div class="flex flex-wrap gap-3">
+                  <label class="flex items-center gap-2 px-4 py-2.5 bg-[#F7F8FA] rounded-lg border border-[#E7E8F1] cursor-pointer hover:border-gray-400 transition-colors">
+                    <input type="checkbox" name="ad_platform_x" value="true" checked={@ad_platform_x} class="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400" />
+                    <span class="text-sm font-haas_medium_65 text-[#141414]">X (Twitter)</span>
+                  </label>
+                  <label class="flex items-center gap-2 px-4 py-2.5 bg-[#F7F8FA] rounded-lg border border-[#E7E8F1] cursor-pointer hover:border-gray-400 transition-colors">
+                    <input type="checkbox" name="ad_platform_meta" value="true" checked={@ad_platform_meta} class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400" />
+                    <span class="text-sm font-haas_medium_65 text-[#141414]">Meta (FB/IG)</span>
+                  </label>
+                  <label class="flex items-center gap-2 px-4 py-2.5 bg-[#F7F8FA] rounded-lg border border-[#E7E8F1] cursor-pointer hover:border-gray-400 transition-colors">
+                    <input type="checkbox" name="ad_platform_tiktok" value="true" checked={@ad_platform_tiktok} class="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-400" />
+                    <span class="text-sm font-haas_medium_65 text-[#141414]">TikTok</span>
+                  </label>
+                  <label class="flex items-center gap-2 px-4 py-2.5 bg-[#F7F8FA] rounded-lg border border-[#E7E8F1] cursor-pointer hover:border-gray-400 transition-colors">
+                    <input type="checkbox" name="ad_platform_telegram" value="true" checked={@ad_platform_telegram} class="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400" />
+                    <span class="text-sm font-haas_medium_65 text-[#141414]">Telegram</span>
+                  </label>
+                </div>
+              </div>
+
               <!-- Video Settings Section -->
               <div class="border-t border-[#E7E8F1] pt-6 mt-6">
                 <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-4">

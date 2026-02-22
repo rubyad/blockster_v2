@@ -57,7 +57,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
           token,
           %{
             title: campaign.title || campaign.subject,
-            body: campaign.plain_text_body || campaign.body || "",
+            body: campaign.body || campaign.plain_text_body || "",
             image_url: campaign.image_url,
             action_url: campaign.action_url,
             action_label: campaign.action_label
@@ -97,6 +97,9 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
               Send Test
             </button>
             <%= if @campaign.status in ["draft", "scheduled"] do %>
+              <.link navigate={~p"/admin/notifications/campaigns/#{@campaign.id}/edit"} class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-haas_medium_65 text-gray-600 hover:bg-gray-50 cursor-pointer">
+                Edit
+              </.link>
               <button phx-click="cancel_campaign" data-confirm="Cancel this campaign?" class="px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm font-haas_medium_65 text-red-700 hover:bg-red-100 cursor-pointer">
                 Cancel
               </button>

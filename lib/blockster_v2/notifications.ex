@@ -230,6 +230,20 @@ defmodule BlocksterV2.Notifications do
     Phoenix.PubSub.broadcast(@pubsub, "#{@topic_prefix}#{user_id}", {:notification_count_updated, count})
   end
 
+  # ============ User Search ============
+
+  def search_users(query_str, limit \\ 10) when is_binary(query_str) do
+    search = "%#{query_str}%"
+
+    from(u in BlocksterV2.Accounts.User,
+      where: ilike(u.email, ^search) or ilike(u.wallet_address, ^search) or ilike(u.username, ^search),
+      where: not is_nil(u.email),
+      limit: ^limit,
+      select: %{id: u.id, email: u.email, username: u.username, wallet_address: u.wallet_address}
+    )
+    |> Repo.all()
+  end
+
   # ============ Campaign Queries ============
 
   def delete_campaign(%Campaign{} = campaign) do
@@ -239,30 +253,150 @@ defmodule BlocksterV2.Notifications do
   def campaign_recipient_count(campaign) do
     base = from(u in BlocksterV2.Accounts.User, where: not is_nil(u.email))
 
-    query =
-      case campaign.target_audience do
-        "hub_followers" when not is_nil(campaign.target_hub_id) ->
-          from(u in base,
-            join: hf in "hub_followers",
-            on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id
-          )
+    case campaign.target_audience do
+      "hub_followers" when not is_nil(campaign.target_hub_id) ->
+        from(u in base,
+          join: hf in "hub_followers",
+          on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id
+        )
+        |> Repo.aggregate(:count, :id)
 
-        "active_users" ->
-          week_ago = DateTime.utc_now() |> DateTime.add(-7, :day) |> DateTime.truncate(:second)
-          from(u in base, where: u.updated_at >= ^week_ago)
+      "active_users" ->
+        week_ago = DateTime.utc_now() |> DateTime.add(-7, :day) |> DateTime.truncate(:second)
+        from(u in base, where: u.updated_at >= ^week_ago)
+        |> Repo.aggregate(:count, :id)
 
-        "dormant_users" ->
-          month_ago = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
-          from(u in base, where: u.updated_at < ^month_ago)
+      "dormant_users" ->
+        month_ago = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
+        from(u in base, where: u.updated_at < ^month_ago)
+        |> Repo.aggregate(:count, :id)
 
-        "phone_verified" ->
-          from(u in base, where: u.phone_verified == true)
+      "phone_verified" ->
+        from(u in base, where: u.phone_verified == true)
+        |> Repo.aggregate(:count, :id)
 
-        _ ->
-          base
-      end
+      "custom" ->
+        user_ids = get_in(campaign.target_criteria, ["user_ids"]) || []
+        if user_ids == [] do
+          0
+        else
+          from(u in base, where: u.id in ^user_ids) |> Repo.aggregate(:count, :id)
+        end
 
-    Repo.aggregate(query, :count, :id)
+      audience when audience in ~w(bux_gamers rogue_gamers bux_balance rogue_holders) ->
+        user_ids = get_mnesia_user_ids(audience, campaign.target_criteria)
+        if user_ids == [] do
+          0
+        else
+          from(u in base, where: u.id in ^user_ids) |> Repo.aggregate(:count, :id)
+        end
+
+      _ ->
+        Repo.aggregate(base, :count, :id)
+    end
+  end
+
+  @doc """
+  Get user IDs from Mnesia tables based on audience type and criteria.
+  """
+  def get_mnesia_user_ids(audience, criteria \\ %{})
+
+  def get_mnesia_user_ids("bux_gamers", _criteria) do
+    try do
+      :mnesia.dirty_all_keys(:user_betting_stats)
+      |> Enum.filter(fn user_id ->
+        case :mnesia.dirty_read(:user_betting_stats, user_id) do
+          [record] -> elem(record, 3) > 0
+          _ -> false
+        end
+      end)
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
+  end
+
+  def get_mnesia_user_ids("rogue_gamers", _criteria) do
+    try do
+      :mnesia.dirty_all_keys(:user_betting_stats)
+      |> Enum.filter(fn user_id ->
+        case :mnesia.dirty_read(:user_betting_stats, user_id) do
+          [record] -> elem(record, 10) > 0
+          _ -> false
+        end
+      end)
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
+  end
+
+  def get_mnesia_user_ids("bux_balance", criteria) do
+    operator = criteria["operator"] || "above"
+    threshold = parse_threshold(criteria["threshold"])
+
+    try do
+      :mnesia.dirty_all_keys(:user_bux_balances)
+      |> Enum.filter(fn user_id ->
+        case :mnesia.dirty_read(:user_bux_balances, user_id) do
+          [record] ->
+            balance = elem(record, 5)
+            case operator do
+              "above" -> is_number(balance) and balance >= threshold
+              "below" -> is_number(balance) and balance < threshold
+              _ -> false
+            end
+          _ -> false
+        end
+      end)
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
+  end
+
+  def get_mnesia_user_ids("rogue_holders", _criteria) do
+    try do
+      :mnesia.dirty_all_keys(:user_rogue_balances)
+      |> Enum.filter(fn user_id ->
+        case :mnesia.dirty_read(:user_rogue_balances, user_id) do
+          [record] ->
+            balance = elem(record, 4)
+            is_number(balance) and balance > 0
+          _ -> false
+        end
+      end)
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
+  end
+
+  def get_mnesia_user_ids(_, _), do: []
+
+  defp parse_threshold(nil), do: 0
+  defp parse_threshold(val) when is_number(val), do: val
+  defp parse_threshold(val) when is_binary(val) do
+    case Float.parse(val) do
+      {num, _} -> num
+      :error -> 0
+    end
+  end
+  defp parse_threshold(_), do: 0
+
+  # ============ Dedup ============
+
+  def already_notified?(user_id, dedup_key) do
+    from(n in Notification,
+      where: n.user_id == ^user_id,
+      where: fragment("?->>'dedup_key' = ?", n.metadata, ^dedup_key),
+      limit: 1
+    )
+    |> Repo.exists?()
   end
 
   def get_campaign_stats(campaign_id) do

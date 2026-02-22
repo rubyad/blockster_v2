@@ -19,8 +19,6 @@ defmodule BlocksterV2.Notifications.SystemConfigTest do
       assert defaults["phone_verify_bux"] == 100
       assert defaults["bux_milestones"] == [1_000, 5_000, 10_000, 25_000, 50_000, 100_000]
       assert defaults["reading_streak_days"] == [3, 7, 14, 30]
-      assert defaults["cart_abandon_hours"] == 2
-      assert defaults["trigger_cart_abandonment_enabled"] == true
       assert defaults["custom_rules"] == []
     end
   end
@@ -88,7 +86,7 @@ defmodule BlocksterV2.Notifications.SystemConfigTest do
       assert all["referrer_signup_bux"] == 999
       # Defaults still present
       assert all["referee_signup_bux"] == 250
-      assert all["cart_abandon_hours"] == 2
+      assert all["reading_streak_days"] == [3, 7, 14, 30]
     end
   end
 
@@ -112,7 +110,8 @@ defmodule BlocksterV2.Notifications.SystemConfigTest do
       assert SystemConfig.get("referrer_signup_bux") == 777
 
       # Directly update DB (bypassing cache)
-      from(c in "system_config", limit: 1)
+      import Ecto.Query
+      from(c in "system_config")
       |> BlocksterV2.Repo.update_all(set: [
         config: %{"referrer_signup_bux" => 888}
       ])

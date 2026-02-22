@@ -90,11 +90,23 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
      |> assign(:hub_name, hub_name)
      |> assign(:filtered_authors, filtered_authors)
      |> assign(:show_author_dropdown, show_author_dropdown)
+     |> assign(:ad_platform_x, false)
+     |> assign(:ad_platform_meta, false)
+     |> assign(:ad_platform_tiktok, false)
+     |> assign(:ad_platform_telegram, false)
      |> assign_form(changeset)}
   end
 
   @impl true
-  def handle_event("validate", %{"post" => post_params}, socket) do
+  def handle_event("validate", %{"post" => post_params} = params, socket) do
+    # Preserve ad platform checkbox state across form changes
+    socket =
+      socket
+      |> assign(:ad_platform_x, params["ad_platform_x"] == "true")
+      |> assign(:ad_platform_meta, params["ad_platform_meta"] == "true")
+      |> assign(:ad_platform_tiktok, params["ad_platform_tiktok"] == "true")
+      |> assign(:ad_platform_telegram, params["ad_platform_telegram"] == "true")
+
     post_params =
       post_params
       |> parse_content()
@@ -141,6 +153,11 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     post_params = params["post"]
     campaign_tweet_url = params["campaign_tweet_url"]
 
+    # Collect ad platform selections from checkboxes
+    ad_platforms =
+      ~w(x meta tiktok telegram)
+      |> Enum.filter(fn p -> params["ad_platform_#{p}"] == "true" end)
+
     # Parse content and custom published date
     post_params =
       post_params
@@ -163,7 +180,14 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         post_params
       end
 
-    save_post(socket, socket.assigns.action, post_params, campaign_tweet_url)
+    socket =
+      socket
+      |> assign(:ad_platform_x, "x" in ad_platforms)
+      |> assign(:ad_platform_meta, "meta" in ad_platforms)
+      |> assign(:ad_platform_tiktok, "tiktok" in ad_platforms)
+      |> assign(:ad_platform_telegram, "telegram" in ad_platforms)
+
+    save_post(socket, socket.assigns.action, post_params, campaign_tweet_url, ad_platforms)
   end
 
   def handle_event("remove_featured_image", _params, socket) do
@@ -369,7 +393,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
      |> assign_form(changeset)}
   end
 
-  defp save_post(socket, :edit, post_params, campaign_tweet_url) do
+  defp save_post(socket, action, post_params, campaign_tweet_url, ad_platforms \\ [])
+
+  defp save_post(socket, :edit, post_params, campaign_tweet_url, ad_platforms) do
     IO.inspect(post_params, label: "Updating post with params")
 
     # Extract and decode tags if present
@@ -403,6 +429,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Create campaign if tweet URL is provided
         maybe_create_campaign(post, campaign_tweet_url)
 
+        # Trigger ad creation for selected platforms
+        maybe_create_ads(post, ad_platforms)
+
         notify_parent({:saved, post})
 
         {:noreply,
@@ -416,7 +445,7 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
     end
   end
 
-  defp save_post(socket, :new, post_params, campaign_tweet_url) do
+  defp save_post(socket, :new, post_params, campaign_tweet_url, ad_platforms) do
     IO.inspect(post_params, label: "Creating new post with params")
 
     # Extract and decode tags if present
@@ -446,6 +475,9 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         # Create campaign if tweet URL is provided
         maybe_create_campaign(post, campaign_tweet_url)
 
+        # Trigger ad creation for selected platforms
+        maybe_create_ads(post, ad_platforms)
+
         notify_parent({:saved, post})
 
         {:noreply,
@@ -457,6 +489,15 @@ defmodule BlocksterV2Web.PostLive.FormComponent do
         IO.inspect(changeset.errors, label: "Post creation validation errors")
         {:noreply, assign_form(socket, changeset)}
     end
+  end
+
+  defp maybe_create_ads(_post, []), do: :ok
+  defp maybe_create_ads(post, platforms) when is_list(platforms) do
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "ads_manager",
+      {:create_ads_for_post, post, platforms}
+    )
   end
 
   defp maybe_create_campaign(_post, nil), do: :ok

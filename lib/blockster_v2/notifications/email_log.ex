@@ -11,6 +11,7 @@ defmodule BlocksterV2.Notifications.EmailLog do
     field :bounced, :boolean, default: false
     field :unsubscribed, :boolean, default: false
     field :sendgrid_message_id, :string
+    field :metadata, :map, default: %{}
 
     belongs_to :user, BlocksterV2.Accounts.User
     belongs_to :notification, BlocksterV2.Notifications.Notification
@@ -23,7 +24,7 @@ defmodule BlocksterV2.Notifications.EmailLog do
     email_log
     |> cast(attrs, [
       :user_id, :notification_id, :campaign_id, :email_type,
-      :subject, :sent_at, :sendgrid_message_id
+      :subject, :sent_at, :sendgrid_message_id, :metadata
     ])
     |> validate_required([:user_id, :email_type, :sent_at])
     |> foreign_key_constraint(:user_id)

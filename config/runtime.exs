@@ -66,6 +66,12 @@ config :blockster_v2,
   fulfillment_email: System.get_env("FULFILLMENT_EMAIL") || "fulfillment@blockster.com",
   # Shop treasury wallet (receives ROGUE payments)
   shop_treasury_address: System.get_env("SHOP_TREASURY_ADDRESS"),
+  ai_ads_manager: [
+    enabled: System.get_env("AI_ADS_MANAGER_ENABLED", "false") == "true",
+    ads_service_url: System.get_env("ADS_SERVICE_URL", "https://ads-manager.fly.dev"),
+    ads_service_secret: System.get_env("ADS_SERVICE_SECRET"),
+    anthropic_api_key: System.get_env("ANTHROPIC_API_KEY")
+  ],
   content_automation: [
     enabled: System.get_env("CONTENT_AUTOMATION_ENABLED", "false") == "true",
     anthropic_api_key: System.get_env("ANTHROPIC_API_KEY"),

@@ -288,7 +288,6 @@ defmodule BlocksterV2Web.AIManagerLive.Index do
                   <div>
                     <p class="text-xs font-haas_medium_65 text-gray-400 uppercase tracking-wider mb-2">Triggers</p>
                     <div class="space-y-1.5">
-                      <.trigger_row label="Cart abandonment" enabled={@system_config["trigger_cart_abandonment_enabled"] != false} />
                       <.trigger_row label="BUX milestone" enabled={@system_config["trigger_bux_milestone_enabled"] != false} />
                       <.trigger_row label="Reading streak" enabled={@system_config["trigger_reading_streak_enabled"] != false} />
                       <.trigger_row label="Hub recommendation" enabled={@system_config["trigger_hub_recommendation_enabled"] != false} />

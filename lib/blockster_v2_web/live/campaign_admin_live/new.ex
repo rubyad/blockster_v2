@@ -31,13 +31,20 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
        "send_in_app" => true,
        "send_sms" => false,
        "scheduled_at" => nil,
-       "send_now" => true
+       "send_now" => true,
+       "balance_operator" => "above",
+       "balance_threshold" => ""
      })
      |> assign(:estimated_recipients, 0)
+     |> assign(:selected_users, [])
+     |> assign(:user_search_results, [])
+     |> assign(:user_search_query, "")
      |> update_recipient_count()}
   end
 
   @impl true
+  def handle_event("noop", _params, socket), do: {:noreply, socket}
+
   def handle_event("set_step", %{"step" => step}, socket) when step in @steps do
     {:noreply, assign(socket, :step, step)}
   end
@@ -58,8 +65,9 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
     form_data = Map.merge(socket.assigns.form_data, sanitize_params(params))
     socket = assign(socket, :form_data, form_data)
 
-    # Recalculate recipient count if audience changed
-    socket = if Map.has_key?(params, "target_audience") || Map.has_key?(params, "target_hub_id") do
+    # Recalculate recipient count if audience-related fields changed
+    audience_fields = ~w(target_audience target_hub_id balance_operator balance_threshold)
+    socket = if Enum.any?(audience_fields, &Map.has_key?(params, &1)) do
       update_recipient_count(socket)
     else
       socket
@@ -68,8 +76,48 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
     {:noreply, socket}
   end
 
+  def handle_event("search_users", %{"query" => query}, socket) do
+    results = if String.length(query) >= 2 do
+      Notifications.search_users(query, 10)
+      |> Enum.reject(fn u -> u.id in Enum.map(socket.assigns.selected_users, & &1.id) end)
+    else
+      []
+    end
+
+    {:noreply, assign(socket, user_search_results: results, user_search_query: query)}
+  end
+
+  def handle_event("add_user", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    user = Enum.find(socket.assigns.user_search_results, &(&1.id == id))
+
+    if user do
+      selected = socket.assigns.selected_users ++ [user]
+      {:noreply,
+       socket
+       |> assign(:selected_users, selected)
+       |> assign(:user_search_results, [])
+       |> assign(:user_search_query, "")
+       |> update_recipient_count()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("remove_user", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    selected = Enum.reject(socket.assigns.selected_users, &(&1.id == id))
+
+    {:noreply,
+     socket
+     |> assign(:selected_users, selected)
+     |> update_recipient_count()}
+  end
+
   def handle_event("create_campaign", _params, socket) do
     fd = socket.assigns.form_data
+
+    target_criteria = build_target_criteria(fd, socket.assigns.selected_users)
 
     attrs = %{
       name: fd["name"],
@@ -83,6 +131,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
       action_label: fd["action_label"],
       target_audience: fd["target_audience"],
       target_hub_id: if(fd["target_hub_id"] && fd["target_hub_id"] != "", do: String.to_integer(fd["target_hub_id"])),
+      target_criteria: target_criteria,
       send_email: fd["send_email"],
       send_in_app: fd["send_in_app"],
       send_sms: fd["send_sms"],
@@ -123,7 +172,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
           token,
           %{
             title: fd["title"] || fd["subject"] || "Test",
-            body: fd["plain_text_body"] || fd["body"] || "",
+            body: fd["body"] || fd["plain_text_body"] || "",
             image_url: if(fd["image_url"] != "", do: fd["image_url"]),
             action_url: if(fd["action_url"] != "", do: fd["action_url"]),
             action_label: fd["action_label"]
@@ -178,12 +227,12 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
 
         <%!-- Step Content --%>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <form phx-change="update_form">
+          <form phx-change="update_form" phx-submit="noop">
             <%= case @step do %>
               <% "content" -> %>
                 <.step_content form_data={@form_data} />
               <% "audience" -> %>
-                <.step_audience form_data={@form_data} hubs={@hubs} estimated_recipients={@estimated_recipients} />
+                <.step_audience form_data={@form_data} hubs={@hubs} estimated_recipients={@estimated_recipients} selected_users={@selected_users} user_search_results={@user_search_results} user_search_query={@user_search_query} />
               <% "channels" -> %>
                 <.step_channels form_data={@form_data} />
               <% "schedule" -> %>
@@ -272,7 +321,18 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
     <div class="space-y-5">
       <h2 class="text-lg font-haas_medium_65 text-[#141414] mb-4">Target Audience</h2>
       <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <% audiences = [{"all", "All Users", "Everyone with an email"}, {"hub_followers", "Hub Followers", "Followers of a specific hub"}, {"active_users", "Active Users", "Active in last 7 days"}, {"dormant_users", "Dormant Users", "Inactive 30+ days"}, {"phone_verified", "Phone Verified", "Verified phone number"}] %>
+        <% audiences = [
+          {"all", "All Users", "Everyone with an email"},
+          {"hub_followers", "Hub Followers", "Followers of a specific hub"},
+          {"active_users", "Active Users", "Active in last 7 days"},
+          {"dormant_users", "Dormant Users", "Inactive 30+ days"},
+          {"phone_verified", "Phone Verified", "Verified phone number"},
+          {"custom", "Custom Selection", "Search & select specific users"},
+          {"bux_gamers", "BUX Gamers", "Played BUX Booster with BUX"},
+          {"rogue_gamers", "ROGUE Gamers", "Played BUX Booster with ROGUE"},
+          {"bux_balance", "BUX Balance", "Above or below a threshold"},
+          {"rogue_holders", "ROGUE Holders", "Users with ROGUE balance"}
+        ] %>
         <%= for {value, label, desc} <- audiences do %>
           <label class={"block p-4 rounded-xl border-2 cursor-pointer transition-all #{if @form_data["target_audience"] == value, do: "border-gray-900 bg-gray-50", else: "border-gray-100 hover:border-gray-200"}"}>
             <input type="radio" name="target_audience" value={value} checked={@form_data["target_audience"] == value} class="hidden" />
@@ -282,6 +342,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
         <% end %>
       </div>
 
+      <%!-- Hub Selector --%>
       <%= if @form_data["target_audience"] == "hub_followers" do %>
         <div>
           <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Select Hub</label>
@@ -291,6 +352,72 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
               <option value={hub.id} selected={to_string(hub.id) == @form_data["target_hub_id"]}><%= hub.name %></option>
             <% end %>
           </select>
+        </div>
+      <% end %>
+
+      <%!-- Custom User Selection --%>
+      <%= if @form_data["target_audience"] == "custom" do %>
+        <div class="space-y-3">
+          <label class="block text-sm font-haas_medium_65 text-gray-700">Search Users</label>
+          <div class="relative">
+            <input
+              type="text"
+              phx-keyup="search_users"
+              phx-debounce="300"
+              name="query"
+              value={@user_search_query}
+              placeholder="Search by email, username, or wallet..."
+              class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400"
+              autocomplete="off"
+            />
+            <%= if @user_search_results != [] do %>
+              <div class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <%= for user <- @user_search_results do %>
+                  <button
+                    type="button"
+                    phx-click="add_user"
+                    phx-value-id={user.id}
+                    class="w-full px-4 py-2.5 text-left hover:bg-gray-50 cursor-pointer flex items-center justify-between border-b border-gray-50 last:border-0"
+                  >
+                    <div>
+                      <div class="text-sm font-haas_medium_65 text-[#141414]"><%= user.email %></div>
+                      <div class="text-xs text-gray-500 font-haas_roman_55"><%= user.username || "—" %></div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+          <%= if @selected_users != [] do %>
+            <div class="flex flex-wrap gap-2">
+              <%= for user <- @selected_users do %>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-haas_roman_55">
+                  <%= user.email %>
+                  <button type="button" phx-click="remove_user" phx-value-id={user.id} class="text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                  </button>
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%!-- BUX Balance Filter --%>
+      <%= if @form_data["target_audience"] == "bux_balance" do %>
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Operator</label>
+            <select name="balance_operator" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">
+              <option value="above" selected={@form_data["balance_operator"] == "above"}>Above or equal to</option>
+              <option value="below" selected={@form_data["balance_operator"] == "below"}>Below</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">BUX Threshold</label>
+            <input type="number" name="balance_threshold" value={@form_data["balance_threshold"]} placeholder="e.g. 1000" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400" />
+          </div>
         </div>
       <% end %>
 
@@ -437,9 +564,12 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
     # Build a temp campaign struct for counting
     count =
       try do
+        target_criteria = build_target_criteria(fd, socket.assigns.selected_users)
+
         campaign = %Notifications.Campaign{
           target_audience: fd["target_audience"] || "all",
-          target_hub_id: if(fd["target_hub_id"] && fd["target_hub_id"] != "", do: String.to_integer(fd["target_hub_id"]))
+          target_hub_id: if(fd["target_hub_id"] && fd["target_hub_id"] != "", do: String.to_integer(fd["target_hub_id"])),
+          target_criteria: target_criteria
         }
         Notifications.campaign_recipient_count(campaign)
       rescue
@@ -447,6 +577,22 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
       end
 
     assign(socket, :estimated_recipients, count)
+  end
+
+  defp build_target_criteria(fd, selected_users) do
+    case fd["target_audience"] do
+      "custom" ->
+        %{"user_ids" => Enum.map(selected_users, & &1.id)}
+
+      "bux_balance" ->
+        %{
+          "operator" => fd["balance_operator"] || "above",
+          "threshold" => fd["balance_threshold"] || "0"
+        }
+
+      _ ->
+        %{}
+    end
   end
 
   defp sanitize_params(params) do

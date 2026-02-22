@@ -372,22 +372,21 @@
         <div class="w-full bg-wallet-card border border-gray-200 rounded-2xl md:p-6 p-3 mt-4">
           <!-- Desktop Tabs -->
           <div class="p-1.5 bg-gray-50 rounded-2xl max-md:hidden">
-            <div class="inline-flex w-full gap-1">
+            <div class="flex w-full gap-1">
               <button
                 phx-click="switch_tab"
                 phx-value-tab="activity"
-                class={"w-1/4 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "activity", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "activity", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 Activity
               </button>
-              <%# Temporarily hidden - Following tab %>
-              <%# <button
+              <button
                 phx-click="switch_tab"
                 phx-value-tab="following"
-                class={"w-1/6 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @active_tab == "following", do: "bg-white", else: ""}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "following", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 Following
-              </button> %>
+              </button>
               <%# Temporarily hidden - Events tab %>
               <%# <button
                 phx-click="switch_tab"
@@ -399,14 +398,14 @@
               <button
                 phx-click="switch_tab"
                 phx-value-tab="rogue"
-                class={"w-1/4 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "rogue", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "rogue", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 ROGUE
               </button>
               <button
                 phx-click="switch_tab"
                 phx-value-tab="wallet"
-                class={"w-1/4 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "wallet", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "wallet", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 External Wallet
               </button>
@@ -422,14 +421,14 @@
               <button
                 phx-click="switch_tab"
                 phx-value-tab="refer"
-                class={"w-1/5 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "refer", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "refer", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 Refer
               </button>
               <button
                 phx-click="switch_tab"
                 phx-value-tab="settings"
-                class={"w-1/5 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "settings", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
+                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "settings", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
               >
                 Settings
               </button>
@@ -444,6 +443,7 @@
                 class="w-full px-4 py-3 font-haas_medium_65 text-sm bg-wallet-card border border-gray-200 rounded-2xl cursor-pointer text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
               >
                 <option value="activity" selected={@active_tab == "activity"}>Activity</option>
+                <option value="following" selected={@active_tab == "following"}>Following</option>
                 <option value="rogue" selected={@active_tab == "rogue"}>ROGUE</option>
                 <option value="wallet" selected={@active_tab == "wallet"}>External Wallet</option>
                 <%= if @is_own_profile do %>
@@ -453,542 +453,104 @@
               </select>
             </form>
           </div>
-          <div class={"tab-wrapper relative #{if @active_tab != "following", do: "hidden", else: ""}"} id="following">
-            <div class="tab-secondary flex md:hidden">
-              <button class="!text-[14px] font-haas_medium_65 text-[#343434] leading-[24px] p-2 border-[#141414] border-b border-solid">
-                Current Pool
-              </button>
-              <button class="!text-[14px] flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[24px] p-2 border-[#141414] disabled:opacity-[0.6]">
-                <span>
-                  Business Accounts
-                </span>
-              </button>
-              <button class="!text-[14px] flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[24px] p-2 border-[#141414] disabled:opacity-[0.6]">
-                <span>
-                  Users
-                </span>
-              </button>
-            </div>
-            <div class="cards-wrapper grid sm:grid-cols-3 grid-cols-1 gap-3 mt-3 max-md:p-3 max-md:bg-white rounded-[12px]">
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <rect fill="#F7931A" height="32" rx="16" width="32">
-                      </rect>
-                      <path clip-rule="evenodd" d="M21.2923 14.2899C21.5312 12.6928 20.3153 11.8343 18.6526 11.2616L19.192 9.09815L17.875 8.76999L17.3499 10.8765C17.0037 10.7901 16.6482 10.7088 16.2948 10.6281L16.8237 8.50772L15.5075 8.17957L14.9679 10.3423C14.6814 10.2771 14.4 10.2126 14.1269 10.1447L14.1285 10.1379L12.3124 9.68435L11.962 11.0909C11.962 11.0909 12.9391 11.3149 12.9185 11.3287C13.4518 11.4618 13.5482 11.8148 13.5322 12.0946L12.9178 14.5593C12.9545 14.5686 13.0022 14.5821 13.0547 14.6032L13.0165 14.5937C12.984 14.5856 12.9502 14.5771 12.9155 14.5688L12.0543 18.0214C11.9891 18.1835 11.8237 18.4266 11.4509 18.3343C11.4641 18.3534 10.4937 18.0954 10.4937 18.0954L9.83984 19.6029L11.5536 20.0301C11.7413 20.0772 11.9267 20.1255 12.1103 20.1734L12.1103 20.1734L12.1109 20.1735C12.239 20.2069 12.3662 20.2401 12.4926 20.2724L11.9476 22.4607L13.263 22.7888L13.8027 20.6238C14.1621 20.7213 14.5108 20.8113 14.8522 20.8962L14.3144 23.051L15.6314 23.3791L16.1763 21.195C18.422 21.62 20.1105 21.4486 20.8213 19.4174C21.394 17.782 20.7928 16.8388 19.6113 16.2236C20.4718 16.0252 21.12 15.4592 21.2928 14.2901L21.2924 14.2898L21.2923 14.2899ZM18.2832 18.5091C17.9098 20.0093 15.5615 19.3891 14.4871 19.1053C14.3905 19.0798 14.3041 19.057 14.2305 19.0387L14.9536 16.14C15.0433 16.1624 15.153 16.187 15.2773 16.2149L15.2774 16.2149C16.3887 16.4643 18.6657 16.9753 18.2832 18.5091H18.2832ZM15.5011 14.869C16.3968 15.108 18.3509 15.6295 18.6912 14.266H18.6913C19.0388 12.8715 17.1398 12.451 16.2123 12.2457C16.108 12.2226 16.0159 12.2022 15.9407 12.1835L15.2852 14.8124C15.3471 14.8279 15.4197 14.8473 15.5011 14.869Z" fill="white" fill-rule="evenodd">
-                      </path>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Bitcoin
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                      (BTC)
-                    </span>
+          <div class={"tab-wrapper mt-4 #{if @active_tab != "following", do: "hidden", else: ""}"} id="following">
+            <!-- Following Tab Header -->
+            <div class="md:p-6 p-4 rounded-t-2xl bg-gray-50 border border-gray-200 border-b-0">
+              <div class="flex justify-between items-center">
+                <div>
+                  <h3 class="font-haas_medium_65 text-lg text-gray-900">Subscribed Hubs</h3>
+                  <p class="text-sm font-haas_roman_55 text-gray-500 mt-0.5">
+                    <%= length(@followed_hubs) %> hub<%= if length(@followed_hubs) != 1, do: "s" %> you follow
                   </p>
                 </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_mdfbkz)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_mdfbkz" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
-              </div>
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <rect fill="#951AFF" height="32" rx="16" width="32">
-                      </rect>
-                      <circle cx="13.7497" cy="18.2496" fill="white" r="5.74972">
-                      </circle>
-                      <circle cx="20.4999" cy="11.4999" fill="white" r="2.49988">
-                      </circle>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Moonpay
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                    </span>
-                  </p>
-                </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block long-btc-button disabled">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center disabled:border-gray-400 border" disabled="" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_ampdud)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_ampdud" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
-              </div>
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="16" cy="16" fill="#EDF0F4" r="16">
-                      </circle>
-                      <path d="M15.9554 6.40002L15.8281 6.83237V19.3768L15.9554 19.5038L21.7783 16.0618L15.9554 6.40002Z" fill="#343434">
-                      </path>
-                      <path d="M15.9558 6.40002L10.1328 16.0618L15.9558 19.5038V13.4151V6.40002Z" fill="#8C8C8C">
-                      </path>
-                      <path d="M15.9545 20.6062L15.8828 20.6937V25.1623L15.9545 25.3717L21.781 17.1661L15.9545 20.6062Z" fill="#3C3C3B">
-                      </path>
-                      <path d="M15.9558 25.3717V20.6062L10.1328 17.1661L15.9558 25.3717Z" fill="#8C8C8C">
-                      </path>
-                      <path d="M15.957 19.5038L21.7799 16.0618L15.957 13.415V19.5038Z" fill="#141414">
-                      </path>
-                      <path d="M10.1328 16.0618L15.9558 19.5038V13.415L10.1328 16.0618Z" fill="#393939">
-                      </path>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Ethereum
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                      (ETH)
-                    </span>
-                  </p>
-                </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_odroqv)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_odroqv" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
-              </div>
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <rect fill="#F7931A" height="32" rx="16" width="32">
-                      </rect>
-                      <path clip-rule="evenodd" d="M21.2923 14.2899C21.5312 12.6928 20.3153 11.8343 18.6526 11.2616L19.192 9.09815L17.875 8.76999L17.3499 10.8765C17.0037 10.7901 16.6482 10.7088 16.2948 10.6281L16.8237 8.50772L15.5075 8.17957L14.9679 10.3423C14.6814 10.2771 14.4 10.2126 14.1269 10.1447L14.1285 10.1379L12.3124 9.68435L11.962 11.0909C11.962 11.0909 12.9391 11.3149 12.9185 11.3287C13.4518 11.4618 13.5482 11.8148 13.5322 12.0946L12.9178 14.5593C12.9545 14.5686 13.0022 14.5821 13.0547 14.6032L13.0165 14.5937C12.984 14.5856 12.9502 14.5771 12.9155 14.5688L12.0543 18.0214C11.9891 18.1835 11.8237 18.4266 11.4509 18.3343C11.4641 18.3534 10.4937 18.0954 10.4937 18.0954L9.83984 19.6029L11.5536 20.0301C11.7413 20.0772 11.9267 20.1255 12.1103 20.1734L12.1103 20.1734L12.1109 20.1735C12.239 20.2069 12.3662 20.2401 12.4926 20.2724L11.9476 22.4607L13.263 22.7888L13.8027 20.6238C14.1621 20.7213 14.5108 20.8113 14.8522 20.8962L14.3144 23.051L15.6314 23.3791L16.1763 21.195C18.422 21.62 20.1105 21.4486 20.8213 19.4174C21.394 17.782 20.7928 16.8388 19.6113 16.2236C20.4718 16.0252 21.12 15.4592 21.2928 14.2901L21.2924 14.2898L21.2923 14.2899ZM18.2832 18.5091C17.9098 20.0093 15.5615 19.3891 14.4871 19.1053C14.3905 19.0798 14.3041 19.057 14.2305 19.0387L14.9536 16.14C15.0433 16.1624 15.153 16.187 15.2773 16.2149L15.2774 16.2149C16.3887 16.4643 18.6657 16.9753 18.2832 18.5091H18.2832ZM15.5011 14.869C16.3968 15.108 18.3509 15.6295 18.6912 14.266H18.6913C19.0388 12.8715 17.1398 12.451 16.2123 12.2457C16.108 12.2226 16.0159 12.2022 15.9407 12.1835L15.2852 14.8124C15.3471 14.8279 15.4197 14.8473 15.5011 14.869Z" fill="white" fill-rule="evenodd">
-                      </path>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Bitcoin
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                      (BTC)
-                    </span>
-                  </p>
-                </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_cxydhw)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_cxydhw" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
-              </div>
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <rect fill="#951AFF" height="32" rx="16" width="32">
-                      </rect>
-                      <circle cx="13.7497" cy="18.2496" fill="white" r="5.74972">
-                      </circle>
-                      <circle cx="20.4999" cy="11.4999" fill="white" r="2.49988">
-                      </circle>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Moonpay
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                    </span>
-                  </p>
-                </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_cypifa)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_cypifa" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
-              </div>
-              <div class="card p-3 border border-[#E8EAEC] rounded-[12px]">
-                <div class="flex items-center gap-2">
-                  <span class="block">
-                    <svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="16" cy="16" fill="#EDF0F4" r="16">
-                      </circle>
-                      <path d="M15.9554 6.40002L15.8281 6.83237V19.3768L15.9554 19.5038L21.7783 16.0618L15.9554 6.40002Z" fill="#343434">
-                      </path>
-                      <path d="M15.9558 6.40002L10.1328 16.0618L15.9558 19.5038V13.4151V6.40002Z" fill="#8C8C8C">
-                      </path>
-                      <path d="M15.9545 20.6062L15.8828 20.6937V25.1623L15.9545 25.3717L21.781 17.1661L15.9545 20.6062Z" fill="#3C3C3B">
-                      </path>
-                      <path d="M15.9558 25.3717V20.6062L10.1328 17.1661L15.9558 25.3717Z" fill="#8C8C8C">
-                      </path>
-                      <path d="M15.957 19.5038L21.7799 16.0618L15.957 13.415V19.5038Z" fill="#141414">
-                      </path>
-                      <path d="M10.1328 16.0618L15.9558 19.5038V13.415L10.1328 16.0618Z" fill="#393939">
-                      </path>
-                    </svg>
-                  </span>
-                  <p class="text-[16px] font-haas_medium_65 tracking-[0.02em]">
-                    Ethereum
-                    <span class="font-haas_roman_55 #141414 ml-1">
-                      (ETH)
-                    </span>
-                  </p>
-                </div>
-                <p class="line-clamp-2 text-xs font-haas_medium_55 text-[#343434] leading-[1.4em] mt-[6px]">
-                  As one of the leading platforms for buying and selling cryptocurrencies—valued at approximately $3.4 billion and having processed over $8 billion in transactions—MoonPay offers a unique perspective on the market’s evolution and future potential.
-                </p>
-                <div class="flex items-center justify-between mt-4">
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Stories
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      1,294
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 border-[#14141414] border-r w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Events
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      100
-                    </span>
-                  </div>
-                  <div class="wraper text-center px-3 w-1/3">
-                    <p class="text-xs font-haas_medium_55 tracking-[0.02em]">
-                      Followers
-                    </p>
-                    <span class="text-md font-haas_medium_65 block mt-1 leading-[24px]">
-                      5,000
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <div class="p-[1px] w-full bg-gradient-to-b from-[#8AE388] via-[#BAF55F] to-[#BAF55F] rounded-[100px] inline-block">
-                    <button class="w-full flex items-center gap-1.5 bg-white rounded-[100px] p-2 pr-3.5 justify-center" onclick="toggleModal('buxModal', event)">
-                      <svg fill="none" height="20" viewbox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <rect fill="url(#paint0_linear_864_25965_kygdtn)" height="20" rx="10" width="20">
-                        </rect>
-                        <path d="M11.0009 5.20072C11.0009 4.45866 10.0385 4.16727 9.62689 4.7847L5.59402 10.834C5.26174 11.3324 5.61904 12 6.21806 12H9.00093V14.7993C9.00093 15.5414 9.96335 15.8328 10.375 15.2154L14.4078 9.16605C14.7401 8.66764 14.3828 8.00003 13.7838 8.00003H11.0009V5.20072Z" fill="#141414">
-                        </path>
-                        <defs>
-                          <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_864_25965_kygdtn" x1="10" x2="9.8532" y1="-8.75008e-09" y2="12.1405">
-                            <stop stop-color="#8AE388">
-                            </stop>
-                            <stop offset="1" stop-color="#BAF55F">
-                            </stop>
-                          </lineargradient>
-                        </defs>
-                      </svg>
-                      <span class="text-xs font-haas_medium_65">
-                        42,257 $BUX available
-                      </span>
-                    </button>
-                  </div>
-                  <div class="inner">
-                    <div>
-                    </div>
-                  </div>
-                </div>
-                <button class="bg-black text-white text-[14px] px-5 py-3 mt-3 primary-btn-shadow rounded-full font-haas_medium_65 leading-[1.4] w-full transition gap-2 flex items-center justify-center mt-3 max-sm:right-3 max-sm:top-3 active-state-btn">
-                  <span class="text-[20px] flex items-center leading-[0] text-[14px]">
-                    +
-                  </span>
-                  <span class="flex items-center leading-[1.4] text-[14px]">
-                    Follow
-                  </span>
-                </button>
+                <a href="/hubs" class="text-sm font-haas_medium_65 text-gray-900 bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                  Browse Hubs
+                </a>
               </div>
             </div>
-            <div class="text-center flex justify-center">
-              <button class="primary-btn-shadow bg-bg-btn_primary px-6 py-3.5 text-[#000000] rounded-[100px] leading-[1.4] border-[1] w-auto font-haas_medium_65 text-sm mt-3">
-                Show more
-              </button>
+            <!-- Following Tab Content -->
+            <div class="border border-gray-200 border-t-0 rounded-b-2xl overflow-hidden">
+              <%= if @followed_hubs == [] do %>
+                <!-- Empty State -->
+                <div class="py-16 px-6 text-center bg-white">
+                  <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 text-gray-400">
+                      <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+                      <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+                    </svg>
+                  </div>
+                  <p class="font-haas_medium_65 text-gray-900 text-base">No hubs followed yet</p>
+                  <p class="font-haas_roman_55 text-gray-500 text-sm mt-1 max-w-xs mx-auto">
+                    Follow hubs to get personalized content and notifications about topics you care about.
+                  </p>
+                  <a href="/hubs" class="inline-block mt-5 bg-gray-900 text-white text-sm font-haas_medium_65 px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer">
+                    Explore Hubs
+                  </a>
+                </div>
+              <% else %>
+                <!-- Hub List -->
+                <div class="divide-y divide-gray-100">
+                  <%= for hub <- @followed_hubs do %>
+                    <div class="group bg-white hover:bg-gray-50/70 transition-colors">
+                      <div class="md:px-6 px-4 py-4 flex items-start gap-4">
+                        <!-- Hub Logo -->
+                        <a href={"/hub/#{hub.slug}"} class="shrink-0 cursor-pointer">
+                          <%= if hub.logo_url do %>
+                            <img
+                              src={"#{hub.logo_url}?tr=w-96,h-96,fo-auto"}
+                              alt={hub.name}
+                              class="w-12 h-12 rounded-xl object-cover ring-1 ring-gray-200"
+                              width="48"
+                              height="48"
+                              loading="lazy"
+                            />
+                          <% else %>
+                            <div class={"w-12 h-12 rounded-xl flex items-center justify-center text-white font-haas_medium_65 text-lg #{if hub.color_primary, do: "", else: "bg-gray-900"}"} style={if hub.color_primary, do: "background-color: #{hub.color_primary}", else: ""}>
+                              <%= String.first(hub.name) %>
+                            </div>
+                          <% end %>
+                        </a>
+                        <!-- Hub Info -->
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <a href={"/hub/#{hub.slug}"} class="font-haas_medium_65 text-[15px] text-gray-900 hover:underline cursor-pointer truncate">
+                              <%= hub.name %>
+                            </a>
+                          </div>
+                          <%= if hub.description do %>
+                            <p class="text-sm font-haas_roman_55 text-gray-500 mt-0.5 line-clamp-1">
+                              <%= hub.description %>
+                            </p>
+                          <% end %>
+                          <!-- Stats Row -->
+                          <div class="flex items-center gap-4 mt-2">
+                            <span class="text-xs font-haas_roman_55 text-gray-400">
+                              <span class="font-haas_medium_65 text-gray-600"><%= hub.post_count %></span> stories
+                            </span>
+                            <span class="text-xs font-haas_roman_55 text-gray-400">
+                              <span class="font-haas_medium_65 text-gray-600"><%= hub.follower_count %></span> followers
+                            </span>
+                          </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="shrink-0 flex items-center gap-2">
+                          <a href={"/hub/#{hub.slug}"} class="text-xs font-haas_medium_65 text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer hidden sm:block">
+                            View
+                          </a>
+                          <button
+                            phx-click="unfollow_hub"
+                            phx-value-hub-id={hub.id}
+                            data-confirm="Unfollow this hub? You will stop receiving notifications."
+                            class="text-xs font-haas_medium_65 text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Unfollow
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
             </div>
           </div>
           <div class={"tab-wrapper mt-4 #{if @active_tab != "activity", do: "hidden", else: ""}"} id="activity">

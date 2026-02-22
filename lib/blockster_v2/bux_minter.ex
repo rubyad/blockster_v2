@@ -50,7 +50,7 @@ defmodule BlocksterV2.BuxMinter do
   NOTE: Hub tokens removed. Token parameter kept for backward compatibility but always mints BUX.
   """
   def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
-      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified, :shop_affiliate, :shop_refund] do
+      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified, :shop_affiliate, :shop_refund, :ai_bonus] do
     minter_url = get_minter_url()
     api_secret = get_api_secret()
 
@@ -431,6 +431,62 @@ defmodule BlocksterV2.BuxMinter do
 
         {:error, reason} ->
           Logger.error("[BuxMinter] HTTP error: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Transfers native ROGUE tokens to a user's wallet.
+  Calls the /transfer-rogue endpoint on the BUX minter service.
+
+  ## Parameters
+    - to_address: Recipient smart wallet address
+    - amount: Amount of ROGUE to send (float, e.g. 0.5)
+    - user_id: User ID for logging
+    - reason: Reason for transfer (default: "ai_bonus")
+
+  ## Returns
+    - {:ok, response} with transactionHash on success
+    - {:error, reason} on failure
+  """
+  def transfer_rogue(to_address, amount, user_id, reason \\ "ai_bonus") do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping ROGUE transfer")
+      {:error, :not_configured}
+    else
+      body = %{
+        walletAddress: to_address,
+        amount: amount,
+        userId: user_id,
+        reason: reason
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/transfer-rogue", Jason.encode!(body), headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error =
+            case Jason.decode(resp_body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Transfer failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] ROGUE transfer failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "ROGUE transfer failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] ROGUE transfer HTTP request failed: #{inspect(reason)}")
           {:error, reason}
       end
     end

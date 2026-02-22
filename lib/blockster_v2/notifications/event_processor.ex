@@ -1,7 +1,7 @@
 defmodule BlocksterV2.Notifications.EventProcessor do
   @moduledoc """
   GenServer that listens to PubSub events and dispatches them to the
-  notification engines (TriggerEngine, ConversionFunnelEngine, PriceAlertEngine).
+  notification engines (TriggerEngine, custom rules).
 
   Runs as a GlobalSingleton — one instance across the cluster.
   """
@@ -9,11 +9,12 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   use GenServer
   require Logger
 
+  alias BlocksterV2.{Repo, Mailer, Notifications}
   alias BlocksterV2.Notifications.{
     TriggerEngine,
-    ConversionFunnelEngine,
-    PriceAlertEngine,
-    SystemConfig
+    SystemConfig,
+    EmailBuilder,
+    RateLimiter
   }
 
   @pubsub BlocksterV2.PubSub
@@ -32,11 +33,10 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   @impl true
   def init(_opts) do
     Phoenix.PubSub.subscribe(@pubsub, "user_events")
-    Phoenix.PubSub.subscribe(@pubsub, "token_prices")
 
-    Logger.info("[EventProcessor] Started — listening on user_events + token_prices")
+    Logger.info("[EventProcessor] Started — listening on user_events")
 
-    {:ok, %{last_rogue_price: nil}}
+    {:ok, %{}}
   end
 
   @impl true
@@ -47,20 +47,6 @@ defmodule BlocksterV2.Notifications.EventProcessor do
     end)
 
     {:noreply, state}
-  end
-
-  @impl true
-  def handle_info({:token_prices_updated, prices}, state) do
-    new_rogue_price = get_rogue_price(prices)
-    old_rogue_price = state.last_rogue_price
-
-    if old_rogue_price && new_rogue_price do
-      Task.start(fn ->
-        process_price_update(old_rogue_price, new_rogue_price)
-      end)
-    end
-
-    {:noreply, %{state | last_rogue_price: new_rogue_price}}
   end
 
   @impl true
@@ -79,88 +65,61 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       e -> Logger.warning("[EventProcessor] TriggerEngine error for user #{user_id}: #{inspect(e)}")
     end
 
-    # 2. Evaluate conversion funnel triggers
-    try do
-      funnel_notifications = ConversionFunnelEngine.evaluate_funnel_triggers(user_id, event_type, metadata)
-      if funnel_notifications != [] do
-        Logger.debug("[EventProcessor] Funnel fired #{length(funnel_notifications)} notification(s) for user #{user_id} on #{event_type}")
-      end
-    rescue
-      e -> Logger.warning("[EventProcessor] ConversionFunnelEngine error for user #{user_id}: #{inspect(e)}")
-    end
-
-    # 3. For key events, enqueue profile recalculation and update conversion stage
-    if event_type in ~w(game_played purchase_complete bux_earned article_read_complete) do
-      try do
-        enqueue_profile_recalc(user_id)
-      rescue
-        e -> Logger.warning("[EventProcessor] ProfileRecalc enqueue error: #{inspect(e)}")
-      end
-
-      try do
-        maybe_update_conversion_stage(user_id, event_type, metadata)
-      rescue
-        e -> Logger.warning("[EventProcessor] Conversion stage update error: #{inspect(e)}")
-      end
-    end
-
-    # 4. Evaluate custom rules from SystemConfig
-    evaluate_custom_rules(user_id, event_type, metadata)
+    # 2. Enrich metadata for game events, then evaluate custom rules
+    enriched_metadata = enrich_metadata(user_id, event_type, metadata)
+    evaluate_custom_rules(user_id, event_type, enriched_metadata)
   rescue
     e ->
       Logger.error("[EventProcessor] Unhandled error processing #{event_type} for user #{user_id}: #{inspect(e)}")
   end
 
-  defp process_price_update(old_price, new_price) do
-    case PriceAlertEngine.evaluate_price_change(old_price, new_price) do
-      {:fire, alert_data} ->
-        PriceAlertEngine.fire_price_alerts(alert_data)
-        Logger.info("[EventProcessor] Price alert fired: #{alert_data.direction} #{alert_data.change_pct}%")
-
-      :skip ->
-        :ok
-    end
-  rescue
-    e -> Logger.warning("[EventProcessor] Price alert error: #{inspect(e)}")
-  end
-
   # ============ Helpers ============
 
-  defp enqueue_profile_recalc(user_id) do
-    %{user_id: user_id}
-    |> BlocksterV2.Workers.ProfileRecalcWorker.new(
-      unique: [period: 300, keys: [:user_id]]
-    )
-    |> Oban.insert()
-  end
+  defp enrich_metadata(user_id, "game_played", metadata) do
+    case BlocksterV2.BuxBoosterStats.get_user_stats(user_id) do
+      {:ok, stats} ->
+        Map.merge(metadata, %{
+          # Counts
+          "total_bets" => (stats.bux.total_bets || 0) + (stats.rogue.total_bets || 0),
+          "bux_total_bets" => stats.bux.total_bets || 0,
+          "rogue_total_bets" => stats.rogue.total_bets || 0,
+          "bux_wins" => stats.bux.wins || 0,
+          "bux_losses" => stats.bux.losses || 0,
+          "rogue_wins" => stats.rogue.wins || 0,
+          "rogue_losses" => stats.rogue.losses || 0,
+          # Amounts (converted from wei to human-readable)
+          "bux_total_wagered" => wei_to_float(stats.bux.total_wagered),
+          "bux_total_winnings" => wei_to_float(stats.bux.total_winnings),
+          "bux_total_losses" => wei_to_float(stats.bux.total_losses),
+          "bux_net_pnl" => wei_to_float(stats.bux.net_pnl),
+          "rogue_total_wagered" => wei_to_float(stats.rogue.total_wagered),
+          "rogue_total_winnings" => wei_to_float(stats.rogue.total_winnings),
+          "rogue_total_losses" => wei_to_float(stats.rogue.total_losses),
+          "rogue_net_pnl" => wei_to_float(stats.rogue.net_pnl),
+          # Win rates
+          "bux_win_rate" => win_rate(stats.bux.wins, stats.bux.total_bets),
+          "rogue_win_rate" => win_rate(stats.rogue.wins, stats.rogue.total_bets),
+          # Timestamps
+          "first_bet_at" => stats.first_bet_at,
+          "last_bet_at" => stats.last_bet_at
+        })
 
-  defp maybe_update_conversion_stage(user_id, "game_played", metadata) do
-    token = metadata[:token] || metadata["token"]
-    profile = BlocksterV2.UserEvents.get_profile(user_id)
-
-    cond do
-      # First BUX game → bux_player
-      token in ["BUX", "bux"] && profile && profile.conversion_stage in [nil, "earner"] ->
-        BlocksterV2.UserEvents.upsert_profile(user_id, %{conversion_stage: "bux_player"})
-
-      # First ROGUE game → rogue_curious
-      token in ["ROGUE", "rogue"] && profile && profile.conversion_stage in [nil, "earner", "bux_player"] ->
-        BlocksterV2.UserEvents.upsert_profile(user_id, %{conversion_stage: "rogue_curious"})
-
-      true ->
-        :ok
+      _ ->
+        metadata
     end
+  rescue
+    _ -> metadata
   end
 
-  defp maybe_update_conversion_stage(user_id, "purchase_complete", _metadata) do
-    profile = BlocksterV2.UserEvents.get_profile(user_id)
+  defp enrich_metadata(_user_id, _event_type, metadata), do: metadata
 
-    if profile && profile.conversion_stage in [nil, "earner", "bux_player", "rogue_curious"] do
-      BlocksterV2.UserEvents.upsert_profile(user_id, %{conversion_stage: "rogue_buyer"})
-    end
-  end
+  defp wei_to_float(nil), do: 0.0
+  defp wei_to_float(wei) when is_integer(wei), do: Float.round(wei / 1_000_000_000_000_000_000, 2)
+  defp wei_to_float(_), do: 0.0
 
-  defp maybe_update_conversion_stage(_user_id, _event_type, _metadata), do: :ok
+  defp win_rate(_, 0), do: 0.0
+  defp win_rate(nil, _), do: 0.0
+  defp win_rate(wins, total), do: Float.round(wins / total * 100, 1)
 
   defp evaluate_custom_rules(user_id, event_type, metadata) do
     rules = SystemConfig.get("custom_rules", [])
@@ -181,26 +140,175 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
   defp matches_conditions?(nil, _metadata), do: true
   defp matches_conditions?(conditions, metadata) when is_map(conditions) do
-    Enum.all?(conditions, fn {key, value} ->
-      Map.get(metadata, key) == value || Map.get(metadata, to_string(key)) == value
+    Enum.all?(conditions, fn {key, expected} ->
+      actual = Map.get(metadata, key) || Map.get(metadata, to_string(key))
+      match_value?(actual, expected)
     end)
   end
   defp matches_conditions?(_, _), do: true
 
-  defp execute_rule_action(%{"action" => "notification", "title" => title, "body" => body} = rule, user_id, _event_type, _metadata) do
-    BlocksterV2.Notifications.create_notification(user_id, %{
-      type: rule["notification_type"] || "special_offer",
-      category: rule["category"] || "engagement",
-      title: title,
-      body: body,
-      action_url: rule["action_url"],
-      action_label: rule["action_label"]
-    })
+  defp match_value?(actual, %{"$gte" => threshold}) when is_number(actual), do: actual >= threshold
+  defp match_value?(actual, %{"$lte" => threshold}) when is_number(actual), do: actual <= threshold
+  defp match_value?(actual, %{"$gt" => threshold}) when is_number(actual), do: actual > threshold
+  defp match_value?(actual, %{"$lt" => threshold}) when is_number(actual), do: actual < threshold
+  defp match_value?(_actual, expected) when is_map(expected), do: false
+  defp match_value?(actual, expected), do: actual == expected
+
+  defp execute_rule_action(%{"action" => "notification", "title" => title, "body" => body} = rule, user_id, event_type, _metadata) do
+    dedup_key = build_dedup_key(rule, event_type)
+
+    # If there's a dedup key, check if already notified
+    if dedup_key && Notifications.already_notified?(user_id, dedup_key) do
+      :ok
+    else
+      channel = rule["channel"] || "in_app"
+      metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
+
+      # In-app notification (for "in_app" or "both")
+      if channel in ["in_app", "both"] do
+        Notifications.create_notification(user_id, %{
+          type: rule["notification_type"] || "special_offer",
+          category: rule["category"] || "engagement",
+          title: title,
+          body: body,
+          action_url: rule["action_url"],
+          action_label: rule["action_label"],
+          metadata: metadata
+        })
+      end
+
+      # Email (for "email" or "both")
+      if channel in ["email", "both"] do
+        send_rule_email(user_id, rule)
+      end
+
+      # BUX crediting
+      if (bux_bonus = rule["bux_bonus"]) && is_number(bux_bonus) && bux_bonus > 0 do
+        credit_bux(user_id, bux_bonus)
+      end
+
+      # ROGUE crediting
+      if (rogue_bonus = rule["rogue_bonus"]) && is_number(rogue_bonus) && rogue_bonus > 0 do
+        credit_rogue(user_id, rogue_bonus)
+      end
+    end
   end
   defp execute_rule_action(_, _, _, _), do: :ok
 
-  defp get_rogue_price(prices) when is_map(prices) do
-    prices["rogue-chain"] || prices[:rogue_chain] || prices["rogue"]
+  defp send_rule_email(user_id, rule) do
+    import Ecto.Query
+
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{email: u.email, username: u.username})
+
+    if user && user.email do
+      notification_type = rule["notification_type"] || "special_offer"
+
+      case RateLimiter.can_send?(user_id, :email, notification_type) do
+        :ok ->
+          prefs = Notifications.get_preferences(user_id)
+          unsubscribe_token = if prefs, do: prefs.unsubscribe_token, else: nil
+
+          email = EmailBuilder.promotional(
+            user.email,
+            user.username || "Blockster User",
+            unsubscribe_token,
+            %{
+              title: rule["title"],
+              body: rule["body"],
+              action_url: rule["action_url"],
+              action_label: rule["action_label"]
+            }
+          )
+          |> Swoosh.Email.subject(rule["subject"] || rule["title"])
+
+          case Mailer.deliver(email) do
+            {:ok, _} ->
+              Notifications.create_email_log(%{
+                user_id: user_id,
+                email_type: "custom_rule",
+                subject: rule["subject"] || rule["title"],
+                sent_at: DateTime.utc_now() |> DateTime.truncate(:second)
+              })
+              Logger.info("[EventProcessor] Sent custom rule email to user #{user_id}")
+
+            {:error, reason} ->
+              Logger.warning("[EventProcessor] Failed to send rule email to user #{user_id}: #{inspect(reason)}")
+          end
+
+        _ ->
+          Logger.debug("[EventProcessor] Rate limited email for user #{user_id}")
+      end
+    end
+  rescue
+    e -> Logger.warning("[EventProcessor] Error sending rule email for user #{user_id}: #{inspect(e)}")
   end
-  defp get_rogue_price(_), do: nil
+
+  defp credit_bux(user_id, amount) do
+    import Ecto.Query
+
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{smart_wallet_address: u.smart_wallet_address})
+
+    if user && user.smart_wallet_address do
+      wallet = user.smart_wallet_address
+
+      Task.start(fn ->
+        case BlocksterV2.BuxMinter.mint_bux(wallet, amount, user_id, nil, :ai_bonus) do
+          {:ok, _} ->
+            BlocksterV2.BuxMinter.sync_user_balances_async(user_id, wallet, force: true)
+            Logger.info("[EventProcessor] Credited #{amount} BUX to user #{user_id}")
+
+          {:error, reason} ->
+            Logger.warning("[EventProcessor] Failed to credit BUX to user #{user_id}: #{inspect(reason)}")
+        end
+      end)
+    else
+      Logger.debug("[EventProcessor] User #{user_id} has no smart wallet, skipping BUX credit")
+    end
+  rescue
+    e -> Logger.warning("[EventProcessor] Error crediting BUX for user #{user_id}: #{inspect(e)}")
+  end
+
+  defp credit_rogue(user_id, amount) do
+    import Ecto.Query
+
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{smart_wallet_address: u.smart_wallet_address})
+
+    if user && user.smart_wallet_address do
+      wallet = user.smart_wallet_address
+
+      Task.start(fn ->
+        case BlocksterV2.BuxMinter.transfer_rogue(wallet, amount, user_id, "custom_rule") do
+          {:ok, _} ->
+            BlocksterV2.BuxMinter.sync_user_balances_async(user_id, wallet, force: true)
+            Logger.info("[EventProcessor] Credited #{amount} ROGUE to user #{user_id}")
+
+          {:error, reason} ->
+            Logger.warning("[EventProcessor] Failed to credit ROGUE to user #{user_id}: #{inspect(reason)}")
+        end
+      end)
+    else
+      Logger.debug("[EventProcessor] User #{user_id} has no smart wallet, skipping ROGUE credit")
+    end
+  rescue
+    e -> Logger.warning("[EventProcessor] Error crediting ROGUE for user #{user_id}: #{inspect(e)}")
+  end
+
+  defp build_dedup_key(%{"conditions" => conditions, "event_type" => event_type}, _fallback_event)
+       when is_map(conditions) and map_size(conditions) > 0 do
+    parts =
+      conditions
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> Enum.map(fn
+        {key, %{"$gte" => v}} -> "#{key}_gte_#{v}"
+        {key, %{"$lte" => v}} -> "#{key}_lte_#{v}"
+        {key, %{"$gt" => v}} -> "#{key}_gt_#{v}"
+        {key, %{"$lt" => v}} -> "#{key}_lt_#{v}"
+        {key, v} -> "#{key}_eq_#{v}"
+      end)
+      |> Enum.join(":")
+
+    "custom_rule:#{event_type}:#{parts}"
+  end
+
+  defp build_dedup_key(_rule, _event_type), do: nil
 end

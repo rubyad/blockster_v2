@@ -2,7 +2,7 @@ defmodule BlocksterV2Web.NotificationHook do
   @moduledoc """
   LiveView on_mount hook for real-time notification delivery.
 
-  - Fetches unread notification count on mount
+  - Fetches unread notification count asynchronously on mount
   - Subscribes to PubSub for real-time notification updates
   - Manages notification dropdown state and recent notifications list
   - Handles toast notifications for new incoming notifications
@@ -18,28 +18,39 @@ defmodule BlocksterV2Web.NotificationHook do
   def on_mount(:default, _params, _session, socket) do
     user_id = get_user_id(socket)
 
-    # Fetch initial counts
-    unread_count = if user_id, do: Notifications.unread_count(user_id), else: 0
-    recent = if user_id, do: Notifications.list_recent_notifications(user_id, 10), else: []
-
-    # Subscribe to notification updates (only if connected and logged in)
-    if connected?(socket) && user_id do
-      Phoenix.PubSub.subscribe(@pubsub, "#{@topic_prefix}#{user_id}")
-    end
-
     socket =
       socket
-      |> assign(:unread_notification_count, unread_count)
+      |> assign(:unread_notification_count, 0)
       |> assign(:notification_dropdown_open, false)
-      |> assign(:recent_notifications, recent)
+      |> assign(:recent_notifications, [])
       |> assign(:toast_notification, nil)
       |> attach_hook(:notification_handler, :handle_info, &handle_notification_info/2)
       |> attach_hook(:notification_events, :handle_event, &handle_notification_event/3)
 
+    # Fetch notifications async only when connected (skip static render)
+    if connected?(socket) && user_id do
+      Phoenix.PubSub.subscribe(@pubsub, "#{@topic_prefix}#{user_id}")
+
+      pid = self()
+
+      Task.start(fn ->
+        count = Notifications.unread_count(user_id)
+        recent = Notifications.list_recent_notifications(user_id, 10)
+        send(pid, {:notification_data_loaded, count, recent})
+      end)
+    end
+
     {:cont, socket}
   end
 
-  # ============ Handle Info (PubSub) ============
+  # ============ Handle Info (PubSub + async load) ============
+
+  defp handle_notification_info({:notification_data_loaded, count, recent}, socket) do
+    {:halt,
+     socket
+     |> assign(:unread_notification_count, count)
+     |> assign(:recent_notifications, recent)}
+  end
 
   defp handle_notification_info({:new_notification, notification}, socket) do
     {:halt,

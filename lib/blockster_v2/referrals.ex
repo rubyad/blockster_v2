@@ -59,6 +59,14 @@ defmodule BlocksterV2.Referrals do
           # Queue on-chain referrer sync (async)
           sync_referrer_to_contracts(new_user.smart_wallet_address, referrer_wallet)
 
+          # Track event so EventProcessor/AI Manager custom rules can fire
+          referral_count = count_referrals(referrer.id)
+          BlocksterV2.UserEvents.track(referrer.id, "referral_signup", %{
+            "referee_id" => new_user.id,
+            "referee_email" => new_user.email,
+            "total_referrals" => referral_count
+          })
+
           {:ok, referrer}
       end
     end
@@ -111,17 +119,8 @@ defmodule BlocksterV2.Referrals do
       })
     end
 
-    # Notify referrer via ReferralEngine
-    try do
-      referral_count = count_referrals(referrer.id)
-      BlocksterV2.Notifications.ReferralEngine.notify_referral_signup(
-        referrer.id,
-        referee.email || "a friend",
-        referral_count
-      )
-    rescue
-      _ -> :ok
-    end
+    # Referral signup notification is handled by custom rules via UserEvents.track
+    # (tracked earlier in this function)
   end
 
   # ----- Phone Verification Reward -----

@@ -101,6 +101,12 @@ defmodule BlocksterV2.PhoneVerification do
           # Award referral reward to referrer (if user was referred)
           Referrals.process_phone_verification_reward(user_id)
 
+          # Track event so custom rules / AI manager can react
+          BlocksterV2.UserEvents.track(user_id, "phone_verified", %{
+            geo_tier: updated.geo_tier,
+            country_code: updated.country_code
+          })
+
           {:ok, updated}
 
         error -> error

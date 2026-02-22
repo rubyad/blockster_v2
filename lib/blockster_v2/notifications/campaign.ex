@@ -4,7 +4,8 @@ defmodule BlocksterV2.Notifications.Campaign do
 
   @valid_types ~w(email_blast push_notification sms_blast multi_channel)
   @valid_statuses ~w(draft scheduled sending sent cancelled)
-  @valid_audiences ~w(all hub_followers active_users dormant_users phone_verified custom)
+  @valid_audiences ~w(all hub_followers active_users dormant_users phone_verified custom
+                       bux_gamers rogue_gamers bux_balance rogue_holders)
 
   schema "notification_campaigns" do
     field :name, :string

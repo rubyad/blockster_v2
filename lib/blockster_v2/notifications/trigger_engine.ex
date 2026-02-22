@@ -7,7 +7,7 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
 
   import Ecto.Query
   alias BlocksterV2.{Repo, Notifications, UserEvents}
-  alias BlocksterV2.Notifications.{Notification, UserProfile}
+  alias BlocksterV2.Notifications.Notification
 
   require Logger
 
@@ -19,22 +19,19 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   Returns list of fired notification types (for testing/logging).
   """
   def evaluate_triggers(user_id, event_type, metadata \\ %{}) do
-    profile = UserEvents.get_profile(user_id)
+    context = build_trigger_context(user_id)
 
     triggers = [
-      &cart_abandonment_trigger/3,
       &bux_milestone_trigger/3,
       &reading_streak_trigger/3,
       &hub_recommendation_trigger/3,
-      &price_drop_trigger/3,
-      &purchase_thank_you_trigger/3,
       &dormancy_warning_trigger/3,
       &referral_opportunity_trigger/3
     ]
 
     fired =
       Enum.reduce(triggers, [], fn trigger, acc ->
-        case trigger.({user_id, event_type, metadata}, profile, %{}) do
+        case trigger.({user_id, event_type, metadata}, context, %{}) do
           {:fire, notif_type, data} ->
             fire_notification(user_id, notif_type, data)
             [notif_type | acc]
@@ -50,29 +47,7 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   # ============ Triggers ============
 
   @doc false
-  def cart_abandonment_trigger({user_id, event_type, _metadata}, profile, _opts) do
-    if event_type == "session_end" and has_carted_items?(profile) do
-      last_cart_event = UserEvents.get_last_event(user_id, "product_add_to_cart")
-
-      if last_cart_event && hours_since(last_cart_event.inserted_at) >= 2 &&
-           !already_sent_today?(user_id, "cart_abandonment") do
-        products = if profile, do: profile.carted_not_purchased || [], else: []
-        hours = if last_cart_event, do: round(hours_since(last_cart_event.inserted_at)), else: 2
-
-        {:fire, "cart_abandonment", %{
-          products: products,
-          hours_since: hours
-        }}
-      else
-        :skip
-      end
-    else
-      :skip
-    end
-  end
-
-  @doc false
-  def bux_milestone_trigger({user_id, _event_type, metadata}, _profile, _opts) do
+  def bux_milestone_trigger({user_id, _event_type, metadata}, _context, _opts) do
     new_balance = get_metadata_decimal(metadata, "new_balance")
 
     if new_balance do
@@ -95,9 +70,9 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   end
 
   @doc false
-  def reading_streak_trigger({user_id, event_type, _metadata}, profile, _opts) do
-    if event_type == "article_read_complete" && profile do
-      streak = profile.consecutive_active_days || 0
+  def reading_streak_trigger({user_id, event_type, _metadata}, context, _opts) do
+    if event_type == "article_read_complete" do
+      streak = context.consecutive_active_days
 
       milestone = Enum.find(@streak_milestones, fn m -> streak == m end)
 
@@ -115,7 +90,7 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   end
 
   @doc false
-  def hub_recommendation_trigger({user_id, event_type, metadata}, _profile, _opts) do
+  def hub_recommendation_trigger({user_id, event_type, metadata}, _context, _opts) do
     if event_type == "article_read_complete" do
       category_id = metadata["category_id"] || metadata[:category_id]
 
@@ -146,73 +121,9 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   end
 
   @doc false
-  def price_drop_trigger({user_id, event_type, metadata}, profile, _opts) do
-    if event_type == "product_price_changed" do
-      product_id = metadata["product_id"] || metadata[:product_id]
-      old_price = metadata["old_price"] || metadata[:old_price]
-      new_price = metadata["new_price"] || metadata[:new_price]
-
-      viewed = if profile, do: profile.viewed_products_last_30d || [], else: []
-
-      product_id_int =
-        case product_id do
-          id when is_integer(id) -> id
-          id when is_binary(id) ->
-            case Integer.parse(id) do
-              {int, _} -> int
-              :error -> nil
-            end
-          _ -> nil
-        end
-
-      if product_id_int && product_id_int in viewed && new_price && old_price do
-        old_dec = to_decimal(old_price)
-        new_dec = to_decimal(new_price)
-
-        if old_dec && new_dec && Decimal.compare(new_dec, old_dec) == :lt do
-          savings_pct =
-            old_dec
-            |> Decimal.sub(new_dec)
-            |> Decimal.div(old_dec)
-            |> Decimal.mult(100)
-            |> Decimal.round(0)
-            |> Decimal.to_integer()
-
-          {:fire, "price_drop", %{
-            product_id: product_id_int,
-            old_price: Decimal.to_string(old_dec),
-            new_price: Decimal.to_string(new_dec),
-            savings_pct: savings_pct
-          }}
-        else
-          :skip
-        end
-      else
-        :skip
-      end
-    else
-      :skip
-    end
-  end
-
-  @doc false
-  def purchase_thank_you_trigger({_user_id, event_type, metadata}, profile, _opts) do
-    if event_type == "purchase_complete" && profile && profile.purchase_count == 1 do
-      order_id = metadata["order_id"] || metadata[:order_id]
-
-      {:fire, "referral_prompt", %{
-        type: "first_purchase_thank_you",
-        order_id: order_id
-      }}
-    else
-      :skip
-    end
-  end
-
-  @doc false
-  def dormancy_warning_trigger({user_id, event_type, _metadata}, profile, _opts) do
-    if event_type == "daily_login" && profile do
-      days_away = profile.days_since_last_active || 0
+  def dormancy_warning_trigger({user_id, event_type, _metadata}, context, _opts) do
+    if event_type == "daily_login" do
+      days_away = context.days_since_last_active
 
       if days_away >= 5 && days_away <= 14 &&
            !already_sent_today?(user_id, "re_engagement") do
@@ -229,11 +140,12 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
   end
 
   @doc false
-  def referral_opportunity_trigger({user_id, event_type, _metadata}, profile, _opts) do
-    if event_type in ["article_share", "bux_earned"] && profile do
-      propensity = profile.referral_propensity || 0.0
+  def referral_opportunity_trigger({user_id, event_type, _metadata}, context, _opts) do
+    if event_type in ["article_share", "bux_earned"] do
+      has_referrals = context.has_referrals
+      has_shared = context.has_shared_articles
 
-      if propensity > 0.6 && !sent_referral_prompt_this_week?(user_id) do
+      if (has_referrals || has_shared) && !sent_referral_prompt_this_week?(user_id) do
         {:fire, "referral_prompt", %{
           trigger: event_type
         }}
@@ -267,33 +179,22 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
     end
   end
 
-  defp notification_category("cart_abandonment"), do: "offers"
   defp notification_category("bux_milestone"), do: "rewards"
   defp notification_category("content_recommendation"), do: "content"
-  defp notification_category("price_drop"), do: "offers"
   defp notification_category("referral_prompt"), do: "social"
   defp notification_category("welcome"), do: "system"
   defp notification_category(_), do: "system"
 
-  defp notification_title("cart_abandonment", _data), do: "You left something behind"
   defp notification_title("bux_milestone", %{type: "reading_streak", days: days}),
     do: "#{days}-day reading streak!"
   defp notification_title("bux_milestone", %{milestone: m}),
     do: "You hit #{format_number(m)} BUX!"
   defp notification_title("content_recommendation", _data), do: "Hubs you might like"
-  defp notification_title("price_drop", %{savings_pct: pct}),
-    do: "Price dropped #{pct}%!"
-  defp notification_title("referral_prompt", %{type: "first_purchase_thank_you"}),
-    do: "Thanks for your first purchase!"
   defp notification_title("referral_prompt", _data), do: "Share Blockster, earn BUX"
   defp notification_title("welcome", %{type: "welcome_back", days_away: d}),
     do: "Welcome back! #{d} days is too long"
   defp notification_title(type, _data), do: "Notification: #{type}"
 
-  defp notification_body("cart_abandonment", %{products: products}) do
-    count = length(products)
-    "You have #{count} item#{if count != 1, do: "s"} waiting in your cart."
-  end
   defp notification_body("bux_milestone", %{type: "reading_streak", days: days}),
     do: "You've read articles #{days} days in a row. Keep it up!"
   defp notification_body("bux_milestone", %{milestone: m, balance: bal}),
@@ -302,28 +203,80 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
     names = Enum.map_join(hubs, ", ", fn h -> h[:name] || h["name"] || "Hub" end)
     "Based on your reading: #{names}"
   end
-  defp notification_body("price_drop", %{savings_pct: pct}),
-    do: "A product you viewed just dropped #{pct}% in price!"
-  defp notification_body("referral_prompt", %{type: "first_purchase_thank_you"}),
-    do: "Invite friends and you'll both earn 500 BUX."
   defp notification_body("referral_prompt", _data),
     do: "Share your referral link — earn 500 BUX for each friend who joins."
   defp notification_body("welcome", %{days_away: d}),
     do: "You missed #{d} days of content. Here's what's new."
   defp notification_body(_, _), do: ""
 
+  # ============ Trigger Context ============
+
+  defp build_trigger_context(user_id) do
+    since_30d = NaiveDateTime.utc_now() |> NaiveDateTime.add(-30, :day)
+
+    # Count distinct active days in last 30 days from user_events
+    active_days =
+      try do
+        from(e in BlocksterV2.Notifications.UserEvent,
+          where: e.user_id == ^user_id,
+          where: e.inserted_at >= ^since_30d,
+          select: fragment("COUNT(DISTINCT DATE(?))", e.inserted_at)
+        )
+        |> Repo.one() || 0
+      rescue
+        _ -> 0
+      end
+
+    # Days since last event
+    days_since_last_active =
+      try do
+        last_at =
+          from(e in BlocksterV2.Notifications.UserEvent,
+            where: e.user_id == ^user_id,
+            order_by: [desc: e.inserted_at],
+            limit: 1,
+            select: e.inserted_at
+          )
+          |> Repo.one()
+
+        case last_at do
+          nil -> 999
+          ts -> NaiveDateTime.diff(NaiveDateTime.utc_now(), ts, :second) |> div(86400)
+        end
+      rescue
+        _ -> 999
+      end
+
+    # Check if user has shared articles (for referral propensity)
+    has_shared =
+      try do
+        UserEvents.count_events(user_id, "article_share", days: 30) > 0
+      rescue
+        _ -> false
+      end
+
+    # Check if user has referrals via Mnesia
+    has_referrals =
+      try do
+        case :mnesia.dirty_read(:referral_stats, user_id) do
+          [{:referral_stats, _, refs, _, _, _, _}] -> refs > 0
+          _ -> false
+        end
+      rescue
+        _ -> false
+      catch
+        :exit, _ -> false
+      end
+
+    %{
+      consecutive_active_days: active_days,
+      days_since_last_active: days_since_last_active,
+      has_shared_articles: has_shared,
+      has_referrals: has_referrals
+    }
+  end
+
   # ============ Private Helpers ============
-
-  defp has_carted_items?(nil), do: false
-  defp has_carted_items?(profile), do: (profile.carted_not_purchased || []) != []
-
-  defp hours_since(nil), do: 999
-  defp hours_since(%NaiveDateTime{} = ndt) do
-    NaiveDateTime.diff(NaiveDateTime.utc_now(), ndt, :second) / 3600.0
-  end
-  defp hours_since(%DateTime{} = dt) do
-    DateTime.diff(DateTime.utc_now(), dt, :second) / 3600.0
-  end
 
   defp already_sent_today?(user_id, type) do
     today_start =
@@ -411,16 +364,6 @@ defmodule BlocksterV2.Notifications.TriggerEngine do
       _ -> nil
     end
   end
-
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(v) when is_number(v), do: Decimal.new(v)
-  defp to_decimal(v) when is_binary(v) do
-    case Decimal.parse(v) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
-  defp to_decimal(_), do: nil
 
   defp format_number(n) when n >= 1_000 do
     n

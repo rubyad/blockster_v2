@@ -39,24 +39,24 @@ config :blockster_v2, Oban,
     email_transactional: 5,
     email_marketing: 3,
     email_digest: 2,
-    sms: 1
+    sms: 1,
+    ads_management: 3,
+    ads_creative: 2,
+    ads_analytics: 2
   ],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 9 * * *", BlocksterV2.Workers.DailyDigestWorker, queue: :email_digest},
-       {"0 10 * * 1", BlocksterV2.Workers.WeeklyRewardSummaryWorker, queue: :email_marketing},
-       {"0 14 * * 3", BlocksterV2.Workers.ReferralPromptWorker, queue: :email_marketing},
-       {"0 11 * * *", BlocksterV2.Workers.ReEngagementWorker, queue: :email_marketing},
-       {"*/30 * * * *", BlocksterV2.Workers.CartAbandonmentWorker, queue: :email_transactional},
-       {"0 */6 * * *", BlocksterV2.Workers.ProfileRecalcWorker, queue: :default},
-       {"0 */6 * * *", BlocksterV2.Workers.ABTestCheckWorker, queue: :default},
-       {"0 15 * * 5", BlocksterV2.Workers.RogueAirdropWorker, queue: :default},
-       {"0 10 * * 2", BlocksterV2.Workers.ReferralLeaderboardWorker, queue: :email_marketing},
-       {"0 6 * * *", BlocksterV2.Workers.ChurnDetectionWorker, queue: :default},
        {"0 6 * * *", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "daily"}, queue: :default},
-       {"0 7 * * 1", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "weekly"}, queue: :default}
+       {"0 7 * * 1", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "weekly"}, queue: :default},
+       # Cleanup
+       {"0 3 * * *", BlocksterV2.Workers.EventCleanupWorker, queue: :default},
+       # AI Ads Manager workers
+       {"0 * * * *", BlocksterV2.AdsManager.Workers.PerformanceCheckWorker, queue: :ads_analytics},
+       {"0 0 * * *", BlocksterV2.AdsManager.Workers.DailyBudgetResetWorker, queue: :ads_management},
+       # Daily digest at 9am UTC
+       {"0 9 * * *", BlocksterV2.Workers.DailyDigestWorker, queue: :email_digest}
      ]}
   ]
 

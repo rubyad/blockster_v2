@@ -30,16 +30,20 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
 
     hero_html =
       if image_url do
-        ~s(<img src="#{image_url}" alt="#{title}" style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:16px;" />)
+        ~s(<a href="#{article_url}" style="text-decoration:none;"><img src="#{image_url}" alt="#{title}" style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:16px;display:block;" /></a>)
       else
         ""
       end
 
     html_content = """
     #{hero_html}
-    <h2 style="color:#141414;font-size:22px;margin:0 0 8px;">#{escape(title)}</h2>
+    <a href="#{article_url}" style="text-decoration:none;">
+      <h2 style="color:#141414;font-size:22px;margin:0 0 8px;">#{escape(title)}</h2>
+    </a>
     #{if hub_name, do: ~s(<p style="color:#888;font-size:13px;margin:0 0 12px;">From #{escape(hub_name)}</p>), else: ""}
-    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">#{escape(body)}</p>
+    <a href="#{article_url}" style="text-decoration:none;">
+      <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">#{escape(body)}</p>
+    </a>
     #{cta_button("Read Article", article_url)}
     """
 
@@ -71,19 +75,38 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
 
         img =
           if article[:image_url] do
-            ~s(<img src="#{article[:image_url]}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;" />)
+            ~s(<img src="#{article[:image_url]}" alt="" width="100" height="100" style="width:100px;height:100px;object-fit:cover;border-radius:8px;display:block;" />)
           else
-            ~s(<div style="width:80px;height:80px;background:#{@brand_color};border-radius:8px;flex-shrink:0;"></div>)
+            ~s(<div style="width:100px;height:100px;background:#{@brand_color};border-radius:8px;"></div>)
           end
 
-        """
-        <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-          #{img}
-          <div>
-            <a href="#{url}" style="color:#141414;font-size:15px;font-weight:600;text-decoration:none;">#{escape(article[:title] || "")}</a>
-            #{if article[:hub_name], do: ~s(<p style="color:#888;font-size:12px;margin:4px 0 0;">#{escape(article[:hub_name])}</p>), else: ""}
-          </div>
-        </div>
+        excerpt_html =
+          if article[:excerpt] do
+            ~s(<p style="color:#666;font-size:13px;margin:4px 0 0;line-height:1.4;">#{escape(article[:excerpt])}</p>)
+          else
+            ""
+          end
+
+        hub_html =
+          if article[:hub_name] do
+            ~s(<p style="color:#888;font-size:12px;margin:4px 0 0;">#{escape(article[:hub_name])}</p>)
+          else
+            ""
+          end
+
+        ~s"""
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px solid #f0f0f0;">
+          <tr>
+            <td style="padding:12px 0;width:100px;vertical-align:top;">
+              <a href="#{url}" style="text-decoration:none;">#{img}</a>
+            </td>
+            <td style="padding:12px 0 12px 14px;vertical-align:top;">
+              <a href="#{url}" style="color:#141414;font-size:15px;font-weight:600;text-decoration:none;">#{escape(article[:title] || "")}</a>
+              #{excerpt_html}
+              #{hub_html}
+            </td>
+          </tr>
+        </table>
         """
       end)
 
@@ -147,7 +170,7 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
     html_content = """
     #{hero}
     <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">#{escape(title)}</h2>
-    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">#{escape(body)}</p>
+    <div style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">#{body}</div>
     #{discount_html}
     #{cta_button(action_label, action_url)}
     """
@@ -494,9 +517,13 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
     <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f5f5f5;" class="email-bg">
       <div style="max-width:600px;margin:0 auto;padding:20px;">
         <!-- Header -->
-        <div style="background:#141414;border-radius:12px 12px 0 0;padding:20px 24px;text-align:center;">
-          <img src="#{@logo_url}" alt="Blockster" style="height:28px;" />
-        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td bgcolor="#141414" style="background-color:#141414;border-radius:12px 12px 0 0;padding:20px 24px;text-align:center;">
+              <img src="#{@logo_url}" alt="Blockster" style="height:28px;" />
+            </td>
+          </tr>
+        </table>
         <!-- Body -->
         <div style="background:#ffffff;padding:24px 24px 32px;border-radius:0 0 12px 12px;" class="email-card">
           #{content}

@@ -110,6 +110,9 @@ defmodule BlocksterV2Web.MemberLive.Show do
             Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
           end
 
+          # Following tab: load subscribed hubs
+          followed_hubs = Blog.get_user_followed_hubs_enriched(member.id)
+
           # Settings tab: X connection for Connected Accounts section
           x_connection = Social.get_x_connection_for_user(member.id)
 
@@ -147,6 +150,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
            |> assign(:referral_stats, referral_stats)
            |> assign(:referrals, referrals)
            |> assign(:referral_earnings, referral_earnings)
+           # Following tab
+           |> assign(:followed_hubs, followed_hubs)
            # Settings tab
            |> assign(:x_connection, x_connection)
            |> assign(:editing_username, false)
@@ -179,6 +184,25 @@ defmodule BlocksterV2Web.MemberLive.Show do
   @impl true
   def handle_event("close_multiplier_dropdown", _params, socket) do
     {:noreply, assign(socket, :show_multiplier_dropdown, false)}
+  end
+
+  # Following tab - Unfollow hub
+  @impl true
+  def handle_event("unfollow_hub", %{"hub-id" => hub_id_str}, socket) do
+    hub_id = String.to_integer(hub_id_str)
+    user_id = socket.assigns.current_user.id
+
+    case Blog.unfollow_hub(user_id, hub_id) do
+      {:ok, _} ->
+        followed_hubs = Blog.get_user_followed_hubs_enriched(user_id)
+        {:noreply,
+         socket
+         |> assign(:followed_hubs, followed_hubs)
+         |> put_flash(:info, "Unfollowed hub")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to unfollow hub")}
+    end
   end
 
   # Settings tab - Username editing

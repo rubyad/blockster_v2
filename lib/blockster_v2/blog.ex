@@ -696,6 +696,9 @@ defmodule BlocksterV2.Blog do
           Task.start(fn -> notify_hub_followers_of_new_post(published_post) end)
         end
 
+        # Trigger AI Ads Manager evaluation
+        Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "post:published", {:post_published, published_post})
+
         {:ok, published_post}
 
       error ->
@@ -1197,6 +1200,66 @@ defmodule BlocksterV2.Blog do
       order_by: [asc: h.name]
     )
     |> Repo.all()
+  end
+
+  @doc """
+  Gets user followed hubs with enriched data (description, follower count, post count).
+  Used for the member profile "Following" tab.
+  """
+  def get_user_followed_hubs_enriched(user_id) do
+    followed = from(hf in HubFollower,
+      join: h in Hub,
+      on: hf.hub_id == h.id,
+      where: hf.user_id == ^user_id,
+      select: %{
+        id: h.id,
+        name: h.name,
+        slug: h.slug,
+        logo_url: h.logo_url,
+        description: h.description,
+        color_primary: h.color_primary,
+        tag_name: h.tag_name
+      },
+      order_by: [asc: h.name]
+    )
+    |> Repo.all()
+
+    hub_ids = Enum.map(followed, & &1.id)
+
+    # Batch-fetch follower counts
+    follower_counts = get_hub_follower_counts(hub_ids)
+
+    # Count posts per hub (including tag-based association, same logic as list_published_posts_by_hub)
+    post_counts = Enum.into(followed, %{}, fn hub ->
+      count = count_hub_posts(hub.id, hub.tag_name)
+      {hub.id, count}
+    end)
+
+    Enum.map(followed, fn hub ->
+      Map.merge(hub, %{
+        follower_count: Map.get(follower_counts, hub.id, 0),
+        post_count: Map.get(post_counts, hub.id, 0)
+      })
+    end)
+  end
+
+  defp count_hub_posts(hub_id, tag_name) when is_binary(tag_name) and tag_name != "" do
+    from(p in Post,
+      left_join: pt in "post_tags", on: pt.post_id == p.id,
+      left_join: t in Tag, on: t.id == pt.tag_id,
+      where: not is_nil(p.published_at),
+      where: p.hub_id == ^hub_id or t.name == ^tag_name,
+      select: count(p.id, :distinct)
+    )
+    |> Repo.one()
+  end
+
+  defp count_hub_posts(hub_id, _tag_name) do
+    from(p in Post,
+      where: p.hub_id == ^hub_id and not is_nil(p.published_at),
+      select: count(p.id)
+    )
+    |> Repo.one()
   end
 
   @doc """

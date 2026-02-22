@@ -1,12 +1,12 @@
 defmodule BlocksterV2.Notifications.IntegrationWiringTest do
   @moduledoc """
   Integration tests proving the full notification wiring pipeline works:
-  Events → EventProcessor → TriggerEngine/ConversionFunnelEngine → Notifications/Emails.
+  Events → EventProcessor → TriggerEngine/CustomRules → Notifications/Emails.
   """
   use BlocksterV2.DataCase, async: false
 
   alias BlocksterV2.Notifications
-  alias BlocksterV2.Notifications.{SystemConfig, ProfileEngine, UserProfile}
+  alias BlocksterV2.Notifications.SystemConfig
   alias BlocksterV2.UserEvents
 
   setup do
@@ -34,10 +34,8 @@ defmodule BlocksterV2.Notifications.IntegrationWiringTest do
       assert config["referrer_signup_bux"] == 500
       assert config["referee_signup_bux"] == 250
       assert config["phone_verify_bux"] == 100
-      assert config["cart_abandon_hours"] == 2
       assert is_list(config["bux_milestones"])
       assert is_list(config["reading_streak_days"])
-      assert config["trigger_cart_abandonment_enabled"] == true
     end
 
     test "put invalidates ETS cache and returns new value" do
@@ -162,100 +160,6 @@ defmodule BlocksterV2.Notifications.IntegrationWiringTest do
     end
   end
 
-  # ============ Re-engagement Honest Copy Tests ============
-
-  describe "re-engagement honest copy" do
-    test "re-engagement worker does not contain fake 2x BUX promise" do
-      code = File.read!("lib/blockster_v2/workers/re_engagement_worker.ex")
-      refute String.contains?(code, "2x BUX")
-      refute String.contains?(code, "Earn 2x")
-      assert String.contains?(code, "pick up where you left off")
-    end
-
-    test "email builder 30-day subject is honest" do
-      code = File.read!("lib/blockster_v2/notifications/email_builder.ex")
-      refute String.contains?(code, "special reward")
-      assert String.contains?(code, "miss you") or String.contains?(code, "new content")
-    end
-  end
-
-  # ============ Conversion Funnel Tests ============
-
-  describe "conversion stage calculation" do
-    test "calculate_conversion_stage with no activity returns nil" do
-      stage = ProfileEngine.calculate_conversion_stage(%{
-        purchase_count: 0,
-        games_played_last_30d: 0,
-        total_bets_placed: 0,
-        total_articles_read: 0,
-        gambling_tier: "non_gambler"
-      })
-
-      assert stage == nil
-    end
-
-    test "reader becomes earner" do
-      stage = ProfileEngine.calculate_conversion_stage(%{
-        purchase_count: 0,
-        games_played_last_30d: 0,
-        total_bets_placed: 0,
-        total_articles_read: 5,
-        gambling_tier: "non_gambler"
-      })
-
-      assert stage == "earner"
-    end
-
-    test "gamer becomes bux_player" do
-      stage = ProfileEngine.calculate_conversion_stage(%{
-        purchase_count: 0,
-        games_played_last_30d: 3,
-        total_bets_placed: 3,
-        total_articles_read: 10,
-        gambling_tier: "casual_gambler"
-      })
-
-      assert stage == "bux_player"
-    end
-
-    test "whale gamer becomes rogue_curious" do
-      stage = ProfileEngine.calculate_conversion_stage(%{
-        purchase_count: 0,
-        games_played_last_30d: 20,
-        total_bets_placed: 50,
-        total_articles_read: 10,
-        gambling_tier: "whale_gambler"
-      })
-
-      assert stage == "rogue_curious"
-    end
-
-    test "buyer becomes rogue_buyer" do
-      stage = ProfileEngine.calculate_conversion_stage(%{
-        purchase_count: 1,
-        games_played_last_30d: 5,
-        total_bets_placed: 10,
-        total_articles_read: 10,
-        gambling_tier: "regular_gambler"
-      })
-
-      assert stage == "rogue_buyer"
-    end
-  end
-
-  # ============ EventProcessor Conversion Stage Tests ============
-
-  describe "EventProcessor real-time conversion updates" do
-    test "upsert_profile and get_profile round-trip works" do
-      user = create_user()
-
-      UserEvents.upsert_profile(user.id, %{conversion_stage: "bux_player"})
-      profile = UserEvents.get_profile(user.id)
-
-      assert profile == nil or profile.conversion_stage == "bux_player"
-    end
-  end
-
   # ============ Custom Rules Tests ============
 
   describe "custom rules via SystemConfig" do
@@ -313,44 +217,6 @@ defmodule BlocksterV2.Notifications.IntegrationWiringTest do
       # Verify the worker module exists and has perform/1
       assert Code.ensure_loaded?(BlocksterV2.Workers.AIManagerReviewWorker)
       assert function_exported?(BlocksterV2.Workers.AIManagerReviewWorker, :perform, 1)
-    end
-  end
-
-  # ============ Profile Recalculation Includes Conversion Stage ============
-
-  describe "profile recalculation includes conversion_stage" do
-    test "recalculate_profile returns conversion_stage field" do
-      user = create_user()
-
-      # Insert some events so recalculation has data
-      Repo.insert!(%Notifications.UserEvent{
-        user_id: user.id,
-        event_type: "article_read_complete",
-        event_category: "content",
-        metadata: %{},
-        inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-      })
-
-      profile_data = ProfileEngine.recalculate_profile(user.id)
-
-      assert Map.has_key?(profile_data, :conversion_stage)
-      # With only article reads, should be "earner"
-      assert profile_data[:conversion_stage] == "earner"
-    end
-
-    test "recalculate_profile with game events returns bux_player" do
-      user = create_user()
-
-      Repo.insert!(%Notifications.UserEvent{
-        user_id: user.id,
-        event_type: "game_played",
-        event_category: "gaming",
-        metadata: %{"token" => "BUX", "result" => "win"},
-        inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-      })
-
-      profile_data = ProfileEngine.recalculate_profile(user.id)
-      assert profile_data[:conversion_stage] == "bux_player"
     end
   end
 
