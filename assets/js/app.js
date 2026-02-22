@@ -422,49 +422,21 @@ let InfiniteScroll = {
   mounted() {
     this.pending = false;
     this.endReached = false;
-    this.scrollCheckInterval = null;
 
-    // Detect if element has overflow scrolling
-    const hasOverflow = this.el.scrollHeight > this.el.clientHeight;
-    const isScrollable = getComputedStyle(this.el).overflowY === 'auto' ||
-                         getComputedStyle(this.el).overflowY === 'scroll';
-    this.useElementScroll = hasOverflow && isScrollable;
+    // Detect if element itself is the scrollable container
+    const style = getComputedStyle(this.el);
+    this.useElementScroll = style.overflowY === 'auto' || style.overflowY === 'scroll';
 
-    // Create a sentinel element at the bottom
-    this.sentinel = document.createElement('div');
-    this.sentinel.style.height = '1px';
-    this.el.appendChild(this.sentinel);
-
-    // Create intersection observer with larger margin
-    this.observer = new IntersectionObserver(
-      entries => {
-        const entry = entries[0];
-        if (entry.isIntersecting && !this.pending && !this.endReached) {
-          this.loadMore();
-        }
-      },
-      {
-        root: this.useElementScroll ? this.el : null, // Use element as root if it's scrollable
-        rootMargin: '200px',
-        threshold: 0
-      }
-    );
-
-    this.observer.observe(this.sentinel);
-
-    // Backup scroll event handler for very fast scrolling
     this.handleScroll = () => {
       if (this.pending || this.endReached) return;
 
       let scrollHeight, scrollTop, clientHeight;
 
       if (this.useElementScroll) {
-        // Element scroll
         scrollHeight = this.el.scrollHeight;
         scrollTop = this.el.scrollTop;
         clientHeight = this.el.clientHeight;
       } else {
-        // Window scroll
         scrollHeight = document.documentElement.scrollHeight;
         scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         clientHeight = window.innerHeight;
@@ -479,6 +451,21 @@ let InfiniteScroll = {
     if (this.useElementScroll) {
       this.el.addEventListener('scroll', this.handleScroll, { passive: true });
     } else {
+      // For window scroll, also use IntersectionObserver as primary trigger
+      this.sentinel = document.createElement('div');
+      this.sentinel.style.height = '1px';
+      this.el.appendChild(this.sentinel);
+
+      this.observer = new IntersectionObserver(
+        entries => {
+          if (entries[0].isIntersecting && !this.pending && !this.endReached) {
+            this.loadMore();
+          }
+        },
+        { rootMargin: '200px', threshold: 0 }
+      );
+      this.observer.observe(this.sentinel);
+
       window.addEventListener('scroll', this.handleScroll, { passive: true });
     }
   },
@@ -504,11 +491,12 @@ let InfiniteScroll = {
       // Check if server indicated no more content
       if (reply && reply.end_reached) {
         this.endReached = true;
-        // Stop observing since there's nothing more to load
-        if (this.observer) {
-          this.observer.disconnect();
+        if (this.observer) this.observer.disconnect();
+        if (this.useElementScroll) {
+          this.el.removeEventListener('scroll', this.handleScroll);
+        } else {
+          window.removeEventListener('scroll', this.handleScroll);
         }
-        window.removeEventListener('scroll', this.handleScroll);
         return;
       }
       // Small delay after server response to let DOM update
@@ -519,9 +507,7 @@ let InfiniteScroll = {
   },
 
   destroyed() {
-    if (this.observer) {
-      this.observer.disconnect();
-    }
+    if (this.observer) this.observer.disconnect();
     if (this.sentinel && this.sentinel.parentNode) {
       this.sentinel.parentNode.removeChild(this.sentinel);
     }
@@ -531,9 +517,6 @@ let InfiniteScroll = {
       } else {
         window.removeEventListener('scroll', this.handleScroll);
       }
-    }
-    if (this.scrollCheckInterval) {
-      clearInterval(this.scrollCheckInterval);
     }
   }
 };

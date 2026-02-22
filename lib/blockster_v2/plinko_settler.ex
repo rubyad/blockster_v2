@@ -27,9 +27,11 @@ defmodule BlocksterV2.PlinkoSettler do
     end
   end
 
+  @max_settle_attempts 3
+
   @impl true
   def init(_) do
-    {:ok, %{registered: false}}
+    {:ok, %{registered: false, attempts: %{}}}
   end
 
   @impl true
@@ -44,16 +46,16 @@ defmodule BlocksterV2.PlinkoSettler do
   end
 
   def handle_info(:check_unsettled_bets, state) do
-    check_and_settle_stuck_bets()
+    attempts = check_and_settle_stuck_bets(state.attempts)
     schedule_check()
-    {:noreply, state}
+    {:noreply, %{state | attempts: attempts}}
   end
 
   defp schedule_check do
     Process.send_after(self(), :check_unsettled_bets, @check_interval)
   end
 
-  defp check_and_settle_stuck_bets do
+  defp check_and_settle_stuck_bets(attempts) do
     now = System.system_time(:second)
     cutoff = now - @settlement_timeout
 
@@ -69,25 +71,46 @@ defmodule BlocksterV2.PlinkoSettler do
           Logger.info("[PlinkoSettler] Found #{length(stuck)} stuck Plinko bets, settling...")
         end
 
-        Enum.each(stuck, fn game ->
+        Enum.reduce(stuck, attempts, fn game, acc ->
           game_id = elem(game, 1)
-          age = now - elem(game, 23)
-          Logger.info("[PlinkoSettler] Settling stuck Plinko bet: #{game_id} (placed #{age}s ago)")
+          attempt_count = Map.get(acc, game_id, 0)
 
-          case BlocksterV2.PlinkoGame.settle_game(game_id) do
-            {:ok, _} ->
-              Logger.info("[PlinkoSettler] Successfully settled #{game_id}")
+          try do
+            if attempt_count >= @max_settle_attempts do
+              Logger.warning("[PlinkoSettler] Game #{game_id} failed #{attempt_count} times, force-marking as settled")
 
-            {:error, reason} ->
-              Logger.warning("[PlinkoSettler] Failed to settle #{game_id}: #{inspect(reason)}")
+              case BlocksterV2.PlinkoGame.get_game(game_id) do
+                {:ok, game_map} ->
+                  BlocksterV2.PlinkoGame.mark_game_settled(game_id, game_map, "settlement_failed_max_retries")
+
+                _ ->
+                  :ok
+              end
+
+              Map.delete(acc, game_id)
+            else
+              age = now - elem(game, 23)
+              Logger.info("[PlinkoSettler] Settling stuck Plinko bet: #{game_id} (placed #{age}s ago, attempt #{attempt_count + 1})")
+
+              case BlocksterV2.PlinkoGame.settle_game(game_id) do
+                {:ok, _} ->
+                  Logger.info("[PlinkoSettler] Successfully settled #{game_id}")
+                  Map.delete(acc, game_id)
+
+                {:error, reason} ->
+                  Logger.warning("[PlinkoSettler] Failed to settle #{game_id}: #{inspect(reason)}")
+                  Map.put(acc, game_id, attempt_count + 1)
+              end
+            end
+          rescue
+            error ->
+              Logger.error("[PlinkoSettler] Error settling game #{game_id}: #{inspect(error)}")
+              Map.put(acc, game_id, attempt_count + 1)
           end
         end)
 
       _ ->
-        :ok
+        attempts
     end
-  rescue
-    error ->
-      Logger.error("[PlinkoSettler] Error checking stuck bets: #{inspect(error)}")
   end
 end

@@ -122,7 +122,7 @@ defmodule BlocksterV2.PlinkoGame do
         # Write :committed game to Mnesia (25-element tuple: table name + 24 fields)
         game_record =
           {:plinko_games, game_id, user_id, wallet_address, server_seed, commitment_hash, nonce,
-           :committed, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, tx_hash, nil, nil,
+           :committed, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, tx_hash, nil, nil,
            now, nil}
 
         :mnesia.dirty_write(game_record)
@@ -276,12 +276,12 @@ defmodule BlocksterV2.PlinkoGame do
     # Payout lookup
     payout_table = Map.get(@payout_tables, config_index)
     payout_bp = Enum.at(payout_table, landing_position)
-    payout = div(bet_amount * payout_bp, 10000)
+    payout = bet_amount * payout_bp / 10000
 
     outcome =
       cond do
         payout > bet_amount -> :won
-        payout == bet_amount -> :push
+        payout >= bet_amount -> :push
         true -> :lost
       end
 
@@ -295,6 +295,22 @@ defmodule BlocksterV2.PlinkoGame do
        outcome: outcome,
        server_seed: server_seed
      }}
+  end
+
+  @doc """
+  Mark a committed game as :playing so it won't be reused by get_or_init_game.
+  Called when the user clicks Drop Ball (before the on-chain bet is placed).
+  """
+  def mark_game_playing(game_id) do
+    case :mnesia.dirty_read({:plinko_games, game_id}) do
+      [record] when elem(record, 7) == :committed ->
+        updated = put_elem(record, 7, :playing)
+        :mnesia.dirty_write(updated)
+        :ok
+
+      _ ->
+        :ok
+    end
   end
 
   @doc """
@@ -445,6 +461,9 @@ defmodule BlocksterV2.PlinkoGame do
   end
 
   defp update_user_betting_stats(user_id, token, bet_amount, won, payout) do
+    safe_bet = bet_amount || 0
+    safe_payout = payout || 0
+
     case :mnesia.dirty_read(:user_betting_stats, user_id) do
       [record] ->
         now = System.system_time(:millisecond)
@@ -452,8 +471,8 @@ defmodule BlocksterV2.PlinkoGame do
 
         updated =
           case token do
-            "ROGUE" -> update_rogue_stats(record, bet_amount, won, payout, now, first_bet_at)
-            _ -> update_bux_stats(record, bet_amount, won, payout, now, first_bet_at)
+            "ROGUE" -> update_rogue_stats(record, safe_bet, won, safe_payout, now, first_bet_at)
+            _ -> update_bux_stats(record, safe_bet, won, safe_payout, now, first_bet_at)
           end
 
         :mnesia.dirty_write(updated)
@@ -461,8 +480,8 @@ defmodule BlocksterV2.PlinkoGame do
       [] ->
         Logger.warning("[PlinkoGame] Missing user_betting_stats for user #{user_id}, creating now")
         now = System.system_time(:millisecond)
-        bet_amount_wei = to_wei(bet_amount)
-        payout_wei = to_wei(payout)
+        bet_amount_wei = to_wei(safe_bet)
+        payout_wei = to_wei(safe_payout)
 
         {bux_stats, rogue_stats} =
           case token do
@@ -492,50 +511,53 @@ defmodule BlocksterV2.PlinkoGame do
     :ok
   end
 
-  defp update_bux_stats(record, bet_amount, won, payout, now, first_bet_at) do
+  defp update_bux_stats(record, bet_amount, _won, payout, now, first_bet_at) do
     bet_amount_wei = to_wei(bet_amount)
     payout_wei = to_wei(payout)
+    won = payout_wei > bet_amount_wei
     winnings = if won, do: payout_wei - bet_amount_wei, else: 0
-    losses = if won, do: 0, else: bet_amount_wei
-    net_change = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+    losses = if won, do: 0, else: bet_amount_wei - payout_wei
+    net_change = payout_wei - bet_amount_wei
 
     record
-    |> put_elem(3, elem(record, 3) + 1)
-    |> put_elem(4, elem(record, 4) + if(won, do: 1, else: 0))
-    |> put_elem(5, elem(record, 5) + if(won, do: 0, else: 1))
-    |> put_elem(6, elem(record, 6) + bet_amount_wei)
-    |> put_elem(7, elem(record, 7) + winnings)
-    |> put_elem(8, elem(record, 8) + losses)
-    |> put_elem(9, elem(record, 9) + net_change)
+    |> put_elem(3, (elem(record, 3) || 0) + 1)
+    |> put_elem(4, (elem(record, 4) || 0) + if(won, do: 1, else: 0))
+    |> put_elem(5, (elem(record, 5) || 0) + if(won, do: 0, else: 1))
+    |> put_elem(6, (elem(record, 6) || 0) + bet_amount_wei)
+    |> put_elem(7, (elem(record, 7) || 0) + winnings)
+    |> put_elem(8, (elem(record, 8) || 0) + losses)
+    |> put_elem(9, (elem(record, 9) || 0) + net_change)
     |> put_elem(17, first_bet_at)
     |> put_elem(18, now)
     |> put_elem(19, now)
   end
 
-  defp update_rogue_stats(record, bet_amount, won, payout, now, first_bet_at) do
+  defp update_rogue_stats(record, bet_amount, _won, payout, now, first_bet_at) do
     bet_amount_wei = to_wei(bet_amount)
     payout_wei = to_wei(payout)
+    won = payout_wei > bet_amount_wei
     winnings = if won, do: payout_wei - bet_amount_wei, else: 0
-    losses = if won, do: 0, else: bet_amount_wei
-    net_change = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+    losses = if won, do: 0, else: bet_amount_wei - payout_wei
+    net_change = payout_wei - bet_amount_wei
 
     record
-    |> put_elem(10, elem(record, 10) + 1)
-    |> put_elem(11, elem(record, 11) + if(won, do: 1, else: 0))
-    |> put_elem(12, elem(record, 12) + if(won, do: 0, else: 1))
-    |> put_elem(13, elem(record, 13) + bet_amount_wei)
-    |> put_elem(14, elem(record, 14) + winnings)
-    |> put_elem(15, elem(record, 15) + losses)
-    |> put_elem(16, elem(record, 16) + net_change)
+    |> put_elem(10, (elem(record, 10) || 0) + 1)
+    |> put_elem(11, (elem(record, 11) || 0) + if(won, do: 1, else: 0))
+    |> put_elem(12, (elem(record, 12) || 0) + if(won, do: 0, else: 1))
+    |> put_elem(13, (elem(record, 13) || 0) + bet_amount_wei)
+    |> put_elem(14, (elem(record, 14) || 0) + winnings)
+    |> put_elem(15, (elem(record, 15) || 0) + losses)
+    |> put_elem(16, (elem(record, 16) || 0) + net_change)
     |> put_elem(17, first_bet_at)
     |> put_elem(18, now)
     |> put_elem(19, now)
   end
 
-  defp calculate_stats(bet_amount_wei, won, payout_wei) do
+  defp calculate_stats(bet_amount_wei, _won, payout_wei) do
+    won = payout_wei > bet_amount_wei
     winnings = if won, do: payout_wei - bet_amount_wei, else: 0
-    losses = if won, do: 0, else: bet_amount_wei
-    net = if won, do: payout_wei - bet_amount_wei, else: -bet_amount_wei
+    losses = if won, do: 0, else: bet_amount_wei - payout_wei
+    net = payout_wei - bet_amount_wei
     wins = if won, do: 1, else: 0
     loss_count = if won, do: 0, else: 1
     {1, wins, loss_count, bet_amount_wei, winnings, losses, net}
@@ -543,10 +565,16 @@ defmodule BlocksterV2.PlinkoGame do
 
   defp to_wei(amount) when is_integer(amount), do: amount * 1_000_000_000_000_000_000
   defp to_wei(amount) when is_float(amount), do: round(amount * 1_000_000_000_000_000_000)
+  defp to_wei(amount) when is_binary(amount), do: to_wei(String.to_integer(amount))
   defp to_wei(nil), do: 0
+  defp to_wei(_), do: 0
 
   defp is_bet_already_settled_error?(reason) when is_binary(reason) do
     String.contains?(reason, "0x05d09e5f")
+  end
+
+  defp is_bet_already_settled_error?(reason) when is_map(reason) do
+    is_bet_already_settled_error?(inspect(reason))
   end
 
   defp is_bet_already_settled_error?(_), do: false

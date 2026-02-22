@@ -695,7 +695,7 @@ export const ThirdwebLogin = {
 
         if (!fingerprintData) {
           console.error('Failed to get fingerprint');
-          alert('Unable to verify device. Please use Chrome or Edge browser to sign up.');
+          alert('Unable to verify device. Please disable ad blockers or privacy extensions and try again.');
           this.pushEvent("show_code_input", { email: this.pendingEmail });
           return;
         }

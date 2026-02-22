@@ -625,7 +625,9 @@ defmodule BlocksterV2.BuxMinter do
         {:ok, %{status_code: status, body: body}} ->
           error = Jason.decode!(body)
           Logger.error("[BuxMinter] Plinko settle bet failed (#{status}): #{inspect(error)}")
-          {:error, error["error"] || "Unknown error"}
+          # Include full body so error signature detection (e.g. 0x05d09e5f) works
+          # regardless of which JSON key contains the hex code
+          {:error, body}
 
         {:error, reason} ->
           Logger.error("[BuxMinter] Plinko settle bet HTTP error: #{inspect(reason)}")
@@ -776,9 +778,11 @@ defmodule BlocksterV2.BuxMinter do
   end
 
   # Exponential backoff for Req retries: 500ms, 1s, 2s, 4s, 8s
-  defp retry_delay(retry_count) do
+  defp retry_delay(retry_count) when retry_count > 0 do
     500 * Integer.pow(2, retry_count - 1)
   end
+
+  defp retry_delay(_), do: 500
 
   defp get_minter_url do
     # Use environment variable if set, otherwise fall back to public URL

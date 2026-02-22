@@ -198,7 +198,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
     ~H"""
     <div
       id="bux-booster-game"
-      class="min-h-screen bg-gray-50"
+      class="min-h-screen"
       phx-hook="BuxBoosterOnchain"
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}
@@ -241,7 +241,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                       phx-keyup="update_bet_amount"
                       phx-debounce="100"
                       min="1"
-                      class={"w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none #{if @selected_token == "ROGUE" && @rogue_usd_price, do: "pr-[7.5rem] sm:pr-36", else: "pr-20 sm:pr-24"}"}
+                      class={"w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none #{if @selected_token == "ROGUE" && @rogue_usd_price, do: "pr-[7.5rem] sm:pr-36", else: "pr-20 sm:pr-24"}"}
                     />
                     <!-- USD value and Halve/Double buttons inside input -->
                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -538,7 +538,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                               </div>
                             </div>
                           <% i == @current_flip and @game_state == :flipping -> %>
-                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse"}>
+                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-gray-400 animate-pulse"}>
                               <span class={"text-white #{sizes.emoji} font-bold"}>?</span>
                             </div>
                           <% true -> %>
@@ -568,11 +568,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                 <%= if @game_state == :awaiting_tx do %>
                   <!-- Awaiting Transaction State -->
                   <div class="mb-4 sm:mb-6 text-center">
-                    <div class="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full flex items-center justify-center bg-purple-100 animate-pulse mb-3 sm:mb-4">
-                      <svg class="w-8 h-8 sm:w-12 sm:h-12 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <div class="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full flex items-center justify-center bg-gray-100 mb-3 sm:mb-4">
+                      <div class="w-8 h-8 sm:w-12 sm:h-12 border-3 border-gray-300 border-t-[#CAFC00] rounded-full animate-spin"></div>
                     </div>
                     <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Confirm Transaction</h3>
                     <p class="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Please approve the transaction in your wallet</p>
@@ -719,7 +716,10 @@ defmodule BlocksterV2Web.BuxBoosterLive do
           <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
             <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">BUX Booster Games</h3>
             <%= if assigns[:games_loading] do %>
-              <div class="text-center py-4 text-gray-500 text-xs sm:text-sm">Loading games...</div>
+              <div class="flex items-center justify-center py-4">
+                <div class="w-5 h-5 border-2 border-gray-300 border-t-[#CAFC00] rounded-full animate-spin"></div>
+                <span class="ml-2 text-gray-500 text-xs sm:text-sm">Loading games...</span>
+              </div>
             <% end %>
             <%= if length(@recent_games) > 0 do %>
               <div id="recent-games-scroll" class="overflow-x-auto overflow-y-auto max-h-72 sm:max-h-96 relative" phx-hook="InfiniteScroll">

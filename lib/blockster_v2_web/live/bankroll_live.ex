@@ -110,46 +110,46 @@ defmodule BlocksterV2Web.BankrollLive do
       id="bankroll-page"
       phx-hook="BankrollOnchain"
       data-wallet={@wallet_address}
-      class="min-h-screen bg-zinc-950"
+      class="min-h-screen"
     >
       <div class="max-w-5xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
         <!-- Page Title -->
         <div class="mb-6">
-          <h1 class="text-2xl sm:text-3xl font-haas_medium_65 text-white">BUX Bankroll</h1>
-          <p class="text-sm text-zinc-400 mt-1">Provide liquidity to the BUX house pool. Earn when the house wins.</p>
+          <h1 class="text-2xl sm:text-3xl font-haas_medium_65 text-[#141414]">BUX Bankroll</h1>
+          <p class="text-sm text-[#515B70] mt-1">Provide liquidity to the BUX house pool. Earn when the house wins.</p>
         </div>
 
         <!-- Pool Stats Bar -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-4 mb-6">
+        <div class="bg-white shadow-sm rounded-2xl border border-gray-200 p-4 mb-6">
           <%= if @pool_loading do %>
             <div class="flex items-center justify-center py-4">
-              <div class="w-5 h-5 border-2 border-zinc-600 border-t-[#CAFC00] rounded-full animate-spin"></div>
-              <span class="ml-2 text-sm text-zinc-500">Loading pool data...</span>
+              <div class="w-5 h-5 border-2 border-gray-300 border-t-[#CAFC00] rounded-full animate-spin"></div>
+              <span class="ml-2 text-sm text-gray-500">Loading pool data...</span>
             </div>
           <% else %>
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               <div>
-                <p class="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wide">Total BUX</p>
-                <p class="text-base sm:text-lg font-haas_medium_65 text-white"><%= format_balance(@pool_total) %></p>
+                <p class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Total BUX</p>
+                <p class="text-base sm:text-lg font-haas_medium_65 text-[#141414]"><%= format_balance(@pool_total) %></p>
               </div>
               <div>
-                <p class="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wide">Net Balance</p>
-                <p class="text-base sm:text-lg font-haas_medium_65 text-white"><%= format_balance(@pool_net) %></p>
+                <p class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Net Balance</p>
+                <p class="text-base sm:text-lg font-haas_medium_65 text-[#141414]"><%= format_balance(@pool_net) %></p>
               </div>
               <div>
-                <p class="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wide">Outstanding Bets</p>
-                <p class="text-base sm:text-lg font-haas_medium_65 text-amber-400"><%= format_balance(@pool_liability) %></p>
+                <p class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Outstanding Bets</p>
+                <p class="text-base sm:text-lg font-haas_medium_65 text-amber-600"><%= format_balance(@pool_liability) %></p>
               </div>
               <div>
-                <p class="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wide">LP-BUX Supply</p>
-                <p class="text-base sm:text-lg font-haas_medium_65 text-white"><%= format_balance(@lp_supply) %></p>
+                <p class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">LP-BUX Supply</p>
+                <p class="text-base sm:text-lg font-haas_medium_65 text-[#141414]"><%= format_balance(@lp_supply) %></p>
               </div>
               <div>
-                <p class="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wide">LP-BUX Price</p>
-                <p class="text-base sm:text-lg font-haas_medium_65 text-[#CAFC00]">
+                <p class="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">LP-BUX Price</p>
+                <p class="text-base sm:text-lg font-haas_medium_65 text-[#141414] font-bold">
                   <%= format_lp_price(@lp_price) %> BUX
                   <%= if @price_change_24h do %>
-                    <span class={"text-xs #{if @price_change_24h >= 0, do: "text-green-400", else: "text-red-400"}"}>
+                    <span class={"text-xs #{if @price_change_24h >= 0, do: "text-green-600", else: "text-red-500"}"}>
                       (<%= if @price_change_24h >= 0, do: "+" %><%= Float.round(@price_change_24h, 2) %>%)
                     </span>
                   <% end %>
@@ -164,24 +164,24 @@ defmodule BlocksterV2Web.BankrollLive do
 
           <!-- LEFT: Chart (2/3 width on desktop) -->
           <div class="lg:col-span-2">
-            <div class="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+            <div class="bg-white shadow-sm rounded-2xl border border-gray-200 overflow-hidden">
               <!-- Timeframe Tabs -->
-              <div class="flex items-center gap-1 p-3 border-b border-zinc-800">
+              <div class="flex items-center gap-1 p-3 border-b border-gray-200">
                 <%= for {key, config} <- Enum.sort(@timeframe_configs, fn {a, _}, {b, _} -> timeframe_order(a) <= timeframe_order(b) end) do %>
                   <button
                     type="button"
                     phx-click="select_timeframe"
                     phx-value-timeframe={key}
-                    class={"px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors #{if @selected_timeframe == key, do: "bg-[#CAFC00] text-black", else: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"}"}
+                    class={"px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors #{if @selected_timeframe == key, do: "bg-black text-white", else: "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"}"}
                   >
                     <%= config.label %>
                   </button>
                 <% end %>
                 <!-- Price range info -->
-                <div class="ml-auto flex items-center gap-3 text-[10px] sm:text-xs text-zinc-500">
+                <div class="ml-auto flex items-center gap-3 text-[10px] sm:text-xs text-gray-500">
                   <%= if @price_high_24h do %>
-                    <span>H: <span class="text-green-400"><%= format_lp_price(@price_high_24h) %></span></span>
-                    <span>L: <span class="text-red-400"><%= format_lp_price(@price_low_24h) %></span></span>
+                    <span>H: <span class="text-green-600"><%= format_lp_price(@price_high_24h) %></span></span>
+                    <span>L: <span class="text-red-500"><%= format_lp_price(@price_low_24h) %></span></span>
                   <% end %>
                 </div>
               </div>
@@ -195,8 +195,8 @@ defmodule BlocksterV2Web.BankrollLive do
               >
                 <%= if @chart_loading do %>
                   <div class="flex items-center justify-center h-full">
-                    <div class="w-5 h-5 border-2 border-zinc-600 border-t-[#CAFC00] rounded-full animate-spin"></div>
-                    <span class="ml-2 text-sm text-zinc-500">Loading chart...</span>
+                    <div class="w-5 h-5 border-2 border-gray-300 border-t-[#CAFC00] rounded-full animate-spin"></div>
+                    <span class="ml-2 text-sm text-gray-500">Loading chart...</span>
                   </div>
                 <% end %>
               </div>
@@ -205,15 +205,15 @@ defmodule BlocksterV2Web.BankrollLive do
 
           <!-- RIGHT: Deposit / Withdraw Panel (1/3 width on desktop) -->
           <div class="lg:col-span-1">
-            <div class="bg-zinc-900 rounded-xl border border-zinc-800">
+            <div class="bg-white shadow-sm rounded-2xl border border-gray-200">
               <%= if @current_user do %>
                 <!-- Tab Switcher -->
-                <div class="flex border-b border-zinc-800">
+                <div class="flex border-b border-gray-200">
                   <button
                     type="button"
                     phx-click="set_action_tab"
                     phx-value-tab="deposit"
-                    class={"flex-1 py-3 text-sm font-haas_medium_65 text-center cursor-pointer transition-colors #{if @active_tab == :deposit, do: "text-[#CAFC00] border-b-2 border-[#CAFC00]", else: "text-zinc-500 hover:text-zinc-300"}"}
+                    class={"flex-1 py-3 text-sm font-haas_medium_65 text-center cursor-pointer transition-colors #{if @active_tab == :deposit, do: "bg-black text-white rounded-t-lg", else: "text-gray-500 hover:text-gray-700"}"}
                   >
                     Deposit
                   </button>
@@ -221,7 +221,7 @@ defmodule BlocksterV2Web.BankrollLive do
                     type="button"
                     phx-click="set_action_tab"
                     phx-value-tab="withdraw"
-                    class={"flex-1 py-3 text-sm font-haas_medium_65 text-center cursor-pointer transition-colors #{if @active_tab == :withdraw, do: "text-[#CAFC00] border-b-2 border-[#CAFC00]", else: "text-zinc-500 hover:text-zinc-300"}"}
+                    class={"flex-1 py-3 text-sm font-haas_medium_65 text-center cursor-pointer transition-colors #{if @active_tab == :withdraw, do: "bg-black text-white rounded-t-lg", else: "text-gray-500 hover:text-gray-700"}"}
                   >
                     Withdraw
                   </button>
@@ -232,13 +232,13 @@ defmodule BlocksterV2Web.BankrollLive do
                     <!-- DEPOSIT FORM -->
                     <div>
                       <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs text-zinc-400">Deposit BUX</label>
+                        <label class="text-xs text-gray-500">Deposit BUX</label>
                         <button
                           type="button"
                           phx-click="set_max_deposit"
-                          class="text-[10px] text-zinc-500 hover:text-[#CAFC00] cursor-pointer"
+                          class="text-[10px] text-gray-500 hover:text-[#141414] cursor-pointer"
                         >
-                          Balance: <span class="text-zinc-300"><%= format_balance(Map.get(@balances, "BUX", 0)) %></span>
+                          Balance: <span class="text-gray-700"><%= format_balance(Map.get(@balances, "BUX", 0)) %></span>
                         </button>
                       </div>
                       <div class="relative">
@@ -249,36 +249,36 @@ defmodule BlocksterV2Web.BankrollLive do
                           phx-debounce="100"
                           min="1"
                           placeholder="0"
-                          class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-white text-lg font-medium focus:outline-none focus:border-[#CAFC00] focus:ring-1 focus:ring-[#CAFC00] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          class="w-full bg-white border border-gray-300 rounded-lg px-3 py-3 text-gray-900 text-lg font-medium focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                           <img src={Map.get(@token_logos, "BUX", "https://ik.imagekit.io/blockster/blockster-icon.png")} alt="BUX" class="w-5 h-5 rounded-full" />
-                          <span class="text-sm text-zinc-400 font-medium">BUX</span>
+                          <span class="text-sm text-gray-500 font-medium">BUX</span>
                         </div>
                       </div>
 
                       <!-- Preview -->
-                      <div class="mt-3 bg-zinc-800/50 rounded-lg p-3">
+                      <div class="mt-3 bg-gray-50 rounded-lg p-3">
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-zinc-500">You receive</span>
-                          <span class="text-white font-medium">
+                          <span class="text-gray-500">You receive</span>
+                          <span class="text-[#141414] font-medium">
                             ~<%= preview_lp_tokens(@deposit_amount, @lp_price, @lp_supply, @pool_total, @pool_unsettled) %> LP-BUX
                           </span>
                         </div>
                         <div class="flex items-center justify-between text-xs mt-1">
-                          <span class="text-zinc-500">LP Price</span>
-                          <span class="text-zinc-400"><%= format_lp_price(@lp_price) %> BUX</span>
+                          <span class="text-gray-500">LP Price</span>
+                          <span class="text-gray-500"><%= format_lp_price(@lp_price) %> BUX</span>
                         </div>
                       </div>
 
                       <!-- Error / Success Messages -->
                       <%= if @action_error do %>
-                        <div class="mt-3 bg-red-900/30 border border-red-800 rounded-lg p-2 text-red-400 text-xs">
+                        <div class="mt-3 bg-red-50 border border-red-300 rounded-lg p-2 text-red-600 text-xs">
                           <%= @action_error %>
                         </div>
                       <% end %>
                       <%= if @action_success do %>
-                        <div class="mt-3 bg-green-900/30 border border-green-800 rounded-lg p-2 text-green-400 text-xs">
+                        <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-2 text-green-600 text-xs">
                           <%= @action_success %>
                         </div>
                       <% end %>
@@ -288,7 +288,7 @@ defmodule BlocksterV2Web.BankrollLive do
                         type="button"
                         phx-click="deposit_bux"
                         disabled={@action_loading or @deposit_amount == "" or parse_amount(@deposit_amount) <= 0}
-                        class="w-full mt-4 py-3 bg-[#CAFC00] text-black font-haas_medium_65 text-sm rounded-lg hover:bg-[#b8e600] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full mt-4 py-3 bg-black text-white font-haas_medium_65 text-sm rounded-lg hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <%= if @action_loading do %>
                           <span class="flex items-center justify-center gap-2">
@@ -305,13 +305,13 @@ defmodule BlocksterV2Web.BankrollLive do
                     <!-- WITHDRAW FORM -->
                     <div>
                       <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs text-zinc-400">Withdraw LP-BUX</label>
+                        <label class="text-xs text-gray-500">Withdraw LP-BUX</label>
                         <button
                           type="button"
                           phx-click="set_max_withdraw"
-                          class="text-[10px] text-zinc-500 hover:text-[#CAFC00] cursor-pointer"
+                          class="text-[10px] text-gray-500 hover:text-[#141414] cursor-pointer"
                         >
-                          LP Balance: <span class="text-zinc-300"><%= format_balance(@lp_user_balance) %></span>
+                          LP Balance: <span class="text-gray-700"><%= format_balance(@lp_user_balance) %></span>
                         </button>
                       </div>
                       <div class="relative">
@@ -322,35 +322,35 @@ defmodule BlocksterV2Web.BankrollLive do
                           phx-debounce="100"
                           min="1"
                           placeholder="0"
-                          class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-white text-lg font-medium focus:outline-none focus:border-[#CAFC00] focus:ring-1 focus:ring-[#CAFC00] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          class="w-full bg-white border border-gray-300 rounded-lg px-3 py-3 text-gray-900 text-lg font-medium focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                          <span class="text-sm text-zinc-400 font-medium">LP-BUX</span>
+                          <span class="text-sm text-gray-500 font-medium">LP-BUX</span>
                         </div>
                       </div>
 
                       <!-- Preview -->
-                      <div class="mt-3 bg-zinc-800/50 rounded-lg p-3">
+                      <div class="mt-3 bg-gray-50 rounded-lg p-3">
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-zinc-500">You receive</span>
-                          <span class="text-white font-medium flex items-center gap-1">
+                          <span class="text-gray-500">You receive</span>
+                          <span class="text-[#141414] font-medium flex items-center gap-1">
                             ~<%= preview_bux_out(@withdraw_amount, @lp_price, @lp_supply, @pool_net) %> BUX
                           </span>
                         </div>
                         <div class="flex items-center justify-between text-xs mt-1">
-                          <span class="text-zinc-500">Withdrawal Price</span>
-                          <span class="text-zinc-400"><%= format_withdrawal_price(@pool_net, @lp_supply) %> BUX</span>
+                          <span class="text-gray-500">Withdrawal Price</span>
+                          <span class="text-gray-500"><%= format_withdrawal_price(@pool_net, @lp_supply) %> BUX</span>
                         </div>
                       </div>
 
                       <!-- Error / Success Messages -->
                       <%= if @action_error do %>
-                        <div class="mt-3 bg-red-900/30 border border-red-800 rounded-lg p-2 text-red-400 text-xs">
+                        <div class="mt-3 bg-red-50 border border-red-300 rounded-lg p-2 text-red-600 text-xs">
                           <%= @action_error %>
                         </div>
                       <% end %>
                       <%= if @action_success do %>
-                        <div class="mt-3 bg-green-900/30 border border-green-800 rounded-lg p-2 text-green-400 text-xs">
+                        <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-2 text-green-600 text-xs">
                           <%= @action_success %>
                         </div>
                       <% end %>
@@ -360,7 +360,7 @@ defmodule BlocksterV2Web.BankrollLive do
                         type="button"
                         phx-click="withdraw_bux"
                         disabled={@action_loading or @withdraw_amount == "" or parse_amount(@withdraw_amount) <= 0}
-                        class="w-full mt-4 py-3 bg-[#CAFC00] text-black font-haas_medium_65 text-sm rounded-lg hover:bg-[#b8e600] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full mt-4 py-3 bg-black text-white font-haas_medium_65 text-sm rounded-lg hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <%= if @action_loading do %>
                           <span class="flex items-center justify-center gap-2">
@@ -376,22 +376,22 @@ defmodule BlocksterV2Web.BankrollLive do
 
                   <!-- Your Position -->
                   <%= if @lp_user_balance > 0 do %>
-                    <div class="mt-4 pt-4 border-t border-zinc-800">
-                      <p class="text-xs text-zinc-500 uppercase tracking-wide mb-2">Your Position</p>
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                      <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Your Position</p>
                       <div class="space-y-1.5">
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-zinc-400">LP-BUX Held</span>
-                          <span class="text-white font-medium"><%= format_balance(@lp_user_balance) %></span>
+                          <span class="text-gray-500">LP-BUX Held</span>
+                          <span class="text-[#141414] font-medium"><%= format_balance(@lp_user_balance) %></span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-zinc-400">Value in BUX</span>
-                          <span class="text-[#CAFC00] font-medium">
+                          <span class="text-gray-500">Value in BUX</span>
+                          <span class="text-[#141414] font-bold">
                             ~<%= format_balance(Float.round(@lp_user_balance * @lp_price, 2)) %>
                           </span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-zinc-400">Pool Share</span>
-                          <span class="text-zinc-300">
+                          <span class="text-gray-500">Pool Share</span>
+                          <span class="text-gray-700">
                             <%= if @lp_supply > 0, do: Float.round(@lp_user_balance / @lp_supply * 100, 2), else: 0 %>%
                           </span>
                         </div>
@@ -400,19 +400,19 @@ defmodule BlocksterV2Web.BankrollLive do
                   <% end %>
 
                   <!-- How it works -->
-                  <div class="mt-4 pt-4 border-t border-zinc-800">
-                    <p class="text-xs text-zinc-500 uppercase tracking-wide mb-2">How It Works</p>
-                    <ul class="space-y-1.5 text-xs text-zinc-400">
+                  <div class="mt-4 pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">How It Works</p>
+                    <ul class="space-y-1.5 text-xs text-gray-500">
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">1.</span>
+                        <span class="text-[#141414] font-bold shrink-0">1.</span>
                         <span>Deposit BUX to receive LP-BUX tokens</span>
                       </li>
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">2.</span>
+                        <span class="text-[#141414] font-bold shrink-0">2.</span>
                         <span>LP-BUX price rises when the house wins bets</span>
                       </li>
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">3.</span>
+                        <span class="text-[#141414] font-bold shrink-0">3.</span>
                         <span>Withdraw anytime to redeem BUX at current LP price</span>
                       </li>
                     </ul>
@@ -422,28 +422,28 @@ defmodule BlocksterV2Web.BankrollLive do
               <% else %>
                 <!-- Unauthenticated: Login prompt -->
                 <div class="p-6 text-center">
-                  <p class="text-zinc-400 text-sm mb-4">Log in to deposit BUX and earn LP rewards</p>
+                  <p class="text-gray-500 text-sm mb-4">Log in to deposit BUX and earn LP rewards</p>
                   <.link
                     navigate={~p"/login"}
-                    class="inline-block px-6 py-3 bg-[#CAFC00] text-black font-haas_medium_65 text-sm rounded-lg hover:bg-[#b8e600] transition-colors cursor-pointer"
+                    class="inline-block px-6 py-3 bg-black text-white font-haas_medium_65 text-sm rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
                   >
                     Connect Wallet
                   </.link>
 
                   <!-- How it works (also shown for unauth) -->
-                  <div class="mt-6 pt-4 border-t border-zinc-800 text-left">
-                    <p class="text-xs text-zinc-500 uppercase tracking-wide mb-2">How It Works</p>
-                    <ul class="space-y-1.5 text-xs text-zinc-400">
+                  <div class="mt-6 pt-4 border-t border-gray-200 text-left">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">How It Works</p>
+                    <ul class="space-y-1.5 text-xs text-gray-500">
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">1.</span>
+                        <span class="text-[#141414] font-bold shrink-0">1.</span>
                         <span>Deposit BUX to receive LP-BUX tokens</span>
                       </li>
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">2.</span>
+                        <span class="text-[#141414] font-bold shrink-0">2.</span>
                         <span>LP-BUX price rises when the house wins bets</span>
                       </li>
                       <li class="flex gap-2">
-                        <span class="text-[#CAFC00] shrink-0">3.</span>
+                        <span class="text-[#141414] font-bold shrink-0">3.</span>
                         <span>Withdraw anytime to redeem BUX at current LP price</span>
                       </li>
                     </ul>
@@ -759,6 +759,10 @@ defmodule BlocksterV2Web.BankrollLive do
     {Enum.max(highs), Enum.min(lows)}
   end
 
+  # All on-chain values come back as wei strings (18 decimals).
+  # Convert to human-readable token amounts.
+  @wei 1.0e18
+
   defp parse_pool_value(info, key) do
     case Map.get(info, key) do
       nil -> 0
@@ -766,7 +770,7 @@ defmodule BlocksterV2Web.BankrollLive do
       val when is_float(val) -> trunc(val)
       val when is_binary(val) ->
         case Float.parse(val) do
-          {num, _} -> trunc(num)
+          {num, _} -> trunc(num / @wei)
           :error -> 0
         end
     end
@@ -779,7 +783,7 @@ defmodule BlocksterV2Web.BankrollLive do
       val when is_integer(val) -> val / 1.0
       val when is_binary(val) ->
         case Float.parse(val) do
-          {num, _} -> num
+          {num, _} -> num / @wei
           :error -> default
         end
     end
@@ -787,7 +791,7 @@ defmodule BlocksterV2Web.BankrollLive do
 
   defp parse_lp_balance(balance_str) when is_binary(balance_str) do
     case Float.parse(balance_str) do
-      {num, _} -> num
+      {num, _} -> num / @wei
       :error -> 0.0
     end
   end

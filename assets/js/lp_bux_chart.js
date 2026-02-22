@@ -42,6 +42,7 @@ export const LPBuxChart = {
   },
 
   initChart() {
+    this.el.innerHTML = '';
     this.chart = createChart(this.el, {
       width: this.el.clientWidth,
       height: 400,
