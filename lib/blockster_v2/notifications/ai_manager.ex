@@ -301,7 +301,7 @@ defmodule BlocksterV2.Notifications.AIManager do
     %{
       "name" => "add_custom_rule",
       "description" => """
-      Add a custom event→notification rule. Evaluated by EventProcessor when matching events occur.
+      Add a custom event→notification rule. Saved immediately and evaluated by EventProcessor when matching events occur.
       Rules with numeric thresholds are automatically deduplicated — each user only receives the notification once.
 
       **Channel options:**
@@ -361,7 +361,7 @@ defmodule BlocksterV2.Notifications.AIManager do
     },
     %{
       "name" => "remove_custom_rule",
-      "description" => "Remove a custom event rule by index.",
+      "description" => "Remove a custom event rule by index. Takes effect immediately.",
       "input_schema" => %{
         "type" => "object",
         "properties" => %{
@@ -787,9 +787,7 @@ defmodule BlocksterV2.Notifications.AIManager do
     end
   end
 
-  # HARD GATE: AI cannot create/modify/delete custom rules autonomously.
-  # These tools only propose changes — the admin must use the Rules Admin page to apply them.
-  defp execute_tool("add_custom_rule", input, _admin) do
+  defp execute_tool("add_custom_rule", input, admin) do
     rule =
       %{
         "event_type" => input["event_type"],
@@ -808,23 +806,24 @@ defmodule BlocksterV2.Notifications.AIManager do
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
 
-    %{
-      status: "requires_admin_action",
-      message: "Custom rules cannot be created automatically. The rule has been drafted below for the admin to review. To apply it, go to /admin/notifications/rules and create it manually.",
-      proposed_rule: rule
-    }
+    rules = SystemConfig.get("custom_rules", [])
+    updated_rules = rules ++ [rule]
+    updated_by = if admin, do: "ai_manager:#{admin}", else: "ai_manager"
+    SystemConfig.put("custom_rules", updated_rules, updated_by)
+
+    %{status: "ok", rule_index: length(rules), rule: rule, total_rules: length(updated_rules)}
   end
 
-  defp execute_tool("remove_custom_rule", %{"rule_index" => index}, _admin) do
+  defp execute_tool("remove_custom_rule", %{"rule_index" => index}, admin) do
     rules = SystemConfig.get("custom_rules", [])
 
     if index >= 0 and index < length(rules) do
-      %{
-        status: "requires_admin_action",
-        message: "Custom rules cannot be deleted automatically. To remove this rule, go to /admin/notifications/rules and delete it manually.",
-        rule_to_remove: Enum.at(rules, index),
-        rule_index: index
-      }
+      removed = Enum.at(rules, index)
+      updated_rules = List.delete_at(rules, index)
+      updated_by = if admin, do: "ai_manager:#{admin}", else: "ai_manager"
+      SystemConfig.put("custom_rules", updated_rules, updated_by)
+
+      %{status: "ok", removed_rule: removed, remaining_rules: length(updated_rules)}
     else
       %{status: "error", message: "Invalid rule index. Current rules: #{length(rules)}"}
     end
