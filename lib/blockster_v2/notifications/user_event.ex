@@ -7,7 +7,7 @@ defmodule BlocksterV2.Notifications.UserEvent do
     video_watch category_browse
     product_view product_view_duration product_add_to_cart product_remove_from_cart
     cart_view checkout_start checkout_abandon purchase_complete product_search
-    hub_view hub_subscribe hub_unsubscribe
+    hub_view hub_subscribe hub_unsubscribe hub_followed hub_unfollowed
     referral_link_copy referral_link_share referral_conversion
     bux_earned bux_spent game_played multiplier_earned
     phone_verified x_connected wallet_connected telegram_connected telegram_group_joined rogue_deposited rogue_withdrawn
@@ -39,6 +39,8 @@ defmodule BlocksterV2.Notifications.UserEvent do
     "hub_view" => "social",
     "hub_subscribe" => "social",
     "hub_unsubscribe" => "social",
+    "hub_followed" => "social",
+    "hub_unfollowed" => "social",
     "referral_link_copy" => "social",
     "referral_link_share" => "social",
     "referral_conversion" => "social",

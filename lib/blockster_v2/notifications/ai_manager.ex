@@ -126,6 +126,12 @@ defmodule BlocksterV2.Notifications.AIManager do
   - `phone_verified`: fires when user completes phone verification
   - `x_connected`: fires on first X account connection, metadata has `x_user_id`
   - `wallet_connected`: fires when external wallet connected, metadata has `provider`, `address`
+  - `hub_followed`: fires when user follows a hub, metadata has `hub_slug`, `hub_name`
+  - `hub_unfollowed`: fires when user unfollows a hub, metadata has `hub_slug`, `hub_name`
+
+  Example hub rules:
+  - "Reward 500 BUX for following the Bitcoin hub": event_type="hub_followed", conditions={"hub_slug": "bitcoin"}, bux_bonus=500
+  - "Notify when user follows any hub": event_type="hub_followed", conditions={}
 
   Rules with numeric thresholds are automatically deduplicated — each user only receives the notification once per rule.
 
@@ -595,7 +601,11 @@ defmodule BlocksterV2.Notifications.AIManager do
 
       {:ok, %{status: status, body: body}} ->
         Logger.error("[AIManager] API returned #{status}: #{inspect(body)}")
-        {:error, "Claude API returned #{status}"}
+        error_msg = case body do
+          %{"error" => %{"message" => msg}} -> msg
+          _ -> "status #{status}"
+        end
+        {:error, "Claude API error: #{error_msg}"}
 
       {:error, reason} ->
         Logger.error("[AIManager] Request failed after retries: #{inspect(reason)}")

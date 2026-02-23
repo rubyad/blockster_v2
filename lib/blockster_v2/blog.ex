@@ -1132,9 +1132,12 @@ defmodule BlocksterV2.Blog do
 
     case result do
       {:ok, _} ->
-        BlocksterV2.UserEvents.track(user_id, "hub_subscribe", %{
+        hub = get_hub(hub_id)
+        BlocksterV2.UserEvents.track(user_id, "hub_followed", %{
           target_type: "hub",
-          target_id: hub_id
+          target_id: hub_id,
+          hub_slug: hub && hub.slug,
+          hub_name: hub && hub.name
         })
       _ -> :ok
     end
@@ -1155,9 +1158,12 @@ defmodule BlocksterV2.Blog do
 
     case result do
       {:ok, _} ->
-        BlocksterV2.UserEvents.track(user_id, "hub_unsubscribe", %{
+        hub = get_hub(hub_id)
+        BlocksterV2.UserEvents.track(user_id, "hub_unfollowed", %{
           target_type: "hub",
-          target_id: hub_id
+          target_id: hub_id,
+          hub_slug: hub && hub.slug,
+          hub_name: hub && hub.name
         })
       _ -> :ok
     end
