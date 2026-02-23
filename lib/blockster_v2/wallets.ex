@@ -29,9 +29,22 @@ defmodule BlocksterV2.Wallets do
   Only one wallet can be connected at a time (enforced by unique constraint).
   """
   def connect_wallet(attrs) do
-    %ConnectedWallet{}
-    |> ConnectedWallet.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %ConnectedWallet{}
+      |> ConnectedWallet.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, wallet} ->
+        BlocksterV2.UserEvents.track(wallet.user_id, "wallet_connected", %{
+          provider: wallet.provider,
+          address: wallet.wallet_address
+        })
+        {:ok, wallet}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -121,11 +134,63 @@ defmodule BlocksterV2.Wallets do
     case get_transfer_by_tx_hash(tx_hash) do
       nil -> {:error, :not_found}
       transfer ->
-        update_transfer(transfer, %{
+        result = update_transfer(transfer, %{
           status: "confirmed",
           block_number: block_number,
           confirmed_at: DateTime.utc_now()
         })
+
+        case result do
+          {:ok, confirmed} ->
+            if confirmed.token_symbol == "ROGUE" do
+              net = net_rogue_deposits(confirmed.user_id)
+
+              case confirmed.direction do
+                "to_blockster" ->
+                  BlocksterV2.UserEvents.track(confirmed.user_id, "rogue_deposited", %{
+                    amount: to_string(confirmed.amount),
+                    net_deposits: net,
+                    tx_hash: confirmed.tx_hash
+                  })
+
+                "from_blockster" ->
+                  BlocksterV2.UserEvents.track(confirmed.user_id, "rogue_withdrawn", %{
+                    amount: to_string(confirmed.amount),
+                    net_deposits: net,
+                    tx_hash: confirmed.tx_hash
+                  })
+
+                _ -> :ok
+              end
+            end
+            {:ok, confirmed}
+
+          error ->
+            error
+        end
+    end
+  end
+
+  @doc """
+  Calculates net ROGUE deposits for a user (total deposited - total withdrawn).
+  Only counts confirmed transfers. Returns a float.
+  """
+  def net_rogue_deposits(user_id) do
+    result =
+      from(t in WalletTransfer,
+        where: t.user_id == ^user_id,
+        where: t.token_symbol == "ROGUE",
+        where: t.status == "confirmed",
+        select: %{
+          deposited: coalesce(sum(fragment("CASE WHEN direction = 'to_blockster' THEN amount ELSE 0 END")), 0),
+          withdrawn: coalesce(sum(fragment("CASE WHEN direction = 'from_blockster' THEN amount ELSE 0 END")), 0)
+        }
+      )
+      |> Repo.one()
+
+    case result do
+      %{deposited: d, withdrawn: w} -> Decimal.to_float(Decimal.sub(d, w))
+      _ -> 0.0
     end
   end
 

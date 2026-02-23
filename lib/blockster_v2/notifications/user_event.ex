@@ -10,6 +10,8 @@ defmodule BlocksterV2.Notifications.UserEvent do
     hub_view hub_subscribe hub_unsubscribe
     referral_link_copy referral_link_share referral_conversion
     bux_earned bux_spent game_played multiplier_earned
+    phone_verified x_connected wallet_connected telegram_connected telegram_group_joined rogue_deposited rogue_withdrawn
+    signup profile_updated
     daily_login session_start session_end
     notification_received notification_viewed notification_clicked notification_dismissed
     email_opened email_clicked email_unsubscribed sms_clicked
@@ -44,6 +46,15 @@ defmodule BlocksterV2.Notifications.UserEvent do
     "bux_spent" => "engagement",
     "game_played" => "engagement",
     "multiplier_earned" => "engagement",
+    "phone_verified" => "engagement",
+    "x_connected" => "social",
+    "wallet_connected" => "engagement",
+    "telegram_connected" => "social",
+    "telegram_group_joined" => "social",
+    "rogue_deposited" => "engagement",
+    "rogue_withdrawn" => "engagement",
+    "signup" => "engagement",
+    "profile_updated" => "engagement",
     "daily_login" => "navigation",
     "session_start" => "navigation",
     "session_end" => "navigation",

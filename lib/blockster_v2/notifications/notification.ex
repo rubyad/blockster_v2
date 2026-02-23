@@ -11,8 +11,6 @@ defmodule BlocksterV2.Notifications.Notification do
                   welcome welcome_back re_engagement churn_intervention daily_bonus
                   account_security maintenance)
 
-  @valid_categories ~w(content offers social rewards system)
-
   schema "notifications" do
     field :type, :string
     field :category, :string
@@ -45,9 +43,8 @@ defmodule BlocksterV2.Notifications.Notification do
       :user_id, :type, :category, :title, :body, :image_url,
       :action_url, :action_label, :metadata, :campaign_id
     ])
-    |> validate_required([:user_id, :type, :category, :title])
+    |> validate_required([:user_id, :type, :title])
     |> validate_inclusion(:type, @valid_types)
-    |> validate_inclusion(:category, @valid_categories)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:campaign_id)
   end

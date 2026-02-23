@@ -62,6 +62,12 @@ config :blockster_v2,
   # Telegram fulfillment notifications
   telegram_bot_token: System.get_env("TELEGRAM_BOT_TOKEN"),
   telegram_fulfillment_channel_id: System.get_env("TELEGRAM_FULFILLMENT_CHANNEL_ID"),
+  # Telegram new posts bot
+  telegram_posts_bot_token: System.get_env("TELEGRAM_BLOCKSTER_POSTS_BOT"),
+  telegram_posts_channel_id: System.get_env("TELEGRAM_BLOCKSTER_POSTS_CHANNEL_ID") || System.get_env("TELEGRAM_BLOCKSTER_V2_CHANNEL_ID"),
+  # Telegram V2 bot (account connection, DMs, group membership detection)
+  telegram_v2_bot_token: System.get_env("TELEGRAM_BLOCKSTER_V2_BOT"),
+  telegram_v2_channel_id: System.get_env("TELEGRAM_BLOCKSTER_V2_CHANNEL_ID"),
   # Email fulfillment notifications
   fulfillment_email: System.get_env("FULFILLMENT_EMAIL") || "fulfillment@blockster.com",
   # Shop treasury wallet (receives ROGUE payments)

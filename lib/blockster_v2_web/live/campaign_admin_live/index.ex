@@ -135,6 +135,9 @@ defmodule BlocksterV2Web.CampaignAdminLive.Index do
             <button phx-click="toggle_quick_send" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-haas_medium_65 text-[#141414] hover:bg-gray-50 cursor-pointer transition-colors">
               Quick Send
             </button>
+            <.link navigate={~p"/admin/notifications/rules"} class="px-4 py-2.5 bg-white rounded-xl text-sm font-haas_roman_55 text-gray-600 hover:bg-gray-50 border border-gray-200 cursor-pointer transition-all">
+              Custom Rules
+            </.link>
             <.link navigate={~p"/admin/ai-manager"} class="px-4 py-2.5 bg-white rounded-xl text-sm font-haas_roman_55 text-gray-600 hover:bg-gray-50 border border-gray-200 cursor-pointer transition-all">
               Ask AI Manager
             </.link>
@@ -166,7 +169,15 @@ defmodule BlocksterV2Web.CampaignAdminLive.Index do
                   <select name="audience" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">
                     <option value="all">All Users</option>
                     <option value="active_users">Active Users (7d)</option>
+                    <option value="dormant_users">Dormant Users (30d+)</option>
                     <option value="phone_verified">Phone Verified</option>
+                    <option value="not_phone_verified">Not Phone Verified</option>
+                    <option value="x_connected">X Connected</option>
+                    <option value="not_x_connected">No X Account</option>
+                    <option value="has_external_wallet">Has External Wallet</option>
+                    <option value="no_external_wallet">No External Wallet</option>
+                    <option value="bux_gamers">BUX Gamers</option>
+                    <option value="rogue_gamers">ROGUE Gamers</option>
                   </select>
                 </div>
               </div>

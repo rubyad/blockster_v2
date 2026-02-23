@@ -87,6 +87,7 @@ defmodule BlocksterV2.Social do
         # First X connection - lock the user to this X account in PostgreSQL
         with {:ok, _user} <- lock_user_to_x_account(user, x_user_id),
              {:ok, connection} <- EngagementTracker.upsert_x_connection(user_id, attrs) do
+          BlocksterV2.UserEvents.track(user_id, "x_connected", %{x_user_id: x_user_id})
           {:ok, connection}
         end
 

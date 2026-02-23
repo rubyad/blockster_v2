@@ -62,6 +62,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/notifications/campaigns/:id/edit", CampaignAdminLive.Edit, :edit
       live "/admin/notifications/campaigns/:id", CampaignAdminLive.Show, :show
       live "/admin/notifications/analytics", NotificationAnalyticsLive.Index, :index
+      live "/admin/notifications/rules", RulesAdminLive.Index, :index
       live "/admin/ai-manager", AIManagerLive.Index, :index
 
       # AI Ads Manager Admin
@@ -189,6 +190,9 @@ defmodule BlocksterV2Web.Router do
 
     # SendGrid event webhook
     post "/webhooks/sendgrid", SendgridWebhookController, :handle
+
+    # Telegram bot webhook
+    post "/webhooks/telegram", TelegramWebhookController, :handle
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

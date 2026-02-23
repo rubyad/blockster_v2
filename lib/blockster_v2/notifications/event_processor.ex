@@ -141,7 +141,7 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   defp matches_conditions?(nil, _metadata), do: true
   defp matches_conditions?(conditions, metadata) when is_map(conditions) do
     Enum.all?(conditions, fn {key, expected} ->
-      actual = Map.get(metadata, key) || Map.get(metadata, to_string(key))
+      actual = get_metadata_value(metadata, key)
       match_value?(actual, expected)
     end)
   end
@@ -164,8 +164,14 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       channel = rule["channel"] || "in_app"
       metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
 
-      # In-app notification (for "in_app" or "both")
-      if channel in ["in_app", "both"] do
+      # Include reward amounts in metadata for activity tracking
+      metadata =
+        metadata
+        |> maybe_put_reward("bux_bonus", rule["bux_bonus"])
+        |> maybe_put_reward("rogue_bonus", rule["rogue_bonus"])
+
+      # In-app notification (for "in_app", "both", or "all")
+      if channel in ["in_app", "both", "all"] do
         Notifications.create_notification(user_id, %{
           type: rule["notification_type"] || "special_offer",
           category: rule["category"] || "engagement",
@@ -177,9 +183,14 @@ defmodule BlocksterV2.Notifications.EventProcessor do
         })
       end
 
-      # Email (for "email" or "both")
-      if channel in ["email", "both"] do
-        send_rule_email(user_id, rule)
+      # Email (for "email" or "both" or "all")
+      if channel in ["email", "both", "all"] do
+        send_rule_email(user_id, rule, dedup_key)
+      end
+
+      # Telegram DM (for "telegram" or "all")
+      if channel in ["telegram", "all"] do
+        send_rule_telegram(user_id, rule)
       end
 
       # BUX crediting
@@ -195,7 +206,7 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   end
   defp execute_rule_action(_, _, _, _), do: :ok
 
-  defp send_rule_email(user_id, rule) do
+  defp send_rule_email(user_id, rule, dedup_key \\ nil) do
     import Ecto.Query
 
     user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{email: u.email, username: u.username})
@@ -223,11 +234,13 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
           case Mailer.deliver(email) do
             {:ok, _} ->
+              log_metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
               Notifications.create_email_log(%{
                 user_id: user_id,
                 email_type: "custom_rule",
                 subject: rule["subject"] || rule["title"],
-                sent_at: DateTime.utc_now() |> DateTime.truncate(:second)
+                sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+                metadata: log_metadata
               })
               Logger.info("[EventProcessor] Sent custom rule email to user #{user_id}")
 
@@ -241,6 +254,40 @@ defmodule BlocksterV2.Notifications.EventProcessor do
     end
   rescue
     e -> Logger.warning("[EventProcessor] Error sending rule email for user #{user_id}: #{inspect(e)}")
+  end
+
+  defp send_rule_telegram(user_id, rule) do
+    import Ecto.Query
+
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{telegram_user_id: u.telegram_user_id})
+
+    if user && user.telegram_user_id do
+      token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)
+
+      if token do
+        message = rule["body"] || rule["title"] || ""
+
+        Task.start(fn ->
+          case Req.post("https://api.telegram.org/bot#{token}/sendMessage",
+                 json: %{chat_id: user.telegram_user_id, text: message},
+                 receive_timeout: 10_000
+               ) do
+            {:ok, %{status: 200}} ->
+              Logger.info("[EventProcessor] Sent Telegram DM to user #{user_id}")
+
+            {:ok, %{status: status} = resp} ->
+              Logger.warning("[EventProcessor] Telegram DM failed for user #{user_id}: #{status} - #{inspect(resp.body)}")
+
+            {:error, reason} ->
+              Logger.warning("[EventProcessor] Telegram DM error for user #{user_id}: #{inspect(reason)}")
+          end
+        end)
+      end
+    else
+      Logger.debug("[EventProcessor] User #{user_id} has no Telegram connected, skipping DM")
+    end
+  rescue
+    e -> Logger.warning("[EventProcessor] Error sending Telegram DM for user #{user_id}: #{inspect(e)}")
   end
 
   defp credit_bux(user_id, amount) do
@@ -310,5 +357,42 @@ defmodule BlocksterV2.Notifications.EventProcessor do
     "custom_rule:#{event_type}:#{parts}"
   end
 
+  # One-time reward events — always dedup even without conditions
+  @one_time_events ~w(telegram_connected telegram_group_joined phone_verified x_connected wallet_connected)
+  defp build_dedup_key(_rule, event_type) when event_type in @one_time_events do
+    "custom_rule:#{event_type}"
+  end
+
+  # Rules with bonuses should always dedup to prevent repeat payouts
+  defp build_dedup_key(%{"title" => title} = rule, event_type) when is_binary(title) do
+    if has_bonus?(rule) do
+      slug = title |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "_") |> String.trim("_")
+      "custom_rule:#{event_type}:#{slug}"
+    else
+      nil
+    end
+  end
+
   defp build_dedup_key(_rule, _event_type), do: nil
+
+  defp has_bonus?(%{"bux_bonus" => b}) when is_number(b) and b > 0, do: true
+  defp has_bonus?(%{"rogue_bonus" => r}) when is_number(r) and r > 0, do: true
+  defp has_bonus?(_), do: false
+
+  # Look up a metadata value by string key, falling back to atom key
+  defp get_metadata_value(metadata, key) when is_binary(key) do
+    case Map.get(metadata, key) do
+      nil ->
+        try do
+          Map.get(metadata, String.to_existing_atom(key))
+        rescue
+          ArgumentError -> nil
+        end
+      val -> val
+    end
+  end
+
+  defp maybe_put_reward(metadata, _key, nil), do: metadata
+  defp maybe_put_reward(metadata, _key, v) when not is_number(v) or v <= 0, do: metadata
+  defp maybe_put_reward(metadata, key, v), do: Map.put(metadata, key, v)
 end

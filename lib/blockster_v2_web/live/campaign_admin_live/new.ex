@@ -33,7 +33,10 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
        "scheduled_at" => nil,
        "send_now" => true,
        "balance_operator" => "above",
-       "balance_threshold" => ""
+       "balance_threshold" => "",
+       "wallet_provider" => "metamask",
+       "multiplier_operator" => "above",
+       "multiplier_threshold" => ""
      })
      |> assign(:estimated_recipients, 0)
      |> assign(:selected_users, [])
@@ -66,7 +69,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
     socket = assign(socket, :form_data, form_data)
 
     # Recalculate recipient count if audience-related fields changed
-    audience_fields = ~w(target_audience target_hub_id balance_operator balance_threshold)
+    audience_fields = ~w(target_audience target_hub_id balance_operator balance_threshold wallet_provider multiplier_operator multiplier_threshold)
     socket = if Enum.any?(audience_fields, &Map.has_key?(params, &1)) do
       update_recipient_count(socket)
     else
@@ -327,11 +330,18 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
           {"active_users", "Active Users", "Active in last 7 days"},
           {"dormant_users", "Dormant Users", "Inactive 30+ days"},
           {"phone_verified", "Phone Verified", "Verified phone number"},
+          {"not_phone_verified", "Not Phone Verified", "Haven't verified phone yet"},
+          {"x_connected", "X Connected", "Connected X account"},
+          {"not_x_connected", "No X Account", "Haven't connected X"},
+          {"has_external_wallet", "Has Wallet", "Connected an external wallet"},
+          {"no_external_wallet", "No Wallet", "No external wallet connected"},
+          {"wallet_provider", "Wallet Provider", "Specific wallet type"},
+          {"multiplier", "Multiplier", "Above or below a threshold"},
           {"custom", "Custom Selection", "Search & select specific users"},
           {"bux_gamers", "BUX Gamers", "Played BUX Booster with BUX"},
           {"rogue_gamers", "ROGUE Gamers", "Played BUX Booster with ROGUE"},
           {"bux_balance", "BUX Balance", "Above or below a threshold"},
-          {"rogue_holders", "ROGUE Holders", "Users with ROGUE balance"}
+          {"rogue_holders", "ROGUE Balance", "Above or below a threshold"}
         ] %>
         <%= for {value, label, desc} <- audiences do %>
           <label class={"block p-4 rounded-xl border-2 cursor-pointer transition-all #{if @form_data["target_audience"] == value, do: "border-gray-900 bg-gray-50", else: "border-gray-100 hover:border-gray-200"}"}>
@@ -404,8 +414,8 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
         </div>
       <% end %>
 
-      <%!-- BUX Balance Filter --%>
-      <%= if @form_data["target_audience"] == "bux_balance" do %>
+      <%!-- Balance Filter --%>
+      <%= if @form_data["target_audience"] in ["bux_balance", "rogue_holders"] do %>
         <div class="flex items-end gap-3">
           <div class="flex-1">
             <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Operator</label>
@@ -415,8 +425,38 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">BUX Threshold</label>
+            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1"><%= if @form_data["target_audience"] == "rogue_holders", do: "ROGUE Threshold", else: "BUX Threshold" %></label>
             <input type="number" name="balance_threshold" value={@form_data["balance_threshold"]} placeholder="e.g. 1000" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400" />
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Wallet Provider Selector --%>
+      <%= if @form_data["target_audience"] == "wallet_provider" do %>
+        <div>
+          <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Wallet Provider</label>
+          <select name="wallet_provider" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">
+            <option value="metamask" selected={@form_data["wallet_provider"] == "metamask"}>MetaMask</option>
+            <option value="phantom" selected={@form_data["wallet_provider"] == "phantom"}>Phantom</option>
+            <option value="coinbase" selected={@form_data["wallet_provider"] == "coinbase"}>Coinbase Wallet</option>
+            <option value="walletconnect" selected={@form_data["wallet_provider"] == "walletconnect"}>WalletConnect</option>
+          </select>
+        </div>
+      <% end %>
+
+      <%!-- Multiplier Filter --%>
+      <%= if @form_data["target_audience"] == "multiplier" do %>
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Operator</label>
+            <select name="multiplier_operator" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">
+              <option value="above" selected={@form_data["multiplier_operator"] == "above"}>Above or equal to</option>
+              <option value="below" selected={@form_data["multiplier_operator"] == "below"}>Below</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Multiplier Threshold</label>
+            <input type="number" name="multiplier_threshold" value={@form_data["multiplier_threshold"]} step="0.1" placeholder="e.g. 5.0" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400" />
           </div>
         </div>
       <% end %>
@@ -584,10 +624,19 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
       "custom" ->
         %{"user_ids" => Enum.map(selected_users, & &1.id)}
 
-      "bux_balance" ->
+      audience when audience in ["bux_balance", "rogue_holders"] ->
         %{
           "operator" => fd["balance_operator"] || "above",
           "threshold" => fd["balance_threshold"] || "0"
+        }
+
+      "wallet_provider" ->
+        %{"provider" => fd["wallet_provider"] || "metamask"}
+
+      "multiplier" ->
+        %{
+          "operator" => fd["multiplier_operator"] || "above",
+          "threshold" => fd["multiplier_threshold"] || "0"
         }
 
       _ ->

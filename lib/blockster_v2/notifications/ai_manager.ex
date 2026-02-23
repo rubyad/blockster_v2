@@ -100,17 +100,79 @@ defmodule BlocksterV2.Notifications.AIManager do
   - "Notify big BUX wagerers (>10K BUX wagered)": event_type="game_played", conditions={"bux_total_wagered": {"$gte": 10000}}
   - "Notify losing ROGUE players (negative P&L)": event_type="game_played", conditions={"rogue_net_pnl": {"$lt": 0}}
 
+  ## ROGUE Deposit/Withdrawal Events
+  When a ROGUE transfer is confirmed (deposit or withdrawal via member page), events fire with:
+  - `rogue_deposited`: metadata has `amount` (this deposit), `net_deposits` (cumulative deposits minus withdrawals), `tx_hash`
+  - `rogue_withdrawn`: metadata has `amount` (this withdrawal), `net_deposits` (cumulative deposits minus withdrawals), `tx_hash`
+
+  Use `net_deposits` (not `amount`) for reward rules to prevent gaming via withdraw+redeposit:
+  - "Reward 5000 BUX for 100K+ net ROGUE deposited": event_type="rogue_deposited", conditions={"net_deposits": {"$gte": 100000}}, bux_bonus=5000
+  - "Reward at 500K net deposits": event_type="rogue_deposited", conditions={"net_deposits": {"$gte": 500000}}, bux_bonus=25000
+
+  `net_deposits` = sum(all confirmed deposits) - sum(all confirmed withdrawals). A user who deposits 100K, withdraws it, and redeposits has net_deposits=100K (not 200K). The dedup system ensures each threshold fires only once per user.
+
+  ## Telegram Events
+  - `telegram_connected`: fires when user links their Telegram account via the bot
+  - `telegram_group_joined`: fires when a connected user joins the Blockster Telegram group
+
+  **IMPORTANT Telegram URLs** — use these exact URLs, NEVER guess or make up Telegram links:
+  - Blockster Telegram Group: https://t.me/+7bIzOyrYBEc3OTdh
+  - Blockster V2 Bot: https://t.me/BlocksterV2Bot
+  - t.me/blockster is NOT ours — never use it
+
+  ## Other Trackable Events
+  - `signup`: fires once on account creation, metadata has `method` ("email" or "wallet")
+  - `profile_updated`: fires on username change, metadata has `field` ("username")
+  - `phone_verified`: fires when user completes phone verification
+  - `x_connected`: fires on first X account connection, metadata has `x_user_id`
+  - `wallet_connected`: fires when external wallet connected, metadata has `provider`, `address`
+
   Rules with numeric thresholds are automatically deduplicated — each user only receives the notification once per rule.
 
+  ## Campaign Safety
+  CRITICAL: Campaigns are ALWAYS created as drafts. You cannot send campaigns directly. An admin must review the campaign content, audience, and subject line before manually approving it for sending. Always set send_now to false.
+
   ## Campaign Targeting
-  Available audiences: all, hub_followers, active_users, dormant_users, phone_verified, custom, bux_gamers, rogue_gamers, bux_balance, rogue_holders.
+  Available audiences: all, hub_followers, active_users, dormant_users, phone_verified, not_phone_verified, x_connected, not_x_connected, has_external_wallet, no_external_wallet, wallet_provider, multiplier, custom, bux_gamers, rogue_gamers, bux_balance, rogue_holders.
   For custom targeting, provide `user_ids` or `user_emails` in the create_campaign tool.
+  For bux_balance and rogue_holders audiences, use `balance_operator` ("above" or "below") and `balance_threshold` (number) to filter by balance amount.
+  For wallet_provider audience, use `wallet_provider` to specify the provider (metamask, phantom, coinbase, walletconnect).
+  For multiplier audience, use `balance_operator` ("above" or "below") and `balance_threshold` (number) to filter by overall multiplier value.
 
   ## Conversion Funnel Stages
   nil → earner (reads articles) → bux_player (plays games) → rogue_curious (whale gambler) → rogue_buyer (made purchase)
 
   ## SMS Templates
   - Flash sale, BUX milestone, order shipped, account security, exclusive drop, special offer
+
+  ## Site URLs for CTAs
+  CRITICAL: NEVER invent URLs. Only use these exact paths. The production domain is https://blockster.com.
+  All action_url values MUST use relative paths (starting with /) — the system prepends the domain automatically.
+
+  | Page | Path |
+  |------|------|
+  | Home / Articles | `/` |
+  | Single Article | `/:slug` (e.g. `/bitcoin-etf-update`) |
+  | Hub | `/hubs/:slug` |
+  | Shop | `/shop` |
+  | Product | `/shop/:slug` |
+  | BUX Booster Game | `/play` |
+  | Member Profile | `/members/:id` |
+  | Notifications | `/notifications` |
+  | Notification Settings | `/notifications/settings` |
+  | Referrals | `/referrals` |
+  | Onboarding | `/onboarding` |
+
+  There is NO `/wallet` page. BUX balances are shown on the member profile (`/members/:id`) and in the navbar.
+  The production domain is `https://blockster.com`.
+
+  **External links** (use full URLs for these):
+  | Resource | URL |
+  |----------|-----|
+  | Telegram Group | `https://t.me/+7bIzOyrYBEc3OTdh` |
+  | Telegram Bot | `https://t.me/BlocksterV2Bot` |
+
+  NEVER guess or fabricate URLs. If you're unsure about a URL, omit the action_url entirely rather than making one up.
 
   ## Guidelines
   - Be decisive but conservative — don't make changes >20% without confirmation
@@ -153,7 +215,7 @@ defmodule BlocksterV2.Notifications.AIManager do
     },
     %{
       "name" => "create_campaign",
-      "description" => "Create a notification campaign (email blast). Optionally send immediately. For custom targeting, provide user_ids or user_emails.",
+      "description" => "Create a notification campaign as a DRAFT for admin review. Campaigns are NEVER sent automatically — an admin must review and approve sending from the campaign admin page. For custom targeting, provide user_ids or user_emails.",
       "input_schema" => %{
         "type" => "object",
         "properties" => %{
@@ -161,12 +223,15 @@ defmodule BlocksterV2.Notifications.AIManager do
           "subject" => %{"type" => "string", "description" => "Email subject line"},
           "body" => %{"type" => "string", "description" => "Email body (plain text or HTML). HTML tags will render properly in the email."},
           "campaign_type" => %{"type" => "string", "description" => "Campaign type", "enum" => ["email_blast", "push_notification", "sms_blast", "multi_channel"]},
-          "target_audience" => %{"type" => "string", "description" => "Target audience", "enum" => ["all", "hub_followers", "active_users", "dormant_users", "phone_verified", "custom", "bux_gamers", "rogue_gamers", "bux_balance", "rogue_holders"]},
+          "target_audience" => %{"type" => "string", "description" => "Target audience", "enum" => ["all", "hub_followers", "active_users", "dormant_users", "phone_verified", "not_phone_verified", "x_connected", "not_x_connected", "has_external_wallet", "no_external_wallet", "wallet_provider", "multiplier", "custom", "bux_gamers", "rogue_gamers", "bux_balance", "rogue_holders"]},
           "user_ids" => %{"type" => "array", "items" => %{"type" => "integer"}, "description" => "List of user IDs for custom targeting. Sets target_audience to 'custom' automatically."},
           "user_emails" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "List of user emails for custom targeting. Resolved to IDs. Sets target_audience to 'custom'."},
           "action_url" => %{"type" => "string", "description" => "CTA link URL (optional)"},
           "action_label" => %{"type" => "string", "description" => "CTA button text (optional)"},
-          "send_now" => %{"type" => "boolean", "description" => "Send immediately if true, save as draft if false"}
+          "balance_operator" => %{"type" => "string", "description" => "For bux_balance, rogue_holders, or multiplier audience: 'above' or 'below'", "enum" => ["above", "below"]},
+          "balance_threshold" => %{"type" => "number", "description" => "For bux_balance, rogue_holders, or multiplier audience: threshold amount"},
+          "wallet_provider" => %{"type" => "string", "description" => "For wallet_provider audience: the wallet provider to filter by", "enum" => ["metamask", "phantom", "coinbase", "walletconnect"]},
+          "send_now" => %{"type" => "boolean", "description" => "ALWAYS set to false. Campaigns must be reviewed by admin before sending."}
         },
         "required" => ["name", "subject", "body"]
       }
@@ -236,7 +301,9 @@ defmodule BlocksterV2.Notifications.AIManager do
       **Channel options:**
       - "in_app" (default) — in-app notification only
       - "email" — send email only
+      - "telegram" — send Telegram DM only (user must have connected their Telegram)
       - "both" — in-app notification AND email
+      - "all" — in-app + email + Telegram DM
 
       **BUX/ROGUE bonuses:**
       - Set bux_bonus to auto-mint BUX to the user's wallet when the rule fires
@@ -255,10 +322,18 @@ defmodule BlocksterV2.Notifications.AIManager do
       - Greater than: {"bux_total_wagered": {"$gt": 10000}}
       - Less than: {"rogue_net_pnl": {"$lt": 0}}
 
+      For rogue_deposited/rogue_withdrawn events, metadata includes:
+      - amount: this transfer's amount
+      - net_deposits: cumulative deposits minus withdrawals (use this for rewards to prevent gaming)
+      - tx_hash: on-chain transaction hash
+
+      Other event types with metadata: signup (method), profile_updated (field), phone_verified, x_connected (x_user_id), wallet_connected (provider, address).
+
       Examples:
       - Email on 1000+ BUX profit: channel="email", conditions={"bux_net_pnl": {"$gte": 1000}}
       - Console losers with 200 BUX bonus: channel="both", conditions={"bux_net_pnl": {"$lt": -1000}}, bux_bonus=200
       - Reward 50+ games with ROGUE: channel="both", conditions={"total_bets": {"$gte": 50}}, rogue_bonus=0.5
+      - Reward 100K+ net ROGUE deposited with 5000 BUX: event_type="rogue_deposited", conditions={"net_deposits": {"$gte": 100000}}, bux_bonus=5000
       """,
       "input_schema" => %{
         "type" => "object",
@@ -268,7 +343,7 @@ defmodule BlocksterV2.Notifications.AIManager do
           "title" => %{"type" => "string", "description" => "Notification title"},
           "body" => %{"type" => "string", "description" => "Notification body"},
           "notification_type" => %{"type" => "string", "description" => "Notification type (default: special_offer)"},
-          "channel" => %{"type" => "string", "description" => "Delivery channel: 'in_app' (default), 'email', or 'both'", "enum" => ["in_app", "email", "both"]},
+          "channel" => %{"type" => "string", "description" => "Delivery channel: 'in_app' (default), 'email', 'telegram' (DM), 'both' (in_app+email), or 'all' (in_app+email+telegram)", "enum" => ["in_app", "email", "telegram", "both", "all"]},
           "subject" => %{"type" => "string", "description" => "Email subject line (defaults to title if not provided)"},
           "action_url" => %{"type" => "string", "description" => "CTA link URL for notifications and emails"},
           "action_label" => %{"type" => "string", "description" => "CTA button text"},
@@ -610,6 +685,7 @@ defmodule BlocksterV2.Notifications.AIManager do
     # Resolve user targeting
     {target_audience, target_criteria} = resolve_campaign_targeting(input)
 
+    # SAFETY: Always create as draft — admin must review and send manually
     attrs = %{
       name: input["name"],
       type: input["campaign_type"] || "email_blast",
@@ -620,16 +696,12 @@ defmodule BlocksterV2.Notifications.AIManager do
       target_criteria: target_criteria,
       action_url: input["action_url"],
       action_label: input["action_label"],
-      status: if(input["send_now"], do: "sending", else: "draft")
+      status: "draft"
     }
 
     case BlocksterV2.Notifications.create_campaign(attrs) do
       {:ok, campaign} ->
-        if input["send_now"] do
-          BlocksterV2.Workers.PromoEmailWorker.enqueue_campaign(campaign.id)
-        end
-
-        %{status: "ok", campaign_id: campaign.id, name: campaign.name, sent: !!input["send_now"]}
+        %{status: "ok", campaign_id: campaign.id, name: campaign.name, message: "Campaign created as draft. An admin must review and send it from /admin/notifications/campaigns/#{campaign.id}"}
 
       {:error, changeset} ->
         %{status: "error", errors: inspect(changeset.errors)}
@@ -705,6 +777,8 @@ defmodule BlocksterV2.Notifications.AIManager do
     end
   end
 
+  # HARD GATE: AI cannot create/modify/delete custom rules autonomously.
+  # These tools only propose changes — the admin must use the Rules Admin page to apply them.
   defp execute_tool("add_custom_rule", input, _admin) do
     rule =
       %{
@@ -724,19 +798,23 @@ defmodule BlocksterV2.Notifications.AIManager do
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
 
-    rules = SystemConfig.get("custom_rules", [])
-    SystemConfig.put("custom_rules", rules ++ [rule], "ai_manager")
-    %{status: "ok", total_rules: length(rules) + 1, rule: rule}
+    %{
+      status: "requires_admin_action",
+      message: "Custom rules cannot be created automatically. The rule has been drafted below for the admin to review. To apply it, go to /admin/notifications/rules and create it manually.",
+      proposed_rule: rule
+    }
   end
 
   defp execute_tool("remove_custom_rule", %{"rule_index" => index}, _admin) do
     rules = SystemConfig.get("custom_rules", [])
 
     if index >= 0 and index < length(rules) do
-      removed = Enum.at(rules, index)
-      new_rules = List.delete_at(rules, index)
-      SystemConfig.put("custom_rules", new_rules, "ai_manager")
-      %{status: "ok", removed_rule: removed, remaining_rules: length(new_rules)}
+      %{
+        status: "requires_admin_action",
+        message: "Custom rules cannot be deleted automatically. To remove this rule, go to /admin/notifications/rules and delete it manually.",
+        rule_to_remove: Enum.at(rules, index),
+        rule_index: index
+      }
     else
       %{status: "error", message: "Invalid rule index. Current rules: #{length(rules)}"}
     end
@@ -1194,9 +1272,18 @@ defmodule BlocksterV2.Notifications.AIManager do
         {"custom", %{"user_ids" => user_ids}}
 
       true ->
-        {input["target_audience"] || "all", %{}}
+        criteria =
+          %{}
+          |> maybe_put("operator", input["balance_operator"])
+          |> maybe_put("threshold", input["balance_threshold"])
+          |> maybe_put("provider", input["wallet_provider"])
+
+        {input["target_audience"] || "all", criteria}
     end
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   # ============ Helpers ============
 

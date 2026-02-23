@@ -8,6 +8,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.Accounts
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.Notifications
   alias BlocksterV2.UnifiedMultiplier
   alias BlocksterV2.RogueMultiplier
   alias BlocksterV2.Social
@@ -154,6 +155,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
            |> assign(:followed_hubs, followed_hubs)
            # Settings tab
            |> assign(:x_connection, x_connection)
+           |> assign(:telegram_connected, member.telegram_user_id != nil)
+           |> assign(:telegram_username, member.telegram_username)
            |> assign(:editing_username, false)
            |> assign(:username_form, %{"username" => member.username})}
         end
@@ -220,6 +223,21 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   @impl true
+  def handle_event("connect_telegram", _params, socket) do
+    member = socket.assigns.member
+    token = Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false)
+
+    case BlocksterV2.Accounts.update_user(member, %{telegram_connect_token: token}) do
+      {:ok, _} ->
+        bot_url = "https://t.me/BlocksterPostsBot?start=#{token}"
+        {:noreply, redirect(socket, external: bot_url)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to generate Telegram link")}
+    end
+  end
+
+  @impl true
   def handle_event("update_username_form", %{"username" => username}, socket) do
     {:noreply, assign(socket, :username_form, %{"username" => username})}
   end
@@ -230,6 +248,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
     case Accounts.update_user(member, %{username: username}) do
       {:ok, updated_member} ->
+        BlocksterV2.UserEvents.track(member.id, "profile_updated", %{field: "username"})
         {:noreply,
          socket
          |> assign(:member, updated_member)
@@ -712,7 +731,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
     end
   end
 
-  # Load activities from Mnesia tables (post reads, video watches, and X shares)
+  # Load activities from Mnesia tables (post reads, video watches, X shares) and notifications
   defp load_member_activities(user_id) do
     # Get post read rewards from Mnesia
     read_activities = EngagementTracker.get_all_user_post_rewards(user_id)
@@ -723,11 +742,14 @@ defmodule BlocksterV2Web.MemberLive.Show do
     # Get X share rewards from Mnesia
     share_activities = Social.list_user_share_rewards(user_id)
 
+    # Get notification activities from PostgreSQL
+    notification_activities = Notifications.list_notification_activities(user_id)
+
     # Combine and sort by timestamp (most recent first)
-    # Read and video activities need post info enrichment, share activities have retweet_id
     (enrich_read_activities_with_post_info(read_activities) ++
      enrich_read_activities_with_post_info(video_activities) ++
-     share_activities)
+     share_activities ++
+     notification_activities)
     |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
   end
 
@@ -814,6 +836,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   defp calculate_total_bux(activities) do
     activities
+    |> Enum.filter(fn a -> (a[:token] || "BUX") == "BUX" end)
     |> Enum.map(& &1.amount)
     |> Enum.filter(&is_number/1)
     |> Enum.sum()
@@ -1105,5 +1128,26 @@ defmodule BlocksterV2Web.MemberLive.Show do
   def is_recent_earning?(datetime) do
     now = DateTime.utc_now()
     DateTime.diff(now, datetime, :second) < 300  # 5 minutes
+  end
+
+  defp format_amount(amount) do
+    float =
+      cond do
+        is_struct(amount, Decimal) -> Decimal.to_float(amount)
+        is_number(amount) -> amount * 1.0
+        true -> 0.0
+      end
+
+    [whole, frac] = :erlang.float_to_binary(float, decimals: 2) |> String.split(".")
+
+    formatted =
+      whole
+      |> String.graphemes()
+      |> Enum.reverse()
+      |> Enum.chunk_every(3)
+      |> Enum.map_join(",", &Enum.join/1)
+      |> String.reverse()
+
+    "#{formatted}.#{frac}"
   end
 end

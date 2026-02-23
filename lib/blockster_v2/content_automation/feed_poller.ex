@@ -90,7 +90,7 @@ defmodule BlocksterV2.ContentAutomation.FeedPoller do
 
       results =
         feeds
-        |> Task.async_stream(&poll_single_feed/1, max_concurrency: 5, timeout: 60_000)
+        |> Task.async_stream(&poll_single_feed/1, max_concurrency: 5, timeout: 60_000, on_timeout: :kill_task)
         |> Enum.reduce(%{success: 0, failed: 0, new_items: 0}, fn
           {:ok, {:ok, count}}, acc ->
             %{acc | success: acc.success + 1, new_items: acc.new_items + count}

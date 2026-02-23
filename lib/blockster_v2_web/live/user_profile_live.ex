@@ -340,6 +340,7 @@ defmodule BlocksterV2Web.UserProfileLive do
 
     case BlocksterV2.Accounts.update_user(current_user, %{username: username}) do
       {:ok, updated_user} ->
+        BlocksterV2.UserEvents.track(current_user.id, "profile_updated", %{field: "username"})
         {:noreply,
          socket
          |> assign(current_user: updated_user, editing_username: false)

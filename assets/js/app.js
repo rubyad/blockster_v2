@@ -821,6 +821,13 @@ window.handleWalletDisconnect = async function() {
   }
 };
 
+// Open external URLs in a new tab (from notification clicks)
+window.addEventListener("phx:open_external_url", (e) => {
+  if (e.detail && e.detail.url) {
+    window.open(e.detail.url, "_blank", "noopener,noreferrer");
+  }
+});
+
 // Event listener to clear tag input
 window.addEventListener("phx:clear-tag-input", () => {
   const tagInput = document.getElementById("tag-input");

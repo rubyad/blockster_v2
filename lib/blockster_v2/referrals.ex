@@ -3,8 +3,8 @@ defmodule BlocksterV2.Referrals do
   Handles referral tracking, rewards, and earnings using Mnesia for storage.
 
   Referrers earn:
-  - 100 BUX when a referred user signs up
-  - 100 BUX when a referred user verifies their phone number
+  - 500 BUX when a referred user signs up
+  - 500 BUX when a referred user verifies their phone number
   - 1% of every losing BUX bet on BUX Booster by their referrals (paid from smart contract)
   - 0.2% of every losing ROGUE bet on BUX Booster by their referrals (paid from smart contract)
   """
@@ -17,7 +17,7 @@ defmodule BlocksterV2.Referrals do
   # Default amounts — overridden by SystemConfig at runtime
   @default_signup_reward 500
   @default_referee_signup_reward 250
-  @default_phone_verified_reward 100
+  @default_phone_verified_reward 500
 
   # ----- Signup Referral Processing -----
 

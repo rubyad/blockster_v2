@@ -9,7 +9,7 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
   @from_address {"Blockster", "notifications@blockster.com"}
   @brand_color "#CAFC00"
   @logo_url "https://ik.imagekit.io/blockster/Blockster-logo-white.png"
-  @base_url "https://blockster-v2.fly.dev"
+  @base_url "https://blockster.com"
 
   # ============ Public API ============
 
@@ -144,8 +144,8 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
     title = data[:title] || "Special Offer"
     body = data[:body] || ""
     image_url = data[:image_url]
-    action_url = data[:action_url] || "#{@base_url}/shop"
-    action_label = data[:action_label] || "Shop Now"
+    action_url = ensure_absolute_url(data[:action_url])
+    action_label = data[:action_label]
     discount_code = data[:discount_code]
 
     subject = title
@@ -167,12 +167,15 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
         ""
       end
 
+    cta_html = if action_url && action_label, do: cta_button(action_label, action_url), else: ""
+    cta_text = if action_url && action_label, do: "#{action_label}: #{action_url}", else: ""
+
     html_content = """
     #{hero}
     <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">#{escape(title)}</h2>
     <div style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">#{body}</div>
     #{discount_html}
-    #{cta_button(action_label, action_url)}
+    #{cta_html}
     """
 
     text_content = """
@@ -180,7 +183,7 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
 
     #{body}
     #{if discount_code, do: "\nUse code: #{discount_code}\n", else: ""}
-    #{action_label}: #{action_url}
+    #{cta_text}
     """
 
     build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
@@ -287,52 +290,173 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
     subject = "Welcome to Blockster!"
 
     html_content = """
-    <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">Welcome to Blockster, #{escape(username)}!</h2>
-    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">
-      You're now part of Web3's daily content hub. Here's how to get started:
+    <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">Welcome to Blockster,</h2>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 20px;">
+      You're officially in.
     </p>
-    <div style="margin:20px 0;">
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
-        <div style="width:32px;height:32px;background:#{@brand_color};border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-weight:700;font-size:14px;">1</span>
-        </div>
-        <div>
-          <p style="color:#141414;font-weight:600;margin:0;">Read articles to earn BUX</p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">The more you read, the more you earn.</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
-        <div style="width:32px;height:32px;background:#{@brand_color};border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-weight:700;font-size:14px;">2</span>
-        </div>
-        <div>
-          <p style="color:#141414;font-weight:600;margin:0;">Subscribe to hubs you love</p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">Follow hubs for personalized content in your feed.</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
-        <div style="width:32px;height:32px;background:#{@brand_color};border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-weight:700;font-size:14px;">3</span>
-        </div>
-        <div>
-          <p style="color:#141414;font-weight:600;margin:0;">Redeem BUX in the shop</p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">Use your earned BUX for exclusive merch and deals.</p>
-        </div>
-      </div>
-    </div>
-    #{cta_button("Start Exploring", @base_url)}
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px;">
+      On Blockster, you earn BUX for engaging with content:
+    </p>
+    <ul style="color:#555;font-size:15px;line-height:1.8;margin:0 0 20px;padding-left:20px;">
+      <li>Reading stories</li>
+      <li>Watching videos</li>
+      <li>Sharing posts on X</li>
+    </ul>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px;">
+      Your BUX can be redeemed for:
+    </p>
+    <ul style="color:#555;font-size:15px;line-height:1.8;margin:0 0 20px;padding-left:20px;">
+      <li>Shopping</li>
+      <li>Games</li>
+      <li>Airdrops and rewards</li>
+    </ul>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px;">
+      Blockster is your daily crypto feed — with rewards built in.
+    </p>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">
+      Start exploring and earn your first BUX today.
+    </p>
+    #{cta_button("Get started now", @base_url)}
     """
 
     text_content = """
-    Welcome to Blockster, #{username}!
+    Welcome to Blockster,
 
-    Here's how to get started:
+    You're officially in.
 
-    1. Read articles to earn BUX — the more you read, the more you earn.
-    2. Subscribe to hubs you love — follow hubs for personalized content.
-    3. Redeem BUX in the shop — use your BUX for exclusive merch.
+    On Blockster, you earn BUX for engaging with content:
+    - Reading stories
+    - Watching videos
+    - Sharing posts on X
 
-    Start exploring: #{@base_url}
+    Your BUX can be redeemed for:
+    - Shopping
+    - Games
+    - Airdrops and rewards
+
+    Blockster is your daily crypto feed — with rewards built in.
+
+    Start exploring and earn your first BUX today.
+
+    Get started now: #{@base_url}
+    """
+
+    build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
+  end
+
+  @doc """
+  Welcome series Day 3 — BUX Booster intro.
+  data: %{username}
+  """
+  def welcome_day3(to_email, to_name, unsubscribe_token, data) do
+    username = data[:username] || to_name || "there"
+
+    subject = "Claim 200 BUX ⚡"
+
+    html_content = """
+    <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">Claim 200 BUX ⚡</h2>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Play your first game and get 200 BUX, win or lose.
+    </p>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">
+      Games are quick and easy to play.
+    </p>
+    #{cta_button("Play now!", "#{@base_url}/play")}
+    """
+
+    text_content = """
+    Claim 200 BUX ⚡
+
+    Play your first game and get 200 BUX, win or lose.
+
+    Games are quick and easy to play.
+
+    Play now! #{@base_url}/play
+    """
+
+    build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
+  end
+
+  @doc """
+  Welcome series Day 5 — Referrals.
+  data: %{username, referral_link}
+  """
+  def welcome_day5(to_email, to_name, unsubscribe_token, data) do
+    username = data[:username] || to_name || "there"
+    referral_link = data[:referral_link] || @base_url
+
+    subject = "Earn 500 BUX for Every Friend You Refer \u{1F465}"
+
+    html_content = """
+    <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">Earn 500 BUX for every friend you refer \u{1F465}</h2>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Your friend gets 250 BUX when they sign up.
+    </p>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px;">
+      Share your personal referral link.
+    </p>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      When a friend joins Blockster, you get rewarded.
+    </p>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      There's no limit to how much you can earn.
+    </p>
+    <div style="background:#f8f8f8;border-radius:8px;padding:12px 16px;margin:0 0 24px;">
+      <p style="color:#888;font-size:12px;margin:0 0 4px;">Your referral link:</p>
+      <p style="color:#141414;font-size:14px;margin:0;word-break:break-all;">#{referral_link}</p>
+    </div>
+    """
+
+    text_content = """
+    Earn 500 BUX for every friend you refer \u{1F465}
+    Your friend gets 250 BUX when they sign up.
+
+    Share your personal referral link.
+    When a friend joins Blockster, you get rewarded.
+
+    There's no limit to how much you can earn.
+
+    Your referral link:
+    #{referral_link}
+    """
+
+    build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
+  end
+
+  @doc """
+  Welcome series Day 7 — Hubs.
+  data: %{username}
+  """
+  def welcome_day7(to_email, to_name, unsubscribe_token, data) do
+    username = data[:username] || to_name || "there"
+
+    subject = "Subscribe to Hubs. Earn More BUX. \u26A1"
+
+    html_content = """
+    <h2 style="color:#141414;font-size:24px;margin:0 0 8px;">Subscribe to Hubs. Earn More BUX. \u26A1</h2>
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px;">
+      Subscribe to Hubs to:
+    </p>
+    <ul style="color:#555;font-size:15px;line-height:1.8;margin:0 0 20px;padding-left:20px;">
+      <li>Get notified when new stories are released</li>
+      <li>Be first to see merchandise drops and announcements</li>
+      <li>Get notified about upcoming events (coming soon)</li>
+      <li>Unlock more opportunities to earn more BUX</li>
+    </ul>
+    #{cta_button("Explore Hubs now", "#{@base_url}/hubs")}
+    """
+
+    text_content = """
+    Subscribe to Hubs. Earn More BUX. \u26A1
+
+    Subscribe to Hubs to:
+
+    - Get notified when new stories are released
+    - Be first to see merchandise drops and announcements
+    - Get notified about upcoming events (coming soon)
+    - Unlock more opportunities to earn more BUX
+
+    Explore Hubs now: #{@base_url}/hubs
     """
 
     build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
@@ -564,6 +688,12 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
       <a href="#{url}" style="display:inline-block;background:#{@brand_color};color:#000;font-weight:700;font-size:15px;padding:12px 32px;border-radius:50px;text-decoration:none;">#{escape(label)}</a>
     </div>)
   end
+
+  defp ensure_absolute_url(nil), do: nil
+  defp ensure_absolute_url(""), do: nil
+  defp ensure_absolute_url("http" <> _ = url), do: url
+  defp ensure_absolute_url("/" <> _ = path), do: "#{@base_url}#{path}"
+  defp ensure_absolute_url(path), do: "#{@base_url}/#{path}"
 
   @doc false
   def escape(nil), do: ""

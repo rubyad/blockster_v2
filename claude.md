@@ -158,9 +158,17 @@ Registration is **email only**. Thirdweb creates an ERC-4337 smart wallet automa
 ## Services
 | Service | URL |
 |---------|-----|
-| Main App | `https://blockster-v2.fly.dev` |
+| Main App | `https://blockster.com` |
 | BUX Minter | `https://bux-minter.fly.dev` |
 | Bundler | `https://rogue-bundler-mainnet.fly.dev` |
+
+## Telegram
+| Resource | URL |
+|----------|-----|
+| Blockster Group | `https://t.me/+7bIzOyrYBEc3OTdh` |
+| Blockster V2 Bot | `https://t.me/BlocksterV2Bot` |
+
+**IMPORTANT**: `t.me/blockster` is NOT ours. Never use it anywhere.
 
 ---
 

@@ -46,32 +46,14 @@ defmodule BlocksterV2.Workers.WelcomeSeriesWorker do
       token = if prefs, do: prefs.unsubscribe_token, else: ""
       name = user.username || user.email
 
+      referral_link = "#{base_url()}/?ref=#{user_id}"
+
       email =
         case day do
-          0 ->
-            EmailBuilder.welcome(user.email, name, token, %{username: name})
-
-          3 ->
-            EmailBuilder.single_article(user.email, name, token, %{
-              title: "You're earning BUX by reading",
-              body: "Every article you read on Blockster earns you BUX tokens. The more you read, the more you earn. Check your balance and keep exploring!",
-              slug: "how-it-works",
-              hub_name: nil
-            })
-
-          5 ->
-            EmailBuilder.single_article(user.email, name, token, %{
-              title: "Discover your hubs",
-              body: "Hubs are topic-focused content channels on Blockster. Follow hubs you love to get personalized content in your feed.",
-              slug: "hubs",
-              hub_name: nil
-            })
-
-          7 ->
-            EmailBuilder.referral_prompt(user.email, name, token, %{
-              referral_link: "#{base_url()}/?ref=#{user_id}",
-              bux_reward: 500
-            })
+          0 -> EmailBuilder.welcome(user.email, name, token, %{username: name})
+          3 -> EmailBuilder.welcome_day3(user.email, name, token, %{username: name})
+          5 -> EmailBuilder.welcome_day5(user.email, name, token, %{username: name, referral_link: referral_link})
+          7 -> EmailBuilder.welcome_day7(user.email, name, token, %{username: name})
         end
 
       case Mailer.deliver(email) do

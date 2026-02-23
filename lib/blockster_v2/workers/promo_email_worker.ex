@@ -156,6 +156,40 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
         "phone_verified" ->
           from(u in base_query, where: u.phone_verified == true)
 
+        "not_phone_verified" ->
+          from(u in base_query, where: u.phone_verified == false or is_nil(u.phone_verified))
+
+        "x_connected" ->
+          from(u in base_query, where: not is_nil(u.locked_x_user_id))
+
+        "not_x_connected" ->
+          from(u in base_query, where: is_nil(u.locked_x_user_id))
+
+        "has_external_wallet" ->
+          from(u in base_query,
+            join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+            distinct: true
+          )
+
+        "no_external_wallet" ->
+          from(u in base_query,
+            left_join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+            where: is_nil(cw.id)
+          )
+
+        "wallet_provider" ->
+          provider = get_in(campaign.target_criteria || %{}, ["provider"]) || "metamask"
+          from(u in base_query,
+            join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+            where: cw.provider == ^provider,
+            distinct: true
+          )
+
+        "multiplier" ->
+          criteria = campaign.target_criteria || %{}
+          user_ids = Notifications.get_multiplier_user_ids(criteria)
+          if user_ids == [], do: from(u in base_query, where: false), else: from(u in base_query, where: u.id in ^user_ids)
+
         "custom" ->
           user_ids = get_in(campaign.target_criteria || %{}, ["user_ids"]) || []
           if user_ids == [], do: from(u in base_query, where: false), else: from(u in base_query, where: u.id in ^user_ids)
@@ -170,9 +204,9 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
 
     Repo.all(query)
     |> Enum.filter(fn user ->
-      case Notifications.get_preferences(user.id) do
-        nil -> false
-        prefs -> prefs.email_enabled && prefs.email_special_offers
+      case Notifications.get_or_create_preferences(user.id) do
+        {:ok, prefs} -> prefs.email_enabled && prefs.email_special_offers
+        _ -> false
       end
     end)
   end

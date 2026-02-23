@@ -30,7 +30,6 @@ defmodule BlocksterV2.Notifications do
   def get_notification(id), do: Repo.get(Notification, id)
 
   def list_notifications(user_id, opts \\ []) do
-    category = Keyword.get(opts, :category)
     status = Keyword.get(opts, :status)
     limit = Keyword.get(opts, :limit, 20)
     offset = Keyword.get(opts, :offset, 0)
@@ -38,7 +37,6 @@ defmodule BlocksterV2.Notifications do
     Notification
     |> where([n], n.user_id == ^user_id)
     |> where([n], is_nil(n.dismissed_at))
-    |> maybe_filter_category(category)
     |> maybe_filter_status(status)
     |> order_by([n], [desc: n.inserted_at, desc: n.id])
     |> limit(^limit)
@@ -53,6 +51,46 @@ defmodule BlocksterV2.Notifications do
     |> order_by([n], [desc: n.inserted_at, desc: n.id])
     |> limit(^limit)
     |> Repo.all()
+  end
+
+  @doc """
+  Returns all notifications for a user as activity maps for the member Activity tab.
+  """
+  def list_notification_activities(user_id) do
+    Notification
+    |> where([n], n.user_id == ^user_id)
+    |> where([n], n.type != "hub_post")
+    |> order_by([n], [desc: n.inserted_at])
+    |> Repo.all()
+    |> Enum.map(&notification_to_activity/1)
+  end
+
+  defp notification_to_activity(notification) do
+    bux = get_in(notification.metadata, ["bux_bonus"])
+    rogue = get_in(notification.metadata, ["rogue_bonus"])
+
+    {amount, token} =
+      cond do
+        is_number(bux) && bux > 0 -> {bux * 1.0, "BUX"}
+        is_number(rogue) && rogue > 0 -> {rogue * 1.0, "ROGUE"}
+        true -> {nil, nil}
+      end
+
+    timestamp =
+      case notification.inserted_at do
+        %NaiveDateTime{} = ndt -> DateTime.from_naive!(ndt, "Etc/UTC")
+        %DateTime{} = dt -> dt
+        _ -> DateTime.utc_now()
+      end
+
+    %{
+      type: :notification,
+      label: notification.title,
+      amount: amount,
+      token: token,
+      action_url: notification.action_url,
+      timestamp: timestamp
+    }
   end
 
   def unread_count(user_id) do
@@ -275,6 +313,46 @@ defmodule BlocksterV2.Notifications do
         from(u in base, where: u.phone_verified == true)
         |> Repo.aggregate(:count, :id)
 
+      "not_phone_verified" ->
+        from(u in base, where: u.phone_verified == false or is_nil(u.phone_verified))
+        |> Repo.aggregate(:count, :id)
+
+      "x_connected" ->
+        from(u in base, where: not is_nil(u.locked_x_user_id))
+        |> Repo.aggregate(:count, :id)
+
+      "not_x_connected" ->
+        from(u in base, where: is_nil(u.locked_x_user_id))
+        |> Repo.aggregate(:count, :id)
+
+      "has_external_wallet" ->
+        from(u in base,
+          join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+          distinct: true
+        )
+        |> Repo.aggregate(:count, :id)
+
+      "no_external_wallet" ->
+        from(u in base,
+          left_join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+          where: is_nil(cw.id)
+        )
+        |> Repo.aggregate(:count, :id)
+
+      "wallet_provider" ->
+        provider = get_in(campaign.target_criteria || %{}, ["provider"]) || "metamask"
+        from(u in base,
+          join: cw in BlocksterV2.ConnectedWallet, on: cw.user_id == u.id,
+          where: cw.provider == ^provider,
+          distinct: true
+        )
+        |> Repo.aggregate(:count, :id)
+
+      "multiplier" ->
+        criteria = campaign.target_criteria || %{}
+        user_ids = get_multiplier_user_ids(criteria)
+        if user_ids == [], do: 0, else: from(u in base, where: u.id in ^user_ids) |> Repo.aggregate(:count, :id)
+
       "custom" ->
         user_ids = get_in(campaign.target_criteria, ["user_ids"]) || []
         if user_ids == [] do
@@ -358,14 +436,21 @@ defmodule BlocksterV2.Notifications do
     end
   end
 
-  def get_mnesia_user_ids("rogue_holders", _criteria) do
+  def get_mnesia_user_ids("rogue_holders", criteria) do
+    operator = criteria["operator"] || "above"
+    threshold = parse_threshold(criteria["threshold"])
+
     try do
       :mnesia.dirty_all_keys(:user_rogue_balances)
       |> Enum.filter(fn user_id ->
         case :mnesia.dirty_read(:user_rogue_balances, user_id) do
           [record] ->
             balance = elem(record, 4)
-            is_number(balance) and balance > 0
+            case operator do
+              "above" -> is_number(balance) and balance >= threshold
+              "below" -> is_number(balance) and balance < threshold
+              _ -> false
+            end
           _ -> false
         end
       end)
@@ -377,6 +462,35 @@ defmodule BlocksterV2.Notifications do
   end
 
   def get_mnesia_user_ids(_, _), do: []
+
+  @doc """
+  Get user IDs filtered by overall multiplier from Mnesia unified_multipliers table.
+  """
+  def get_multiplier_user_ids(criteria) do
+    operator = criteria["operator"] || "above"
+    threshold = parse_threshold(criteria["threshold"])
+
+    try do
+      :mnesia.dirty_all_keys(:unified_multipliers)
+      |> Enum.filter(fn user_id ->
+        case :mnesia.dirty_read(:unified_multipliers, user_id) do
+          [record] ->
+            # overall_multiplier is at position 7 in the tuple
+            multiplier = elem(record, 7)
+            case operator do
+              "above" -> is_number(multiplier) and multiplier >= threshold
+              "below" -> is_number(multiplier) and multiplier < threshold
+              _ -> false
+            end
+          _ -> false
+        end
+      end)
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+    end
+  end
 
   defp parse_threshold(nil), do: 0
   defp parse_threshold(val) when is_number(val), do: val
@@ -391,12 +505,23 @@ defmodule BlocksterV2.Notifications do
   # ============ Dedup ============
 
   def already_notified?(user_id, dedup_key) do
-    from(n in Notification,
-      where: n.user_id == ^user_id,
-      where: fragment("?->>'dedup_key' = ?", n.metadata, ^dedup_key),
-      limit: 1
-    )
-    |> Repo.exists?()
+    in_notifications =
+      from(n in Notification,
+        where: n.user_id == ^user_id,
+        where: fragment("?->>'dedup_key' = ?", n.metadata, ^dedup_key),
+        limit: 1
+      )
+      |> Repo.exists?()
+
+    in_email_log =
+      from(el in EmailLog,
+        where: el.user_id == ^user_id,
+        where: fragment("?->>'dedup_key' = ?", el.metadata, ^dedup_key),
+        limit: 1
+      )
+      |> Repo.exists?()
+
+    in_notifications || in_email_log
   end
 
   def get_campaign_stats(campaign_id) do
@@ -442,6 +567,24 @@ defmodule BlocksterV2.Notifications do
     Repo.get_by(EmailLog, sendgrid_message_id: message_id)
   end
 
+  def get_campaign_recipients(campaign_id) do
+    from(el in EmailLog,
+      join: u in BlocksterV2.Accounts.User, on: u.id == el.user_id,
+      where: el.campaign_id == ^campaign_id,
+      select: %{
+        user_id: u.id,
+        email: u.email,
+        username: u.username,
+        sent_at: el.sent_at,
+        opened_at: el.opened_at,
+        clicked_at: el.clicked_at,
+        bounced: el.bounced
+      },
+      order_by: [desc: el.sent_at]
+    )
+    |> Repo.all()
+  end
+
   def top_campaigns(limit \\ 5) do
     Campaign
     |> where([c], c.status == "sent" and c.emails_sent > 0)
@@ -466,11 +609,6 @@ defmodule BlocksterV2.Notifications do
   end
 
   # ============ Private Helpers ============
-
-  defp maybe_filter_category(query, nil), do: query
-  defp maybe_filter_category(query, category) do
-    where(query, [n], n.category == ^category)
-  end
 
   defp maybe_filter_status(query, nil), do: query
   defp maybe_filter_status(query, :unread) do

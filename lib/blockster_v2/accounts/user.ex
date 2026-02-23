@@ -30,6 +30,13 @@ defmodule BlocksterV2.Accounts.User do
     field :last_suspicious_activity_at, :utc_datetime
     field :registered_devices_count, :integer, default: 0
 
+    # Telegram fields
+    field :telegram_user_id, :string
+    field :telegram_username, :string
+    field :telegram_connect_token, :string
+    field :telegram_connected_at, :utc_datetime
+    field :telegram_group_joined_at, :utc_datetime
+
     # Referral fields
     field :referred_at, :utc_datetime
     belongs_to :referrer, __MODULE__
@@ -58,7 +65,9 @@ defmodule BlocksterV2.Accounts.User do
                     :avatar_url, :chain_id, :is_flagged_multi_account_attempt,
                     :last_suspicious_activity_at, :registered_devices_count,
                     :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in,
-                    :referrer_id, :referred_at])
+                    :referrer_id, :referred_at,
+                    :telegram_user_id, :telegram_username, :telegram_connect_token, :telegram_connected_at,
+                    :telegram_group_joined_at])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)
@@ -73,6 +82,7 @@ defmodule BlocksterV2.Accounts.User do
     |> unique_constraint(:email)
     |> unique_constraint(:username)
     |> unique_constraint(:slug)
+    |> unique_constraint(:telegram_user_id, message: "this Telegram account is already connected to another user")
   end
 
   @doc """

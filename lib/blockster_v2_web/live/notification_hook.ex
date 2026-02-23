@@ -124,7 +124,11 @@ defmodule BlocksterV2Web.NotificationHook do
     socket = assign(socket, :notification_dropdown_open, false)
 
     if action_url && action_url != "" do
-      {:halt, push_navigate(socket, to: action_url)}
+      if String.starts_with?(action_url, "http") do
+        {:halt, push_event(socket, "open_external_url", %{url: action_url})}
+      else
+        {:halt, push_navigate(socket, to: action_url)}
+      end
     else
       {:halt, socket}
     end

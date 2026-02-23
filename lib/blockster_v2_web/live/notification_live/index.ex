@@ -3,15 +3,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
 
   alias BlocksterV2.Notifications
 
-  @categories [
-    {"all", "All"},
-    {"content", "Content"},
-    {"offers", "Offers"},
-    {"social", "Social"},
-    {"rewards", "Rewards"},
-    {"system", "System"}
-  ]
-
   @page_size 20
 
   @impl true
@@ -24,8 +15,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
       {:ok,
        socket
        |> assign(:page_title, "Notifications")
-       |> assign(:categories, @categories)
-       |> assign(:active_category, "all")
        |> assign(:active_filter, "all")
        |> assign(:notifications, notifications)
        |> assign(:offset, @page_size)
@@ -34,8 +23,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
       {:ok,
        socket
        |> assign(:page_title, "Notifications")
-       |> assign(:categories, @categories)
-       |> assign(:active_category, "all")
        |> assign(:active_filter, "all")
        |> assign(:notifications, [])
        |> assign(:offset, 0)
@@ -44,10 +31,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
   end
 
   @impl true
-  def handle_event("filter_category", %{"category" => category}, socket) do
-    {:noreply, reload_notifications(socket, category: category)}
-  end
-
   def handle_event("filter_status", %{"status" => status}, socket) do
     {:noreply, reload_notifications(socket, status: status)}
   end
@@ -83,7 +66,11 @@ defmodule BlocksterV2Web.NotificationLive.Index do
     action_url = params["url"]
 
     if action_url && action_url != "" do
-      {:noreply, push_navigate(socket, to: action_url)}
+      if String.starts_with?(action_url, "http") do
+        {:noreply, push_event(socket, "open_external_url", %{url: action_url})}
+      else
+        {:noreply, push_navigate(socket, to: action_url)}
+      end
     else
       # Just mark as read in place
       notifications =
@@ -137,16 +124,13 @@ defmodule BlocksterV2Web.NotificationLive.Index do
   # ============ Private Helpers ============
 
   defp reload_notifications(socket, opts) do
-    category = Keyword.get(opts, :category, socket.assigns.active_category)
     status = Keyword.get(opts, :status, socket.assigns.active_filter)
-
     user = socket.assigns.current_user
 
-    query_opts = build_query_opts(%{active_category: category, active_filter: status}, 0)
+    query_opts = build_query_opts(%{active_filter: status}, 0)
     notifications = if user, do: Notifications.list_notifications(user.id, query_opts), else: []
 
     socket
-    |> assign(:active_category, category)
     |> assign(:active_filter, status)
     |> assign(:notifications, notifications)
     |> assign(:offset, @page_size)
@@ -155,13 +139,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
 
   defp build_query_opts(assigns, offset) do
     opts = [limit: @page_size, offset: offset]
-
-    opts =
-      if assigns.active_category != "all" do
-        Keyword.put(opts, :category, assigns.active_category)
-      else
-        opts
-      end
 
     if assigns.active_filter == "unread" do
       Keyword.put(opts, :status, :unread)
@@ -177,6 +154,7 @@ defmodule BlocksterV2Web.NotificationLive.Index do
   # ============ Time Formatting (shared with layouts.ex) ============
 
   def format_time(nil), do: ""
+  def format_time(%NaiveDateTime{} = ndt), do: format_time(DateTime.from_naive!(ndt, "Etc/UTC"))
 
   def format_time(datetime) do
     now = DateTime.utc_now()
@@ -241,21 +219,6 @@ defmodule BlocksterV2Web.NotificationLive.Index do
           </div>
         </div>
 
-        <%!-- Category Tabs + Filter Row --%>
-        <div class="bg-white rounded-xl border border-gray-100 p-1.5 mb-3">
-          <div class="flex gap-1 overflow-x-auto scrollbar-hide">
-            <%= for {value, label} <- @categories do %>
-              <button
-                phx-click="filter_category"
-                phx-value-category={value}
-                class={"px-4 py-2 rounded-lg text-sm font-haas_medium_65 transition-all cursor-pointer whitespace-nowrap #{if @active_category == value, do: "bg-gray-900 text-white shadow-sm", else: "text-gray-500 hover:text-[#141414] hover:bg-gray-50"}"}
-              >
-                <%= label %>
-              </button>
-            <% end %>
-          </div>
-        </div>
-
         <%!-- Read/Unread Filter --%>
         <div class="flex items-center justify-between mb-5">
           <div class="flex gap-1">
@@ -309,7 +272,7 @@ defmodule BlocksterV2Web.NotificationLive.Index do
             <%= for notification <- @notifications do %>
               <div
                 id={"notification-#{notification.id}"}
-                class={"relative flex items-start gap-3 p-4 rounded-xl transition-all cursor-pointer group #{if is_nil(notification.read_at), do: "bg-white border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]", else: "bg-transparent border border-transparent hover:bg-white/60"}"}
+                class={"relative flex items-start gap-3 p-4 rounded-xl transition-all cursor-pointer group #{if is_nil(notification.read_at), do: "bg-white border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]", else: "bg-white/50 border border-gray-100/60 hover:bg-white hover:border-gray-200"}"}
                 phx-click="click_notification"
                 phx-value-id={notification.id}
                 phx-value-url={notification.action_url}
@@ -324,7 +287,7 @@ defmodule BlocksterV2Web.NotificationLive.Index do
                   <%= if notification.image_url do %>
                     <img
                       src={notification.image_url}
-                      class={"w-11 h-11 rounded-xl object-cover #{if is_nil(notification.read_at), do: "", else: "opacity-60"}"}
+                      class={"w-11 h-11 rounded-xl object-cover #{if is_nil(notification.read_at), do: "", else: "opacity-75"}"}
                       loading="lazy"
                     />
                   <% else %>
@@ -337,17 +300,17 @@ defmodule BlocksterV2Web.NotificationLive.Index do
                 <%!-- Content --%>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start justify-between gap-2">
-                    <p class={"text-sm leading-snug #{if is_nil(notification.read_at), do: "font-haas_medium_65 text-[#141414]", else: "font-haas_roman_55 text-gray-400"}"}>
+                    <p class={"text-sm leading-snug #{if is_nil(notification.read_at), do: "font-haas_medium_65 text-[#141414]", else: "font-haas_roman_55 text-gray-600"}"}>
                       <%= notification.title %>
                     </p>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                      <span class={"text-[10px] whitespace-nowrap #{if is_nil(notification.read_at), do: "text-gray-400", else: "text-gray-300"}"}><%= format_time(notification.inserted_at) %></span>
+                      <span class="text-[10px] whitespace-nowrap text-gray-400"><%= format_time(notification.inserted_at) %></span>
                       <%= if is_nil(notification.read_at) do %>
                         <div class="w-2 h-2 rounded-full bg-[#CAFC00] flex-shrink-0 shadow-[0_0_6px_rgba(202,252,0,0.4)]"></div>
                       <% end %>
                     </div>
                   </div>
-                  <p class={"text-xs mt-0.5 line-clamp-2 #{if is_nil(notification.read_at), do: "text-gray-500", else: "text-gray-300"}"}><%= notification.body %></p>
+                  <p class={"text-xs mt-0.5 line-clamp-2 #{if is_nil(notification.read_at), do: "text-gray-500", else: "text-gray-400"}"}><%= notification.body %></p>
                   <%= if notification.action_label do %>
                     <p class={"text-xs mt-1.5 font-haas_medium_65 group-hover:underline #{if is_nil(notification.read_at), do: "text-[#141414]", else: "text-gray-400"}"}><%= notification.action_label %></p>
                   <% end %>

@@ -91,10 +91,10 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
       %{
         referrer_signup_bux: config["referrer_signup_bux"] || 500,
         referee_signup_bux: config["referee_signup_bux"] || 250,
-        phone_verify_bux: config["phone_verify_bux"] || 100
+        phone_verify_bux: config["phone_verify_bux"] || 500
       }
     rescue
-      _ -> %{referrer_signup_bux: 500, referee_signup_bux: 250, phone_verify_bux: 100}
+      _ -> %{referrer_signup_bux: 500, referee_signup_bux: 250, phone_verify_bux: 500}
     end
   end
 

@@ -496,16 +496,40 @@ defmodule BlocksterV2Web.Layouts do
                       stroke="#101C36" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </button>
+            <!-- Notification Bell on content pages (always visible for logged-in users) -->
+            <%= if @current_user do %>
+              <.link navigate={~p"/notifications"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
+                  <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                </svg>
+                <%= if @unread_notification_count > 0 do %>
+                  <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                    <%= if @unread_notification_count > 99, do: "99+", else: @unread_notification_count %>
+                  </span>
+                <% end %>
+              </.link>
+            <% end %>
           <% else %>
             <%= if @current_user do %>
-              <!-- Cart icon: shown on non-content pages (always) or content pages when cart has items -->
-              <.link navigate={~p"/cart"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+              <!-- Cart icon: hidden on xs, visible at sm+ -->
+              <.link navigate={~p"/cart"} class="relative w-8 h-8 hidden sm:flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
                   <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
                 </svg>
                 <%= if @cart_item_count > 0 do %>
                   <span class="absolute -top-1 -right-1 bg-[#8AE388] text-[#141414] text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
                     <%= @cart_item_count %>
+                  </span>
+                <% end %>
+              </.link>
+              <!-- Mobile Notification Bell (always visible) -->
+              <.link navigate={~p"/notifications"} class="relative w-8 h-8 flex items-center justify-center rounded-full bg-[#F3F5FF] shadow-md cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#141414]">
+                  <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                </svg>
+                <%= if @unread_notification_count > 0 do %>
+                  <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-haas_medium_65 rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                    <%= if @unread_notification_count > 99, do: "99+", else: @unread_notification_count %>
                   </span>
                 <% end %>
               </.link>
@@ -770,6 +794,7 @@ defmodule BlocksterV2Web.Layouts do
   end
 
   defp format_notification_time(nil), do: ""
+  defp format_notification_time(%NaiveDateTime{} = ndt), do: format_notification_time(DateTime.from_naive!(ndt, "Etc/UTC"))
   defp format_notification_time(datetime) do
     now = DateTime.utc_now()
     diff = DateTime.diff(now, datetime, :second)

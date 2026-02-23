@@ -7,6 +7,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
   def mount(%{"id" => id}, _session, socket) do
     campaign = Notifications.get_campaign!(id)
     stats = Notifications.get_campaign_stats(campaign.id)
+    recipients = Notifications.get_campaign_recipients(campaign.id)
 
     if connected?(socket) do
       :timer.send_interval(30_000, self(), :refresh_stats)
@@ -17,6 +18,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
      |> assign(:page_title, campaign.name)
      |> assign(:campaign, campaign)
      |> assign(:stats, stats)
+     |> assign(:recipients, recipients)
      |> assign(:tab, "overview")}
   end
 
@@ -24,7 +26,8 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
   def handle_info(:refresh_stats, socket) do
     stats = Notifications.get_campaign_stats(socket.assigns.campaign.id)
     campaign = Notifications.get_campaign!(socket.assigns.campaign.id)
-    {:noreply, assign(socket, stats: stats, campaign: campaign)}
+    recipients = Notifications.get_campaign_recipients(campaign.id)
+    {:noreply, assign(socket, stats: stats, campaign: campaign, recipients: recipients)}
   end
 
   @impl true
@@ -117,7 +120,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
 
         <%!-- Tabs --%>
         <div class="flex gap-2 mb-6">
-          <% tabs = [{"overview", "Overview"}, {"email", "Email Stats"}, {"in_app", "In-App Stats"}, {"content", "Content"}] %>
+          <% tabs = [{"overview", "Overview"}, {"email", "Email Stats"}, {"in_app", "In-App Stats"}, {"recipients", "Recipients (#{length(@recipients)})"}, {"content", "Content"}] %>
           <%= for {value, label} <- tabs do %>
             <button
               phx-click="set_tab"
@@ -138,6 +141,8 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
               <.tab_email stats={@stats} campaign={@campaign} />
             <% "in_app" -> %>
               <.tab_in_app stats={@stats} />
+            <% "recipients" -> %>
+              <.tab_recipients recipients={@recipients} />
             <% "content" -> %>
               <.tab_content campaign={@campaign} />
           <% end %>
@@ -332,6 +337,58 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
           </div>
         <% end %>
       </div>
+    </div>
+    """
+  end
+
+  defp tab_recipients(assigns) do
+    ~H"""
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-haas_medium_65 text-[#141414]">Recipients</h3>
+        <span class="text-sm text-gray-500 font-haas_roman_55"><%= length(@recipients) %> emails sent</span>
+      </div>
+
+      <%= if @recipients == [] do %>
+        <div class="text-center py-12">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mx-auto mb-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
+          <p class="text-sm text-gray-500 font-haas_roman_55">No emails sent yet</p>
+        </div>
+      <% else %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100">
+                <th class="text-left py-3 px-3 text-xs text-gray-500 font-haas_medium_65 uppercase tracking-wider">User</th>
+                <th class="text-left py-3 px-3 text-xs text-gray-500 font-haas_medium_65 uppercase tracking-wider">Email</th>
+                <th class="text-left py-3 px-3 text-xs text-gray-500 font-haas_medium_65 uppercase tracking-wider">Sent</th>
+                <th class="text-left py-3 px-3 text-xs text-gray-500 font-haas_medium_65 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for r <- @recipients do %>
+                <tr class="border-b border-gray-50 hover:bg-[#F5F6FB]">
+                  <td class="py-3 px-3 font-haas_medium_65 text-[#141414]"><%= r.username || "—" %></td>
+                  <td class="py-3 px-3 font-haas_roman_55 text-gray-600"><%= r.email %></td>
+                  <td class="py-3 px-3 font-haas_roman_55 text-gray-500"><%= format_datetime(r.sent_at) %></td>
+                  <td class="py-3 px-3">
+                    <%= cond do %>
+                      <% r.bounced -> %>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-haas_medium_65 bg-red-50 text-red-700">Bounced</span>
+                      <% r.clicked_at -> %>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-haas_medium_65 bg-blue-50 text-blue-700">Clicked</span>
+                      <% r.opened_at -> %>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-haas_medium_65 bg-green-50 text-green-700">Opened</span>
+                      <% true -> %>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-haas_medium_65 bg-gray-100 text-gray-600">Delivered</span>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
     </div>
     """
   end

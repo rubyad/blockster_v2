@@ -233,19 +233,20 @@ defmodule BlocksterV2.Notifications.Phase7Test do
   # ============ Welcome Template ============
 
   describe "welcome email" do
-    test "renders welcome message with username" do
+    test "renders welcome message" do
       email = EmailBuilder.welcome("test@example.com", "Alice", "token", %{username: "Alice"})
 
       assert email.subject == "Welcome to Blockster!"
-      assert email.html_body =~ "Alice"
-      assert email.html_body =~ "Read articles to earn BUX"
-      assert email.html_body =~ "Subscribe to hubs"
-      assert email.html_body =~ "Redeem BUX"
+      assert email.html_body =~ "Welcome to Blockster,"
+      assert email.html_body =~ "earn BUX"
+      assert email.html_body =~ "Reading stories"
+      assert email.html_body =~ "Get started now"
     end
 
-    test "uses fallback name" do
+    test "renders without name" do
       email = EmailBuilder.welcome("test@example.com", nil, "token", %{})
-      assert email.html_body =~ "there"
+      assert email.html_body =~ "Welcome to Blockster,"
+      refute email.html_body =~ "Welcome to Blockster, there"
     end
   end
 

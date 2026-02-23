@@ -90,8 +90,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(selected_token: "BUX")
         |> assign(header_token: "BUX")
         |> assign(selected_difficulty: 1)
-        |> assign(bet_amount: 10)
-        |> assign(current_bet: 10)
+        |> assign(bet_amount: default_bet_amount(balances, "BUX"))
+        |> assign(current_bet: default_bet_amount(balances, "BUX"))
         |> assign(house_balance: 0.0)  # Default, will be updated async
         |> assign(max_bet: 0)  # Default, will be updated async
         |> assign(rogue_usd_price: get_rogue_price())  # USD price from PriceTracker
@@ -157,8 +157,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
         |> assign(selected_token: "BUX")
         |> assign(header_token: "BUX")
         |> assign(selected_difficulty: 1)
-        |> assign(bet_amount: 10)
-        |> assign(current_bet: 10)
+        |> assign(bet_amount: default_bet_amount(balances, "BUX"))
+        |> assign(current_bet: default_bet_amount(balances, "BUX"))
         |> assign(house_balance: 0.0)
         |> assign(max_bet: 0)
         |> assign(rogue_usd_price: get_rogue_price())
@@ -1135,8 +1135,8 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       nil
     end
 
-    # Set default bet amount based on token (ROGUE has much higher values)
-    default_bet = if token == "ROGUE", do: 100_000, else: 10
+    # Set default bet amount based on token and user balance
+    default_bet = default_bet_amount(socket.assigns.balances, token)
     # Extract difficulty before start_async to avoid copying entire socket
     difficulty = socket.assigns.selected_difficulty
 
@@ -2201,6 +2201,18 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   defp format_usd(_, _), do: nil
 
   # Get ROGUE price from PriceTracker
+  defp default_bet_amount(balances, token) do
+    balance = Map.get(balances, token, 0)
+    ten_pct = balance * 0.1
+
+    # Round to nearest 100
+    rounded = round(ten_pct / 100) * 100
+
+    # Fallback defaults if balance is too low
+    min_default = if token == "ROGUE", do: 100_000, else: 10
+    max(rounded, min_default)
+  end
+
   defp get_rogue_price do
     case PriceTracker.get_price("ROGUE") do
       {:ok, %{usd_price: price}} -> price

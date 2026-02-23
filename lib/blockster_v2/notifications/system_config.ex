@@ -19,7 +19,7 @@ defmodule BlocksterV2.Notifications.SystemConfig do
     # Referral amounts
     "referrer_signup_bux" => 500,
     "referee_signup_bux" => 250,
-    "phone_verify_bux" => 100,
+    "phone_verify_bux" => 500,
 
     # Trigger thresholds
     "bux_milestones" => [1_000, 5_000, 10_000, 25_000, 50_000, 100_000],

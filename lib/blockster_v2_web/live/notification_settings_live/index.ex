@@ -1,8 +1,7 @@
 defmodule BlocksterV2Web.NotificationSettingsLive.Index do
   use BlocksterV2Web, :live_view
 
-  alias BlocksterV2.Notifications
-  alias BlocksterV2.Blog
+  alias BlocksterV2.{Notifications, Blog, Accounts, Repo}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -11,6 +10,8 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
     if user do
       {:ok, prefs} = Notifications.get_or_create_preferences(user.id)
       followed_hubs = Blog.get_user_followed_hubs_with_settings(user.id)
+      # Reload user to get telegram fields
+      fresh_user = Repo.get!(Accounts.User, user.id)
 
       {:ok,
        socket
@@ -18,6 +19,12 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
        |> assign(:preferences, prefs)
        |> assign(:followed_hubs, followed_hubs)
        |> assign(:show_unsubscribe_confirm, false)
+       |> assign(:telegram_connected, fresh_user.telegram_user_id != nil)
+       |> assign(:telegram_username, fresh_user.telegram_username)
+       |> assign(:telegram_group_joined, fresh_user.telegram_group_joined_at != nil)
+       |> assign(:telegram_bot_url, nil)
+       |> assign(:telegram_polling, false)
+       |> assign(:show_telegram_disconnect, false)
        |> assign(:saved, false)}
     else
       {:ok,
@@ -26,6 +33,12 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
        |> assign(:preferences, nil)
        |> assign(:followed_hubs, [])
        |> assign(:show_unsubscribe_confirm, false)
+       |> assign(:telegram_connected, false)
+       |> assign(:telegram_username, nil)
+       |> assign(:telegram_group_joined, false)
+       |> assign(:telegram_bot_url, nil)
+       |> assign(:telegram_polling, false)
+       |> assign(:show_telegram_disconnect, false)
        |> assign(:saved, false)}
     end
   end
@@ -47,70 +60,6 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, "Failed to update preference")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("update_max_emails", %{"value" => value}, socket) do
-    user = socket.assigns.current_user
-    if user do
-      max_emails = String.to_integer(value)
-
-      case Notifications.update_preferences(user.id, %{max_emails_per_day: max_emails}) do
-        {:ok, updated_prefs} ->
-          {:noreply,
-           socket
-           |> assign(:preferences, updated_prefs)
-           |> assign(:saved, true)
-           |> then(&schedule_saved_clear/1)}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update email limit")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("update_quiet_hours", %{"start" => start_str, "end" => end_str}, socket) do
-    user = socket.assigns.current_user
-    if user do
-      quiet_start = parse_time(start_str)
-      quiet_end = parse_time(end_str)
-
-      attrs = %{quiet_hours_start: quiet_start, quiet_hours_end: quiet_end}
-
-      case Notifications.update_preferences(user.id, attrs) do
-        {:ok, updated_prefs} ->
-          {:noreply,
-           socket
-           |> assign(:preferences, updated_prefs)
-           |> assign(:saved, true)
-           |> then(&schedule_saved_clear/1)}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update quiet hours")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("update_timezone", %{"timezone" => tz}, socket) do
-    user = socket.assigns.current_user
-    if user do
-      case Notifications.update_preferences(user.id, %{timezone: tz}) do
-        {:ok, updated_prefs} ->
-          {:noreply,
-           socket
-           |> assign(:preferences, updated_prefs)
-           |> assign(:saved, true)
-           |> then(&schedule_saved_clear/1)}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update timezone")}
       end
     else
       {:noreply, socket}
@@ -152,6 +101,68 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
     end
   end
 
+  def handle_event("connect_telegram", _params, socket) do
+    user = socket.assigns.current_user
+    if user do
+      # Generate a unique connect token
+      token = Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false)
+
+      case Accounts.update_user(Repo.get!(Accounts.User, user.id), %{telegram_connect_token: token}) do
+        {:ok, _} ->
+          bot_url = "https://t.me/BlocksterV2Bot?start=#{token}"
+          # Start polling for connection (webhook will update the user record)
+          if connected?(socket), do: Process.send_after(self(), :check_telegram_connected, 3_000)
+
+          {:noreply,
+           socket
+           |> assign(:telegram_bot_url, bot_url)
+           |> assign(:telegram_polling, true)}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to generate Telegram link")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("show_telegram_disconnect", _params, socket) do
+    {:noreply, assign(socket, :show_telegram_disconnect, true)}
+  end
+
+  def handle_event("cancel_telegram_disconnect", _params, socket) do
+    {:noreply, assign(socket, :show_telegram_disconnect, false)}
+  end
+
+  def handle_event("confirm_telegram_disconnect", _params, socket) do
+    user = socket.assigns.current_user
+    if user do
+      fresh_user = Repo.get!(Accounts.User, user.id)
+
+      case Accounts.update_user(fresh_user, %{
+        telegram_user_id: nil,
+        telegram_username: nil,
+        telegram_connect_token: nil,
+        telegram_connected_at: nil,
+        telegram_group_joined_at: nil
+      }) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:telegram_connected, false)
+           |> assign(:telegram_username, nil)
+           |> assign(:telegram_group_joined, false)
+           |> assign(:show_telegram_disconnect, false)
+           |> put_flash(:info, "Telegram disconnected")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to disconnect Telegram")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("show_unsubscribe_confirm", _params, socket) do
     {:noreply, assign(socket, :show_unsubscribe_confirm, true)}
   end
@@ -184,20 +195,36 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
     {:noreply, assign(socket, :saved, false)}
   end
 
+  def handle_info(:check_telegram_connected, socket) do
+    user = socket.assigns.current_user
+
+    if user do
+      fresh_user = Repo.get!(Accounts.User, user.id)
+
+      if fresh_user.telegram_user_id do
+        {:noreply,
+         socket
+         |> assign(:telegram_connected, true)
+         |> assign(:telegram_username, fresh_user.telegram_username)
+         |> assign(:telegram_group_joined, fresh_user.telegram_group_joined_at != nil)
+         |> assign(:telegram_bot_url, nil)
+         |> assign(:telegram_polling, false)
+         |> put_flash(:info, "Telegram connected successfully!")}
+      else
+        # Keep polling (up to ~60s)
+        Process.send_after(self(), :check_telegram_connected, 3_000)
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   # ============ Private Helpers ============
 
   defp schedule_saved_clear(socket) do
     if connected?(socket), do: Process.send_after(self(), :clear_saved, 2000)
     socket
-  end
-
-  defp parse_time(""), do: nil
-  defp parse_time(nil), do: nil
-  defp parse_time(str) do
-    case Time.from_iso8601(str <> ":00") do
-      {:ok, time} -> time
-      _ -> nil
-    end
   end
 
   # ============ Template ============
@@ -226,143 +253,131 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
         </div>
 
         <%= if @preferences do %>
-          <%!-- Global Email Toggle --%>
-          <.section title="Email Notifications" subtitle="Control which emails you receive">
+          <%!-- Email Toggle --%>
+          <.section title="Email Notifications" subtitle="Receive emails for articles, rewards, and updates">
             <.toggle
               label="Email notifications"
-              description="Receive email notifications"
+              description="Enable or disable all email notifications"
               field="email_enabled"
               checked={@preferences.email_enabled}
             />
-
-            <%= if @preferences.email_enabled do %>
-              <div class="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                <.toggle label="New articles" description="Articles from hubs you follow" field="email_hub_posts" checked={@preferences.email_hub_posts} />
-                <.toggle label="Trending articles" description="Popular and featured content" field="email_new_articles" checked={@preferences.email_new_articles} />
-                <.toggle label="Special offers" description="Shop deals and promotions" field="email_special_offers" checked={@preferences.email_special_offers} />
-                <.toggle label="Daily digest" description="Morning summary of top content" field="email_daily_digest" checked={@preferences.email_daily_digest} />
-                <.toggle label="Weekly roundup" description="Best of the week email" field="email_weekly_roundup" checked={@preferences.email_weekly_roundup} />
-                <.toggle label="Referral prompts" description="Invitations to invite friends" field="email_referral_prompts" checked={@preferences.email_referral_prompts} />
-                <.toggle label="Reward alerts" description="BUX milestones and earnings" field="email_reward_alerts" checked={@preferences.email_reward_alerts} />
-                <.toggle label="Shop deals" description="New products and restocks" field="email_shop_deals" checked={@preferences.email_shop_deals} />
-                <.toggle label="Account updates" description="Security and account notifications" field="email_account_updates" checked={@preferences.email_account_updates} />
-                <.toggle label="Re-engagement" description="Content you may have missed" field="email_re_engagement" checked={@preferences.email_re_engagement} />
-              </div>
-            <% end %>
           </.section>
 
-          <%!-- SMS Section --%>
-          <.section title="SMS Notifications" subtitle="High-value alerts only — used sparingly">
-            <.toggle
-              label="SMS notifications"
-              description="Receive text message alerts"
-              field="sms_enabled"
-              checked={@preferences.sms_enabled}
-            />
-
-            <%= if @preferences.sms_enabled do %>
-              <div class="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                <.toggle label="Special offers" description="Flash sales and exclusive deals" field="sms_special_offers" checked={@preferences.sms_special_offers} />
-                <.toggle label="Account alerts" description="Security and order updates" field="sms_account_alerts" checked={@preferences.sms_account_alerts} />
-                <.toggle label="Milestone rewards" description="BUX milestone celebrations" field="sms_milestone_rewards" checked={@preferences.sms_milestone_rewards} />
-              </div>
-            <% end %>
+          <%!-- In-App Toggle --%>
+          <.section title="In-App Notifications" subtitle="See notifications in the bell icon while browsing">
+            <.toggle label="In-app notifications" description="Show notification bell and alerts" field="in_app_enabled" checked={@preferences.in_app_enabled} />
           </.section>
 
-          <%!-- In-App Section --%>
-          <.section title="In-App Notifications" subtitle="Control how notifications appear while browsing">
-            <.toggle label="In-app notifications" description="Show notification bell and dropdown" field="in_app_enabled" checked={@preferences.in_app_enabled} />
-            <.toggle label="Toast pop-ups" description="Slide-in notifications for new alerts" field="in_app_toast_enabled" checked={@preferences.in_app_toast_enabled} />
-            <.toggle label="Sound" description="Play a sound for new notifications" field="in_app_sound_enabled" checked={@preferences.in_app_sound_enabled} />
-          </.section>
-
-          <%!-- Frequency & Timing --%>
-          <.section title="Frequency & Timing" subtitle="Control how often and when you're contacted">
-            <%!-- Max emails per day slider --%>
-            <div class="py-3">
-              <div class="flex items-center justify-between mb-3">
-                <div>
-                  <p class="text-sm font-haas_medium_65 text-[#141414]">Max emails per day</p>
-                  <p class="text-xs text-gray-400 font-haas_roman_55">Limit daily email volume</p>
-                </div>
-                <span class="text-sm font-haas_medium_65 text-black bg-[#CAFC00] w-8 h-8 rounded-lg flex items-center justify-center">
-                  <%= @preferences.max_emails_per_day %>
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={@preferences.max_emails_per_day}
-                phx-change="update_max_emails"
-                name="value"
-                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#CAFC00]"
-              />
-              <div class="flex justify-between text-[10px] text-gray-300 font-haas_roman_55 mt-1.5">
-                <span>1</span>
-                <span>5</span>
-                <span>10</span>
-              </div>
-            </div>
-
-            <%!-- Quiet Hours --%>
-            <div class="py-4 border-t border-gray-100">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-7 h-7 rounded-lg bg-[#141414] flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 text-[#CAFC00]">
-                    <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd" />
+          <%!-- Telegram --%>
+          <.section title="Telegram" subtitle="Get new posts delivered to your Telegram">
+            <div class="py-2 space-y-4">
+              <%!-- Connect Account --%>
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl bg-[#2AABEE] flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                   </svg>
                 </div>
-                <div>
-                  <p class="text-sm font-haas_medium_65 text-[#141414]">Quiet hours</p>
-                  <p class="text-xs text-gray-400 font-haas_roman_55">No notifications during these hours</p>
+                <div class="flex-1">
+                  <%= if @telegram_connected do %>
+                    <div class="flex items-center gap-2 mb-1">
+                      <p class="text-sm font-haas_medium_65 text-[#141414]">Telegram Connected</p>
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-haas_medium_65 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+                          <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+                        </svg>
+                        Connected
+                      </span>
+                    </div>
+                    <p class="text-xs text-gray-400 font-haas_roman_55 mb-2">
+                      Linked as <span class="text-gray-600 font-haas_medium_65">@<%= @telegram_username || "unknown" %></span>
+                    </p>
+                    <%= if @show_telegram_disconnect do %>
+                      <div class="flex items-center gap-2">
+                        <button
+                          phx-click="confirm_telegram_disconnect"
+                          class="px-3 py-1.5 bg-red-600 text-white text-xs font-haas_medium_65 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
+                        >
+                          Yes, disconnect
+                        </button>
+                        <button
+                          phx-click="cancel_telegram_disconnect"
+                          class="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-haas_roman_55 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    <% else %>
+                      <button
+                        phx-click="show_telegram_disconnect"
+                        class="text-xs text-red-400 hover:text-red-600 font-haas_medium_65 cursor-pointer transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    <% end %>
+                  <% else %>
+                    <p class="text-sm font-haas_medium_65 text-[#141414] mb-1">Connect your Telegram</p>
+                    <p class="text-xs text-gray-400 font-haas_roman_55 mb-3">
+                      Link your Telegram account to Blockster and earn <span class="text-[#141414] font-haas_medium_65">500 BUX</span>.
+                    </p>
+                    <%= if @telegram_bot_url do %>
+                      <a
+                        href={@telegram_bot_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-[#2AABEE] text-white text-sm font-haas_medium_65 rounded-xl hover:bg-[#229ED9] transition-colors cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                        Open Telegram Bot
+                      </a>
+                      <p class="text-xs text-gray-400 font-haas_roman_55 mt-2 flex items-center gap-1.5">
+                        <span class="inline-block w-2 h-2 bg-[#CAFC00] rounded-full animate-pulse"></span>
+                        Waiting for connection — click Start in Telegram
+                      </p>
+                    <% else %>
+                      <button
+                        phx-click="connect_telegram"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-[#2AABEE] text-white text-sm font-haas_medium_65 rounded-xl hover:bg-[#229ED9] transition-colors cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                        Connect Telegram — Earn 500 BUX
+                      </button>
+                    <% end %>
+                  <% end %>
                 </div>
               </div>
-              <div class="bg-[#F5F6FB] rounded-xl p-4">
-                <div class="flex items-center gap-3">
-                  <div class="flex-1">
-                    <label class="text-[10px] text-gray-400 uppercase tracking-wider font-haas_medium_65">From</label>
-                    <input
-                      type="time"
-                      value={format_time_input(@preferences.quiet_hours_start)}
-                      phx-blur="update_quiet_hours"
-                      name="start"
-                      phx-value-end={format_time_input(@preferences.quiet_hours_end)}
-                      class="w-full mt-1 px-3 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none font-haas_roman_55"
-                    />
-                  </div>
-                  <div class="flex items-center justify-center w-8 h-8 mt-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-gray-300">
-                      <path fill-rule="evenodd" d="M16.72 7.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1 0 1.06l-3.75 3.75a.75.75 0 1 1-1.06-1.06l2.47-2.47H3a.75.75 0 0 1 0-1.5h16.19l-2.47-2.47a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <div class="flex-1">
-                    <label class="text-[10px] text-gray-400 uppercase tracking-wider font-haas_medium_65">To</label>
-                    <input
-                      type="time"
-                      value={format_time_input(@preferences.quiet_hours_end)}
-                      phx-blur="update_quiet_hours"
-                      name="end"
-                      phx-value-start={format_time_input(@preferences.quiet_hours_start)}
-                      class="w-full mt-1 px-3 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none font-haas_roman_55"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <%!-- Timezone --%>
-            <div class="py-3 border-t border-gray-100">
-              <p class="text-sm font-haas_medium_65 text-[#141414] mb-1">Timezone</p>
-              <select
-                phx-change="update_timezone"
-                name="timezone"
-                class="w-full mt-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white cursor-pointer font-haas_roman_55"
-              >
-                <%= for tz <- common_timezones() do %>
-                  <option value={tz} selected={@preferences.timezone == tz}><%= tz %></option>
+              <%!-- Join Group --%>
+              <div class="pt-3 border-t border-gray-100">
+                <div class="flex items-center gap-2 mb-1">
+                  <p class="text-sm font-haas_medium_65 text-[#141414]">Blockster V2 Group</p>
+                  <%= if @telegram_group_joined do %>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-haas_medium_65 rounded-full">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+                        <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+                      </svg>
+                      Joined
+                    </span>
+                  <% end %>
+                </div>
+                <%= if @telegram_group_joined do %>
+                  <p class="text-xs text-gray-400 font-haas_roman_55 mb-3">You're a member of the Blockster Telegram group.</p>
+                <% else %>
+                  <p class="text-xs text-gray-400 font-haas_roman_55 mb-3">Join our Telegram group and earn <span class="text-[#141414] font-haas_medium_65">500 BUX</span>.</p>
                 <% end %>
-              </select>
+                <a
+                  href="https://t.me/+7bIzOyrYBEc3OTdh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-haas_medium_65 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+                >
+                  <%= if @telegram_group_joined, do: "Open Telegram Group", else: "Join & Earn 500 BUX" %>
+                </a>
+              </div>
             </div>
           </.section>
 
@@ -520,32 +535,4 @@ defmodule BlocksterV2Web.NotificationSettingsLive.Index do
     """
   end
 
-  # ============ Helpers ============
-
-  defp format_time_input(nil), do: ""
-  defp format_time_input(%Time{} = time), do: Calendar.strftime(time, "%H:%M")
-  defp format_time_input(_), do: ""
-
-  defp common_timezones do
-    [
-      "UTC",
-      "US/Eastern",
-      "US/Central",
-      "US/Mountain",
-      "US/Pacific",
-      "US/Alaska",
-      "US/Hawaii",
-      "Europe/London",
-      "Europe/Paris",
-      "Europe/Berlin",
-      "Europe/Moscow",
-      "Asia/Dubai",
-      "Asia/Kolkata",
-      "Asia/Singapore",
-      "Asia/Tokyo",
-      "Asia/Shanghai",
-      "Australia/Sydney",
-      "Pacific/Auckland"
-    ]
-  end
 end
