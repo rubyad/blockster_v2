@@ -39,9 +39,9 @@ defmodule BlocksterV2Web.AIManagerLive.Index do
         [%{role: :user, content: message, timestamp: DateTime.utc_now()}]
 
     history =
-      Enum.map(socket.assigns.chat_messages, fn msg ->
-        %{role: msg.role, content: msg.content}
-      end)
+      socket.assigns.chat_messages
+      |> Enum.filter(fn msg -> msg.role in [:user, :assistant] end)
+      |> Enum.map(fn msg -> %{role: msg.role, content: msg.content} end)
 
     {:noreply,
      socket
