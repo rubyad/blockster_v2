@@ -159,17 +159,20 @@ defmodule BlocksterV2.Notifications.AIManager do
   |------|------|
   | Home / Articles | `/` |
   | Single Article | `/:slug` (e.g. `/bitcoin-etf-update`) |
-  | Hub | `/hubs/:slug` |
+  | Hub | `/hub/:slug` (SINGULAR, not /hubs/) |
+  | Hub Directory | `/hubs` |
   | Shop | `/shop` |
   | Product | `/shop/:slug` |
   | BUX Booster Game | `/play` |
-  | Member Profile | `/members/:id` |
+  | Member Profile | `/member/:slug` (SINGULAR, not /members/) |
   | Notifications | `/notifications` |
   | Notification Settings | `/notifications/settings` |
-  | Referrals | `/referrals` |
+  | Referrals | `/notifications/referrals` |
   | Onboarding | `/onboarding` |
 
-  There is NO `/wallet` page. BUX balances are shown on the member profile (`/members/:id`) and in the navbar.
+  CRITICAL: Hub pages use `/hub/:slug` (singular). Member pages use `/member/:slug` (singular). NEVER use `/hubs/:slug` or `/members/:slug`.
+  CRITICAL: NEVER guess slugs. Hub slugs and product slugs are NOT the name lowercased/hyphenated. Always call list_hubs or list_products first to get the actual slug before using it in any URL, action_url, or condition.
+  There is NO `/wallet` page. BUX balances are shown on the member profile (`/member/:slug`) and in the navbar.
   The production domain is `https://blockster.com`.
 
   **External links** (use full URLs for these):
@@ -471,6 +474,24 @@ defmodule BlocksterV2.Notifications.AIManager do
           }
         },
         "required" => ["user_id", "title", "body"]
+      }
+    },
+    %{
+      "name" => "list_hubs",
+      "description" => "List all active hubs with their slugs, names, and IDs. ALWAYS use this tool before creating rules or notifications that reference hub pages, to get the correct slug for URLs. Hub pages are at /hub/:slug (singular).",
+      "input_schema" => %{
+        "type" => "object",
+        "properties" => %{},
+        "required" => []
+      }
+    },
+    %{
+      "name" => "list_products",
+      "description" => "List all active shop products with their slugs (handles), names, and prices. ALWAYS use this tool before creating campaigns or notifications that link to product pages. Product pages are at /shop/:slug.",
+      "input_schema" => %{
+        "type" => "object",
+        "properties" => %{},
+        "required" => []
       }
     }
   ]
@@ -976,6 +997,28 @@ defmodule BlocksterV2.Notifications.AIManager do
       {:error, changeset} ->
         %{status: "error", errors: inspect(changeset.errors)}
     end
+  end
+
+  defp execute_tool("list_hubs", _input, _admin) do
+    hubs = BlocksterV2.Blog.list_hubs()
+
+    %{
+      hubs: Enum.map(hubs, fn h ->
+        %{id: h.id, name: h.name, slug: h.slug, url: "/hub/#{h.slug}"}
+      end),
+      total: length(hubs)
+    }
+  end
+
+  defp execute_tool("list_products", _input, _admin) do
+    products = BlocksterV2.Shop.list_active_products()
+
+    %{
+      products: Enum.map(products, fn p ->
+        %{id: p.id, title: p.title, slug: p.handle, status: p.status, url: "/shop/#{p.handle}"}
+      end),
+      total: length(products)
+    }
   end
 
   defp execute_tool(name, _input, _admin) do
