@@ -15,6 +15,10 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > **CRITICAL DEPENDENCY RULES**:
 > - NEVER update Phoenix, LiveView, Ecto, or other core dependencies without EXPLICIT user permission
 >
+> **CRITICAL AI MODEL RULES**:
+> - NEVER downgrade the AI Manager model to Sonnet or Haiku — always use the latest Opus model
+> - The AI Manager (`ai_manager.ex`) must always use Claude Opus for API calls
+>
 > **CRITICAL MNESIA RULES**:
 > - NEVER delete Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`) - contains unrecoverable user data
 > - When new Mnesia tables are added, restart both nodes to create them
@@ -209,10 +213,10 @@ Bypass: Dev mode auto-skips. Production: `flyctl secrets set SKIP_FINGERPRINT_CH
 ---
 
 ## Common Routes
-- Hub: `/hubs/:slug`
+- Hub: `/hub/:slug`
 - Product: `/shop/:slug`
 - Post: `/:slug`
-- Member: `/members/:id`
+- Member: `/member/:slug`
 - BUX Booster: `/play`
 - Admin Stats: `/admin/stats`, `/admin/stats/players`, `/admin/stats/players/:address`
 

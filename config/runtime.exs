@@ -159,7 +159,11 @@ if config_env() == :prod do
     timeout: 15000,
     connect_timeout: 15000,
     handshake_timeout: 15000,
-    socket_options: maybe_ipv6
+    # Immediately discard connections on fatal PG errors instead of returning to pool
+    disconnect_on_error_codes: [:fatal],
+    # TCP keepalive prevents Fly's PG proxy from killing idle connections
+    # keepalive: true sends OS-level TCP keepalive probes
+    socket_options: maybe_ipv6 ++ [:keepalive]
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
