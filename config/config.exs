@@ -56,7 +56,9 @@ config :blockster_v2, Oban,
        {"0 * * * *", BlocksterV2.AdsManager.Workers.PerformanceCheckWorker, queue: :ads_analytics},
        {"0 0 * * *", BlocksterV2.AdsManager.Workers.DailyBudgetResetWorker, queue: :ads_management},
        # Daily digest at 9am UTC
-       {"0 9 * * *", BlocksterV2.Workers.DailyDigestWorker, queue: :email_digest}
+       {"0 9 * * *", BlocksterV2.Workers.DailyDigestWorker, queue: :email_digest},
+       # Campaign scheduler - check for due scheduled campaigns every minute
+       {"* * * * *", BlocksterV2.Workers.CampaignSchedulerWorker, queue: :email_marketing}
      ]}
   ]
 

@@ -299,6 +299,14 @@ defmodule BlocksterV2.Notifications do
         )
         |> Repo.aggregate(:count, :id)
 
+      "not_hub_followers" when not is_nil(campaign.target_hub_id) ->
+        from(u in base,
+          left_join: hf in "hub_followers",
+          on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id,
+          where: is_nil(hf.user_id)
+        )
+        |> Repo.aggregate(:count, :id)
+
       "active_users" ->
         week_ago = DateTime.utc_now() |> DateTime.add(-7, :day) |> DateTime.truncate(:second)
         from(u in base, where: u.updated_at >= ^week_ago)
@@ -323,6 +331,14 @@ defmodule BlocksterV2.Notifications do
 
       "not_x_connected" ->
         from(u in base, where: is_nil(u.locked_x_user_id))
+        |> Repo.aggregate(:count, :id)
+
+      "telegram_connected" ->
+        from(u in base, where: not is_nil(u.telegram_user_id))
+        |> Repo.aggregate(:count, :id)
+
+      "not_telegram_connected" ->
+        from(u in base, where: is_nil(u.telegram_user_id))
         |> Repo.aggregate(:count, :id)
 
       "has_external_wallet" ->

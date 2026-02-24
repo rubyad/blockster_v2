@@ -35,6 +35,22 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
     {:noreply, assign(socket, :tab, tab)}
   end
 
+  def handle_event("send_campaign", _params, socket) do
+    campaign = socket.assigns.campaign
+
+    if campaign.status in ["draft", "scheduled"] do
+      BlocksterV2.Workers.PromoEmailWorker.enqueue_campaign(campaign.id)
+      campaign = Notifications.get_campaign!(campaign.id)
+
+      {:noreply,
+       socket
+       |> assign(:campaign, campaign)
+       |> put_flash(:info, "Campaign is being sent to all recipients!")}
+    else
+      {:noreply, put_flash(socket, :error, "Campaign has already been sent.")}
+    end
+  end
+
   def handle_event("cancel_campaign", _params, socket) do
     case Notifications.update_campaign_status(socket.assigns.campaign, "cancelled") do
       {:ok, campaign} ->
@@ -100,6 +116,9 @@ defmodule BlocksterV2Web.CampaignAdminLive.Show do
               Send Test
             </button>
             <%= if @campaign.status in ["draft", "scheduled"] do %>
+              <button phx-click="send_campaign" data-confirm="Send this campaign to all recipients now?" class="px-4 py-2.5 bg-gray-900 rounded-xl text-sm font-haas_medium_65 text-white hover:bg-gray-800 cursor-pointer">
+                Send Now
+              </button>
               <.link navigate={~p"/admin/notifications/campaigns/#{@campaign.id}/edit"} class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-haas_medium_65 text-gray-600 hover:bg-gray-50 cursor-pointer">
                 Edit
               </.link>

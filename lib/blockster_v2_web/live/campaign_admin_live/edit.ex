@@ -137,6 +137,45 @@ defmodule BlocksterV2Web.CampaignAdminLive.Edit do
     end
   end
 
+  def handle_event("save_and_send", _params, socket) do
+    fd = socket.assigns.form_data
+    campaign = socket.assigns.campaign
+    target_criteria = build_target_criteria(fd, socket.assigns.selected_users)
+
+    attrs = %{
+      name: fd["name"],
+      type: fd["type"],
+      subject: fd["subject"],
+      title: fd["title"],
+      body: fd["body"],
+      plain_text_body: fd["plain_text_body"],
+      image_url: if(fd["image_url"] != "", do: fd["image_url"]),
+      action_url: if(fd["action_url"] != "", do: fd["action_url"]),
+      action_label: fd["action_label"],
+      target_audience: fd["target_audience"],
+      target_hub_id: if(fd["target_hub_id"] && fd["target_hub_id"] != "", do: String.to_integer(fd["target_hub_id"])),
+      target_criteria: target_criteria,
+      send_email: fd["send_email"],
+      send_in_app: fd["send_in_app"],
+      send_sms: fd["send_sms"],
+      scheduled_at: parse_scheduled_at(fd["scheduled_at"])
+    }
+
+    case Notifications.update_campaign(campaign, attrs) do
+      {:ok, updated} ->
+        BlocksterV2.Workers.PromoEmailWorker.enqueue_campaign(updated.id)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Campaign saved and sending to all recipients!")
+         |> push_navigate(to: ~p"/admin/notifications/campaigns/#{updated.id}")}
+
+      {:error, changeset} ->
+        errors = format_errors(changeset)
+        {:noreply, put_flash(socket, :error, "Failed: #{errors}")}
+    end
+  end
+
   def handle_event("send_test", _params, socket) do
     fd = socket.assigns.form_data
     user = socket.assigns.current_user
@@ -238,9 +277,14 @@ defmodule BlocksterV2Web.CampaignAdminLive.Edit do
                 <button phx-click="send_test" class="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-haas_medium_65 text-gray-600 hover:bg-gray-50 cursor-pointer">
                   Send Test
                 </button>
-                <button phx-click="save_campaign" class="px-5 py-2.5 bg-gray-900 rounded-xl text-sm font-haas_medium_65 text-white hover:bg-gray-800 cursor-pointer">
+                <button phx-click="save_campaign" class="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-haas_medium_65 text-gray-600 hover:bg-gray-50 cursor-pointer">
                   Save Changes
                 </button>
+                <%= if @campaign.status in ["draft", "scheduled"] do %>
+                  <button phx-click="save_and_send" data-confirm="Save changes and send to all recipients now?" class="px-5 py-2.5 bg-gray-900 rounded-xl text-sm font-haas_medium_65 text-white hover:bg-gray-800 cursor-pointer">
+                    Save &amp; Send
+                  </button>
+                <% end %>
               <% else %>
                 <button phx-click="next_step" class="px-5 py-2.5 bg-gray-900 rounded-xl text-sm font-haas_medium_65 text-white hover:bg-gray-800 cursor-pointer">
                   Next Step
@@ -304,12 +348,15 @@ defmodule BlocksterV2Web.CampaignAdminLive.Edit do
         <% audiences = [
           {"all", "All Users", "Everyone with an email"},
           {"hub_followers", "Hub Followers", "Followers of a specific hub"},
+          {"not_hub_followers", "Not Hub Followers", "NOT following a specific hub"},
           {"active_users", "Active Users", "Active in last 7 days"},
           {"dormant_users", "Dormant Users", "Inactive 30+ days"},
           {"phone_verified", "Phone Verified", "Verified phone number"},
           {"not_phone_verified", "Not Phone Verified", "Haven't verified phone yet"},
           {"x_connected", "X Connected", "Connected X account"},
           {"not_x_connected", "No X Account", "Haven't connected X"},
+          {"telegram_connected", "Telegram Connected", "Connected Telegram account"},
+          {"not_telegram_connected", "No Telegram", "Haven't connected Telegram"},
           {"has_external_wallet", "Has Wallet", "Connected an external wallet"},
           {"no_external_wallet", "No Wallet", "No external wallet connected"},
           {"wallet_provider", "Wallet Provider", "Specific wallet type"},
@@ -330,7 +377,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.Edit do
       </div>
 
       <%!-- Hub Selector --%>
-      <%= if @form_data["target_audience"] == "hub_followers" do %>
+      <%= if @form_data["target_audience"] in ["hub_followers", "not_hub_followers"] do %>
         <div>
           <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Select Hub</label>
           <select name="target_hub_id" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">

@@ -145,6 +145,13 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
             on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id
           )
 
+        "not_hub_followers" when not is_nil(campaign.target_hub_id) ->
+          from(u in base_query,
+            left_join: hf in "hub_followers",
+            on: hf.user_id == u.id and hf.hub_id == ^campaign.target_hub_id,
+            where: is_nil(hf.user_id)
+          )
+
         "active_users" ->
           week_ago = DateTime.utc_now() |> DateTime.add(-7, :day) |> DateTime.truncate(:second)
           from(u in base_query, where: u.updated_at >= ^week_ago)
@@ -164,6 +171,12 @@ defmodule BlocksterV2.Workers.PromoEmailWorker do
 
         "not_x_connected" ->
           from(u in base_query, where: is_nil(u.locked_x_user_id))
+
+        "telegram_connected" ->
+          from(u in base_query, where: not is_nil(u.telegram_user_id))
+
+        "not_telegram_connected" ->
+          from(u in base_query, where: is_nil(u.telegram_user_id))
 
         "has_external_wallet" ->
           from(u in base_query,

@@ -327,12 +327,15 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
         <% audiences = [
           {"all", "All Users", "Everyone with an email"},
           {"hub_followers", "Hub Followers", "Followers of a specific hub"},
+          {"not_hub_followers", "Not Hub Followers", "NOT following a specific hub"},
           {"active_users", "Active Users", "Active in last 7 days"},
           {"dormant_users", "Dormant Users", "Inactive 30+ days"},
           {"phone_verified", "Phone Verified", "Verified phone number"},
           {"not_phone_verified", "Not Phone Verified", "Haven't verified phone yet"},
           {"x_connected", "X Connected", "Connected X account"},
           {"not_x_connected", "No X Account", "Haven't connected X"},
+          {"telegram_connected", "Telegram Connected", "Connected Telegram account"},
+          {"not_telegram_connected", "No Telegram", "Haven't connected Telegram"},
           {"has_external_wallet", "Has Wallet", "Connected an external wallet"},
           {"no_external_wallet", "No Wallet", "No external wallet connected"},
           {"wallet_provider", "Wallet Provider", "Specific wallet type"},
@@ -353,7 +356,7 @@ defmodule BlocksterV2Web.CampaignAdminLive.New do
       </div>
 
       <%!-- Hub Selector --%>
-      <%= if @form_data["target_audience"] == "hub_followers" do %>
+      <%= if @form_data["target_audience"] in ["hub_followers", "not_hub_followers"] do %>
         <div>
           <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Select Hub</label>
           <select name="target_hub_id" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400">
