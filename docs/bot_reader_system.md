@@ -69,11 +69,13 @@ Bots stop reading a post once they've consumed 50% of the `pool_deposited` amoun
 | File | Purpose |
 |------|---------|
 | `lib/blockster_v2/bot_system/bot_coordinator.ex` | GlobalSingleton GenServer — orchestrates everything |
-| `lib/blockster_v2/bot_system/bot_setup.ex` | Creates 1000 bot users with wallets + multiplier tiers |
+| `lib/blockster_v2/bot_system/bot_setup.ex` | Creates 1000 bot users with real keypairs + multiplier tiers |
+| `lib/blockster_v2/bot_system/wallet_crypto.ex` | Ethereum keypair generation (secp256k1 + keccak256) |
 | `lib/blockster_v2/bot_system/engagement_simulator.ex` | Pure functions: decay scheduling, metric generation |
 | `lib/blockster_v2/bot_system/deploy.ex` | Manual status check / forced re-init (not required) |
 | `lib/blockster_v2/bot_system/dev_setup.ex` | Local dev helpers (seed pools, broadcast, send reads) |
 | `priv/repo/migrations/20260223200001_add_is_bot_to_users.exs` | Adds `is_bot` boolean to users table |
+| `priv/repo/migrations/20260224200001_add_bot_private_key_to_users.exs` | Adds `bot_private_key` for real wallets |
 | `test/blockster_v2/bot_system/` | 57 tests across 3 test files |
 
 ## Configuration
@@ -111,6 +113,18 @@ Bots have varied multipliers for natural earning diversity:
 
 The 5 BUX minimum floor ensures even casual bots earn meaningful amounts.
 
+## Bot Wallet Keypairs
+
+Each bot has a real Ethereum keypair (private key → derived address) stored in the `users` table:
+
+- **`wallet_address`** — Real Ethereum address derived from the private key (secp256k1 + keccak256)
+- **`bot_private_key`** — 0x-prefixed hex private key (32 bytes). Stored so bots can later enter airdrops, use BUX, or act as real users
+- **`smart_wallet_address`** — Currently random hex (ERC-4337 smart wallets require on-chain deployment)
+
+New bots get real keypairs on creation. Existing bots can be backfilled via `BotSetup.backfill_keypairs/0`.
+
+Dependencies: `ex_keccak` (Rust NIF via precompiled binaries) for keccak256 hashing.
+
 ## Where Pools Come From
 
 Posts need BUX pools for bots (and real users) to earn from:
@@ -121,7 +135,7 @@ Posts need BUX pools for bots (and real users) to earn from:
 
 ## Restart Recovery
 
-- **Bot users**: In Postgres — survive any restart
+- **Bot users + private keys**: In Postgres — survive any restart
 - **Multipliers**: In Mnesia (disc_copies) — survive restart
 - **Active sessions**: Lost on restart — acceptable. Backfill picks up unread posts
 - **Mint queue**: Lost — some rewards may not complete. Acceptable at bot scale

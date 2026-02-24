@@ -10,6 +10,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
   alias BlocksterV2.Repo
   alias BlocksterV2.Accounts.User
+  alias BlocksterV2.BotSystem.WalletCrypto
   import Ecto.Query
   require Logger
 
@@ -66,7 +67,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   """
   def create_bot(i) do
     email = bot_email(i)
-    wallet = generate_eth_address()
+    {wallet, private_key} = WalletCrypto.generate_keypair()
     smart_wallet = generate_eth_address()
     username = generate_username(i)
 
@@ -79,6 +80,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
     User.email_registration_changeset(attrs)
     |> Ecto.Changeset.put_change(:is_bot, true)
+    |> Ecto.Changeset.put_change(:bot_private_key, private_key)
     |> Repo.insert()
   end
 
@@ -134,6 +136,47 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   """
   def bot_count do
     Repo.one(from u in User, where: u.is_bot == true, select: count(u.id))
+  end
+
+  @doc """
+  Backfills real keypairs for existing bots that have random addresses (no private key).
+  Generates a new keypair, updates wallet_address and stores bot_private_key.
+  Returns `{:ok, updated_count}`.
+  """
+  def backfill_keypairs do
+    bots_without_keys =
+      Repo.all(
+        from u in User,
+          where: u.is_bot == true and is_nil(u.bot_private_key),
+          select: u
+      )
+
+    if bots_without_keys == [] do
+      Logger.info("[BotSetup] All bots already have private keys")
+      {:ok, 0}
+    else
+      Logger.info("[BotSetup] Backfilling keypairs for #{length(bots_without_keys)} bots")
+
+      updated =
+        Enum.reduce(bots_without_keys, 0, fn bot, acc ->
+          {wallet, private_key} = WalletCrypto.generate_keypair()
+
+          case bot
+               |> Ecto.Changeset.change(%{
+                 wallet_address: wallet,
+                 bot_private_key: private_key
+               })
+               |> Repo.update() do
+            {:ok, _} -> acc + 1
+            {:error, err} ->
+              Logger.warning("[BotSetup] Failed to backfill bot #{bot.id}: #{inspect(err)}")
+              acc
+          end
+        end)
+
+      Logger.info("[BotSetup] Backfilled #{updated} bots with real keypairs")
+      {:ok, updated}
+    end
   end
 
   # --- Private Functions ---

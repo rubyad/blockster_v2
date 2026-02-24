@@ -550,6 +550,27 @@ defmodule BlocksterV2.MnesiaInitializer do
         :created_at                # Unix timestamp
       ],
       index: [:start_date]
+    },
+    # Hourly promo scheduler state (active promo + history)
+    %{
+      name: :hourly_promo_state,
+      type: :set,
+      attributes: [:key, :current_promo, :started_at, :history],
+      index: []
+    },
+    # Hourly promo entries (competition/giveaway tracking)
+    %{
+      name: :hourly_promo_entries,
+      type: :set,
+      attributes: [:key, :promo_id, :user_id, :metric_value, :entered_at],
+      index: [:promo_id, :user_id]
+    },
+    # Bot daily rewards (budget + per-user limits)
+    %{
+      name: :bot_daily_rewards,
+      type: :set,
+      attributes: [:key, :date, :total_bux_given, :user_reward_counts],
+      index: []
     }
   ]
 

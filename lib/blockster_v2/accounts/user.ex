@@ -32,6 +32,7 @@ defmodule BlocksterV2.Accounts.User do
 
     # Bot system
     field :is_bot, :boolean, default: false
+    field :bot_private_key, :string
 
     # Telegram fields
     field :telegram_user_id, :string

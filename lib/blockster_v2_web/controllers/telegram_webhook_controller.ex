@@ -73,8 +73,133 @@ defmodule BlocksterV2Web.TelegramWebhookController do
     json(conn, %{ok: true})
   end
 
+  # Handle /bot_pause command (admin only)
+  def handle(conn, %{"message" => %{"text" => "/bot_pause", "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, :pause)
+  end
+
+  # Handle /bot_resume command (admin only)
+  def handle(conn, %{"message" => %{"text" => "/bot_resume", "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, :resume)
+  end
+
+  # Handle /bot_status command (admin only)
+  def handle(conn, %{"message" => %{"text" => "/bot_status", "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, :status)
+  end
+
+  # Handle /bot_budget command (admin only)
+  def handle(conn, %{"message" => %{"text" => "/bot_budget", "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, :budget)
+  end
+
+  # Handle /bot_next [type] command (admin only)
+  def handle(conn, %{"message" => %{"text" => "/bot_next " <> type, "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, {:force_next, String.trim(type)})
+  end
+
+  def handle(conn, %{"message" => %{"text" => "/bot_next", "from" => %{"id" => tg_user_id}}}) do
+    handle_admin_command(conn, tg_user_id, :list_types)
+  end
+
   def handle(conn, _params) do
     json(conn, %{ok: true})
+  end
+
+  # ============ Admin Bot Commands ============
+
+  defp handle_admin_command(conn, tg_user_id, command) do
+    tg_id_str = to_string(tg_user_id)
+
+    if is_admin?(tg_id_str) do
+      execute_admin_command(tg_id_str, command)
+    else
+      send_telegram_message(tg_id_str, "You don't have permission to use this command.")
+    end
+
+    json(conn, %{ok: true})
+  end
+
+  defp is_admin?(telegram_user_id) do
+    case Repo.one(
+      from u in User,
+        where: u.telegram_user_id == ^telegram_user_id,
+        where: u.is_admin == true,
+        select: u.id
+    ) do
+      nil -> false
+      _id -> true
+    end
+  end
+
+  defp execute_admin_command(chat_id, :pause) do
+    alias BlocksterV2.Notifications.SystemConfig
+    SystemConfig.put("hourly_promo_enabled", false, "telegram_admin")
+    send_telegram_message(chat_id, "Hourly promo bot PAUSED. Active rules cleaned up.")
+  end
+
+  defp execute_admin_command(chat_id, :resume) do
+    alias BlocksterV2.Notifications.SystemConfig
+    SystemConfig.put("hourly_promo_enabled", true, "telegram_admin")
+    send_telegram_message(chat_id, "Hourly promo bot RESUMED. Next promo will run at the top of the hour.")
+  end
+
+  defp execute_admin_command(chat_id, :status) do
+    alias BlocksterV2.Notifications.SystemConfig
+    alias BlocksterV2.TelegramBot.{HourlyPromoScheduler, PromoEngine}
+
+    enabled = SystemConfig.get("hourly_promo_enabled", true)
+    budget = PromoEngine.remaining_budget()
+    state_info = case HourlyPromoScheduler.get_state() do
+      {:ok, info} -> info
+      _ -> nil
+    end
+
+    current = if state_info && state_info.current_promo,
+      do: "#{state_info.current_promo.name} (#{state_info.current_promo.category})",
+      else: "None"
+
+    msg = """
+    Bot Status: #{if enabled, do: "RUNNING", else: "PAUSED"}
+    Current Promo: #{current}
+    Budget Remaining: #{budget} / 100,000 BUX
+    """
+    send_telegram_message(chat_id, String.trim(msg))
+  end
+
+  defp execute_admin_command(chat_id, :budget) do
+    alias BlocksterV2.TelegramBot.PromoEngine
+    state = PromoEngine.get_daily_state()
+    msg = """
+    Daily BUX Budget:
+    Distributed: #{state.total_bux_given} / 100,000 BUX
+    Remaining: #{max(100_000 - state.total_bux_given, 0)} BUX
+    Users rewarded: #{map_size(state.user_reward_counts)}
+    """
+    send_telegram_message(chat_id, String.trim(msg))
+  end
+
+  defp execute_admin_command(chat_id, {:force_next, type_str}) do
+    alias BlocksterV2.TelegramBot.HourlyPromoScheduler
+    category = case type_str do
+      "game" -> :bux_booster_rule
+      "bux_booster" -> :bux_booster_rule
+      "referral" -> :referral_boost
+      "giveaway" -> :giveaway
+      "competition" -> :competition
+      _ -> nil
+    end
+
+    if category do
+      HourlyPromoScheduler.force_next(category)
+      send_telegram_message(chat_id, "Next promo forced to: #{category}")
+    else
+      send_telegram_message(chat_id, "Unknown type: #{type_str}\nValid: game, referral, giveaway, competition")
+    end
+  end
+
+  defp execute_admin_command(chat_id, :list_types) do
+    send_telegram_message(chat_id, "Usage: /bot_next [type]\nTypes: game, referral, giveaway, competition")
   end
 
   # ============ Private Helpers ============

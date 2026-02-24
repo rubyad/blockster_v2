@@ -48,7 +48,38 @@ defmodule BlocksterV2.Notifications.SystemConfig do
     "trigger_referral_opportunity_enabled" => true,
 
     # Custom event rules (JSON list)
-    "custom_rules" => []
+    "custom_rules" => [
+      %{
+        "event_type" => "x_connected",
+        "action" => "notification",
+        "title" => "X Account Connected!",
+        "body" => "You earned 500 BUX for connecting your X account!",
+        "channel" => "in_app",
+        "notification_type" => "reward",
+        "bux_bonus" => 500,
+        "source" => "permanent"
+      },
+      %{
+        "event_type" => "wallet_connected",
+        "action" => "notification",
+        "title" => "Wallet Connected!",
+        "body" => "You earned 500 BUX for connecting your wallet!",
+        "channel" => "in_app",
+        "notification_type" => "reward",
+        "bux_bonus" => 500,
+        "source" => "permanent"
+      },
+      %{
+        "event_type" => "phone_verified",
+        "action" => "notification",
+        "title" => "Phone Verified!",
+        "body" => "You earned 500 BUX for verifying your phone!",
+        "channel" => "in_app",
+        "notification_type" => "reward",
+        "bux_bonus" => 500,
+        "source" => "permanent"
+      }
+    ]
   }
 
   # ============ Public API ============

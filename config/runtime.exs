@@ -97,6 +97,9 @@ config :blockster_v2,
     feed_poll_interval: :timer.minutes(5),
     topic_analysis_interval: :timer.minutes(15)
   ],
+  hourly_promo: [
+    enabled: String.trim(System.get_env("HOURLY_PROMO_ENABLED", "false")) == "true"
+  ],
   bot_system: [
     enabled: String.trim(System.get_env("BOT_SYSTEM_ENABLED", "false")) == "true",
     active_bot_count: String.to_integer(String.trim(System.get_env("BOT_ACTIVE_COUNT", "300"))),
