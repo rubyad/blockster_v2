@@ -138,15 +138,6 @@ defmodule BlocksterV2.TelegramBot.PromoEngineTest do
   end
 
   describe "daily budget enforcement" do
-    test "check_daily_budget allows within limit" do
-      assert :ok == PromoEngine.credit_user(999_999, 100)
-      |> then(fn
-        {:error, :no_wallet} -> :ok  # Expected — no user with that ID
-        {:ok, _} -> :ok
-        other -> other
-      end)
-    end
-
     test "remaining_budget starts at 100000" do
       assert PromoEngine.remaining_budget() == 100_000
     end
@@ -160,6 +151,64 @@ defmodule BlocksterV2.TelegramBot.PromoEngineTest do
       assert state.date == Date.utc_today()
       assert state.total_bux_given == 0
       assert state.user_reward_counts == %{}
+    end
+
+    test "remaining_budget decreases when rewards are recorded in Mnesia" do
+      assert PromoEngine.remaining_budget() == 100_000
+
+      # Simulate 5000 BUX distributed by writing directly to Mnesia
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, Date.utc_today(), 5000, %{1 => 2, 2 => 1}})
+
+      assert PromoEngine.remaining_budget() == 95_000
+      refute PromoEngine.budget_exhausted?()
+
+      state = PromoEngine.get_daily_state()
+      assert state.total_bux_given == 5000
+      assert state.user_reward_counts == %{1 => 2, 2 => 1}
+    end
+
+    test "budget_exhausted? returns true at 100k" do
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, Date.utc_today(), 100_000, %{}})
+      assert PromoEngine.budget_exhausted?()
+      assert PromoEngine.remaining_budget() == 0
+    end
+
+    test "credit_user returns :daily_budget_exceeded when budget is full" do
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, Date.utc_today(), 100_000, %{}})
+
+      result = PromoEngine.credit_user(1, 100)
+      assert result == {:error, :daily_budget_exceeded}
+    end
+
+    test "credit_user returns :user_daily_limit when user has 10 rewards" do
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, Date.utc_today(), 500, %{42 => 10}})
+
+      result = PromoEngine.credit_user(42, 100)
+      assert result == {:error, :user_daily_limit}
+    end
+
+    test "credit_user allows user with fewer than 10 rewards" do
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, Date.utc_today(), 500, %{42 => 9}})
+
+      # Will fail at mint (no real wallet) but should NOT fail at budget/limit check
+      result = PromoEngine.credit_user(42, 100)
+      # Should get past budget checks — either :no_wallet (no user) or mint error
+      assert result in [{:error, :no_wallet}] or match?({:error, _}, result)
+      refute result == {:error, :daily_budget_exceeded}
+      refute result == {:error, :user_daily_limit}
+    end
+
+    test "daily state resets when date changes" do
+      # Write yesterday's state
+      yesterday = Date.utc_today() |> Date.add(-1)
+      :mnesia.dirty_write({:bot_daily_rewards, :daily, yesterday, 99_000, %{1 => 10}})
+
+      # Should reset to today
+      state = PromoEngine.get_daily_state()
+      assert state.date == Date.utc_today()
+      assert state.total_bux_given == 0
+      assert state.user_reward_counts == %{}
+      assert PromoEngine.remaining_budget() == 100_000
     end
   end
 
@@ -803,6 +852,339 @@ defmodule BlocksterV2.TelegramBot.PromoEngineTest do
         announcement = template[:announcement]
         assert announcement != nil,
           "#{category}/#{template.name} has nil announcement — it's a stub that will fail"
+      end
+    end
+  end
+
+  # ============ FULL LIFECYCLE INTEGRATION TESTS ============
+
+  describe "full lifecycle — BUX Booster rule" do
+    test "pick → activate → rule exists → settle → rule gone" do
+      templates = PromoEngine.all_templates()[:bux_booster_rule]
+      template = hd(templates)
+      promo = %{
+        id: "lifecycle_bux_#{System.system_time(:millisecond)}",
+        category: :bux_booster_rule,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: DateTime.utc_now(),
+        expires_at: DateTime.utc_now() |> DateTime.add(3600),
+        results: nil
+      }
+
+      # Before activation — no bot rules
+      rules_before = SystemConfig.get("custom_rules", [])
+      bot_before = Enum.filter(rules_before, &(&1["source"] == "telegram_bot"))
+      assert bot_before == []
+
+      # Activate
+      assert :ok = PromoEngine.activate_promo(promo)
+
+      # Rule should exist with correct tags
+      rules_active = SystemConfig.get("custom_rules", [])
+      bot_active = Enum.filter(rules_active, &(&1["source"] == "telegram_bot"))
+      assert length(bot_active) == 1
+      rule = hd(bot_active)
+      assert rule["event_type"] == "game_played"
+      assert rule["_hourly_promo"] == true
+      assert rule["_promo_id"] == promo.id
+      assert rule["_expires_at"] != nil
+      assert rule["bux_bonus_formula"] != nil
+      assert rule["recurring"] == true
+      assert rule["count_field"] == "total_bets"
+
+      # Verify EventProcessor can resolve a bonus from this rule
+      metadata = %{"bet_amount" => 1000, "payout" => 1500, "rogue_balance" => 0, "total_bets" => 5}
+      bonus = EventProcessor.resolve_bonus(rule, "bux", metadata)
+      assert is_number(bonus) and bonus > 0
+
+      # Settle — rule should be cleaned up
+      assert :ok = PromoEngine.settle_promo(promo)
+      rules_after = SystemConfig.get("custom_rules", [])
+      bot_after = Enum.filter(rules_after, &(&1["source"] == "telegram_bot"))
+      assert bot_after == []
+    end
+  end
+
+  describe "full lifecycle — referral boost" do
+    test "pick → activate → rates boosted → settle → rates restored" do
+      # Set known baseline
+      SystemConfig.put("referrer_signup_bux", 500, "test")
+      SystemConfig.put("referee_signup_bux", 250, "test")
+      SystemConfig.put("phone_verify_bux", 500, "test")
+
+      templates = PromoEngine.all_templates()[:referral_boost]
+      template = hd(templates)  # Double Referral Hour (2x)
+      promo = %{
+        id: "lifecycle_ref_#{System.system_time(:millisecond)}",
+        category: :referral_boost,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: DateTime.utc_now(),
+        expires_at: DateTime.utc_now() |> DateTime.add(3600),
+        results: nil
+      }
+
+      # Activate — rates should be boosted
+      assert :ok = PromoEngine.activate_promo(promo)
+      assert SystemConfig.get("referrer_signup_bux") == template.boost.referrer_signup_bux
+      assert SystemConfig.get("referee_signup_bux") == template.boost.referee_signup_bux
+      assert SystemConfig.get("phone_verify_bux") == template.boost.phone_verify_bux
+
+      # Verify originals were saved in Mnesia
+      case :mnesia.dirty_read(:hourly_promo_state, :referral_originals) do
+        [{:hourly_promo_state, :referral_originals, originals, _, _}] ->
+          assert originals.referrer_signup_bux == 500
+          assert originals.referee_signup_bux == 250
+          assert originals.phone_verify_bux == 500
+
+        _ ->
+          flunk("Referral originals should be saved in Mnesia")
+      end
+
+      # Settle — rates should be restored
+      assert :ok = PromoEngine.settle_promo(promo)
+      assert SystemConfig.get("referrer_signup_bux") == 500
+      assert SystemConfig.get("referee_signup_bux") == 250
+      assert SystemConfig.get("phone_verify_bux") == 500
+
+      # Mnesia originals should be cleaned up
+      assert :mnesia.dirty_read(:hourly_promo_state, :referral_originals) == []
+    end
+  end
+
+  describe "full lifecycle — giveaway with real users and events" do
+    setup do
+      {:ok, user1} = Repo.insert(%User{
+        email: "life_ga1_#{System.unique_integer([:positive])}@test.com",
+        wallet_address: "0xwallet_lga1_#{System.unique_integer([:positive])}",
+        telegram_user_id: "lga1_#{System.unique_integer([:positive])}",
+        telegram_username: "lifecycle_alice",
+        smart_wallet_address: "0xlga1_#{System.unique_integer([:positive])}",
+        telegram_group_joined_at: DateTime.utc_now() |> DateTime.add(-600) |> DateTime.truncate(:second)
+      })
+
+      {:ok, user2} = Repo.insert(%User{
+        email: "life_ga2_#{System.unique_integer([:positive])}@test.com",
+        wallet_address: "0xwallet_lga2_#{System.unique_integer([:positive])}",
+        telegram_user_id: "lga2_#{System.unique_integer([:positive])}",
+        telegram_username: "lifecycle_bob",
+        smart_wallet_address: "0xlga2_#{System.unique_integer([:positive])}",
+        telegram_group_joined_at: DateTime.utc_now() |> DateTime.add(-300) |> DateTime.truncate(:second)
+      })
+
+      %{user1: user1, user2: user2}
+    end
+
+    test "activity_based: insert events → settle → winners are users who performed action", %{user1: user1} do
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      started_at = DateTime.utc_now() |> DateTime.add(-3600)
+
+      # user1 reads 2 articles during the promo window
+      for _ <- 1..2 do
+        Repo.insert!(%BlocksterV2.Notifications.UserEvent{
+          user_id: user1.id,
+          event_type: "article_view",
+          event_category: "engagement",
+          metadata: %{"post_id" => System.unique_integer([:positive])},
+          inserted_at: now
+        })
+      end
+
+      template = Enum.find(PromoEngine.all_templates()[:giveaway], &(&1.type == :activity_based))
+      promo = %{
+        id: "lifecycle_giveaway_#{System.system_time(:millisecond)}",
+        category: :giveaway,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: started_at,
+        expires_at: DateTime.utc_now(),
+        results: nil
+      }
+
+      # Activate (no-op for giveaways without rules)
+      assert :ok = PromoEngine.activate_promo(promo)
+
+      # Settle — should find user1 as eligible
+      results = PromoEngine.settle_promo(promo)
+      assert {:ok, winners} = results
+      assert is_list(winners)
+
+      if length(winners) > 0 do
+        winner_ids = Enum.map(winners, fn {id, _, _} -> id end)
+        assert user1.id in winner_ids
+        # Each winner should have a prize in the template range
+        for {_id, _username, amount} <- winners do
+          {min_prize, max_prize} = template.prize_range
+          assert amount >= min_prize and amount <= max_prize,
+            "Prize #{amount} should be between #{min_prize} and #{max_prize}"
+        end
+      end
+    end
+
+    test "auto_entry: all group members are eligible without any action", %{user1: user1, user2: user2} do
+      template = Enum.find(PromoEngine.all_templates()[:giveaway], &(&1.type == :auto_entry))
+      promo = %{
+        id: "lifecycle_auto_#{System.system_time(:millisecond)}",
+        category: :giveaway,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: DateTime.utc_now() |> DateTime.add(-3600),
+        expires_at: DateTime.utc_now(),
+        results: nil
+      }
+
+      results = PromoEngine.settle_promo(promo)
+      assert {:ok, winners} = results
+
+      if length(winners) > 0 do
+        winner_ids = Enum.map(winners, fn {id, _, _} -> id end)
+        # Both users are eligible (both have telegram + smart_wallet + group_joined)
+        for id <- winner_ids do
+          assert id in [user1.id, user2.id]
+        end
+      end
+    end
+  end
+
+  describe "full lifecycle — competition with real users and events" do
+    setup do
+      {:ok, user1} = Repo.insert(%User{
+        email: "life_comp1_#{System.unique_integer([:positive])}@test.com",
+        wallet_address: "0xwallet_lc1_#{System.unique_integer([:positive])}",
+        telegram_user_id: "lc1_#{System.unique_integer([:positive])}",
+        telegram_username: "lifecycle_player1",
+        smart_wallet_address: "0xlc1_#{System.unique_integer([:positive])}"
+      })
+
+      {:ok, user2} = Repo.insert(%User{
+        email: "life_comp2_#{System.unique_integer([:positive])}@test.com",
+        wallet_address: "0xwallet_lc2_#{System.unique_integer([:positive])}",
+        telegram_user_id: "lc2_#{System.unique_integer([:positive])}",
+        telegram_username: "lifecycle_player2",
+        smart_wallet_address: "0xlc2_#{System.unique_integer([:positive])}"
+      })
+
+      %{user1: user1, user2: user2}
+    end
+
+    test "articles_read: user with more reads ranks higher → gets bigger prize", %{user1: user1, user2: user2} do
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      started_at = DateTime.utc_now() |> DateTime.add(-3600)
+
+      # user1 reads 5 articles, user2 reads 2
+      for _ <- 1..5 do
+        Repo.insert!(%BlocksterV2.Notifications.UserEvent{
+          user_id: user1.id,
+          event_type: "article_view",
+          event_category: "engagement",
+          metadata: %{},
+          inserted_at: now
+        })
+      end
+
+      for _ <- 1..2 do
+        Repo.insert!(%BlocksterV2.Notifications.UserEvent{
+          user_id: user2.id,
+          event_type: "article_view",
+          event_category: "engagement",
+          metadata: %{},
+          inserted_at: now
+        })
+      end
+
+      template = Enum.find(PromoEngine.all_templates()[:competition], &(&1.metric == :articles_read))
+      promo = %{
+        id: "lifecycle_comp_#{System.system_time(:millisecond)}",
+        category: :competition,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: started_at,
+        expires_at: DateTime.utc_now(),
+        results: nil
+      }
+
+      results = PromoEngine.settle_promo(promo)
+      assert {:ok, winners} = results
+      assert length(winners) >= 2
+
+      # user1 (5 reads) should be ranked first
+      {first_id, _, first_prize} = Enum.at(winners, 0)
+      {second_id, _, second_prize} = Enum.at(winners, 1)
+      assert first_id == user1.id, "user1 (5 reads) should be #1"
+      assert second_id == user2.id, "user2 (2 reads) should be #2"
+      assert first_prize > second_prize, "1st place (#{first_prize}) should get more than 2nd (#{second_prize})"
+
+      # 2 participants → tiered 60/40 of 1500 = 900/600
+      assert first_prize == 900.0
+      assert second_prize == 600.0
+    end
+
+    test "competition with zero participants returns empty winners" do
+      template = Enum.find(PromoEngine.all_templates()[:competition], &(&1.metric == :bet_count))
+      promo = %{
+        id: "lifecycle_empty_comp_#{System.system_time(:millisecond)}",
+        category: :competition,
+        template: template,
+        name: template.name,
+        announcement_html: template.announcement,
+        started_at: DateTime.utc_now() |> DateTime.add(-10),  # very recent — no events
+        expires_at: DateTime.utc_now(),
+        results: nil
+      }
+
+      results = PromoEngine.settle_promo(promo)
+      assert {:ok, []} = results
+    end
+
+    test "results format correctly for announcements", %{user1: user1, user2: user2} do
+      # Build a settled promo with real winner data
+      promo = %{
+        name: "Most Articles Read",
+        category: :competition,
+        results: {:ok, [{user1.id, "lifecycle_player1", 750.0}, {user2.id, "lifecycle_player2", 450.0}]}
+      }
+
+      next_promo = %{name: "Safety Net Hour"}
+      html = PromoEngine.format_results_html(promo, next_promo)
+
+      assert html =~ "Most Articles Read"
+      assert html =~ "@lifecycle_player1"
+      assert html =~ "@lifecycle_player2"
+      assert html =~ "750 BUX"
+      assert html =~ "450 BUX"
+      assert html =~ "1200 BUX"  # total
+      assert html =~ "Safety Net Hour"  # next promo teaser
+    end
+  end
+
+  describe "full lifecycle — multiple promos in sequence" do
+    test "activate/settle 3 promos in sequence, rules don't leak between cycles" do
+      for i <- 1..3 do
+        promo = PromoEngine.pick_next_promo(if(i > 1, do: [%{name: "prev", category: :bux_booster_rule}], else: []))
+
+        # Activate
+        assert :ok = PromoEngine.activate_promo(promo)
+
+        # If BUX Booster, rule should be active
+        if promo.category == :bux_booster_rule do
+          rules = SystemConfig.get("custom_rules", [])
+          bot_rules = Enum.filter(rules, &(&1["_promo_id"] == promo.id))
+          assert length(bot_rules) == 1, "Cycle #{i}: expected 1 bot rule for #{promo.name}"
+        end
+
+        # Settle
+        PromoEngine.settle_promo(promo)
+
+        # After settle, no bot rules should remain
+        rules = SystemConfig.get("custom_rules", [])
+        bot_rules = Enum.filter(rules, &(&1["source"] == "telegram_bot"))
+        assert bot_rules == [], "Cycle #{i}: bot rules should be cleaned after settle"
       end
     end
   end

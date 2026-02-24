@@ -70,6 +70,9 @@ defmodule BlocksterV2Web.Router do
       live "/admin/ads/campaigns", AdsAdminLive.CampaignIndex, :index
       live "/admin/ads/campaigns/new", AdsAdminLive.CampaignNew, :new
 
+      # Telegram Bot Promo Admin
+      live "/admin/promo", PromoAdminLive, :index
+
       # Content Automation Admin
       live "/admin/content", ContentAutomationLive.Dashboard, :index
       live "/admin/content/queue", ContentAutomationLive.Queue, :index

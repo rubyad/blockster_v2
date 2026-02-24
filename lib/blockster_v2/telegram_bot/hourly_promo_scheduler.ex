@@ -28,7 +28,7 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
   def init(_opts) do
     schedule_next_promo()
     Logger.info("[HourlyPromoScheduler] Started, first promo scheduled")
-    {:ok, %{current_promo: nil, history: [], promo_started_at: nil}}
+    {:ok, %{current_promo: nil, history: [], promo_started_at: nil, forced_category: nil}}
   end
 
   # ======== Public API ========
