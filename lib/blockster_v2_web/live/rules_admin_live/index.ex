@@ -49,6 +49,12 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
         "action_label" => rule["action_label"] || "",
         "bux_bonus" => to_string(rule["bux_bonus"] || ""),
         "rogue_bonus" => to_string(rule["rogue_bonus"] || ""),
+        "bux_bonus_formula" => rule["bux_bonus_formula"] || "",
+        "rogue_bonus_formula" => rule["rogue_bonus_formula"] || "",
+        "recurring" => if(rule["recurring"] == true, do: "true", else: "false"),
+        "every_n" => to_string(rule["every_n"] || ""),
+        "every_n_formula" => rule["every_n_formula"] || "",
+        "count_field" => rule["count_field"] || "total_bets",
         "conditions" => format_conditions(rule["conditions"])
       }
 
@@ -248,19 +254,84 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
                 </div>
               </div>
 
-              <%!-- Row 5: BUX + ROGUE bonuses --%>
+              <%!-- Row 5: BUX + ROGUE bonuses (static) --%>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">BUX Bonus</label>
+                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">BUX Bonus (static)</label>
                   <input type="number" name="bux_bonus" value={@form_data["bux_bonus"]} min="0" step="1"
                     placeholder="0"
                     class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400" />
                 </div>
                 <div>
-                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">ROGUE Bonus</label>
+                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">ROGUE Bonus (static)</label>
                   <input type="number" name="rogue_bonus" value={@form_data["rogue_bonus"]} min="0" step="any"
                     placeholder="0"
                     class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400" />
+                </div>
+              </div>
+
+              <%!-- Row 5b: BUX + ROGUE formula bonuses --%>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">BUX Bonus Formula</label>
+                  <input type="text" name="bux_bonus_formula" value={@form_data["bux_bonus_formula"]}
+                    placeholder="e.g. total_bets * 10, random(100, 500)"
+                    class={"w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-mono focus:ring-2 focus:ring-gray-400 #{if @form_errors["bux_bonus_formula"], do: "ring-2 ring-red-400"}"} />
+                  <%= if @form_errors["bux_bonus_formula"] do %>
+                    <p class="text-xs text-red-500 mt-1"><%= @form_errors["bux_bonus_formula"] %></p>
+                  <% end %>
+                </div>
+                <div>
+                  <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">ROGUE Bonus Formula</label>
+                  <input type="text" name="rogue_bonus_formula" value={@form_data["rogue_bonus_formula"]}
+                    placeholder="e.g. rogue_balance * 0.0001"
+                    class={"w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-mono focus:ring-2 focus:ring-gray-400 #{if @form_errors["rogue_bonus_formula"], do: "ring-2 ring-red-400"}"} />
+                  <%= if @form_errors["rogue_bonus_formula"] do %>
+                    <p class="text-xs text-red-500 mt-1"><%= @form_errors["rogue_bonus_formula"] %></p>
+                  <% end %>
+                </div>
+              </div>
+              <p class="text-xs text-gray-400 font-haas_roman_55 -mt-2">Formulas take precedence over static bonuses. Use metadata variables: <code class="bg-gray-100 px-1 rounded">total_bets</code>, <code class="bg-gray-100 px-1 rounded">bux_balance</code>, <code class="bg-gray-100 px-1 rounded">rogue_balance</code>, etc. Functions: <code class="bg-gray-100 px-1 rounded">random(min, max)</code>, <code class="bg-gray-100 px-1 rounded">min(a, b)</code>, <code class="bg-gray-100 px-1 rounded">max(a, b)</code></p>
+
+              <%!-- Row 5c: Recurring rule settings --%>
+              <div class="border-t border-gray-100 pt-4 mt-2">
+                <div class="flex items-center gap-3 mb-3">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="hidden" name="recurring" value="false" />
+                    <input type="checkbox" name="recurring" value="true" checked={@form_data["recurring"] == "true"}
+                      class="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400 cursor-pointer" />
+                    <span class="text-sm font-haas_medium_65 text-gray-700">Recurring Rule</span>
+                  </label>
+                  <span class="text-xs text-gray-400 font-haas_roman_55">Fires repeatedly at intervals instead of once</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Every N (static)</label>
+                    <input type="number" name="every_n" value={@form_data["every_n"]} min="1" step="1"
+                      placeholder="e.g. 10"
+                      class={"w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400 #{if @form_errors["every_n"], do: "ring-2 ring-red-400"}"} />
+                    <%= if @form_errors["every_n"] do %>
+                      <p class="text-xs text-red-500 mt-1"><%= @form_errors["every_n"] %></p>
+                    <% end %>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Every N Formula</label>
+                    <input type="text" name="every_n_formula" value={@form_data["every_n_formula"]}
+                      placeholder="e.g. random(5, 15)"
+                      class={"w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-mono focus:ring-2 focus:ring-gray-400 #{if @form_errors["every_n_formula"], do: "ring-2 ring-red-400"}"} />
+                    <%= if @form_errors["every_n_formula"] do %>
+                      <p class="text-xs text-red-500 mt-1"><%= @form_errors["every_n_formula"] %></p>
+                    <% end %>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-haas_medium_65 text-gray-700 mb-1">Count Field</label>
+                    <select name="count_field" class="w-full px-4 py-2.5 bg-[#F5F6FB] border-0 rounded-xl text-sm font-haas_roman_55 focus:ring-2 focus:ring-gray-400 cursor-pointer">
+                      <%= for {value, label} <- count_field_options() do %>
+                        <option value={value} selected={@form_data["count_field"] == value}><%= label %></option>
+                      <% end %>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -332,14 +403,25 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
                       </td>
                       <td class="px-6 py-4">
                         <div class="flex flex-col gap-0.5 text-xs font-haas_roman_55">
-                          <%= if rule["bux_bonus"] && rule["bux_bonus"] > 0 do %>
+                          <%= if rule["bux_bonus_formula"] && rule["bux_bonus_formula"] != "" do %>
+                            <span class="text-amber-600 font-mono"><%= rule["bux_bonus_formula"] %> BUX</span>
+                          <% end %>
+                          <%= if rule["bux_bonus"] && rule["bux_bonus"] > 0 && (!rule["bux_bonus_formula"] || rule["bux_bonus_formula"] == "") do %>
                             <span class="text-amber-600"><%= rule["bux_bonus"] %> BUX</span>
                           <% end %>
-                          <%= if rule["rogue_bonus"] && rule["rogue_bonus"] > 0 do %>
+                          <%= if rule["rogue_bonus_formula"] && rule["rogue_bonus_formula"] != "" do %>
+                            <span class="text-blue-600 font-mono"><%= rule["rogue_bonus_formula"] %> ROGUE</span>
+                          <% end %>
+                          <%= if rule["rogue_bonus"] && rule["rogue_bonus"] > 0 && (!rule["rogue_bonus_formula"] || rule["rogue_bonus_formula"] == "") do %>
                             <span class="text-blue-600"><%= rule["rogue_bonus"] %> ROGUE</span>
                           <% end %>
-                          <%= if (!rule["bux_bonus"] || rule["bux_bonus"] == 0) && (!rule["rogue_bonus"] || rule["rogue_bonus"] == 0) do %>
+                          <%= if no_bonus?(rule) do %>
                             <span class="text-gray-400">None</span>
+                          <% end %>
+                          <%= if rule["recurring"] == true do %>
+                            <span class="text-purple-600 mt-0.5">
+                              Recurring: every <%= rule["every_n_formula"] || rule["every_n"] || "?" %> (<%= rule["count_field"] || "total_bets" %>)
+                            </span>
                           <% end %>
                         </div>
                       </td>
@@ -370,9 +452,12 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
         <div class="mt-6 bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-2">How Rules Work</h3>
           <ul class="text-xs font-haas_roman_55 text-gray-500 space-y-1">
-            <li>Rules trigger when a matching <strong>event_type</strong> is processed (e.g. bet_settled, signup, phone_verified, article_read)</li>
-            <li><strong>Conditions</strong> filter by event metadata using exact match or operators: <code class="bg-gray-100 px-1 rounded"><%= ~s({"$gte": 10}) %></code>, <code class="bg-gray-100 px-1 rounded"><%= ~s({"$lte": 5}) %></code>, <code class="bg-gray-100 px-1 rounded"><%= ~s({"$gt": 0}) %></code>, <code class="bg-gray-100 px-1 rounded"><%= ~s({"$lt": 100}) %></code></li>
-            <li><strong>BUX/ROGUE bonuses</strong> are minted to the user when the rule fires</li>
+            <li>Rules trigger when a matching <strong>event_type</strong> is processed (e.g. game_played, signup, phone_verified, hub_followed)</li>
+            <li><strong>Conditions</strong> filter by event metadata using exact match or operators: <code class="bg-gray-100 px-1 rounded"><%= ~s({"$gte": 10}) %></code>, <code class="bg-gray-100 px-1 rounded"><%= ~s({"$lte": 5}) %></code></li>
+            <li><strong>Static bonuses</strong> award a fixed amount. <strong>Formula bonuses</strong> compute amounts from metadata (e.g. <code class="bg-gray-100 px-1 rounded">total_bets * 10</code>)</li>
+            <li><strong>Formulas</strong> support: <code class="bg-gray-100 px-1 rounded">+</code> <code class="bg-gray-100 px-1 rounded">-</code> <code class="bg-gray-100 px-1 rounded">*</code> <code class="bg-gray-100 px-1 rounded">/</code> <code class="bg-gray-100 px-1 rounded">()</code> and functions <code class="bg-gray-100 px-1 rounded">random(min, max)</code>, <code class="bg-gray-100 px-1 rounded">min(a, b)</code>, <code class="bg-gray-100 px-1 rounded">max(a, b)</code></li>
+            <li><strong>Available variables</strong> for game_played: <code class="bg-gray-100 px-1 rounded">total_bets</code>, <code class="bg-gray-100 px-1 rounded">bux_win_rate</code>, <code class="bg-gray-100 px-1 rounded">bux_net_pnl</code>, <code class="bg-gray-100 px-1 rounded">bux_total_wagered</code>, etc. All events get <code class="bg-gray-100 px-1 rounded">bux_balance</code> and <code class="bg-gray-100 px-1 rounded">rogue_balance</code></li>
+            <li><strong>Recurring rules</strong> fire at intervals (every Nth event) instead of once. The interval can be static or formula-based</li>
             <li>Rules are also manageable via the <.link navigate={~p"/admin/ai-manager"} class="text-blue-600 hover:underline cursor-pointer">AI Manager</.link></li>
           </ul>
         </div>
@@ -395,16 +480,87 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
       "action_label" => "",
       "bux_bonus" => "",
       "rogue_bonus" => "",
+      "bux_bonus_formula" => "",
+      "rogue_bonus_formula" => "",
+      "recurring" => "false",
+      "every_n" => "",
+      "every_n_formula" => "",
+      "count_field" => "total_bets",
       "conditions" => ""
     }
   end
 
   defp validate_form(params) do
+    alias BlocksterV2.Notifications.FormulaEvaluator
+
     errors = %{}
 
     errors = if blank?(params["event_type"]), do: Map.put(errors, "event_type", "required"), else: errors
     errors = if blank?(params["title"]), do: Map.put(errors, "title", "required"), else: errors
     errors = if blank?(params["body"]), do: Map.put(errors, "body", "required"), else: errors
+
+    # Validate formula syntax (test with dummy metadata)
+    test_metadata = %{"total_bets" => 10, "bux_balance" => 1000.0, "rogue_balance" => 50000.0}
+
+    errors =
+      if not blank?(params["bux_bonus_formula"]) do
+        case FormulaEvaluator.evaluate(params["bux_bonus_formula"], test_metadata) do
+          {:ok, _} -> errors
+          :error -> Map.put(errors, "bux_bonus_formula", "invalid formula syntax")
+        end
+      else
+        errors
+      end
+
+    errors =
+      if not blank?(params["rogue_bonus_formula"]) do
+        case FormulaEvaluator.evaluate(params["rogue_bonus_formula"], test_metadata) do
+          {:ok, _} -> errors
+          :error -> Map.put(errors, "rogue_bonus_formula", "invalid formula syntax")
+        end
+      else
+        errors
+      end
+
+    # Validate recurring settings
+    is_recurring = params["recurring"] == "true"
+
+    errors =
+      if is_recurring do
+        has_every_n = not blank?(params["every_n"])
+        has_every_n_formula = not blank?(params["every_n_formula"])
+
+        errors =
+          if not has_every_n and not has_every_n_formula do
+            Map.put(errors, "every_n", "recurring rules require every_n or every_n_formula")
+          else
+            errors
+          end
+
+        errors =
+          if has_every_n do
+            case Integer.parse(params["every_n"] || "") do
+              {n, _} when n >= 1 -> errors
+              _ -> Map.put(errors, "every_n", "must be a positive integer")
+            end
+          else
+            errors
+          end
+
+        errors =
+          if has_every_n_formula do
+            case FormulaEvaluator.evaluate(params["every_n_formula"], test_metadata) do
+              {:ok, _} -> errors
+              :error -> Map.put(errors, "every_n_formula", "invalid formula syntax")
+            end
+          else
+            errors
+          end
+
+        errors
+      else
+        errors
+      end
 
     # Parse conditions JSON
     {conditions, errors} =
@@ -434,6 +590,12 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
           "action_label" => non_blank(params["action_label"]),
           "bux_bonus" => parse_number(params["bux_bonus"]),
           "rogue_bonus" => parse_number(params["rogue_bonus"]),
+          "bux_bonus_formula" => non_blank(params["bux_bonus_formula"]),
+          "rogue_bonus_formula" => non_blank(params["rogue_bonus_formula"]),
+          "recurring" => if(is_recurring, do: true, else: nil),
+          "every_n" => if(is_recurring, do: parse_integer(params["every_n"]), else: nil),
+          "every_n_formula" => if(is_recurring, do: non_blank(params["every_n_formula"]), else: nil),
+          "count_field" => if(is_recurring and params["count_field"] != "total_bets", do: params["count_field"], else: nil),
           "conditions" => conditions
         }
         |> Enum.reject(fn {_k, v} -> is_nil(v) end)
@@ -462,6 +624,33 @@ defmodule BlocksterV2Web.RulesAdminLive.Index do
     end
   end
   defp parse_number(n) when is_number(n), do: n
+
+  defp parse_integer(nil), do: nil
+  defp parse_integer(""), do: nil
+  defp parse_integer(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, _} when n >= 1 -> n
+      _ -> nil
+    end
+  end
+  defp parse_integer(n) when is_integer(n), do: n
+
+  defp count_field_options do
+    [
+      {"total_bets", "total_bets (combined)"},
+      {"bux_total_bets", "bux_total_bets"},
+      {"rogue_total_bets", "rogue_total_bets"},
+      {"net_deposits", "net_deposits (ROGUE)"},
+      {"bux_total_wagered", "bux_total_wagered"},
+      {"rogue_total_wagered", "rogue_total_wagered"}
+    ]
+  end
+
+  defp no_bonus?(rule) do
+    no_static = (!rule["bux_bonus"] || rule["bux_bonus"] == 0) && (!rule["rogue_bonus"] || rule["rogue_bonus"] == 0)
+    no_formula = (!rule["bux_bonus_formula"] || rule["bux_bonus_formula"] == "") && (!rule["rogue_bonus_formula"] || rule["rogue_bonus_formula"] == "")
+    no_static && no_formula
+  end
 
   defp format_conditions(nil), do: ""
   defp format_conditions(conditions) when is_map(conditions) and map_size(conditions) == 0, do: ""

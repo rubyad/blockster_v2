@@ -135,6 +135,50 @@ defmodule BlocksterV2.Notifications.AIManager do
 
   Rules with numeric thresholds are automatically deduplicated — each user only receives the notification once per rule.
 
+  ## Balance-Enriched Events
+  ALL events (not just game_played) are automatically enriched with the user's current token balances:
+  - `bux_balance` — current BUX balance
+  - `rogue_balance` — current ROGUE balance
+
+  Use in conditions: `{"bux_balance": {"$gte": 50000}}` — only fire for users with 50K+ BUX
+  Use in formulas: `rogue_balance * 0.0001` — reward proportional to ROGUE holdings
+
+  ## Formula-Based Rewards
+  Instead of static `bux_bonus` / `rogue_bonus`, you can use `bux_bonus_formula` / `rogue_bonus_formula` with expressions that reference metadata variables.
+
+  **Syntax:** Standard math with metadata variables and functions:
+  - `total_bets * 10` — 10 BUX per bet
+  - `bux_total_wagered / total_bets` — average bet size
+  - `bux_net_pnl * -0.1` — 10% cashback on losses (negative PnL becomes positive)
+  - `random(100, 500)` — random amount between 100–500
+  - `random(1, 3) * total_bets` — randomized scaling
+  - `rogue_balance * 0.0001` — 0.01% of ROGUE holdings
+  - `max(100, total_bets * 5)` — at least 100, scales with bets
+  - `min(1000, bux_total_wagered / 10)` — capped at 1000
+
+  **Functions:** `random(min, max)`, `min(a, b)`, `max(a, b)`
+  **Operators:** `+`, `-`, `*`, `/` with standard math precedence, parentheses for grouping
+
+  Formula bonuses are capped at 100,000 BUX / 100 ROGUE. Negative results or errors yield no reward.
+  When both a formula and static bonus are set, the formula takes precedence.
+
+  ## Recurring Rules
+  By default, rules fire once per user (dedup). Set `recurring: true` to fire repeatedly at intervals.
+
+  **Fields:**
+  - `recurring: true` — enables recurring mode
+  - `every_n` — static interval (e.g., 10 = every 10th game)
+  - `every_n_formula` — dynamic interval (e.g., `random(5, 15)` or `max(3, 20 - bux_win_rate / 5)`)
+  - `count_field` — which metadata field to count against (default: "total_bets")
+
+  **How it works:** On each matching event, the system reads `count_field` from metadata (e.g., total_bets=37), checks if the threshold is reached, fires the rule, then sets the next threshold. The interval is recalculated each time (for random/dynamic intervals).
+
+  **Example recurring rules:**
+  - "500 BUX every 10th game": recurring=true, every_n=10, bux_bonus=500
+  - "Random reward every 5-15 games": recurring=true, every_n_formula="random(5, 15)", bux_bonus_formula="random(100, 500)"
+  - "Losing players rewarded more often": recurring=true, every_n_formula="max(3, bux_win_rate / 5)", bux_bonus=200
+  - "Whale ROGUE holders: rare big rewards": recurring=true, every_n_formula="random(20, 50)", conditions={"rogue_balance": {"$gte": 100000}}, bux_bonus_formula="rogue_balance * 0.0001"
+
   ## Campaign Safety
   CRITICAL: Campaigns are ALWAYS created as drafts. You cannot send campaigns directly. An admin must review the campaign content, audience, and subject line before manually approving it for sending. Always set send_now to false.
 
@@ -356,8 +400,14 @@ defmodule BlocksterV2.Notifications.AIManager do
           "subject" => %{"type" => "string", "description" => "Email subject line (defaults to title if not provided)"},
           "action_url" => %{"type" => "string", "description" => "CTA link URL for notifications and emails"},
           "action_label" => %{"type" => "string", "description" => "CTA button text"},
-          "bux_bonus" => %{"type" => "integer", "description" => "BUX to auto-mint to the user's wallet when rule fires"},
-          "rogue_bonus" => %{"type" => "number", "description" => "ROGUE to auto-send to the user's wallet when rule fires (e.g. 0.5)"}
+          "bux_bonus" => %{"type" => "integer", "description" => "Static BUX to auto-mint when rule fires"},
+          "rogue_bonus" => %{"type" => "number", "description" => "Static ROGUE to auto-send when rule fires (e.g. 0.5)"},
+          "bux_bonus_formula" => %{"type" => "string", "description" => "Formula for dynamic BUX bonus (e.g. 'total_bets * 10', 'random(100, 500)'). Takes precedence over bux_bonus."},
+          "rogue_bonus_formula" => %{"type" => "string", "description" => "Formula for dynamic ROGUE bonus (e.g. 'rogue_balance * 0.0001'). Takes precedence over rogue_bonus."},
+          "recurring" => %{"type" => "boolean", "description" => "If true, rule fires repeatedly at intervals instead of once"},
+          "every_n" => %{"type" => "integer", "description" => "Static interval for recurring rules (e.g. 10 = every 10th event)"},
+          "every_n_formula" => %{"type" => "string", "description" => "Formula for dynamic interval (e.g. 'random(5, 15)')"},
+          "count_field" => %{"type" => "string", "description" => "Metadata field to count for recurring rules (default: 'total_bets')"}
         },
         "required" => ["event_type", "title", "body"]
       }
@@ -822,7 +872,13 @@ defmodule BlocksterV2.Notifications.AIManager do
         "action_url" => input["action_url"],
         "action_label" => input["action_label"],
         "bux_bonus" => input["bux_bonus"],
-        "rogue_bonus" => input["rogue_bonus"]
+        "rogue_bonus" => input["rogue_bonus"],
+        "bux_bonus_formula" => input["bux_bonus_formula"],
+        "rogue_bonus_formula" => input["rogue_bonus_formula"],
+        "recurring" => input["recurring"],
+        "every_n" => input["every_n"],
+        "every_n_formula" => input["every_n_formula"],
+        "count_field" => input["count_field"]
       }
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()

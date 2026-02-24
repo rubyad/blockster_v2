@@ -14,10 +14,15 @@ defmodule BlocksterV2.Notifications.EventProcessor do
     TriggerEngine,
     SystemConfig,
     EmailBuilder,
-    RateLimiter
+    RateLimiter,
+    FormulaEvaluator
   }
 
   @pubsub BlocksterV2.PubSub
+
+  # Max bonus caps to prevent runaway formulas
+  @max_bux_bonus 100_000
+  @max_rogue_bonus 100
 
   # ============ Client API ============
 
@@ -54,7 +59,8 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
   # ============ Event Processing ============
 
-  defp process_user_event(user_id, event_type, metadata) do
+  @doc false
+  def process_user_event(user_id, event_type, metadata) do
     # 1. Evaluate real-time triggers
     try do
       notifications = TriggerEngine.evaluate_triggers(user_id, event_type, metadata)
@@ -76,42 +82,68 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   # ============ Helpers ============
 
   defp enrich_metadata(user_id, "game_played", metadata) do
-    case BlocksterV2.BuxBoosterStats.get_user_stats(user_id) do
-      {:ok, stats} ->
-        Map.merge(metadata, %{
-          # Counts
-          "total_bets" => (stats.bux.total_bets || 0) + (stats.rogue.total_bets || 0),
-          "bux_total_bets" => stats.bux.total_bets || 0,
-          "rogue_total_bets" => stats.rogue.total_bets || 0,
-          "bux_wins" => stats.bux.wins || 0,
-          "bux_losses" => stats.bux.losses || 0,
-          "rogue_wins" => stats.rogue.wins || 0,
-          "rogue_losses" => stats.rogue.losses || 0,
-          # Amounts (converted from wei to human-readable)
-          "bux_total_wagered" => wei_to_float(stats.bux.total_wagered),
-          "bux_total_winnings" => wei_to_float(stats.bux.total_winnings),
-          "bux_total_losses" => wei_to_float(stats.bux.total_losses),
-          "bux_net_pnl" => wei_to_float(stats.bux.net_pnl),
-          "rogue_total_wagered" => wei_to_float(stats.rogue.total_wagered),
-          "rogue_total_winnings" => wei_to_float(stats.rogue.total_winnings),
-          "rogue_total_losses" => wei_to_float(stats.rogue.total_losses),
-          "rogue_net_pnl" => wei_to_float(stats.rogue.net_pnl),
-          # Win rates
-          "bux_win_rate" => win_rate(stats.bux.wins, stats.bux.total_bets),
-          "rogue_win_rate" => win_rate(stats.rogue.wins, stats.rogue.total_bets),
-          # Timestamps
-          "first_bet_at" => stats.first_bet_at,
-          "last_bet_at" => stats.last_bet_at
-        })
+    balances = fetch_user_balances(user_id)
 
-      _ ->
-        metadata
-    end
+    game_metadata =
+      try do
+        case BlocksterV2.BuxBoosterStats.get_user_stats(user_id) do
+          {:ok, stats} ->
+            Map.merge(metadata, %{
+              # Counts
+              "total_bets" => (stats.bux.total_bets || 0) + (stats.rogue.total_bets || 0),
+              "bux_total_bets" => stats.bux.total_bets || 0,
+              "rogue_total_bets" => stats.rogue.total_bets || 0,
+              "bux_wins" => stats.bux.wins || 0,
+              "bux_losses" => stats.bux.losses || 0,
+              "rogue_wins" => stats.rogue.wins || 0,
+              "rogue_losses" => stats.rogue.losses || 0,
+              # Amounts (converted from wei to human-readable)
+              "bux_total_wagered" => wei_to_float(stats.bux.total_wagered),
+              "bux_total_winnings" => wei_to_float(stats.bux.total_winnings),
+              "bux_total_losses" => wei_to_float(stats.bux.total_losses),
+              "bux_net_pnl" => wei_to_float(stats.bux.net_pnl),
+              "rogue_total_wagered" => wei_to_float(stats.rogue.total_wagered),
+              "rogue_total_winnings" => wei_to_float(stats.rogue.total_winnings),
+              "rogue_total_losses" => wei_to_float(stats.rogue.total_losses),
+              "rogue_net_pnl" => wei_to_float(stats.rogue.net_pnl),
+              # Win rates
+              "bux_win_rate" => win_rate(stats.bux.wins, stats.bux.total_bets),
+              "rogue_win_rate" => win_rate(stats.rogue.wins, stats.rogue.total_bets),
+              # Timestamps
+              "first_bet_at" => stats.first_bet_at,
+              "last_bet_at" => stats.last_bet_at
+            })
+
+          _ ->
+            metadata
+        end
+      rescue
+        _ -> metadata
+      catch
+        :exit, _ -> metadata
+      end
+
+    Map.merge(game_metadata, balances)
+  end
+
+  # Catch-all: enrich all events with BUX/ROGUE balances
+  defp enrich_metadata(user_id, _event_type, metadata) do
+    Map.merge(metadata, fetch_user_balances(user_id))
   rescue
     _ -> metadata
   end
 
-  defp enrich_metadata(_user_id, _event_type, metadata), do: metadata
+  defp fetch_user_balances(user_id) do
+    balances = BlocksterV2.EngagementTracker.get_user_token_balances(user_id)
+    %{
+      "bux_balance" => balances["BUX"] || 0.0,
+      "rogue_balance" => balances["ROGUE"] || 0.0
+    }
+  rescue
+    _ -> %{"bux_balance" => 0.0, "rogue_balance" => 0.0}
+  catch
+    :exit, _ -> %{"bux_balance" => 0.0, "rogue_balance" => 0.0}
+  end
 
   defp wei_to_float(nil), do: 0.0
   defp wei_to_float(wei) when is_integer(wei), do: Float.round(wei / 1_000_000_000_000_000_000, 2)
@@ -126,7 +158,11 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
     Enum.each(rules, fn rule ->
       if matches_rule?(rule, event_type, metadata) do
-        execute_rule_action(rule, user_id, event_type, metadata)
+        if rule["recurring"] == true do
+          execute_recurring_rule(rule, user_id, event_type, metadata)
+        else
+          execute_rule_action(rule, user_id, event_type, metadata)
+        end
       end
     end)
   rescue
@@ -154,21 +190,35 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   defp match_value?(_actual, expected) when is_map(expected), do: false
   defp match_value?(actual, expected), do: actual == expected
 
-  defp execute_rule_action(%{"action" => "notification", "title" => title, "body" => body} = rule, user_id, event_type, _metadata) do
+  defp execute_rule_action(%{"action" => "notification", "title" => title, "body" => body} = rule, user_id, event_type, enriched_metadata) do
+    execute_rule_action_inner(rule, user_id, event_type, enriched_metadata, title, body, nil)
+  end
+  defp execute_rule_action(_, _, _, _), do: :ok
+
+  # Shared inner logic for both one-shot and recurring rules
+  defp execute_rule_action_inner(rule, user_id, event_type, enriched_metadata, title, body, recurring_metadata) do
     dedup_key = build_dedup_key(rule, event_type)
 
-    # If there's a dedup key, check if already notified
-    if dedup_key && Notifications.already_notified?(user_id, dedup_key) do
+    # For non-recurring rules, check dedup. Recurring rules handle dedup differently (via recurring_metadata).
+    if dedup_key && is_nil(recurring_metadata) && Notifications.already_notified?(user_id, dedup_key) do
       :ok
     else
+      # Resolve bonus amounts (formula or static)
+      bux_bonus = resolve_bonus(rule, "bux", enriched_metadata)
+      rogue_bonus = resolve_bonus(rule, "rogue", enriched_metadata)
+
       channel = rule["channel"] || "in_app"
-      metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
+      notif_metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
 
       # Include reward amounts in metadata for activity tracking
-      metadata =
-        metadata
-        |> maybe_put_reward("bux_bonus", rule["bux_bonus"])
-        |> maybe_put_reward("rogue_bonus", rule["rogue_bonus"])
+      notif_metadata =
+        notif_metadata
+        |> maybe_put_reward("bux_bonus", bux_bonus)
+        |> maybe_put_reward("rogue_bonus", rogue_bonus)
+
+      # Merge recurring state metadata if present
+      notif_metadata =
+        if recurring_metadata, do: Map.merge(notif_metadata, recurring_metadata), else: notif_metadata
 
       # In-app notification (for "in_app", "both", or "all")
       if channel in ["in_app", "both", "all"] do
@@ -179,7 +229,7 @@ defmodule BlocksterV2.Notifications.EventProcessor do
           body: body,
           action_url: rule["action_url"],
           action_label: rule["action_label"],
-          metadata: metadata
+          metadata: notif_metadata
         })
       end
 
@@ -193,18 +243,148 @@ defmodule BlocksterV2.Notifications.EventProcessor do
         send_rule_telegram(user_id, rule)
       end
 
-      # BUX crediting
-      if (bux_bonus = rule["bux_bonus"]) && is_number(bux_bonus) && bux_bonus > 0 do
+      # BUX crediting (formula-resolved)
+      if is_number(bux_bonus) and bux_bonus > 0 do
         credit_bux(user_id, bux_bonus)
       end
 
-      # ROGUE crediting
-      if (rogue_bonus = rule["rogue_bonus"]) && is_number(rogue_bonus) && rogue_bonus > 0 do
+      # ROGUE crediting (formula-resolved)
+      if is_number(rogue_bonus) and rogue_bonus > 0 do
         credit_rogue(user_id, rogue_bonus)
+      end
+
+      :ok
+    end
+  end
+
+  # ============ Formula Bonus Resolution ============
+
+  @doc false
+  def resolve_bonus(rule, token_type, metadata) do
+    formula_key = "#{token_type}_bonus_formula"
+    static_key = "#{token_type}_bonus"
+    max_cap = if token_type == "bux", do: @max_bux_bonus, else: @max_rogue_bonus
+
+    result =
+      cond do
+        # Formula takes precedence
+        is_binary(rule[formula_key]) and rule[formula_key] != "" ->
+          case FormulaEvaluator.evaluate(rule[formula_key], metadata) do
+            {:ok, val} when val > 0 -> min(val, max_cap)
+            _ -> nil
+          end
+
+        # Fall back to static bonus
+        is_number(rule[static_key]) and rule[static_key] > 0 ->
+          min(rule[static_key], max_cap)
+
+        true ->
+          nil
+      end
+
+    # Round to reasonable precision
+    case result do
+      nil -> nil
+      n when is_float(n) -> Float.round(n, 2)
+      n -> n
+    end
+  end
+
+  # ============ Recurring Rules ============
+
+  defp execute_recurring_rule(%{"title" => title, "body" => body} = rule, user_id, event_type, metadata) do
+    count_field = rule["count_field"] || "total_bets"
+    current_count = get_metadata_value(metadata, count_field)
+
+    if is_nil(current_count) or not is_number(current_count) do
+      Logger.debug("[EventProcessor] Recurring rule '#{title}' skipped: count_field '#{count_field}' not found in metadata")
+      :ok
+    else
+      dedup_key = build_recurring_dedup_key(rule, event_type)
+      recurring_state = get_recurring_state(user_id, dedup_key)
+
+      case recurring_state do
+        nil ->
+          # First time: fire immediately, set next trigger
+          interval = calculate_interval(rule, metadata)
+          next_trigger_at = current_count + interval
+
+          recurring_meta = %{
+            "recurring_dedup_key" => dedup_key,
+            "next_trigger_at" => next_trigger_at,
+            "fired_at_count" => current_count,
+            "interval" => interval
+          }
+
+          Logger.info("[EventProcessor] Recurring rule '#{title}' fired for user #{user_id} at count #{current_count}, next at #{next_trigger_at}")
+          execute_rule_action_inner(rule, user_id, event_type, metadata, title, body, recurring_meta)
+
+        %{"next_trigger_at" => next_trigger_at} when is_number(next_trigger_at) ->
+          if current_count >= next_trigger_at do
+            # Fire and set new threshold
+            interval = calculate_interval(rule, metadata)
+            new_next_trigger_at = current_count + interval
+
+            recurring_meta = %{
+              "recurring_dedup_key" => dedup_key,
+              "next_trigger_at" => new_next_trigger_at,
+              "fired_at_count" => current_count,
+              "interval" => interval
+            }
+
+            Logger.info("[EventProcessor] Recurring rule '#{title}' fired for user #{user_id} at count #{current_count}, next at #{new_next_trigger_at}")
+            execute_rule_action_inner(rule, user_id, event_type, metadata, title, body, recurring_meta)
+          else
+            :ok
+          end
+
+        _ ->
+          :ok
       end
     end
   end
-  defp execute_rule_action(_, _, _, _), do: :ok
+
+  defp execute_recurring_rule(_, _, _, _), do: :ok
+
+  defp build_recurring_dedup_key(%{"title" => title}, event_type) when is_binary(title) do
+    slug = title |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "_") |> String.trim("_")
+    "recurring_rule:#{event_type}:#{slug}"
+  end
+
+  defp build_recurring_dedup_key(_, event_type), do: "recurring_rule:#{event_type}"
+
+  @doc false
+  def get_recurring_state(user_id, dedup_key) do
+    import Ecto.Query
+
+    from(n in Notifications.Notification,
+      where: n.user_id == ^user_id,
+      where: fragment("?->>'recurring_dedup_key' = ?", n.metadata, ^dedup_key),
+      order_by: [desc: n.inserted_at],
+      limit: 1,
+      select: n.metadata
+    )
+    |> Repo.one()
+  rescue
+    _ -> nil
+  end
+
+  @doc false
+  def calculate_interval(rule, metadata) do
+    cond do
+      is_binary(rule["every_n_formula"]) and rule["every_n_formula"] != "" ->
+        case FormulaEvaluator.evaluate(rule["every_n_formula"], metadata) do
+          {:ok, val} when is_number(val) -> max(1, trunc(val))
+          _ -> rule["every_n"] || 10
+        end
+
+      is_number(rule["every_n"]) and rule["every_n"] >= 1 ->
+        trunc(rule["every_n"])
+
+      true ->
+        10
+    end
+  end
 
   defp send_rule_email(user_id, rule, dedup_key \\ nil) do
     import Ecto.Query
@@ -377,6 +557,8 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
   defp has_bonus?(%{"bux_bonus" => b}) when is_number(b) and b > 0, do: true
   defp has_bonus?(%{"rogue_bonus" => r}) when is_number(r) and r > 0, do: true
+  defp has_bonus?(%{"bux_bonus_formula" => f}) when is_binary(f) and f != "", do: true
+  defp has_bonus?(%{"rogue_bonus_formula" => f}) when is_binary(f) and f != "", do: true
   defp has_bonus?(_), do: false
 
   # Look up a metadata value by string key, falling back to atom key
