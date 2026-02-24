@@ -96,6 +96,17 @@ config :blockster_v2,
     end),
     feed_poll_interval: :timer.minutes(5),
     topic_analysis_interval: :timer.minutes(15)
+  ],
+  bot_system: [
+    enabled: String.trim(System.get_env("BOT_SYSTEM_ENABLED", "false")) == "true",
+    active_bot_count: String.to_integer(String.trim(System.get_env("BOT_ACTIVE_COUNT", "300"))),
+    pool_cap_percentage: 0.5,
+    mint_interval_ms: 500,
+    backfill_days: 7,
+    min_pool_balance: 100,
+    min_bot_reward: 5.0,
+    default_pool_size: 5000,
+    video_watch_percentage: 0.35
   ]
 
 # Mnesia configuration

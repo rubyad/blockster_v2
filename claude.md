@@ -107,7 +107,7 @@ Req.get(url, receive_timeout: 30_000)
 ### GenServer Global Registration
 - Use `BlocksterV2.GlobalSingleton` for GenServers that should run once across cluster
 - Handles rolling deploy conflicts safely (keeps existing process, rejects new)
-- **Global**: MnesiaInitializer, PriceTracker, BuxBoosterBetSettler, TimeTracker
+- **Global**: MnesiaInitializer, PriceTracker, BuxBoosterBetSettler, TimeTracker, BotCoordinator
 - **Local**: HubLogoCache (manages local ETS table)
 
 ### Smart Contract Upgrades (UUPS)
@@ -199,6 +199,19 @@ Registration is **email only**. Thirdweb creates an ERC-4337 smart wallet automa
 Users earn BUX for reading: `bux = (engagement_score / 10) * base_reward * multiplier`
 - Time Score (0-6), Depth Score (0-3), Base Score (1)
 - Bot detection: <3 scroll events, >5000 px/s scroll speed, >300 wpm reading
+
+---
+
+## Bot Reader System
+
+1000 bot accounts simulate reading with real on-chain BUX minting. See [docs/bot_reader_system.md](docs/bot_reader_system.md) for full docs.
+
+- **Feature flag**: `BOT_SYSTEM_ENABLED=true` env var
+- **Fully automatic**: auto-creates bots, seeds pools, schedules reads on deploy
+- **Files**: `lib/blockster_v2/bot_system/` (coordinator, setup, simulator, deploy, dev_setup)
+- **Config**: `config :blockster_v2, :bot_system` in `runtime.exs`
+- **Key behavior**: 60-85% of 300 active bots read each post, ~55% in first hour, 500ms mint interval, 5 BUX minimum reward, 50% pool cap
+- **Pools**: Content automation auto-deposits on publish; coordinator auto-seeds 5000 BUX on posts with < 100 during backfill
 
 ---
 

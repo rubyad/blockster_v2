@@ -30,6 +30,9 @@ defmodule BlocksterV2.Accounts.User do
     field :last_suspicious_activity_at, :utc_datetime
     field :registered_devices_count, :integer, default: 0
 
+    # Bot system
+    field :is_bot, :boolean, default: false
+
     # Telegram fields
     field :telegram_user_id, :string
     field :telegram_username, :string
@@ -67,7 +70,7 @@ defmodule BlocksterV2.Accounts.User do
                     :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in,
                     :referrer_id, :referred_at,
                     :telegram_user_id, :telegram_username, :telegram_connect_token, :telegram_connected_at,
-                    :telegram_group_joined_at])
+                    :telegram_group_joined_at, :is_bot])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)

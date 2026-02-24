@@ -96,8 +96,16 @@ defmodule BlocksterV2.Application do
         []
       end
 
+    # Bot reader system (behind feature flag)
+    bot_system_children =
+      if Application.get_env(:blockster_v2, :bot_system, [])[:enabled] do
+        [{BlocksterV2.BotSystem.BotCoordinator, []}]
+      else
+        []
+      end
+
     # Endpoint always starts last
-    children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ ads_manager_children ++ [BlocksterV2Web.Endpoint]
+    children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ ads_manager_children ++ bot_system_children ++ [BlocksterV2Web.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
