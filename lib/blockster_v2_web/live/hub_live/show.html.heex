@@ -288,6 +288,9 @@
                       <% else %>
                         <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F]"></div>
                       <% end %>
+                      <%= if post.video_id do %>
+                        <.video_play_icon size={:medium} />
+                      <% end %>
                     </div>
                     <div class="px-3 py-3 md:px-4 md:py-4 flex flex-col text-center flex-1">
                       <%= if post.category do %>

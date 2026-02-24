@@ -1,7 +1,7 @@
 defmodule BlocksterV2Web.HubLive.Show do
   use BlocksterV2Web, :live_view
 
-  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1, token_badge: 1]
+  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1, token_badge: 1, video_play_icon: 1]
 
   alias BlocksterV2.ImageKit
 
