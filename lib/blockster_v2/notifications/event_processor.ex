@@ -217,7 +217,8 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       bux_bonus = resolve_bonus(rule, "bux", enriched_metadata)
       rogue_bonus = resolve_bonus(rule, "rogue", enriched_metadata)
 
-      channel = rule["channel"] || "in_app"
+      # Telegram bot promo rules are in-app only — never email users with hourly promo spam
+      channel = if rule["source"] == "telegram_bot", do: "in_app", else: (rule["channel"] || "in_app")
       notif_metadata = if dedup_key, do: %{"dedup_key" => dedup_key}, else: %{}
 
       # Include reward amounts in metadata for activity tracking
