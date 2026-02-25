@@ -9,7 +9,7 @@ defmodule BlocksterV2.Notifications.Notification do
                   order_confirmed order_paid order_shipped order_delivered order_cancelled
                   order_processing order_bux_paid order_rogue_paid
                   welcome welcome_back re_engagement churn_intervention daily_bonus
-                  account_security maintenance)
+                  account_security maintenance promo_reward)
 
   schema "notifications" do
     field :type, :string

@@ -26,9 +26,20 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
 
   @impl true
   def init(_opts) do
-    schedule_next_promo()
+    timer_ref = schedule_next_promo(nil)
+    state = restore_state_from_mnesia()
+
+    # If Mnesia table wasn't ready yet (MnesiaInitializer creates it later), retry after delay
+    state = if is_nil(state.current_promo) do
+      Process.send_after(self(), :retry_mnesia_restore, 5_000)
+      state
+    else
+      Logger.info("[HourlyPromoScheduler] Restored state from Mnesia: #{state.current_promo.name}")
+      state
+    end
+
     Logger.info("[HourlyPromoScheduler] Started, first promo scheduled")
-    {:ok, %{current_promo: nil, history: [], promo_started_at: nil, forced_category: nil}}
+    {:ok, Map.put(state, :timer_ref, timer_ref)}
   end
 
   # ======== Public API ========
@@ -53,7 +64,7 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
   def run_now do
     case :global.whereis_name(__MODULE__) do
       :undefined -> {:error, :not_running}
-      pid -> send(pid, :run_promo)
+      pid -> GenServer.cast(pid, :run_now)
     end
   end
 
@@ -64,10 +75,7 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
     info = %{
       current_promo: state.current_promo && Map.take(state.current_promo, [:id, :name, :category, :started_at, :expires_at]),
       promo_started_at: state.promo_started_at,
-      history: Enum.map(state.history, &Map.take(&1, [:id, :name, :category])) |> Enum.take(10),
-      bot_enabled: SystemConfig.get("hourly_promo_enabled", true),
-      budget_remaining: PromoEngine.remaining_budget(),
-      daily_state: PromoEngine.get_daily_state()
+      history: Enum.map(state.history, &Map.take(&1, [:id, :name, :category, :started_at, :expires_at])) |> Enum.take(10)
     }
     {:reply, {:ok, info}, state}
   end
@@ -77,18 +85,37 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
     {:noreply, Map.put(state, :forced_category, category)}
   end
 
-  @impl true
-  def handle_info(:run_promo, state) do
-    if SystemConfig.get("hourly_promo_enabled", true) do
+  def handle_cast(:run_now, state) do
+    if SystemConfig.get("hourly_promo_enabled", false) do
       run_promo_cycle(state)
     else
-      # Bot is paused — clean up active rules and skip
-      PromoEngine.cleanup_all_bot_rules()
-      Logger.info("[HourlyPromoScheduler] Bot is paused, skipping this hour")
-      schedule_next_promo()
       {:noreply, state}
     end
   end
+
+  @impl true
+  def handle_info(:run_promo, state) do
+    if SystemConfig.get("hourly_promo_enabled", false) do
+      run_promo_cycle(state)
+    else
+      Logger.info("[HourlyPromoScheduler] Bot is paused, skipping this hour")
+      timer_ref = schedule_next_promo(state.timer_ref)
+      {:noreply, %{state | timer_ref: timer_ref}}
+    end
+  end
+
+  def handle_info(:retry_mnesia_restore, %{current_promo: nil} = state) do
+    restored = restore_state_from_mnesia()
+    if restored.current_promo do
+      Logger.info("[HourlyPromoScheduler] Restored state from Mnesia (retry): #{restored.current_promo.name}")
+      {:noreply, Map.merge(state, restored)}
+    else
+      Logger.info("[HourlyPromoScheduler] No promo state found in Mnesia")
+      {:noreply, state}
+    end
+  end
+
+  def handle_info(:retry_mnesia_restore, state), do: {:noreply, state}
 
   def handle_info(_msg, state), do: {:noreply, state}
 
@@ -96,24 +123,25 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
 
   defp run_promo_cycle(state) do
     if PromoEngine.budget_exhausted?() do
-      TelegramGroupMessenger.send_update(
-        "<b>📊 Daily Rewards Complete!</b>\n\nToday's BUX reward budget has been distributed!\nCome back tomorrow for fresh promos and giveaways!\n\n👉 <a href=\"https://blockster.com\">Visit Blockster</a>"
-      )
+      Task.start(fn ->
+        TelegramGroupMessenger.send_update(
+          "<b>📊 Daily Rewards Complete!</b>\n\nToday's BUX reward budget has been distributed!\nCome back tomorrow for fresh promos and giveaways!\n\n👉 <a href=\"https://blockster.com\">Visit Blockster</a>"
+        )
+      end)
       Logger.info("[HourlyPromoScheduler] Daily budget exhausted, skipping promo")
-      schedule_next_promo()
-      {:noreply, state}
+      timer_ref = schedule_next_promo(state.timer_ref)
+      {:noreply, %{state | timer_ref: timer_ref}}
     else
-      # 1. Settle previous promo
-      previous_results = settle_previous(state.current_promo)
+      # 1. Settle previous promo SYNCHRONOUSLY (ensures payouts happen reliably)
+      previous_promo = state.current_promo
+      settled_promo = settle_previous_sync(previous_promo)
 
       # 2. Pick next promo (respect forced category if set)
       promo = case Map.get(state, :forced_category) do
         nil -> PromoEngine.pick_next_promo(state.history)
         category ->
-          # Force a specific category but still use random template within it
           promo = PromoEngine.pick_next_promo(state.history)
           if promo.category != category do
-            # Re-pick with forced category
             PromoEngine.pick_next_promo([])
             |> then(fn p ->
               templates = PromoEngine.all_templates()[category] || []
@@ -130,40 +158,70 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
           end
       end
 
-      # 3. Activate the promo
+      # 3. Activate the promo (fast — just writes to SystemConfig)
       PromoEngine.activate_promo(promo)
 
-      # 4. Announce in group
-      TelegramGroupMessenger.announce_promo(promo)
+      # 4. Schedule next (cancel any existing timer first)
+      timer_ref = schedule_next_promo(state.timer_ref)
 
-      # 5. Announce previous results if any
-      if state.current_promo do
-        settled_promo = %{state.current_promo | results: previous_results}
-        results_html = PromoEngine.format_results_html(settled_promo, promo)
-        if results_html, do: TelegramGroupMessenger.announce_results(results_html)
-      end
-
-      # 6. Save state to Mnesia for crash recovery
-      save_state(promo, state.history)
-
-      # 7. Schedule next
-      schedule_next_promo()
-
-      Logger.info("[HourlyPromoScheduler] Running promo: #{promo.name} (#{promo.category})")
-
-      {:noreply, %{state |
+      # 5. Update state
+      new_state = %{state |
         current_promo: promo,
         history: [promo | Enum.take(state.history, 23)],
         promo_started_at: DateTime.utc_now(),
-        forced_category: nil
-      }}
+        forced_category: nil,
+        timer_ref: timer_ref
+      }
+
+      # 6. Save state to Mnesia SYNCHRONOUSLY (survives node restart)
+      save_state(promo, new_state.history)
+
+      # 7. Telegram API calls in Task (slow, fire-and-forget is OK for messages)
+      Task.start(fn ->
+        try do
+          case TelegramGroupMessenger.announce_promo(promo) do
+            {:ok, %{body: %{"ok" => true}}} ->
+              Logger.info("[HourlyPromoScheduler] Telegram announcement sent for #{promo.name}")
+
+            {:ok, %{body: body}} ->
+              Logger.error("[HourlyPromoScheduler] Telegram announce rejected: #{inspect(body)}")
+
+            {:error, reason} ->
+              Logger.error("[HourlyPromoScheduler] Telegram announce request failed: #{inspect(reason)}")
+          end
+
+          if settled_promo do
+            results_html = PromoEngine.format_results_html(settled_promo, promo)
+            if results_html do
+              case TelegramGroupMessenger.announce_results(results_html) do
+                {:ok, %{body: %{"ok" => true}}} ->
+                  Logger.info("[HourlyPromoScheduler] Telegram results sent for #{settled_promo.name}")
+
+                {:ok, %{body: body}} ->
+                  Logger.error("[HourlyPromoScheduler] Telegram results rejected: #{inspect(body)}")
+
+                {:error, reason} ->
+                  Logger.error("[HourlyPromoScheduler] Telegram results request failed: #{inspect(reason)}")
+              end
+            end
+          end
+        rescue
+          e -> Logger.error("[HourlyPromoScheduler] Telegram Task crashed: #{Exception.message(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}")
+        end
+      end)
+
+      Logger.info("[HourlyPromoScheduler] Running promo: #{promo.name} (#{promo.category})")
+
+      {:noreply, new_state}
     end
   end
 
-  defp settle_previous(nil), do: nil
-  defp settle_previous(promo) do
+  defp settle_previous_sync(nil), do: nil
+  defp settle_previous_sync(promo) do
     try do
-      PromoEngine.settle_promo(promo)
+      results = PromoEngine.settle_promo(promo)
+      Logger.info("[HourlyPromoScheduler] Settled #{promo.name}: #{inspect(results)}")
+      %{promo | results: results}
     rescue
       e ->
         Logger.error("[HourlyPromoScheduler] Error settling promo #{promo.name}: #{inspect(e)}")
@@ -171,7 +229,10 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
     end
   end
 
-  defp schedule_next_promo do
+  defp schedule_next_promo(old_ref) do
+    # Cancel any existing timer to prevent duplicates
+    if old_ref, do: Process.cancel_timer(old_ref)
+
     now = DateTime.utc_now()
     unix = DateTime.to_unix(now)
     seconds_until_next = 3600 - rem(unix, 3600)
@@ -186,10 +247,12 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
         name: promo.name,
         category: promo.category,
         started_at: promo.started_at,
-        expires_at: promo.expires_at
+        expires_at: promo.expires_at,
+        template: serialize_template(promo.template)
       }
       serializable_history = Enum.map(history, fn h ->
-        %{id: h.id, name: h.name, category: h.category}
+        %{id: h.id, name: h.name, category: h.category,
+          started_at: h[:started_at], expires_at: h[:expires_at]}
       end) |> Enum.take(24)
 
       :mnesia.dirty_write({:hourly_promo_state, :current, serializable_promo, DateTime.utc_now(), serializable_history})
@@ -197,4 +260,48 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
       _ -> :ok
     end
   end
+
+  defp serialize_template(nil), do: nil
+  defp serialize_template(template) do
+    Map.drop(template, [:announcement])
+  end
+
+  defp restore_state_from_mnesia do
+    # Wait for Mnesia to finish loading tables from disk (scheduler starts before MnesiaInitializer completes)
+    :mnesia.wait_for_tables([:hourly_promo_state], 10_000)
+
+    case :mnesia.dirty_read(:hourly_promo_state, :current) do
+      [{:hourly_promo_state, :current, promo_data, saved_at, history_data}] when is_map(promo_data) ->
+        promo = deserialize_promo(promo_data)
+        history = (history_data || []) |> Enum.map(&deserialize_promo/1) |> Enum.reject(&is_nil/1)
+        Logger.info("[HourlyPromoScheduler] Restored state from Mnesia: #{promo.name}")
+        %{current_promo: promo, history: history, promo_started_at: saved_at, forced_category: nil}
+
+      _ ->
+        %{current_promo: nil, history: [], promo_started_at: nil, forced_category: nil}
+    end
+  rescue
+    e ->
+      Logger.warning("[HourlyPromoScheduler] Mnesia restore rescued: #{inspect(e)}")
+      %{current_promo: nil, history: [], promo_started_at: nil, forced_category: nil}
+  catch
+    :exit, reason ->
+      Logger.warning("[HourlyPromoScheduler] Mnesia restore exit: #{inspect(reason)}")
+      %{current_promo: nil, history: [], promo_started_at: nil, forced_category: nil}
+  end
+
+  defp deserialize_promo(nil), do: nil
+  defp deserialize_promo(data) when is_map(data) do
+    %{
+      id: data[:id],
+      name: data[:name],
+      category: data[:category],
+      started_at: data[:started_at],
+      expires_at: data[:expires_at],
+      template: data[:template],
+      announcement_html: nil,
+      results: nil
+    }
+  end
+  defp deserialize_promo(_), do: nil
 end

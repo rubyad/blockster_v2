@@ -38,8 +38,8 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
   # ROGUE balance affects:
   #   1. Trigger FREQUENCY via every_n_formula — more ROGUE = triggers more often
   #      Divisors scaled for 100k–2M ROGUE range (e.g. /250000, /150000)
-  #   2. Small flat bonus: 0.01% of rogue_balance added to each reward
-  #      (100k = 10 BUX, 500k = 50, 1M = 100, 2M = 200)
+  #   2. Small flat bonus: 0.01% of rogue_balance added to each reward, capped at 2M
+  #      (100k = 10 BUX, 500k = 50, 1M = 100, 2M+ = 200 max)
   #
   # No win-rate conditions — different games have different probabilities.
   #
@@ -63,7 +63,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # 20% of profit (wins) or stake (losses), no fixed cap
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.2 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.2 + min(rogue_balance, 2000000) * 0.0001",
         "recurring" => true,
         "every_n_formula" => "max(6 - min(rogue_balance / 250000, 4), 2)",
         "count_field" => "total_bets"
@@ -83,7 +83,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # 30% — higher payout but triggers less often for non-holders
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.3 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.3 + min(rogue_balance, 2000000) * 0.0001",
         "recurring" => true,
         "every_n_formula" => "max(8 - min(rogue_balance / 200000, 5), 3)",
         "count_field" => "total_bets"
@@ -103,7 +103,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # 15% — lower per-hit but most aggressive frequency for holders
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.15 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.15 + min(rogue_balance, 2000000) * 0.0001",
         "recurring" => true,
         # ROGUE holders get very frequent triggers (every 1-5 bets)
         "every_n_formula" => "max(5 - min(rogue_balance / 150000, 4), 1)",
@@ -124,7 +124,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # 25% — only fires on bets >= 500 BUX
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.25 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.25 + min(rogue_balance, 2000000) * 0.0001",
         "conditions" => %{"bet_amount" => %{"$gte" => 500}},
         "recurring" => true,
         "every_n_formula" => "max(5 - min(rogue_balance / 300000, 3), 2)",
@@ -145,7 +145,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # Random 10-50% — both amount AND frequency are random
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * random(10, 50) * 0.01 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * random(10, 50) * 0.01 + min(rogue_balance, 2000000) * 0.0001",
         "recurring" => true,
         "every_n_formula" => "max(random(3, 7) - min(rogue_balance / 400000, 3), 2)",
         "count_field" => "total_bets"
@@ -165,7 +165,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # Generous 40% for newbies, no fixed cap
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.4 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * 0.4 + min(rogue_balance, 2000000) * 0.0001",
         "conditions" => %{"total_bets" => %{"$lte" => 20}},
         "recurring" => true,
         "every_n_formula" => "max(4 - min(rogue_balance / 250000, 2), 2)",
@@ -186,7 +186,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         "action_url" => "/play",
         "action_label" => "Keep Playing",
         # 50-100% — rare but massive
-        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * random(50, 100) * 0.01 + rogue_balance * 0.0001",
+        "bux_bonus_formula" => "max(payout - bet_amount, bet_amount - payout) * random(50, 100) * 0.01 + min(rogue_balance, 2000000) * 0.0001",
         "recurring" => true,
         # Rare: every 4-10 bets, ROGUE compresses the range
         "every_n_formula" => "max(random(6, 10) - min(rogue_balance / 250000, 4), 4)",
@@ -662,8 +662,10 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         Process.sleep(100)
       end)
 
+      Logger.info("[PromoEngine] Giveaway auto_entry: #{length(winners)} winners from #{length(eligible)} eligible")
       {:ok, winners}
     else
+      Logger.info("[PromoEngine] Giveaway auto_entry: no eligible members")
       {:ok, []}
     end
   end
@@ -694,8 +696,10 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
         Process.sleep(100)
       end)
 
+      Logger.info("[PromoEngine] Giveaway activity_based (#{event_type}): #{length(winners)} winners from #{length(active_users)} active")
       {:ok, winners}
     else
+      Logger.info("[PromoEngine] Giveaway activity_based (#{event_type}): no active users")
       {:ok, []}
     end
   end
@@ -715,6 +719,7 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
       {user.id, user.telegram_username, amount}
     end)
 
+    Logger.info("[PromoEngine] Giveaway new_members: #{length(winners)} new members awarded #{amount} BUX each")
     {:ok, winners}
   end
 
@@ -736,8 +741,10 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
           {user_id, username, prize}
         end)
 
+      Logger.info("[PromoEngine] Competition #{template.metric}: #{length(winners)} winners from #{length(leaderboard)} participants")
       {:ok, winners}
     else
+      Logger.info("[PromoEngine] Competition #{template.metric}: no participants")
       {:ok, []}
     end
   end
@@ -814,15 +821,25 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
   end
 
   defp cleanup_hourly_rules(promo_id) do
+    now = DateTime.utc_now()
     rules = SystemConfig.get("custom_rules", [])
 
     cleaned = Enum.reject(rules, fn rule ->
-      rule["source"] == "telegram_bot" and
-        (rule["_promo_id"] == promo_id or rule["_hourly_promo"] == true)
+      is_bot_rule = rule["source"] == "telegram_bot"
+      is_this_promo = is_bot_rule and rule["_promo_id"] == promo_id
+
+      is_expired = is_bot_rule and is_binary(rule["_expires_at"]) and
+        case DateTime.from_iso8601(rule["_expires_at"]) do
+          {:ok, expires, _} -> DateTime.compare(expires, now) == :lt
+          _ -> false
+        end
+
+      is_this_promo or is_expired
     end)
 
     if length(cleaned) != length(rules) do
       SystemConfig.put("custom_rules", cleaned, "hourly_promo_bot")
+      Logger.info("[PromoEngine] Cleaned up #{length(rules) - length(cleaned)} expired/settled bot rules")
     end
   end
 

@@ -102,6 +102,32 @@ defmodule BlocksterV2Web.TelegramWebhookController do
     handle_admin_command(conn, tg_user_id, :list_types)
   end
 
+  # Handle messages directed at the bot in the group (promo Q&A)
+  def handle(conn, %{"message" => %{"text" => text, "from" => from, "chat" => chat, "message_id" => msg_id} = message})
+      when is_binary(text) do
+    group_chat_id = Application.get_env(:blockster_v2, :telegram_v2_channel_id)
+    chat_id = to_string(chat["id"])
+
+    if chat_id == group_chat_id and from["is_bot"] != true and bot_directed?(text, message) do
+      question = text |> String.replace(~r/@\w+/, "") |> String.trim()
+      tg_user_id = to_string(from["id"])
+
+      if String.length(question) >= 3 do
+        Task.start(fn ->
+          case BlocksterV2.TelegramBot.PromoQA.answer_question(question, tg_user_id) do
+            {:ok, answer} ->
+              send_telegram_reply(chat["id"], answer, msg_id)
+
+            _ ->
+              :ok
+          end
+        end)
+      end
+    end
+
+    json(conn, %{ok: true})
+  end
+
   def handle(conn, _params) do
     json(conn, %{ok: true})
   end
@@ -148,7 +174,7 @@ defmodule BlocksterV2Web.TelegramWebhookController do
     alias BlocksterV2.Notifications.SystemConfig
     alias BlocksterV2.TelegramBot.{HourlyPromoScheduler, PromoEngine}
 
-    enabled = SystemConfig.get("hourly_promo_enabled", true)
+    enabled = SystemConfig.get("hourly_promo_enabled", false)
     budget = PromoEngine.remaining_budget()
     state_info = case HourlyPromoScheduler.get_state() do
       {:ok, info} -> info
@@ -203,6 +229,23 @@ defmodule BlocksterV2Web.TelegramWebhookController do
   end
 
   # ============ Private Helpers ============
+
+  defp bot_directed?(text, message) do
+    # Check if message @mentions the bot
+    String.contains?(String.downcase(text), "@blocksterv2bot") or
+      # Check if it's a reply to a bot message
+      get_in(message, ["reply_to_message", "from", "is_bot"]) == true
+  end
+
+  defp send_telegram_reply(chat_id, text, reply_to_message_id) do
+    token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)
+    if token do
+      Req.post("https://api.telegram.org/bot#{token}/sendMessage",
+        json: %{chat_id: chat_id, text: text, reply_to_message_id: reply_to_message_id},
+        receive_timeout: 10_000
+      )
+    end
+  end
 
   defp send_telegram_message(chat_id, text) do
     token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)

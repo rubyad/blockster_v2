@@ -96,13 +96,8 @@ defmodule BlocksterV2.Application do
         []
       end
 
-    # Hourly promo scheduler (behind feature flag)
-    hourly_promo_children =
-      if Application.get_env(:blockster_v2, :hourly_promo, [])[:enabled] do
-        [{BlocksterV2.TelegramBot.HourlyPromoScheduler, []}]
-      else
-        []
-      end
+    # Hourly promo scheduler (always running, controlled via admin dashboard toggle)
+    hourly_promo_children = [{BlocksterV2.TelegramBot.HourlyPromoScheduler, []}]
 
     # Bot reader system (behind feature flag)
     bot_system_children =

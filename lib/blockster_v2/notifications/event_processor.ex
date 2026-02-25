@@ -166,13 +166,23 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       end
     end)
   rescue
-    _ -> :ok
+    e ->
+      Logger.error("[EventProcessor] Custom rule error: #{Exception.message(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}")
+      :ok
   end
 
   defp matches_rule?(%{"event_type" => rule_event} = rule, event_type, metadata) do
-    event_type == rule_event && matches_conditions?(rule["conditions"], metadata)
+    event_type == rule_event && !rule_expired?(rule) && matches_conditions?(rule["conditions"], metadata)
   end
   defp matches_rule?(_, _, _), do: false
+
+  defp rule_expired?(%{"_expires_at" => expires_at}) when is_binary(expires_at) do
+    case DateTime.from_iso8601(expires_at) do
+      {:ok, dt, _} -> DateTime.compare(DateTime.utc_now(), dt) == :gt
+      _ -> false
+    end
+  end
+  defp rule_expired?(_), do: false
 
   defp matches_conditions?(nil, _metadata), do: true
   defp matches_conditions?(conditions, metadata) when is_map(conditions) do
@@ -220,13 +230,16 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       notif_metadata =
         if recurring_metadata, do: Map.merge(notif_metadata, recurring_metadata), else: notif_metadata
 
+      # Interpolate bonus amounts into title/body
+      {final_title, final_body} = interpolate_bonus(title, body, bux_bonus, rogue_bonus)
+
       # In-app notification (for "in_app", "both", or "all")
       if channel in ["in_app", "both", "all"] do
         Notifications.create_notification(user_id, %{
           type: rule["notification_type"] || "special_offer",
           category: rule["category"] || "engagement",
-          title: title,
-          body: body,
+          title: final_title,
+          body: final_body,
           action_url: rule["action_url"],
           action_label: rule["action_label"],
           metadata: notif_metadata
@@ -289,6 +302,31 @@ defmodule BlocksterV2.Notifications.EventProcessor do
       n -> n
     end
   end
+
+  # ============ Bonus Interpolation ============
+
+  defp interpolate_bonus(title, body, bux_bonus, rogue_bonus) do
+    cond do
+      is_number(bux_bonus) and bux_bonus > 0 and is_number(rogue_bonus) and rogue_bonus > 0 ->
+        {title, "You earned #{format_bonus(bux_bonus)} BUX and #{format_bonus(rogue_bonus)} ROGUE!"}
+      is_number(bux_bonus) and bux_bonus > 0 ->
+        {title, "You earned #{format_bonus(bux_bonus)} BUX!"}
+      is_number(rogue_bonus) and rogue_bonus > 0 ->
+        {title, "You earned #{format_bonus(rogue_bonus)} ROGUE!"}
+      true ->
+        {title, body}
+    end
+  end
+
+  defp format_bonus(amount) when is_float(amount), do: format_bonus(trunc(amount))
+  defp format_bonus(amount) when is_integer(amount) and amount >= 1000 do
+    amount
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
+    |> String.reverse()
+  end
+  defp format_bonus(amount) when is_integer(amount), do: Integer.to_string(amount)
 
   # ============ Recurring Rules ============
 
