@@ -35,18 +35,30 @@ defmodule BlocksterV2.TelegramBot.TelegramGroupMessenger do
     chat_id = Application.get_env(:blockster_v2, :telegram_v2_channel_id)
 
     if token && chat_id do
-      Req.post("#{@telegram_api}/bot#{token}/sendMessage",
-        json: %{
-          chat_id: chat_id,
-          text: html_text,
-          parse_mode: "HTML",
-          disable_web_page_preview: Keyword.get(opts, :disable_preview, true)
-        },
-        receive_timeout: 30_000
-      )
+      do_send(token, chat_id, html_text, opts, _retries = 2)
     else
       Logger.warning("[TelegramGroupMessenger] Missing bot token or channel ID")
       {:error, :missing_config}
+    end
+  end
+
+  defp do_send(token, chat_id, html_text, opts, retries) do
+    case Req.post("#{@telegram_api}/bot#{token}/sendMessage",
+           json: %{
+             chat_id: chat_id,
+             text: html_text,
+             parse_mode: "HTML",
+             disable_web_page_preview: Keyword.get(opts, :disable_preview, true)
+           },
+           receive_timeout: 30_000
+         ) do
+      {:error, %Req.TransportError{}} = error when retries > 0 ->
+        Logger.warning("[TelegramGroupMessenger] Transport error, retrying in 2s (#{retries} left)")
+        Process.sleep(2_000)
+        do_send(token, chat_id, html_text, opts, retries - 1)
+
+      result ->
+        result
     end
   end
 
