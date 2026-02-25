@@ -7,40 +7,40 @@
 
 ## CRITICAL (Fix immediately — causes hangs, crashes, or severe user impact)
 
-### C1. `with_bux_earned` — N+1 Mnesia read on every post listing
+### C1. `with_bux_earned` — N+1 Mnesia read on every post listing — FIXED
 - **File**: `lib/blockster_v2/blog.ex:1335-1349`
 - **Impact**: Every post-listing call (homepage, hub page, news components) runs one `dirty_read` per post inside an `Enum.map` loop. 20 posts = 20 serial Mnesia reads. This runs on nearly every page
-- **Fix**: Add `get_posts_total_distributed_batch(post_ids)` to EngagementTracker that reads all post BUX data in one pass; replace the per-post loop with a single batch call
+- **Fix applied**: Added `get_posts_total_distributed_batch/1` to EngagementTracker; `with_bux_earned/1` now collects all post IDs and does a single batch read
 
-### C2. Extra `get_hub` DB query inside every `list_published_posts_by_hub`
+### C2. Extra `get_hub` DB query inside every `list_published_posts_by_hub` — FIXED
 - **File**: `lib/blockster_v2/blog.ex:168-170, 235-237`
 - **Impact**: `list_published_posts_by_hub` calls `get_hub(hub_id)` to fetch `tag_name`, adding a wasted DB query. Hub page calls this 3x in mount = 3 unnecessary `get_hub` queries when the hub struct is already loaded
-- **Fix**: Accept optional `tag_name` parameter or pass the already-loaded hub struct
+- **Fix applied**: Both `list_published_posts_by_hub` and `list_video_posts_by_hub` now accept optional `tag_name:` opt; hub_live/show.ex passes it from already-loaded hub struct, eliminating 5+ redundant get_hub queries per page load
 
-### C3. Blocking X API calls in `share_to_x` handle_event
+### C3. Blocking X API calls in `share_to_x` handle_event — FIXED
 - **Files**: `post_live/show.ex:1062-1245`, `x_api_client.ex:265-295`
 - **Impact**: User clicks "Share to X" → LiveView freezes for up to 60s while two sequential X API calls (retweet + like) + BUX mint complete synchronously
-- **Fix**: Wrap in `start_async/3`, show "Sharing..." loading state, handle result in `handle_async`; parallelize the two independent X API calls with `Task.async`
+- **Fix applied**: Refactored into `start_async(:share_to_x, ...)` with "Sharing to X..." loading state; all blocking work (token refresh, retweet+like, BUX mint) runs in separate process; results handled via `handle_async` callbacks
 
-### C4. Blocking HTTP in legacy Quill renderer (render path)
+### C4. Blocking HTTP in legacy Quill renderer (render path) — FIXED
 - **Files**: `post_live/show.ex:1699-1724`, `tiptap_renderer.ex:159-167`
 - **Impact**: Old Quill-format posts with tweet embeds make a synchronous `Req.get` to Twitter oEmbed API during render — no timeout configured. Hangs the LiveView if Twitter is slow
-- **Fix**: Remove dead code entirely (TipTap renderer already handles tweets via client-side widget.js). Also remove unused `fetch_tweet_html/1` in tiptap_renderer.ex
+- **Fix applied**: Removed ~450 lines of dead Quill renderer code including `fetch_tweet_embed`, `render_single_op`, `wrap_inline_paragraphs`, `wrap_list_items`, `wrap_blockquotes`, and `is_attribution?`. All content uses TipTap format.
 
-### C5. EventsComponent loads ALL users on every render
+### C5. EventsComponent loads ALL users on every render — FIXED
 - **File**: `post_live/events_component.ex:15`
 - **Impact**: `Accounts.list_users()` fires a full-table scan of the entire users table (1000+ bots + real users) on every component update, on every post page
-- **Fix**: Pass attendees from parent assigns or remove this query entirely
+- **Fix applied**: Removed `Accounts.list_users()` call; component now accepts attendees from parent assigns (defaults to empty list). Component is also not currently mounted in any template.
 
-### C6. Cart N+1 — 15-20 individual preload queries per checkout
+### C6. Cart N+1 — 15-20 individual preload queries per checkout — FIXED
 - **File**: `lib/blockster_v2/cart.ex` (lines ~93, ~124, ~160, ~189)
 - **Impact**: `validate_cart_items`, `calculate_totals`, `item_subtotal`, `clamp_bux_for_item` each call `Repo.preload(item.product, :variants)` per item inside loops. 5-item cart = 15-20 extra DB queries
-- **Fix**: Preload all products+variants in a single query before entering these functions
+- **Fix applied**: Added shared `item_price/1` helper; removed per-item `Repo.preload` calls from `calculate_totals` and `validate_cart_items` (both already call `preload_items`); `item_subtotal`, `clamp_bux_for_item`, and `update_item_bux` now do one preload each instead of two
 
-### C7. Hub notification sends N individual INSERTs
+### C7. Hub notification sends N individual INSERTs — FIXED
 - **File**: `lib/blockster_v2/blog.ex:763-787`
 - **Impact**: `notify_hub_followers_of_new_post` does one `INSERT` per follower. A hub with 1,000 followers = 1,000 sequential INSERTs
-- **Fix**: Use `Repo.insert_all/3` for batch insert
+- **Fix applied**: Added `Notifications.create_notifications_batch/1` using `Repo.insert_all` with returning clause; `notify_hub_followers_of_new_post` now builds all notification rows and inserts in a single query, then broadcasts PubSub to each user
 
 ---
 

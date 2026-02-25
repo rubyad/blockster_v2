@@ -22,11 +22,12 @@ defmodule BlocksterV2Web.HubLive.Show do
       hub ->
         # Get posts for this hub by hub_id
         # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
-        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5) |> Blog.with_bux_earned()
-        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_earned()
+        tag = hub.tag_name
+        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5, tag_name: tag) |> Blog.with_bux_earned()
+        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, tag_name: tag, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_earned()
 
         # VideosComponent needs 3 video posts for the All tab (posts with video_id)
-        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3) |> Blog.with_bux_earned()
+        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3, tag_name: tag) |> Blog.with_bux_earned()
 
         # Hub-specific products for Shop section
         hub_products = Shop.list_products_by_hub(hub.id)
@@ -95,7 +96,7 @@ defmodule BlocksterV2Web.HubLive.Show do
     # Always reset the stream to ensure consistent display
     socket =
       if tab == "news" do
-        {news_components, displayed_post_ids} = build_initial_news_components(socket.assigns.hub.id)
+        {news_components, displayed_post_ids} = build_initial_news_components(socket.assigns.hub.id, socket.assigns.hub.tag_name)
 
         socket
         |> assign(:news_loaded, true)
@@ -110,7 +111,7 @@ defmodule BlocksterV2Web.HubLive.Show do
     socket =
       if tab == "videos" && !socket.assigns.videos_loaded do
         # Use list_video_posts_by_hub to get only posts with video_id
-        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3) |> Blog.with_bux_earned()
+        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3, tag_name: socket.assigns.hub.tag_name) |> Blog.with_bux_earned()
 
         socket
         |> assign(:videos_loaded, true)
@@ -185,7 +186,7 @@ defmodule BlocksterV2Web.HubLive.Show do
 
     # Build next batch of 4 components (Three, Four, Five, Six)
     {new_components, new_displayed_post_ids} =
-      build_news_components_batch(hub_id, displayed_post_ids, last_module)
+      build_news_components_batch(hub_id, displayed_post_ids, last_module, socket.assigns.hub.tag_name)
 
     if new_components == [] do
       {:reply, %{end_reached: true}, socket}
@@ -223,12 +224,12 @@ defmodule BlocksterV2Web.HubLive.Show do
   }
 
   # Build initial batch of 4 components (Three, Four, Five, Six)
-  defp build_initial_news_components(hub_id) do
-    build_news_components_batch(hub_id, [], BlocksterV2Web.PostLive.PostsSixComponent)
+  defp build_initial_news_components(hub_id, tag_name) do
+    build_news_components_batch(hub_id, [], BlocksterV2Web.PostLive.PostsSixComponent, tag_name)
   end
 
   # Build a batch of 4 components cycling through the component modules
-  defp build_news_components_batch(hub_id, displayed_post_ids, last_module) do
+  defp build_news_components_batch(hub_id, displayed_post_ids, last_module, tag_name) do
     # Start from the component after last_module
     start_index = Enum.find_index(@component_modules, &(&1 == last_module))
     start_index = if start_index, do: rem(start_index + 1, 4), else: 0
@@ -244,7 +245,8 @@ defmodule BlocksterV2Web.HubLive.Show do
         posts = Blog.list_published_posts_by_hub(
           hub_id,
           limit: posts_needed,
-          exclude_ids: acc_ids
+          exclude_ids: acc_ids,
+          tag_name: tag_name
         ) |> Blog.with_bux_earned()
 
         if posts == [] do

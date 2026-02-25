@@ -1,8 +1,6 @@
 defmodule BlocksterV2Web.PostLive.EventsComponent do
   use BlocksterV2Web, :live_component
 
-  alias BlocksterV2.Accounts
-
   @impl true
   def update(assigns, socket) do
     # Get current date
@@ -11,8 +9,9 @@ defmodule BlocksterV2Web.PostLive.EventsComponent do
     # Calculate calendar data for current month
     calendar_data = build_calendar(today.year, today.month)
 
-    # Load all attendees for attendees list
-    attendees = Accounts.list_users()
+    # Use event attendees from assigns if provided, otherwise empty list
+    # (Previously loaded ALL users via Accounts.list_users() — full table scan)
+    attendees = Map.get(assigns, :attendees, [])
 
     {:ok,
      socket

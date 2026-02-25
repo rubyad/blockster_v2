@@ -25,6 +25,32 @@ defmodule BlocksterV2.Notifications do
     end
   end
 
+  @doc """
+  Batch-inserts notifications for multiple users at once.
+  Broadcasts PubSub notification to each user after insert.
+  """
+  def create_notifications_batch(notification_rows) when is_list(notification_rows) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    entries =
+      Enum.map(notification_rows, fn row ->
+        row
+        |> Map.put(:inserted_at, now)
+        |> Map.put(:updated_at, now)
+        |> Map.put_new(:metadata, %{})
+        |> Map.put_new(:category, "general")
+      end)
+
+    {count, inserted} = Repo.insert_all(Notification, entries, returning: [:id, :user_id, :type, :title, :body])
+
+    # Broadcast to each user
+    Enum.each(inserted, fn notification ->
+      broadcast_new_notification(notification.user_id, notification)
+    end)
+
+    {count, inserted}
+  end
+
   def get_notification!(id), do: Repo.get!(Notification, id)
 
   def get_notification(id), do: Repo.get(Notification, id)

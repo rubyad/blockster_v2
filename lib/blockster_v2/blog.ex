@@ -165,10 +165,10 @@ defmodule BlocksterV2.Blog do
     limit = Keyword.get(opts, :limit)
     exclude_ids = Keyword.get(opts, :exclude_ids, [])
 
-    # Get the hub to access its tag_name
-    hub = get_hub(hub_id)
+    # Use tag_name from opts if provided (avoids extra DB query when hub is already loaded)
+    tag_name = Keyword.get(opts, :tag_name) || get_hub(hub_id) |> then(fn hub -> hub && hub.tag_name end)
 
-    query = if hub && hub.tag_name do
+    query = if tag_name do
       # Find posts that either have this hub_id OR have a tag matching the hub's tag_name
       # Use subquery to get distinct post IDs first, then order properly
       post_ids_query =
@@ -176,7 +176,7 @@ defmodule BlocksterV2.Blog do
           left_join: pt in "post_tags", on: pt.post_id == p.id,
           left_join: t in Tag, on: t.id == pt.tag_id,
           where: not is_nil(p.published_at),
-          where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
+          where: p.hub_id == ^hub_id or t.name == ^tag_name,
           select: p.id,
           distinct: true
         )
@@ -232,10 +232,10 @@ defmodule BlocksterV2.Blog do
   def list_video_posts_by_hub(hub_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 3)
 
-    # Get the hub to access its tag_name
-    hub = get_hub(hub_id)
+    # Use tag_name from opts if provided (avoids extra DB query when hub is already loaded)
+    tag_name = Keyword.get(opts, :tag_name) || get_hub(hub_id) |> then(fn hub -> hub && hub.tag_name end)
 
-    query = if hub && hub.tag_name do
+    query = if tag_name do
       # Find video posts that either have this hub_id OR have a tag matching the hub's tag_name
       post_ids_query =
         from(p in Post,
@@ -243,7 +243,7 @@ defmodule BlocksterV2.Blog do
           left_join: t in Tag, on: t.id == pt.tag_id,
           where: not is_nil(p.published_at),
           where: not is_nil(p.video_id),
-          where: p.hub_id == ^hub_id or t.name == ^hub.tag_name,
+          where: p.hub_id == ^hub_id or t.name == ^tag_name,
           select: p.id,
           distinct: true
         )
@@ -760,13 +760,15 @@ defmodule BlocksterV2.Blog do
     hub = get_hub(post.hub_id)
     followers = get_hub_followers_with_preferences(hub.id)
 
-    Enum.each(followers, fn follower ->
-      user_id = follower.user_id
-
-      # In-app notification: respect per-hub in_app_notifications + notify_new_posts
-      in_app = Map.get(follower, :in_app_notifications, true) && Map.get(follower, :notify_new_posts, true)
-      if in_app do
-        BlocksterV2.Notifications.create_notification(user_id, %{
+    # Batch in-app notifications (single INSERT instead of N individual INSERTs)
+    notification_rows =
+      followers
+      |> Enum.filter(fn follower ->
+        Map.get(follower, :in_app_notifications, true) && Map.get(follower, :notify_new_posts, true)
+      end)
+      |> Enum.map(fn follower ->
+        %{
+          user_id: follower.user_id,
           type: "hub_post",
           category: "content",
           title: "New in #{hub.name}",
@@ -775,13 +777,18 @@ defmodule BlocksterV2.Blog do
           action_url: "/#{post.slug}",
           action_label: "Read Article",
           metadata: %{"post_id" => post.id, "hub_id" => hub.id}
-        })
-      end
+        }
+      end)
 
-      # Email notification: respect per-hub email_notifications + notify_new_posts
+    if notification_rows != [] do
+      BlocksterV2.Notifications.create_notifications_batch(notification_rows)
+    end
+
+    # Email notifications (already async via Oban workers)
+    Enum.each(followers, fn follower ->
       send_email = Map.get(follower, :email_notifications, true) && Map.get(follower, :notify_new_posts, true)
       if send_email do
-        BlocksterV2.Workers.HubPostNotificationWorker.enqueue(user_id, post.id, hub.id)
+        BlocksterV2.Workers.HubPostNotificationWorker.enqueue(follower.user_id, post.id, hub.id)
       end
     end)
   end
@@ -1335,9 +1342,11 @@ defmodule BlocksterV2.Blog do
   def with_bux_earned(posts) when is_list(posts) do
     alias BlocksterV2.EngagementTracker
 
+    post_ids = Enum.map(posts, & &1.id)
+    distributed_map = EngagementTracker.get_posts_total_distributed_batch(post_ids)
+
     Enum.map(posts, fn post ->
-      distributed = EngagementTracker.get_post_total_distributed(post.id)
-      Map.put(post, :bux_balance, distributed)
+      Map.put(post, :bux_balance, Map.get(distributed_map, post.id, 0))
     end)
   end
 

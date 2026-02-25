@@ -65,13 +65,9 @@ defmodule BlocksterV2.Cart do
   end
 
   def update_item_bux(%CartItem{} = item, bux) do
-    item = Repo.preload(item, [:product, :variant])
+    item = Repo.preload(item, [product: :variants, variant: []])
 
-    price =
-      if item.variant,
-        do: item.variant.price,
-        else: List.first(Repo.preload(item.product, :variants).variants).price
-
+    price = item_price(item)
     max_pct = item.product.bux_max_discount || 0
 
     # Max BUX is total for the line item (per-unit max × quantity)
@@ -91,13 +87,9 @@ defmodule BlocksterV2.Cart do
   end
 
   def clamp_bux_for_item(%CartItem{} = item, new_quantity) do
-    item = Repo.preload(item, [:product, :variant])
+    item = Repo.preload(item, [product: :variants, variant: []])
 
-    price =
-      if item.variant,
-        do: item.variant.price,
-        else: List.first(Repo.preload(item.product, :variants).variants).price
-
+    price = item_price(item)
     max_pct = item.product.bux_max_discount || 0
 
     max_bux_per_unit =
@@ -122,10 +114,7 @@ defmodule BlocksterV2.Cart do
 
     items =
       Enum.map(cart.cart_items, fn item ->
-        price =
-          if item.variant,
-            do: item.variant.price,
-            else: List.first(Repo.preload(item.product, :variants).variants).price
+        price = item_price(item)
 
         %{
           item: item,
@@ -162,7 +151,7 @@ defmodule BlocksterV2.Cart do
 
     errors =
       Enum.reduce(cart.cart_items, [], fn item, acc ->
-        product = Repo.preload(item.product, [:variants])
+        product = item.product
 
         cond do
           is_nil(product) ->
@@ -187,14 +176,8 @@ defmodule BlocksterV2.Cart do
   end
 
   def item_subtotal(%CartItem{} = item) do
-    item = Repo.preload(item, [:product, :variant])
-
-    price =
-      if item.variant,
-        do: item.variant.price,
-        else: List.first(Repo.preload(item.product, :variants).variants).price
-
-    Decimal.mult(price, item.quantity)
+    item = Repo.preload(item, [product: :variants, variant: []])
+    Decimal.mult(item_price(item), item.quantity)
   end
 
   def item_bux_discount(%CartItem{} = item) do
@@ -225,5 +208,13 @@ defmodule BlocksterV2.Cart do
   def broadcast_cart_update(user_id) do
     count = item_count(user_id)
     Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "cart:#{user_id}", {:cart_updated, count})
+  end
+
+  # Gets the effective price for a cart item (variant price or first variant's price)
+  # Expects item to already have product and variants preloaded
+  defp item_price(%CartItem{} = item) do
+    if item.variant,
+      do: item.variant.price,
+      else: List.first(item.product.variants).price
   end
 end

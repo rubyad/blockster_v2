@@ -1263,6 +1263,26 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Batch version of get_post_total_distributed/1.
+  Returns a map of %{post_id => total_distributed} for all given post IDs.
+  Single Mnesia read per post but avoids repeated function call overhead.
+  """
+  def get_posts_total_distributed_batch(post_ids) when is_list(post_ids) do
+    Map.new(post_ids, fn post_id ->
+      val =
+        case :mnesia.dirty_read({:post_bux_points, post_id}) do
+          [] -> 0
+          [record] -> max(0, elem(record, 6) || 0)
+        end
+      {post_id, val}
+    end)
+  rescue
+    _ -> Map.new(post_ids, &{&1, 0})
+  catch
+    :exit, _ -> Map.new(post_ids, &{&1, 0})
+  end
+
+  @doc """
   Checks if pool is available for NEW earning actions.
   Returns true only if balance > 0.
   Used to determine if a new user can start earning.
