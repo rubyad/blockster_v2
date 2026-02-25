@@ -591,7 +591,7 @@
               <% else %>
                 <%!-- Not logged in - Desktop --%>
                 <div class="hidden md:block relative group">
-                  <.link href={~p"/users/log_in?return_to=#{~p"/#{@post.slug}"}"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
+                  <.link href={~p"/login"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                     <%= if @pool_available do %>
                       <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>

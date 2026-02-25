@@ -146,7 +146,7 @@ defmodule BlocksterV2Web.HubLive.Show do
   def handle_event("toggle_follow", _params, socket) do
     case socket.assigns[:current_user] do
       nil ->
-        {:noreply, push_navigate(socket, to: "/users/log_in")}
+        {:noreply, push_navigate(socket, to: ~p"/login")}
 
       user ->
         hub = socket.assigns.hub
