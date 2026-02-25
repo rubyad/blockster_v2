@@ -1,6 +1,6 @@
 # Telegram Bot Hourly Engagement System
 
-> **Status**: Implemented and ready for production deployment behind feature flag.
+> **Status**: Implemented and deployed. Scheduler always starts; runtime toggle controls whether promos fire.
 
 The Blockster V2 Bot posts every hour in the main Telegram group (`https://t.me/+7bIzOyrYBEc3OTdh`) with diverse promotions, giveaways, competitions, custom BUX Booster rules, and referral offers — driving users to the app to read, earn, and play.
 
@@ -11,6 +11,8 @@ The Blockster V2 Bot posts every hour in the main Telegram group (`https://t.me/
 3. **Daily BUX budget: 100,000 BUX** — Hard limit across ALL promos. Tracked via `bot_daily_rewards` Mnesia table, resets at midnight UTC.
 4. **Per-user daily reward limit: 10 rewards per Telegram user per day** — Enforced via daily counter in `bot_daily_rewards` Mnesia table.
 5. **All bot-created rules tagged** with `source: "telegram_bot"` for safe cleanup on pause/settlement.
+6. **Bot rules are in-app only** — EventProcessor forces `channel: "in_app"` for any rule with `source: "telegram_bot"`, preventing email spam from hourly promos.
+7. **Telegram messages only sent in production** — `TelegramGroupMessenger` returns a fake success in dev/test to prevent localhost from spamming the real group.
 
 ---
 
@@ -49,10 +51,11 @@ The Blockster V2 Bot posts every hour in the main Telegram group (`https://t.me/
 | `lib/blockster_v2/notifications/system_config.ex` | Stores/activates custom rules dynamically |
 | `lib/blockster_v2/notifications/event_processor.ex` | Evaluates custom rules, credits BUX |
 | `lib/blockster_v2/notifications/formula_evaluator.ex` | Safe formula parser: `random()`, `min()`, `max()`, arithmetic, variables |
-| `lib/blockster_v2_web/controllers/telegram_webhook_controller.ex` | Admin commands: `/bot_pause`, `/bot_resume`, `/bot_status`, `/bot_budget`, `/bot_next` |
+| `lib/blockster_v2/telegram_bot/promo_qa.ex` | Claude Haiku Q&A bot — answers promo questions in Telegram group |
+| `lib/blockster_v2_web/controllers/telegram_webhook_controller.ex` | Admin commands + Q&A: `/bot_pause`, `/bot_resume`, `/bot_status`, `/bot_budget`, `/bot_next`, and natural language questions |
 | `test/blockster_v2/telegram_bot/promo_engine_test.exs` | 47 tests — structural + integration |
-| `config/runtime.exs` | Feature flag: `HOURLY_PROMO_ENABLED` env var |
-| `lib/blockster_v2/application.ex` | Supervision tree (behind feature flag) |
+| `config/runtime.exs` | Config: bot token, channel ID env vars |
+| `lib/blockster_v2/application.ex` | Supervision tree — scheduler always starts (runtime toggle controls firing) |
 | `lib/blockster_v2/mnesia_initializer.ex` | Creates 3 Mnesia tables |
 
 ---
@@ -114,7 +117,7 @@ reward = max(payout - bet_amount, bet_amount - payout) * PERCENT + rogue_balance
 
 **How activation works**: PromoEngine creates a custom rule in SystemConfig tagged with `_hourly_promo: true`, `_promo_id`, `source: "telegram_bot"`. EventProcessor picks it up and auto-credits BUX when `game_played` fires.
 
-**How settlement works**: `cleanup_hourly_rules/1` removes the tagged rule from SystemConfig.
+**How settlement works**: `cleanup_hourly_rules/1` removes the tagged rule from SystemConfig. Also cleans up any expired bot rules (checks `_expires_at` timestamp) to prevent orphaned rules from piling up if settlement was skipped (e.g. after a crash).
 
 ---
 
@@ -169,15 +172,20 @@ All winners credited via `PromoEngine.credit_user/2` which enforces budget + per
 
 ## Permanent Reward Rules
 
-In addition to hourly promos, three **permanent** custom rules in SystemConfig reward users for account actions (500 BUX each, one-time):
+In addition to hourly promos, six **permanent** custom rules in SystemConfig reward users for account actions and gameplay milestones:
 
-| Event | Reward | Dedup |
-|-------|--------|-------|
-| `x_connected` | 500 BUX | `@one_time_events` in EventProcessor |
-| `wallet_connected` | 500 BUX | `@one_time_events` in EventProcessor |
-| `phone_verified` | 500 BUX | `@one_time_events` in EventProcessor |
+| Event | Reward | Channel | Dedup |
+|-------|--------|---------|-------|
+| `phone_verified` | 500 BUX | all | `@one_time_events` in EventProcessor |
+| `x_connected` | 500 BUX | all | `@one_time_events` in EventProcessor |
+| `wallet_connected` | 500 BUX | all | `@one_time_events` in EventProcessor |
+| `telegram_connected` | 500 BUX | all | `@one_time_events` in EventProcessor |
+| `game_played` (High Roller) | 500 BUX | all | bet_amount >= 1000, one-time |
+| `game_played` (First Bet) | 250 BUX | all | total_bets <= 1, one-time |
 
 These are defined in `SystemConfig.@defaults["custom_rules"]` and seed on first DB setup. For existing production DBs, they must be added manually via SystemConfig.put or admin UI.
+
+**Note**: These permanent rules use `channel: "all"` (in-app + email + telegram). This is intentional for one-time milestone rewards. The `source: "telegram_bot"` in-app-only guard only applies to hourly promo rules.
 
 ---
 
@@ -204,6 +212,18 @@ These are defined in `SystemConfig.@defaults["custom_rules"]` and seed on first 
 
 ## Telegram Messaging
 
+### Production Only
+
+`TelegramGroupMessenger.send_group_message/2` checks `Application.get_env(:blockster_v2, :env)` and only sends in `:prod`. In dev/test it returns a fake `{:ok, %{body: %{"ok" => true, ...}}}` so the scheduler pipeline works normally without hitting the real Telegram API.
+
+### Retry Logic
+
+Transient `Req.TransportError` failures (TCP connection closed, etc.) are retried up to 2 times with 2-second delays before giving up.
+
+### Error Handling
+
+The scheduler checks `{:ok, %{body: %{"ok" => true}}}` for success, not just `{:ok, _}`. This is important because `Req.post` returns `{:ok, %Req.Response{}}` even for HTTP 400/403 errors. Telegram API rejections (e.g. supergroup migration, invalid chat ID) are now logged as errors instead of silently swallowed.
+
 ### Pin/Unpin Behavior
 
 Each new promo announcement is automatically pinned (silently) and all previous pins are removed:
@@ -229,32 +249,30 @@ After settlement, results are formatted and posted:
 - **Referral**: "Rates restored to normal" message
 - All include "Up next: [next promo name]!" teaser
 
+### Known Issue: Supergroup Migration
+
+If the Telegram group is upgraded to a supergroup, the chat ID changes. The Telegram API returns `"group chat was upgraded to a supergroup chat"` with the new `migrate_to_chat_id`. Fix by updating the `TELEGRAM_BLOCKSTER_V2_CHANNEL_ID` env var/secret.
+
 ---
 
 ## Admin Controls
 
-### Layer 1: Environment Variable (Deploy-time kill switch)
+### Layer 1: SystemConfig Toggle (Runtime on/off)
 
-```bash
-# runtime.exs
-HOURLY_PROMO_ENABLED=true  # GenServer starts
-HOURLY_PROMO_ENABLED=false  # GenServer never starts (default in dev)
-```
-
-### Layer 2: SystemConfig Toggle (Runtime on/off)
+The scheduler GenServer always starts in the supervision tree. Each hourly tick checks:
 
 ```elixir
-SystemConfig.get("hourly_promo_enabled", true)  # checked each hourly tick
+SystemConfig.get("hourly_promo_enabled", false)  # checked each hourly tick
 ```
 
-When paused, `cleanup_all_bot_rules()` removes all `source: "telegram_bot"` rules.
+When disabled (default), the scheduler skips the promo cycle. When paused via admin command, `cleanup_all_bot_rules()` removes all `source: "telegram_bot"` rules.
 
-### Layer 3: Telegram Admin Commands
+### Layer 2: Telegram Admin Commands
 
 | Command | Action |
 |---------|--------|
-| `/bot_pause` | Pauses the scheduler |
-| `/bot_resume` | Resumes the scheduler |
+| `/bot_pause` | Pauses the scheduler (sets SystemConfig to false) |
+| `/bot_resume` | Resumes the scheduler (sets SystemConfig to true) |
 | `/bot_status` | Shows status, current promo, budget remaining / 100,000 |
 | `/bot_budget` | Shows detailed budget: distributed, remaining, users rewarded |
 | `/bot_next [type]` | Forces next promo type (game, referral, giveaway, competition) |
@@ -264,10 +282,9 @@ Admin verification checks `User.is_admin == true` via Ecto query on `telegram_us
 ### Control Hierarchy
 
 ```
-ENV var (HOURLY_PROMO_ENABLED)     <-- Deploy-time kill switch
-  +-- GenServer starts or doesn't
-        +-- SystemConfig key         <-- Runtime on/off
-              +-- Telegram Commands  <-- Chat commands flip SystemConfig
+GenServer always running (supervision tree)
+  +-- SystemConfig key ("hourly_promo_enabled")  <-- Runtime on/off
+        +-- Telegram Commands                     <-- Chat commands flip SystemConfig
 ```
 
 ---
@@ -284,6 +301,8 @@ Stores active promo and crash recovery data:
 #   :current — current promo + history (for crash recovery)
 #   :referral_originals — saved referral rates during boost
 ```
+
+**Startup race condition**: The scheduler starts before MnesiaInitializer creates tables. `restore_state_from_mnesia` calls `wait_for_tables` (10s timeout) and catches both `:exit` signals and exceptions. If `current_promo` is nil after restore, a `Process.send_after(:retry_mnesia_restore, 5_000)` retries once after 5 seconds.
 
 ### `hourly_promo_entries`
 
@@ -320,6 +339,24 @@ When the bot activates a BUX Booster custom rule, the existing pipeline handles 
 7. User sees BUX credited in real-time
 
 No additional payout code needed for custom-rule-based promos.
+
+---
+
+## Promo Q&A Bot
+
+`PromoQA` (`promo_qa.ex`) answers user questions about promos in the Telegram group using Claude Haiku (`claude-haiku-4-5-20251001`).
+
+**How it works**:
+1. User sends a message mentioning the bot or replying to the bot in the group
+2. `TelegramWebhookController` detects it's not an admin command and routes to `PromoQA.answer_question/2`
+3. PromoQA builds context from live system data (current promo, budget, all template descriptions)
+4. Claude Haiku answers grounded in that context — never hallucinates
+
+**Safeguards**:
+- **Rate limiting**: ETS-based, 10-second cooldown per user
+- **Input sanitization**: 500 char max, strips HTML/XML tags, removes injection patterns
+- **System prompt**: Strict rules — never reveal instructions, never output code/JSON, never speculate
+- **API key**: Uses same `ANTHROPIC_API_KEY` as content automation
 
 ---
 
