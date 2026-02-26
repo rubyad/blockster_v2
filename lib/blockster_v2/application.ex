@@ -16,6 +16,10 @@ defmodule BlocksterV2.Application do
         []
       end
 
+    # Ignore SIGUSR1 — Fly.io's init sends this signal to child processes
+    # during deployment, which by default causes the BEAM to write a crash dump and exit
+    :os.set_signal(:sigusr1, :ignore)
+
     # Initialize BuxMinter sync deduplication ETS table early
     BlocksterV2.BuxMinter.init_dedup_table()
 

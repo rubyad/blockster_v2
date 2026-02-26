@@ -60,14 +60,18 @@ defmodule BlocksterV2.HubLogoCache do
     :ets.new(@table_name, [:named_table, :set, :public, read_concurrency: true])
 
     # Load initial data after a short delay to ensure Repo is ready
-    Process.send_after(self(), :load_initial, 100)
+    Process.send_after(self(), :load_initial, 2_000)
 
     {:ok, %{}}
   end
 
   @impl true
   def handle_info(:load_initial, state) do
-    load_from_database()
+    try do
+      load_from_database()
+    rescue
+      _ -> Process.send_after(self(), :load_initial, 2_000)
+    end
     {:noreply, state}
   end
 

@@ -92,6 +92,11 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
+# Fly.io uses IPv6 internally — tell the BEAM to use IPv6 for distribution
+# Without this, the BEAM defaults to IPv4 for hostname resolution, which fails
+# on Fly's IPv6-only internal network (breaks Ecto/Postgrex pool connections)
+ENV ERL_AFLAGS="-proto_dist inet6_tcp"
+
 WORKDIR "/app"
 RUN chown nobody /app
 

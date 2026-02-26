@@ -34,6 +34,8 @@ config :blockster_v2, BlocksterV2.Mailer, adapter: Swoosh.Adapters.Local
 # Oban job processing
 config :blockster_v2, Oban,
   repo: BlocksterV2.Repo,
+  notifier: Oban.Notifiers.PG,
+  peer: Oban.Peers.Global,
   queues: [
     default: 10,
     email_transactional: 5,

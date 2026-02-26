@@ -669,12 +669,13 @@ defmodule BlocksterV2.MnesiaInitializer do
     # Ensure Mnesia directory exists
     dir = mnesia_dir()
     File.mkdir_p!(dir)
-    Application.put_env(:mnesia, :dir, String.to_charlist(dir))
 
     Logger.info("[MnesiaInitializer] Mnesia directory: #{dir}")
 
-    # Stop Mnesia if running (for clean restart)
-    :mnesia.stop()
+    # DO NOT stop Mnesia here — it's already running with the correct directory
+    # (configured in runtime.exs). Stopping it destroys all ETS tables and crashes
+    # other processes (BuxBoosterBetSettler, etc.) that access Mnesia tables.
+    # Only stop Mnesia later in specific code paths that need schema modifications.
 
     # Wait for cluster discovery before deciding if we're the primary node
     # libcluster may not have connected nodes yet
@@ -714,19 +715,27 @@ defmodule BlocksterV2.MnesiaInitializer do
         migrate_from_old_node(old_node)
 
       :ok ->
-        # No mismatch, proceed normally
-        case :mnesia.create_schema([node()]) do
-          :ok ->
-            Logger.info("[MnesiaInitializer] Created new Mnesia schema")
+        # If Mnesia is already running (started by OTP), just ensure tables exist
+        if :mnesia.system_info(:is_running) == :yes do
+          Logger.info("[MnesiaInitializer] Mnesia already running, ensuring tables exist")
+          create_tables()
+          wait_for_tables()
+          Logger.info("[MnesiaInitializer] Mnesia initialization complete (already running)")
+        else
+          # Mnesia not running — create schema if needed, then start
+          case :mnesia.create_schema([node()]) do
+            :ok ->
+              Logger.info("[MnesiaInitializer] Created new Mnesia schema")
 
-          {:error, {_, {:already_exists, _}}} ->
-            Logger.info("[MnesiaInitializer] Using existing Mnesia schema")
+            {:error, {_, {:already_exists, _}}} ->
+              Logger.info("[MnesiaInitializer] Using existing Mnesia schema")
 
-          {:error, reason} ->
-            Logger.warning("[MnesiaInitializer] Schema creation issue: #{inspect(reason)}")
+            {:error, reason} ->
+              Logger.warning("[MnesiaInitializer] Schema creation issue: #{inspect(reason)}")
+          end
+
+          start_mnesia_and_create_tables()
         end
-
-        start_mnesia_and_create_tables()
     end
   end
 
@@ -1023,13 +1032,8 @@ defmodule BlocksterV2.MnesiaInitializer do
 
   # Join cluster while preserving our local data - try to add copies
   defp safe_join_preserving_local_data(other_nodes) do
-    # Start Mnesia with existing schema
-    case :mnesia.start() do
-      :ok ->
-        Logger.info("[MnesiaInitializer] Mnesia started with existing local data")
-      {:error, reason} ->
-        Logger.warning("[MnesiaInitializer] Error starting Mnesia: #{inspect(reason)}")
-    end
+    # Ensure Mnesia is running (don't stop/restart — that destroys ETS tables)
+    ensure_mnesia_running()
 
     # Try to connect to cluster
     case :mnesia.change_config(:extra_db_nodes, other_nodes) do
@@ -1064,11 +1068,9 @@ defmodule BlocksterV2.MnesiaInitializer do
 
   # Join cluster fresh when we have no local data
   defp join_cluster_fresh(other_nodes) do
-    # Stop Mnesia if running
-    :mnesia.stop()
-
-    # No local data, safe to start fresh
-    :mnesia.start()
+    # Ensure Mnesia is running (don't stop/restart — that destroys ETS tables
+    # and crashes other processes during the window)
+    ensure_mnesia_running()
 
     # Connect to cluster
     case :mnesia.change_config(:extra_db_nodes, other_nodes) do
@@ -1088,33 +1090,32 @@ defmodule BlocksterV2.MnesiaInitializer do
         Logger.info("[MnesiaInitializer] Successfully joined cluster and copied tables")
 
       {:ok, []} ->
-        Logger.warning("[MnesiaInitializer] No cluster nodes available - creating fresh schema")
-        :mnesia.stop()
-        :mnesia.create_schema([node()])
-        :mnesia.start()
+        Logger.warning("[MnesiaInitializer] No cluster nodes available - creating tables locally")
         create_tables()
         wait_for_tables()
 
       {:error, reason} ->
-        Logger.warning("[MnesiaInitializer] Connection error: #{inspect(reason)} - creating fresh schema")
-        :mnesia.stop()
-        :mnesia.create_schema([node()])
-        :mnesia.start()
+        Logger.warning("[MnesiaInitializer] Connection error: #{inspect(reason)} - creating tables locally")
         create_tables()
         wait_for_tables()
     end
   end
 
+  # Ensure Mnesia is running without stop/restart cycle
+  defp ensure_mnesia_running do
+    if :mnesia.system_info(:is_running) != :yes do
+      case :mnesia.start() do
+        :ok -> Logger.info("[MnesiaInitializer] Mnesia started")
+        {:error, {:already_started, :mnesia}} -> :ok
+        {:error, reason} -> Logger.warning("[MnesiaInitializer] Mnesia start error: #{inspect(reason)}")
+      end
+    end
+  end
+
   # Use local data and try to connect to cluster in background
   defp use_local_data_and_retry_cluster(other_nodes) do
-    # Start Mnesia with our existing schema
-    case :mnesia.start() do
-      :ok ->
-        Logger.info("[MnesiaInitializer] Mnesia started with existing schema")
-      {:error, reason} ->
-        Logger.warning("[MnesiaInitializer] Could not start Mnesia: #{inspect(reason)}")
-        :ok
-    end
+    # Ensure Mnesia is running (don't stop/restart)
+    ensure_mnesia_running()
 
     # Try to connect to cluster nodes (they may not have Mnesia ready yet)
     case :mnesia.change_config(:extra_db_nodes, other_nodes) do
@@ -1223,10 +1224,13 @@ defmodule BlocksterV2.MnesiaInitializer do
   end
 
   defp start_mnesia_and_create_tables do
-    # Start Mnesia
+    # Start Mnesia (may already be running)
     case :mnesia.start() do
       :ok ->
         Logger.info("[MnesiaInitializer] Mnesia started successfully")
+
+      {:error, {:already_started, :mnesia}} ->
+        Logger.info("[MnesiaInitializer] Mnesia was already running")
 
       {:error, reason} ->
         Logger.error("[MnesiaInitializer] Failed to start Mnesia: #{inspect(reason)}")
