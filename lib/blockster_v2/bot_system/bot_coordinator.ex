@@ -134,6 +134,10 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
         # Subscribe to post published events
         Phoenix.PubSub.subscribe(@pubsub, "post:published")
 
+        # Schedule periodic PubSub health check (every 5 min)
+        # Subscriptions can be lost during turbulent startups (outage recovery, etc.)
+        schedule_pubsub_check()
+
         # Backfill recent posts (also seeds pools on posts that need them)
         backfill_days = get_config(:backfill_days, 7)
         schedule_backfill(active_ids, backfill_days)
@@ -429,6 +433,26 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
     end
   end
 
+  # --- Handle Info: PubSub Health Check ---
+
+  @impl true
+  def handle_info(:check_pubsub, %{initialized: true} = state) do
+    # Verify our PubSub subscription is alive by checking the Registry.
+    # Subscriptions can be silently lost during turbulent startups (outage recovery).
+    # See docs/outage-report-feb-2026.md for context.
+    keys = Registry.keys(@pubsub, self())
+
+    unless "post:published" in keys do
+      Logger.warning("[BotCoordinator] PubSub subscription lost — re-subscribing to post:published")
+      Phoenix.PubSub.subscribe(@pubsub, "post:published")
+    end
+
+    schedule_pubsub_check()
+    {:noreply, state}
+  end
+
+  def handle_info(:check_pubsub, state), do: {:noreply, state}
+
   # --- Handle Info: Daily Rotation ---
 
   @impl true
@@ -437,6 +461,9 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
     new_active = state.all_bot_ids |> Enum.shuffle() |> Enum.take(active_count) |> MapSet.new()
 
     Logger.info("[BotCoordinator] Daily rotation: #{MapSet.size(new_active)} active bots")
+
+    # Re-subscribe as belt-and-suspenders (subscription may have been lost)
+    Phoenix.PubSub.subscribe(@pubsub, "post:published")
 
     timer = schedule_daily_rotation()
 
@@ -654,6 +681,10 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
         count
       end
     end)
+  end
+
+  defp schedule_pubsub_check do
+    Process.send_after(self(), :check_pubsub, :timer.minutes(5))
   end
 
   defp schedule_daily_rotation do

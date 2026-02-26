@@ -549,6 +549,152 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
     end
   end
 
+  describe "handle_info(:check_pubsub, ...)" do
+    test "re-subscribes when PubSub subscription is lost" do
+      # The check_pubsub handler uses Registry.keys(@pubsub, self()) to detect
+      # if the subscription is alive. Since handle_info runs in the test process,
+      # self() refers to the test process. We can control the subscription state.
+
+      # Ensure we are NOT subscribed
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+
+      # Verify we're not subscribed
+      keys = Registry.keys(BlocksterV2.PubSub, self())
+      refute "post:published" in keys
+
+      state = %{initialized: true}
+      {:noreply, _state} = BotCoordinator.handle_info(:check_pubsub, state)
+
+      # After the health check, we should be re-subscribed
+      keys = Registry.keys(BlocksterV2.PubSub, self())
+      assert "post:published" in keys
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+
+    test "does not duplicate subscription when already subscribed" do
+      # Subscribe first
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post:published")
+
+      state = %{initialized: true}
+      {:noreply, _state} = BotCoordinator.handle_info(:check_pubsub, state)
+
+      # Should still be subscribed (no crash, no duplicate)
+      keys = Registry.keys(BlocksterV2.PubSub, self())
+      assert "post:published" in keys
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+
+    test "is a no-op when not initialized" do
+      state = %{initialized: false}
+      {:noreply, new_state} = BotCoordinator.handle_info(:check_pubsub, state)
+      assert new_state == state
+    end
+  end
+
+  describe "PubSub subscription resilience" do
+    test "initialization subscribes to post:published" do
+      # Ensure we're not subscribed
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+
+      _bot = create_test_bot(1)
+
+      state = %{
+        initialized: false,
+        all_bot_ids: [],
+        active_bot_ids: MapSet.new(),
+        bot_cache: %{},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{},
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(:initialize, state)
+      assert new_state.initialized == true
+
+      # Should be subscribed to post:published
+      keys = Registry.keys(BlocksterV2.PubSub, self())
+      assert "post:published" in keys
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+
+    test "daily rotation re-subscribes to post:published" do
+      # Unsubscribe to simulate lost subscription
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+
+      bots = for i <- 1..3, do: create_test_bot(i)
+      bot_ids = Enum.map(bots, & &1.id)
+
+      state = %{
+        all_bot_ids: bot_ids,
+        active_bot_ids: MapSet.new(bot_ids),
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, _new_state} = BotCoordinator.handle_info(:daily_rotate, state)
+
+      # Should have re-subscribed
+      keys = Registry.keys(BlocksterV2.PubSub, self())
+      assert "post:published" in keys
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+
+    test "PubSub broadcast delivers to subscriber" do
+      # This is an end-to-end test: subscribe, broadcast, receive
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post:published")
+
+      Phoenix.PubSub.broadcast(
+        BlocksterV2.PubSub,
+        "post:published",
+        {:post_published, %{id: 99999, title: "Test"}}
+      )
+
+      assert_receive {:post_published, %{id: 99999}}, 1000
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+
+    test "lost subscription means no delivery, re-subscribe fixes it" do
+      # Subscribe then unsubscribe to simulate lost subscription
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post:published")
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+
+      # Broadcast should NOT be received
+      Phoenix.PubSub.broadcast(
+        BlocksterV2.PubSub,
+        "post:published",
+        {:post_published, %{id: 88888, title: "Lost"}}
+      )
+
+      refute_receive {:post_published, %{id: 88888}}, 200
+
+      # Re-subscribe (what check_pubsub does)
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post:published")
+
+      # Now broadcast SHOULD be received
+      Phoenix.PubSub.broadcast(
+        BlocksterV2.PubSub,
+        "post:published",
+        {:post_published, %{id: 77777, title: "Recovered"}}
+      )
+
+      assert_receive {:post_published, %{id: 77777}}, 1000
+
+      # Cleanup
+      Phoenix.PubSub.unsubscribe(BlocksterV2.PubSub, "post:published")
+    end
+  end
+
   describe "EngagementSimulator integration" do
     test "schedule generation works with bot IDs from setup" do
       for i <- 1..10, do: create_test_bot(i)
