@@ -147,6 +147,15 @@ defmodule BlocksterV2.PostBuxPoolWriter do
       {:ok, new_balance} ->
         display_balance = max(0, new_balance)
         EngagementTracker.broadcast_bux_update(post_id, display_balance)
+
+        # Notify BotCoordinator so it can schedule new bot reads
+        {_, new_deposited} = get_deposited(post_id)
+        Phoenix.PubSub.broadcast(
+          BlocksterV2.PubSub,
+          "post:pool_deposit",
+          {:pool_topped_up, post_id, new_deposited}
+        )
+
         result
       _ ->
         result
@@ -272,5 +281,14 @@ defmodule BlocksterV2.PostBuxPoolWriter do
     :exit, e ->
       Logger.error("[PostBuxPoolWriter] Exit in guaranteed deduction: #{inspect(e)}")
       {:error, e}
+  end
+
+  defp get_deposited(post_id) do
+    case :mnesia.dirty_read({:post_bux_points, post_id}) do
+      [] -> {0, 0}
+      [record] -> {elem(record, 4) || 0, elem(record, 5) || 0}
+    end
+  rescue
+    _ -> {0, 0}
   end
 end

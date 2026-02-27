@@ -131,8 +131,9 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
         # Build cache of bot smart wallets
         cache = build_bot_cache(bot_ids)
 
-        # Subscribe to post published events
+        # Subscribe to post published and pool deposit events
         Phoenix.PubSub.subscribe(@pubsub, "post:published")
+        Phoenix.PubSub.subscribe(@pubsub, "post:pool_deposit")
 
         # Schedule periodic PubSub health check (every 5 min)
         # Subscriptions can be lost during turbulent startups (outage recovery, etc.)
@@ -184,6 +185,47 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
   end
 
   def handle_info({:post_published, _post}, state), do: {:noreply, state}
+
+  # --- Handle Info: Pool Topped Up (PubSub) ---
+
+  @impl true
+  def handle_info({:pool_topped_up, post_id, new_deposited}, %{initialized: true} = state) do
+    case Map.get(state.post_tracker, post_id) do
+      nil ->
+        # Post not tracked yet — ignore (will be picked up on next publish)
+        {:noreply, state}
+
+      tracker ->
+        old_deposited = tracker.pool_deposited
+
+        if new_deposited > old_deposited do
+          # Update pool_deposited so cap_reached? uses the new total
+          state = put_in(state, [:post_tracker, post_id, :pool_deposited], new_deposited)
+
+          # Only schedule bots that haven't already earned on this post
+          active_list = MapSet.to_list(state.active_bot_ids)
+          unrewarded = Enum.filter(active_list, fn bot_id ->
+            not already_rewarded?(bot_id, post_id)
+          end)
+
+          if unrewarded != [] do
+            schedule = EngagementSimulator.generate_reading_schedule(unrewarded)
+
+            Logger.info("[BotCoordinator] Pool topped up for post #{post_id}: #{old_deposited} → #{new_deposited}, scheduling #{length(schedule)} new bots (#{length(active_list) - length(unrewarded)} already read)")
+
+            Enum.each(schedule, fn {delay_ms, bot_id} ->
+              Process.send_after(self(), {:bot_discover_post, bot_id, post_id}, delay_ms)
+            end)
+          end
+
+          {:noreply, state}
+        else
+          {:noreply, state}
+        end
+    end
+  end
+
+  def handle_info({:pool_topped_up, _post_id, _deposited}, state), do: {:noreply, state}
 
   # --- Handle Info: Bot Reading Session (3 messages) ---
 
@@ -442,9 +484,11 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
     # See docs/outage-report-feb-2026.md for context.
     keys = Registry.keys(@pubsub, self())
 
-    unless "post:published" in keys do
-      Logger.warning("[BotCoordinator] PubSub subscription lost — re-subscribing to post:published")
-      Phoenix.PubSub.subscribe(@pubsub, "post:published")
+    for topic <- ["post:published", "post:pool_deposit"] do
+      unless topic in keys do
+        Logger.warning("[BotCoordinator] PubSub subscription lost — re-subscribing to #{topic}")
+        Phoenix.PubSub.subscribe(@pubsub, topic)
+      end
     end
 
     schedule_pubsub_check()
@@ -464,6 +508,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
 
     # Re-subscribe as belt-and-suspenders (subscription may have been lost)
     Phoenix.PubSub.subscribe(@pubsub, "post:published")
+    Phoenix.PubSub.subscribe(@pubsub, "post:pool_deposit")
 
     timer = schedule_daily_rotation()
 
@@ -506,17 +551,31 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
 
   defp track_post(state, post) do
     min_pool = get_config(:min_pool_balance, 100)
+    default_pool = get_config(:default_pool_size, 5000)
     {balance, deposited, _distributed} = EngagementTracker.get_post_pool_stats(post.id)
 
-    if balance >= min_pool do
-      tracker = %{
-        pool_deposited: deposited,
-        pool_consumed_by_bots: 0.0
-      }
-      put_in(state, [:post_tracker, post.id], tracker)
-    else
-      state
-    end
+    # Auto-seed pool if below minimum (same as backfill does).
+    # This handles manually created posts and the race condition where
+    # content automation's deposit_bux runs after the PubSub broadcast.
+    deposited =
+      if balance < min_pool do
+        case EngagementTracker.deposit_post_bux(post.id, default_pool) do
+          {:ok, _} ->
+            Logger.info("[BotCoordinator] Auto-seeded pool for post #{post.id} with #{default_pool} BUX")
+            deposited + default_pool
+
+          _ ->
+            deposited
+        end
+      else
+        deposited
+      end
+
+    tracker = %{
+      pool_deposited: deposited,
+      pool_consumed_by_bots: 0.0
+    }
+    put_in(state, [:post_tracker, post.id], tracker)
   end
 
   defp pool_available?(state, post_id) do
@@ -532,6 +591,15 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
       nil -> true  # No tracking = skip
       tracker ->
         tracker.pool_consumed_by_bots >= tracker.pool_deposited * cap_pct
+    end
+  end
+
+  defp already_rewarded?(user_id, post_id) do
+    case EngagementTracker.get_rewards(user_id, post_id) do
+      nil -> false
+      record ->
+        read_bux = elem(record, 4)
+        read_bux != nil and read_bux > 0
     end
   end
 

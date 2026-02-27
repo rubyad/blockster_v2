@@ -24,6 +24,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - When new Mnesia tables are added, restart both nodes to create them
 > - There is NO scenario where deleting Mnesia directories is correct
 >
+> **CRITICAL FLY.IO SECRETS RULES**:
+> - ALWAYS use `--stage` when setting secrets: `flyctl secrets set KEY=VALUE --stage --app blockster-v2`
+> - `flyctl secrets set` WITHOUT `--stage` **immediately restarts the production server** — this is destructive
+> - Staged secrets take effect on the next deploy, which is the safe and expected behavior
+> - NEVER run `flyctl secrets set` without `--stage` unless the user EXPLICITLY says to restart production
+>
 > **DEVELOPMENT WORKFLOW**:
 > - DO NOT restart nodes after code fixes - Elixir hot reloads. Only restart for supervision tree/config changes
 > - NEVER use the Write tool to rewrite entire documentation files - use Edit for targeted changes

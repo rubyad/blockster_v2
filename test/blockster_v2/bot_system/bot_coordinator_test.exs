@@ -695,6 +695,220 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
     end
   end
 
+  describe "track_post auto-seeding" do
+    setup do
+      # PostBuxPoolWriter is needed for deposit_post_bux
+      start_supervised!({BlocksterV2.PostBuxPoolWriter, []})
+      :ok
+    end
+
+    test "auto-seeds pool when post has no BUX deposited" do
+      bot = create_test_bot(1)
+      # Create post with NO pool (pool: 0)
+      post = create_test_post(pool: 0)
+
+      state = %{
+        initialized: true,
+        all_bot_ids: [bot.id],
+        active_bot_ids: MapSet.new([bot.id]),
+        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{},
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info({:post_published, post}, state)
+
+      # Post should be tracked even though it had no pool
+      assert Map.has_key?(new_state.post_tracker, post.id)
+      tracker = new_state.post_tracker[post.id]
+      # Should have auto-seeded with default_pool_size (5000)
+      assert tracker.pool_deposited == 5000
+      assert tracker.pool_consumed_by_bots == 0.0
+
+      # Verify the pool was actually deposited in Mnesia
+      balance = BlocksterV2.EngagementTracker.get_post_bux_balance(post.id)
+      assert balance >= 5000
+    end
+
+    test "does not double-seed when post already has sufficient pool" do
+      bot = create_test_bot(1)
+      post = create_test_post(pool: 2000)
+
+      state = %{
+        initialized: true,
+        all_bot_ids: [bot.id],
+        active_bot_ids: MapSet.new([bot.id]),
+        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{},
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info({:post_published, post}, state)
+
+      # Post should be tracked with original pool amount (no extra seed)
+      tracker = new_state.post_tracker[post.id]
+      assert tracker.pool_deposited == 2000
+    end
+  end
+
+  describe "handle_info({:pool_topped_up, ...}, ...)" do
+    test "updates pool_deposited and schedules new bots" do
+      bot1 = create_test_bot(1)
+      bot2 = create_test_bot(2)
+      post = create_test_post(pool: 1000)
+
+      state = %{
+        initialized: true,
+        all_bot_ids: [bot1.id, bot2.id],
+        active_bot_ids: MapSet.new([bot1.id, bot2.id]),
+        bot_cache: %{
+          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
+          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address}
+        },
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{
+          post.id => %{pool_deposited: 1000, pool_consumed_by_bots: 500.0}
+        },
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(
+        {:pool_topped_up, post.id, 3000},
+        state
+      )
+
+      # pool_deposited should be updated
+      assert new_state.post_tracker[post.id].pool_deposited == 3000
+      # pool_consumed_by_bots should be preserved
+      assert new_state.post_tracker[post.id].pool_consumed_by_bots == 500.0
+    end
+
+    test "ignores top-up when deposited hasn't increased" do
+      bot = create_test_bot(1)
+      post = create_test_post(pool: 1000)
+
+      state = %{
+        initialized: true,
+        all_bot_ids: [bot.id],
+        active_bot_ids: MapSet.new([bot.id]),
+        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{
+          post.id => %{pool_deposited: 1000, pool_consumed_by_bots: 0.0}
+        },
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(
+        {:pool_topped_up, post.id, 1000},
+        state
+      )
+
+      # Nothing should change
+      assert new_state.post_tracker[post.id].pool_deposited == 1000
+    end
+
+    test "ignores top-up for untracked post" do
+      state = %{
+        initialized: true,
+        all_bot_ids: [],
+        active_bot_ids: MapSet.new(),
+        bot_cache: %{},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{},
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(
+        {:pool_topped_up, 99999, 5000},
+        state
+      )
+
+      assert new_state.post_tracker == %{}
+    end
+
+    test "skips bots that already earned on the post" do
+      bot1 = create_test_bot(1)
+      bot2 = create_test_bot(2)
+      post = create_test_post(pool: 1000)
+
+      # Simulate bot1 already having earned BUX on this post
+      now = System.system_time(:second)
+      reward_record = {
+        :user_post_rewards,
+        {bot1.id, post.id},
+        bot1.id,
+        post.id,
+        10.0,    # read_bux — already earned
+        false,   # read_paid
+        nil,     # read_tx_id
+        nil, false, nil, nil, false, nil,
+        10.0,    # total_bux
+        0,       # total_paid_bux
+        now, now
+      }
+      :mnesia.dirty_write(reward_record)
+
+      state = %{
+        initialized: true,
+        all_bot_ids: [bot1.id, bot2.id],
+        active_bot_ids: MapSet.new([bot1.id, bot2.id]),
+        bot_cache: %{
+          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
+          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address}
+        },
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{
+          post.id => %{pool_deposited: 1000, pool_consumed_by_bots: 500.0}
+        },
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(
+        {:pool_topped_up, post.id, 3000},
+        state
+      )
+
+      # pool_deposited should still be updated
+      assert new_state.post_tracker[post.id].pool_deposited == 3000
+    end
+
+    test "does nothing when not initialized" do
+      state = %{
+        initialized: false,
+        all_bot_ids: [],
+        active_bot_ids: MapSet.new(),
+        bot_cache: %{},
+        reading_sessions: %{},
+        mint_queue: :queue.new(),
+        mint_timer: nil,
+        post_tracker: %{},
+        daily_rotation_timer: nil
+      }
+
+      {:noreply, new_state} = BotCoordinator.handle_info(
+        {:pool_topped_up, 1, 5000},
+        state
+      )
+
+      assert new_state.post_tracker == %{}
+    end
+  end
+
   describe "EngagementSimulator integration" do
     test "schedule generation works with bot IDs from setup" do
       for i <- 1..10, do: create_test_bot(i)
