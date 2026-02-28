@@ -51,9 +51,16 @@ defmodule BlocksterV2.Airdrop do
       prize_pool_address: Keyword.get(opts, :prize_pool_address)
     }
 
-    %Round{}
-    |> Round.changeset(attrs)
-    |> Repo.insert()
+    case %Round{}
+         |> Round.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, round} = result ->
+        BlocksterV2.Airdrop.Settler.notify_round_created(round.round_id, round.end_time)
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """

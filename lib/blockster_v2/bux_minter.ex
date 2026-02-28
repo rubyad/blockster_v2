@@ -670,6 +670,53 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  @doc """
+  Closes the current airdrop round on-chain via the AirdropVault contract.
+  Returns the block hash at close, total entries, and transaction hash.
+
+  ## Parameters
+    - round_id: The airdrop round ID (used for logging only; contract uses its own state)
+
+  ## Returns
+    - {:ok, response} with blockHashAtClose, totalEntries, roundId, transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_close(round_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop close")
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-close", Jason.encode!(%{}), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Airdrop round #{round_id} closed: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop close failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop close failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop close failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop close HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
   # Normalize token name - always returns BUX (hub tokens removed)
   defp normalize_token(_token), do: "BUX"
 

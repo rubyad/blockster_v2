@@ -587,9 +587,11 @@ const ARBITRUM_RPC_URL = process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.
 // AirdropVault ABI (Rogue Chain) — only functions we need
 const AIRDROP_VAULT_ABI = [
   'function depositFor(address blocksterWallet, address externalWallet, uint256 amount) external',
+  'function closeAirdrop() external',
   'function totalEntries() external view returns (uint256)',
   'function roundId() external view returns (uint256)',
-  'event BuxDeposited(uint256 indexed roundId, address indexed blocksterWallet, address externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition)'
+  'event BuxDeposited(uint256 indexed roundId, address indexed blocksterWallet, address externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition)',
+  'event AirdropClosed(uint256 roundId, uint256 totalEntries, bytes32 blockHashAtClose)'
 ];
 
 // AirdropPrizePool ABI (Arbitrum) — only functions we need
@@ -1437,6 +1439,67 @@ app.post('/airdrop-set-prize', authenticate, async (req, res) => {
       return res.status(400).json({ error: error.reason });
     }
     res.status(500).json({ error: 'Failed to set prize', details: error.message });
+  }
+});
+
+// ============================================================
+// Airdrop Close Endpoint (Rogue Chain)
+// ============================================================
+
+app.post('/airdrop-close', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-close] closeAirdrop() with nonce ${nonce}`);
+      const tx = await airdropVaultContract.closeAirdrop({ nonce });
+      return await tx.wait();
+    });
+
+    // Parse AirdropClosed event from receipt
+    const iface = new ethers.Interface(AIRDROP_VAULT_ABI);
+    let blockHashAtClose = null;
+    let totalEntries = null;
+    let roundId = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed && parsed.name === 'AirdropClosed') {
+          roundId = Number(parsed.args[0]);
+          totalEntries = Number(parsed.args[1]);
+          blockHashAtClose = parsed.args[2];
+          break;
+        }
+      } catch (_) {
+        // skip logs from other contracts
+      }
+    }
+
+    console.log(`[/airdrop-close] Closed round ${roundId}, totalEntries=${totalEntries}, blockHash=${blockHashAtClose}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      totalEntries,
+      blockHashAtClose
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-CLOSE] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to close airdrop', details: error.message });
   }
 });
 
