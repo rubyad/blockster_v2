@@ -30,6 +30,14 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - Staged secrets take effect on the next deploy, which is the safe and expected behavior
 > - NEVER run `flyctl secrets set` without `--stage` unless the user EXPLICITLY says to restart production
 >
+> **CRITICAL BUX TOKEN RULES**:
+> - BUX tokens live ON-CHAIN in users' smart wallets — they are real ERC-20 tokens, not just Mnesia entries
+> - Mnesia tracks balances for fast reads, but the on-chain balance is the source of truth
+> - To move BUX out of a user's wallet: approve() + transferFrom() — NEVER mint fresh tokens as a shortcut
+> - The airdrop deposit flow MUST use approve + transferFrom from the user's smart wallet to the vault
+> - NEVER assume tokens don't exist on-chain. If a user earned BUX and it was minted to their smart wallet, it's THERE.
+> - DO NOT invent or assume how systems work — read the code, read the contracts, and if unsure ASK THE USER
+>
 > **DEVELOPMENT WORKFLOW**:
 > - DO NOT restart nodes after code fixes - Elixir hot reloads. Only restart for supervision tree/config changes
 > - NEVER use the Write tool to rewrite entire documentation files - use Edit for targeted changes

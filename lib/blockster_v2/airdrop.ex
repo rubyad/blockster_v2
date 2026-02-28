@@ -14,13 +14,14 @@ defmodule BlocksterV2.Airdrop do
 
   @num_winners 33
 
-  # Prize structure in USD cents: 1st=$250, 2nd=$150, 3rd=$100, 4th-33rd=$50
+  # Prize structure in USD cents: 1st=$0.65, 2nd=$0.40, 3rd=$0.35, 4th-33rd=$0.12
+  # Total: $5.00 (test pool). Scale back up for production.
   @prize_structure %{
-    0 => 25_000,
-    1 => 15_000,
-    2 => 10_000
+    0 => 65,
+    1 => 40,
+    2 => 35
   }
-  @default_prize_usd 5_000
+  @default_prize_usd 12
 
   # USDT has 6 decimals, so $250 = 250_000_000 micro-USDT
   @usdt_decimals 1_000_000
@@ -41,12 +42,26 @@ defmodule BlocksterV2.Airdrop do
 
     next_round_id = get_next_round_id()
 
+    # Start on-chain round on AirdropVault (publishes commitment for provable fairness)
+    end_time_unix = DateTime.to_unix(end_time)
+    start_round_tx =
+      case BlocksterV2.BuxMinter.airdrop_start_round(commitment_hash, end_time_unix) do
+        {:ok, response} ->
+          Logger.info("[Airdrop] On-chain round started: #{inspect(response)}")
+          response["transactionHash"]
+
+        {:error, reason} ->
+          Logger.warning("[Airdrop] On-chain startRound failed (#{inspect(reason)}), proceeding with DB-only round")
+          nil
+      end
+
     attrs = %{
       round_id: next_round_id,
       status: "open",
       end_time: end_time,
       server_seed: server_seed,
       commitment_hash: commitment_hash,
+      start_round_tx: start_round_tx,
       vault_address: Keyword.get(opts, :vault_address),
       prize_pool_address: Keyword.get(opts, :prize_pool_address)
     }
@@ -342,6 +357,27 @@ defmodule BlocksterV2.Airdrop do
   end
 
   @doc """
+  Returns the total prize pool in USD cents.
+  """
+  def total_prize_pool_usd do
+    Enum.reduce(0..(@num_winners - 1), 0, fn i, acc -> acc + prize_usd_for_index(i) end)
+  end
+
+  @doc """
+  Returns the prize structure summary for display: %{first: cents, second: cents, third: cents, rest: cents, rest_count: n, total: cents}
+  """
+  def prize_summary do
+    %{
+      first: prize_usd_for_index(0),
+      second: prize_usd_for_index(1),
+      third: prize_usd_for_index(2),
+      rest: @default_prize_usd,
+      rest_count: @num_winners - 3,
+      total: total_prize_pool_usd()
+    }
+  end
+
+  @doc """
   Returns the prize amount in USDT micro-units (6 decimals) for a given winner index.
   """
   def prize_usdt_for_index(index) when index >= 0 and index <= 32 do
@@ -368,40 +404,52 @@ defmodule BlocksterV2.Airdrop do
   defp validate_amount(_), do: {:error, :invalid_amount}
 
   defp create_entry(user, amount, round_id, opts) do
-    Repo.transaction(fn ->
-      # Lock the round row for atomic position assignment
-      round =
-        Round
-        |> where([r], r.round_id == ^round_id)
-        |> lock("FOR UPDATE")
-        |> Repo.one!()
+    wallet_address = user.smart_wallet_address || user.wallet_address
 
-      start_position = round.total_entries + 1
-      end_position = round.total_entries + amount
+    # Deduct BUX from Mnesia balance BEFORE creating the entry
+    case BlocksterV2.EngagementTracker.deduct_user_token_balance(
+           user.id, wallet_address, "BUX", amount
+         ) do
+      {:ok, _new_balance} ->
+        Repo.transaction(fn ->
+          # Lock the round row for atomic position assignment
+          round =
+            Round
+            |> where([r], r.round_id == ^round_id)
+            |> lock("FOR UPDATE")
+            |> Repo.one!()
 
-      entry_attrs = %{
-        user_id: user.id,
-        round_id: round_id,
-        wallet_address: user.smart_wallet_address || user.wallet_address,
-        external_wallet: Keyword.get(opts, :external_wallet),
-        amount: amount,
-        start_position: start_position,
-        end_position: end_position,
-        deposit_tx: Keyword.get(opts, :deposit_tx)
-      }
+          start_position = round.total_entries + 1
+          end_position = round.total_entries + amount
 
-      entry =
-        %Entry{}
-        |> Entry.changeset(entry_attrs)
-        |> Repo.insert!()
+          entry_attrs = %{
+            user_id: user.id,
+            round_id: round_id,
+            wallet_address: wallet_address,
+            external_wallet: Keyword.get(opts, :external_wallet),
+            amount: amount,
+            start_position: start_position,
+            end_position: end_position,
+            deposit_tx: Keyword.get(opts, :deposit_tx)
+          }
 
-      # Update total entries on the round
-      round
-      |> Ecto.Changeset.change(total_entries: end_position)
-      |> Repo.update!()
+          entry =
+            %Entry{}
+            |> Entry.changeset(entry_attrs)
+            |> Repo.insert!()
 
-      entry
-    end)
+          # Update total entries on the round
+          round
+          |> Ecto.Changeset.change(total_entries: end_position)
+          |> Repo.update!()
+
+          entry
+        end)
+
+      {:error, reason} ->
+        Logger.error("[Airdrop] Failed to deduct BUX for user #{user.id}: #{inspect(reason)}")
+        {:error, :insufficient_balance}
+    end
   end
 
   defp derive_winners(server_seed, block_hash_at_close, total_entries, entries) do

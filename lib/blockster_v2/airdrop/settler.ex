@@ -16,6 +16,7 @@ defmodule BlocksterV2.Airdrop.Settler do
   alias BlocksterV2.{Airdrop, BuxMinter, GlobalSingleton}
 
   @num_winners 33
+  @rpc_url "https://rpc.roguechain.io/rpc"
 
   def start_link(opts) do
     case GlobalSingleton.start_link(__MODULE__, opts) do
@@ -78,24 +79,30 @@ defmodule BlocksterV2.Airdrop.Settler do
   # ============================================================================
 
   defp settle_round(%{status: "open"} = round) do
-    Logger.info("[Settler] Closing round #{round.round_id} on-chain...")
+    Logger.info("[Settler] Closing round #{round.round_id}...")
 
-    case BuxMinter.airdrop_close(round.round_id) do
-      {:ok, response} ->
-        block_hash = response["blockHashAtClose"]
-        close_tx = response["transactionHash"]
+    # Try on-chain close first, fall back to RPC block hash if vault has no active round
+    {block_hash, close_tx} =
+      case BuxMinter.airdrop_close(round.round_id) do
+        {:ok, response} ->
+          {response["blockHashAtClose"], response["transactionHash"]}
 
-        case Airdrop.close_round(round.round_id, block_hash, close_tx: close_tx) do
-          {:ok, closed_round} ->
-            Logger.info("[Settler] Round #{round.round_id} closed (tx: #{close_tx})")
-            settle_round(closed_round)
+        {:error, reason} ->
+          Logger.warning("[Settler] On-chain close failed (#{inspect(reason)}), falling back to RPC block hash")
+          {fetch_rogue_block_hash(), nil}
+      end
 
-          {:error, reason} ->
-            Logger.error("[Settler] Failed to close round #{round.round_id} in DB: #{inspect(reason)}")
-        end
+    if block_hash do
+      case Airdrop.close_round(round.round_id, block_hash, close_tx: close_tx) do
+        {:ok, closed_round} ->
+          Logger.info("[Settler] Round #{round.round_id} closed (block_hash: #{block_hash})")
+          settle_round(closed_round)
 
-      {:error, reason} ->
-        Logger.error("[Settler] Failed to close round #{round.round_id} on-chain: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("[Settler] Failed to close round #{round.round_id} in DB: #{inspect(reason)}")
+      end
+    else
+      Logger.error("[Settler] Could not obtain block hash for round #{round.round_id}")
     end
   end
 
@@ -146,6 +153,24 @@ defmodule BlocksterV2.Airdrop.Settler do
   # ============================================================================
   # Recovery
   # ============================================================================
+
+  defp fetch_rogue_block_hash do
+    body = %{jsonrpc: "2.0", method: "eth_getBlockByNumber", params: ["latest", false], id: 1}
+
+    case Req.post(@rpc_url, json: body, receive_timeout: 15_000) do
+      {:ok, %{status: 200, body: %{"result" => %{"hash" => hash}}}} ->
+        Logger.info("[Settler] Fetched Rogue block hash via RPC: #{hash}")
+        hash
+
+      {:ok, %{body: body}} ->
+        Logger.error("[Settler] Unexpected RPC response: #{inspect(body)}")
+        nil
+
+      {:error, reason} ->
+        Logger.error("[Settler] RPC call failed: #{inspect(reason)}")
+        nil
+    end
+  end
 
   defp recover_from_db(state) do
     case Airdrop.get_current_round() do
