@@ -26,7 +26,7 @@ defmodule BlocksterV2Web.AirdropLive do
       if current_round do
         DateTime.to_unix(current_round.end_time)
       else
-        DateTime.new!(~D[2026-02-28], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
+        DateTime.new!(~D[2026-03-01], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
       end
 
     {user_entries, connected_wallet} =
@@ -308,7 +308,7 @@ defmodule BlocksterV2Web.AirdropLive do
               <%= if @current_round do %>
                 <%= Calendar.strftime(@current_round.end_time, "%B %d, %Y at %I:%M %p") %> UTC
               <% else %>
-                February 28, 2026 at 12:00 PM EST
+                March 1, 2026 at 12:00 PM EST
               <% end %>
             </p>
             <div class="flex justify-center gap-3">

@@ -29,7 +29,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | BuxBoosterGame | `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B` | Coin flip game (UUPS proxy) |
 | ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | ROGUE house balance for BuxBooster |
 | NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | NFT time-based rewards |
-| AirdropVault | _TBD — deploy in Phase 3_ | BUX airdrop vault (UUPS proxy) |
+| AirdropVault | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` | BUX airdrop vault (UUPS proxy) |
 
 ### Account Abstraction (Rogue Chain)
 | Contract | Address | Purpose |
@@ -46,7 +46,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 |----------|---------|---------|
 | High Rollers NFT | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` | NFT collection |
 | USDT | `0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9` | Tether USD (6 decimals) |
-| AirdropPrizePool | _TBD — deploy in Phase 3_ | USDT prize distribution (UUPS proxy) |
+| AirdropPrizePool | `0x919149CA8DB412541D2d8B3F150fa567fEFB58e1` | USDT prize distribution (UUPS proxy) |
 
 ---
 

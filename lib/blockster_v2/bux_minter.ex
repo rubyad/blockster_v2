@@ -492,6 +492,184 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  # ============================================================================
+  # Airdrop Integration
+  # ============================================================================
+
+  @doc """
+  Deposits BUX to the AirdropVault on behalf of a user.
+
+  The BUX Minter mints BUX directly to the vault, then calls depositFor
+  to record the position block on-chain.
+
+  ## Parameters
+    - wallet: User's smart wallet address (blockster wallet)
+    - external_wallet: User's connected external wallet (prize destination)
+    - amount: Integer BUX amount to deposit
+    - user_id: User ID for logging
+
+  ## Returns
+    - {:ok, response} with depositTxHash, startPosition, endPosition
+    - {:error, reason} on failure
+  """
+  def airdrop_deposit(wallet, external_wallet, amount, user_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop deposit")
+      {:error, :not_configured}
+    else
+      payload = %{
+        wallet: wallet,
+        externalWallet: external_wallet,
+        amount: amount
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Airdrop deposit: #{amount} BUX from #{wallet} (user #{user_id})")
+
+      case http_post("#{minter_url}/airdrop-deposit", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+
+          # Sync balances after deposit (BUX was deducted)
+          if wallet do
+            sync_user_balances_async(user_id, wallet, force: true)
+          end
+
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop deposit failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop deposit failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop deposit failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop deposit HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Claims an airdrop prize — sends USDT on Arbitrum via AirdropPrizePool.sendPrize.
+
+  ## Parameters
+    - round_id: The airdrop round ID
+    - winner_index: The winner index (0-32)
+
+  ## Returns
+    - {:ok, response} with transactionHash, winner, prizeAmount
+    - {:error, reason} on failure
+  """
+  def airdrop_claim(round_id, winner_index) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop claim")
+      {:error, :not_configured}
+    else
+      payload = %{
+        roundId: round_id,
+        winnerIndex: winner_index
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Airdrop claim: round #{round_id}, winner #{winner_index}")
+
+      case http_post("#{minter_url}/airdrop-claim", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop claim failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop claim failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop claim failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop claim HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Sets a prize on the AirdropPrizePool contract (Arbitrum).
+  Called during the draw phase to register winners before they can claim.
+
+  ## Parameters
+    - round_id: The airdrop round ID
+    - winner_index: The winner index (0-32)
+    - winner_wallet: The external wallet that will receive USDT
+    - amount_usdt: Prize amount in USDT micro-units (6 decimals)
+
+  ## Returns
+    - {:ok, response} with transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_set_prize(round_id, winner_index, winner_wallet, amount_usdt) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop set prize")
+      {:error, :not_configured}
+    else
+      payload = %{
+        roundId: round_id,
+        winnerIndex: winner_index,
+        winner: winner_wallet,
+        amount: amount_usdt
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-set-prize", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Set prize failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Set prize failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Set prize failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Set prize HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
   # Normalize token name - always returns BUX (hub tokens removed)
   defp normalize_token(_token), do: "BUX"
 

@@ -576,6 +576,55 @@ if (referralAdminBBWallet) {
 }
 
 // ============================================================
+// Airdrop Contracts (AirdropVault on Rogue, AirdropPrizePool on Arbitrum)
+// ============================================================
+
+const AIRDROP_VAULT_ADDRESS = '0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c';
+const AIRDROP_PRIZE_POOL_ADDRESS = '0x919149CA8DB412541D2d8B3F150fa567fEFB58e1';
+const VAULT_ADMIN_PRIVATE_KEY = process.env.VAULT_ADMIN_PRIVATE_KEY;
+const ARBITRUM_RPC_URL = process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc';
+
+// AirdropVault ABI (Rogue Chain) — only functions we need
+const AIRDROP_VAULT_ABI = [
+  'function depositFor(address blocksterWallet, address externalWallet, uint256 amount) external',
+  'function totalEntries() external view returns (uint256)',
+  'function roundId() external view returns (uint256)',
+  'event BuxDeposited(uint256 indexed roundId, address indexed blocksterWallet, address externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition)'
+];
+
+// AirdropPrizePool ABI (Arbitrum) — only functions we need
+const AIRDROP_PRIZE_POOL_ABI = [
+  'function setPrize(uint256 _roundId, uint256 winnerIndex, address winner, uint256 amount) external',
+  'function sendPrize(uint256 _roundId, uint256 winnerIndex) external',
+  'function roundId() external view returns (uint256)',
+  'event PrizeSent(uint256 indexed roundId, uint256 indexed winnerIndex, address winner, uint256 amount)'
+];
+
+// Vault admin wallet (Rogue Chain) — for depositFor calls
+let vaultAdminWallet = null;
+let airdropVaultContract = null;
+
+// Vault admin wallet (Arbitrum) — for sendPrize calls
+let arbitrumProvider = null;
+let vaultAdminArbitrumWallet = null;
+let airdropPrizePoolContract = null;
+
+if (VAULT_ADMIN_PRIVATE_KEY) {
+  // Rogue Chain vault admin
+  vaultAdminWallet = new ethers.Wallet(VAULT_ADMIN_PRIVATE_KEY, provider);
+  airdropVaultContract = new ethers.Contract(AIRDROP_VAULT_ADDRESS, AIRDROP_VAULT_ABI, vaultAdminWallet);
+  console.log(`[INIT] AirdropVault admin wallet (Rogue): ${vaultAdminWallet.address}`);
+
+  // Arbitrum prize pool admin
+  arbitrumProvider = new ethers.JsonRpcProvider(ARBITRUM_RPC_URL);
+  vaultAdminArbitrumWallet = new ethers.Wallet(VAULT_ADMIN_PRIVATE_KEY, arbitrumProvider);
+  airdropPrizePoolContract = new ethers.Contract(AIRDROP_PRIZE_POOL_ADDRESS, AIRDROP_PRIZE_POOL_ABI, vaultAdminArbitrumWallet);
+  console.log(`[INIT] AirdropPrizePool admin wallet (Arbitrum): ${vaultAdminArbitrumWallet.address}`);
+} else {
+  console.log(`[WARN] VAULT_ADMIN_PRIVATE_KEY not set - airdrop endpoints disabled`);
+}
+
+// ============================================================
 // ROGUE Sender Wallet (for reward/bonus ROGUE transfers)
 // ============================================================
 
@@ -629,6 +678,18 @@ if (referralAdminRBWallet) {
 if (rogueSenderWallet) {
   txQueues.rogueSender = new TransactionQueue(rogueSenderWallet, provider, 'rogueSender');
   console.log(`[INIT] Transaction queue created for ROGUE sender wallet: ${rogueSenderWallet.address}`);
+}
+
+// Create queue for vault admin wallet (Rogue Chain — airdrop deposits)
+if (vaultAdminWallet) {
+  txQueues.vaultAdmin = new TransactionQueue(vaultAdminWallet, provider, 'vaultAdmin');
+  console.log(`[INIT] Transaction queue created for vault admin (Rogue): ${vaultAdminWallet.address}`);
+}
+
+// Create queue for vault admin wallet (Arbitrum — airdrop prize claims)
+if (vaultAdminArbitrumWallet) {
+  txQueues.vaultAdminArbitrum = new TransactionQueue(vaultAdminArbitrumWallet, arbitrumProvider, 'vaultAdminArbitrum');
+  console.log(`[INIT] Transaction queue created for vault admin (Arbitrum): ${vaultAdminArbitrumWallet.address}`);
 }
 
 // Submit commitment for a new game
@@ -1146,6 +1207,240 @@ app.post('/transfer-rogue', authenticate, async (req, res) => {
 });
 
 // ============================================================
+// Airdrop Endpoints
+// ============================================================
+
+// Deposit BUX to AirdropVault on behalf of a user
+// Step 1: Approve vault to spend user's BUX (via UserOp on bundler)
+// Step 2: Call vault.depositFor(blocksterWallet, externalWallet, amount)
+app.post('/airdrop-deposit', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { wallet, externalWallet, amount } = req.body;
+
+  if (!wallet || !externalWallet || !amount) {
+    return res.status(400).json({ error: 'wallet, externalWallet, and amount are required' });
+  }
+
+  if (!ethers.isAddress(wallet)) {
+    return res.status(400).json({ error: 'Invalid wallet address' });
+  }
+
+  if (!ethers.isAddress(externalWallet)) {
+    return res.status(400).json({ error: 'Invalid externalWallet address' });
+  }
+
+  if (amount <= 0 || !Number.isInteger(amount)) {
+    return res.status(400).json({ error: 'amount must be a positive integer' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    // BUX has 18 decimals, 1 BUX = 1 entry, amount is integer BUX
+    const amountWei = ethers.parseUnits(amount.toString(), 18);
+
+    // Step 1: Approve vault to spend user's BUX
+    // Use minter wallet to call BUX.approve on behalf of user's smart wallet
+    // Actually, the user's smart wallet needs to approve first.
+    // Since BUX is an ERC20 and vault uses safeTransferFrom, the user's wallet must have
+    // approved the vault contract. We'll mint BUX directly to the vault instead:
+    // 1. Mint BUX to vault contract
+    // 2. Call depositFor to record the deposit
+
+    // Step 1: Mint BUX directly to the vault contract address
+    const mintReceipt = await txQueues.minter.enqueue(async (nonce) => {
+      console.log(`[/airdrop-deposit] Minting ${amount} BUX to vault for ${wallet} with nonce ${nonce}`);
+      const tx = await buxContract.mint(AIRDROP_VAULT_ADDRESS, amountWei, { nonce });
+      return await tx.wait();
+    });
+
+    console.log(`[/airdrop-deposit] Mint tx: ${mintReceipt.hash}`);
+
+    // Step 2: Call depositFor on vault (vault admin queue)
+    const depositReceipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-deposit] depositFor(${wallet}, ${externalWallet}, ${amount}) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.depositFor(
+        wallet,
+        externalWallet,
+        amountWei,
+        { nonce, gasLimit: 300000, gasPrice: 1000000000000n }
+      );
+      return await tx.wait();
+    });
+
+    // Parse BuxDeposited event
+    let startPosition = null;
+    let endPosition = null;
+    for (const log of depositReceipt.logs) {
+      try {
+        const parsed = airdropVaultContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'BuxDeposited') {
+          startPosition = Number(parsed.args.startPosition);
+          endPosition = Number(parsed.args.endPosition);
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      mintTxHash: mintReceipt.hash,
+      depositTxHash: depositReceipt.hash,
+      blockNumber: depositReceipt.blockNumber,
+      wallet,
+      externalWallet,
+      amount,
+      startPosition,
+      endPosition
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-DEPOSIT] Error:`, error);
+
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return res.status(500).json({ error: 'Insufficient gas in vault admin wallet' });
+    }
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to deposit BUX to vault', details: error.message });
+  }
+});
+
+// Claim airdrop prize — sends USDT on Arbitrum via AirdropPrizePool.sendPrize
+// Prerequisites: setPrize must have been called first (done during draw)
+app.post('/airdrop-claim', authenticate, async (req, res) => {
+  if (!airdropPrizePoolContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { roundId, winnerIndex } = req.body;
+
+  if (roundId === undefined || winnerIndex === undefined) {
+    return res.status(400).json({ error: 'roundId and winnerIndex are required' });
+  }
+
+  if (winnerIndex < 0 || winnerIndex > 32) {
+    return res.status(400).json({ error: 'winnerIndex must be 0-32' });
+  }
+
+  const queue = txQueues.vaultAdminArbitrum;
+  if (!queue) {
+    return res.status(503).json({ error: 'Arbitrum transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-claim] sendPrize(${roundId}, ${winnerIndex}) with nonce ${nonce}`);
+      const tx = await airdropPrizePoolContract.sendPrize(roundId, winnerIndex, { nonce });
+      return await tx.wait();
+    });
+
+    // Parse PrizeSent event
+    let winner = null;
+    let prizeAmount = null;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = airdropPrizePoolContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'PrizeSent') {
+          winner = parsed.args.winner;
+          prizeAmount = ethers.formatUnits(parsed.args.amount, 6); // USDT has 6 decimals
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      winnerIndex,
+      winner,
+      prizeAmount
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-CLAIM] Error:`, error);
+
+    if (error.message?.includes('Already claimed')) {
+      return res.status(400).json({ error: 'Prize already claimed' });
+    }
+    if (error.message?.includes('Prize not set')) {
+      return res.status(400).json({ error: 'Prize not set for this winner index' });
+    }
+    if (error.message?.includes('Insufficient USDT')) {
+      return res.status(400).json({ error: 'Insufficient USDT in prize pool' });
+    }
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return res.status(500).json({ error: 'Insufficient ETH for gas on Arbitrum' });
+    }
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to send prize', details: error.message });
+  }
+});
+
+// Set prize on AirdropPrizePool (called during draw to register winners)
+app.post('/airdrop-set-prize', authenticate, async (req, res) => {
+  if (!airdropPrizePoolContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { roundId, winnerIndex, winner, amount } = req.body;
+
+  if (roundId === undefined || winnerIndex === undefined || !winner || !amount) {
+    return res.status(400).json({ error: 'roundId, winnerIndex, winner, and amount are required' });
+  }
+
+  if (!ethers.isAddress(winner)) {
+    return res.status(400).json({ error: 'Invalid winner address' });
+  }
+
+  const queue = txQueues.vaultAdminArbitrum;
+  if (!queue) {
+    return res.status(503).json({ error: 'Arbitrum transaction queue not initialized' });
+  }
+
+  try {
+    // amount is in USDT micro-units (6 decimals) — pass directly as BigInt
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-set-prize] setPrize(${roundId}, ${winnerIndex}, ${winner}, ${amount}) with nonce ${nonce}`);
+      const tx = await airdropPrizePoolContract.setPrize(roundId, winnerIndex, winner, BigInt(amount), { nonce });
+      return await tx.wait();
+    });
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      winnerIndex,
+      winner,
+      amount
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-SET-PRIZE] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to set prize', details: error.message });
+  }
+});
+
+// ============================================================
 // Queue Status Endpoint - For monitoring
 // ============================================================
 
@@ -1176,5 +1471,10 @@ app.listen(PORT, () => {
     console.log(`Referral system: enabled`);
     console.log(`BuxBoosterGame referral admin: ${referralAdminBBWallet.address}`);
     console.log(`ROGUEBankroll referral admin: ${referralAdminRBWallet.address}`);
+  }
+  if (airdropVaultContract) {
+    console.log(`AirdropVault (Rogue): ${AIRDROP_VAULT_ADDRESS}`);
+    console.log(`AirdropPrizePool (Arbitrum): ${AIRDROP_PRIZE_POOL_ADDRESS}`);
+    console.log(`Vault admin: ${vaultAdminWallet.address}`);
   }
 });

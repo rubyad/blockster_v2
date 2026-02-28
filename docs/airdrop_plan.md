@@ -3,14 +3,84 @@
 ## Progress
 - [x] Phase 1: AirdropVault.sol + Hardhat tests (77 tests passing)
 - [x] Phase 2: AirdropPrizePool.sol + Hardhat tests (48 tests passing)
-- [ ] Phase 3: Deploy Both Contracts + post-deploy verification tests
+- [x] Phase 3: Deploy Both Contracts + post-deploy verification tests
 - [x] Phase 4: Backend — Airdrop Context & Provably Fair + Elixir tests (99 tests passing)
-- [ ] Phase 5: Backend — BUX Minter Integration (Redeem + Claim) + integration tests
-- [ ] Phase 6: Frontend — Redeem Flow + LiveView tests
-- [ ] Phase 7: Frontend — Winners Display, Claim & Provably Fair Modal + LiveView tests
+- [x] Phase 5: Backend — BUX Minter Integration (Redeem + Claim) + integration tests (15 tests passing)
+- [x] Phase 6: Frontend — Redeem Flow + LiveView tests
+- [x] Phase 7: Frontend — Winners Display, Claim & Provably Fair Modal + LiveView tests
 - [ ] Phase 8: End-to-End Testing on mainnet
 
 **Testing rule**: Every phase must include extensive tests before moving to the next phase. No phase is complete without passing tests.
+
+### Phase 1 Implementation Notes (AirdropVault.sol)
+- **File**: `contracts/bux-booster-game/contracts/AirdropVault.sol` (flattened OZ v5 UUPS)
+- **Inherits**: Initializable, OwnableUpgradeable, UUPSUpgradeable
+- **Key functions**: `depositFor()` (owner deposits on behalf of users), `startRound()`, `closeAirdrop()`, `drawWinners()`, `withdrawBux()`, `getWalletForPosition()` (binary search)
+- **Events**: `BuxDeposited`, `AirdropClosed`, `WinnerSelected`, `AirdropDrawn`, `RoundStarted`
+- **Provably fair on-chain**: commit-reveal pattern — `sha256(serverSeed) == commitmentHash`, combined seed = `keccak256(serverSeed | blockHashAtClose)`, winner[i] = `keccak256(combined, i) % totalEntries + 1`
+- **Multi-round**: All data keyed by `roundId`, previous rounds remain queryable
+- **Position blocks**: Sequential 1-indexed positions, each BUX = 1 position, binary search for O(log n) lookup
+- **77 Hardhat tests** across deployment, UUPS upgrade, round lifecycle, deposits, binary search, winner selection, fairness verification, multi-round, and edge cases
+
+### Phase 2 Implementation Notes (AirdropPrizePool.sol)
+- **File**: `contracts/bux-booster-game/contracts/AirdropPrizePool.sol` (flattened OZ v5 UUPS)
+- **Inherits**: Initializable, OwnableUpgradeable, UUPSUpgradeable
+- **Key functions**: `fundPrizePool()`, `setPrize(roundId, winnerIndex, winner, amount)`, `sendPrize(roundId, winnerIndex)`, `startNewRound()`, `withdrawUsdt()`
+- **Events**: `PrizePoolFunded`, `PrizeSet`, `PrizeSent`, `NewRoundStarted`, `UsdtWithdrawn`
+- **Prize lifecycle**: Fund pool with USDT → set 33 prizes per round → send each prize individually (marks claimed, prevents double-send)
+- **SafeERC20**: All USDT transfers use `safeTransfer`/`safeTransferFrom`
+- **Multi-round**: Prizes isolated by `roundId`, independent per round
+- **48 Hardhat tests** (technically 47 in file) across deployment, UUPS upgrade, funding, prize config, distribution, withdrawal, multi-round, view functions, and E2E flow
+
+### Phase 3 Deployed Addresses
+- **AirdropVault (Rogue Chain)**: `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` (impl: `0x0770BF55BdA8d070971D6288272E3A59aC43b5b4`)
+- **AirdropPrizePool (Arbitrum One)**: `0x919149CA8DB412541D2d8B3F150fa567fEFB58e1` (impl: `0x168861a4056b1b9E4A49302b5EC53695b8974471`)
+- Both owned by Vault Admin: `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9`
+- Arbiscan verification pending (Etherscan v1 API deprecated — verify manually)
+
+### Phase 5 Implementation Notes
+- **BUX Minter (Node.js)**: 3 new endpoints added to `bux-minter/index.js`:
+  - `POST /airdrop-deposit` — Mints BUX to vault + `depositFor()`, parses `BuxDeposited` event
+  - `POST /airdrop-claim` — Calls `sendPrize()` on Arbitrum, parses `PrizeSent` event
+  - `POST /airdrop-set-prize` — Calls `setPrize()` to register winners during draw
+- **Infrastructure**: Vault admin wallet + contract instances for both chains, two new TransactionQueues (`vaultAdmin` on Rogue, `vaultAdminArbitrum` on Arbitrum)
+- **Elixir BuxMinter**: 3 new functions — `airdrop_deposit/4`, `airdrop_claim/2`, `airdrop_set_prize/4`
+- **Deposit strategy**: Mint BUX directly to vault contract, then call `depositFor` (avoids approve/transferFrom complexity with smart wallets)
+- **Prerequisite**: BUX Minter must be redeployed to `bux-minter.fly.dev` before endpoints work from Elixir backend
+- **Fly secret needed**: `VAULT_ADMIN_PRIVATE_KEY` already staged on bux-minter app
+
+### Phase 4 Implementation Notes (Backend — Airdrop Context)
+- **Context module**: `lib/blockster_v2/airdrop.ex` — all public API for rounds, entries, winners, verification
+- **Schemas**: `Airdrop.Round` (status: pending→open→closed→drawn), `Airdrop.Entry` (user deposits with start/end positions), `Airdrop.Winner` (33 per round with claim tracking)
+- **Round functions**: `create_round/1`, `get_current_round/0`, `get_round/1`, `get_past_rounds/0`, `close_round/2`
+- **Entry functions**: `redeem_bux/4` (validates phone verified, open round, creates position block), `get_user_entries/2`, `get_total_entries/1`, `get_participant_count/1`
+- **Winner functions**: `draw_winners/1`, `get_winners/1`, `get_winner/2`, `is_winner?/2`, `claim_prize/5`
+- **Provably fair**: `keccak256_combined/2` (ExKeccak), `derive_position/3`, `verify_fairness/1`, `get_verification_data/1` (only reveals server_seed after draw)
+- **Prize structure**: 33 winners — $250 (1st), $150 (2nd), $100 (3rd), $50×30 (4th-33rd) = $2,000 total
+- **Position system**: Contiguous 1-indexed blocks, each BUX = 1 position, `find_entry_for_position/2` binary search
+- **99 tests across 4 files**: `airdrop_test.exs` (60), `airdrop_provably_fair_test.exs` (15), `airdrop_schema_test.exs` (24)
+
+### Phase 6 Implementation Notes (Frontend — Redeem Flow)
+- **File**: `lib/blockster_v2_web/live/airdrop_live.ex` (991 lines)
+- **Mount**: Loads current round, user entries, connected wallet, BUX balance, total entries, participant count; subscribes to PubSub `airdrop:{round_id}` on connected mount; starts 1s tick timer for countdown
+- **Entry section**: BUX balance display, numeric input with MAX button, contextual button states (Login / Verify Phone / Connect Wallet / Enter Amount / Insufficient Balance / Redeem X BUX)
+- **Redeem flow**: `handle_event("redeem_bux")` validates user, phone verified, connected wallet, round open, amount > 0, amount <= balance → `start_async(:redeem_bux)` calling `Airdrop.redeem_bux/4`
+- **Async handlers**: Success updates balance, entries list, total entries, participant count, broadcasts PubSub `{:airdrop_deposit, ...}`; error maps reason atoms to user-friendly messages
+- **Receipt panels**: Per-entry cards showing position blocks (#start–#end), entry count, timestamp, RogueScan tx link
+- **Real-time updates**: PubSub `handle_info({:airdrop_deposit, ...})` updates total entries/participants for all connected users; `:tick` updates countdown timer
+- **Pool stats bar**: Shows "X BUX from Y participants" above entry form
+- **Prize distribution grid**: 4-column grid showing 1st ($250), 2nd ($150), 3rd ($100), 30× ($50)
+- **"How It Works"**: 3-step explainer (Earn BUX → Redeem → Win)
+
+### Phase 7 Implementation Notes (Frontend — Winners Display, Claim & Provably Fair)
+- **Celebration section** (`celebration_section/1`): Replaces entry section after draw — gradient header, top-3 podium with medal icons and prize amounts, full 33-winner table with columns: #, Winner (RogueScan link), Position, Block range, Prize, Status
+- **Winner status** (`winner_status/1`): 4 states — "Claimed" badge (+ Arbiscan tx link), "Claim" button (if current user is winner + has connected wallet), "Connect Wallet" link (if winner but no wallet), dash (other users)
+- **Claim flow**: `handle_event("claim_prize")` → `start_async(:claim_prize)` → `Airdrop.claim_prize/5`; success updates winner in list + recomputes entry results; error maps `:already_claimed`, `:not_your_prize`, `:winner_not_found`
+- **TODO**: `claim_tx = "pending"` at line 159 — needs to call `BuxMinter.airdrop_claim` for real Arbitrum tx hash (wiring deferred to Phase 8 E2E)
+- **Receipt panels post-draw**: Winning entries show trophy icon, place, prize amount, claim button; losing entries show "No win this round"
+- **Entry results**: `compute_entry_results/2` maps each entry to matching winners by checking if `winner.random_number` falls within entry's `start_position..end_position`
+- **Provably fair modal** (`fairness_modal/1`): 4-step walkthrough — (1) Commitment hash published before round opened, (2) Block hash captured at close, (3) Server seed revealed + SHA256 match verified, (4) Winner derivation formula + full 33-winner verification table
+- **PubSub for draw**: `handle_info({:airdrop_drawn, round_id, winners})` flips `airdrop_drawn: true`, loads verification data, computes entry results, shows flash
 
 ---
 

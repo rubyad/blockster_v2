@@ -8,6 +8,11 @@
     {
       "address": "0x96aB9560f1407586faE2b69Dc7f38a59BEACC594",
       "kind": "uups"
+    },
+    {
+      "address": "0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c",
+      "txHash": "0x013a2397d94a840bffb4a774ee9a2a2fbfe45fa8f8ba0160af966ecd71605716",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -1335,6 +1340,280 @@
         "0xD41D2BD654cD15d691bD7037b0bA8050477D1386",
         "0xc42e466411808Cca487267d05a0699d92d6988bf"
       ]
+    },
+    "c482091a4ca9d91e183dd7d55f9c8377890e3a4137848ebf5c2fb21b590ff025": {
+      "address": "0x0770BF55BdA8d070971D6288272E3A59aC43b5b4",
+      "txHash": "0x3f80619b078ce43fb13310cabb65a6c48567f57903e226045bb112fe5f93aaef",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/AirdropVault.sol:67"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/AirdropVault.sol:68"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/AirdropVault.sol:151"
+          },
+          {
+            "label": "buxToken",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)69",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:286"
+          },
+          {
+            "label": "roundId",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:287"
+          },
+          {
+            "label": "_rounds",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_uint256,t_struct(RoundState)764_storage)",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:320"
+          },
+          {
+            "label": "_deposits",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_uint256,t_array(t_struct(Deposit)732_storage)dyn_storage)",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:321"
+          },
+          {
+            "label": "_totalDeposited",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:322"
+          },
+          {
+            "label": "_winners",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_uint256,t_array(t_struct(Winner)747_storage)dyn_storage)",
+            "contract": "AirdropVault",
+            "src": "contracts/AirdropVault.sol:323"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_struct(Deposit)732_storage)dyn_storage": {
+            "label": "struct AirdropVault.Deposit[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_struct(Winner)747_storage)dyn_storage": {
+            "label": "struct AirdropVault.Winner[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)69": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_array(t_struct(Deposit)732_storage)dyn_storage)": {
+            "label": "mapping(uint256 => struct AirdropVault.Deposit[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_array(t_struct(Winner)747_storage)dyn_storage)": {
+            "label": "mapping(uint256 => struct AirdropVault.Winner[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(RoundState)764_storage)": {
+            "label": "mapping(uint256 => struct AirdropVault.RoundState)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Deposit)732_storage": {
+            "label": "struct AirdropVault.Deposit",
+            "members": [
+              {
+                "label": "blocksterWallet",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "externalWallet",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "startPosition",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "endPosition",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(RoundState)764_storage": {
+            "label": "struct AirdropVault.RoundState",
+            "members": [
+              {
+                "label": "commitmentHash",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "revealedServerSeed",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "blockHashAtClose",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "closeBlockNumber",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "airdropEndTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "isOpen",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "isDrawn",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "5"
+              },
+              {
+                "label": "totalEntries",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              }
+            ],
+            "numberOfBytes": "224"
+          },
+          "t_struct(Winner)747_storage": {
+            "label": "struct AirdropVault.Winner",
+            "members": [
+              {
+                "label": "randomNumber",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "blocksterWallet",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "externalWallet",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "depositIndex",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "depositAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "depositStart",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "depositEnd",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              }
+            ],
+            "numberOfBytes": "224"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          }
+        },
+        "namespaces": {}
+      }
     }
   }
 }
