@@ -6,6 +6,44 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
   alias BlocksterV2.Accounts.User
 
   # ============================================================================
+  # Mnesia Setup
+  # ============================================================================
+
+  defp setup_mnesia(_context) do
+    :mnesia.start()
+
+    tables = [
+      {:user_bux_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
+        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
+        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
+        :spacebux_balance, :tronbux_balance, :tranbux_balance]},
+      {:user_rogue_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain, :rogue_balance_arbitrum]}
+    ]
+
+    for {table, attrs} <- tables do
+      case :mnesia.create_table(table, attributes: attrs, type: :set, ram_copies: [node()]) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+        {:aborted, other} -> raise "Mnesia table creation failed: #{inspect(other)}"
+      end
+    end
+
+    :ok
+  end
+
+  defp set_bux_balance(user, balance) do
+    record =
+      {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
+       balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+
+    :mnesia.dirty_write(:user_bux_balances, record)
+  end
+
+  setup :setup_mnesia
+
+  # ============================================================================
   # Test Helpers
   # ============================================================================
 
@@ -39,6 +77,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
     entries =
       Enum.zip(users, amounts)
       |> Enum.map(fn {user, amount} ->
+        set_bux_balance(user, amount)
         {:ok, entry} = Airdrop.redeem_bux(user, amount, round.round_id,
           external_wallet: user.wallet_address
         )
@@ -156,6 +195,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert round.commitment_hash != nil
 
       # 2. Users deposit BUX (simulating what would happen after airdrop_deposit call)
+      set_bux_balance(user1, 500)
       {:ok, e1} = Airdrop.redeem_bux(user1, 500, round.round_id,
         external_wallet: user1.wallet_address,
         deposit_tx: "0xdeposit1"
@@ -163,6 +203,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert e1.start_position == 1
       assert e1.end_position == 500
 
+      set_bux_balance(user2, 300)
       {:ok, e2} = Airdrop.redeem_bux(user2, 300, round.round_id,
         external_wallet: user2.wallet_address,
         deposit_tx: "0xdeposit2"
@@ -196,13 +237,13 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
         assert w.external_wallet != nil
       end
 
-      # Prize structure is correct
-      assert Enum.at(winners, 0).prize_usd == 25_000
-      assert Enum.at(winners, 1).prize_usd == 15_000
-      assert Enum.at(winners, 2).prize_usd == 10_000
+      # Prize structure is correct (in USD cents: 1st=$0.65, 2nd=$0.40, 3rd=$0.35, 4th-33rd=$0.12)
+      assert Enum.at(winners, 0).prize_usd == 65
+      assert Enum.at(winners, 1).prize_usd == 40
+      assert Enum.at(winners, 2).prize_usd == 35
 
       for i <- 3..32 do
-        assert Enum.at(winners, i).prize_usd == 5_000
+        assert Enum.at(winners, i).prize_usd == 12
       end
 
       # 7. Provably fair verification
@@ -243,11 +284,13 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z])
 
       # User1 deposits 600 BUX (positions 1-600, 75% of pool)
+      set_bux_balance(user1, 600)
       {:ok, _} = Airdrop.redeem_bux(user1, 600, round.round_id,
         external_wallet: user1.wallet_address
       )
 
       # User2 deposits 200 BUX (positions 601-800, 25% of pool)
+      set_bux_balance(user2, 200)
       {:ok, _} = Airdrop.redeem_bux(user2, 200, round.round_id,
         external_wallet: user2.wallet_address
       )
@@ -280,6 +323,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert Repo.aggregate(Airdrop.Winner, :count) == 0
 
       # Entry created
+      set_bux_balance(user, 800)
       {:ok, _} = Airdrop.redeem_bux(user, 500, round.round_id)
       assert Repo.aggregate(Airdrop.Entry, :count) == 1
       assert Repo.aggregate(Airdrop.Winner, :count) == 0
@@ -312,6 +356,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
 
       # Create two rounds with the same server seed and block hash
       {:ok, round1} = Airdrop.create_round(~U[2026-03-01 00:00:00Z])
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round1.round_id)
       {:ok, _} = Airdrop.close_round(round1.round_id, "0x" <> String.duplicate("ab", 32))
 
@@ -343,6 +388,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
     test "single entry covers all positions" do
       user = create_user()
       round = create_round()
+      set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -361,9 +407,11 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       user2 = create_user()
 
       round = create_round()
+      set_bux_balance(user1, 1)
       {:ok, _} = Airdrop.redeem_bux(user1, 1, round.round_id,
         external_wallet: user1.wallet_address
       )
+      set_bux_balance(user2, 999)
       {:ok, _} = Airdrop.redeem_bux(user2, 999, round.round_id,
         external_wallet: user2.wallet_address
       )
@@ -386,6 +434,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       round = create_round()
 
       for user <- users do
+        set_bux_balance(user, 100)
         {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id,
           external_wallet: user.wallet_address
         )

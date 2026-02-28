@@ -497,10 +497,66 @@ defmodule BlocksterV2.BuxMinter do
   # ============================================================================
 
   @doc """
-  Deposits BUX to the AirdropVault on behalf of a user.
+  Starts a new round on the AirdropVault contract.
+  Calls startRound(commitmentHash, endTime) to publish the commitment on-chain.
 
-  The BUX Minter mints BUX directly to the vault, then calls depositFor
-  to record the position block on-chain.
+  ## Parameters
+    - commitment_hash: SHA256 hex string of the server seed
+    - end_time_unix: Unix timestamp for when the round ends
+
+  ## Returns
+    - {:ok, response} with roundId, transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_start_round(commitment_hash, end_time_unix) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop start round")
+      {:error, :not_configured}
+    else
+      payload = %{
+        commitmentHash: commitment_hash,
+        endTime: end_time_unix
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Starting airdrop round: commitment=#{String.slice(commitment_hash, 0, 16)}..., endTime=#{end_time_unix}")
+
+      case http_post("#{minter_url}/airdrop-start-round", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Airdrop round started: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Start round failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Start round failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Start round failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Start round HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Deposits BUX to the AirdropVault on behalf of a user via the minter backend.
+
+  NOTE: User deposits now go through the client-side AirdropDepositHook directly
+  (approve + vault.deposit() from the smart wallet). This function is retained
+  for potential admin/backend use only.
 
   ## Parameters
     - wallet: User's smart wallet address (blockster wallet)

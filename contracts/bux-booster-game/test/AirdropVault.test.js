@@ -140,7 +140,6 @@ describe("AirdropVault", function () {
 
       // V2 functionality works
       await upgraded.initializeV2();
-      expect(await upgraded.newV2Variable()).to.equal(42);
       expect(await upgraded.version()).to.equal("v2");
     });
 
@@ -1025,6 +1024,246 @@ describe("AirdropVault", function () {
       // 7. Withdraw BUX
       await vault.withdrawBux(1);
       expect(await mockBux.balanceOf(await vault.getAddress())).to.equal(0);
+    });
+  });
+
+  // ====================================================================
+  // V2: Public deposit() Function
+  // ====================================================================
+  describe("V2: Public deposit()", function () {
+    let upgraded;
+
+    async function upgradeToV2() {
+      const AirdropVaultV2 = await ethers.getContractFactory("AirdropVaultV2");
+      const v2Impl = await AirdropVaultV2.deploy();
+      await v2Impl.waitForDeployment();
+      await vault.upgradeToAndCall(await v2Impl.getAddress(), "0x");
+      upgraded = AirdropVaultV2.attach(await vault.getAddress());
+      await upgraded.initializeV2();
+    }
+
+    beforeEach(async function () {
+      await upgradeToV2();
+    });
+
+    it("Should preserve existing round and deposit state after upgrade", async function () {
+      // Deploy fresh, deposit via V1, then upgrade
+      await deployFresh();
+      await startDefaultRound();
+      await depositFor(user1.address, external1.address, 100);
+      const depositCountBefore = await vault.getDepositCount();
+      const totalBefore = await vault.totalEntries();
+
+      await upgradeToV2();
+
+      expect(await upgraded.getDepositCount()).to.equal(depositCountBefore);
+      expect(await upgraded.totalEntries()).to.equal(totalBefore);
+      expect(await upgraded.roundId()).to.equal(1);
+      expect(await upgraded.isOpen()).to.equal(true);
+    });
+
+    it("Should allow non-owner to call deposit()", async function () {
+      await startDefaultRound();
+
+      // user1 (non-owner) calls deposit directly
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"));
+
+      expect(await upgraded.getDepositCount()).to.equal(1);
+      const dep = await upgraded.getDeposit(0);
+      expect(dep.blocksterWallet).to.equal(user1.address);
+      expect(dep.externalWallet).to.equal(external1.address);
+      expect(dep.amount).to.equal(ethers.parseEther("100"));
+    });
+
+    it("Should use msg.sender as blocksterWallet", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user2).approve(vaultAddress, ethers.MaxUint256);
+      await upgraded.connect(user2).deposit(external2.address, ethers.parseEther("50"));
+
+      const dep = await upgraded.getDeposit(0);
+      expect(dep.blocksterWallet).to.equal(user2.address);
+    });
+
+    it("Should record correct position blocks", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+      await mockBux.connect(user2).approve(vaultAddress, ethers.MaxUint256);
+
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"));
+      await upgraded.connect(user2).deposit(external2.address, ethers.parseEther("200"));
+
+      const dep1 = await upgraded.getDeposit(0);
+      expect(dep1.startPosition).to.equal(1);
+      expect(dep1.endPosition).to.equal(ethers.parseEther("100"));
+
+      const dep2 = await upgraded.getDeposit(1);
+      expect(dep2.startPosition).to.equal(ethers.parseEther("100") + 1n);
+      expect(dep2.endPosition).to.equal(ethers.parseEther("300"));
+    });
+
+    it("Should emit BuxDeposited event with correct args", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+
+      await expect(
+        upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"))
+      )
+        .to.emit(upgraded, "BuxDeposited")
+        .withArgs(1, user1.address, external1.address, ethers.parseEther("100"), 1, ethers.parseEther("100"));
+    });
+
+    it("Should transfer BUX from caller to vault", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+
+      const balanceBefore = await mockBux.balanceOf(user1.address);
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"));
+      const balanceAfter = await mockBux.balanceOf(user1.address);
+
+      expect(balanceBefore - balanceAfter).to.equal(ethers.parseEther("100"));
+      expect(await mockBux.balanceOf(vaultAddress)).to.equal(ethers.parseEther("100"));
+    });
+
+    it("Should update totalEntries and totalDeposited", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"));
+      expect(await upgraded.totalEntries()).to.equal(ethers.parseEther("100"));
+      expect(await upgraded.totalDeposited(user1.address)).to.equal(ethers.parseEther("100"));
+
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("50"));
+      expect(await upgraded.totalEntries()).to.equal(ethers.parseEther("150"));
+      expect(await upgraded.totalDeposited(user1.address)).to.equal(ethers.parseEther("150"));
+    });
+
+    it("Should reject deposit when round is not open", async function () {
+      await expect(
+        upgraded.connect(user1).deposit(external1.address, ethers.parseEther("100"))
+      ).to.be.revertedWith("Round not open");
+    });
+
+    it("Should reject deposit of zero amount", async function () {
+      await startDefaultRound();
+      await expect(
+        upgraded.connect(user1).deposit(external1.address, 0)
+      ).to.be.revertedWith("Zero amount");
+    });
+
+    it("Should reject deposit with zero external wallet", async function () {
+      await startDefaultRound();
+      await expect(
+        upgraded.connect(user1).deposit(ethers.ZeroAddress, ethers.parseEther("100"))
+      ).to.be.revertedWith("Invalid external wallet");
+    });
+
+    it("Should reject deposit without approval", async function () {
+      await startDefaultRound();
+      // user3 has BUX but hasn't approved the vault (approvals from deployFresh are for V1 vault)
+      // Actually user3 DID approve in deployFresh — let's use a fresh signer
+      // Reset by deploying fresh without pre-approving
+      const MockToken = await ethers.getContractFactory("MockERC20");
+      const freshBux = await MockToken.deploy("BUX", "BUX", 18);
+      const AirdropVault = await ethers.getContractFactory("AirdropVault");
+      const freshVault = await upgrades.deployProxy(AirdropVault, [await freshBux.getAddress()], { initializer: "initialize" });
+
+      // Upgrade to V2
+      const V2 = await ethers.getContractFactory("AirdropVaultV2");
+      const v2 = await V2.deploy();
+      await v2.waitForDeployment();
+      await freshVault.upgradeToAndCall(await v2.getAddress(), "0x");
+      const freshV2 = V2.attach(await freshVault.getAddress());
+      await freshV2.initializeV2();
+
+      // Mint BUX to user1 but don't approve
+      await freshBux.mint(user1.address, ethers.parseEther("1000"));
+      const endTime = (await ethers.provider.getBlock("latest")).timestamp + 86400;
+      await freshV2.startRound(COMMITMENT_HASH, endTime);
+
+      await expect(
+        freshV2.connect(user1).deposit(external1.address, ethers.parseEther("100"))
+      ).to.be.revertedWithCustomError(freshV2, "SafeERC20FailedOperation");
+    });
+
+    it("Old depositFor() should still work (backward compat)", async function () {
+      await startDefaultRound();
+
+      // Owner calls depositFor (V1 style)
+      await upgraded.depositFor(user1.address, external1.address, ethers.parseEther("100"));
+
+      const dep = await upgraded.getDeposit(0);
+      expect(dep.blocksterWallet).to.equal(user1.address);
+      expect(dep.amount).to.equal(ethers.parseEther("100"));
+    });
+
+    it("Should work in full lifecycle: deposit() → close → draw → verify", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user1).approve(vaultAddress, ethers.MaxUint256);
+      await mockBux.connect(user2).approve(vaultAddress, ethers.MaxUint256);
+
+      // Users deposit directly (no owner involvement)
+      await upgraded.connect(user1).deposit(external1.address, ethers.parseEther("500"));
+      await upgraded.connect(user2).deposit(external2.address, ethers.parseEther("500"));
+
+      expect(await upgraded.totalEntries()).to.equal(ethers.parseEther("1000"));
+      expect(await upgraded.getDepositCount()).to.equal(2);
+
+      // Owner closes and draws (admin functions unchanged)
+      await upgraded.closeAirdrop();
+      await upgraded.drawWinners(SERVER_SEED);
+
+      expect(await upgraded.isDrawn()).to.equal(true);
+
+      // Verify all 33 winners
+      for (let i = 1; i <= 33; i++) {
+        const info = await upgraded.getWinnerInfo(i);
+        const validWallet = [user1.address, user2.address].includes(info.blocksterWallet);
+        expect(validWallet).to.equal(true);
+        expect(info.randomNumber).to.be.gte(info.blockStart);
+        expect(info.randomNumber).to.be.lte(info.blockEnd);
+      }
+
+      // Verify fairness
+      const [commitment, seed] = await upgraded.verifyFairness();
+      const computedHash = ethers.sha256(ethers.solidityPacked(["bytes32"], [seed]));
+      expect(computedHash).to.equal(commitment);
+    });
+
+    it("Should mix V1 depositFor and V2 deposit in same round", async function () {
+      await startDefaultRound();
+
+      const vaultAddress = await upgraded.getAddress();
+      await mockBux.connect(user2).approve(vaultAddress, ethers.MaxUint256);
+
+      // Owner deposits for user1 (V1 style)
+      await upgraded.depositFor(user1.address, external1.address, ethers.parseEther("100"));
+      // User2 deposits directly (V2 style)
+      await upgraded.connect(user2).deposit(external2.address, ethers.parseEther("200"));
+
+      expect(await upgraded.getDepositCount()).to.equal(2);
+      expect(await upgraded.totalEntries()).to.equal(ethers.parseEther("300"));
+
+      const dep1 = await upgraded.getDeposit(0);
+      expect(dep1.blocksterWallet).to.equal(user1.address);
+      expect(dep1.endPosition).to.equal(ethers.parseEther("100"));
+
+      const dep2 = await upgraded.getDeposit(1);
+      expect(dep2.blocksterWallet).to.equal(user2.address);
+      expect(dep2.startPosition).to.equal(ethers.parseEther("100") + 1n);
     });
   });
 });

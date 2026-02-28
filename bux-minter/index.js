@@ -586,10 +586,12 @@ const ARBITRUM_RPC_URL = process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.
 
 // AirdropVault ABI (Rogue Chain) — only functions we need
 const AIRDROP_VAULT_ABI = [
+  'function startRound(bytes32 _commitmentHash, uint256 _endTime) external',
   'function depositFor(address blocksterWallet, address externalWallet, uint256 amount) external',
   'function closeAirdrop() external',
   'function totalEntries() external view returns (uint256)',
   'function roundId() external view returns (uint256)',
+  'event RoundStarted(uint256 roundId, bytes32 commitmentHash, uint256 endTime)',
   'event BuxDeposited(uint256 indexed roundId, address indexed blocksterWallet, address externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition)',
   'event AirdropClosed(uint256 roundId, uint256 totalEntries, bytes32 blockHashAtClose)'
 ];
@@ -1213,8 +1215,10 @@ app.post('/transfer-rogue', authenticate, async (req, res) => {
 // ============================================================
 
 // Deposit BUX to AirdropVault on behalf of a user
-// Step 1: Approve vault to spend user's BUX (via UserOp on bundler)
-// Step 2: Call vault.depositFor(blocksterWallet, externalWallet, amount)
+// Prerequisites: User's smart wallet must have already approved the vault to spend their BUX
+// NOTE: User deposits now go through the client-side AirdropDepositHook directly
+// (approve + vault.deposit() from the smart wallet). This endpoint is retained
+// for potential admin/backend use only. It calls vault.depositFor() (onlyOwner).
 app.post('/airdrop-deposit', authenticate, async (req, res) => {
   if (!airdropVaultContract) {
     return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
@@ -1247,24 +1251,8 @@ app.post('/airdrop-deposit', authenticate, async (req, res) => {
     // BUX has 18 decimals, 1 BUX = 1 entry, amount is integer BUX
     const amountWei = ethers.parseUnits(amount.toString(), 18);
 
-    // Step 1: Approve vault to spend user's BUX
-    // Use minter wallet to call BUX.approve on behalf of user's smart wallet
-    // Actually, the user's smart wallet needs to approve first.
-    // Since BUX is an ERC20 and vault uses safeTransferFrom, the user's wallet must have
-    // approved the vault contract. We'll mint BUX directly to the vault instead:
-    // 1. Mint BUX to vault contract
-    // 2. Call depositFor to record the deposit
-
-    // Step 1: Mint BUX directly to the vault contract address
-    const mintReceipt = await txQueues.minter.enqueue(async (nonce) => {
-      console.log(`[/airdrop-deposit] Minting ${amount} BUX to vault for ${wallet} with nonce ${nonce}`);
-      const tx = await buxContract.mint(AIRDROP_VAULT_ADDRESS, amountWei, { nonce });
-      return await tx.wait();
-    });
-
-    console.log(`[/airdrop-deposit] Mint tx: ${mintReceipt.hash}`);
-
-    // Step 2: Call depositFor on vault (vault admin queue)
+    // Call depositFor on vault — vault does safeTransferFrom(wallet, vault, amount)
+    // The user's smart wallet must have already approved the vault via BUX.approve()
     const depositReceipt = await queue.enqueue(async (nonce) => {
       console.log(`[/airdrop-deposit] depositFor(${wallet}, ${externalWallet}, ${amount}) with nonce ${nonce}`);
       const tx = await airdropVaultContract.depositFor(
@@ -1294,7 +1282,6 @@ app.post('/airdrop-deposit', authenticate, async (req, res) => {
 
     res.json({
       success: true,
-      mintTxHash: mintReceipt.hash,
       depositTxHash: depositReceipt.hash,
       blockNumber: depositReceipt.blockNumber,
       wallet,
@@ -1445,6 +1432,65 @@ app.post('/airdrop-set-prize', authenticate, async (req, res) => {
 // ============================================================
 // Airdrop Close Endpoint (Rogue Chain)
 // ============================================================
+
+app.post('/airdrop-start-round', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  const { commitmentHash, endTime } = req.body;
+  if (!commitmentHash || !endTime) {
+    return res.status(400).json({ error: 'commitmentHash and endTime are required' });
+  }
+
+  try {
+    // Convert commitment hash to bytes32 — the Solidity contract expects sha256 output as bytes32
+    // The Elixir side sends hex string like "a1b2c3..." (SHA256 hex)
+    const commitmentBytes = '0x' + commitmentHash.replace(/^0x/, '');
+
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-start-round] startRound(${commitmentBytes.slice(0, 18)}..., ${endTime}) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.startRound(commitmentBytes, endTime, { nonce });
+      return await tx.wait();
+    });
+
+    // Parse RoundStarted event
+    const iface = new ethers.Interface(AIRDROP_VAULT_ABI);
+    let roundId = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed && parsed.name === 'RoundStarted') {
+          roundId = Number(parsed.args[0]);
+          break;
+        }
+      } catch (_) {
+        // skip logs from other contracts
+      }
+    }
+
+    console.log(`[/airdrop-start-round] Started round ${roundId}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      roundId
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-START-ROUND] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to start airdrop round', details: error.message });
+  }
+});
 
 app.post('/airdrop-close', authenticate, async (req, res) => {
   if (!airdropVaultContract) {

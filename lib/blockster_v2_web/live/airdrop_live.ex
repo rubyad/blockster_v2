@@ -68,11 +68,14 @@ defmodule BlocksterV2Web.AirdropLive do
       :timer.send_interval(1000, self(), :tick)
     end
 
+    prize_summary = Airdrop.prize_summary()
+
     socket =
       socket
       |> assign(:page_title, "USDT Airdrop")
       |> assign(:user_bux_balance, user_bux_balance)
       |> assign(:airdrop_end_time, airdrop_end_time)
+      |> assign(:prize_summary, prize_summary)
       |> assign(:redeem_amount, "")
       |> assign(:time_remaining, calculate_time_remaining(airdrop_end_time))
       |> assign(:current_round, current_round)
@@ -132,15 +135,53 @@ defmodule BlocksterV2Web.AirdropLive do
         {:noreply, put_flash(socket, :error, "Insufficient BUX balance")}
 
       true ->
-        external_wallet = wallet.wallet_address
+        # Push to JS hook: approve (if needed) + deposit entirely client-side
         round_id = round.round_id
+        external_wallet = wallet.wallet_address
 
-        start_async(socket, :redeem_bux, fn ->
-          Airdrop.redeem_bux(user, amount, round_id, external_wallet: external_wallet)
-        end)
+        socket =
+          socket
+          |> assign(redeeming: true)
+          |> push_event("airdrop_deposit", %{
+            amount: amount,
+            round_id: round_id,
+            external_wallet: external_wallet
+          })
 
-        {:noreply, assign(socket, redeeming: true)}
+        {:noreply, socket}
     end
+  end
+
+  def handle_event("airdrop_deposit_complete", %{"tx_hash" => deposit_tx, "amount" => amount, "round_id" => round_id} = params, socket) do
+    user = socket.assigns[:current_user]
+    wallet = socket.assigns.connected_wallet
+
+    if user == nil || wallet == nil do
+      {:noreply, socket |> assign(redeeming: false) |> put_flash(:error, "Session expired")}
+    else
+      external_wallet = wallet.wallet_address
+      smart_wallet = user.smart_wallet_address || user.wallet_address
+
+      Logger.info("[Airdrop] Deposit confirmed: #{deposit_tx} for #{amount} BUX (user #{user.id})")
+
+      start_async(socket, :redeem_bux, fn ->
+        # Deposit already happened on-chain — just record in Postgres + deduct Mnesia
+        Airdrop.redeem_bux(user, amount, round_id,
+          external_wallet: external_wallet,
+          deposit_tx: deposit_tx
+        )
+      end)
+
+      # Sync on-chain balances in background (BUX was deducted)
+      BlocksterV2.BuxMinter.sync_user_balances_async(user.id, smart_wallet, force: true)
+
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("airdrop_deposit_error", %{"error" => error}, socket) do
+    Logger.error("[Airdrop] Deposit failed: #{error}")
+    {:noreply, socket |> assign(redeeming: false) |> put_flash(:error, error)}
   end
 
   def handle_event("claim_prize", %{"winner-index" => index_str}, socket) do
@@ -156,9 +197,18 @@ defmodule BlocksterV2Web.AirdropLive do
       claim_wallet = wallet.wallet_address
 
       start_async(socket, :claim_prize, fn ->
-        # TODO: Phase 5 will call BUX Minter for real Arbitrum tx hash
-        claim_tx = "pending"
-        Airdrop.claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet)
+        # Call BUX Minter to send USDT on Arbitrum, then record the tx hash
+        claim_tx =
+          case BlocksterV2.BuxMinter.airdrop_claim(round_id, winner_index) do
+            {:ok, response} -> response["transactionHash"] || "pending"
+            {:error, _reason} -> nil
+          end
+
+        if claim_tx do
+          Airdrop.claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet)
+        else
+          {:error, :claim_tx_failed}
+        end
       end)
 
       {:noreply, assign(socket, claiming_index: winner_index)}
@@ -212,8 +262,10 @@ defmodule BlocksterV2Web.AirdropLive do
       case reason do
         :phone_not_verified -> "Phone verification required"
         :invalid_amount -> "Invalid amount"
+        :insufficient_balance -> "Insufficient BUX balance"
         {:round_not_open, _} -> "Airdrop is not currently open"
         :round_not_found -> "No active airdrop round"
+        {:deposit_failed, _} -> "On-chain BUX deposit failed — try again"
         _ -> "Redemption failed"
       end
 
@@ -244,6 +296,7 @@ defmodule BlocksterV2Web.AirdropLive do
         :already_claimed -> "Prize already claimed"
         :not_your_prize -> "This prize doesn't belong to you"
         :winner_not_found -> "Winner not found"
+        :claim_tx_failed -> "Failed to send prize on Arbitrum — try again"
         _ -> "Claim failed"
       end
 
@@ -289,6 +342,7 @@ defmodule BlocksterV2Web.AirdropLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <div id="airdrop-deposit-hook" phx-hook="AirdropDepositHook" class="hidden"></div>
     <div class="min-h-screen bg-gray-50">
       <div class="max-w-2xl mx-auto px-4 pt-6 md:pt-24 pb-8">
         <%!-- Main Card --%>
@@ -296,7 +350,7 @@ defmodule BlocksterV2Web.AirdropLive do
           <%!-- Prize Pool Header --%>
           <div class="bg-black text-white p-6 text-center">
             <p class="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Total Prize Pool</p>
-            <div class="text-4xl font-bold font-haas_medium_65">$2,000 USDT</div>
+            <div class="text-4xl font-bold font-haas_medium_65">$<%= format_prize_usd(@prize_summary.total) %> USDT</div>
           </div>
 
           <%!-- Countdown --%>
@@ -325,23 +379,23 @@ defmodule BlocksterV2Web.AirdropLive do
             <div class="grid grid-cols-4 gap-3">
               <div class="text-center p-3 bg-yellow-50 rounded-xl border border-yellow-200">
                 <div class="text-lg mb-1">&#x1F947;</div>
-                <p class="font-bold text-gray-900">$250</p>
+                <p class="font-bold text-gray-900">$<%= format_prize_usd(@prize_summary.first) %></p>
                 <p class="text-xs text-gray-500">1st Place</p>
               </div>
               <div class="text-center p-3 bg-gray-50 rounded-xl border border-gray-200">
                 <div class="text-lg mb-1">&#x1F948;</div>
-                <p class="font-bold text-gray-900">$150</p>
+                <p class="font-bold text-gray-900">$<%= format_prize_usd(@prize_summary.second) %></p>
                 <p class="text-xs text-gray-500">2nd Place</p>
               </div>
               <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <div class="text-lg mb-1">&#x1F949;</div>
-                <p class="font-bold text-gray-900">$100</p>
+                <p class="font-bold text-gray-900">$<%= format_prize_usd(@prize_summary.third) %></p>
                 <p class="text-xs text-gray-500">3rd Place</p>
               </div>
               <div class="text-center p-3 bg-green-50 rounded-xl border border-green-200">
                 <div class="text-lg mb-1">&#x1F381;</div>
-                <p class="font-bold text-gray-900">$50</p>
-                <p class="text-xs text-gray-500">&times;30 Winners</p>
+                <p class="font-bold text-gray-900">$<%= format_prize_usd(@prize_summary.rest) %></p>
+                <p class="text-xs text-gray-500">&times;<%= @prize_summary.rest_count %> Winners</p>
               </div>
             </div>
           </div>
@@ -970,7 +1024,14 @@ defmodule BlocksterV2Web.AirdropLive do
   defp truncate_address(addr) when byte_size(addr) < 10, do: addr
   defp truncate_address(addr), do: "#{String.slice(addr, 0, 6)}...#{String.slice(addr, -4, 4)}"
 
-  defp format_prize_usd(cents) when is_integer(cents), do: Number.Delimit.number_to_delimited(div(cents, 100), precision: 0)
+  defp format_prize_usd(cents) when is_integer(cents) do
+    dollars = cents / 100
+    if dollars == trunc(dollars) do
+      Number.Delimit.number_to_delimited(trunc(dollars), precision: 0)
+    else
+      Number.Delimit.number_to_delimited(dollars, precision: 2)
+    end
+  end
 
   defp format_datetime(nil), do: ""
   defp format_datetime(%DateTime{} = dt), do: Calendar.strftime(dt, "%b %d, %Y %I:%M %p UTC")

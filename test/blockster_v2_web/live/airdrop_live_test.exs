@@ -46,6 +46,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
   defp create_drawn_round(user, bux_amount \\ 1000) do
     round = create_round()
+    set_bux_balance(user, bux_amount)
     {:ok, _entry} = Airdrop.redeem_bux(user, bux_amount, round.round_id)
     block_hash = "0x" <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
     {:ok, _closed} = Airdrop.close_round(round.round_id, block_hash)
@@ -97,11 +98,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders prize pool and prize distribution", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "$2,000 USDT"
-      assert html =~ "$250"
-      assert html =~ "$150"
-      assert html =~ "$100"
-      assert html =~ "$50"
+      assert html =~ "$5 USDT"
+      assert html =~ "$0.65"
+      assert html =~ "$0.40"
+      assert html =~ "$0.35"
+      assert html =~ "$0.12"
     end
 
     test "renders countdown timer", %{conn: conn} do
@@ -144,6 +145,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "shows pool stats when entries exist", %{conn: conn} do
       user = create_user()
       round = create_round()
+      set_bux_balance(user, 100)
       {:ok, _entry} = Airdrop.redeem_bux(user, 100, round.round_id)
 
       {:ok, _view, html} = live(conn, ~p"/airdrop")
@@ -156,6 +158,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "shows Entries closed when round is closed", %{conn: conn} do
       user = create_user()
       round = create_round()
+      set_bux_balance(user, 100)
       {:ok, _entry} = Airdrop.redeem_bux(user, 100, round.round_id)
       block_hash = "0x" <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
       {:ok, _closed} = Airdrop.close_round(round.round_id, block_hash)
@@ -299,6 +302,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 200)
       {:ok, _entry} = Airdrop.redeem_bux(user, 200, round.round_id)
       conn = log_in_user(conn, user)
 
@@ -327,6 +331,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 500)
       {:ok, _} = Airdrop.redeem_bux(user, 200, round.round_id)
       {:ok, _} = Airdrop.redeem_bux(user, 300, round.round_id)
       conn = log_in_user(conn, user)
@@ -341,6 +346,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 200)
       {:ok, _} = Airdrop.redeem_bux(user, 200, round.round_id)
 
       {:ok, _view, html} = live(conn, ~p"/airdrop")
@@ -382,6 +388,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 100)
       {:ok, _entry} = Airdrop.redeem_bux(user, 100, round.round_id)
       conn = log_in_user(conn, user)
 
@@ -397,6 +404,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 500)
       {:ok, _entry} = Airdrop.redeem_bux(user, 500, round.round_id)
       conn = log_in_user(conn, user)
 
@@ -411,6 +419,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 50)
       {:ok, _entry} = Airdrop.redeem_bux(user, 50, round.round_id)
       conn = log_in_user(conn, user)
 
@@ -437,11 +446,13 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user1 = create_user()
       _wallet1 = connect_wallet(user1)
       round = create_round()
+      set_bux_balance(user1, 1000)
       {:ok, _} = Airdrop.redeem_bux(user1, 1000, round.round_id)
 
       # Second user gets positions 1001-1001
       user2 = create_user()
       _wallet2 = connect_wallet(user2)
+      set_bux_balance(user2, 1)
       {:ok, _} = Airdrop.redeem_bux(user2, 1, round.round_id)
 
       block_hash = "0x" <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
@@ -488,10 +499,10 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders top 3 winners with prizes", %{conn: conn, winners: winners} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      # Check prize amounts for top 3
-      assert html =~ "$250"
-      assert html =~ "$150"
-      assert html =~ "$100"
+      # Check prize amounts for top 3 (in cents: 65, 40, 35)
+      assert html =~ "$0.65"
+      assert html =~ "$0.40"
+      assert html =~ "$0.35"
       assert html =~ "1st Place"
       assert html =~ "2nd Place"
       assert html =~ "3rd Place"
@@ -525,11 +536,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "winners table shows correct prize amounts", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      # 1st = $250, 2nd = $150, 3rd = $100, rest = $50
-      assert html =~ "$250"
-      assert html =~ "$150"
-      assert html =~ "$100"
-      assert html =~ "$50"
+      # 1st = $0.65, 2nd = $0.40, 3rd = $0.35, rest = $0.12
+      assert html =~ "$0.65"
+      assert html =~ "$0.40"
+      assert html =~ "$0.35"
+      assert html =~ "$0.12"
     end
 
     test "shows claim button for logged-in winner with wallet", %{conn: conn, user: user, winners: winners} do
@@ -776,6 +787,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       user = create_user()
       _wallet = connect_wallet(user)
       round = create_round()
+      set_bux_balance(user, 500)
       {:ok, _entry} = Airdrop.redeem_bux(user, 500, round.round_id)
       conn = log_in_user(conn, user)
 
