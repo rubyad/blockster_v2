@@ -4,7 +4,7 @@
 - [x] Phase 1: AirdropVault.sol + Hardhat tests (77 tests passing)
 - [x] Phase 2: AirdropPrizePool.sol + Hardhat tests (48 tests passing)
 - [ ] Phase 3: Deploy Both Contracts + post-deploy verification tests
-- [ ] Phase 4: Backend — Airdrop Context & Provably Fair + Elixir tests
+- [x] Phase 4: Backend — Airdrop Context & Provably Fair + Elixir tests (99 tests passing)
 - [ ] Phase 5: Backend — BUX Minter Integration (Redeem + Claim) + integration tests
 - [ ] Phase 6: Frontend — Redeem Flow + LiveView tests
 - [ ] Phase 7: Frontend — Winners Display, Claim & Provably Fair Modal + LiveView tests
@@ -509,6 +509,7 @@ event PrizeSent(uint256 roundId, uint256 winnerIndex, address winner, uint256 am
 2. Deploy script: `scripts/deploy-airdrop-vault.js`
 3. Deploy as UUPS proxy (same pattern as BuxBoosterGame deploy.js)
 4. Initialize with BUX token address: `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8`
+5. Transfer ownership to vault admin wallet: `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9`
 
 ### AirdropPrizePool → Arbitrum One
 1. Add `arbitrumOne` network to `hardhat.config.js`:
@@ -666,6 +667,14 @@ get_verification_data(round_id)     # Public: seed + block hash + results after 
 
 ## Phase 5: Backend — BUX Minter Integration
 
+### Vault Admin Wallet & Nonce Management
+- **Dedicated vault admin wallet**: `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` — used exclusively for AirdropVault `depositFor` calls
+- The BUX Minter already has a `TransactionQueue` class (`index.js` line 19) that serializes transactions per wallet, tracks nonces locally, and retries on nonce errors with exponential backoff
+- Create a new `TransactionQueue` instance for the vault admin wallet — all `depositFor` calls are enqueued and processed one at a time, preventing nonce conflicts under concurrent load
+- **Fly secret**: `VAULT_ADMIN_PRIVATE_KEY` already set on `bux-minter` app
+- The AirdropVault contract owner must be transferred to `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` after deploy
+- **Local testing uses production BUX Minter** — new endpoints on bux-minter must be deployed before local testing works
+
 ### Redeem Flow (User deposits BUX to vault)
 The BUX Minter service needs a new endpoint to handle the deposit:
 
@@ -685,24 +694,27 @@ New BUX Minter endpoint needed:
 POST /airdrop-deposit
 Body: { wallet: "0x...", amount: 100, vaultAddress: "0x..." }
 Action:
-  1. Call bux.approve(vault, amount) from wallet
-  2. Call vault.deposit(amount) from wallet
+  1. Call bux.approve(vault, amount) from user's smart wallet (via bundler UserOp)
+  2. Enqueue on vault admin TransactionQueue: vault.depositFor(wallet, externalWallet, amount)
   3. Return tx hash
 ```
 
 ### Claim Flow (Send USDT to winner on Arbitrum)
-New BUX Minter endpoint or separate Arbitrum service:
+- Same vault admin wallet (`0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9`) — different chain, different nonce space, no conflicts
+- Second `TransactionQueue` instance on BUX Minter with an Arbitrum One provider
+- Wallet needs some ETH on Arbitrum for gas
+- AirdropPrizePool ownership must also be transferred to this wallet after deploy
+
+New BUX Minter endpoint:
 ```
 POST /airdrop-claim
-Body: { roundId: 1, winnerIndex: 0, winnerWallet: "0x...", amount: 250000000 }
+Body: { roundId: 1, winnerIndex: 0 }
 Action:
-  1. Call prizePool.sendPrize(roundId, winnerIndex) on Arbitrum
+  1. Enqueue on Arbitrum TransactionQueue: prizePool.sendPrize(roundId, winnerIndex)
   2. Return tx hash
 ```
 
-Since the BUX Minter currently only talks to Rogue Chain, we have two options:
-1. **Add Arbitrum provider to BUX Minter** (recommended — it already has the wallet infra)
-2. **New microservice for Arbitrum** (overkill for one endpoint)
+**Fly secret required**: `ARBITRUM_RPC_URL` on `bux-minter` app (or hardcode public RPC)
 
 ### Backend Claim Validation
 ```elixir

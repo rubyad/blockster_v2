@@ -138,6 +138,8 @@ BUX is the only active token. ROGUE is the native gas token. Hub tokens (moonBUX
 | ManagedAccountFactory | `0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3` |
 | Paymaster | `0x804cA06a85083eF01C9aE94bAE771446c25269a6` |
 | Referral Admin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` |
+| Deployer Wallet | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` |
+| Vault Admin Wallet | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` |
 | High Rollers NFT (Arbitrum) | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` |
 
 ### BUX Minter Service
