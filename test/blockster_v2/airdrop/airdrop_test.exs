@@ -6,6 +6,44 @@ defmodule BlocksterV2.AirdropTest do
   alias BlocksterV2.Accounts.User
 
   # ============================================================================
+  # Mnesia Setup
+  # ============================================================================
+
+  defp setup_mnesia(_context) do
+    :mnesia.start()
+
+    tables = [
+      {:user_bux_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
+        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
+        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
+        :spacebux_balance, :tronbux_balance, :tranbux_balance]},
+      {:user_rogue_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain, :rogue_balance_arbitrum]}
+    ]
+
+    for {table, attrs} <- tables do
+      case :mnesia.create_table(table, attributes: attrs, type: :set, ram_copies: [node()]) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+        {:aborted, other} -> raise "Mnesia table creation failed: #{inspect(other)}"
+      end
+    end
+
+    :ok
+  end
+
+  defp set_bux_balance(user, balance) do
+    record =
+      {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
+       balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+
+    :mnesia.dirty_write(:user_bux_balances, record)
+  end
+
+  setup :setup_mnesia
+
+  # ============================================================================
   # Test Helpers
   # ============================================================================
 
@@ -28,7 +66,7 @@ defmodule BlocksterV2.AirdropTest do
 
   defp create_round(opts \\ []) do
     end_time = Keyword.get(opts, :end_time, ~U[2026-03-01 00:00:00Z])
-    {:ok, round} = Airdrop.create_round(end_time)
+    {:ok, round} = Airdrop.create_round(end_time, skip_vault: true)
     round
   end
 
@@ -40,7 +78,7 @@ defmodule BlocksterV2.AirdropTest do
 
   describe "create_round/1" do
     test "creates a round with server_seed and commitment_hash" do
-      {:ok, round} = Airdrop.create_round(future_time())
+      {:ok, round} = Airdrop.create_round(future_time(), skip_vault: true)
 
       assert round.round_id == 1
       assert round.status == "open"
@@ -53,7 +91,7 @@ defmodule BlocksterV2.AirdropTest do
     end
 
     test "commitment_hash is SHA256 of server_seed" do
-      {:ok, round} = Airdrop.create_round(future_time())
+      {:ok, round} = Airdrop.create_round(future_time(), skip_vault: true)
 
       expected_hash =
         :crypto.hash(:sha256, round.server_seed)
@@ -63,8 +101,8 @@ defmodule BlocksterV2.AirdropTest do
     end
 
     test "auto-increments round_id" do
-      {:ok, r1} = Airdrop.create_round(future_time())
-      {:ok, r2} = Airdrop.create_round(~U[2026-05-01 00:00:00Z])
+      {:ok, r1} = Airdrop.create_round(future_time(), skip_vault: true)
+      {:ok, r2} = Airdrop.create_round(~U[2026-05-01 00:00:00Z], skip_vault: true)
 
       assert r1.round_id == 1
       assert r2.round_id == 2
@@ -72,6 +110,7 @@ defmodule BlocksterV2.AirdropTest do
 
     test "accepts optional vault and prize pool addresses" do
       {:ok, round} = Airdrop.create_round(future_time(),
+        skip_vault: true,
         vault_address: "0xvault",
         prize_pool_address: "0xpool"
       )
@@ -109,6 +148,7 @@ defmodule BlocksterV2.AirdropTest do
       user = create_user()
 
       # Add entries, close, and draw
+      set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -137,11 +177,13 @@ defmodule BlocksterV2.AirdropTest do
       r1 = create_round()
       user = create_user()
 
+      set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, r1.round_id)
       {:ok, _} = Airdrop.close_round(r1.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(r1.round_id)
 
       r2 = create_round(end_time: ~U[2026-05-01 00:00:00Z])
+      set_bux_balance(user, 200)
       {:ok, _} = Airdrop.redeem_bux(user, 200, r2.round_id)
       {:ok, _} = Airdrop.close_round(r2.round_id, "0x" <> String.duplicate("cd", 32))
       {:ok, _} = Airdrop.draw_winners(r2.round_id)
@@ -194,6 +236,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 100)
       {:ok, entry} = Airdrop.redeem_bux(user, 100, round.round_id)
 
       assert entry.user_id == user.id
@@ -208,7 +251,9 @@ defmodule BlocksterV2.AirdropTest do
       user1 = create_user()
       user2 = create_user()
 
+      set_bux_balance(user1, 50)
       {:ok, e1} = Airdrop.redeem_bux(user1, 50, round.round_id)
+      set_bux_balance(user2, 30)
       {:ok, e2} = Airdrop.redeem_bux(user2, 30, round.round_id)
 
       assert e1.start_position == 1
@@ -221,6 +266,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 150)
       {:ok, e1} = Airdrop.redeem_bux(user, 100, round.round_id)
       {:ok, e2} = Airdrop.redeem_bux(user, 50, round.round_id)
 
@@ -234,6 +280,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 150)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
       updated = Airdrop.get_round(round.round_id)
       assert updated.total_entries == 100
@@ -247,6 +294,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 100)
       {:ok, entry} = Airdrop.redeem_bux(user, 100, round.round_id,
         external_wallet: "0xexternal"
       )
@@ -273,6 +321,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -303,6 +352,7 @@ defmodule BlocksterV2.AirdropTest do
       round = create_round()
       user = create_user()
 
+      set_bux_balance(user, 80)
       {:ok, _} = Airdrop.redeem_bux(user, 50, round.round_id)
       {:ok, _} = Airdrop.redeem_bux(user, 30, round.round_id)
 
@@ -324,7 +374,9 @@ defmodule BlocksterV2.AirdropTest do
       r2 = create_round(end_time: ~U[2026-05-01 00:00:00Z])
       user = create_user()
 
+      set_bux_balance(user, 50)
       {:ok, _} = Airdrop.redeem_bux(user, 50, r1.round_id)
+      set_bux_balance(user, 30)
       {:ok, _} = Airdrop.redeem_bux(user, 30, r2.round_id)
 
       entries = Airdrop.get_user_entries(user.id, r1.round_id)
@@ -339,7 +391,9 @@ defmodule BlocksterV2.AirdropTest do
       user1 = create_user()
       user2 = create_user()
 
+      set_bux_balance(user1, 100)
       {:ok, _} = Airdrop.redeem_bux(user1, 100, round.round_id)
+      set_bux_balance(user2, 50)
       {:ok, _} = Airdrop.redeem_bux(user2, 50, round.round_id)
 
       assert Airdrop.get_total_entries(round.round_id) == 150
@@ -361,8 +415,10 @@ defmodule BlocksterV2.AirdropTest do
       user1 = create_user()
       user2 = create_user()
 
+      set_bux_balance(user1, 150)
       {:ok, _} = Airdrop.redeem_bux(user1, 100, round.round_id)
       {:ok, _} = Airdrop.redeem_bux(user1, 50, round.round_id)
+      set_bux_balance(user2, 30)
       {:ok, _} = Airdrop.redeem_bux(user2, 30, round.round_id)
 
       assert Airdrop.get_participant_count(round.round_id) == 2
@@ -381,8 +437,11 @@ defmodule BlocksterV2.AirdropTest do
       user3 = create_user()
 
       # Create enough entries to draw from
+      set_bux_balance(user1, 500)
       {:ok, _} = Airdrop.redeem_bux(user1, 500, round.round_id)
+      set_bux_balance(user2, 300)
       {:ok, _} = Airdrop.redeem_bux(user2, 300, round.round_id)
+      set_bux_balance(user3, 200)
       {:ok, _} = Airdrop.redeem_bux(user3, 200, round.round_id)
 
       block_hash = "0x" <> String.duplicate("ab", 32)
@@ -410,15 +469,16 @@ defmodule BlocksterV2.AirdropTest do
 
       winners = Airdrop.get_winners(round.round_id)
 
-      # 1st place: $250
+      # Prize pool: $2,000 total
+      # 1st: $250
       assert Enum.at(winners, 0).prize_usd == 25_000
       assert Enum.at(winners, 0).prize_usdt == 250_000_000
 
-      # 2nd place: $150
+      # 2nd: $150
       assert Enum.at(winners, 1).prize_usd == 15_000
       assert Enum.at(winners, 1).prize_usdt == 150_000_000
 
-      # 3rd place: $100
+      # 3rd: $100
       assert Enum.at(winners, 2).prize_usd == 10_000
       assert Enum.at(winners, 2).prize_usdt == 100_000_000
 
@@ -472,6 +532,7 @@ defmodule BlocksterV2.AirdropTest do
     test "rejects drawing from an open round" do
       round = create_round(end_time: ~U[2026-06-01 00:00:00Z])
       user = create_user()
+      set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
 
       assert {:error, {:invalid_status, "open"}} = Airdrop.draw_winners(round.round_id)
@@ -504,6 +565,7 @@ defmodule BlocksterV2.AirdropTest do
     test "returns all 33 winners ordered by winner_index" do
       round = create_round()
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -524,6 +586,7 @@ defmodule BlocksterV2.AirdropTest do
     test "returns true for a winner" do
       round = create_round()
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -537,6 +600,7 @@ defmodule BlocksterV2.AirdropTest do
       user = create_user()
       non_participant = create_user()
 
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -549,6 +613,7 @@ defmodule BlocksterV2.AirdropTest do
     setup do
       round = create_round()
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -589,6 +654,7 @@ defmodule BlocksterV2.AirdropTest do
 
   describe "prize_usd_for_index/1" do
     test "returns correct prizes for each position" do
+      # Prize pool: $2,000 total, values in USD cents
       assert Airdrop.prize_usd_for_index(0) == 25_000   # $250
       assert Airdrop.prize_usd_for_index(1) == 15_000   # $150
       assert Airdrop.prize_usd_for_index(2) == 10_000   # $100
@@ -628,6 +694,7 @@ defmodule BlocksterV2.AirdropTest do
     test "returns full data for drawn round" do
       round = create_round()
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -655,6 +722,7 @@ defmodule BlocksterV2.AirdropTest do
     test "returns true for valid drawn round" do
       round = create_round()
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
       {:ok, _} = Airdrop.draw_winners(round.round_id)

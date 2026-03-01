@@ -28,7 +28,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
   defp create_round(opts \\ []) do
     end_time = Keyword.get(opts, :end_time, ~U[2026-04-01 00:00:00Z])
-    {:ok, round} = Airdrop.create_round(end_time)
+    {:ok, round} = Airdrop.create_round(end_time, skip_vault: true)
     round
   end
 
@@ -98,11 +98,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders prize pool and prize distribution", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "$5 USDT"
-      assert html =~ "$0.65"
-      assert html =~ "$0.40"
-      assert html =~ "$0.35"
-      assert html =~ "$0.12"
+      assert html =~ "$2,000 USDT"
+      assert html =~ "$250"
+      assert html =~ "$150"
+      assert html =~ "$100"
+      assert html =~ "$50"
     end
 
     test "renders countdown timer", %{conn: conn} do
@@ -499,10 +499,10 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders top 3 winners with prizes", %{conn: conn, winners: winners} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      # Check prize amounts for top 3 (in cents: 65, 40, 35)
-      assert html =~ "$0.65"
-      assert html =~ "$0.40"
-      assert html =~ "$0.35"
+      # Check prize amounts for top 3
+      assert html =~ "$250"
+      assert html =~ "$150"
+      assert html =~ "$100"
       assert html =~ "1st Place"
       assert html =~ "2nd Place"
       assert html =~ "3rd Place"
@@ -536,14 +536,17 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "winners table shows correct prize amounts", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      # 1st = $0.65, 2nd = $0.40, 3rd = $0.35, rest = $0.12
-      assert html =~ "$0.65"
-      assert html =~ "$0.40"
-      assert html =~ "$0.35"
-      assert html =~ "$0.12"
+      # 1st = $250, 2nd = $150, 3rd = $100, rest = $50
+      assert html =~ "$250"
+      assert html =~ "$150"
+      assert html =~ "$100"
+      assert html =~ "$50"
     end
 
     test "shows claim button for logged-in winner with wallet", %{conn: conn, user: user, winners: winners} do
+      # Mark all winners as prize_registered so Claim button appears
+      Enum.each(winners, fn w -> Airdrop.mark_prize_registered(w.round_id, w.winner_index) end)
+
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
@@ -552,6 +555,19 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
       if user_wins != [] do
         assert html =~ "Claim"
+      end
+    end
+
+    test "shows Registering instead of Claim when prize not yet registered", %{conn: conn, user: user, winners: winners} do
+      # Winners exist but prize_registered is false (default)
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      user_wins = Enum.filter(winners, &(&1.user_id == user.id))
+
+      if user_wins != [] do
+        assert html =~ "Registering..."
+        refute html =~ "Claim"
       end
     end
 
@@ -670,7 +686,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       html = view |> element("button", "Verify Fairness") |> render_click()
 
-      assert html =~ "Before Airdrop Opened"
+      assert html =~ "Before Round Opened"
       assert html =~ "Airdrop Closed"
       assert html =~ "Seed Revealed"
       assert html =~ "Winner Derivation"
@@ -704,7 +720,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       html = view |> element("button", "Verify Fairness") |> render_click()
 
-      assert html =~ "SHA256(Server Seed) matches commitment hash"
+      assert html =~ "SHA-256(Server Seed) matches commitment hash"
     end
 
     test "shows winner derivation formula", %{conn: conn} do
@@ -712,7 +728,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       html = view |> element("button", "Verify Fairness") |> render_click()
 
       assert html =~ "keccak256"
-      assert html =~ "Combined Seed"
+      assert html =~ "Combine seeds"
     end
 
     test "shows all 33 winners in derivation table", %{conn: conn} do
@@ -729,8 +745,8 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       view |> element("button", "Verify Fairness") |> render_click()
 
-      # Close the modal using the close button
-      html = view |> element("button[phx-click=\"close_fairness_modal\"]") |> render_click()
+      # Close the modal using the footer Close button
+      html = view |> element("button", "Close") |> render_click()
 
       refute html =~ "Provably Fair Verification"
     end
@@ -750,7 +766,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       html = view |> element("button", "Verify Fairness") |> render_click()
 
       assert html =~ "roguescan.io"
-      assert html =~ "verifiable on"
+      assert html =~ "Verify Externally"
     end
   end
 
@@ -849,6 +865,22 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       html = view |> element("button", "MAX") |> render_click()
 
       assert html =~ "999"
+    end
+  end
+
+  # ============================================================================
+  # Contract Address Integrity
+  # ============================================================================
+
+  describe "deep link contract addresses" do
+    test "vault_impl matches docs/addresses.md" do
+      impl_address = BlocksterV2Web.AirdropLive.vault_impl()
+
+      addresses_md = File.read!(Path.join([File.cwd!(), "docs", "addresses.md"]))
+
+      assert String.contains?(addresses_md, impl_address),
+             "AirdropLive @vault_impl #{impl_address} not found in docs/addresses.md — " <>
+               "update the module attribute after deploying a new implementation"
     end
   end
 end

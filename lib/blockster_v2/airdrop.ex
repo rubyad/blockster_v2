@@ -14,14 +14,14 @@ defmodule BlocksterV2.Airdrop do
 
   @num_winners 33
 
-  # Prize structure in USD cents: 1st=$0.65, 2nd=$0.40, 3rd=$0.35, 4th-33rd=$0.12
-  # Total: $5.00 (test pool). Scale back up for production.
+  # Prize structure in USD cents: 1st=$250, 2nd=$150, 3rd=$100, 4th-33rd=$50
+  # Total: $2,000
   @prize_structure %{
-    0 => 65,
-    1 => 40,
-    2 => 35
+    0 => 25_000,
+    1 => 15_000,
+    2 => 10_000
   }
-  @default_prize_usd 12
+  @default_prize_usd 5_000
 
   # USDT has 6 decimals, so $250 = 250_000_000 micro-USDT
   @usdt_decimals 1_000_000
@@ -33,26 +33,73 @@ defmodule BlocksterV2.Airdrop do
   @doc """
   Creates a new airdrop round with provably fair commitment.
 
-  Generates a server seed, computes SHA256 commitment hash, and stores
-  the round. The server seed is hidden until the draw.
+  The AirdropVault is the source of truth for round IDs. This function:
+  1. Calls vault startRound() first — vault auto-increments roundId
+  2. Uses the vault's roundId as the DB round_id
+  3. Syncs the PrizePool in background (best-effort)
+
+  ## Options
+    - `:skip_vault` - If true, generates round_id from DB (for tests only)
+    - `:vault_address` - Optional vault address to store
+    - `:prize_pool_address` - Optional prize pool address to store
   """
   def create_round(end_time, opts \\ []) do
     server_seed = ProvablyFair.generate_server_seed()
     commitment_hash = ProvablyFair.generate_commitment(server_seed)
 
-    next_round_id = get_next_round_id()
+    if Keyword.get(opts, :skip_vault, false) do
+      # Test mode: generate round_id from DB, no vault call
+      create_round_db_only(end_time, server_seed, commitment_hash, opts)
+    else
+      # Production mode: vault is source of truth
+      create_round_vault_first(end_time, server_seed, commitment_hash, opts)
+    end
+  end
 
-    # Start on-chain round on AirdropVault (publishes commitment for provable fairness)
+  defp create_round_vault_first(end_time, server_seed, commitment_hash, opts) do
     end_time_unix = DateTime.to_unix(end_time)
-    start_round_tx =
-      case BlocksterV2.BuxMinter.airdrop_start_round(commitment_hash, end_time_unix) do
-        {:ok, response} ->
-          Logger.info("[Airdrop] On-chain round started: #{inspect(response)}")
-          response["transactionHash"]
 
-        {:error, reason} ->
-          Logger.warning("[Airdrop] On-chain startRound failed (#{inspect(reason)}), proceeding with DB-only round")
-          nil
+    case BlocksterV2.BuxMinter.airdrop_start_round(commitment_hash, end_time_unix) do
+      {:ok, response} ->
+        vault_round_id = response["roundId"]
+        start_round_tx = response["transactionHash"]
+        Logger.info("[Airdrop] On-chain round started: roundId=#{vault_round_id}, tx=#{start_round_tx}")
+
+        attrs = %{
+          round_id: vault_round_id,
+          status: "open",
+          end_time: end_time,
+          server_seed: server_seed,
+          commitment_hash: commitment_hash,
+          start_round_tx: start_round_tx,
+          vault_address: Keyword.get(opts, :vault_address),
+          prize_pool_address: Keyword.get(opts, :prize_pool_address)
+        }
+
+        case %Round{}
+             |> Round.changeset(attrs)
+             |> Repo.insert() do
+          {:ok, round} = result ->
+            BlocksterV2.Airdrop.Settler.notify_round_created(round.round_id, round.end_time)
+            sync_prize_pool_async(vault_round_id)
+            result
+
+          error ->
+            Logger.error("[Airdrop] DB insert failed after vault startRound (roundId=#{vault_round_id}, tx=#{start_round_tx}): #{inspect(error)}")
+            error
+        end
+
+      {:error, reason} ->
+        Logger.error("[Airdrop] Vault startRound failed: #{inspect(reason)}")
+        {:error, {:vault_start_failed, reason}}
+    end
+  end
+
+  defp create_round_db_only(end_time, server_seed, commitment_hash, opts) do
+    next_round_id =
+      case Repo.one(from r in Round, select: max(r.round_id)) do
+        nil -> 1
+        max_id -> max_id + 1
       end
 
     attrs = %{
@@ -61,7 +108,7 @@ defmodule BlocksterV2.Airdrop do
       end_time: end_time,
       server_seed: server_seed,
       commitment_hash: commitment_hash,
-      start_round_tx: start_round_tx,
+      start_round_tx: nil,
       vault_address: Keyword.get(opts, :vault_address),
       prize_pool_address: Keyword.get(opts, :prize_pool_address)
     }
@@ -273,6 +320,13 @@ defmodule BlocksterV2.Airdrop do
   - Not already claimed
   - User has a connected external wallet
   """
+  def mark_prize_registered(round_id, winner_index) do
+    case get_winner(round_id, winner_index) do
+      nil -> {:error, :winner_not_found}
+      winner -> winner |> Ecto.Changeset.change(prize_registered: true) |> Repo.update()
+    end
+  end
+
   def claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet) do
     case get_winner(round_id, winner_index) do
       nil ->
@@ -321,7 +375,9 @@ defmodule BlocksterV2.Airdrop do
           commitment_hash: round.commitment_hash,
           block_hash_at_close: round.block_hash_at_close,
           total_entries: round.total_entries,
-          round_id: round.round_id
+          round_id: round.round_id,
+          start_round_tx: round.start_round_tx,
+          close_tx: round.close_tx
         }}
 
       %Round{} ->
@@ -390,11 +446,19 @@ defmodule BlocksterV2.Airdrop do
   # Private Functions
   # ============================================================================
 
-  defp get_next_round_id do
-    case Repo.one(from r in Round, select: max(r.round_id)) do
-      nil -> 1
-      max_id -> max_id + 1
-    end
+  defp sync_prize_pool_async(vault_round_id) do
+    Task.start(fn ->
+      case BlocksterV2.BuxMinter.airdrop_sync_prize_pool_round(vault_round_id) do
+        {:ok, %{"callsMade" => 0}} ->
+          Logger.info("[Airdrop] PrizePool already at roundId #{vault_round_id}")
+
+        {:ok, %{"callsMade" => calls, "currentRoundId" => current}} ->
+          Logger.info("[Airdrop] PrizePool synced to roundId #{current} (#{calls} calls)")
+
+        {:error, reason} ->
+          Logger.warning("[Airdrop] PrizePool sync failed (non-blocking): #{inspect(reason)}")
+      end
+    end)
   end
 
   defp validate_phone_verified(%{phone_verified: true}), do: :ok

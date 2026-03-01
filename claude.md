@@ -128,6 +128,8 @@ Req.get(url, receive_timeout: 30_000)
 - NEVER change order or remove state variables - ONLY add at END
 - NEVER enable `viaIR: true` for stack too deep - use helper functions instead
 - Upgrade process: compile → force-import → upgrade-manual → init-vN → verify
+- **ALL contracts must be flattened** (inline all OZ dependencies) so they can be verified as a single file on RogueScan/Arbiscan
+- Never use `import "@openzeppelin/..."` — copy the needed code inline
 
 ---
 
@@ -146,7 +148,7 @@ BUX is the only active token. ROGUE is the native gas token. Hub tokens (moonBUX
 | ManagedAccountFactory | `0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3` |
 | Paymaster | `0x804cA06a85083eF01C9aE94bAE771446c25269a6` |
 | Referral Admin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` |
-| AirdropVault (Proxy, Rogue) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` |
+| AirdropVault V3 (Proxy, Rogue) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` |
 | AirdropPrizePool (Proxy, Arbitrum) | `0x919149CA8DB412541D2d8B3F150fa567fEFB58e1` |
 | Deployer Wallet | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` |
 | Vault Admin Wallet | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` |

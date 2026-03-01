@@ -14,6 +14,7 @@ defmodule BlocksterV2.Airdrop.Winner do
     field :deposit_amount, :integer
     field :prize_usd, :integer
     field :prize_usdt, :integer
+    field :prize_registered, :boolean, default: false
     field :claimed, :boolean, default: false
     field :claim_tx, :string
     field :claim_wallet, :string
@@ -25,7 +26,7 @@ defmodule BlocksterV2.Airdrop.Winner do
     :round_id, :winner_index, :random_number, :wallet_address,
     :deposit_start, :deposit_end, :deposit_amount, :prize_usd, :prize_usdt
   ]
-  @optional_fields [:user_id, :external_wallet, :claimed, :claim_tx, :claim_wallet]
+  @optional_fields [:user_id, :external_wallet, :prize_registered, :claimed, :claim_tx, :claim_wallet]
 
   def changeset(winner, attrs) do
     winner

@@ -29,7 +29,8 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | BuxBoosterGame | `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B` | Coin flip game (UUPS proxy) |
 | ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` | ROGUE house balance for BuxBooster |
 | NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` | NFT time-based rewards |
-| AirdropVault | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` | BUX airdrop vault (UUPS proxy) |
+| AirdropVault (V3) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` | BUX airdrop vault (UUPS proxy) |
+| AirdropVaultV3 Impl | `0x1d540f6bc7d55DCa7F392b9cc7668F2f14d330F9` | V3: simplified draw, server pushes winners |
 
 ### Account Abstraction (Rogue Chain)
 | Contract | Address | Purpose |

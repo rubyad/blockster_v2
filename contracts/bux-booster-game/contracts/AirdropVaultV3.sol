@@ -2,30 +2,22 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title AirdropVaultV2
- * @notice On-chain provably fair airdrop vault for BUX token redemptions (V2)
- * @dev UUPS Upgradeable proxy. Tracks sequential position blocks per deposit.
- *      Uses commit-reveal with block hash for provably fair winner selection.
- *      All dependencies flattened for single-file verification on RogueScan.
+ * @title AirdropVaultV3
+ * @notice On-chain airdrop vault for BUX token redemptions (V3)
+ * @dev UUPS Upgradeable proxy. All dependencies flattened for RogueScan verification.
  *
- * V2 CHANGES:
- * - Added public deposit() so users can deposit directly from their smart wallet
- *   (uses msg.sender as blocksterWallet, removing onlyOwner restriction)
- * - Added version() view function
- * - Old depositFor() remains for backward compatibility but is no longer used
+ * V3 CHANGES:
+ * - drawWinners() simplified: just stores server seed + marks drawn (no on-chain computation)
+ * - New setWinner() lets server push winner data after off-chain draw
+ * - Removed SHA256 verification from drawWinners (Elixir handles provably fair logic)
  *
  * LIFECYCLE:
- * 1. Owner calls startRound(commitmentHash, endTime) — publishes hash before deposits
- * 2. Users call deposit(externalWallet, amount) — records position blocks
+ * 1. Owner calls startRound(commitmentHash, endTime)
+ * 2. Users call deposit(externalWallet, amount)
  * 3. Owner calls closeAirdrop() — stops deposits, captures block hash
- * 4. Owner calls drawWinners(serverSeed) — reveals seed, selects 33 winners on-chain
- * 5. Anyone calls getWinnerInfo(1..33) or verifyFairness() to verify
- *
- * PROVABLY FAIR:
- * - commitmentHash = sha256(serverSeed), published before deposits open
- * - blockHashAtClose = block hash when airdrop closes (external entropy)
- * - combinedSeed = keccak256(serverSeed | blockHashAtClose)
- * - Each winner: hash(combinedSeed, index) mod totalEntries + 1
+ * 4. Owner calls drawWinners(serverSeed) — reveals seed, marks drawn
+ * 5. Owner calls setWinner() for each winner (computed off-chain)
+ * 6. Anyone calls getWinnerInfoForRound() or verifyFairnessForRound() to verify
  */
 
 // ============================================================
@@ -279,10 +271,10 @@ abstract contract UUPSUpgradeable is Initializable {
 
 
 // ============================================================
-// =============== AIRDROP VAULT V2 CONTRACT ==================
+// =============== AIRDROP VAULT V3 CONTRACT ==================
 // ============================================================
 
-contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+contract AirdropVaultV3 is Initializable, ContextUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============
@@ -292,7 +284,7 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
     IERC20 public buxToken;
     uint256 public roundId;
 
-    // ============ Per-Round State (via mappings for multi-round persistence) ============
+    // ============ V1/V2 State (preserved for storage layout) ============
 
     struct Deposit {
         address blocksterWallet;
@@ -302,6 +294,7 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         uint256 amount;
     }
 
+    // V1/V2 Winner struct — kept for storage layout compatibility, no longer written to
     struct Winner {
         uint256 randomNumber;
         address blocksterWallet;
@@ -326,14 +319,29 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
     mapping(uint256 => RoundState) internal _rounds;
     mapping(uint256 => Deposit[]) internal _deposits;
     mapping(uint256 => mapping(address => uint256)) internal _totalDeposited;
-    mapping(uint256 => Winner[]) internal _winners;
+    mapping(uint256 => Winner[]) internal _winners; // V1/V2 legacy, unused in V3
+
+    // ============ V3 State (appended after V2 slots) ============
+
+    struct WinnerV3 {
+        uint256 randomNumber;
+        address blocksterWallet;
+        address externalWallet;
+        uint256 buxRedeemed;
+        uint256 blockStart;
+        uint256 blockEnd;
+    }
+
+    // roundId => prizePosition (0-indexed) => winner data
+    mapping(uint256 => mapping(uint256 => WinnerV3)) internal _winnersV3;
+    mapping(uint256 => uint256) internal _winnerCountV3;
 
     // ============ Events ============
     event RoundStarted(uint256 roundId, bytes32 commitmentHash, uint256 endTime);
     event BuxDeposited(uint256 roundId, address indexed blocksterWallet, address indexed externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition);
     event AirdropClosed(uint256 roundId, uint256 totalEntries, bytes32 blockHashAtClose);
-    event WinnerSelected(uint256 roundId, uint256 prizePosition, uint256 randomNumber, address blocksterWallet, address externalWallet);
     event AirdropDrawn(uint256 roundId, bytes32 serverSeed, bytes32 blockHash, uint256 totalEntries);
+    event WinnerSet(uint256 roundId, uint256 prizePosition, address blocksterWallet, address externalWallet, uint256 randomNumber);
     event BuxWithdrawn(uint256 roundId, uint256 amount);
 
     // ============ Initializer ============
@@ -345,18 +353,20 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         buxToken = IERC20(_buxToken);
     }
 
-    /// @notice Initialize V2 (no-op, required for reinitializer pattern)
     function initializeV2() reinitializer(2) public {
         // No new state to initialize
     }
 
+    function initializeV3() reinitializer(3) public {
+        // No new state to initialize — V3 mappings start empty
+    }
+
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
-    // ============ V2: Version ============
+    // ============ Version ============
 
-    /// @notice Returns the contract version
     function version() external pure returns (string memory) {
-        return "v2";
+        return "v3";
     }
 
     // ============ Current Round View Helpers ============
@@ -399,7 +409,6 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         require(_commitmentHash != bytes32(0), "Zero commitment hash");
         require(_endTime > block.timestamp, "End time must be in future");
 
-        // If there's an existing round, it must be fully resolved (drawn or never opened)
         if (roundId > 0) {
             RoundState storage prev = _rounds[roundId];
             require(!prev.isOpen, "Previous round still open");
@@ -426,38 +435,47 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         emit AirdropClosed(roundId, round.totalEntries, round.blockHashAtClose);
     }
 
+    /// @notice Reveal server seed and mark round as drawn. No on-chain winner computation.
     function drawWinners(bytes32 _serverSeed) external onlyOwner {
         RoundState storage round = _rounds[roundId];
         require(!round.isOpen, "Must close first");
         require(!round.isDrawn, "Already drawn");
-        require(round.totalEntries > 0, "No entries");
-        require(sha256(abi.encodePacked(_serverSeed)) == round.commitmentHash, "Invalid seed");
 
         round.revealedServerSeed = _serverSeed;
         round.isDrawn = true;
 
-        // Combined seed = keccak256(serverSeed | blockHashAtClose)
-        bytes32 combinedSeed = keccak256(abi.encodePacked(_serverSeed, round.blockHashAtClose));
+        emit AirdropDrawn(roundId, _serverSeed, round.blockHashAtClose, round.totalEntries);
+    }
 
-        for (uint256 i = 0; i < NUM_WINNERS; i++) {
-            uint256 randomNumber = (uint256(keccak256(abi.encodePacked(combinedSeed, i))) % round.totalEntries) + 1;
-            uint256 depositIdx = _findDepositIndex(roundId, randomNumber);
-            Deposit storage dep = _deposits[roundId][depositIdx];
+    /// @notice Push a single winner (computed off-chain) to the contract.
+    function setWinner(
+        uint256 _roundId,
+        uint256 prizePosition,
+        uint256 randomNumber,
+        address blocksterWallet,
+        address externalWallet,
+        uint256 buxRedeemed,
+        uint256 blockStart,
+        uint256 blockEnd
+    ) external onlyOwner {
+        RoundState storage round = _rounds[_roundId];
+        require(round.isDrawn, "Not drawn yet");
+        require(prizePosition >= 1 && prizePosition <= NUM_WINNERS, "Invalid position");
 
-            _winners[roundId].push(Winner({
-                randomNumber: randomNumber,
-                blocksterWallet: dep.blocksterWallet,
-                externalWallet: dep.externalWallet,
-                depositIndex: depositIdx,
-                depositAmount: dep.amount,
-                depositStart: dep.startPosition,
-                depositEnd: dep.endPosition
-            }));
+        _winnersV3[_roundId][prizePosition - 1] = WinnerV3({
+            randomNumber: randomNumber,
+            blocksterWallet: blocksterWallet,
+            externalWallet: externalWallet,
+            buxRedeemed: buxRedeemed,
+            blockStart: blockStart,
+            blockEnd: blockEnd
+        });
 
-            emit WinnerSelected(roundId, i + 1, randomNumber, dep.blocksterWallet, dep.externalWallet);
+        if (prizePosition > _winnerCountV3[_roundId]) {
+            _winnerCountV3[_roundId] = prizePosition;
         }
 
-        emit AirdropDrawn(roundId, _serverSeed, round.blockHashAtClose, round.totalEntries);
+        emit WinnerSet(_roundId, prizePosition, blocksterWallet, externalWallet, randomNumber);
     }
 
     function withdrawBux(uint256 _roundId) external onlyOwner {
@@ -475,7 +493,6 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
 
     // ============ Deposit Functions ============
 
-    /// @notice V1 deposit — owner deposits on behalf of a user (backward compat)
     function depositFor(
         address blocksterWallet,
         address externalWallet,
@@ -487,10 +504,8 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         require(blocksterWallet != address(0), "Invalid blockster wallet");
         require(externalWallet != address(0), "Invalid external wallet");
 
-        // Transfer BUX from blocksterWallet to this contract
         buxToken.safeTransferFrom(blocksterWallet, address(this), amount);
 
-        // Calculate position block (1-indexed)
         uint256 startPosition = round.totalEntries + 1;
         uint256 endPosition = round.totalEntries + amount;
         round.totalEntries = endPosition;
@@ -508,13 +523,6 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         emit BuxDeposited(roundId, blocksterWallet, externalWallet, amount, startPosition, endPosition);
     }
 
-    /**
-     * @notice V2: Public deposit — anyone can deposit their own BUX.
-     * @dev Uses msg.sender as the blocksterWallet. The caller must have
-     *      approved this vault to spend their BUX via BUX.approve(vault, amount).
-     * @param externalWallet The user's connected external wallet (prize destination)
-     * @param amount The amount of BUX to deposit (in wei, 18 decimals)
-     */
     function deposit(
         address externalWallet,
         uint256 amount
@@ -526,10 +534,8 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
 
         address blocksterWallet = _msgSender();
 
-        // Transfer BUX from caller to this contract
         buxToken.safeTransferFrom(blocksterWallet, address(this), amount);
 
-        // Calculate position block (1-indexed)
         uint256 startPosition = round.totalEntries + 1;
         uint256 endPosition = round.totalEntries + amount;
         round.totalEntries = endPosition;
@@ -645,17 +651,14 @@ contract AirdropVaultV2 is Initializable, ContextUpgradeable, OwnableUpgradeable
         require(round.isDrawn, "Airdrop not drawn yet");
         require(prizePosition >= 1 && prizePosition <= NUM_WINNERS, "Invalid prize position");
 
-        Winner storage winner = _winners[_roundId][prizePosition - 1];
-        Deposit storage dep = _deposits[_roundId][winner.depositIndex];
+        WinnerV3 storage w = _winnersV3[_roundId][prizePosition - 1];
+        require(w.blocksterWallet != address(0), "Winner not set yet");
 
-        return (
-            dep.blocksterWallet,
-            dep.externalWallet,
-            dep.amount,
-            dep.startPosition,
-            dep.endPosition,
-            winner.randomNumber
-        );
+        return (w.blocksterWallet, w.externalWallet, w.buxRedeemed, w.blockStart, w.blockEnd, w.randomNumber);
+    }
+
+    function getWinnerCount(uint256 _roundId) external view returns (uint256) {
+        return _winnerCountV3[_roundId];
     }
 
     function getRoundState(uint256 _roundId) external view returns (

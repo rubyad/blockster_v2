@@ -1,8 +1,18 @@
 defmodule BlocksterV2Web.AirdropLive do
   use BlocksterV2Web, :live_view
 
+  require Logger
+
   alias BlocksterV2.Airdrop
   alias BlocksterV2.Wallets
+
+  @vault_proxy "0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c"
+  @vault_impl "0x1d540f6bc7d55DCa7F392b9cc7668F2f14d330F9"
+
+  def vault_impl, do: @vault_impl
+
+  defp vault_read_proxy_url(selector),
+    do: "https://roguescan.io/address/#{@vault_proxy}?tab=read_proxy&source_address=#{@vault_impl}##{selector}"
 
   # ============================================================
   # Mount
@@ -22,12 +32,9 @@ defmodule BlocksterV2Web.AirdropLive do
     current_round = Airdrop.get_current_round()
     round_id = if current_round, do: current_round.round_id
 
+    # Fixed countdown: March 1, 2026 at 12:00 PM EST (17:00 UTC)
     airdrop_end_time =
-      if current_round do
-        DateTime.to_unix(current_round.end_time)
-      else
-        DateTime.new!(~D[2026-03-01], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
-      end
+      DateTime.new!(~D[2026-03-01], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
 
     {user_entries, connected_wallet} =
       if current_user && round_id do
@@ -164,13 +171,14 @@ defmodule BlocksterV2Web.AirdropLive do
 
       Logger.info("[Airdrop] Deposit confirmed: #{deposit_tx} for #{amount} BUX (user #{user.id})")
 
-      start_async(socket, :redeem_bux, fn ->
-        # Deposit already happened on-chain — just record in Postgres + deduct Mnesia
-        Airdrop.redeem_bux(user, amount, round_id,
-          external_wallet: external_wallet,
-          deposit_tx: deposit_tx
-        )
-      end)
+      socket =
+        start_async(socket, :redeem_bux, fn ->
+          # Deposit already happened on-chain — just record in Postgres + deduct Mnesia
+          Airdrop.redeem_bux(user, amount, round_id,
+            external_wallet: external_wallet,
+            deposit_tx: deposit_tx
+          )
+        end)
 
       # Sync on-chain balances in background (BUX was deducted)
       BlocksterV2.BuxMinter.sync_user_balances_async(user.id, smart_wallet, force: true)
@@ -196,20 +204,21 @@ defmodule BlocksterV2Web.AirdropLive do
       user_id = user.id
       claim_wallet = wallet.wallet_address
 
-      start_async(socket, :claim_prize, fn ->
-        # Call BUX Minter to send USDT on Arbitrum, then record the tx hash
-        claim_tx =
-          case BlocksterV2.BuxMinter.airdrop_claim(round_id, winner_index) do
-            {:ok, response} -> response["transactionHash"] || "pending"
-            {:error, _reason} -> nil
-          end
+      socket =
+        start_async(socket, :claim_prize, fn ->
+          # Call BUX Minter to send USDT on Arbitrum, then record the tx hash
+          claim_tx =
+            case BlocksterV2.BuxMinter.airdrop_claim(round_id, winner_index) do
+              {:ok, response} -> response["transactionHash"] || "pending"
+              {:error, _reason} -> nil
+            end
 
-        if claim_tx do
-          Airdrop.claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet)
-        else
-          {:error, :claim_tx_failed}
-        end
-      end)
+          if claim_tx do
+            Airdrop.claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet)
+          else
+            {:error, :claim_tx_failed}
+          end
+        end)
 
       {:noreply, assign(socket, claiming_index: winner_index)}
     end
@@ -221,6 +230,10 @@ defmodule BlocksterV2Web.AirdropLive do
 
   def handle_event("close_fairness_modal", _params, socket) do
     {:noreply, assign(socket, show_fairness_modal: false)}
+  end
+
+  def handle_event("stop_propagation", _params, socket) do
+    {:noreply, socket}
   end
 
   # ============================================================
@@ -332,7 +345,23 @@ defmodule BlocksterV2Web.AirdropLive do
     {:noreply,
      socket
      |> assign(airdrop_drawn: true, winners: winners, entry_results: entry_results, verification_data: verification_data)
-     |> put_flash(:info, "The airdrop has been drawn! Check your results.")}
+     |> put_flash(:info, "The airdrop has been drawn! Winners revealing...")}
+  end
+
+  def handle_info({:airdrop_winner_revealed, _round_id, winner}, socket) do
+    existing = socket.assigns.winners
+    idx = Enum.find_index(existing, &(&1.winner_index == winner.winner_index))
+
+    winners =
+      if idx do
+        # Update existing winner (e.g., prize_registered changed)
+        List.replace_at(existing, idx, winner)
+      else
+        existing ++ [winner]
+      end
+
+    entry_results = compute_entry_results(socket.assigns.user_entries, winners)
+    {:noreply, assign(socket, winners: winners, entry_results: entry_results)}
   end
 
   # ============================================================
@@ -679,8 +708,9 @@ defmodule BlocksterV2Web.AirdropLive do
                 <td class="py-3 pr-3 font-medium text-gray-900"><%= winner.winner_index + 1 %></td>
                 <td class="py-3 pr-3">
                   <a
-                    href={"https://roguescan.io/address/#{winner.wallet_address}"}
+                    href={vault_read_proxy_url("0x6b1da364")}
                     target="_blank"
+                    title="View on-chain winner info"
                     class="text-blue-500 hover:underline font-mono text-xs cursor-pointer"
                   >
                     <%= truncate_address(winner.wallet_address) %>
@@ -736,10 +766,10 @@ defmodule BlocksterV2Web.AirdropLive do
         </span>
         <%= if @winner.claim_tx && @winner.claim_tx != "pending" do %>
           <a href={"https://arbiscan.io/tx/#{@winner.claim_tx}"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
-            tx
+            View tx
           </a>
         <% end %>
-      <% @current_user && @winner.user_id == @current_user.id && @connected_wallet != nil -> %>
+      <% @current_user && @winner.user_id == @current_user.id && @connected_wallet != nil && @winner.prize_registered -> %>
         <button
           type="button"
           phx-click="claim_prize"
@@ -749,6 +779,8 @@ defmodule BlocksterV2Web.AirdropLive do
         >
           <%= if @claiming_index == @winner.winner_index, do: "Claiming...", else: "Claim" %>
         </button>
+      <% @current_user && @winner.user_id == @current_user.id && !@winner.prize_registered -> %>
+        <span class="text-xs text-gray-400">Registering...</span>
       <% @current_user && @winner.user_id == @current_user.id -> %>
         <.link navigate={~p"/member/#{@current_user.slug}"} class="text-xs font-medium text-blue-500 hover:underline cursor-pointer">
           Connect Wallet
@@ -786,7 +818,12 @@ defmodule BlocksterV2Web.AirdropLive do
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                   </span>
-                <% @current_user && @connected_wallet -> %>
+                  <%= if win.claim_tx && win.claim_tx != "pending" do %>
+                    <a href={"https://arbiscan.io/tx/#{win.claim_tx}"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
+                      View tx
+                    </a>
+                  <% end %>
+                <% @current_user && @connected_wallet && win.prize_registered -> %>
                   <button
                     type="button"
                     phx-click="claim_prize"
@@ -796,6 +833,8 @@ defmodule BlocksterV2Web.AirdropLive do
                   >
                     <%= if @claiming_index == win.winner_index, do: "Claiming...", else: "Claim $#{format_prize_usd(win.prize_usd)}" %>
                   </button>
+                <% @current_user && @connected_wallet && !win.prize_registered -> %>
+                  <span class="text-xs text-gray-400">Registering...</span>
                 <% @current_user -> %>
                   <.link navigate={~p"/member/#{@current_user.slug}"} class="text-xs text-blue-500 hover:underline cursor-pointer">
                     Connect Wallet to Claim
@@ -847,105 +886,140 @@ defmodule BlocksterV2Web.AirdropLive do
 
   defp fairness_modal(assigns) do
     ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" phx-window-keydown="close_fairness_modal" phx-key="Escape">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" phx-click="close_fairness_modal"></div>
-
-      <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+    <div class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" phx-click="close_fairness_modal" phx-window-keydown="close_fairness_modal" phx-key="Escape">
+      <div class="bg-white rounded-none sm:rounded-2xl w-full sm:max-w-lg max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl" phx-click="stop_propagation">
         <%!-- Header --%>
-        <div class="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl flex items-center justify-between z-10">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h3 class="text-lg font-bold text-gray-900">Provably Fair Verification</h3>
+        <div class="sticky top-0 bg-white border-b border-gray-200 p-3 sm:p-4 sm:rounded-t-2xl flex items-center justify-between z-10">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 sm:w-5 h-4 sm:h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <h2 class="text-base sm:text-lg font-bold text-gray-900">Provably Fair Verification</h2>
           </div>
-          <button type="button" phx-click="close_fairness_modal" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button type="button" phx-click="close_fairness_modal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <svg class="w-5 sm:w-6 h-5 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <%!-- Steps --%>
-        <div class="p-6 space-y-6">
+        <%!-- Content --%>
+        <div class="p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <%!-- Round Details --%>
+          <div class="bg-blue-50 rounded-lg p-2 sm:p-3 border border-blue-200">
+            <p class="text-xs sm:text-sm font-medium text-blue-800 mb-1 sm:mb-2">Round Details</p>
+            <div class="grid grid-cols-2 gap-1 sm:gap-2 text-xs sm:text-sm">
+              <div class="text-blue-600">Round ID:</div>
+              <div class="font-mono text-[10px] sm:text-xs"><%= @verification_data.round_id %></div>
+              <div class="text-blue-600">Total Entries:</div>
+              <div class="text-xs sm:text-sm"><%= Number.Delimit.number_to_delimited(@verification_data.total_entries, precision: 0) %></div>
+              <div class="text-blue-600">Winners:</div>
+              <div class="text-xs sm:text-sm">33</div>
+            </div>
+          </div>
+
           <%!-- Step 1: Commitment --%>
-          <div class="flex gap-4">
-            <div class="shrink-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-              <span class="text-white text-sm font-bold">1</span>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="shrink-0 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                <span class="text-white text-xs font-bold">1</span>
+              </div>
+              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Commitment Published Before Round Opened</h4>
             </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="font-medium text-gray-900 mb-1">Before Airdrop Opened</h4>
-              <p class="text-sm text-gray-500 mb-3">
-                We committed to a secret seed before anyone could enter. This hash was published on-chain &mdash; we can't change it.
-              </p>
-              <div class="bg-gray-50 rounded-lg p-3">
-                <p class="text-xs text-gray-500 mb-1">Commitment Hash</p>
-                <p class="text-xs font-mono text-gray-700 break-all"><%= @verification_data.commitment_hash %></p>
+            <p class="text-[10px] sm:text-xs text-gray-500 ml-8">
+              Before anyone could enter, we generated a secret server seed and published its SHA-256 hash on-chain. This commitment cannot be changed after the fact.
+            </p>
+            <div class="ml-8">
+              <label class="text-[10px] sm:text-xs font-medium text-gray-700">Commitment Hash (SHA-256 of Server Seed)</label>
+              <%= if @verification_data.start_round_tx do %>
+                <a href={"https://roguescan.io/tx/#{@verification_data.start_round_tx}?tab=logs"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                  <%= @verification_data.commitment_hash %>
+                </a>
+              <% else %>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto">
+                  <%= @verification_data.commitment_hash %>
+                </code>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Step 2: Airdrop Closed — Block Hash --%>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="shrink-0 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                <span class="text-white text-xs font-bold">2</span>
+              </div>
+              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Airdrop Closed — Block Hash Captured</h4>
+            </div>
+            <p class="text-[10px] sm:text-xs text-gray-500 ml-8">
+              When the countdown expired, the blockchain provided a block hash as external randomness. Nobody — including us — could predict or control this value.
+            </p>
+            <div class="ml-8">
+              <label class="text-[10px] sm:text-xs font-medium text-gray-700">Block Hash at Close</label>
+              <%= if @verification_data.close_tx do %>
+                <a href={"https://roguescan.io/tx/#{@verification_data.close_tx}?tab=logs"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                  <%= @verification_data.block_hash_at_close %>
+                </a>
+              <% else %>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto">
+                  <%= @verification_data.block_hash_at_close %>
+                </code>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Step 3: Server Seed Revealed --%>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="shrink-0 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                <span class="text-white text-xs font-bold">3</span>
+              </div>
+              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Server Seed Revealed</h4>
+            </div>
+            <p class="text-[10px] sm:text-xs text-gray-500 ml-8">
+              After the draw, our secret server seed is revealed. You can verify that SHA-256(server_seed) produces the exact commitment hash from Step 1.
+            </p>
+            <div class="ml-8 space-y-2">
+              <div>
+                <label class="text-[10px] sm:text-xs font-medium text-gray-700">Server Seed (revealed)</label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto">
+                  <%= @verification_data.server_seed %>
+                </code>
+              </div>
+              <div class="flex items-center gap-2 bg-green-50 rounded-lg p-2 border border-green-200">
+                <svg class="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                <p class="text-[10px] sm:text-xs text-green-700 font-medium">SHA-256(Server Seed) matches commitment hash from Step 1</p>
               </div>
             </div>
           </div>
 
-          <%!-- Step 2: Block Hash --%>
-          <div class="flex gap-4">
-            <div class="shrink-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-              <span class="text-white text-sm font-bold">2</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="font-medium text-gray-900 mb-1">Airdrop Closed</h4>
-              <p class="text-sm text-gray-500 mb-3">
-                The blockchain provided external randomness we couldn't predict. Nobody can control future block hashes.
-              </p>
-              <div class="bg-gray-50 rounded-lg p-3">
-                <p class="text-xs text-gray-500 mb-1">Block Hash at Close</p>
-                <p class="text-xs font-mono text-gray-700 break-all"><%= @verification_data.block_hash_at_close %></p>
+          <%!-- Step 4: Winner Derivation Algorithm --%>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="shrink-0 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                <span class="text-white text-xs font-bold">4</span>
               </div>
+              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Winner Derivation Algorithm</h4>
             </div>
-          </div>
+            <p class="text-[10px] sm:text-xs text-gray-500 ml-8">
+              Each winner position is derived deterministically from the combined seed. Anyone can re-run this exact algorithm to reproduce every winner.
+            </p>
+            <div class="ml-8 space-y-2">
+              <%!-- Verification Steps --%>
+              <div class="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200">
+                <p class="text-[10px] sm:text-xs font-medium text-green-800 mb-1 sm:mb-2">Algorithm</p>
+                <ol class="text-[10px] sm:text-xs text-green-700 space-y-0.5 sm:space-y-1 list-decimal ml-4">
+                  <li>Combine seeds: <span class="font-mono">combined = keccak256(server_seed | block_hash)</span></li>
+                  <li>For each winner i (0 to 32):</li>
+                  <li class="ml-4"><span class="font-mono">hash = keccak256(combined, i)</span></li>
+                  <li class="ml-4"><span class="font-mono">position = (hash mod <%= Number.Delimit.number_to_delimited(@verification_data.total_entries, precision: 0) %>) + 1</span></li>
+                  <li>Map position to the entry block that contains it &rarr; winner's wallet</li>
+                </ol>
+              </div>
 
-          <%!-- Step 3: Seed Revealed --%>
-          <div class="flex gap-4">
-            <div class="shrink-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-              <span class="text-white text-sm font-bold">3</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="font-medium text-gray-900 mb-1">Seed Revealed</h4>
-              <p class="text-sm text-gray-500 mb-3">
-                We revealed our secret seed. Verify it matches the commitment from Step 1.
-              </p>
-              <div class="bg-gray-50 rounded-lg p-3 space-y-2">
-                <div>
-                  <p class="text-xs text-gray-500 mb-1">Server Seed</p>
-                  <p class="text-xs font-mono text-gray-700 break-all"><%= @verification_data.server_seed %></p>
-                </div>
-                <div class="flex items-center gap-2 pt-2 border-t border-gray-200">
-                  <svg class="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <p class="text-xs text-green-700 font-medium">SHA256(Server Seed) matches commitment hash</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Step 4: Winner Derivation --%>
-          <div class="flex gap-4">
-            <div class="shrink-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-              <span class="text-white text-sm font-bold">4</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="font-medium text-gray-900 mb-1">Winner Derivation</h4>
-              <p class="text-sm text-gray-500 mb-3">
-                Each winner is derived deterministically. Anyone can re-run this math to verify every winner.
-              </p>
-              <div class="bg-gray-50 rounded-lg p-3 mb-3">
-                <p class="text-xs text-gray-500 mb-1">Formula</p>
-                <p class="text-xs font-mono text-gray-700">Combined Seed = keccak256(Server Seed + Block Hash)</p>
-                <p class="text-xs font-mono text-gray-700 mt-1">
-                  Winner[i] = keccak256(Combined, i) mod <%= Number.Delimit.number_to_delimited(@verification_data.total_entries, precision: 0) %> + 1
-                </p>
-              </div>
+              <%!-- Winners Table --%>
               <div class="bg-gray-50 rounded-lg overflow-hidden">
                 <table class="w-full text-xs">
                   <thead>
@@ -953,6 +1027,7 @@ defmodule BlocksterV2Web.AirdropLive do
                       <th class="text-left p-2 text-gray-500 font-medium">#</th>
                       <th class="text-left p-2 text-gray-500 font-medium">Position</th>
                       <th class="text-left p-2 text-gray-500 font-medium">Winner</th>
+                      <th class="text-left p-2 text-gray-500 font-medium">Prize</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -961,6 +1036,7 @@ defmodule BlocksterV2Web.AirdropLive do
                         <td class="p-2 text-gray-600"><%= winner.winner_index + 1 %></td>
                         <td class="p-2 font-mono text-gray-700">#<%= Number.Delimit.number_to_delimited(winner.random_number, precision: 0) %></td>
                         <td class="p-2 font-mono text-gray-500"><%= truncate_address(winner.wallet_address) %></td>
+                        <td class="p-2 text-gray-700">$<%= format_prize_usd(winner.prize_usd) %></td>
                       </tr>
                     <% end %>
                   </tbody>
@@ -968,14 +1044,69 @@ defmodule BlocksterV2Web.AirdropLive do
               </div>
             </div>
           </div>
+
+          <%!-- Step 5: External Verification --%>
+          <div class="border-t pt-3 sm:pt-4">
+            <p class="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Verify Externally</p>
+            <p class="text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">
+              Click each link to independently verify using external tools:
+            </p>
+            <div class="space-y-2 sm:space-y-3">
+              <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">1. Verify server seed matches commitment</p>
+                <a href={"https://md5calc.com/hash/sha256/#{@verification_data.server_seed}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
+                  SHA-256(server_seed) &rarr; Click to verify
+                </a>
+                <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Expected: <%= @verification_data.commitment_hash %></p>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">2. Verify combined seed (keccak256)</p>
+                <a href={"https://emn178.github.io/online-tools/keccak_256.html?input=#{URI.encode(@verification_data.server_seed <> @verification_data.block_hash_at_close)}&input_type=utf-8"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
+                  keccak256(server_seed + block_hash) &rarr; Click to verify
+                </a>
+                <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Input: <%= @verification_data.server_seed %><%= @verification_data.block_hash_at_close %></p>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">3. Verify on-chain (AirdropVault read functions)</p>
+                <div class="space-y-1">
+                  <a
+                    href={vault_read_proxy_url("0x35db5e5d")}
+                    target="_blank"
+                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
+                  >
+                    verifyFairness() &rarr; On-chain verification
+                  </a>
+                  <a
+                    href={vault_read_proxy_url("0x6b1da364")}
+                    target="_blank"
+                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
+                  >
+                    getWinnerInfo(position) &rarr; View any winner
+                  </a>
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">4. View prize payouts on Arbitrum</p>
+                <a
+                  href="https://arbiscan.io/address/0x919149CA8DB412541D2d8B3F150fa567fEFB58e1#readProxyContract"
+                  target="_blank"
+                  class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
+                >
+                  AirdropPrizePool on Arbiscan &rarr; Read contract
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
         <%!-- Footer --%>
-        <div class="border-t border-gray-200 p-6 text-center">
-          <p class="text-xs text-gray-500">
-            All values are stored on-chain and verifiable on
-            <a href="https://roguescan.io" target="_blank" class="text-blue-500 hover:underline cursor-pointer">RogueScan</a>
-          </p>
+        <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl">
+          <button type="button" phx-click="close_fairness_modal" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all cursor-pointer">
+            Close
+          </button>
         </div>
       </div>
     </div>

@@ -15,7 +15,6 @@ defmodule BlocksterV2.Airdrop.Settler do
 
   alias BlocksterV2.{Airdrop, BuxMinter, GlobalSingleton}
 
-  @num_winners 33
   @rpc_url "https://rpc.roguechain.io/rpc"
 
   def start_link(opts) do
@@ -114,15 +113,19 @@ defmodule BlocksterV2.Airdrop.Settler do
         winners = Airdrop.get_winners(round.round_id)
         Logger.info("[Settler] Round #{round.round_id} drawn — #{length(winners)} winners")
 
-        # Register prizes on-chain (non-fatal — setPrize is idempotent)
-        register_prizes(round.round_id, winners)
+        # Sync draw on-chain so vault's getWinnerInfo() works
+        draw_on_chain(round)
 
-        # Broadcast to LiveView subscribers
+        # Broadcast drawn state immediately (empty winners — they reveal one by one)
         Phoenix.PubSub.broadcast(
           BlocksterV2.PubSub,
           "airdrop:#{round.round_id}",
-          {:airdrop_drawn, round.round_id, winners}
+          {:airdrop_drawn, round.round_id, []}
         )
+
+        # Register prizes on-chain and reveal winners one by one as each confirms
+        round_id = round.round_id
+        Task.start(fn -> register_and_reveal_prizes(round_id, winners) end)
 
       {:error, :no_entries} ->
         Logger.warning("[Settler] Round #{round.round_id} has no entries, skipping draw")
@@ -136,18 +139,67 @@ defmodule BlocksterV2.Airdrop.Settler do
     Logger.info("[Settler] Round #{round.round_id} already in status #{status}, nothing to do")
   end
 
-  defp register_prizes(round_id, winners) do
+  defp register_and_reveal_prizes(round_id, winners) do
     Enum.each(winners, fn winner ->
       wallet = winner.external_wallet || winner.wallet_address
 
-      case BuxMinter.airdrop_set_prize(round_id, winner.winner_index, wallet, winner.prize_usdt) do
+      # 1. Register prize on PrizePool (Arbitrum) for USDT payout
+      prize_registered =
+        case BuxMinter.airdrop_set_prize(round_id, winner.winner_index, wallet, winner.prize_usdt) do
+          {:ok, _} ->
+            Logger.debug("[Settler] Prize #{winner.winner_index} registered for #{wallet}")
+            Airdrop.mark_prize_registered(round_id, winner.winner_index)
+            true
+
+          {:error, reason} ->
+            Logger.warning("[Settler] Prize #{winner.winner_index} registration failed: #{inspect(reason)}")
+            false
+        end
+
+      # 2. Push winner to vault (Rogue Chain) for on-chain verification
+      winner_data = %{
+        random_number: winner.random_number,
+        blockster_wallet: winner.wallet_address,
+        external_wallet: winner.external_wallet || winner.wallet_address,
+        bux_redeemed: winner.deposit_amount,
+        block_start: winner.deposit_start,
+        block_end: winner.deposit_end
+      }
+
+      # prize_position is 1-indexed (winner_index is 0-indexed)
+      case BuxMinter.airdrop_set_winner(round_id, winner.winner_index + 1, winner_data) do
         {:ok, _} ->
-          Logger.debug("[Settler] Prize #{winner.winner_index} registered for #{wallet}")
+          Logger.debug("[Settler] Winner #{winner.winner_index} set on vault")
 
         {:error, reason} ->
-          Logger.warning("[Settler] Prize #{winner.winner_index} registration failed: #{inspect(reason)}")
+          Logger.warning("[Settler] Winner #{winner.winner_index} vault set failed: #{inspect(reason)}")
       end
+
+      # 3. Reveal to UI (with current prize_registered status)
+      revealed_winner = %{winner | prize_registered: prize_registered}
+
+      Phoenix.PubSub.broadcast(
+        BlocksterV2.PubSub,
+        "airdrop:#{round_id}",
+        {:airdrop_winner_revealed, round_id, revealed_winner}
+      )
     end)
+  end
+
+  defp draw_on_chain(round) do
+    case Airdrop.get_round(round.round_id) do
+      %{server_seed: server_seed} when is_binary(server_seed) ->
+        case BuxMinter.airdrop_draw_winners(server_seed) do
+          {:ok, resp} ->
+            Logger.info("[Settler] On-chain draw synced for round #{round.round_id}: tx=#{resp["transactionHash"]}")
+
+          {:error, reason} ->
+            Logger.warning("[Settler] On-chain draw failed (non-blocking): #{inspect(reason)}")
+        end
+
+      _ ->
+        Logger.warning("[Settler] No server_seed found for round #{round.round_id}, skipping on-chain draw")
+    end
   end
 
   # ============================================================================
@@ -173,6 +225,8 @@ defmodule BlocksterV2.Airdrop.Settler do
   end
 
   defp recover_from_db(state) do
+    verify_round_id_sync()
+
     case Airdrop.get_current_round() do
       %{status: "closed"} = round ->
         Logger.info("[Settler] Found interrupted round #{round.round_id} (closed), settling now")
@@ -200,6 +254,34 @@ defmodule BlocksterV2.Airdrop.Settler do
       nil ->
         Logger.info("[Settler] No active round, waiting for :round_created")
         state
+    end
+  end
+
+  defp verify_round_id_sync do
+    import Ecto.Query, warn: false
+    alias BlocksterV2.Airdrop.Round
+
+    db_max =
+      case BlocksterV2.Repo.one(from r in Round, select: max(r.round_id)) do
+        nil -> 0
+        max_id -> max_id
+      end
+
+    case BuxMinter.airdrop_get_vault_round_id() do
+      {:ok, vault_round_id} ->
+        cond do
+          vault_round_id == db_max ->
+            Logger.info("[Settler] Round IDs in sync: vault=#{vault_round_id}, DB=#{db_max}")
+
+          vault_round_id > db_max ->
+            Logger.warning("[Settler] Vault ahead of DB: vault=#{vault_round_id}, DB=#{db_max} (gap of #{vault_round_id - db_max})")
+
+          vault_round_id < db_max ->
+            Logger.error("[Settler] DB ahead of vault: vault=#{vault_round_id}, DB=#{db_max} — this should not happen!")
+        end
+
+      {:error, reason} ->
+        Logger.warning("[Settler] Could not verify round ID sync (vault unreachable): #{inspect(reason)}")
     end
   end
 end

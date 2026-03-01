@@ -1,8 +1,46 @@
 defmodule BlocksterV2.Airdrop.ProvablyFairTest do
-  use BlocksterV2.DataCase, async: true
+  use BlocksterV2.DataCase, async: false
 
   alias BlocksterV2.Airdrop
   alias BlocksterV2.ProvablyFair
+
+  # ============================================================================
+  # Mnesia Setup
+  # ============================================================================
+
+  defp setup_mnesia(_context) do
+    :mnesia.start()
+
+    tables = [
+      {:user_bux_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
+        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
+        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
+        :spacebux_balance, :tronbux_balance, :tranbux_balance]},
+      {:user_rogue_balances,
+       [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain, :rogue_balance_arbitrum]}
+    ]
+
+    for {table, attrs} <- tables do
+      case :mnesia.create_table(table, attributes: attrs, type: :set, ram_copies: [node()]) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+        {:aborted, other} -> raise "Mnesia table creation failed: #{inspect(other)}"
+      end
+    end
+
+    :ok
+  end
+
+  defp set_bux_balance(user, balance) do
+    record =
+      {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
+       balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+
+    :mnesia.dirty_write(:user_bux_balances, record)
+  end
+
+  setup :setup_mnesia
 
   # ============================================================================
   # Server Seed Generation
@@ -168,12 +206,13 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
   describe "full round provably fair verification" do
     test "commitment published before draw matches revealed seed" do
       # 1. Create round — commitment is published
-      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z])
+      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z], skip_vault: true)
       commitment_before = Airdrop.get_commitment_hash(round.round_id)
       assert commitment_before != nil
 
       # 2. Add entries
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
 
       # 3. Close round
@@ -191,8 +230,9 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
     end
 
     test "winners can be independently re-derived from verification data" do
-      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z])
+      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z], skip_vault: true)
       user = create_user()
+      set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
       block_hash = "0x" <> String.duplicate("ab", 32)
       {:ok, _} = Airdrop.close_round(round.round_id, block_hash)

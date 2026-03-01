@@ -66,7 +66,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
 
   defp create_round(opts \\ []) do
     end_time = Keyword.get(opts, :end_time, ~U[2026-03-01 00:00:00Z])
-    {:ok, round} = Airdrop.create_round(end_time)
+    {:ok, round} = Airdrop.create_round(end_time, skip_vault: true)
     round
   end
 
@@ -189,7 +189,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       user2 = create_user()
 
       # 1. Create round
-      {:ok, round} = Airdrop.create_round(~U[2026-03-15 00:00:00Z])
+      {:ok, round} = Airdrop.create_round(~U[2026-03-15 00:00:00Z], skip_vault: true)
       assert round.status == "open"
       assert round.server_seed != nil
       assert round.commitment_hash != nil
@@ -237,13 +237,13 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
         assert w.external_wallet != nil
       end
 
-      # Prize structure is correct (in USD cents: 1st=$0.65, 2nd=$0.40, 3rd=$0.35, 4th-33rd=$0.12)
-      assert Enum.at(winners, 0).prize_usd == 65
-      assert Enum.at(winners, 1).prize_usd == 40
-      assert Enum.at(winners, 2).prize_usd == 35
+      # Prize structure is correct (in USD cents: 1st=$250, 2nd=$150, 3rd=$100, 4th-33rd=$50)
+      assert Enum.at(winners, 0).prize_usd == 25_000
+      assert Enum.at(winners, 1).prize_usd == 15_000
+      assert Enum.at(winners, 2).prize_usd == 10_000
 
       for i <- 3..32 do
-        assert Enum.at(winners, i).prize_usd == 12
+        assert Enum.at(winners, i).prize_usd == 5_000
       end
 
       # 7. Provably fair verification
@@ -281,7 +281,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       user1 = create_user()
       user2 = create_user()
 
-      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z])
+      {:ok, round} = Airdrop.create_round(~U[2026-04-01 00:00:00Z], skip_vault: true)
 
       # User1 deposits 600 BUX (positions 1-600, 75% of pool)
       set_bux_balance(user1, 600)
@@ -317,7 +317,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       user = create_user()
 
       # Round created
-      {:ok, round} = Airdrop.create_round(~U[2026-05-01 00:00:00Z])
+      {:ok, round} = Airdrop.create_round(~U[2026-05-01 00:00:00Z], skip_vault: true)
       assert Repo.aggregate(Airdrop.Round, :count) == 1
       assert Repo.aggregate(Airdrop.Entry, :count) == 0
       assert Repo.aggregate(Airdrop.Winner, :count) == 0
@@ -355,7 +355,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       user = create_user()
 
       # Create two rounds with the same server seed and block hash
-      {:ok, round1} = Airdrop.create_round(~U[2026-03-01 00:00:00Z])
+      {:ok, round1} = Airdrop.create_round(~U[2026-03-01 00:00:00Z], skip_vault: true)
       set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round1.round_id)
       {:ok, _} = Airdrop.close_round(round1.round_id, "0x" <> String.duplicate("ab", 32))

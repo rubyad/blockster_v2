@@ -9,21 +9,53 @@ const { ethers } = require("hardhat");
  * 2. Call proxy.upgradeToAndCall(v2Impl, "0x") from vault admin (owner)
  * 3. Call proxy.initializeV2() to mark reinitializer(2)
  *
+ * Requires VAULT_ADMIN_PRIVATE_KEY in .env — this is the owner of the proxy.
+ *
  * Usage:
- *   npx hardhat run scripts/upgrade-airdrop-vault-v2.js --network roguechain
+ *   npx hardhat run scripts/upgrade-airdrop-vault-v2.js --network rogueMainnet
  */
 async function main() {
   const PROXY_ADDRESS = "0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c";
+  const EXPECTED_OWNER = "0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9";
 
-  const [deployer] = await ethers.getSigners();
-  console.log("Upgrading AirdropVault with account:", deployer.address);
+  // Use VAULT_ADMIN_PRIVATE_KEY directly — the vault owner is NOT the deployer wallet
+  const vaultAdminKey = process.env.VAULT_ADMIN_PRIVATE_KEY;
+  if (!vaultAdminKey) {
+    console.error("ERROR: VAULT_ADMIN_PRIVATE_KEY not set in .env");
+    process.exit(1);
+  }
 
-  const nonce = await deployer.getNonce();
+  const provider = new ethers.JsonRpcProvider("https://rpc.roguechain.io/rpc", 560013);
+  const vaultAdmin = new ethers.Wallet(vaultAdminKey, provider);
+
+  console.log("Upgrading AirdropVault with Vault Admin:", vaultAdmin.address);
+  if (vaultAdmin.address.toLowerCase() !== EXPECTED_OWNER.toLowerCase()) {
+    console.error(`ERROR: Wallet ${vaultAdmin.address} does not match expected owner ${EXPECTED_OWNER}`);
+    process.exit(1);
+  }
+
+  const balance = await provider.getBalance(vaultAdmin.address);
+  console.log("ROGUE balance:", ethers.formatEther(balance), "ROGUE");
+  if (balance === 0n) {
+    console.error("ERROR: Vault Admin has no ROGUE for gas");
+    process.exit(1);
+  }
+
+  // Verify on-chain owner matches
+  const proxyCheck = new ethers.Contract(PROXY_ADDRESS, ["function owner() view returns (address)"], provider);
+  const currentOwner = await proxyCheck.owner();
+  console.log("Current proxy owner:", currentOwner);
+  if (currentOwner.toLowerCase() !== vaultAdmin.address.toLowerCase()) {
+    console.error(`ERROR: Proxy owner is ${currentOwner}, not ${vaultAdmin.address}`);
+    process.exit(1);
+  }
+
+  const nonce = await provider.getTransactionCount(vaultAdmin.address);
   console.log("Current nonce:", nonce);
 
   // 1. Deploy V2 implementation
   console.log("\nDeploying AirdropVaultV2 implementation...");
-  const AirdropVaultV2 = await ethers.getContractFactory("AirdropVaultV2");
+  const AirdropVaultV2 = await ethers.getContractFactory("AirdropVaultV2", vaultAdmin);
   const v2Impl = await AirdropVaultV2.deploy({
     gasLimit: 5000000,
     nonce: nonce,
@@ -36,7 +68,11 @@ async function main() {
 
   // 2. Upgrade proxy to V2
   console.log("\nUpgrading proxy to V2...");
-  const proxy = await ethers.getContractAt("AirdropVault", PROXY_ADDRESS);
+  const proxy = new ethers.Contract(
+    PROXY_ADDRESS,
+    ["function upgradeToAndCall(address, bytes) external"],
+    vaultAdmin
+  );
 
   try {
     const upgradeTx = await proxy.upgradeToAndCall(v2Address, "0x", {
@@ -55,7 +91,16 @@ async function main() {
 
   // 3. Initialize V2
   console.log("\nInitializing V2...");
-  const upgraded = await ethers.getContractAt("AirdropVaultV2", PROXY_ADDRESS);
+  const upgraded = new ethers.Contract(
+    PROXY_ADDRESS,
+    [
+      "function initializeV2() external",
+      "function version() view returns (string)",
+      "function owner() view returns (address)",
+      "function roundId() view returns (uint256)"
+    ],
+    vaultAdmin
+  );
 
   try {
     const initTx = await upgraded.initializeV2({
