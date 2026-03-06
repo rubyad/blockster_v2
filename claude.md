@@ -19,6 +19,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - NEVER downgrade the AI Manager model to Sonnet or Haiku — always use the latest Opus model
 > - The AI Manager (`ai_manager.ex`) must always use Claude Opus for API calls
 >
+> **CRITICAL DATABASE RULES**:
+> - NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops/recreates the database
+> - NEVER delete or truncate tables — production data (products, hubs, users) is manually curated and irreplaceable
+> - The ONLY safe Ecto commands are `mix ecto.migrate` and `mix ecto.rollback`
+> - If a migration needs fixing, roll it back and fix — NEVER reset the entire database
+>
 > **CRITICAL MNESIA RULES**:
 > - NEVER delete Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`) - contains unrecoverable user data
 > - When new Mnesia tables are added, restart both nodes to create them

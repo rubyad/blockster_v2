@@ -303,51 +303,35 @@ defmodule BlocksterV2Web.ShopLive.Index do
   # === FILTER EVENT HANDLERS ===
 
   @impl true
-  def handle_event("filter_by_category", %{"slug" => slug, "name" => name}, socket) do
-    filtered = socket.assigns.all_products
-    |> Enum.filter(fn p -> Enum.any?(p.categories || [], &(&1.slug == slug)) end)
-    |> Enum.map(&transform_product/1)
-
+  def handle_event("filter_by_category", %{"slug" => slug}, socket) do
     {:noreply,
      socket
-     |> assign(:active_filter, {:category, slug, name})
-     |> assign(:filtered_products, filtered)
-     |> assign(:show_mobile_filters, false)}
+     |> assign(:show_mobile_filters, false)
+     |> push_patch(to: ~p"/shop?category=#{slug}")}
   end
 
   @impl true
-  def handle_event("filter_by_hub", %{"slug" => slug, "name" => name}, socket) do
-    filtered = socket.assigns.all_products
-    |> Enum.filter(fn p -> p.hub && p.hub.slug == slug end)
-    |> Enum.map(&transform_product/1)
-
+  def handle_event("filter_by_hub", %{"slug" => slug}, socket) do
     {:noreply,
      socket
-     |> assign(:active_filter, {:hub, slug, name})
-     |> assign(:filtered_products, filtered)
-     |> assign(:show_mobile_filters, false)}
+     |> assign(:show_mobile_filters, false)
+     |> push_patch(to: ~p"/shop?hub=#{slug}")}
   end
 
   @impl true
   def handle_event("filter_by_brand", %{"brand" => brand}, socket) do
-    filtered = socket.assigns.all_products
-    |> Enum.filter(fn p -> p.vendor == brand end)
-    |> Enum.map(&transform_product/1)
-
     {:noreply,
      socket
-     |> assign(:active_filter, {:brand, brand})
-     |> assign(:filtered_products, filtered)
-     |> assign(:show_mobile_filters, false)}
+     |> assign(:show_mobile_filters, false)
+     |> push_patch(to: ~p"/shop?brand=#{brand}")}
   end
 
   @impl true
   def handle_event("clear_all_filters", _params, socket) do
     {:noreply,
      socket
-     |> assign(:active_filter, nil)
-     |> assign(:filtered_products, nil)
-     |> assign(:show_mobile_filters, false)}
+     |> assign(:show_mobile_filters, false)
+     |> push_patch(to: ~p"/shop")}
   end
 
   # === ADMIN PRODUCT PLACEMENT EVENT HANDLERS ===

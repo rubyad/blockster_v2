@@ -39,6 +39,8 @@ defmodule BlocksterV2.Orders.Order do
     field :shipping_postal_code, :string
     field :shipping_country, :string
     field :shipping_phone, :string
+    field :shipping_cost, :decimal, default: Decimal.new("0")
+    field :shipping_method, :string
 
     # Status: pending -> bux_pending -> bux_paid -> rogue_pending -> rogue_paid -> helio_pending -> paid -> processing -> shipped -> delivered
     # Also: expired (30min timeout), cancelled, refunded
@@ -77,6 +79,12 @@ defmodule BlocksterV2.Orders.Order do
     |> cast(attrs, [:shipping_name, :shipping_email, :shipping_address_line1, :shipping_address_line2, :shipping_city, :shipping_state, :shipping_postal_code, :shipping_country, :shipping_phone])
     |> validate_required([:shipping_name, :shipping_email, :shipping_address_line1, :shipping_city, :shipping_postal_code, :shipping_country])
     |> validate_format(:shipping_email, ~r/^[^\s]+@[^\s]+$/)
+  end
+
+  def shipping_rate_changeset(order, attrs) do
+    order
+    |> cast(attrs, [:shipping_cost, :shipping_method])
+    |> validate_required([:shipping_cost, :shipping_method])
   end
 
   def bux_payment_changeset(order, attrs) do

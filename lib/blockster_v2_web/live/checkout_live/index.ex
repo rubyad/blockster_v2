@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.Order
   alias BlocksterV2.Shop.BalanceManager
+  alias BlocksterV2.Shipping
 
   require Logger
 
@@ -59,8 +60,10 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              socket
              |> assign_order(order)
              |> assign(:step, :payment)
+             |> assign(:shipping_phase, :address)
              |> assign(:page_title, "Checkout")
              |> assign_shipping_form(order)
+             |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()
              |> assign(:bux_payment_status, if(order.bux_tokens_burned > 0, do: :completed, else: :pending))
@@ -73,8 +76,10 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              socket
              |> assign_order(order)
              |> assign(:step, :payment)
+             |> assign(:shipping_phase, :address)
              |> assign(:page_title, "Checkout")
              |> assign_shipping_form(order)
+             |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()
              |> assign(:bux_payment_status, if(order.bux_tokens_burned > 0, do: :completed, else: :pending))
@@ -86,8 +91,10 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              socket
              |> assign_order(order)
              |> assign(:step, :payment)
+             |> assign(:shipping_phase, :address)
              |> assign(:page_title, "Checkout")
              |> assign_shipping_form(order)
+             |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()
              |> assign(:bux_payment_status, if(order.bux_tokens_burned > 0, do: :completed, else: :pending))
@@ -99,19 +106,31 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              socket
              |> assign_order(order)
              |> assign(:step, :payment)
+             |> assign(:shipping_phase, :address)
              |> assign(:page_title, "Checkout")
              |> assign_shipping_form(order)
+             |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()
              |> assign(:bux_payment_status, :completed)}
 
           order ->
+            # If shipping already saved with a rate, show rate selection
+            shipping_phase =
+              if order.shipping_country && order.shipping_country != "" do
+                :rate_selection
+              else
+                :address
+              end
+
             {:ok,
              socket
              |> assign_order(order)
              |> assign(:step, :shipping)
+             |> assign(:shipping_phase, shipping_phase)
              |> assign(:page_title, "Checkout")
              |> assign_shipping_form(order)
+             |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()}
         end
@@ -136,11 +155,38 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
         {:noreply,
          socket
          |> assign_order(order)
-         |> assign(:step, :review)
-         |> lock_rogue_rate()}
+         |> assign(:shipping_phase, :rate_selection)
+         |> assign_shipping_rates(order)}
 
       {:error, changeset} ->
         {:noreply, assign(socket, :shipping_changeset, changeset)}
+    end
+  end
+
+  def handle_event("select_shipping_rate", %{"rate" => rate_key}, socket) do
+    case Shipping.get_rate(rate_key) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Invalid shipping option")}
+
+      rate ->
+        order = socket.assigns.order
+
+        case Orders.update_order_shipping_rate(order, %{
+               shipping_cost: rate.cost,
+               shipping_method: rate_key
+             }) do
+          {:ok, order} ->
+            order = Orders.get_order(order.id)
+
+            {:noreply,
+             socket
+             |> assign_order(order)
+             |> assign(:step, :review)
+             |> lock_rogue_rate()}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to save shipping option")}
+        end
     end
   end
 
@@ -200,16 +246,31 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     step_atom = String.to_existing_atom(step)
 
     if step_atom in allowed_back do
+      order = socket.assigns.order
+
       socket =
         case step_atom do
-          :shipping -> assign_shipping_form(socket, socket.assigns.order)
-          _ -> socket
+          :shipping ->
+            socket
+            |> assign_shipping_form(order)
+            |> assign(:shipping_phase, :rate_selection)
+            |> assign_shipping_rates(order)
+
+          _ ->
+            socket
         end
 
       {:noreply, assign(socket, :step, step_atom)}
     else
       {:noreply, socket}
     end
+  end
+
+  def handle_event("edit_shipping_address", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:shipping_phase, :address)
+     |> assign_shipping_form(socket.assigns.order)}
   end
 
   # ── BUX Payment ─────────────────────────────────────────────────────────────
@@ -466,12 +527,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     end
   end
 
-  # ── Async Handlers ──────────────────────────────────────────────────────────
-
-  @impl true
-  # Note: BUX payment is now handled client-side via BuxPaymentHook JS transfer.
-  # Helio payment is handled client-side via HelioCheckoutHook widget (dynamic paylink + amount).
-
   # ── PubSub Handlers ────────────────────────────────────────────────────────
 
   @impl true
@@ -620,6 +675,17 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   defp assign_shipping_form(socket, order) do
     changeset = Order.shipping_changeset(order, %{})
     assign(socket, :shipping_changeset, changeset)
+  end
+
+  defp assign_shipping_rates(socket, order) do
+    country = order.shipping_country || ""
+    zone = Shipping.detect_zone(country)
+    rates = Shipping.rates_for_zone(zone)
+
+    socket
+    |> assign(:shipping_zone, zone)
+    |> assign(:shipping_rates, rates)
+    |> assign(:selected_shipping_rate, order.shipping_method)
   end
 
   defp assign_payment_defaults(socket) do
@@ -783,7 +849,11 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   end
 
   defp remaining_after_bux(%Order{} = order) do
-    Decimal.sub(order.subtotal, order.bux_discount_amount)
+    shipping = order.shipping_cost || Decimal.new("0")
+
+    order.subtotal
+    |> Decimal.add(shipping)
+    |> Decimal.sub(order.bux_discount_amount)
   end
 
   defp get_current_rogue_rate do
