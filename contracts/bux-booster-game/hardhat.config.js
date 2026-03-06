@@ -31,6 +31,17 @@ module.exports = {
       gasPrice: 1000000000000,  // 1000 gwei - Rogue Chain base fee
       timeout: 120000,
       httpHeaders: {}
+    },
+    arbitrumOne: {
+      url: "https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d",
+      chainId: 42161,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      timeout: 120000
+    }
+  },
+  etherscan: {
+    apiKey: {
+      arbitrumOne: "PP3PTJCR193PH2QG1PRJP9QD4AIQYYWBJR"
     }
   }
 };

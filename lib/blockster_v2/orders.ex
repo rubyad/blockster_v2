@@ -167,6 +167,10 @@ defmodule BlocksterV2.Orders do
     order |> Order.shipping_changeset(attrs) |> Repo.update()
   end
 
+  def update_order_shipping_rate(%Order{} = order, attrs) do
+    order |> Order.shipping_rate_changeset(attrs) |> Repo.update()
+  end
+
   def complete_helio_payment(%Order{} = order, %{helio_transaction_id: _} = attrs) do
     {:ok, order} =
       order

@@ -19,6 +19,12 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - NEVER downgrade the AI Manager model to Sonnet or Haiku — always use the latest Opus model
 > - The AI Manager (`ai_manager.ex`) must always use Claude Opus for API calls
 >
+> **CRITICAL DATABASE RULES**:
+> - NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops/recreates the database
+> - NEVER delete or truncate tables — production data (products, hubs, users) is manually curated and irreplaceable
+> - The ONLY safe Ecto commands are `mix ecto.migrate` and `mix ecto.rollback`
+> - If a migration needs fixing, roll it back and fix — NEVER reset the entire database
+>
 > **CRITICAL MNESIA RULES**:
 > - NEVER delete Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`) - contains unrecoverable user data
 > - When new Mnesia tables are added, restart both nodes to create them
@@ -29,6 +35,14 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - `flyctl secrets set` WITHOUT `--stage` **immediately restarts the production server** — this is destructive
 > - Staged secrets take effect on the next deploy, which is the safe and expected behavior
 > - NEVER run `flyctl secrets set` without `--stage` unless the user EXPLICITLY says to restart production
+>
+> **CRITICAL BUX TOKEN RULES**:
+> - BUX tokens live ON-CHAIN in users' smart wallets — they are real ERC-20 tokens, not just Mnesia entries
+> - Mnesia tracks balances for fast reads, but the on-chain balance is the source of truth
+> - To move BUX out of a user's wallet: approve() + transferFrom() — NEVER mint fresh tokens as a shortcut
+> - The airdrop deposit flow MUST use approve + transferFrom from the user's smart wallet to the vault
+> - NEVER assume tokens don't exist on-chain. If a user earned BUX and it was minted to their smart wallet, it's THERE.
+> - DO NOT invent or assume how systems work — read the code, read the contracts, and if unsure ASK THE USER
 >
 > **DEVELOPMENT WORKFLOW**:
 > - DO NOT restart nodes after code fixes - Elixir hot reloads. Only restart for supervision tree/config changes
@@ -120,6 +134,8 @@ Req.get(url, receive_timeout: 30_000)
 - NEVER change order or remove state variables - ONLY add at END
 - NEVER enable `viaIR: true` for stack too deep - use helper functions instead
 - Upgrade process: compile → force-import → upgrade-manual → init-vN → verify
+- **ALL contracts must be flattened** (inline all OZ dependencies) so they can be verified as a single file on RogueScan/Arbiscan
+- Never use `import "@openzeppelin/..."` — copy the needed code inline
 
 ---
 
@@ -138,6 +154,10 @@ BUX is the only active token. ROGUE is the native gas token. Hub tokens (moonBUX
 | ManagedAccountFactory | `0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3` |
 | Paymaster | `0x804cA06a85083eF01C9aE94bAE771446c25269a6` |
 | Referral Admin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` |
+| AirdropVault V3 (Proxy, Rogue) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` |
+| AirdropPrizePool (Proxy, Arbitrum) | `0x919149CA8DB412541D2d8B3F150fa567fEFB58e1` |
+| Deployer Wallet | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` |
+| Vault Admin Wallet | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` |
 | High Rollers NFT (Arbitrum) | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` |
 
 ### BUX Minter Service

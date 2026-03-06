@@ -1029,16 +1029,15 @@ defmodule BlocksterV2Web.ProductLive.Form do
           <%= if @config_has_sizes do %>
             <div class="py-3 border-b border-gray-100 pl-4">
               <label class="block text-sm font-medium text-gray-700 mb-2">Size Type</label>
-              <form phx-change="change_size_type" class="inline">
-                <select
-                  name="config_size_type"
-                  class="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                >
-                  <%= for {label, value} <- BlocksterV2.Shop.SizePresets.size_type_options() do %>
-                    <option value={value} selected={value == @config_size_type}><%= label %></option>
-                  <% end %>
-                </select>
-              </form>
+              <select
+                name="config_size_type"
+                phx-change="change_size_type"
+                class="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+              >
+                <%= for {label, value} <- BlocksterV2.Shop.SizePresets.size_type_options() do %>
+                  <option value={value} selected={value == @config_size_type}><%= label %></option>
+                <% end %>
+              </select>
 
               <%!-- Size Checkboxes --%>
               <div class="mt-3">

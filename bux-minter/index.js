@@ -576,6 +576,64 @@ if (referralAdminBBWallet) {
 }
 
 // ============================================================
+// Airdrop Contracts (AirdropVault on Rogue, AirdropPrizePool on Arbitrum)
+// ============================================================
+
+const AIRDROP_VAULT_ADDRESS = '0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c';
+const AIRDROP_PRIZE_POOL_ADDRESS = '0x919149CA8DB412541D2d8B3F150fa567fEFB58e1';
+const VAULT_ADMIN_PRIVATE_KEY = process.env.VAULT_ADMIN_PRIVATE_KEY;
+const ARBITRUM_RPC_URL = process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc';
+
+// AirdropVault ABI (Rogue Chain) — only functions we need
+const AIRDROP_VAULT_ABI = [
+  'function startRound(bytes32 _commitmentHash, uint256 _endTime) external',
+  'function depositFor(address blocksterWallet, address externalWallet, uint256 amount) external',
+  'function closeAirdrop() external',
+  'function drawWinners(bytes32 _serverSeed) external',
+  'function setWinner(uint256 _roundId, uint256 prizePosition, uint256 randomNumber, address blocksterWallet, address externalWallet, uint256 buxRedeemed, uint256 blockStart, uint256 blockEnd) external',
+  'function totalEntries() external view returns (uint256)',
+  'function roundId() external view returns (uint256)',
+  'event RoundStarted(uint256 roundId, bytes32 commitmentHash, uint256 endTime)',
+  'event BuxDeposited(uint256 indexed roundId, address indexed blocksterWallet, address externalWallet, uint256 amount, uint256 startPosition, uint256 endPosition)',
+  'event AirdropClosed(uint256 roundId, uint256 totalEntries, bytes32 blockHashAtClose)',
+  'event AirdropDrawn(uint256 roundId, bytes32 serverSeed, bytes32 blockHash, uint256 totalEntries)',
+  'event WinnerSet(uint256 roundId, uint256 prizePosition, address blocksterWallet, address externalWallet, uint256 randomNumber)'
+];
+
+// AirdropPrizePool ABI (Arbitrum) — only functions we need
+const AIRDROP_PRIZE_POOL_ABI = [
+  'function setPrize(uint256 _roundId, uint256 winnerIndex, address winner, uint256 amount) external',
+  'function sendPrize(uint256 _roundId, uint256 winnerIndex) external',
+  'function startNewRound() external',
+  'function roundId() external view returns (uint256)',
+  'event PrizeSent(uint256 indexed roundId, uint256 indexed winnerIndex, address winner, uint256 amount)'
+];
+
+// Vault admin wallet (Rogue Chain) — for depositFor calls
+let vaultAdminWallet = null;
+let airdropVaultContract = null;
+
+// Vault admin wallet (Arbitrum) — for sendPrize calls
+let arbitrumProvider = null;
+let vaultAdminArbitrumWallet = null;
+let airdropPrizePoolContract = null;
+
+if (VAULT_ADMIN_PRIVATE_KEY) {
+  // Rogue Chain vault admin
+  vaultAdminWallet = new ethers.Wallet(VAULT_ADMIN_PRIVATE_KEY, provider);
+  airdropVaultContract = new ethers.Contract(AIRDROP_VAULT_ADDRESS, AIRDROP_VAULT_ABI, vaultAdminWallet);
+  console.log(`[INIT] AirdropVault admin wallet (Rogue): ${vaultAdminWallet.address}`);
+
+  // Arbitrum prize pool admin
+  arbitrumProvider = new ethers.JsonRpcProvider(ARBITRUM_RPC_URL);
+  vaultAdminArbitrumWallet = new ethers.Wallet(VAULT_ADMIN_PRIVATE_KEY, arbitrumProvider);
+  airdropPrizePoolContract = new ethers.Contract(AIRDROP_PRIZE_POOL_ADDRESS, AIRDROP_PRIZE_POOL_ABI, vaultAdminArbitrumWallet);
+  console.log(`[INIT] AirdropPrizePool admin wallet (Arbitrum): ${vaultAdminArbitrumWallet.address}`);
+} else {
+  console.log(`[WARN] VAULT_ADMIN_PRIVATE_KEY not set - airdrop endpoints disabled`);
+}
+
+// ============================================================
 // ROGUE Sender Wallet (for reward/bonus ROGUE transfers)
 // ============================================================
 
@@ -629,6 +687,18 @@ if (referralAdminRBWallet) {
 if (rogueSenderWallet) {
   txQueues.rogueSender = new TransactionQueue(rogueSenderWallet, provider, 'rogueSender');
   console.log(`[INIT] Transaction queue created for ROGUE sender wallet: ${rogueSenderWallet.address}`);
+}
+
+// Create queue for vault admin wallet (Rogue Chain — airdrop deposits)
+if (vaultAdminWallet) {
+  txQueues.vaultAdmin = new TransactionQueue(vaultAdminWallet, provider, 'vaultAdmin');
+  console.log(`[INIT] Transaction queue created for vault admin (Rogue): ${vaultAdminWallet.address}`);
+}
+
+// Create queue for vault admin wallet (Arbitrum — airdrop prize claims)
+if (vaultAdminArbitrumWallet) {
+  txQueues.vaultAdminArbitrum = new TransactionQueue(vaultAdminArbitrumWallet, arbitrumProvider, 'vaultAdminArbitrum');
+  console.log(`[INIT] Transaction queue created for vault admin (Arbitrum): ${vaultAdminArbitrumWallet.address}`);
 }
 
 // Submit commitment for a new game
@@ -1146,6 +1216,528 @@ app.post('/transfer-rogue', authenticate, async (req, res) => {
 });
 
 // ============================================================
+// Airdrop Endpoints
+// ============================================================
+
+// Deposit BUX to AirdropVault on behalf of a user
+// Prerequisites: User's smart wallet must have already approved the vault to spend their BUX
+// NOTE: User deposits now go through the client-side AirdropDepositHook directly
+// (approve + vault.deposit() from the smart wallet). This endpoint is retained
+// for potential admin/backend use only. It calls vault.depositFor() (onlyOwner).
+app.post('/airdrop-deposit', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { wallet, externalWallet, amount } = req.body;
+
+  if (!wallet || !externalWallet || !amount) {
+    return res.status(400).json({ error: 'wallet, externalWallet, and amount are required' });
+  }
+
+  if (!ethers.isAddress(wallet)) {
+    return res.status(400).json({ error: 'Invalid wallet address' });
+  }
+
+  if (!ethers.isAddress(externalWallet)) {
+    return res.status(400).json({ error: 'Invalid externalWallet address' });
+  }
+
+  if (amount <= 0 || !Number.isInteger(amount)) {
+    return res.status(400).json({ error: 'amount must be a positive integer' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    // BUX has 18 decimals, 1 BUX = 1 entry, amount is integer BUX
+    const amountWei = ethers.parseUnits(amount.toString(), 18);
+
+    // Call depositFor on vault — vault does safeTransferFrom(wallet, vault, amount)
+    // The user's smart wallet must have already approved the vault via BUX.approve()
+    const depositReceipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-deposit] depositFor(${wallet}, ${externalWallet}, ${amount}) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.depositFor(
+        wallet,
+        externalWallet,
+        amountWei,
+        { nonce, gasLimit: 300000, gasPrice: 1000000000000n }
+      );
+      return await tx.wait();
+    });
+
+    // Parse BuxDeposited event
+    let startPosition = null;
+    let endPosition = null;
+    for (const log of depositReceipt.logs) {
+      try {
+        const parsed = airdropVaultContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'BuxDeposited') {
+          startPosition = Number(parsed.args.startPosition);
+          endPosition = Number(parsed.args.endPosition);
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      depositTxHash: depositReceipt.hash,
+      blockNumber: depositReceipt.blockNumber,
+      wallet,
+      externalWallet,
+      amount,
+      startPosition,
+      endPosition
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-DEPOSIT] Error:`, error);
+
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return res.status(500).json({ error: 'Insufficient gas in vault admin wallet' });
+    }
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to deposit BUX to vault', details: error.message });
+  }
+});
+
+// Claim airdrop prize — sends USDT on Arbitrum via AirdropPrizePool.sendPrize
+// Prerequisites: setPrize must have been called first (done during draw)
+app.post('/airdrop-claim', authenticate, async (req, res) => {
+  if (!airdropPrizePoolContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { roundId, winnerIndex } = req.body;
+
+  if (roundId === undefined || winnerIndex === undefined) {
+    return res.status(400).json({ error: 'roundId and winnerIndex are required' });
+  }
+
+  if (winnerIndex < 0 || winnerIndex > 32) {
+    return res.status(400).json({ error: 'winnerIndex must be 0-32' });
+  }
+
+  const queue = txQueues.vaultAdminArbitrum;
+  if (!queue) {
+    return res.status(503).json({ error: 'Arbitrum transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-claim] sendPrize(${roundId}, ${winnerIndex}) with nonce ${nonce}`);
+      const tx = await airdropPrizePoolContract.sendPrize(roundId, winnerIndex, { nonce });
+      return await tx.wait();
+    });
+
+    // Parse PrizeSent event
+    let winner = null;
+    let prizeAmount = null;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = airdropPrizePoolContract.interface.parseLog(log);
+        if (parsed && parsed.name === 'PrizeSent') {
+          winner = parsed.args.winner;
+          prizeAmount = ethers.formatUnits(parsed.args.amount, 6); // USDT has 6 decimals
+          break;
+        }
+      } catch (e) {
+        // Not our event, skip
+      }
+    }
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      winnerIndex,
+      winner,
+      prizeAmount
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-CLAIM] Error:`, error);
+
+    if (error.message?.includes('Already claimed')) {
+      return res.status(400).json({ error: 'Prize already claimed' });
+    }
+    if (error.message?.includes('Prize not set')) {
+      return res.status(400).json({ error: 'Prize not set for this winner index' });
+    }
+    if (error.message?.includes('Insufficient USDT')) {
+      return res.status(400).json({ error: 'Insufficient USDT in prize pool' });
+    }
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return res.status(500).json({ error: 'Insufficient ETH for gas on Arbitrum' });
+    }
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to send prize', details: error.message });
+  }
+});
+
+// Set prize on AirdropPrizePool (called during draw to register winners)
+app.post('/airdrop-set-prize', authenticate, async (req, res) => {
+  if (!airdropPrizePoolContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { roundId, winnerIndex, winner, amount } = req.body;
+
+  if (roundId === undefined || winnerIndex === undefined || !winner || !amount) {
+    return res.status(400).json({ error: 'roundId, winnerIndex, winner, and amount are required' });
+  }
+
+  if (!ethers.isAddress(winner)) {
+    return res.status(400).json({ error: 'Invalid winner address' });
+  }
+
+  const queue = txQueues.vaultAdminArbitrum;
+  if (!queue) {
+    return res.status(503).json({ error: 'Arbitrum transaction queue not initialized' });
+  }
+
+  try {
+    // amount is in USDT micro-units (6 decimals) — pass directly as BigInt
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-set-prize] setPrize(${roundId}, ${winnerIndex}, ${winner}, ${amount}) with nonce ${nonce}`);
+      const tx = await airdropPrizePoolContract.setPrize(roundId, winnerIndex, winner, BigInt(amount), { nonce });
+      return await tx.wait();
+    });
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      winnerIndex,
+      winner,
+      amount
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-SET-PRIZE] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to set prize', details: error.message });
+  }
+});
+
+// ============================================================
+// Airdrop Close Endpoint (Rogue Chain)
+// ============================================================
+
+app.post('/airdrop-start-round', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  const { commitmentHash, endTime } = req.body;
+  if (!commitmentHash || !endTime) {
+    return res.status(400).json({ error: 'commitmentHash and endTime are required' });
+  }
+
+  try {
+    // Convert commitment hash to bytes32 — the Solidity contract expects sha256 output as bytes32
+    // The Elixir side sends hex string like "a1b2c3..." (SHA256 hex)
+    const commitmentBytes = '0x' + commitmentHash.replace(/^0x/, '');
+
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-start-round] startRound(${commitmentBytes.slice(0, 18)}..., ${endTime}) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.startRound(commitmentBytes, endTime, { nonce });
+      return await tx.wait();
+    });
+
+    // Parse RoundStarted event
+    const iface = new ethers.Interface(AIRDROP_VAULT_ABI);
+    let roundId = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed && parsed.name === 'RoundStarted') {
+          roundId = Number(parsed.args[0]);
+          break;
+        }
+      } catch (_) {
+        // skip logs from other contracts
+      }
+    }
+
+    console.log(`[/airdrop-start-round] Started round ${roundId}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      roundId
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-START-ROUND] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to start airdrop round', details: error.message });
+  }
+});
+
+app.post('/airdrop-close', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-close] closeAirdrop() with nonce ${nonce}`);
+      const tx = await airdropVaultContract.closeAirdrop({ nonce });
+      return await tx.wait();
+    });
+
+    // Parse AirdropClosed event from receipt
+    const iface = new ethers.Interface(AIRDROP_VAULT_ABI);
+    let blockHashAtClose = null;
+    let totalEntries = null;
+    let roundId = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed && parsed.name === 'AirdropClosed') {
+          roundId = Number(parsed.args[0]);
+          totalEntries = Number(parsed.args[1]);
+          blockHashAtClose = parsed.args[2];
+          break;
+        }
+      } catch (_) {
+        // skip logs from other contracts
+      }
+    }
+
+    console.log(`[/airdrop-close] Closed round ${roundId}, totalEntries=${totalEntries}, blockHash=${blockHashAtClose}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      roundId,
+      totalEntries,
+      blockHashAtClose
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-CLOSE] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to close airdrop', details: error.message });
+  }
+});
+
+// Draw winners on-chain (syncs vault with off-chain draw results)
+app.post('/airdrop-draw', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { serverSeed } = req.body;
+  if (!serverSeed) {
+    return res.status(400).json({ error: 'serverSeed is required' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    // Convert hex string to bytes32
+    const seedBytes = serverSeed.startsWith('0x') ? serverSeed : `0x${serverSeed}`;
+
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-draw] drawWinners(${seedBytes.slice(0, 10)}...) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.drawWinners(seedBytes, { nonce, gasLimit: 3000000 });
+      return await tx.wait();
+    });
+
+    // Parse AirdropDrawn event
+    const iface = new ethers.Interface(AIRDROP_VAULT_ABI);
+    let roundId = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed && parsed.name === 'AirdropDrawn') {
+          roundId = Number(parsed.args[0]);
+          break;
+        }
+      } catch (_) {}
+    }
+
+    console.log(`[/airdrop-draw] Drew winners for round ${roundId}, tx=${receipt.hash}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash,
+      roundId
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-DRAW] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to draw winners', details: error.message });
+  }
+});
+
+// Set winner on AirdropVault (V3 — server pushes winner data after off-chain draw)
+app.post('/airdrop-set-winner', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { roundId, prizePosition, randomNumber, blocksterWallet, externalWallet, buxRedeemed, blockStart, blockEnd } = req.body;
+
+  if (roundId === undefined || prizePosition === undefined || randomNumber === undefined ||
+      !blocksterWallet || !externalWallet || buxRedeemed === undefined ||
+      blockStart === undefined || blockEnd === undefined) {
+    return res.status(400).json({ error: 'All winner fields required: roundId, prizePosition, randomNumber, blocksterWallet, externalWallet, buxRedeemed, blockStart, blockEnd' });
+  }
+
+  const queue = txQueues.vaultAdmin;
+  if (!queue) {
+    return res.status(503).json({ error: 'Vault admin transaction queue not initialized' });
+  }
+
+  try {
+    const receipt = await queue.enqueue(async (nonce) => {
+      console.log(`[/airdrop-set-winner] setWinner(${roundId}, ${prizePosition}, ...) with nonce ${nonce}`);
+      const tx = await airdropVaultContract.setWinner(
+        roundId, prizePosition, BigInt(randomNumber),
+        blocksterWallet, externalWallet,
+        BigInt(buxRedeemed), BigInt(blockStart), BigInt(blockEnd),
+        { nonce, gasLimit: 500000 }
+      );
+      return await tx.wait();
+    });
+
+    console.log(`[/airdrop-set-winner] Winner ${prizePosition} set for round ${roundId}, tx=${receipt.hash}`);
+
+    res.json({
+      success: true,
+      transactionHash: receipt.hash
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-SET-WINNER] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to set winner', details: error.message });
+  }
+});
+
+// ============================================================
+// Airdrop Round ID Sync Endpoints
+// ============================================================
+
+// Read vault's current roundId (for reconciliation)
+app.get('/airdrop-vault-round-id', authenticate, async (req, res) => {
+  if (!airdropVaultContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  try {
+    const roundId = Number(await airdropVaultContract.roundId());
+    res.json({ success: true, roundId });
+  } catch (error) {
+    console.error(`[AIRDROP-VAULT-ROUND-ID] Error:`, error);
+    res.status(500).json({ error: 'Failed to read vault roundId', details: error.message });
+  }
+});
+
+// Sync PrizePool roundId to match a target (loops startNewRound until it catches up)
+app.post('/airdrop-prize-pool-start-round', authenticate, async (req, res) => {
+  if (!airdropPrizePoolContract) {
+    return res.status(503).json({ error: 'Airdrop not configured - VAULT_ADMIN_PRIVATE_KEY missing' });
+  }
+
+  const { targetRoundId } = req.body;
+  if (!targetRoundId || !Number.isInteger(targetRoundId) || targetRoundId < 1) {
+    return res.status(400).json({ error: 'targetRoundId must be a positive integer' });
+  }
+
+  const queue = txQueues.vaultAdminArbitrum;
+  if (!queue) {
+    return res.status(503).json({ error: 'Arbitrum transaction queue not initialized' });
+  }
+
+  try {
+    const previousRoundId = Number(await airdropPrizePoolContract.roundId());
+
+    if (previousRoundId >= targetRoundId) {
+      return res.json({
+        success: true,
+        previousRoundId,
+        currentRoundId: previousRoundId,
+        callsMade: 0,
+        message: 'PrizePool already at or past target roundId'
+      });
+    }
+
+    let callsMade = 0;
+    let currentRoundId = previousRoundId;
+
+    while (currentRoundId < targetRoundId) {
+      await queue.enqueue(async (nonce) => {
+        console.log(`[/airdrop-prize-pool-start-round] startNewRound() call ${callsMade + 1} (current: ${currentRoundId} → target: ${targetRoundId}) with nonce ${nonce}`);
+        const tx = await airdropPrizePoolContract.startNewRound({ nonce });
+        return await tx.wait();
+      });
+      callsMade++;
+      currentRoundId = Number(await airdropPrizePoolContract.roundId());
+    }
+
+    console.log(`[/airdrop-prize-pool-start-round] Synced PrizePool: ${previousRoundId} → ${currentRoundId} (${callsMade} calls)`);
+
+    res.json({
+      success: true,
+      previousRoundId,
+      currentRoundId,
+      callsMade
+    });
+
+  } catch (error) {
+    console.error(`[AIRDROP-PRIZE-POOL-START-ROUND] Error:`, error);
+    if (error.reason) {
+      return res.status(400).json({ error: error.reason });
+    }
+    res.status(500).json({ error: 'Failed to sync PrizePool round', details: error.message });
+  }
+});
+
+// ============================================================
 // Queue Status Endpoint - For monitoring
 // ============================================================
 
@@ -1176,5 +1768,10 @@ app.listen(PORT, () => {
     console.log(`Referral system: enabled`);
     console.log(`BuxBoosterGame referral admin: ${referralAdminBBWallet.address}`);
     console.log(`ROGUEBankroll referral admin: ${referralAdminRBWallet.address}`);
+  }
+  if (airdropVaultContract) {
+    console.log(`AirdropVault (Rogue): ${AIRDROP_VAULT_ADDRESS}`);
+    console.log(`AirdropPrizePool (Arbitrum): ${AIRDROP_PRIZE_POOL_ADDRESS}`);
+    console.log(`Vault admin: ${vaultAdminWallet.address}`);
   }
 });

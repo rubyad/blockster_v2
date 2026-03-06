@@ -492,6 +492,471 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  # ============================================================================
+  # Airdrop Integration
+  # ============================================================================
+
+  @doc """
+  Starts a new round on the AirdropVault contract.
+  Calls startRound(commitmentHash, endTime) to publish the commitment on-chain.
+
+  ## Parameters
+    - commitment_hash: SHA256 hex string of the server seed
+    - end_time_unix: Unix timestamp for when the round ends
+
+  ## Returns
+    - {:ok, response} with roundId, transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_start_round(commitment_hash, end_time_unix) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop start round")
+      {:error, :not_configured}
+    else
+      payload = %{
+        commitmentHash: commitment_hash,
+        endTime: end_time_unix
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Starting airdrop round: commitment=#{String.slice(commitment_hash, 0, 16)}..., endTime=#{end_time_unix}")
+
+      case http_post("#{minter_url}/airdrop-start-round", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Airdrop round started: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Start round failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Start round failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Start round failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Start round HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Deposits BUX to the AirdropVault on behalf of a user via the minter backend.
+
+  NOTE: User deposits now go through the client-side AirdropDepositHook directly
+  (approve + vault.deposit() from the smart wallet). This function is retained
+  for potential admin/backend use only.
+
+  ## Parameters
+    - wallet: User's smart wallet address (blockster wallet)
+    - external_wallet: User's connected external wallet (prize destination)
+    - amount: Integer BUX amount to deposit
+    - user_id: User ID for logging
+
+  ## Returns
+    - {:ok, response} with depositTxHash, startPosition, endPosition
+    - {:error, reason} on failure
+  """
+  def airdrop_deposit(wallet, external_wallet, amount, user_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop deposit")
+      {:error, :not_configured}
+    else
+      payload = %{
+        wallet: wallet,
+        externalWallet: external_wallet,
+        amount: amount
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Airdrop deposit: #{amount} BUX from #{wallet} (user #{user_id})")
+
+      case http_post("#{minter_url}/airdrop-deposit", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+
+          # Sync balances after deposit (BUX was deducted)
+          if wallet do
+            sync_user_balances_async(user_id, wallet, force: true)
+          end
+
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop deposit failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop deposit failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop deposit failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop deposit HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Claims an airdrop prize — sends USDT on Arbitrum via AirdropPrizePool.sendPrize.
+
+  ## Parameters
+    - round_id: The airdrop round ID
+    - winner_index: The winner index (0-32)
+
+  ## Returns
+    - {:ok, response} with transactionHash, winner, prizeAmount
+    - {:error, reason} on failure
+  """
+  def airdrop_claim(round_id, winner_index) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop claim")
+      {:error, :not_configured}
+    else
+      payload = %{
+        roundId: round_id,
+        winnerIndex: winner_index
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Airdrop claim: round #{round_id}, winner #{winner_index}")
+
+      case http_post("#{minter_url}/airdrop-claim", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop claim failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop claim failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop claim failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop claim HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Sets a prize on the AirdropPrizePool contract (Arbitrum).
+  Called during the draw phase to register winners before they can claim.
+
+  ## Parameters
+    - round_id: The airdrop round ID
+    - winner_index: The winner index (0-32)
+    - winner_wallet: The external wallet that will receive USDT
+    - amount_usdt: Prize amount in USDT micro-units (6 decimals)
+
+  ## Returns
+    - {:ok, response} with transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_set_prize(round_id, winner_index, winner_wallet, amount_usdt) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop set prize")
+      {:error, :not_configured}
+    else
+      payload = %{
+        roundId: round_id,
+        winnerIndex: winner_index,
+        winner: winner_wallet,
+        amount: amount_usdt
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-set-prize", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Set prize failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Set prize failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Set prize failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Set prize HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Reads the current roundId from the AirdropVault contract.
+  Used for reconciliation between vault, DB, and PrizePool.
+
+  ## Returns
+    - {:ok, round_id} integer
+    - {:error, reason} on failure
+  """
+  def airdrop_get_vault_round_id do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_get("#{minter_url}/airdrop-vault-round-id", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          {:ok, response["roundId"]}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Get vault roundId failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Get vault roundId failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Get vault roundId failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Get vault roundId HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Syncs the AirdropPrizePool's roundId to match a target roundId.
+  Loops startNewRound() on the PrizePool until it catches up to the vault.
+
+  ## Parameters
+    - target_round_id: The roundId the PrizePool should match (from vault)
+
+  ## Returns
+    - {:ok, response} with previousRoundId, currentRoundId, callsMade
+    - {:error, reason} on failure
+  """
+  def airdrop_sync_prize_pool_round(target_round_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      payload = %{targetRoundId: target_round_id}
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      Logger.info("[BuxMinter] Syncing PrizePool to roundId #{target_round_id}")
+
+      case http_post("#{minter_url}/airdrop-prize-pool-start-round", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] PrizePool sync result: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "PrizePool sync failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] PrizePool sync failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "PrizePool sync failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] PrizePool sync HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Closes the current airdrop round on-chain via the AirdropVault contract.
+  Returns the block hash at close, total entries, and transaction hash.
+
+  ## Parameters
+    - round_id: The airdrop round ID (used for logging only; contract uses its own state)
+
+  ## Returns
+    - {:ok, response} with blockHashAtClose, totalEntries, roundId, transactionHash
+    - {:error, reason} on failure
+  """
+  def airdrop_close(round_id) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      Logger.warning("[BuxMinter] API_SECRET not configured, skipping airdrop close")
+      {:error, :not_configured}
+    else
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-close", Jason.encode!(%{}), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Airdrop round #{round_id} closed: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop close failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop close failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop close failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop close HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Calls drawWinners(serverSeed) on the AirdropVault to sync on-chain state.
+
+  ## Parameters
+    - server_seed: The hex server seed (will be prefixed with 0x if needed)
+
+  ## Returns
+    - {:ok, response} with transactionHash, roundId
+    - {:error, reason} on failure
+  """
+  def airdrop_draw_winners(server_seed) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      payload = %{serverSeed: server_seed}
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-draw", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          response = Jason.decode!(body)
+          Logger.info("[BuxMinter] Airdrop draw completed: #{inspect(response)}")
+          {:ok, response}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error =
+            case Jason.decode(body) do
+              {:ok, decoded} -> decoded
+              {:error, _} -> %{"error" => "Airdrop draw failed (HTTP #{status})"}
+            end
+
+          Logger.error("[BuxMinter] Airdrop draw failed (#{status}): #{inspect(error)}")
+          {:error, error["error"] || "Airdrop draw failed"}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Airdrop draw HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Push a single winner to the AirdropVault contract (V3).
+  Called by settler after off-chain draw for each winner.
+  """
+  def airdrop_set_winner(round_id, prize_position, winner_data) do
+    minter_url = get_minter_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      payload = %{
+        roundId: round_id,
+        prizePosition: prize_position,
+        randomNumber: to_string(winner_data.random_number),
+        blocksterWallet: winner_data.blockster_wallet,
+        externalWallet: winner_data.external_wallet,
+        buxRedeemed: to_string(winner_data.bux_redeemed),
+        blockStart: to_string(winner_data.block_start),
+        blockEnd: to_string(winner_data.block_end)
+      }
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer #{api_secret}"}
+      ]
+
+      case http_post("#{minter_url}/airdrop-set-winner", Jason.encode!(payload), headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = case Jason.decode(body) do
+            {:ok, decoded} -> decoded["error"] || "Set winner failed (HTTP #{status})"
+            {:error, _} -> "Set winner failed (HTTP #{status})"
+          end
+          Logger.error("[BuxMinter] Set winner failed (#{status}): #{error}")
+          {:error, error}
+
+        {:error, reason} ->
+          Logger.error("[BuxMinter] Set winner HTTP failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
   # Normalize token name - always returns BUX (hub tokens removed)
   defp normalize_token(_token), do: "BUX"
 

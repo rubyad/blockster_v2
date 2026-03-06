@@ -55,7 +55,9 @@ defmodule BlocksterV2.Application do
         # Shop checkout: process held affiliate payouts (hourly)
         {BlocksterV2.Orders.AffiliatePayoutWorker, []},
         # Shop checkout: expire stale unpaid orders (every 5 min)
-        {BlocksterV2.Orders.OrderExpiryWorker, []}
+        {BlocksterV2.Orders.OrderExpiryWorker, []},
+        # Airdrop: auto-settle rounds when countdown expires
+        {BlocksterV2.Airdrop.Settler, []}
       ]
     else
       []

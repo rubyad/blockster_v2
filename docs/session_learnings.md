@@ -38,6 +38,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Player Index](#buxbooster-player-index-feb-3-2026)
 - [BuxBooster Stats Cache](#buxbooster-stats-cache-feb-3-2026)
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
+- [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 
 ---
 
@@ -271,3 +272,29 @@ end
 
 ### Key Lesson
 The MnesiaInitializer already handled node name changes for the PRIMARY node path (`migrate_from_old_node`), but NOT for the JOINING node path. The gap existed since the MnesiaInitializer was written but only triggered when a deploy happened to create the right conditions (stale node + joining node path).
+
+## AirdropVault V2 Upgrade — Client-Side Deposits (Feb 28, 2026)
+
+### Problem
+AirdropVault V1 only had `depositFor()` as `onlyOwner`, meaning deposits required the vault admin (BUX Minter backend) to execute. This created an unnecessary server-side dependency for what should be a direct user→contract interaction.
+
+### Solution
+Created AirdropVaultV2 inheriting from V1, adding a public `deposit(externalWallet, amount)` function. The user's smart wallet calls `BUX.approve()` + `vault.deposit()` entirely client-side — no minter backend needed for deposits.
+
+### Key Details
+- **V2 contract**: `contracts/bux-booster-game/contracts/AirdropVaultV2.sol` — inherits V1, adds `deposit()` using `msg.sender` as blocksterWallet
+- **JS hook**: `assets/js/hooks/airdrop_deposit.js` — `needsApproval()` + `executeApprove()` + `executeDeposit()` (same pattern as BuxBooster's `bux_booster_onchain.js`)
+- **LiveView flow**: `redeem_bux` → pushes `airdrop_deposit` to JS hook → hook does on-chain tx → pushes `airdrop_deposit_complete` back → LiveView records entry in Postgres
+- **Deploy script**: `contracts/bux-booster-game/scripts/upgrade-airdrop-vault-v2.js`
+- **`using SafeERC20 for IERC20`**: Must be declared in V2 even though V1 has it — Solidity `using` directives don't automatically apply to child contract functions
+- **Mock conflict**: Deleted `contracts/mocks/AirdropVaultV2.sol` (test mock) because it had the same contract name as the real V2
+
+### Settler GenServer
+`lib/blockster_v2/airdrop/settler.ex` — GlobalSingleton that auto-settles rounds:
+- On startup: recovers state from DB (handles restarts)
+- On `create_round`: schedules timer for `end_time`
+- On timer: close round (on-chain or RPC fallback) → draw winners → register prizes on Arbitrum
+- Uses `Process.send_after` for precise scheduling (not polling)
+
+### Test Fixes
+Many airdrop tests were failing because `Airdrop.redeem_bux` calls `deduct_user_token_balance` in Mnesia, but tests never set up a Mnesia balance. Fixed by adding `setup_mnesia` + `set_bux_balance` helpers to both `airdrop_live_test.exs` and `airdrop_integration_test.exs`. Also updated prize amount assertions from old values ($250/$150/$100/$50) to current test pool ($0.65/$0.40/$0.35/$0.12).

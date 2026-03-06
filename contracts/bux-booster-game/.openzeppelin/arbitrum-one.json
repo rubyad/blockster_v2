@@ -1,0 +1,134 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0x919149CA8DB412541D2d8B3F150fa567fEFB58e1",
+      "txHash": "0x2230127021c1cf79b2e13816ac1ac53c80dcdc8302bd68d1edc6aa71e48c5428",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "4810267bbe5e9823b29ef0cca50eec2dd6922c45e7c2f8bb345913364aad6fad": {
+      "address": "0x168861a4056b1b9E4A49302b5EC53695b8974471",
+      "txHash": "0x4979fe9f9cdc417a25fabd3a6658de24300138e65ee26a43513a25797887979c",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint64",
+            "contract": "Initializable",
+            "src": "contracts/AirdropPrizePool.sol:59"
+          },
+          {
+            "label": "_initializing",
+            "offset": 8,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "contracts/AirdropPrizePool.sol:60"
+          },
+          {
+            "label": "_owner",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "contracts/AirdropPrizePool.sol:143"
+          },
+          {
+            "label": "usdt",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)69",
+            "contract": "AirdropPrizePool",
+            "src": "contracts/AirdropPrizePool.sol:278"
+          },
+          {
+            "label": "roundId",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "AirdropPrizePool",
+            "src": "contracts/AirdropPrizePool.sol:279"
+          },
+          {
+            "label": "_prizes",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_uint256,t_mapping(t_uint256,t_struct(Prize)730_storage))",
+            "contract": "AirdropPrizePool",
+            "src": "contracts/AirdropPrizePool.sol:290"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)69": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_uint256,t_mapping(t_uint256,t_struct(Prize)730_storage))": {
+            "label": "mapping(uint256 => mapping(uint256 => struct AirdropPrizePool.Prize))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Prize)730_storage)": {
+            "label": "mapping(uint256 => struct AirdropPrizePool.Prize)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Prize)730_storage": {
+            "label": "struct AirdropPrizePool.Prize",
+            "members": [
+              {
+                "label": "winner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "amount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "claimed",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "txRef",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          }
+        },
+        "namespaces": {}
+      }
+    }
+  }
+}
