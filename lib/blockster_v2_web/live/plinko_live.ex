@@ -133,17 +133,50 @@ defmodule BlocksterV2Web.PlinkoLive do
       data-commitment-hash={@commitment_hash}
     >
       <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
+        <!-- Game Tabs -->
+        <div class="grid grid-cols-4 mb-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <.link navigate={~p"/play"} class="flex items-center justify-center gap-2 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-r border-gray-200">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center casino-chip-heads shrink-0" style="border-width: 1.5px;">
+              <div class="w-[18px] h-[18px] rounded-full bg-coin-heads flex items-center justify-center border border-white shadow-inner">
+                <span class="text-[16px] leading-none">🚀</span>
+              </div>
+            </div>
+            <span class="text-xs font-semibold text-gray-500 hidden sm:block">Coin Flip</span>
+          </.link>
+          <div class="flex items-center justify-center gap-2 py-3 bg-gray-900 border-r border-gray-700">
+            <svg class="w-7 h-7 shrink-0" viewBox="0 0 20 22" fill="none">
+              <circle cx="10" cy="3" r="1.8" fill="#ffffff"/>
+              <circle cx="6" cy="7.5" r="1.8" fill="#ffffff"/>
+              <circle cx="14" cy="7.5" r="1.8" fill="#ffffff"/>
+              <circle cx="3" cy="12" r="1.8" fill="#d1d5db"/>
+              <circle cx="10" cy="12" r="1.8" fill="#d1d5db"/>
+              <circle cx="17" cy="12" r="1.8" fill="#d1d5db"/>
+              <rect x="1" y="16" width="8" height="5" rx="1.5" fill="#d1d5db" opacity="0.5"/>
+              <rect x="11" y="16" width="8" height="5" rx="1.5" fill="#d1d5db" opacity="0.5"/>
+            </svg>
+            <span class="text-xs font-semibold text-white hidden sm:block">Plinko</span>
+          </div>
+          <div class="flex items-center justify-center gap-2 py-3 border-r border-gray-200 opacity-40">
+            <svg class="w-7 h-7" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="2" width="24" height="24" rx="4" fill="#3b82f6" opacity="0.15"/>
+              <rect x="2" y="2" width="24" height="24" rx="4" stroke="#3b82f6" stroke-width="1.5"/>
+              <circle cx="9" cy="9" r="2" fill="#3b82f6"/><circle cx="19" cy="9" r="2" fill="#3b82f6"/>
+              <circle cx="14" cy="14" r="2" fill="#3b82f6"/>
+              <circle cx="9" cy="19" r="2" fill="#3b82f6"/><circle cx="19" cy="19" r="2" fill="#3b82f6"/>
+            </svg>
+            <span class="text-xs font-semibold text-gray-400 hidden sm:block">Dice</span>
+          </div>
+          <div class="flex items-center justify-center gap-2 py-3 opacity-40">
+            <svg class="w-7 h-7" viewBox="0 0 28 28" fill="none">
+              <path d="M4 22 Q10 2 14 14 Q18 26 24 6" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="24" cy="6" r="2.5" fill="#a855f7"/>
+            </svg>
+            <span class="text-xs font-semibold text-gray-400 hidden sm:block">Limbo</span>
+          </div>
+        </div>
+
         <!-- Main Game Card -->
         <div class="plinko-game-card">
-          <!-- How It Works link -->
-          <div class="flex justify-end px-3 pt-2">
-            <a href="/plinko/how-it-works" class="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-xs cursor-pointer">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              How it works
-            </a>
-          </div>
 
           <!-- Error Banner -->
           <div :if={@error_message} class="bg-red-50 border border-red-300 rounded-lg p-2 sm:p-3 text-red-700 text-xs sm:text-sm text-center mx-3 mt-3">
@@ -380,7 +413,7 @@ defmodule BlocksterV2Web.PlinkoLive do
                 <circle class="plinko-peg" cx={x} cy={y} r={peg_radius(@selected_rows)} fill="#9ca3af" />
               <% end %>
 
-              <!-- Landing slots (cup-shaped receptacles) -->
+              <!-- Landing slots -->
               <% slot_w = 380 / (@selected_rows + 1) %>
               <% slot_y = board_height(@selected_rows) - 50 %>
               <% slot_h = 32 %>
@@ -390,39 +423,44 @@ defmodule BlocksterV2Web.PlinkoLive do
                 <% left = x - slot_w / 2 %>
                 <% right = x + slot_w / 2 %>
                 <% bottom = slot_y + slot_h %>
-                <!-- Cup shape: straight sides, rounded bottom -->
+                <!-- Slot background -->
                 <path
                   class="plinko-slot"
                   d={"M #{left} #{slot_y} L #{left} #{bottom - slot_r} Q #{left} #{bottom} #{left + slot_r} #{bottom} L #{right - slot_r} #{bottom} Q #{right} #{bottom} #{right} #{bottom - slot_r} L #{right} #{slot_y} Z"}
                   fill={slot_color(bp)}
                 />
-                <!-- Darker inner shadow for depth -->
-                <path
-                  d={"M #{left + 1} #{slot_y} L #{left + 1} #{bottom - slot_r} Q #{left + 1} #{bottom - 1} #{left + slot_r} #{bottom - 1} L #{right - slot_r} #{bottom - 1} Q #{right - 1} #{bottom - 1} #{right - 1} #{bottom - slot_r} L #{right - 1} #{slot_y}"}
-                  fill="none"
-                  stroke="rgba(0,0,0,0.15)"
+                <!-- Subtle top edge highlight -->
+                <line
+                  x1={left + 2}
+                  y1={slot_y}
+                  x2={right - 2}
+                  y2={slot_y}
+                  stroke={slot_accent_color(bp)}
                   stroke-width="2"
+                  stroke-linecap="round"
+                  opacity="0.9"
                 />
                 <text
                   x={x}
-                  y={slot_y + slot_h / 2 + 3}
+                  y={slot_y + slot_h / 2 + 4}
                   text-anchor="middle"
                   fill={slot_text_color(bp)}
                   font-size={if @selected_rows == 16, do: "7", else: "10"}
-                  font-weight="bold"
-                  style="text-shadow: 0 0 4px rgba(0,0,0,0.5)"
+                  font-weight="700"
+                  font-family="system-ui, -apple-system, sans-serif"
+                  letter-spacing="0.02em"
                 >
                   <%= format_multiplier(bp) %>
                 </text>
-                <!-- Divider walls between slots -->
-                <rect
+                <!-- Thin divider between slots -->
+                <line
                   :if={k < @selected_rows}
-                  x={right - 1.5}
-                  y={slot_y - 6}
-                  width="3"
-                  height={slot_h / 2 + 6}
-                  rx="1.5"
-                  fill="#6b7280"
+                  x1={right}
+                  y1={slot_y}
+                  x2={right}
+                  y2={bottom - slot_r}
+                  stroke="rgba(255,255,255,0.08)"
+                  stroke-width="1"
                 />
               <% end %>
 
@@ -1565,16 +1603,41 @@ defmodule BlocksterV2Web.PlinkoLive do
     end
   end
 
-  # Slot colors — lime for jackpots, warm gradient through to deep red for losses
-  defp slot_color(multiplier_bp) when multiplier_bp >= 100_000, do: "#CAFC00"
-  defp slot_color(multiplier_bp) when multiplier_bp >= 30_000, do: "#4ade80"
-  defp slot_color(multiplier_bp) when multiplier_bp >= 10_000, do: "#fbbf24"
-  defp slot_color(multiplier_bp) when multiplier_bp >= 5_000, do: "#fb923c"
-  defp slot_color(multiplier_bp) when multiplier_bp > 0, do: "#f87171"
+  # Slot colors — greys for wins (>=1x), reds for losses (<1x), more tiers for contrast
+  defp slot_color(multiplier_bp) when multiplier_bp >= 100_000, do: "#ffffff"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 50_000, do: "#f0f0f0"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 30_000, do: "#e0e0e0"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 20_000, do: "#cfcfcf"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 15_000, do: "#bfbfbf"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 10_000, do: "#afafaf"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 7_000, do: "#fecaca"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 5_000, do: "#fca5a5"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 3_000, do: "#f87171"
+  defp slot_color(multiplier_bp) when multiplier_bp >= 1_000, do: "#ef4444"
+  defp slot_color(multiplier_bp) when multiplier_bp > 0, do: "#dc2626"
   defp slot_color(0), do: "#991b1b"
 
-  defp slot_text_color(multiplier_bp) when multiplier_bp >= 10_000, do: "#000000"
-  defp slot_text_color(_), do: "#ffffff"
+  # Accent color for top edge
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 100_000, do: "#CAFC00"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 50_000, do: "#d4d4d4"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 30_000, do: "#b8b8b8"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 10_000, do: "#9a9a9a"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 5_000, do: "#ef4444"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp >= 3_000, do: "#dc2626"
+  defp slot_accent_color(multiplier_bp) when multiplier_bp > 0, do: "#b91c1c"
+  defp slot_accent_color(0), do: "#7f1d1d"
+
+  # Text color — dark on light slots, light/white on dark/red slots
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 100_000, do: "#111111"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 50_000, do: "#1a1a1a"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 30_000, do: "#222222"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 20_000, do: "#2a2a2a"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 10_000, do: "#333333"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 7_000, do: "#7f1d1d"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 5_000, do: "#7f1d1d"
+  defp slot_text_color(multiplier_bp) when multiplier_bp >= 3_000, do: "#ffffff"
+  defp slot_text_color(multiplier_bp) when multiplier_bp > 0, do: "#fee2e2"
+  defp slot_text_color(0), do: "#fecaca"
 
   defp format_multiplier(0), do: "0x"
 

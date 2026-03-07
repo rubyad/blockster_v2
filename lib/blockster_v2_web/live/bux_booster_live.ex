@@ -204,6 +204,48 @@ defmodule BlocksterV2Web.BuxBoosterLive do
       data-commitment-hash={assigns[:commitment_hash]}
     >
       <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
+        <!-- Game Tabs -->
+        <div class="grid grid-cols-4 mb-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <div class="flex items-center justify-center gap-2 py-3 bg-gray-900 border-r border-gray-700">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center casino-chip-heads shrink-0" style="border-width: 1.5px;">
+              <div class="w-[18px] h-[18px] rounded-full bg-coin-heads flex items-center justify-center border border-white shadow-inner">
+                <span class="text-[16px] leading-none">🚀</span>
+              </div>
+            </div>
+            <span class="text-xs font-semibold text-white hidden sm:block">Coin Flip</span>
+          </div>
+          <.link navigate={~p"/plinko"} class="flex items-center justify-center gap-2 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-r border-gray-200">
+            <svg class="w-7 h-7 shrink-0" viewBox="0 0 20 22" fill="none">
+              <circle cx="10" cy="3" r="1.8" fill="#374151"/>
+              <circle cx="6" cy="7.5" r="1.8" fill="#374151"/>
+              <circle cx="14" cy="7.5" r="1.8" fill="#374151"/>
+              <circle cx="3" cy="12" r="1.8" fill="#6b7280"/>
+              <circle cx="10" cy="12" r="1.8" fill="#6b7280"/>
+              <circle cx="17" cy="12" r="1.8" fill="#6b7280"/>
+              <rect x="1" y="16" width="8" height="5" rx="1.5" fill="#6b7280" opacity="0.5"/>
+              <rect x="11" y="16" width="8" height="5" rx="1.5" fill="#6b7280" opacity="0.5"/>
+            </svg>
+            <span class="text-xs font-semibold text-gray-500 hidden sm:block">Plinko</span>
+          </.link>
+          <div class="flex items-center justify-center gap-2 py-3 border-r border-gray-200 opacity-40">
+            <svg class="w-7 h-7" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="2" width="24" height="24" rx="4" fill="#3b82f6" opacity="0.15"/>
+              <rect x="2" y="2" width="24" height="24" rx="4" stroke="#3b82f6" stroke-width="1.5"/>
+              <circle cx="9" cy="9" r="2" fill="#3b82f6"/><circle cx="19" cy="9" r="2" fill="#3b82f6"/>
+              <circle cx="14" cy="14" r="2" fill="#3b82f6"/>
+              <circle cx="9" cy="19" r="2" fill="#3b82f6"/><circle cx="19" cy="19" r="2" fill="#3b82f6"/>
+            </svg>
+            <span class="text-xs font-semibold text-gray-400 hidden sm:block">Dice</span>
+          </div>
+          <div class="flex items-center justify-center gap-2 py-3 opacity-40">
+            <svg class="w-7 h-7" viewBox="0 0 28 28" fill="none">
+              <path d="M4 22 Q10 2 14 14 Q18 26 24 6" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="24" cy="6" r="2.5" fill="#a855f7"/>
+            </svg>
+            <span class="text-xs font-semibold text-gray-400 hidden sm:block">Limbo</span>
+          </div>
+        </div>
+
         <!-- Main Game Area -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[480px] sm:h-[510px] flex flex-col overflow-hidden">
           <!-- Difficulty Tabs - scrollable on mobile (fixed height) -->

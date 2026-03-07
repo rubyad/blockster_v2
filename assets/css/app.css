@@ -1123,11 +1123,11 @@ html, body {
 }
 
 .plinko-slot {
-  transition: filter 0.3s;
+  transition: filter 0.3s, opacity 0.3s;
 }
 
 .plinko-slot-hit {
-  filter: brightness(1.3) saturate(1.5);
+  filter: brightness(1.8);
 }
 
 .config-tab {

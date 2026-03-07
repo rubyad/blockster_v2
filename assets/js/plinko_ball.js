@@ -50,6 +50,11 @@ export const PlinkoBall = {
       const slot = this.slots[this._hitSlot.position];
       slot.setAttribute('fill', this._hitSlot.brightColor);
       slot.classList.add('plinko-slot-hit');
+      // Re-apply text color
+      const slotTexts = this.el.querySelectorAll('text[text-anchor="middle"]');
+      if (slotTexts[this._hitSlot.position]) {
+        slotTexts[this._hitSlot.position].setAttribute('fill', '#000000');
+      }
     }
   },
 
@@ -427,12 +432,20 @@ export const PlinkoBall = {
     // Store original fill so clearEffects can restore it
     slot._origFill = origColor;
 
-    // Change slot fill to a brighter version — mix with white
-    const bright = this.brightenColor(origColor, 0.45);
-    slot.setAttribute('fill', bright);
+    // Set slot to lime green
+    slot.setAttribute('fill', '#CAFC00');
+
+    // Find the corresponding text element and set to black
+    const textEls = this.el.querySelectorAll('.plinko-slot ~ text');
+    const slotTexts = this.el.querySelectorAll('text[text-anchor="middle"]');
+    if (slotTexts[position]) {
+      const txt = slotTexts[position];
+      txt._origFill = txt.getAttribute('fill');
+      txt.setAttribute('fill', '#000000');
+    }
 
     // Track so updated() can re-apply after LiveView DOM patches
-    this._hitSlot = { position, brightColor: bright };
+    this._hitSlot = { position, brightColor: '#CAFC00' };
   },
 
   /**
@@ -459,6 +472,13 @@ export const PlinkoBall = {
       if (s._origFill) {
         s.setAttribute('fill', s._origFill);
         delete s._origFill;
+      }
+    });
+    // Restore text colors
+    this.el.querySelectorAll('text[text-anchor="middle"]').forEach(t => {
+      if (t._origFill) {
+        t.setAttribute('fill', t._origFill);
+        delete t._origFill;
       }
     });
   },
