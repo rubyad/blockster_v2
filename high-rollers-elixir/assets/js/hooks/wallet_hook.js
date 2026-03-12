@@ -592,12 +592,8 @@ const WalletHook = {
       this.currentChain = 'rogue'
     }
 
-    // Push chain change to LiveView - template handles logo/currency display
-    try {
-      this.pushEvent("wallet_chain_changed", { chain: this.currentChain })
-    } catch (e) {
-      // LiveView not connected yet during initial page load
-    }
+    // Push chain change to LiveView (safe - ignores if LV not connected)
+    this.safePushEvent("wallet_chain_changed", { chain: this.currentChain })
 
     // Note: Don't call pushCurrentBalance() here - our navigation/connection code
     // already handles balance updates after chain switches to avoid duplicate API calls
@@ -858,6 +854,18 @@ const WalletHook = {
 
   isConnected() {
     return !!this.address
+  },
+
+  // Push event to LiveView, silently ignoring if not connected
+  safePushEvent(event, payload) {
+    try {
+      const result = this.pushEvent(event, payload)
+      if (result && typeof result.catch === 'function') {
+        result.catch(() => {})
+      }
+    } catch (e) {
+      // LiveView not connected
+    }
   }
 }
 
