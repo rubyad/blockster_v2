@@ -62,8 +62,8 @@ const WalletHook = {
     // Listen for LiveView navigation to switch chains when URL changes
     this.setupNavigationListener()
 
-    // Check for existing connection on mount (delayed to allow wallet extensions to initialize)
-    setTimeout(() => this.checkExistingConnection(), 500)
+    // Check for existing connection on mount (delayed to allow EIP-6963 discovery)
+    setTimeout(() => this.checkExistingConnection(), 100)
   },
 
   // ===== EIP-6963: Multi Injected Provider Discovery =====
@@ -291,14 +291,12 @@ const WalletHook = {
           console.log('[WalletHook] Could not push balance - LiveView not connected')
         }
       } else {
-        // Wallet not connected (locked or revoked access) - clean up without reload
-        // Don't destroy session + reload, which causes a jarring disconnect flash
-        localStorage.removeItem('walletType')
-        await this.clearSession()
-        try {
-          this.pushEvent("wallet_disconnected", {})
-        } catch (e) {
-          // LiveView websocket might not be connected yet
+        // Not connected - if we have a walletType in localStorage, session might be stale
+        if (walletType) {
+          localStorage.removeItem('walletType')
+          await this.clearSession()
+          window.location.reload()
+          return
         }
       }
     } catch (error) {
@@ -403,21 +401,17 @@ const WalletHook = {
       }
     }
 
-    // Create ethers provider
+    // Create ethers provider + signer
     this.provider = new ethers.BrowserProvider(provider)
-    this.walletType = resolvedWalletType
-
-    if (skipRequest) {
-      // Silent reconnect: we already have the address from eth_accounts
-      // Patch provider so getSigner() won't call eth_requestAccounts (which triggers popup)
+    if (skipRequest && accounts?.length) {
+      // Silent reconnect: create signer directly (getSigner calls eth_requestAccounts which popups)
       this.address = accounts[0]
-      this._patchProviderForSilentSigner()
-      this.signer = await this.provider.getSigner()
+      this.signer = new ethers.JsonRpcSigner(this.provider, this.address)
     } else {
-      // Fresh connect: getSigner() is fine since user just approved
       this.signer = await this.provider.getSigner()
       this.address = await this.signer.getAddress()
     }
+    this.walletType = resolvedWalletType
 
     // Set up event listeners
     this.handleAccountsChanged = this.handleAccountsChanged.bind(this)
@@ -526,8 +520,7 @@ const WalletHook = {
     // Update provider after switch
     if (this.address) {
       this.provider = new ethers.BrowserProvider(provider)
-      this._patchProviderForSilentSigner()
-      this.signer = await this.provider.getSigner()
+      this.signer = new ethers.JsonRpcSigner(this.provider, this.address)
     }
     this.currentChain = 'arbitrum'
   },
@@ -562,8 +555,7 @@ const WalletHook = {
 
     if (this.address) {
       this.provider = new ethers.BrowserProvider(provider)
-      this._patchProviderForSilentSigner()
-      this.signer = await this.provider.getSigner()
+      this.signer = new ethers.JsonRpcSigner(this.provider, this.address)
     }
     this.currentChain = 'rogue'
   },
@@ -847,23 +839,6 @@ const WalletHook = {
   },
 
   // ===== Contract Access (for other hooks) =====
-
-  /**
-   * Patch the current BrowserProvider so getSigner() returns immediately
-   * without calling eth_requestAccounts (which triggers a MetaMask popup).
-   * Safe to call when this.address is already known from eth_accounts.
-   */
-  _patchProviderForSilentSigner() {
-    if (!this.provider || !this.address) return
-    const cachedAddress = this.address
-    const origSend = this.provider.send.bind(this.provider)
-    this.provider.send = async function(method, params) {
-      if (method === 'eth_requestAccounts') {
-        return [cachedAddress]
-      }
-      return origSend(method, params)
-    }
-  },
 
   getContract() {
     if (!this.signer) return null
