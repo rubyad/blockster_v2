@@ -62,8 +62,8 @@ const WalletHook = {
     // Listen for LiveView navigation to switch chains when URL changes
     this.setupNavigationListener()
 
-    // Check for existing connection on mount (delayed to allow EIP-6963 discovery)
-    setTimeout(() => this.checkExistingConnection(), 100)
+    // Check for existing connection on mount (delayed to allow wallet extensions to initialize)
+    setTimeout(() => this.checkExistingConnection(), 500)
   },
 
   // ===== EIP-6963: Multi Injected Provider Discovery =====
@@ -291,12 +291,14 @@ const WalletHook = {
           console.log('[WalletHook] Could not push balance - LiveView not connected')
         }
       } else {
-        // Not connected - if we have a walletType in localStorage, session might be stale
-        if (walletType) {
-          localStorage.removeItem('walletType')
-          await this.clearSession()
-          window.location.reload()
-          return
+        // Wallet not connected (locked or revoked access) - clean up without reload
+        // Don't destroy session + reload, which causes a jarring disconnect flash
+        localStorage.removeItem('walletType')
+        await this.clearSession()
+        try {
+          this.pushEvent("wallet_disconnected", {})
+        } catch (e) {
+          // LiveView websocket might not be connected yet
         }
       }
     } catch (error) {
