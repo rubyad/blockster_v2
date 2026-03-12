@@ -65,7 +65,7 @@ const AffiliateWithdrawHook = {
       }
 
       // Get the NFT contract with signer
-      const contract = window.walletHook.getContract()
+      const contract = await window.walletHook.getContract()
       if (!contract) {
         throw new Error('Unable to get contract')
       }

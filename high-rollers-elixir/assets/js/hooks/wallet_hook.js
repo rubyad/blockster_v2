@@ -404,11 +404,20 @@ const WalletHook = {
     }
 
     // Create ethers provider
-    // Pass accounts[0] to getSigner() to avoid eth_requestAccounts popup on silent reconnect
     this.provider = new ethers.BrowserProvider(provider)
-    this.signer = await this.provider.getSigner(accounts[0])
-    this.address = await this.signer.getAddress()
     this.walletType = resolvedWalletType
+
+    if (skipRequest) {
+      // Silent reconnect: set address directly from eth_accounts result
+      // Do NOT call getSigner() here — it triggers eth_requestAccounts popup
+      // Signer will be created lazily via ensureSigner() when needed for transactions
+      this.address = accounts[0]
+      this.signer = null
+    } else {
+      // Fresh connect: getSigner() is fine since user just approved
+      this.signer = await this.provider.getSigner()
+      this.address = await this.signer.getAddress()
+    }
 
     // Set up event listeners
     this.handleAccountsChanged = this.handleAccountsChanged.bind(this)
@@ -837,9 +846,18 @@ const WalletHook = {
 
   // ===== Contract Access (for other hooks) =====
 
-  getContract() {
-    if (!this.signer) return null
-    return new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, this.signer)
+  // Lazily create signer when needed for transactions (avoids popup on page load)
+  async ensureSigner() {
+    if (!this.signer && this.provider) {
+      this.signer = await this.provider.getSigner()
+    }
+    return this.signer
+  },
+
+  async getContract() {
+    const signer = await this.ensureSigner()
+    if (!signer) return null
+    return new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, signer)
   },
 
   getReadOnlyContract() {
