@@ -170,25 +170,42 @@ defmodule HighRollers.OwnershipReconciler do
   end
 
   defp reconcile_batch(nfts) do
-    Enum.reduce(nfts, {0, 0, 0}, fn nft, {m_acc, r_acc, e_acc} ->
-      case reconcile_single_nft(nft) do
-        {:ok, :no_change} ->
-          {m_acc, r_acc, e_acc}
+    token_ids = Enum.map(nfts, & &1.token_id)
 
-        {:ok, :mnesia_updated} ->
-          {m_acc + 1, r_acc, e_acc}
+    case HighRollers.Contracts.NFTContract.get_batch_owners(token_ids) do
+      {:ok, owner_results} ->
+        # Collect mismatched NFTs for batch rewarder check
+        {mnesia_updates, mismatched, errors} =
+          Enum.zip(nfts, owner_results)
+          |> Enum.reduce({0, [], 0}, fn {nft, owner_result}, {m_acc, mismatch_acc, e_acc} ->
+            case owner_result do
+              {:ok, contract_owner} ->
+                contract_owner_lower = String.downcase(contract_owner)
+                mnesia_owner_lower = String.downcase(nft.owner)
 
-        {:ok, :both_updated} ->
-          {m_acc + 1, r_acc + 1, e_acc}
+                if contract_owner_lower != mnesia_owner_lower do
+                  Logger.info("[OwnershipReconciler] Token #{nft.token_id}: Mnesia owner #{mnesia_owner_lower} -> contract owner #{contract_owner_lower}")
+                  HighRollers.NFTStore.update_owner(nft.token_id, contract_owner_lower)
+                  {m_acc + 1, [{nft.token_id, contract_owner_lower} | mismatch_acc], e_acc}
+                else
+                  {m_acc, mismatch_acc, e_acc}
+                end
 
-        {:ok, :rewarder_queued} ->
-          {m_acc, r_acc + 1, e_acc}
+              {:error, reason} ->
+                Logger.warning("[OwnershipReconciler] Error for token #{nft.token_id}: #{inspect(reason)}")
+                {m_acc, mismatch_acc, e_acc + 1}
+            end
+          end)
 
-        {:error, reason} ->
-          Logger.warning("[OwnershipReconciler] Error for token #{nft.token_id}: #{inspect(reason)}")
-          {m_acc, r_acc, e_acc + 1}
-      end
-    end)
+        # Batch check NFTRewarder for mismatched NFTs
+        rewarder_updates = maybe_update_rewarder_batch(Enum.reverse(mismatched))
+
+        {mnesia_updates, rewarder_updates, errors}
+
+      {:error, reason} ->
+        Logger.warning("[OwnershipReconciler] Batch owner query failed: #{inspect(reason)}")
+        {0, 0, length(nfts)}
+    end
   end
 
   defp reconcile_single_nft(nft) do
@@ -248,6 +265,37 @@ defmodule HighRollers.OwnershipReconciler do
       {:error, _reason} ->
         # Can't check NFTRewarder, skip
         false
+    end
+  end
+
+  defp maybe_update_rewarder_batch([]), do: 0
+
+  defp maybe_update_rewarder_batch(mismatched_pairs) do
+    token_ids = Enum.map(mismatched_pairs, fn {token_id, _owner} -> token_id end)
+
+    case HighRollers.Contracts.NFTRewarder.get_batch_nft_owners(token_ids) do
+      {:ok, rewarder_owners} ->
+        Enum.zip(mismatched_pairs, rewarder_owners)
+        |> Enum.count(fn {{token_id, correct_owner}, rewarder_owner} ->
+          rewarder_owner_lower = String.downcase(rewarder_owner)
+
+          if rewarder_owner_lower != @zero_address and rewarder_owner_lower != correct_owner do
+            Logger.info("[OwnershipReconciler] Token #{token_id}: NFTRewarder owner #{rewarder_owner_lower} -> #{correct_owner}")
+            case HighRollers.AdminTxQueue.enqueue_update_ownership(token_id, correct_owner) do
+              {:ok, _op_id} -> true
+              {:error, _reason} -> false
+            end
+          else
+            false
+          end
+        end)
+
+      {:error, reason} ->
+        Logger.warning("[OwnershipReconciler] Batch rewarder owner query failed: #{inspect(reason)}, falling back to individual")
+        # Fallback to individual queries
+        Enum.count(mismatched_pairs, fn {token_id, correct_owner} ->
+          maybe_update_rewarder(token_id, correct_owner)
+        end)
     end
   end
 end

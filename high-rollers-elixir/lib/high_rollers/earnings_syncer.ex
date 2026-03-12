@@ -202,15 +202,9 @@ defmodule HighRollers.EarningsSyncer do
     end
   end
 
-  @doc """
-  Sync time reward last_claim_time from contract.
-
-  This serves as a backup mechanism to ensure Mnesia stays in sync with the
-  contract's authoritative last_claim_time. If RogueRewardPoller misses a
-  RewardClaimed event (due to crash, network issue, etc.), this will correct it.
-
-  Only syncs special NFTs (token IDs 2340-2700) that have time rewards.
-  """
+  # Sync time reward last_claim_time from contract.
+  # Backup mechanism to ensure Mnesia stays in sync with the contract's
+  # authoritative last_claim_time. Only syncs special NFTs (2340-2700).
   defp sync_time_reward_claim_times do
     # Get special NFTs (2340-2700) from unified hr_nfts table
     special_nfts = HighRollers.NFTStore.get_special_nfts_by_owner(nil)  # All special NFTs
@@ -223,13 +217,60 @@ defmodule HighRollers.EarningsSyncer do
       special_nfts
       |> Enum.chunk_every(50)  # Smaller batches for time reward queries
       |> Enum.each(fn batch ->
-        Enum.each(batch, fn nft ->
-          sync_single_time_reward(nft)
-        end)
-
+        sync_time_reward_batch(batch)
         # Rate limiting
         Process.sleep(100)
       end)
+    end
+  end
+
+  defp sync_time_reward_batch(batch) do
+    token_ids = Enum.map(batch, & &1.token_id)
+
+    case HighRollers.Contracts.NFTRewarder.get_batch_time_reward_raw(token_ids) do
+      {:ok, results} ->
+        Enum.zip(batch, results)
+        |> Enum.each(fn {nft, raw_info} ->
+          apply_time_reward_updates(nft, raw_info)
+        end)
+
+      {:error, reason} ->
+        Logger.warning("[EarningsSyncer] Batch time reward query failed: #{inspect(reason)}")
+    end
+  end
+
+  defp apply_time_reward_updates(nft, raw_info) do
+    updates = %{}
+
+    # 1. Sync start_time from contract
+    updates = if nft.time_start_time != raw_info.start_time and raw_info.start_time > 0 do
+      Logger.info("[EarningsSyncer] Syncing time_start_time for token #{nft.token_id}: #{nft.time_start_time} -> #{raw_info.start_time}")
+      Map.put(updates, :time_start_time, raw_info.start_time)
+    else
+      updates
+    end
+
+    # 2. Sync last_claim_time from contract (authoritative source)
+    updates = if nft.time_last_claim != raw_info.last_claim_time and raw_info.last_claim_time > 0 do
+      Logger.info("[EarningsSyncer] Syncing time_last_claim for token #{nft.token_id}: #{nft.time_last_claim} -> #{raw_info.last_claim_time}")
+      Map.put(updates, :time_last_claim, raw_info.last_claim_time)
+    else
+      updates
+    end
+
+    # 3. Sync total_claimed from contract
+    mnesia_claimed = parse_wei(nft.time_total_claimed) || 0
+
+    updates = if raw_info.total_claimed != mnesia_claimed do
+      Logger.info("[EarningsSyncer] Syncing time_total_claimed for token #{nft.token_id}: #{format_rogue(mnesia_claimed)} -> #{format_rogue(raw_info.total_claimed)} ROGUE")
+      Map.put(updates, :time_total_claimed, Integer.to_string(raw_info.total_claimed))
+    else
+      updates
+    end
+
+    # Apply updates if any
+    if map_size(updates) > 0 do
+      HighRollers.NFTStore.update_time_reward(nft.token_id, updates)
     end
   end
 

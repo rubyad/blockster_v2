@@ -175,6 +175,18 @@ defmodule HighRollers.MnesiaInitializer do
       indices: []
     },
 
+    # ===== SOLANA WALLETS (Cross-chain revenue sharing) =====
+    %{
+      name: :hr_solana_wallets,
+      type: :set,
+      attributes: [
+        :wallet_address,     # Primary key - EVM wallet address (string, lowercase)
+        :solana_address,     # Solana wallet address (string, base58)
+        :updated_at          # Unix timestamp
+      ],
+      indices: []
+    },
+
     # ===== PRICE CACHE (Token prices from BlocksterV2 API) =====
     %{
       name: :hr_prices,

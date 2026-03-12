@@ -1488,6 +1488,49 @@ contract NFTRewarder is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reen
         );
     }
 
+    // ============ V6: Batch View Functions for RPC Optimization ============
+
+    /**
+     * @notice Batch query time reward info for multiple NFTs.
+     * @param tokenIds Array of token IDs to query.
+     * @return startTimes Array of start timestamps (0 if not registered for time rewards)
+     * @return lastClaimTimes Array of last claim timestamps
+     * @return totalClaimeds Array of total claimed amounts (wei)
+     */
+    function getBatchTimeRewardRaw(uint256[] calldata tokenIds) external view returns (
+        uint256[] memory startTimes,
+        uint256[] memory lastClaimTimes,
+        uint256[] memory totalClaimeds
+    ) {
+        uint256 len = tokenIds.length;
+        startTimes = new uint256[](len);
+        lastClaimTimes = new uint256[](len);
+        totalClaimeds = new uint256[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            TimeRewardInfo storage info = timeRewardInfo[tokenIds[i]];
+            startTimes[i] = info.startTime;
+            lastClaimTimes[i] = info.lastClaimTime;
+            totalClaimeds[i] = info.totalClaimed;
+        }
+    }
+
+    /**
+     * @notice Batch query NFT owners from the nftMetadata mapping.
+     * @param tokenIds Array of token IDs to query.
+     * @return owners Array of owner addresses (address(0) if not registered)
+     */
+    function getBatchNFTOwners(uint256[] calldata tokenIds) external view returns (
+        address[] memory owners
+    ) {
+        uint256 len = tokenIds.length;
+        owners = new address[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            owners[i] = nftMetadata[tokenIds[i]].owner;
+        }
+    }
+
     /**
      * @notice Allow contract to receive ROGUE directly (for testing/manual deposits)
      */

@@ -8,11 +8,11 @@ defmodule HighRollers.Sales do
 
   @affiliate_earnings_table :hr_affiliate_earnings
 
-  @doc "Get paginated sales (minted NFTs) for display, sorted by token_id descending"
+  @doc "Get paginated sales (minted NFTs) for display, sorted by most recent first"
   def get_sales(limit \\ 50, offset \\ 0) do
     HighRollers.NFTStore.get_all()
-    |> Enum.filter(fn nft -> nft.mint_price != nil and nft.mint_price != "" end)
-    |> Enum.sort_by(fn nft -> nft.token_id end, :desc)
+    |> Enum.filter(fn nft -> nft.mint_tx_hash != nil and nft.mint_tx_hash != "" end)
+    |> Enum.sort_by(fn nft -> nft.created_at end, :desc)
     |> Enum.drop(offset)
     |> Enum.take(limit)
     |> Enum.map(fn nft ->
@@ -32,7 +32,7 @@ defmodule HighRollers.Sales do
   defp format_eth(nil), do: "0"
   defp format_eth(wei_string) when is_binary(wei_string) do
     wei = String.to_integer(wei_string)
-    :erlang.float_to_binary(wei / 1.0e18, decimals: 3)
+    :erlang.float_to_binary(wei / 1.0e18, decimals: 6)
   end
   defp format_eth(_), do: "0"
 

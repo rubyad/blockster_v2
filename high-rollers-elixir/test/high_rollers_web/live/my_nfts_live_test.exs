@@ -20,15 +20,15 @@ defmodule HighRollersWeb.MyNFTsLiveTest do
   end
 
   describe "mount without wallet" do
-    test "redirects to home when not connected", %{conn: conn} do
-      # Without wallet_connected in session, should redirect
-      # LiveView uses live_redirect which returns {:error, {:live_redirect, ...}}
-      {:error, {:live_redirect, %{to: "/"}}} = live(conn, "/my-nfts")
+    test "renders page without wallet connected", %{conn: conn} do
+      # Without wallet in session, the page renders with a connect prompt
+      {:ok, _view, html} = live(conn, "/my-nfts")
+      assert html =~ "Connect Wallet"
     end
   end
 
   describe "mount with wallet" do
-    test "shows user's NFTs", %{conn: conn} do
+    test "renders page for wallet connection", %{conn: conn} do
       wallet = "0x1234567890123456789012345678901234567890"
 
       # Insert NFTs owned by user
@@ -37,16 +37,10 @@ defmodule HighRollersWeb.MyNFTsLiveTest do
       # Insert NFT owned by someone else
       insert_test_nft(%{token_id: 3, owner: "0xother", hostess_index: 3})
 
-      # Note: In a full integration test, we would use a custom conn
-      # with Plug.Test.init_test_session to set up the session.
-      # For now, we test that the redirect happens without wallet connection.
-      # Wallet connection is handled by JavaScript hooks in production.
-      {:error, {:live_redirect, _}} = live(conn, "/my-nfts")
-
-      # In a real test with proper wallet hook setup, we would verify:
-      # - Only user's NFTs are shown (2, not 3)
-      # - Hostess images are displayed
-      # - Earnings are shown
+      # Without session wallet, page renders with connect prompt
+      # Wallet connection is handled by JavaScript hooks in production
+      {:ok, _view, html} = live(conn, "/my-nfts")
+      assert html =~ "Connect Wallet"
     end
   end
 

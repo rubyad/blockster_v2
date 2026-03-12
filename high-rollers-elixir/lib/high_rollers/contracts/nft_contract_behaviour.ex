@@ -10,6 +10,7 @@ defmodule HighRollers.Contracts.NFTContractBehaviour do
   @callback get_transfer_events(integer(), integer()) :: {:ok, list(map())} | {:error, term()}
   @callback get_total_supply() :: {:ok, integer()} | {:error, term()}
   @callback get_owner_of(integer()) :: {:ok, String.t()} | {:error, term()}
+  @callback get_batch_owners(list(integer())) :: {:ok, list({:ok, String.t()} | {:error, term()})} | {:error, term()}
   @callback get_hostess_index(integer()) :: {:ok, integer()} | {:error, term()}
   @callback get_nonce(String.t()) :: {:ok, integer()} | {:error, term()}
 end

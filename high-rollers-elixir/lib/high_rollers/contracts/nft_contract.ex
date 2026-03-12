@@ -198,6 +198,44 @@ defmodule HighRollers.Contracts.NFTContract do
     end
   end
 
+  @doc """
+  Batch query ownerOf for multiple token IDs via Multicall3.
+
+  Returns {:ok, [{:ok, owner_address} | {:error, reason}, ...]}
+  Each result corresponds to the input token_id at the same index.
+  """
+  def get_batch_owners(token_ids) when is_list(token_ids) do
+    if Enum.empty?(token_ids) do
+      {:ok, []}
+    else
+      calls = Enum.map(token_ids, fn token_id ->
+        # ownerOf(uint256) selector: 0x6352211e
+        data = "0x6352211e" <> encode_uint256(token_id)
+        {@contract_address, data}
+      end)
+
+      rpc_url = Application.get_env(:high_rollers, :arbitrum_rpc_url)
+
+      case HighRollers.Contracts.Multicall3.aggregate3(rpc_url, calls) do
+        {:ok, results} ->
+          owners = Enum.map(results, fn
+            {true, return_data} when byte_size(return_data) >= 20 ->
+              {:ok, decode_address_from_bytes(return_data)}
+
+            {true, _} ->
+              {:error, :invalid_response}
+
+            {false, _} ->
+              {:error, :call_failed}
+          end)
+          {:ok, owners}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   @doc "Get nonce for an address"
   def get_nonce(address) do
     case rpc_call("eth_getTransactionCount", [address, "latest"]) do
@@ -308,6 +346,16 @@ defmodule HighRollers.Contracts.NFTContract do
       |> binary_part(0, 4)
       |> Base.encode16(case: :lower)
     )
+  end
+
+  defp decode_address_from_bytes(bytes) when byte_size(bytes) >= 32 do
+    # Address is last 20 bytes of 32-byte value
+    <<_padding::binary-size(12), addr_bytes::binary-size(20)>> = binary_part(bytes, 0, 32)
+    "0x" <> Base.encode16(addr_bytes, case: :lower)
+  end
+  defp decode_address_from_bytes(bytes) when byte_size(bytes) >= 20 do
+    addr_bytes = binary_part(bytes, byte_size(bytes) - 20, 20)
+    "0x" <> Base.encode16(addr_bytes, case: :lower)
   end
 
   # Expose zero address for mint detection

@@ -1,0 +1,181 @@
+<div class="container mx-auto p-6 max-w-3xl">
+
+  <%!-- Hero card with Solana gradient border --%>
+  <div class="relative rounded-2xl overflow-hidden">
+    <%!-- Animated gradient border effect --%>
+    <div class="absolute inset-0 bg-gradient-to-br from-[#9945FF] via-[#14F195] to-[#9945FF] opacity-60 animate-pulse" style="animation-duration: 4s;"></div>
+    <div class="relative m-[2px] rounded-2xl bg-gray-900 p-8">
+
+      <%!-- Header --%>
+      <div class="flex items-start gap-5 mb-6">
+        <div class="shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 text-white">
+            <path d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-white mb-1">FateSwap Revenue Sharing</h1>
+          <p class="text-gray-400 text-sm leading-relaxed">
+            Earn real-time revenues from
+            <a href="https://fateswap.io" target="_blank" class="text-[#14F195] hover:underline font-semibold cursor-pointer">FateSwap.io</a>,
+            a Solana DEX-style gambling game. Revenues are distributed directly to High Rollers NFT holders' Solana wallets.
+          </p>
+        </div>
+      </div>
+
+      <%!-- How it works --%>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div class="bg-gray-800/80 rounded-xl p-4 border border-gray-700/50">
+          <div class="w-8 h-8 rounded-lg bg-[#9945FF]/20 flex items-center justify-center mb-3">
+            <span class="text-[#9945FF] font-bold text-sm">1</span>
+          </div>
+          <h3 class="text-sm font-semibold text-white mb-1">Register Wallet</h3>
+          <p class="text-xs text-gray-500 leading-relaxed">Add your Solana wallet address below to be eligible for revenue distributions.</p>
+        </div>
+        <div class="bg-gray-800/80 rounded-xl p-4 border border-gray-700/50">
+          <div class="w-8 h-8 rounded-lg bg-[#14F195]/20 flex items-center justify-center mb-3">
+            <span class="text-[#14F195] font-bold text-sm">2</span>
+          </div>
+          <h3 class="text-sm font-semibold text-white mb-1">FateSwap Generates Revenue</h3>
+          <p class="text-xs text-gray-500 leading-relaxed">0.3% of every losing trade on FateSwap is distributed to High Rollers NFT holders.</p>
+        </div>
+        <div class="bg-gray-800/80 rounded-xl p-4 border border-gray-700/50">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3">
+            <span class="text-purple-400 font-bold text-sm">3</span>
+          </div>
+          <h3 class="text-sm font-semibold text-white mb-1">Get Paid in SOL</h3>
+          <p class="text-xs text-gray-500 leading-relaxed">Revenue is distributed directly to your Solana wallet proportional to your NFT holdings.</p>
+        </div>
+      </div>
+
+      <%!-- Wallet not connected state --%>
+      <div :if={!@wallet_connected} class="text-center py-10">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 text-gray-500">
+            <path d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+          </svg>
+        </div>
+        <p class="text-gray-400 mb-4 text-sm">Connect your EVM wallet to register a Solana address</p>
+        <button
+          phx-click={HighRollersWeb.Layouts.show_modal("wallet-modal")}
+          class="bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:opacity-90 px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer transition-opacity text-white"
+        >
+          Connect Wallet
+        </button>
+      </div>
+
+      <%!-- Wallet connected - show form or saved state --%>
+      <div :if={@wallet_connected}>
+
+        <%!-- Already saved and not editing --%>
+        <div :if={@solana_address && !@editing} class="bg-gray-800/80 rounded-xl border border-[#14F195]/30 p-6">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-5 h-5 rounded-full bg-[#14F195]/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-[#14F195]">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <span class="text-[#14F195] text-sm font-medium">Solana Wallet Registered</span>
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 mb-1">Your Solana Address</p>
+              <p class="text-white font-mono text-sm truncate" title={@solana_address}><%= @solana_address %></p>
+            </div>
+            <button
+              phx-click="edit_solana"
+              class="shrink-0 text-gray-400 hover:text-white text-sm border border-gray-600 hover:border-gray-500 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+            >
+              Change
+            </button>
+          </div>
+
+          <p class="text-xs text-gray-600 mt-4">
+            You're all set. When <a href="https://fateswap.io" target="_blank" class="text-[#14F195] hover:underline cursor-pointer">FateSwap.io</a> revenue distributions begin, your share will be sent to this address.
+          </p>
+        </div>
+
+        <%!-- Input form (no saved address, or editing) --%>
+        <div :if={!@solana_address || @editing}>
+          <form phx-submit="save_solana" phx-change="validate_solana" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-2">
+                Solana Wallet Address
+              </label>
+              <div class="relative">
+                <input
+                  type="text"
+                  name="solana_address"
+                  value={@solana_input}
+                  placeholder="e.g. 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+                  autocomplete="off"
+                  spellcheck="false"
+                  class={[
+                    "w-full bg-gray-800 border rounded-xl px-4 py-3 text-white font-mono text-sm",
+                    "placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                    @validation_error && "border-red-500/50 focus:ring-red-500/30",
+                    !@validation_error && "border-gray-700 focus:ring-[#9945FF]/40 focus:border-[#9945FF]/50"
+                  ]}
+                />
+                <%!-- Solana logo in input --%>
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="solGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#9945FF"/>
+                        <stop offset="1" stop-color="#14F195"/>
+                      </linearGradient>
+                    </defs>
+                    <circle cx="64" cy="64" r="64" fill="url(#solGrad)" opacity="0.15"/>
+                    <text x="64" y="82" text-anchor="middle" font-size="64" font-weight="bold" fill="url(#solGrad)">S</text>
+                  </svg>
+                </div>
+              </div>
+
+              <%!-- Validation error --%>
+              <p :if={@validation_error} class="mt-2 text-red-400 text-xs flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+                </svg>
+                <%= @validation_error %>
+              </p>
+
+              <%!-- Success message --%>
+              <p :if={@save_status == :saved} class="mt-2 text-[#14F195] text-xs flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+                </svg>
+                Solana wallet saved successfully
+              </p>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                type="submit"
+                class="bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:opacity-90 px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer transition-opacity text-white"
+              >
+                <%= if @solana_address, do: "Update Wallet", else: "Save Wallet" %>
+              </button>
+              <button
+                :if={@editing}
+                type="button"
+                phx-click="cancel_edit"
+                class="text-gray-400 hover:text-white px-4 py-2.5 rounded-lg text-sm cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+
+          <p class="text-xs text-gray-600 mt-4">
+            Make sure to use a Solana wallet address you control (Phantom, Solflare, Backpack, etc.). Revenues will be sent directly to this address.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+</div>

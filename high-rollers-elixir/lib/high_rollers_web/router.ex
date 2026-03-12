@@ -59,6 +59,7 @@ defmodule HighRollersWeb.Router do
       live "/affiliates", AffiliatesLive, :index
       live "/my-nfts", MyNftsLive, :index  # Requires wallet (enforced in mount)
       live "/revenues", RevenuesLive, :index
+      live "/solana", SolanaWalletLive, :index
     end
   end
 

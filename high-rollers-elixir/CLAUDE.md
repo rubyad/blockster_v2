@@ -53,12 +53,14 @@ PORT=4001 elixir --sname hr2 -S mix phx.server
 | `hr_nfts` | All 2,341 NFTs with earnings data |
 | `hr_reward_events` | RewardReceived events from blockchain |
 | `hr_reward_withdrawals` | Withdrawal history |
-| `hr_users` | User preferences |
+| `hr_users` | User preferences and affiliate data |
+| `hr_solana_wallets` | Solana wallet addresses for FateSwap revenue sharing |
 | `hr_affiliate_earnings` | Affiliate commission tracking |
 | `hr_pending_mints` | In-progress mint requests |
 | `hr_admin_ops` | Admin operation log |
 | `hr_stats` | Cached global statistics |
 | `hr_poller_state` | Last processed block for each poller |
+| `hr_prices` | Token price cache from BlocksterV2 API |
 
 ## Data Recovery
 

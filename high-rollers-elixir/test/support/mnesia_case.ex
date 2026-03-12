@@ -20,29 +20,46 @@ defmodule HighRollers.MnesiaCase do
   end
 
   setup do
-    # Stop Mnesia if running from a previous test
-    :mnesia.stop()
+    # Check if the application has already started Mnesia (e.g., via MnesiaInitializer).
+    # If so, just clear table data instead of stopping/restarting Mnesia,
+    # which would crash the supervision tree and kill the Endpoint.
+    app_running? = match?({:ok, _}, Application.ensure_all_started(:high_rollers)) and
+                   :mnesia.system_info(:is_running) == :yes
 
-    # Delete any existing schema
-    :mnesia.delete_schema([node()])
+    if app_running? do
+      # Non-destructive: clear all table data, preserving the application's Mnesia setup
+      table_names = HighRollers.MnesiaInitializer.table_names()
+      :ok = :mnesia.wait_for_tables(table_names, 5_000)
 
-    # Create fresh RAM-only schema
-    :ok = :mnesia.create_schema([node()])
-    :ok = :mnesia.start()
+      for table <- table_names do
+        :mnesia.clear_table(table)
+      end
 
-    # Create all tables with ram_copies (no disc persistence)
-    for table_config <- HighRollers.MnesiaInitializer.tables() do
-      create_test_table(table_config)
-    end
-
-    # Wait for tables to be ready
-    table_names = HighRollers.MnesiaInitializer.table_names()
-    :ok = :mnesia.wait_for_tables(table_names, 5_000)
-
-    on_exit(fn ->
+      on_exit(fn ->
+        for table <- table_names do
+          :mnesia.clear_table(table)
+        end
+      end)
+    else
+      # Standalone: create fresh RAM-only Mnesia (no application running)
       :mnesia.stop()
       :mnesia.delete_schema([node()])
-    end)
+
+      :ok = :mnesia.create_schema([node()])
+      :ok = :mnesia.start()
+
+      for table_config <- HighRollers.MnesiaInitializer.tables() do
+        create_test_table(table_config)
+      end
+
+      table_names = HighRollers.MnesiaInitializer.table_names()
+      :ok = :mnesia.wait_for_tables(table_names, 5_000)
+
+      on_exit(fn ->
+        :mnesia.stop()
+        :mnesia.delete_schema([node()])
+      end)
+    end
 
     :ok
   end

@@ -299,6 +299,74 @@ defmodule HighRollers.Contracts.NFTRewarder do
     end
   end
 
+  @doc """
+  Batch query time reward info via NFTRewarder.getBatchTimeRewardRaw().
+
+  Returns {:ok, [%{start_time, last_claim_time, total_claimed}, ...]}
+
+  Uses the native batch function on the contract (not Multicall3).
+  Follows same pattern as get_batch_nft_earnings.
+  """
+  def get_batch_time_reward_raw(token_ids) when is_list(token_ids) do
+    if Enum.empty?(token_ids) do
+      {:ok, []}
+    else
+      selector = function_selector("getBatchTimeRewardRaw(uint256[])")
+      array_data = encode_uint256_array(token_ids)
+      data = selector <> array_data
+
+      case rpc_call("eth_call", [%{to: @contract_address, data: data}, "latest"]) do
+        {:ok, result} ->
+          decoded = decode_triple_array_generic(result)
+
+          results =
+            token_ids
+            |> Enum.with_index()
+            |> Enum.map(fn {_token_id, i} ->
+              %{
+                start_time: Enum.at(decoded.first, i, 0),
+                last_claim_time: Enum.at(decoded.second, i, 0),
+                total_claimed: Enum.at(decoded.third, i, 0)
+              }
+            end)
+
+          {:ok, results}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Batch query NFT owners from nftMetadata mapping via NFTRewarder.getBatchNFTOwners().
+
+  Returns {:ok, [owner_address, ...]}
+
+  Uses the native batch function on the contract (not Multicall3).
+  """
+  def get_batch_nft_owners(token_ids) when is_list(token_ids) do
+    if Enum.empty?(token_ids) do
+      {:ok, []}
+    else
+      selector = function_selector("getBatchNFTOwners(uint256[])")
+      array_data = encode_uint256_array(token_ids)
+      data = selector <> array_data
+
+      case rpc_call("eth_call", [%{to: @contract_address, data: data}, "latest"]) do
+        {:ok, result} ->
+          owners = decode_address_array(result)
+          {:ok, owners}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "Alias for get_batch_nft_owners — satisfies NFTRewarderBehaviour callback"
+  def get_owners_batch(token_ids), do: get_batch_nft_owners(token_ids)
+
   @doc "Get nonce for admin wallet"
   def get_nonce(address) do
     case rpc_call("eth_getTransactionCount", [address, "latest"]) do
@@ -431,6 +499,19 @@ defmodule HighRollers.Contracts.NFTRewarder do
       pending_amounts: pending_amounts,
       hostess_indices: hostess_indices
     }
+  end
+
+  defp decode_triple_array_generic("0x" <> hex) do
+    # Same layout as decode_triple_array but with generic field names
+    data = Base.decode16!(hex, case: :mixed)
+
+    <<offset1::unsigned-256, offset2::unsigned-256, offset3::unsigned-256, rest::binary>> = data
+
+    first = decode_array_at_offset(rest, offset1 - 96)
+    second = decode_array_at_offset(rest, offset2 - 96)
+    third = decode_array_at_offset(rest, offset3 - 96)
+
+    %{first: first, second: second, third: third}
   end
 
   defp decode_array_at_offset(data, offset) do

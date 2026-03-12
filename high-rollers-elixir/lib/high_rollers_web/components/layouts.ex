@@ -29,6 +29,9 @@ defmodule HighRollersWeb.Layouts do
           <.tab_button path="/my-nfts" label="My NFTs" current={@current_path} />
         <% end %>
         <.tab_button path="/revenues" label="My Earnings" current={@current_path} />
+        <%= if @wallet_connected do %>
+          <.tab_button path="/solana" label="FateSwap" current={@current_path} />
+        <% end %>
       </div>
     </nav>
     """

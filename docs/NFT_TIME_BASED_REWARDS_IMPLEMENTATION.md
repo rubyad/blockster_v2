@@ -29,6 +29,7 @@
 | NFTRewarder V3 Impl | `0xd0d97034E6ebf0A839F9EDbE213eb0B26B8f9Ef6` | Rogue Chain (560013) |
 | NFTRewarder V4 Impl | `0xD41D2BD654cD15d691bD7037b0bA8050477D1386` | Rogue Chain (560013) |
 | NFTRewarder V5 Impl | `0x51F7f2b0Ac9e4035b3A14d8Ea4474a0cf62751Bb` | Rogue Chain (560013) |
+| NFTRewarder V6 Impl | `0xC2Fb3A92C785aF4DB22D58FD8714C43B3063F3B1` | Rogue Chain (560013) |
 
 ### Key Transactions
 
@@ -43,6 +44,7 @@
 | Start NFT #2340 | `0x981ffad09fbabab13969d7e1a98a3fbc2c7638d02066b85e2ae36f40207e67cc` | 109574708 |
 | Start NFT #2341 | `0xa8851fec1992f1385930389f41d673f34f0c5755eb67a61bf9e777869e63edda` | 109574711 |
 | Start NFT #2342 | `0x20635e258f856aff4b9d9ebabb57ab08fdf53a2426b26a3b5d1eb6cb70c86d85` | 109574712 |
+| V6 Upgrade (batch views) | `0xed2b7aeeca1e02610d042b4f2d7abb206bf6e4d358c6f351d0e444b8e1899db2` | — |
 
 ### Current Pool Status
 

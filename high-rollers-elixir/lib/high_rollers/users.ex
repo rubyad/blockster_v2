@@ -4,6 +4,7 @@ defmodule HighRollers.Users do
   """
 
   @users_table :hr_users
+  @solana_table :hr_solana_wallets
   @zero_address "0x0000000000000000000000000000000000000000"
 
   @doc "Get or create a user record"
@@ -219,6 +220,27 @@ defmodule HighRollers.Users do
     end)
 
     {:ok, %{count: length(results), links: results}}
+  end
+
+  # ===== Solana Wallet (separate table: hr_solana_wallets) =====
+
+  @doc "Set Solana wallet address for a user"
+  def set_solana_wallet(wallet_address, solana_address) do
+    address = String.downcase(wallet_address)
+    now = System.system_time(:second)
+    record = {@solana_table, address, solana_address, now}
+    :mnesia.dirty_write(record)
+    {:ok, solana_address}
+  end
+
+  @doc "Get Solana wallet address for a user"
+  def get_solana_wallet(wallet_address) do
+    address = String.downcase(wallet_address)
+
+    case :mnesia.dirty_read({@solana_table, address}) do
+      [{@solana_table, _, solana_address, _}] -> solana_address
+      [] -> nil
+    end
   end
 
   # ===== Private Functions =====

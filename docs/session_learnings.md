@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [FateSwap Solana Wallet Tab](#fateswap-solana-wallet-tab-mar-2026)
 - [Number Formatting in Templates](#number-formatting-in-templates)
 - [Product Variants](#product-variants)
 - [X Share Success State](#x-share-success-state)
@@ -39,6 +40,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Stats Cache](#buxbooster-stats-cache-feb-3-2026)
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
+- [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 
 ---
 
@@ -298,3 +300,72 @@ Created AirdropVaultV2 inheriting from V1, adding a public `deposit(externalWall
 
 ### Test Fixes
 Many airdrop tests were failing because `Airdrop.redeem_bux` calls `deduct_user_token_balance` in Mnesia, but tests never set up a Mnesia balance. Fixed by adding `setup_mnesia` + `set_bux_balance` helpers to both `airdrop_live_test.exs` and `airdrop_integration_test.exs`. Also updated prize amount assertions from old values ($250/$150/$100/$50) to current test pool ($0.65/$0.40/$0.35/$0.12).
+
+---
+
+## NFTRewarder V6 & RPC Batching (Mar 2026)
+
+### Problem
+Two background processes in `high-rollers-elixir` made individual RPC calls per NFT, burning ~29,000 Arbitrum RPC calls/hour (QuickNode) and ~21,600 Rogue Chain calls/hour:
+- **OwnershipReconciler**: `ownerOf(tokenId)` × 2,414 NFTs every 5 min
+- **EarningsSyncer**: `timeRewardInfo(tokenId)` × ~361 special NFTs every 60 sec
+
+### Solution: Two-Pronged Approach
+
+**Arbitrum**: Multicall3 (canonical at `0xcA11bde05977b3631167028862bE2a173976CA11`) wraps N `ownerOf` calls into 1 `eth_call`.
+
+**Rogue Chain**: Upgraded NFTRewarder to V6 with native batch view functions (Multicall3 is NOT on Rogue Chain).
+
+### NFTRewarder V6 Contract Changes
+- Added `getBatchTimeRewardRaw(uint256[])` — returns 3 parallel uint256 arrays (startTimes, lastClaimTimes, totalClaimeds)
+- Added `getBatchNFTOwners(uint256[])` — returns address array from nftMetadata mapping
+- Both are read-only view functions, zero state risk
+- **Implementation**: `0xC2Fb3A92C785aF4DB22D58FD8714C43B3063F3B1`
+- **Upgrade tx**: `0xed2b7aeeca1e02610d042b4f2d7abb206bf6e4d358c6f351d0e444b8e1899db2`
+
+### Elixir Implementation (high-rollers-elixir)
+
+| File | Change |
+|------|--------|
+| `lib/high_rollers/contracts/multicall3.ex` | New module — Multicall3 ABI encoding/decoding, aggregate3, aggregate3_batched |
+| `lib/high_rollers/contracts/nft_contract.ex` | Added `get_batch_owners/1` via Multicall3 |
+| `lib/high_rollers/contracts/nft_rewarder.ex` | Added `get_batch_time_reward_raw/1` and `get_batch_nft_owners/1` |
+| `lib/high_rollers/ownership_reconciler.ex` | Refactored `reconcile_batch` to use batch owners; added `maybe_update_rewarder_batch` |
+| `lib/high_rollers/earnings_syncer.ex` | Refactored `sync_time_reward_claim_times` to use batch time reward queries |
+
+### Expected Impact
+
+| Process | Before | After (50/batch) | Reduction |
+|---------|-------:|------------------:|----------:|
+| OwnershipReconciler (Arbitrum) | 2,414 calls/cycle | 49 | 98% |
+| EarningsSyncer time rewards (Rogue) | ~361 calls/cycle | 8 | 98% |
+| **Hourly total (Arbitrum)** | **~29,000** | **~588** | **98%** |
+
+### Key Learnings
+- Rogue Chain RPC intermittently returns 500 on large contract deploys — retry after a few minutes
+- Multicall3 ABI encoding requires careful offset calculations for dynamic types (Call3 contains `bytes callData`)
+- Old per-NFT functions kept as fallbacks — `reconcile_single_nft/1`, `sync_single_time_reward/1`, `get_owner_of/1`, `get_time_reward_raw/1`
+
+---
+
+## FateSwap Solana Wallet Tab (Mar 2026)
+
+Added a new "FateSwap" tab to the High Rollers site that lets NFT holders register their Solana wallet address for cross-chain revenue sharing from FateSwap.io.
+
+### Mnesia Schema: Separate Table vs Field Addition
+Adding a field to an existing Mnesia table (`hr_users`) is problematic:
+- Existing records on disk have N elements; new schema expects N+1
+- `mnesia:transform_table/3` can fail with `:bad_type` if disc_copies and schema mismatch
+- `dirty_write` of records with extra fields fails if table definition hasn't been updated
+
+**Solution**: Use a separate Mnesia table (`hr_solana_wallets`) for new data. Zero migration risk, no schema conflicts.
+
+### MnesiaCase Test Infrastructure Fix
+LiveView tests using both `MnesiaCase` + `ConnCase` were failing (16 tests) because `MnesiaCase.setup` called `:mnesia.stop()` which crashed the supervision tree (MnesiaInitializer → cascade → Endpoint dies → ETS table gone).
+
+**Fix**: `MnesiaCase` now detects if the application is running and uses non-destructive setup — `mnesia:clear_table` instead of stop/restart. This preserves the supervision tree while still isolating test data.
+
+### Sales Module Bug Fixes
+- `get_sales/2` was filtering on `mint_price` instead of `mint_tx_hash` — unminted NFTs with default price passed the filter
+- Sorting was by `token_id` desc instead of `created_at` desc — pagination tests expected chronological order
+- `format_eth/1` used `decimals: 3` instead of `decimals: 6`
