@@ -248,8 +248,14 @@ const WalletHook = {
     }
 
     try {
-      // MetaMask is the source of truth - always check it
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+      // Use the specific EIP-6963 provider for the stored wallet type
+      // (window.ethereum triggers a "which wallet?" popup when multiple extensions are installed)
+      const provider = this.getEIP6963Provider(walletType) || window.ethereum
+      if (!provider) {
+        this.autoConnectComplete = true
+        return
+      }
+      const accounts = await provider.request({ method: 'eth_accounts' })
 
       if (accounts.length > 0) {
         // Connected - set up JS state silently (session already has correct data)
