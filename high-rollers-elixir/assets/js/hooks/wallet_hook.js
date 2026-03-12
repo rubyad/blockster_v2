@@ -404,8 +404,9 @@ const WalletHook = {
     }
 
     // Create ethers provider
+    // Pass accounts[0] to getSigner() to avoid eth_requestAccounts popup on silent reconnect
     this.provider = new ethers.BrowserProvider(provider)
-    this.signer = await this.provider.getSigner()
+    this.signer = await this.provider.getSigner(accounts[0])
     this.address = await this.signer.getAddress()
     this.walletType = resolvedWalletType
 
