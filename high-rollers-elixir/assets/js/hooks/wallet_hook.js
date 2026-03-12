@@ -29,7 +29,7 @@ import { CONFIG } from '../config.js'
  *   - switch_network: { chain } - Switch to 'arbitrum' or 'rogue'
  */
 // Arbitrum pages - mint and affiliates (affiliate withdrawals are on Arbitrum NFT contract)
-const ARBITRUM_PAGES = ['/', '/mint', '/affiliates']
+const ARBITRUM_PAGES = ['/', '/mint', '/affiliates', '/solana']
 
 function getTargetChainForPath(pathname) {
   return ARBITRUM_PAGES.includes(pathname) ? 'arbitrum' : 'rogue'
@@ -158,22 +158,22 @@ const WalletHook = {
 
       if (!this.address) return // Not connected, nothing to do
 
-      // Only switch if we're on the wrong chain
+      // Switch chain if needed
       if (this.currentChain !== targetChain) {
         console.log(`[WalletHook] Switching chain: ${this.currentChain} -> ${targetChain}`)
         await this.switchNetwork(targetChain)
-        // Get balance and sync to session + push to LiveView in one go
-        const balance = await this.getCurrentBalance()
-        await this.syncToSession({
-          address: this.address,
-          type: this.walletType,
-          chain: this.currentChain,
-          balance: balance
-        })
-        // Push to LiveView (no separate session update needed - syncToSession already did it)
-        this.pushEvent("balance_updated", { balance, chain: this.currentChain })
       }
-      // If chain didn't change, no need to refresh - balance is still valid
+
+      // Always push current balance on navigation - the server may have cleared
+      // a stale session balance via set_page_chain, so LiveView needs a fresh value
+      const balance = await this.getCurrentBalance()
+      await this.syncToSession({
+        address: this.address,
+        type: this.walletType,
+        chain: this.currentChain,
+        balance: balance
+      })
+      this.pushEvent("balance_updated", { balance, chain: this.currentChain })
     }
     window.addEventListener('phx:page-loading-stop', this.navigationHandler)
   },
