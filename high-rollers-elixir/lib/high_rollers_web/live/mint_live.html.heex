@@ -1,21 +1,21 @@
 <div class="container mx-auto px-4 sm:px-6 py-4 sm:py-6" id="mint-container" data-special-remaining={@special_remaining}>
   <!-- Stats Section -->
-  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">Total Minted</h3>
-      <p class="text-2xl font-bold"><%= @total_minted %></p>
+  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">Total Minted</h3>
+      <p class="text-lg sm:text-2xl font-bold"><%= @total_minted %></p>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">Remaining</h3>
-      <p class="text-2xl font-bold text-yellow-400"><%= @remaining %></p>
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">Remaining</h3>
+      <p class="text-lg sm:text-2xl font-bold text-yellow-400"><%= @remaining %></p>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">Current Price</h3>
-      <p class="text-2xl font-bold flex items-baseline gap-2">0.32 <span class="text-sm text-gray-400 font-normal">ETH</span> <span class="text-sm text-gray-500 font-normal">(<%= format_eth_to_usd(0.32, @eth_price) %>)</span></p>
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">Current Price</h3>
+      <p class="text-lg sm:text-2xl font-bold flex items-baseline gap-1 sm:gap-2">0.32 <span class="text-xs sm:text-sm text-gray-400 font-normal">ETH</span> <span class="text-xs sm:text-sm text-gray-500 font-normal">(<%= format_eth_to_usd(0.32, @eth_price) %>)</span></p>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">Max Supply</h3>
-      <p class="text-2xl font-bold">2,700</p>
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">Max Supply</h3>
+      <p class="text-lg sm:text-2xl font-bold">2,700</p>
     </div>
   </section>
 
@@ -30,14 +30,14 @@
   </section>
 
   <!-- Revenue Stats -->
-  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-gray-800 p-4 rounded-lg flex flex-col justify-center">
+  <section class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg flex flex-col justify-center">
       <button
         id="mint-btn"
         phx-hook="MintHook"
         phx-click="mint"
         disabled={@minting || !@wallet_connected || @sold_out}
-        class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-lg text-lg font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-lg font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
         <%= if @minting, do: "Minting...", else: "Mint for 0.32 ETH" %>
       </button>
@@ -52,25 +52,25 @@
         <% end %>
       </div>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg"
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg"
          id="mint-total-rewards"
          phx-hook="GlobalTimeRewardHook"
          data-total-rate={@global_time_stats.total_rate_per_second}
          data-base-time={@global_time_stats.base_time}
          data-base-total={wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned}
          data-rogue-price={@rogue_price}>
-      <h3 class="text-gray-400 text-sm">Total Rewards Received</h3>
-      <p class="text-2xl font-bold text-green-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center"><span class="global-time-total"><%= format_with_commas(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned) %></span> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
-      <p class="text-sm text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned, @rogue_price) %></span></p>
+      <h3 class="text-gray-400 text-xs sm:text-sm">Total Rewards Received</h3>
+      <p class="text-base sm:text-2xl font-bold text-green-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 sm:w-5 sm:h-5 self-center"><span class="global-time-total"><%= format_with_commas(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned) %></span> <span class="text-xs sm:text-sm text-gray-400 font-normal">ROGUE</span></p>
+      <p class="text-xs sm:text-sm text-gray-500"><span class="global-time-usd"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:total_rewards_received]) + @global_time_stats.total_earned, @rogue_price) %></span></p>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">Last 24 Hours</h3>
-      <p class="text-2xl font-bold text-yellow-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-5 h-5 self-center"><%= format_with_commas(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h) %> <span class="text-sm text-gray-400 font-normal">ROGUE</span></p>
-      <p class="text-sm text-gray-500"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h, @rogue_price) %></p>
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">Last 24 Hours</h3>
+      <p class="text-base sm:text-2xl font-bold text-yellow-400 flex items-baseline gap-1"><img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 sm:w-5 sm:h-5 self-center"><%= format_with_commas(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h) %> <span class="text-xs sm:text-sm text-gray-400 font-normal">ROGUE</span></p>
+      <p class="text-xs sm:text-sm text-gray-500"><%= format_usd_from_rogue(wei_to_rogue(@global_stats[:rewards_last_24h]) + @global_time_stats.total_24h, @rogue_price) %></p>
     </div>
-    <div class="bg-gray-800 p-4 rounded-lg">
-      <h3 class="text-gray-400 text-sm">APY of Special NFTs</h3>
-      <p class="text-2xl font-bold text-purple-400"><%= @global_time_stats.apy %>%</p>
+    <div class="bg-gray-800 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-gray-400 text-xs sm:text-sm">APY of Special NFTs</h3>
+      <p class="text-lg sm:text-2xl font-bold text-purple-400"><%= @global_time_stats.apy %>%</p>
     </div>
   </section>
 
