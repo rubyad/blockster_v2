@@ -593,7 +593,11 @@ const WalletHook = {
     }
 
     // Push chain change to LiveView - template handles logo/currency display
-    this.pushEvent("wallet_chain_changed", { chain: this.currentChain })
+    try {
+      this.pushEvent("wallet_chain_changed", { chain: this.currentChain })
+    } catch (e) {
+      // LiveView not connected yet during initial page load
+    }
 
     // Note: Don't call pushCurrentBalance() here - our navigation/connection code
     // already handles balance updates after chain switches to avoid duplicate API calls
