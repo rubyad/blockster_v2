@@ -149,11 +149,18 @@ const WalletHook = {
   },
 
   setupNavigationListener() {
-    // Listen for LiveView navigation to push updated balance
+    // Listen for LiveView navigation to switch chains and push balance
     this.navigationHandler = async () => {
+      const targetChain = getTargetChainForPath(window.location.pathname)
+
       if (!this.address) return
 
-      // Push current balance on navigation (no chain switch — that happens on transaction)
+      // Switch chain if needed (uses stored EIP-6963 provider, no disambiguation popup)
+      if (this.currentChain !== targetChain) {
+        await this.switchNetwork(targetChain)
+      }
+
+      // Always push current balance on navigation
       const balance = await this.getCurrentBalance()
       await this.syncToSession({
         address: this.address,
@@ -262,10 +269,20 @@ const WalletHook = {
         // connectWallet already calls syncToSession internally, so we don't need to call it again
         await this.connectWallet(walletType, true, true)
 
-        // Don't auto-switch chains on page load — that triggers a MetaMask popup.
-        // Chain will be switched when user initiates a transaction (mint, withdraw, etc.)
+        // Switch to correct chain for current page (uses EIP-6963 provider, no disambiguation popup)
+        const targetChain = getTargetChainForPath(window.location.pathname)
+        if (this.currentChain !== targetChain) {
+          await this.switchNetwork(targetChain)
+          const balance = await this.getCurrentBalance()
+          await this.syncToSession({
+            address: this.address,
+            type: this.walletType,
+            chain: this.currentChain,
+            balance: balance
+          })
+        }
 
-        // Push balance update to LiveView (session was already synced in connectWallet or chain switch above)
+        // Push balance update to LiveView
         try {
           const balance = await this.getCurrentBalance()
           this.pushEvent("balance_updated", { balance, chain: this.currentChain })
@@ -383,6 +400,9 @@ const WalletHook = {
       }
     }
 
+    // Store raw EIP-1193 provider for chain switches (avoids window.ethereum disambiguation popup)
+    this.rawProvider = provider
+
     // Create ethers provider + signer
     this.provider = new ethers.BrowserProvider(provider)
     if (skipRequest && accounts?.length) {
@@ -470,7 +490,7 @@ const WalletHook = {
   },
 
   async switchToArbitrum(provider) {
-    provider = provider || window.ethereum
+    provider = provider || this.rawProvider || window.ethereum
     if (!provider) return
 
     try {
@@ -508,7 +528,7 @@ const WalletHook = {
   },
 
   async switchToRogueChain(provider) {
-    provider = provider || window.ethereum
+    provider = provider || this.rawProvider || window.ethereum
     if (!provider) return
 
     try {
