@@ -408,11 +408,11 @@ const WalletHook = {
     this.walletType = resolvedWalletType
 
     if (skipRequest) {
-      // Silent reconnect: set address directly from eth_accounts result
-      // Do NOT call getSigner() here — it triggers eth_requestAccounts popup
-      // Signer will be created lazily via ensureSigner() when needed for transactions
+      // Silent reconnect: we already have the address from eth_accounts
+      // Patch provider so getSigner() won't call eth_requestAccounts (which triggers popup)
       this.address = accounts[0]
-      this.signer = null
+      this._patchProviderForSilentSigner()
+      this.signer = await this.provider.getSigner()
     } else {
       // Fresh connect: getSigner() is fine since user just approved
       this.signer = await this.provider.getSigner()
@@ -526,6 +526,7 @@ const WalletHook = {
     // Update provider after switch
     if (this.address) {
       this.provider = new ethers.BrowserProvider(provider)
+      this._patchProviderForSilentSigner()
       this.signer = await this.provider.getSigner()
     }
     this.currentChain = 'arbitrum'
@@ -561,6 +562,7 @@ const WalletHook = {
 
     if (this.address) {
       this.provider = new ethers.BrowserProvider(provider)
+      this._patchProviderForSilentSigner()
       this.signer = await this.provider.getSigner()
     }
     this.currentChain = 'rogue'
@@ -846,18 +848,26 @@ const WalletHook = {
 
   // ===== Contract Access (for other hooks) =====
 
-  // Lazily create signer when needed for transactions (avoids popup on page load)
-  async ensureSigner() {
-    if (!this.signer && this.provider) {
-      this.signer = await this.provider.getSigner()
+  /**
+   * Patch the current BrowserProvider so getSigner() returns immediately
+   * without calling eth_requestAccounts (which triggers a MetaMask popup).
+   * Safe to call when this.address is already known from eth_accounts.
+   */
+  _patchProviderForSilentSigner() {
+    if (!this.provider || !this.address) return
+    const cachedAddress = this.address
+    const origSend = this.provider.send.bind(this.provider)
+    this.provider.send = async function(method, params) {
+      if (method === 'eth_requestAccounts') {
+        return [cachedAddress]
+      }
+      return origSend(method, params)
     }
-    return this.signer
   },
 
-  async getContract() {
-    const signer = await this.ensureSigner()
-    if (!signer) return null
-    return new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, signer)
+  getContract() {
+    if (!this.signer) return null
+    return new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, this.signer)
   },
 
   getReadOnlyContract() {
