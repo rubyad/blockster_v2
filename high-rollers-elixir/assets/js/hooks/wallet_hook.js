@@ -149,23 +149,11 @@ const WalletHook = {
   },
 
   setupNavigationListener() {
-    // Listen for LiveView navigation completion to switch chains
-    // phx:page-loading-stop fires after LiveView finishes navigating
+    // Listen for LiveView navigation to push updated balance
     this.navigationHandler = async () => {
-      const targetChain = getTargetChainForPath(window.location.pathname)
+      if (!this.address) return
 
-      console.log(`[WalletHook] Navigation: path=${window.location.pathname}, target=${targetChain}, current=${this.currentChain}, address=${this.address}`)
-
-      if (!this.address) return // Not connected, nothing to do
-
-      // Switch chain if needed
-      if (this.currentChain !== targetChain) {
-        console.log(`[WalletHook] Switching chain: ${this.currentChain} -> ${targetChain}`)
-        await this.switchNetwork(targetChain)
-      }
-
-      // Always push current balance on navigation - the server may have cleared
-      // a stale session balance via set_page_chain, so LiveView needs a fresh value
+      // Push current balance on navigation (no chain switch — that happens on transaction)
       const balance = await this.getCurrentBalance()
       await this.syncToSession({
         address: this.address,
@@ -268,20 +256,8 @@ const WalletHook = {
         // connectWallet already calls syncToSession internally, so we don't need to call it again
         await this.connectWallet(walletType, true, true)
 
-        // After wallet is connected, switch to correct chain for current page
-        const targetChain = getTargetChainForPath(window.location.pathname)
-        if (this.currentChain !== targetChain) {
-          console.log(`[WalletHook] Post-connect chain switch: ${this.currentChain} -> ${targetChain}`)
-          await this.switchNetwork(targetChain)
-          // After chain switch, update session with new chain's balance
-          const balance = await this.getCurrentBalance()
-          await this.syncToSession({
-            address: this.address,
-            type: this.walletType,
-            chain: this.currentChain,
-            balance: balance
-          })
-        }
+        // Don't auto-switch chains on page load — that triggers a MetaMask popup.
+        // Chain will be switched when user initiates a transaction (mint, withdraw, etc.)
 
         // Push balance update to LiveView (session was already synced in connectWallet or chain switch above)
         try {

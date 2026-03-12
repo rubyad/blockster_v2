@@ -64,6 +64,11 @@ const MintHook = {
     }
 
     try {
+      // Ensure we're on Arbitrum for minting
+      if (window.walletHook.currentChain !== 'arbitrum') {
+        await window.walletHook.switchNetwork('arbitrum')
+      }
+
       const contract = window.walletHook.getContract()
       if (!contract) {
         throw new Error('Unable to get contract')
