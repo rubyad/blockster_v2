@@ -20,8 +20,8 @@ defmodule HighRollersWeb.Layouts do
 
   def tab_nav(assigns) do
     ~H"""
-    <nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
-      <div class="container mx-auto flex overflow-x-auto">
+    <nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-40 relative">
+      <div class="container mx-auto flex overflow-x-auto scrollbar-hide">
         <.tab_button path="/" label="Mint" current={@current_path} />
         <.tab_button path="/sales" label="Live Sales" current={@current_path} />
         <.tab_button path="/affiliates" label="Affiliates" current={@current_path} />
@@ -33,6 +33,8 @@ defmodule HighRollersWeb.Layouts do
           <.tab_button path="/solana" label="FateSwap" current={@current_path} />
         <% end %>
       </div>
+      <!-- Right fade hint for scrollable tabs on mobile -->
+      <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-800 to-transparent pointer-events-none sm:hidden"></div>
     </nav>
     """
   end
@@ -53,7 +55,7 @@ defmodule HighRollersWeb.Layouts do
     <.link
       navigate={@path}
       class={[
-        "px-6 py-4 cursor-pointer whitespace-nowrap transition-colors",
+        "px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base cursor-pointer whitespace-nowrap transition-colors",
         @active && "text-purple-400 border-b-2 border-purple-400",
         !@active && "text-gray-400 hover:text-white"
       ]}

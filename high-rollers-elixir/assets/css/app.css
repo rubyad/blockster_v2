@@ -159,3 +159,33 @@
   box-shadow: 0 0 35px rgba(251, 191, 36, 0.7),
               0 0 60px rgba(245, 158, 11, 0.4);
 }
+
+/* Hide scrollbar but allow scrolling (tabs, tables) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Table scroll container with right-edge fade hint on mobile */
+.table-scroll-wrapper {
+  position: relative;
+}
+.table-scroll-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2rem;
+  background: linear-gradient(to left, rgb(31 41 55), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+@media (min-width: 640px) {
+  .table-scroll-wrapper::after {
+    display: none;
+  }
+}
