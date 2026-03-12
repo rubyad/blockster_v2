@@ -14,8 +14,8 @@ defmodule HighRollers.Contracts.Multicall3 do
   @default_batch_size 50
   @default_batch_delay_ms 200
 
-  # aggregate3((address,bool,bytes)[]) selector
-  @aggregate3_selector "0x82ad56cb"
+  # aggregate3((address,bool,bytes)[]) selector (no 0x prefix - added when building data field)
+  @aggregate3_selector "82ad56cb"
 
   @doc """
   Execute multiple calls via Multicall3.aggregate3().
