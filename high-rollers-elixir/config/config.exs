@@ -49,7 +49,7 @@ config :high_rollers,
   rogue_rpc_url: "https://rpc.roguechain.io/rpc",
 
   # Hostess data
-  mint_price: "320000000000000000",  # 0.32 ETH in wei
+  mint_price: "640000000000000000",  # 0.64 ETH in wei
   max_supply: 2700
 
 # Configure the endpoint

@@ -41,7 +41,7 @@ defmodule HighRollers.SalesTest do
         original_buyer: "0xBUYER",
         hostess_index: 0,
         hostess_name: "Penelope Fatale",
-        mint_price: "320000000000000000",  # 0.32 ETH
+        mint_price: "640000000000000000",  # 0.64 ETH
         mint_tx_hash: "0xabc123"
       })
 
@@ -52,8 +52,8 @@ defmodule HighRollers.SalesTest do
       assert sale.buyer == "0xbuyer"  # Lowercased
       assert sale.hostess_index == 0
       assert sale.hostess_name == "Penelope Fatale"
-      assert sale.price == "320000000000000000"
-      assert sale.price_eth == "0.320000"  # Formatted
+      assert sale.price == "640000000000000000"
+      assert sale.price_eth == "0.640000"  # Formatted
       assert sale.tx_hash == "0xabc123"
     end
 
@@ -81,7 +81,7 @@ defmodule HighRollers.SalesTest do
         hostess_name: "Penelope Fatale",
         mint_tx_hash: "0xabc123",
         mint_block_number: 12345,
-        mint_price: "320000000000000000"
+        mint_price: "640000000000000000"
       }
 
       assert :ok = Sales.insert(attrs)

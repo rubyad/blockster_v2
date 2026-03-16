@@ -421,7 +421,7 @@ defmodule HighRollers.EarningsSyncer do
     eth_price = get_eth_price()
 
     if rogue_price > 0 and eth_price > 0 do
-      nft_value_usd = 0.32 * eth_price
+      nft_value_usd = 0.64 * eth_price
       nft_value_rogue = nft_value_usd / rogue_price
       trunc(nft_value_rogue * 1.0e18)
     else

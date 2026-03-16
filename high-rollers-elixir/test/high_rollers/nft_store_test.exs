@@ -304,7 +304,7 @@ defmodule HighRollers.NFTStoreTest do
         request_id: "12345",
         sender: "0xBUYER",
         token_id: 100,
-        price: "320000000000000000",
+        price: "640000000000000000",
         tx_hash: "0xabc123"
       }
 
@@ -321,7 +321,7 @@ defmodule HighRollers.NFTStoreTest do
         request_id: "12345",
         sender: "0xBUYER",
         token_id: 100,
-        price: "320000000000000000",
+        price: "640000000000000000",
         tx_hash: "0xabc123"
       }
 

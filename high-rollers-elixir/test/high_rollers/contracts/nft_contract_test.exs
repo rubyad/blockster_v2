@@ -25,7 +25,7 @@ defmodule HighRollers.Contracts.NFTContractTest do
         %{
           request_id: 1,
           recipient: "0x1234567890123456789012345678901234567890",
-          price: "320000000000000000",
+          price: "640000000000000000",
           token_id: 100,
           hostess_index: 0,
           affiliate: "0x0000000000000000000000000000000000000000",

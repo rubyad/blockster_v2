@@ -107,7 +107,7 @@ defmodule HighRollers.MnesiaCase do
       hostess_name: "Penelope Fatale",
       mint_tx_hash: "0xabc123",
       mint_block_number: 1000,
-      mint_price: "320000000000000000",
+      mint_price: "640000000000000000",
       affiliate: nil,
       affiliate2: nil,
       total_earned: "0",

@@ -112,7 +112,7 @@ defmodule HighRollers.Multicall3Fixtures do
       hostess_name: "Test Hostess",
       mint_tx_hash: random_tx_hash(),
       mint_block_number: 1000,
-      mint_price: "320000000000000000",
+      mint_price: "640000000000000000",
       affiliate: nil,
       affiliate2: nil,
       total_earned: "0",

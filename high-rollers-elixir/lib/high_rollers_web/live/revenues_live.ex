@@ -270,7 +270,7 @@ defmodule HighRollersWeb.RevenuesLive do
 
       # Calculate average APY based on 180d total earnings
       # APY = (total_for_180_days × 365/180) / nft_value × 100
-      # NFT value calculated from live ETH/ROGUE prices (0.32 ETH mint price)
+      # NFT value calculated from live ETH/ROGUE prices (0.64 ETH mint price)
       nft_value_rogue = get_nft_value_rogue()
       avg_apy = if length(special_nfts) > 0 and total_180d > 0 and nft_value_rogue > 0 do
         avg_180d_per_nft = total_180d / length(special_nfts)
@@ -425,7 +425,7 @@ defmodule HighRollersWeb.RevenuesLive do
   defp get_rogue_price, do: HighRollers.PriceCache.get_rogue_price()
   defp get_eth_price, do: HighRollers.PriceCache.get_eth_price()
 
-  @doc "Calculate NFT value in ROGUE based on 0.32 ETH mint price and current prices"
+  @doc "Calculate NFT value in ROGUE based on 0.64 ETH mint price and current prices"
   def get_nft_value_rogue, do: HighRollers.PriceCache.get_nft_value_rogue()
 
   # ===== VIEW HELPERS =====

@@ -48,13 +48,13 @@ defmodule HighRollers.PriceCache do
   @doc "Get ETH price from cache"
   def get_eth_price, do: get_price("ETH")
 
-  @doc "Calculate NFT value in ROGUE based on 0.32 ETH mint price and current prices"
+  @doc "Calculate NFT value in ROGUE based on 0.64 ETH mint price and current prices"
   def get_nft_value_rogue do
     rogue_price = get_rogue_price()
     eth_price = get_eth_price()
 
     if rogue_price > 0 do
-      nft_value_usd = 0.32 * eth_price
+      nft_value_usd = 0.64 * eth_price
       nft_value_usd / rogue_price
     else
       9_600_000  # Default fallback if prices unavailable

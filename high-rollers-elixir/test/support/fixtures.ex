@@ -40,7 +40,7 @@ defmodule HighRollers.Fixtures do
       hostess_name: nil,  # Will be derived from hostess_index
       mint_tx_hash: random_tx_hash(),
       mint_block_number: :rand.uniform(100_000_000),
-      mint_price: "320000000000000000",  # 0.32 ETH
+      mint_price: "640000000000000000",  # 0.64 ETH
       affiliate: nil,
       affiliate2: nil,
       total_earned: "0",
@@ -128,7 +128,7 @@ defmodule HighRollers.Fixtures do
       token_id: :rand.uniform(2700),
       tier: Enum.random([1, 2]),
       affiliate: random_address(),
-      earnings: "16000000000000000",  # 0.016 ETH (5% of 0.32)
+      earnings: "32000000000000000",  # 0.032 ETH (5% of 0.64)
       tx_hash: random_tx_hash()
     }
 
