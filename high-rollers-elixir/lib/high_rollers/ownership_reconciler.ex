@@ -16,7 +16,7 @@ defmodule HighRollers.OwnershipReconciler do
   use GenServer
   require Logger
 
-  @reconcile_interval_ms :timer.minutes(5)
+  @reconcile_interval_ms :timer.minutes(30)
   @batch_size 50  # Query contract in smaller batches to avoid rate limiting
   @batch_delay_ms 500  # Delay between batches
 

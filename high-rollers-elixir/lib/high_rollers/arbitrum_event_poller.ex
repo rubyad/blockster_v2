@@ -25,7 +25,7 @@ defmodule HighRollers.ArbitrumEventPoller do
   use GenServer
   require Logger
 
-  @poll_interval_ms 1_000  # 1 second - fast polling for real-time UI
+  @poll_interval_ms 15_000  # 15 seconds - balances responsiveness with RPC cost
   @max_blocks_per_query 1000
   @backfill_chunk_size 10_000
   @poller_state_table :hr_poller_state
@@ -184,16 +184,36 @@ defmodule HighRollers.ArbitrumEventPoller do
         from_block = state.last_processed_block + 1
         to_block = min(current_block, from_block + @max_blocks_per_query - 1)
 
-        {state, requested_count} = poll_nft_requested_events_counted(state, from_block, to_block)
-        {state, minted_count} = poll_nft_minted_events_counted(state, from_block, to_block)
-        {state, transfer_count} = poll_transfer_events_counted(state, from_block, to_block)
+        # Single combined eth_getLogs call for all 3 event types (was 3 separate calls)
+        {state, events_count} =
+          case HighRollers.Contracts.NFTContract.get_all_events(from_block, to_block) do
+            {:ok, %{requested: requested, minted: minted, transfers: transfers}} ->
+              # Process NFTRequested events
+              state = Enum.reduce(requested, state, fn event, acc ->
+                handle_nft_requested(event, acc)
+              end)
+
+              # Process NFTMinted events
+              Enum.each(minted, fn event ->
+                handle_nft_minted(event, backfill: false)
+              end)
+              request_ids = Enum.map(minted, & &1.request_id)
+              state = update_in(state.pending_mints, &Map.drop(&1, request_ids))
+
+              # Process Transfer events (filter out mint transfers)
+              non_mint_transfers = Enum.reject(transfers, &(&1.from == @zero_address))
+              Enum.each(non_mint_transfers, &handle_transfer/1)
+
+              total = length(requested) + length(minted) + length(non_mint_transfers)
+              {state, total}
+
+            {:error, reason} ->
+              Logger.warning("[ArbitrumEventPoller] Combined event poll error: #{inspect(reason)}")
+              {state, 0}
+          end
 
         state = Map.put(state, :last_processed_block, to_block)
-
-        # Persist to Mnesia after each successful poll
         save_last_processed_block(to_block)
-
-        events_count = requested_count + minted_count + transfer_count
         {state, events_count}
 
       {:ok, _} ->
@@ -286,51 +306,6 @@ defmodule HighRollers.ArbitrumEventPoller do
 
       {:error, reason} ->
         Logger.warning("[ArbitrumEventPoller] Backfill Transfer error: #{inspect(reason)}")
-    end
-  end
-
-  defp poll_nft_requested_events_counted(state, from_block, to_block) do
-    case HighRollers.Contracts.NFTContract.get_nft_requested_events(from_block, to_block) do
-      {:ok, events} ->
-        state = Enum.reduce(events, state, fn event, acc ->
-          handle_nft_requested(event, acc)
-        end)
-        {state, length(events)}
-
-      {:error, reason} ->
-        Logger.warning("[ArbitrumEventPoller] NFTRequested poll error: #{inspect(reason)}")
-        {state, 0}
-    end
-  end
-
-  defp poll_nft_minted_events_counted(state, from_block, to_block) do
-    case HighRollers.Contracts.NFTContract.get_nft_minted_events(from_block, to_block) do
-      {:ok, events} ->
-        Enum.each(events, fn event ->
-          handle_nft_minted(event, backfill: false)
-        end)
-        # Remove from pending_mints
-        request_ids = Enum.map(events, & &1.request_id)
-        state = update_in(state.pending_mints, &Map.drop(&1, request_ids))
-        {state, length(events)}
-
-      {:error, reason} ->
-        Logger.warning("[ArbitrumEventPoller] NFTMinted poll error: #{inspect(reason)}")
-        {state, 0}
-    end
-  end
-
-  defp poll_transfer_events_counted(state, from_block, to_block) do
-    case HighRollers.Contracts.NFTContract.get_transfer_events(from_block, to_block) do
-      {:ok, events} ->
-        # Filter out mint transfers (from = zero address)
-        non_mint_events = Enum.reject(events, &(&1.from == @zero_address))
-        Enum.each(non_mint_events, &handle_transfer/1)
-        {state, length(non_mint_events)}
-
-      {:error, reason} ->
-        Logger.warning("[ArbitrumEventPoller] Transfer poll error: #{inspect(reason)}")
-        {state, 0}
     end
   end
 

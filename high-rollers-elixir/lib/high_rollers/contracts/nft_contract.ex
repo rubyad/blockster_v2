@@ -55,6 +55,51 @@ defmodule HighRollers.Contracts.NFTContract do
   # ===== Event Queries =====
 
   @doc """
+  Get ALL contract events (NFTRequested, NFTMinted, Transfer) in a single RPC call.
+  Uses OR-matching on topic0 to fetch all event types at once, reducing 3 RPC calls to 1.
+
+  Returns {:ok, %{requested: [...], minted: [...], transfers: [...]}}
+  """
+  def get_all_events(from_block, to_block) do
+    # topics array-of-arrays: topic0 = any of these three event signatures (OR match)
+    params = %{
+      address: @contract_address,
+      topics: [[@nft_requested_topic, @nft_minted_topic, @transfer_topic]],
+      fromBlock: int_to_hex(from_block),
+      toBlock: int_to_hex(to_block)
+    }
+
+    case rpc_call("eth_getLogs", [params]) do
+      {:ok, logs} ->
+        # Sort logs into event types by topic0
+        {requested, minted, transfers} =
+          Enum.reduce(logs, {[], [], []}, fn log, {req_acc, mint_acc, xfer_acc} ->
+            topic0 = List.first(log["topics"] || [])
+
+            cond do
+              topic0 == @nft_requested_topic ->
+                {[decode_nft_requested_event(log) | req_acc], mint_acc, xfer_acc}
+              topic0 == @nft_minted_topic ->
+                {req_acc, [decode_nft_minted_event(log) | mint_acc], xfer_acc}
+              topic0 == @transfer_topic ->
+                {req_acc, mint_acc, [decode_transfer_event(log) | xfer_acc]}
+              true ->
+                {req_acc, mint_acc, xfer_acc}
+            end
+          end)
+
+        {:ok, %{
+          requested: Enum.reverse(requested),
+          minted: Enum.reverse(minted),
+          transfers: Enum.reverse(transfers)
+        }}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
   Get NFTRequested events in block range.
   Called when a user initiates a mint (VRF request sent).
 

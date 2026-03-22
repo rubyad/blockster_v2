@@ -5,6 +5,7 @@ defmodule HighRollers.Contracts.NFTContractBehaviour do
   """
 
   @callback get_block_number() :: {:ok, integer()} | {:error, term()}
+  @callback get_all_events(integer(), integer()) :: {:ok, map()} | {:error, term()}
   @callback get_nft_requested_events(integer(), integer()) :: {:ok, list(map())} | {:error, term()}
   @callback get_nft_minted_events(integer(), integer()) :: {:ok, list(map())} | {:error, term()}
   @callback get_transfer_events(integer(), integer()) :: {:ok, list(map())} | {:error, term()}
