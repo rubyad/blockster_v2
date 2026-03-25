@@ -202,7 +202,7 @@ defmodule BlocksterV2.Orders do
     BlocksterV2.UserEvents.track(order.user_id, "purchase_complete", %{
       target_type: "order",
       target_id: order.id,
-      total: to_string(order.total_amount)
+      total: to_string(order.total_paid)
     })
 
     :ok

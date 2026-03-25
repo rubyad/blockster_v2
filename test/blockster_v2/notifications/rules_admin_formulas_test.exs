@@ -8,6 +8,8 @@ defmodule BlocksterV2.Notifications.RulesAdminFormulasTest do
   setup do
     Repo.delete_all("system_config")
     SystemConfig.invalidate_cache()
+    # Clear default custom_rules so tests start with an empty rule list
+    SystemConfig.put("custom_rules", [], "test_setup")
     :ok
   end
 

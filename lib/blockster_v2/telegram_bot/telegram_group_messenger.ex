@@ -31,19 +31,20 @@ defmodule BlocksterV2.TelegramBot.TelegramGroupMessenger do
 
   @doc "Send an HTML message to the configured Telegram group"
   def send_group_message(html_text, opts \\ []) do
-    if Application.get_env(:blockster_v2, :env) != :prod do
-      Logger.info("[TelegramGroupMessenger] Skipping send in dev/test")
-      {:ok, %{body: %{"ok" => true, "result" => %{"message_id" => 0}}}}
-    else
-      token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)
-      chat_id = Application.get_env(:blockster_v2, :telegram_v2_channel_id)
+    token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)
+    chat_id = Application.get_env(:blockster_v2, :telegram_v2_channel_id)
 
-      if token && chat_id do
-        do_send(token, chat_id, html_text, opts, _retries = 2)
-      else
+    cond do
+      is_nil(token) or is_nil(chat_id) ->
         Logger.warning("[TelegramGroupMessenger] Missing bot token or channel ID")
         {:error, :missing_config}
-      end
+
+      Application.get_env(:blockster_v2, :env) != :prod ->
+        Logger.info("[TelegramGroupMessenger] Skipping send in dev/test")
+        {:ok, %{body: %{"ok" => true, "result" => %{"message_id" => 0}}}}
+
+      true ->
+        do_send(token, chat_id, html_text, opts, _retries = 2)
     end
   end
 

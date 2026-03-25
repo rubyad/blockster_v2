@@ -48,6 +48,7 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - DO NOT restart nodes after code fixes - Elixir hot reloads. Only restart for supervision tree/config changes
 > - NEVER use the Write tool to rewrite entire documentation files - use Edit for targeted changes
 > - NEVER deploy without explicit user instructions
+> - **ALL tests must pass before deploying** — run `mix test` and fix every single failure. Zero failures required.
 
 ## Branding
 

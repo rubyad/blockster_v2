@@ -139,13 +139,18 @@ defmodule BlocksterV2Web.AuthControllerFingerprintTest do
       assert db_user.registered_devices_count == 2
     end
 
-    test "returns 422 when required fingerprint fields are missing", %{conn: conn} do
-      # Missing fingerprint_id
-      invalid_params = Map.delete(@valid_params, "fingerprint_id")
+    test "allows signup without fingerprint data", %{conn: conn} do
+      # Missing fingerprint fields — should still succeed (server skips device verification)
+      params_without_fp = @valid_params
+        |> Map.delete("fingerprint_id")
+        |> Map.delete("fingerprint_confidence")
+        |> Map.delete("fingerprint_request_id")
 
-      conn = post(conn, ~p"/api/auth/email/verify", invalid_params)
+      conn = post(conn, ~p"/api/auth/email/verify", params_without_fp)
 
-      assert %{"success" => false, "errors" => _errors} = json_response(conn, 422)
+      assert %{"success" => true, "user" => user} = json_response(conn, 200)
+      assert user["email"] == "test@example.com"
+      assert user["registered_devices_count"] == 0
     end
 
     test "normalizes email to lowercase", %{conn: conn} do

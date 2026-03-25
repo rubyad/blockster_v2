@@ -16,10 +16,11 @@ defmodule BlocksterV2.Notifications.SystemConfigTest do
       assert is_map(defaults)
       assert defaults["referrer_signup_bux"] == 500
       assert defaults["referee_signup_bux"] == 250
-      assert defaults["phone_verify_bux"] == 100
+      assert defaults["phone_verify_bux"] == 500
       assert defaults["bux_milestones"] == [1_000, 5_000, 10_000, 25_000, 50_000, 100_000]
       assert defaults["reading_streak_days"] == [3, 7, 14, 30]
-      assert defaults["custom_rules"] == []
+      assert is_list(defaults["custom_rules"])
+      assert length(defaults["custom_rules"]) == 3
     end
   end
 

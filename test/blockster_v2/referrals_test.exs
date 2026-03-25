@@ -141,13 +141,13 @@ defmodule BlocksterV2.ReferralsTest do
       [{:referral_earnings, _id, rec_referrer_id, _rw, _rew, earning_type, amount, token, _tx, _commit, _ts}] = earnings
       assert rec_referrer_id == referrer.id
       assert earning_type == :signup
-      assert amount == 100
+      assert amount == 500
       assert token == "BUX"
 
       # Verify stats were updated
       stats = Referrals.get_referrer_stats(referrer.id)
       assert stats.total_referrals == 1
-      assert stats.total_bux_earned == 100
+      assert stats.total_bux_earned == 500
     end
 
     test "handles wallet address case insensitivity" do
@@ -199,13 +199,13 @@ defmodule BlocksterV2.ReferralsTest do
 
       phone_earning = Enum.find(earnings, fn record -> elem(record, 5) == :phone_verified end)
       assert phone_earning != nil
-      assert elem(phone_earning, 6) == 100  # amount
+      assert elem(phone_earning, 6) == 500  # amount
       assert elem(phone_earning, 7) == "BUX"  # token
 
       # Verify stats were updated
       stats = Referrals.get_referrer_stats(referrer.id)
       assert stats.verified_referrals == 1
-      assert stats.total_bux_earned == 200  # 100 signup + 100 phone verified
+      assert stats.total_bux_earned == 1000  # 500 signup + 500 phone verified
     end
 
     test "returns :already_rewarded if phone verification was already rewarded" do
@@ -370,7 +370,7 @@ defmodule BlocksterV2.ReferralsTest do
 
       assert stats.total_referrals == 2
       assert stats.verified_referrals == 1
-      assert stats.total_bux_earned == 300  # 100 + 100 signup + 100 phone verified
+      assert stats.total_bux_earned == 1500  # 500 + 500 signup + 500 phone verified
     end
   end
 

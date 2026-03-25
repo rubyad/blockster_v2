@@ -33,7 +33,7 @@ defmodule BlocksterV2.Notifications.IntegrationWiringTest do
       config = SystemConfig.get_all()
       assert config["referrer_signup_bux"] == 500
       assert config["referee_signup_bux"] == 250
-      assert config["phone_verify_bux"] == 100
+      assert config["phone_verify_bux"] == 500
       assert is_list(config["bux_milestones"])
       assert is_list(config["reading_streak_days"])
     end
@@ -141,7 +141,7 @@ defmodule BlocksterV2.Notifications.IntegrationWiringTest do
     test "SystemConfig referral defaults are correct" do
       assert SystemConfig.get("referrer_signup_bux") == 500
       assert SystemConfig.get("referee_signup_bux") == 250
-      assert SystemConfig.get("phone_verify_bux") == 100
+      assert SystemConfig.get("phone_verify_bux") == 500
     end
 
     test "changing SystemConfig referral values works" do

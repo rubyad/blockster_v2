@@ -43,8 +43,9 @@ defmodule BlocksterV2.Notifications.Notification do
       :user_id, :type, :category, :title, :body, :image_url,
       :action_url, :action_label, :metadata, :campaign_id
     ])
-    |> validate_required([:user_id, :type, :title])
+    |> validate_required([:user_id, :type, :category, :title])
     |> validate_inclusion(:type, @valid_types)
+    |> validate_inclusion(:category, ~w(content offers social rewards system admin engagement reward general))
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:campaign_id)
   end

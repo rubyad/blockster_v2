@@ -321,10 +321,8 @@ defmodule BlocksterV2.Accounts do
   - {:error, changeset} on other errors
   """
   def authenticate_email_with_fingerprint(attrs) do
-    # Validate required fingerprint fields first
+    # Validate required fields (fingerprint fields are optional — server decides whether to enforce)
     with {:ok, email} <- validate_presence(attrs, "email"),
-         {:ok, fingerprint_id} <- validate_presence(attrs, "fingerprint_id"),
-         {:ok, fingerprint_confidence} <- validate_presence(attrs, "fingerprint_confidence"),
          {:ok, wallet_address} <- validate_presence(attrs, "wallet_address"),
          {:ok, smart_wallet_address} <- validate_presence(attrs, "smart_wallet_address") do
       email = String.downcase(email)
@@ -357,19 +355,32 @@ defmodule BlocksterV2.Accounts do
     email = String.downcase(attrs["email"] || attrs[:email])
     fingerprint_id = attrs["fingerprint_id"] || attrs[:fingerprint_id]
 
-    # Skip fingerprint check if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
+    # Skip fingerprint check if configured or if no fingerprint data was provided
     skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
+    no_fingerprint_data = is_nil(fingerprint_id) || fingerprint_id == ""
 
-    Logger.info("[Accounts] authenticate_new_user_with_fingerprint: email=#{email}, skip_fingerprint=#{skip_fingerprint}")
+    Logger.info("[Accounts] authenticate_new_user_with_fingerprint: email=#{email}, skip_fingerprint=#{skip_fingerprint}, has_fingerprint=#{!no_fingerprint_data}")
 
-    if skip_fingerprint do
+    if no_fingerprint_data do
+      Logger.info("[Accounts] No fingerprint data provided for #{email} — skipping device verification")
       create_new_user_with_fingerprint(attrs)
     else
-      # Step 1: Server-side verification with FingerprintJS API
-      fingerprint_request_id = attrs["fingerprint_request_id"] || attrs[:fingerprint_request_id]
+      # Step 1: Server-side verification with FingerprintJS API (skip if configured)
+      verified = if skip_fingerprint do
+        true
+      else
+        fingerprint_request_id = attrs["fingerprint_request_id"] || attrs[:fingerprint_request_id]
 
-      case BlocksterV2.FingerprintVerifier.verify_event(fingerprint_request_id, fingerprint_id) do
-        {:ok, _} ->
+        case BlocksterV2.FingerprintVerifier.verify_event(fingerprint_request_id, fingerprint_id) do
+          {:ok, _} -> true
+          {:error, reason} ->
+            Logger.warning("[Accounts] Fingerprint server verification failed: #{reason} for #{email}")
+            {:error, reason}
+        end
+      end
+
+      case verified do
+        true ->
           # Step 2: Check PostgreSQL for fingerprint ownership
           case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
             nil ->
@@ -391,7 +402,6 @@ defmodule BlocksterV2.Accounts do
           end
 
         {:error, reason} ->
-          Logger.warning("[Accounts] Fingerprint server verification failed: #{reason} for #{email}")
           changeset = %User{}
             |> Ecto.Changeset.cast(%{}, [])
             |> Ecto.Changeset.add_error(:fingerprint_id, "fingerprint verification failed")
@@ -420,8 +430,7 @@ defmodule BlocksterV2.Accounts do
   end
 
   defp create_new_user_with_fingerprint_inner(_attrs, email, wallet_address, smart_wallet_address, fingerprint_id, fingerprint_confidence) do
-    # Skip fingerprint insert if configured (dev mode or SKIP_FINGERPRINT_CHECK=true)
-    skip_fingerprint = Application.get_env(:blockster_v2, :skip_fingerprint_check, false)
+    no_fingerprint_data = is_nil(fingerprint_id) || fingerprint_id == ""
 
     # Start transaction to create user + fingerprint atomically
     multi = Ecto.Multi.new()
@@ -429,11 +438,11 @@ defmodule BlocksterV2.Accounts do
       email: email,
       wallet_address: wallet_address,
       smart_wallet_address: smart_wallet_address,
-      registered_devices_count: if(skip_fingerprint, do: 0, else: 1)
+      registered_devices_count: if(no_fingerprint_data, do: 0, else: 1)
     }))
 
-    # Only insert fingerprint when NOT skipping (production with fingerprint check enabled)
-    multi = if skip_fingerprint do
+    # Only insert fingerprint when data is available
+    multi = if no_fingerprint_data do
       multi
     else
       multi
@@ -449,7 +458,7 @@ defmodule BlocksterV2.Accounts do
       end)
     end
 
-    Logger.info("[Accounts] create_new_user_with_fingerprint: email=#{email}, skip_fingerprint=#{skip_fingerprint}")
+    Logger.info("[Accounts] create_new_user_with_fingerprint: email=#{email}, has_fingerprint=#{!no_fingerprint_data}")
 
     multi
     |> Ecto.Multi.run(:session, fn _repo, %{user: user} ->
@@ -482,27 +491,31 @@ defmodule BlocksterV2.Accounts do
         "stored=#{user.smart_wallet_address} received=#{smart_wallet_address}")
     end
 
-    # CRITICAL: Always check and claim fingerprints for existing users
+    # Check and claim fingerprints for existing users (skip if no fingerprint data)
     # This prevents unclaimed devices from being used for new account creation
-    case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
-      nil ->
-        # NEW device - claim it for this user
-        # This prevents someone else from creating an account on this device
-        add_fingerprint_to_user(user, fingerprint_id, fingerprint_confidence)
+    if is_nil(fingerprint_id) || fingerprint_id == "" do
+      Logger.info("[Accounts] No fingerprint data for existing user #{user.id} — skipping device claim")
+    else
+      case Repo.get_by(UserFingerprint, fingerprint_id: fingerprint_id) do
+        nil ->
+          # NEW device - claim it for this user
+          # This prevents someone else from creating an account on this device
+          add_fingerprint_to_user(user, fingerprint_id, fingerprint_confidence)
 
-      existing_fp when existing_fp.user_id == user.id ->
-        # This user's device - update last_seen timestamp
-        Repo.update(UserFingerprint.changeset(existing_fp, %{
-          last_seen_at: DateTime.utc_now()
-        }))
+        existing_fp when existing_fp.user_id == user.id ->
+          # This user's device - update last_seen timestamp
+          Repo.update(UserFingerprint.changeset(existing_fp, %{
+            last_seen_at: DateTime.utc_now()
+          }))
 
-      _other_users_fingerprint ->
-        # Different user's device (shared device scenario)
-        # Examples: family computer, internet cafe, sold device
-        # ALLOW login but DON'T claim the device
-        # The device stays "owned" by whoever claimed it first
-        # This still prevents NEW account creation on this device
-        :ok
+        _other_users_fingerprint ->
+          # Different user's device (shared device scenario)
+          # Examples: family computer, internet cafe, sold device
+          # ALLOW login but DON'T claim the device
+          # The device stays "owned" by whoever claimed it first
+          # This still prevents NEW account creation on this device
+          :ok
+      end
     end
 
     # Create session

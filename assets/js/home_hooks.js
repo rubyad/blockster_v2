@@ -687,24 +687,19 @@ export const ThirdwebLogin = {
       this.pushEvent("show_loading", {});
       console.log('Verifying code...');
 
-      // NEW: Get fingerprint FIRST (before any wallet/API calls)
+      // Get fingerprint if available (non-blocking — server decides whether to enforce)
       let fingerprintData = null;
       if (this.fingerprintHook) {
         console.log('Getting fingerprint before wallet connection...');
         fingerprintData = await this.fingerprintHook.getFingerprint();
 
         if (!fingerprintData) {
-          console.error('Failed to get fingerprint');
-          alert('Unable to verify device. Please use Chrome or Edge browser to sign up.');
-          this.pushEvent("show_code_input", { email: this.pendingEmail });
-          return;
+          console.warn('Fingerprint unavailable — proceeding without device verification');
+        } else {
+          console.log('Fingerprint obtained:', fingerprintData.visitorId);
         }
-
-        console.log('Fingerprint obtained:', fingerprintData.visitorId);
       } else {
-        console.error('FingerprintHook not available - cannot proceed');
-        alert('Device verification is required. Please refresh the page and try again.');
-        return;
+        console.warn('FingerprintHook not available — proceeding without device verification');
       }
 
       // Step 1: Connect the personal wallet (inAppWallet)
@@ -821,16 +816,16 @@ export const ThirdwebLogin = {
         email: email,
         wallet_address: personalWalletAddress,
         smart_wallet_address: smartWalletAddress,
-        fingerprint_id: fingerprintData.visitorId,
-        fingerprint_confidence: fingerprintData.confidence,
-        fingerprint_request_id: fingerprintData.requestId,
+        fingerprint_id: fingerprintData?.visitorId || null,
+        fingerprint_confidence: fingerprintData?.confidence || null,
+        fingerprint_request_id: fingerprintData?.requestId || null,
         referrer_wallet: referrerCode  // Pass referrer wallet if user came via referral link
       };
 
-      console.log('Sending authentication request with fingerprint:', {
+      console.log('Sending authentication request:', {
         email,
-        fingerprint_id: fingerprintData.visitorId,
-        fingerprint_confidence: fingerprintData.confidence,
+        fingerprint_id: fingerprintData?.visitorId || 'unavailable',
+        fingerprint_confidence: fingerprintData?.confidence || 'unavailable',
         referrer_wallet: referrerCode
       });
 

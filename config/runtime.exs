@@ -36,7 +36,7 @@ config :blockster_v2,
   bux_minter_url: System.get_env("BUX_MINTER_URL"),
   bux_minter_secret: System.get_env("BUX_MINTER_SECRET"),
   # Skip fingerprint check - defaults to true in dev, false in prod (set SKIP_FINGERPRINT_CHECK=true to enable)
-  skip_fingerprint_check: System.get_env("SKIP_FINGERPRINT_CHECK") == "true" || config_env() == :dev,
+  skip_fingerprint_check: System.get_env("SKIP_FINGERPRINT_CHECK") == "true" || config_env() in [:dev, :test],
   # FingerprintJS Server API key for server-side event verification
   fingerprintjs_server_api_key: System.get_env("FINGERPRINTJS_SERVER_API_KEY"),
   env: config_env(),

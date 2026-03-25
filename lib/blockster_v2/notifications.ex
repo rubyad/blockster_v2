@@ -57,6 +57,7 @@ defmodule BlocksterV2.Notifications do
 
   def list_notifications(user_id, opts \\ []) do
     status = Keyword.get(opts, :status)
+    category = Keyword.get(opts, :category)
     limit = Keyword.get(opts, :limit, 20)
     offset = Keyword.get(opts, :offset, 0)
 
@@ -64,6 +65,7 @@ defmodule BlocksterV2.Notifications do
     |> where([n], n.user_id == ^user_id)
     |> where([n], is_nil(n.dismissed_at))
     |> maybe_filter_status(status)
+    |> maybe_filter_category(category)
     |> order_by([n], [desc: n.inserted_at, desc: n.id])
     |> limit(^limit)
     |> offset(^offset)
@@ -658,6 +660,11 @@ defmodule BlocksterV2.Notifications do
   end
   defp maybe_filter_status(query, :read) do
     where(query, [n], not is_nil(n.read_at))
+  end
+
+  defp maybe_filter_category(query, nil), do: query
+  defp maybe_filter_category(query, category) do
+    where(query, [n], n.category == ^category)
   end
 
   defp maybe_filter_campaign_status(query, nil), do: query
