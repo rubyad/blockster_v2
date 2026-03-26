@@ -46,15 +46,17 @@ See [test/README.md](../test/README.md) for complete test documentation.
 **Goal**: Prevent users from creating multiple accounts to game the BUX reward system.
 
 **Solution**:
-1. ✅ **BLOCK** new account creation from devices already registered to other users
+1. ✅ **BLOCK** new account creation from devices already registered to other users (when fingerprint available)
 2. ✅ **ALLOW** legitimate multi-device usage (laptop, phone, work computer)
 3. ✅ **ALLOW** shared device logins (family computer, internet cafe)
 4. ✅ **FIX** mobile login flow (localStorage persistence for WebSocket reconnect)
+5. ✅ **NON-BLOCKING** fingerprint verification — signup proceeds even if FingerprintJS fails (Mar 25, 2026)
 
 **How It Works**:
 - First user to use a device **OWNS** it (fingerprint saved to their account)
 - Other users can **LOGIN** from that device but can't create new accounts
 - Users can own multiple devices (all fingerprints tracked in **PostgreSQL only**)
+- If FingerprintJS fails (ad blockers, Safari, Brave, privacy extensions), signup proceeds without device verification — no user is blocked from signing up
 
 **Cost**: FREE (under 20k API calls/month with FingerprintJS Pro)
 
@@ -73,7 +75,7 @@ Additionally, the mobile login flow is broken: when users leave the page to retr
 3. **localStorage State Persistence** - Fix mobile login flow by persisting UI state
 4. **PostgreSQL Storage** - Store all fingerprints in PostgreSQL with indexed lookups
 5. **Multiple Devices Support** - Track all fingerprints per user (one-to-many relationship)
-6. **Hard Block** - **REJECT** new account creation from fingerprints already in use
+6. **Soft Block** - **REJECT** new account creation from fingerprints already in use, but allow signup when fingerprint is unavailable
 
 ---
 
@@ -596,23 +598,19 @@ export const ThirdwebLogin = {
     try {
       this.pushEvent("show_loading", {});
 
-      // NEW: Get fingerprint FIRST (before any API calls)
+      // Get fingerprint if available (non-blocking — server decides whether to enforce)
       let fingerprintData = null;
       if (this.fingerprintHook) {
-        console.log('Getting fingerprint before signup...');
+        console.log('Getting fingerprint before wallet connection...');
         fingerprintData = await this.fingerprintHook.getFingerprint();
 
         if (!fingerprintData) {
-          alert('Unable to verify device. Please check your browser settings and try again.');
-          this.pushEvent("show_code_input", { email: this.pendingEmail });
-          return;
+          console.warn('Fingerprint unavailable — proceeding without device verification');
+        } else {
+          console.log('Fingerprint obtained:', fingerprintData.visitorId);
         }
-
-        console.log('Fingerprint obtained:', fingerprintData.visitorId);
       } else {
-        console.error('FingerprintHook not available - cannot proceed');
-        alert('Device verification is required. Please refresh the page and try again.');
-        return;
+        console.warn('FingerprintHook not available — proceeding without device verification');
       }
 
       // Step 1: Connect the personal wallet
@@ -1551,7 +1549,7 @@ If family farming becomes an issue, we can add:
 - Updated `verify_email/2` function signature to accept full params map (instead of pattern matching individual fields)
 - Changed call from `Accounts.authenticate_email/3` to `Accounts.authenticate_email_with_fingerprint/1`
 - Added new error handling clause for `{:error, :fingerprint_conflict, existing_email}` tuple
-- Returns 403 Forbidden status for fingerprint conflicts (hard block)
+- Returns 403 Forbidden status for fingerprint conflicts (when fingerprint data is available)
 - Response includes: `error_type: "fingerprint_conflict"`, `existing_email: "al***@gmail.com"` (masked)
 - Added `mask_email/1` helper function: shows first 2 chars + "***" + domain
 - Success response now includes `registered_devices_count` field for user object

@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Non-Blocking Fingerprint Verification](#non-blocking-fingerprint-verification-mar-2026)
 - [FateSwap Solana Wallet Tab](#fateswap-solana-wallet-tab-mar-2026)
 - [Number Formatting in Templates](#number-formatting-in-templates)
 - [Product Variants](#product-variants)
@@ -345,6 +346,24 @@ Two background processes in `high-rollers-elixir` made individual RPC calls per 
 - Rogue Chain RPC intermittently returns 500 on large contract deploys — retry after a few minutes
 - Multicall3 ABI encoding requires careful offset calculations for dynamic types (Call3 contains `bytes callData`)
 - Old per-NFT functions kept as fallbacks — `reconcile_single_nft/1`, `sync_single_time_reward/1`, `get_owner_of/1`, `get_time_reward_raw/1`
+
+---
+
+## Non-Blocking Fingerprint Verification (Mar 2026)
+
+**Problem**: Users on Safari, Firefox, Brave, or with ad blockers got a hard block error ("Unable to verify device. Please use Chrome or Edge browser to sign up.") during signup because FingerprintJS Pro couldn't load or execute.
+
+**Root cause**: The client-side JS in `home_hooks.js` required a successful fingerprint before proceeding with wallet connection and signup. If `getFingerprint()` returned null (FingerprintJS blocked), the user was stopped with an alert and could not sign up at all.
+
+**Fix (Mar 25, 2026)**:
+- **Client-side** (`assets/js/home_hooks.js`): Removed hard block — fingerprint failure now logs a warning and proceeds. Used optional chaining (`fingerprintData?.visitorId`) for safe property access when sending null to server.
+- **Server-side** (`lib/blockster_v2/accounts.ex`): Made `fingerprint_id` and `fingerprint_confidence` optional in `authenticate_email_with_fingerprint`. When no fingerprint data is provided, all device verification is skipped and signup proceeds normally.
+- **Config** (`config/runtime.exs`): Added `:test` to `skip_fingerprint_check` environments so test env skips FingerprintJS HTTP calls like dev does.
+- **Refactored skip logic**: `SKIP_FINGERPRINT_CHECK` now only skips the HTTP call to FingerprintJS API — fingerprint DB operations (conflict detection, device tracking) still run when fingerprint data is present.
+
+**Result**: All browsers can sign up. Anti-sybil protection still applies when FingerprintJS works (Chrome, Edge, no ad blockers). Users whose browsers block FingerprintJS sign up without device tracking.
+
+**Also fixed**: 71 pre-existing test failures across shop (order.total_amount → total_paid), notifications (missing category validation/filtering, stale defaults), referrals (reward amounts 100→500), and telegram (env check ordering).
 
 ---
 
