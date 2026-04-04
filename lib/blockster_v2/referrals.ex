@@ -19,6 +19,19 @@ defmodule BlocksterV2.Referrals do
   @default_referee_signup_reward 250
   @default_phone_verified_reward 500
 
+  # ----- Wallet Normalization -----
+
+  @doc """
+  Normalize a wallet address for comparison/storage.
+  EVM addresses (0x prefix) are lowercased. Solana addresses (base58) are case-sensitive.
+  """
+  def normalize_wallet(nil), do: ""
+  def normalize_wallet(""), do: ""
+
+  def normalize_wallet("0x" <> _rest = wallet), do: String.downcase(wallet)
+  def normalize_wallet("0X" <> _rest = wallet), do: String.downcase(wallet)
+  def normalize_wallet(wallet) when is_binary(wallet), do: wallet
+
   # ----- Signup Referral Processing -----
 
   @doc """
@@ -26,11 +39,11 @@ defmodule BlocksterV2.Referrals do
   Links the referrer in both Mnesia and PostgreSQL, then mints signup reward.
   """
   def process_signup_referral(new_user, referrer_wallet) when is_binary(referrer_wallet) do
-    referrer_wallet = String.downcase(referrer_wallet)
+    referrer_wallet = normalize_wallet(referrer_wallet)
 
     # Prevent self-referral
     if new_user.smart_wallet_address &&
-       String.downcase(new_user.smart_wallet_address) == referrer_wallet do
+       normalize_wallet(new_user.smart_wallet_address) == referrer_wallet do
       {:error, :self_referral}
     else
       # Find referrer by smart wallet address
@@ -49,7 +62,7 @@ defmodule BlocksterV2.Referrals do
 
           # Store in Mnesia (with both wallet addresses for blockchain event matching)
           now = System.system_time(:second)
-          referee_wallet = String.downcase(new_user.smart_wallet_address || "")
+          referee_wallet = normalize_wallet(new_user.smart_wallet_address || "")
           referral_record = {:referrals, new_user.id, referrer.id, referrer_wallet, referee_wallet, now, false}
           :mnesia.dirty_write(referral_record)
 
@@ -97,12 +110,12 @@ defmodule BlocksterV2.Referrals do
     })
 
     # --- Referee welcome bonus ---
-    if referee_amount > 0 && referee.smart_wallet_address && referee.smart_wallet_address != "" do
+    if referee_amount > 0 && referee.wallet_address && referee.wallet_address != "" do
       referee_id = Ecto.UUID.generate()
       Task.start(fn ->
-        case BuxMinter.mint_bux(referee.smart_wallet_address, referee_amount, referee.id, nil, :signup) do
+        case BuxMinter.mint_bux(referee.wallet_address, referee_amount, referee.id, nil, :signup) do
           {:ok, _response} ->
-            BuxMinter.sync_user_balances_async(referee.id, referee.smart_wallet_address, force: true)
+            BuxMinter.sync_user_balances_async(referee.id, referee.wallet_address, force: true)
           {:error, err} ->
             Logger.error("[Referrals] Failed to mint referee signup bonus: #{inspect(err)}")
         end
@@ -193,8 +206,8 @@ defmodule BlocksterV2.Referrals do
       tx_hash: tx_hash
     } = attrs
 
-    referrer_wallet = String.downcase(referrer_wallet)
-    referee_wallet = String.downcase(referee_wallet)
+    referrer_wallet = normalize_wallet(referrer_wallet)
+    referee_wallet = normalize_wallet(referee_wallet)
 
     # Check for duplicate (idempotent)
     existing = :mnesia.dirty_index_read(:referral_earnings, commitment_hash, :commitment_hash)
@@ -258,8 +271,8 @@ defmodule BlocksterV2.Referrals do
       tx_hash: tx_hash
     } = attrs
 
-    referrer_wallet = String.downcase(referrer_wallet)
-    referee_wallet = String.downcase(referee_wallet)
+    referrer_wallet = normalize_wallet(referrer_wallet)
+    referee_wallet = normalize_wallet(referee_wallet)
 
     # Check for duplicate
     existing = :mnesia.dirty_index_read(:referral_earnings, commitment_hash, :commitment_hash)
@@ -305,8 +318,8 @@ defmodule BlocksterV2.Referrals do
       token: token
     } = attrs
 
-    referrer_wallet = String.downcase(referrer_wallet || "")
-    referee_wallet = String.downcase(referee_wallet || "")
+    referrer_wallet = normalize_wallet(referrer_wallet || "")
+    referee_wallet = normalize_wallet(referee_wallet || "")
 
     # Convert Decimal to float if needed (Mnesia stores numbers, not Decimal structs)
     numeric_amount = case amount do
@@ -458,7 +471,7 @@ defmodule BlocksterV2.Referrals do
   Returns {:ok, user_id} or :not_found
   """
   def get_user_id_by_wallet(wallet_address) when is_binary(wallet_address) do
-    wallet = String.downcase(wallet_address)
+    wallet = normalize_wallet(wallet_address)
 
     # First check :referrals table (has referee_wallet index)
     case :mnesia.dirty_index_read(:referrals, wallet, :referee_wallet) do
@@ -477,7 +490,7 @@ defmodule BlocksterV2.Referrals do
   Returns {:ok, %{referrer_id, referrer_wallet}} or :not_found
   """
   def get_referrer_by_referee_wallet(referee_wallet) when is_binary(referee_wallet) do
-    wallet = String.downcase(referee_wallet)
+    wallet = normalize_wallet(referee_wallet)
 
     case :mnesia.dirty_index_read(:referrals, wallet, :referee_wallet) do
       [{:referrals, _user_id, referrer_id, referrer_wallet, _, _, _} | _] ->
@@ -492,8 +505,8 @@ defmodule BlocksterV2.Referrals do
   defp mint_referral_reward(earning_id, _referrer_wallet, amount, token, referrer_id, reason) do
     # Always look up fresh wallet from DB instead of using URL param
     fresh_wallet = case Repo.get(User, referrer_id) do
-      %User{smart_wallet_address: addr} when is_binary(addr) and addr != "" ->
-        String.downcase(addr)
+      %User{wallet_address: addr} when is_binary(addr) and addr != "" ->
+        normalize_wallet(addr)
       _ ->
         Logger.warning("[Referrals] No wallet found for referrer #{referrer_id}, skipping mint")
         nil
@@ -503,7 +516,7 @@ defmodule BlocksterV2.Referrals do
       Task.start(fn ->
         case BuxMinter.mint_bux(fresh_wallet, amount, referrer_id, nil, reason, token) do
           {:ok, response} ->
-            tx_hash = response["transactionHash"]
+            tx_hash = response["signature"]
             if tx_hash do
               update_earning_tx_hash(earning_id, tx_hash)
               Logger.info("[Referrals] Updated earning #{earning_id} with tx_hash: #{tx_hash}")
@@ -540,7 +553,7 @@ defmodule BlocksterV2.Referrals do
         case BuxMinter.set_player_referrer(player_wallet, referrer_wallet) do
           {:ok, _} ->
             # Mark as synced in Mnesia
-            player_wallet_lower = String.downcase(player_wallet)
+            player_wallet_lower = normalize_wallet(player_wallet)
             case :mnesia.dirty_index_read(:referrals, player_wallet_lower, :referee_wallet) do
               [record | _] ->
                 updated = put_elem(record, 6, true)  # on_chain_synced at index 6

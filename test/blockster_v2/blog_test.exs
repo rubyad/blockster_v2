@@ -160,13 +160,13 @@ defmodule BlocksterV2.BlogTest do
       assert post.slug == "my-great-post"
     end
 
-    test "enforces unique slugs" do
+    test "generates unique slugs for duplicate titles" do
       author = create_user()
-      # Use the same title so the slug generator produces the same slug
       title = "Duplicate Title #{System.unique_integer([:positive])}"
       {:ok, first} = Blog.create_post(%{title: title, author_id: author.id})
-      assert {:error, changeset} = Blog.create_post(%{title: title, author_id: author.id})
-      assert errors_on(changeset)[:slug] != nil
+      {:ok, second} = Blog.create_post(%{title: title, author_id: author.id})
+      assert first.slug != second.slug
+      assert String.starts_with?(second.slug, first.slug)
     end
   end
 

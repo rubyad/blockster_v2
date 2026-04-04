@@ -1207,14 +1207,15 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
-  Gets the user's aggregate BUX balance from the user_bux_balances Mnesia table.
-  Returns the sum of all token balances that was last synced from chain.
+  Gets the user's BUX balance from the user_solana_balances Mnesia table.
   Returns 0 if no record exists.
   """
   def get_user_bux_balance(user_id) do
-    case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+    # Read from user_solana_balances (Solana SPL BUX)
+    # Legacy user_bux_balances table is no longer used for balance reads
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
       [] -> 0
-      [record] -> elem(record, 4) || 0  # aggregate_bux_balance is at index 4
+      [record] -> elem(record, 5) || 0  # bux_balance at index 5
     end
   rescue
     _ -> 0
@@ -1697,6 +1698,8 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  @deprecated EVM/Rogue Chain - ROGUE balance tracking. Will be removed after Solana migration.
+
   Updates ROGUE balance for a user (supports both Rogue Chain and Arbitrum).
   For now, only Rogue Chain is fetched by BuxMinter.
   Also updates the unified_multipliers table since ROGUE balance affects the ROGUE multiplier.
@@ -1733,11 +1736,8 @@ defmodule BlocksterV2.EngagementTracker do
         {:ok, balance_float}
     end
 
-    # Update unified_multipliers table (V2 system) when ROGUE balance changes
-    # Only update for rogue_chain since that's the smart wallet balance used for multiplier
-    if chain == :rogue_chain do
-      BlocksterV2.UnifiedMultiplier.update_rogue_multiplier(user_id)
-    end
+    # ROGUE multiplier removed in Solana migration (Phase 5)
+    # SOL multiplier is updated via UnifiedMultiplier.update_sol_multiplier/1
 
     # NOTE: Broadcast removed - caller (sync_user_balances) handles broadcasting once at the end
     # to avoid multiple redundant broadcasts during batch updates
@@ -1752,36 +1752,26 @@ defmodule BlocksterV2.EngagementTracker do
   Gets all token balances for a user from the user_bux_balances table.
   Returns a map with token names as keys and balances as values.
   Also includes ROGUE balances from user_rogue_balances table.
-  NOTE: Hub tokens removed - only returns BUX and ROGUE.
+  @doc """
+  Gets the user's token balances from the user_solana_balances Mnesia table.
+  Returns BUX (Solana SPL) and SOL balances.
+  Legacy user_bux_balances and user_rogue_balances tables are no longer read.
   """
   def get_user_token_balances(user_id) do
-    # Get BUX balance (hub tokens removed)
-    bux_balance = case :mnesia.dirty_read({:user_bux_balances, user_id}) do
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
       [] ->
-        Logger.info("[EngagementTracker] No user_bux_balances record for user #{user_id}")
-        0.0
+        %{"BUX" => 0.0, "SOL" => 0.0}
 
       [record] ->
-        elem(record, 5) || 0.0
+        %{
+          "BUX" => elem(record, 5) || 0.0,
+          "SOL" => elem(record, 4) || 0.0
+        }
     end
-
-    # Get ROGUE balance
-    rogue_balance = case :mnesia.dirty_read({:user_rogue_balances, user_id}) do
-      [] -> 0.0
-      [rogue_record] -> elem(rogue_record, 4) || 0.0  # rogue_balance_rogue_chain
-    end
-
-    # Return only BUX and ROGUE (hub tokens removed)
-    %{
-      "BUX" => bux_balance,
-      "ROGUE" => rogue_balance
-    }
   rescue
-    _ ->
-      %{"BUX" => 0.0, "ROGUE" => 0.0}
+    _ -> %{"BUX" => 0.0, "SOL" => 0.0}
   catch
-    :exit, _ ->
-      %{"BUX" => 0.0, "ROGUE" => 0.0}
+    :exit, _ -> %{"BUX" => 0.0, "SOL" => 0.0}
   end
 
   @doc """
@@ -1790,6 +1780,223 @@ defmodule BlocksterV2.EngagementTracker do
   def get_user_token_balance(user_id, token) do
     balances = get_user_token_balances(user_id)
     Map.get(balances, token, 0.0)
+  end
+
+  # =============================================================================
+  # Solana Balance Functions (user_solana_balances table — Phase 3 migration)
+  # =============================================================================
+
+  @doc """
+  Gets the user's SOL balance from the user_solana_balances Mnesia table.
+  Returns 0.0 if no record exists.
+  """
+  def get_user_sol_balance(user_id) do
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
+      [] -> 0.0
+      [record] -> elem(record, 4) || 0.0  # sol_balance at index 4
+    end
+  rescue
+    _ -> 0.0
+  catch
+    :exit, _ -> 0.0
+  end
+
+  @doc """
+  Gets the user's BUX balance from the user_solana_balances Mnesia table.
+  This is the Solana SPL BUX balance (new table), distinct from EVM user_bux_balances.
+  Returns 0.0 if no record exists.
+  """
+  def get_user_solana_bux_balance(user_id) do
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
+      [] -> 0.0
+      [record] -> elem(record, 5) || 0.0  # bux_balance at index 5
+    end
+  rescue
+    _ -> 0.0
+  catch
+    :exit, _ -> 0.0
+  end
+
+  @doc """
+  Gets all Solana balances for a user.
+  Returns %{sol: float, bux: float}.
+  """
+  def get_user_solana_balances(user_id) do
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
+      [] -> %{sol: 0.0, bux: 0.0}
+      [record] -> %{sol: elem(record, 4) || 0.0, bux: elem(record, 5) || 0.0}
+    end
+  rescue
+    _ -> %{sol: 0.0, bux: 0.0}
+  catch
+    :exit, _ -> %{sol: 0.0, bux: 0.0}
+  end
+
+  @doc """
+  Updates SOL balance for a user in user_solana_balances.
+  Creates or updates the record.
+  """
+  def update_user_sol_balance(user_id, wallet_address, sol_balance) do
+    now = System.system_time(:second)
+    sol_float = parse_balance(sol_balance)
+
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
+      [] ->
+        record = {:user_solana_balances, user_id, wallet_address, now, sol_float, 0.0}
+        :mnesia.dirty_write(record)
+        {:ok, sol_float}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(2, wallet_address)  # wallet_address
+          |> put_elem(3, now)             # updated_at
+          |> put_elem(4, sol_float)       # sol_balance
+        :mnesia.dirty_write(updated)
+        {:ok, sol_float}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating SOL balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating SOL balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Updates BUX balance for a user in user_solana_balances.
+  Creates or updates the record.
+  """
+  def update_user_solana_bux_balance(user_id, wallet_address, bux_balance) do
+    now = System.system_time(:second)
+    bux_float = parse_balance(bux_balance)
+
+    case :mnesia.dirty_read({:user_solana_balances, user_id}) do
+      [] ->
+        record = {:user_solana_balances, user_id, wallet_address, now, 0.0, bux_float}
+        :mnesia.dirty_write(record)
+        {:ok, bux_float}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(2, wallet_address)  # wallet_address
+          |> put_elem(3, now)             # updated_at
+          |> put_elem(5, bux_float)       # bux_balance
+        :mnesia.dirty_write(updated)
+        {:ok, bux_float}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating Solana BUX balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating Solana BUX balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # ============================================================================
+  # LP Balance Tracking (Phase 7 — Bankroll LP tokens bSOL/bBUX)
+  # ============================================================================
+
+  @doc """
+  Gets user's LP token balances (bSOL and bBUX).
+  Returns %{bsol: float, bbux: float}
+  """
+  def get_user_lp_balances(user_id) do
+    case :mnesia.dirty_read({:user_lp_balances, user_id}) do
+      [] -> %{bsol: 0.0, bbux: 0.0}
+      [record] -> %{bsol: elem(record, 4) || 0.0, bbux: elem(record, 5) || 0.0}
+    end
+  rescue
+    _ -> %{bsol: 0.0, bbux: 0.0}
+  end
+
+  @doc """
+  Gets user's bSOL LP token balance.
+  """
+  def get_user_bsol_balance(user_id) do
+    case :mnesia.dirty_read({:user_lp_balances, user_id}) do
+      [] -> 0.0
+      [record] -> elem(record, 4) || 0.0
+    end
+  rescue
+    _ -> 0.0
+  end
+
+  @doc """
+  Gets user's bBUX LP token balance.
+  """
+  def get_user_bbux_balance(user_id) do
+    case :mnesia.dirty_read({:user_lp_balances, user_id}) do
+      [] -> 0.0
+      [record] -> elem(record, 5) || 0.0
+    end
+  rescue
+    _ -> 0.0
+  end
+
+  @doc """
+  Updates user's bSOL LP token balance.
+  """
+  def update_user_bsol_balance(user_id, wallet_address, bsol_balance) do
+    now = System.system_time(:second)
+    bsol_float = parse_balance(bsol_balance)
+
+    case :mnesia.dirty_read({:user_lp_balances, user_id}) do
+      [] ->
+        record = {:user_lp_balances, user_id, wallet_address, now, bsol_float, 0.0}
+        :mnesia.dirty_write(record)
+        {:ok, bsol_float}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(2, wallet_address)
+          |> put_elem(3, now)
+          |> put_elem(4, bsol_float)
+        :mnesia.dirty_write(updated)
+        {:ok, bsol_float}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating bSOL balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating bSOL balance: #{inspect(e)}")
+      {:error, e}
+  end
+
+  @doc """
+  Updates user's bBUX LP token balance.
+  """
+  def update_user_bbux_balance(user_id, wallet_address, bbux_balance) do
+    now = System.system_time(:second)
+    bbux_float = parse_balance(bbux_balance)
+
+    case :mnesia.dirty_read({:user_lp_balances, user_id}) do
+      [] ->
+        record = {:user_lp_balances, user_id, wallet_address, now, 0.0, bbux_float}
+        :mnesia.dirty_write(record)
+        {:ok, bbux_float}
+
+      [existing] ->
+        updated = existing
+          |> put_elem(2, wallet_address)
+          |> put_elem(3, now)
+          |> put_elem(5, bbux_float)
+        :mnesia.dirty_write(updated)
+        {:ok, bbux_float}
+    end
+  rescue
+    e ->
+      Logger.error("[EngagementTracker] Error updating bBUX balance: #{inspect(e)}")
+      {:error, e}
+  catch
+    :exit, e ->
+      Logger.error("[EngagementTracker] Exit updating bBUX balance: #{inspect(e)}")
+      {:error, e}
   end
 
   @doc """

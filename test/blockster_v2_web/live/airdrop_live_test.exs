@@ -3,8 +3,6 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
   alias BlocksterV2.{Airdrop, Repo}
   alias BlocksterV2.Accounts.User
-  alias BlocksterV2.ConnectedWallet
-
   # ============================================================================
   # Test Helpers
   # ============================================================================
@@ -32,24 +30,12 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     round
   end
 
-  # Insert ConnectedWallet directly to avoid UserEvents.track side effect
-  defp connect_wallet(user) do
-    %ConnectedWallet{}
-    |> ConnectedWallet.changeset(%{
-      user_id: user.id,
-      wallet_address: "0x#{:crypto.strong_rand_bytes(20) |> Base.encode16(case: :lower)}",
-      provider: "metamask",
-      chain_id: 42161
-    })
-    |> Repo.insert!()
-  end
-
   defp create_drawn_round(user, bux_amount \\ 1000) do
     round = create_round()
     set_bux_balance(user, bux_amount)
     {:ok, _entry} = Airdrop.redeem_bux(user, bux_amount, round.round_id)
-    block_hash = "0x" <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
-    {:ok, _closed} = Airdrop.close_round(round.round_id, block_hash)
+    slot_at_close = to_string(:rand.uniform(999_999_999))
+    {:ok, _closed} = Airdrop.close_round(round.round_id, slot_at_close)
     {:ok, drawn_round} = Airdrop.draw_winners(round.round_id)
     drawn_round
   end
@@ -98,7 +84,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders prize pool and prize distribution", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "$2,000 USDT"
+      assert html =~ "$2,000"
       assert html =~ "$250"
       assert html =~ "$150"
       assert html =~ "$100"
@@ -123,11 +109,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ "Win"
     end
 
-    test "shows Login to Enter for unauthenticated user", %{conn: conn} do
+    test "shows Connect Wallet to Enter for unauthenticated user", %{conn: conn} do
       _round = create_round()
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "Login to Enter"
+      assert html =~ "Connect Wallet to Enter"
     end
 
     test "shows BUX balance for logged-in user", %{conn: conn} do
@@ -181,11 +167,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   # ============================================================================
 
   describe "redeem button states" do
-    test "shows Login to Enter when not logged in", %{conn: conn} do
+    test "shows Connect Wallet to Enter when not logged in", %{conn: conn} do
       _round = create_round()
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "Login to Enter"
+      assert html =~ "Connect Wallet to Enter"
     end
 
     test "shows Verify Phone to Enter when not phone verified", %{conn: conn} do
@@ -198,9 +184,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ "Verify Phone to Enter"
     end
 
-    test "shows Connect Wallet to Enter when no connected wallet", %{conn: conn} do
-      user = create_user()
-      conn = log_in_user(conn, user)
+    test "shows Connect Wallet to Enter when not authenticated", %{conn: conn} do
       _round = create_round()
 
       {:ok, _view, html} = live(conn, ~p"/airdrop")
@@ -210,7 +194,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows Enter Amount when amount is empty", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       conn = log_in_user(conn, user)
       _round = create_round()
 
@@ -221,7 +205,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows Insufficient Balance when amount exceeds balance", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 50)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -235,7 +219,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows Redeem X BUX when valid", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -249,7 +233,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows entry count below input", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -270,7 +254,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "redeem flow" do
     test "clicking MAX sets amount to full balance", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 750)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -284,7 +268,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "redeem click shows Redeeming state", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -300,7 +284,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "receipt panels show after entry created", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 200)
       {:ok, _entry} = Airdrop.redeem_bux(user, 200, round.round_id)
@@ -316,7 +300,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "balance display reflects user balance", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 300)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -329,7 +313,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "multiple entries stack receipt panels", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 500)
       {:ok, _} = Airdrop.redeem_bux(user, 200, round.round_id)
@@ -344,7 +328,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "total pool stats show after entries exist", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 200)
       {:ok, _} = Airdrop.redeem_bux(user, 200, round.round_id)
@@ -358,7 +342,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows Entries closed when round is closed", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       conn = log_in_user(conn, user)
       round = create_round()
@@ -371,11 +355,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ "Entries closed"
     end
 
-    test "shows Login to Enter when not authenticated", %{conn: conn} do
+    test "shows Connect Wallet to Enter when not authenticated", %{conn: conn} do
       _round = create_round()
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "Login to Enter"
+      assert html =~ "Connect Wallet to Enter"
     end
   end
 
@@ -386,7 +370,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "receipt panels" do
     test "persist across page visits", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 100)
       {:ok, _entry} = Airdrop.redeem_bux(user, 100, round.round_id)
@@ -402,7 +386,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "show block range and entry count", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 500)
       {:ok, _entry} = Airdrop.redeem_bux(user, 500, round.round_id)
@@ -417,7 +401,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "show timestamp", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 50)
       {:ok, _entry} = Airdrop.redeem_bux(user, 50, round.round_id)
@@ -431,7 +415,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "show win result after draw", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       drawn_round = create_drawn_round(user)
       conn = log_in_user(conn, user)
 
@@ -444,14 +428,16 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "losing receipt shows no win message after draw", %{conn: conn} do
       # Create two users — first user gets positions 1-1000
       user1 = create_user()
-      _wallet1 = connect_wallet(user1)
+
+
       round = create_round()
       set_bux_balance(user1, 1000)
       {:ok, _} = Airdrop.redeem_bux(user1, 1000, round.round_id)
 
       # Second user gets positions 1001-1001
       user2 = create_user()
-      _wallet2 = connect_wallet(user2)
+
+
       set_bux_balance(user2, 1)
       {:ok, _} = Airdrop.redeem_bux(user2, 1, round.round_id)
 
@@ -475,7 +461,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "winners display" do
     setup %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       drawn_round = create_drawn_round(user)
       winners = Airdrop.get_winners(drawn_round.round_id)
 
@@ -558,32 +544,24 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       end
     end
 
-    test "shows Registering instead of Claim when prize not yet registered", %{conn: conn, user: user, winners: winners} do
-      # Winners exist but prize_registered is false (default)
+    test "shows Claim button for winner with wallet connected", %{conn: conn, user: user, winners: winners} do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
       user_wins = Enum.filter(winners, &(&1.user_id == user.id))
 
       if user_wins != [] do
-        assert html =~ "Registering..."
-        refute html =~ "Claim"
+        assert html =~ "Claim"
       end
     end
 
-    test "shows Connect Wallet link for winner without wallet", %{conn: conn} do
+    test "unauthenticated user does not see claim buttons", %{conn: conn} do
       user = create_user()
-      # Don't connect a wallet
-      drawn_round = create_drawn_round(user)
-      winners = Airdrop.get_winners(drawn_round.round_id)
-      user_wins = Enum.filter(winners, &(&1.user_id == user.id))
+      _drawn_round = create_drawn_round(user)
 
-      conn = log_in_user(conn, user)
+      # Not logged in — should not see claim buttons
       {:ok, _view, html} = live(conn, ~p"/airdrop")
-
-      if user_wins != [] do
-        assert html =~ "Connect Wallet"
-      end
+      refute html =~ "phx-click=\"claim_prize\""
     end
 
     test "other users don't see claim buttons", %{conn: conn} do
@@ -610,14 +588,15 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "claim flow" do
     test "successful claim shows Claimed badge", %{conn: conn} do
       user = create_user()
-      wallet = connect_wallet(user)
+
+
       drawn_round = create_drawn_round(user)
       winners = Airdrop.get_winners(drawn_round.round_id)
       user_win = Enum.find(winners, &(&1.user_id == user.id))
 
       if user_win do
         # Claim the prize directly (backend already tested in airdrop_test.exs)
-        {:ok, _} = Airdrop.claim_prize(user.id, drawn_round.round_id, user_win.winner_index, "0xfaketx", wallet.wallet_address)
+        {:ok, _} = Airdrop.claim_prize(user.id, drawn_round.round_id, user_win.winner_index, "0xfaketx", user.wallet_address)
 
         conn = log_in_user(conn, user)
         {:ok, _view, html} = live(conn, ~p"/airdrop")
@@ -626,32 +605,28 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       end
     end
 
-    test "claim requires connected wallet", %{conn: conn} do
+    test "claim requires wallet connection (not logged in shows no claim button)", %{conn: conn} do
       user = create_user()
-      # No wallet connected
       drawn_round = create_drawn_round(user)
       winners = Airdrop.get_winners(drawn_round.round_id)
-      user_win = Enum.find(winners, &(&1.user_id == user.id))
+      _user_win = Enum.find(winners, &(&1.user_id == user.id))
 
-      if user_win do
-        conn = log_in_user(conn, user)
-        {:ok, _view, html} = live(conn, ~p"/airdrop")
-
-        # Should show "Connect Wallet" link, not a claim button
-        assert html =~ "Connect Wallet"
-      end
+      # Not logged in — should not show claim button
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+      refute html =~ "Claim"
     end
 
     test "already claimed prize shows Claimed badge", %{conn: conn} do
       user = create_user()
-      wallet = connect_wallet(user)
+
+
       drawn_round = create_drawn_round(user)
       winners = Airdrop.get_winners(drawn_round.round_id)
       user_win = Enum.find(winners, &(&1.user_id == user.id))
 
       if user_win do
         # Pre-claim the prize
-        {:ok, _} = Airdrop.claim_prize(user.id, drawn_round.round_id, user_win.winner_index, "0xfaketx", wallet.wallet_address)
+        {:ok, _} = Airdrop.claim_prize(user.id, drawn_round.round_id, user_win.winner_index, "0xfaketx", user.wallet_address)
 
         conn = log_in_user(conn, user)
         {:ok, _view, html} = live(conn, ~p"/airdrop")
@@ -668,7 +643,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "provably fair modal" do
     setup %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       drawn_round = create_drawn_round(user)
 
       %{user: user, round: drawn_round, conn: conn}
@@ -700,11 +675,10 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ round.commitment_hash
     end
 
-    test "shows block hash at close", %{conn: conn, round: round} do
+    test "shows slot at close", %{conn: conn, round: round} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       html = view |> element("button", "Verify Fairness") |> render_click()
 
-      assert html =~ "Block Hash at Close"
       assert html =~ round.block_hash_at_close
     end
 
@@ -727,7 +701,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       html = view |> element("button", "Verify Fairness") |> render_click()
 
-      assert html =~ "keccak256"
+      assert html =~ "SHA256"
       assert html =~ "Combine seeds"
     end
 
@@ -761,12 +735,11 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       refute html =~ "Provably Fair Verification"
     end
 
-    test "shows RogueScan link in footer", %{conn: conn} do
+    test "shows Solscan link in footer", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
       html = view |> element("button", "Verify Fairness") |> render_click()
 
-      assert html =~ "roguescan.io"
-      assert html =~ "Verify Externally"
+      assert html =~ "solscan.io"
     end
   end
 
@@ -777,7 +750,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "real-time PubSub updates" do
     test "pool stats update when other users deposit", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       round = create_round()
       conn = log_in_user(conn, user)
@@ -801,7 +774,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "page transforms when airdrop is drawn via PubSub", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       round = create_round()
       set_bux_balance(user, 500)
       {:ok, _entry} = Airdrop.redeem_bux(user, 500, round.round_id)
@@ -841,7 +814,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   describe "input validation" do
     test "strips non-numeric characters from amount", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 500)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -855,7 +828,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "set max fills full balance", %{conn: conn} do
       user = create_user()
-      _wallet = connect_wallet(user)
+
       set_bux_balance(user, 999)
       conn = log_in_user(conn, user)
       _round = create_round()
@@ -872,15 +845,13 @@ defmodule BlocksterV2Web.AirdropLiveTest do
   # Contract Address Integrity
   # ============================================================================
 
-  describe "deep link contract addresses" do
-    test "vault_impl matches docs/addresses.md" do
-      impl_address = BlocksterV2Web.AirdropLive.vault_impl()
-
+  describe "airdrop program address" do
+    test "program ID appears in docs/addresses.md" do
+      program_id = "wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG"
       addresses_md = File.read!(Path.join([File.cwd!(), "docs", "addresses.md"]))
 
-      assert String.contains?(addresses_md, impl_address),
-             "AirdropLive @vault_impl #{impl_address} not found in docs/addresses.md — " <>
-               "update the module attribute after deploying a new implementation"
+      assert String.contains?(addresses_md, program_id),
+             "Airdrop Program ID #{program_id} not found in docs/addresses.md"
     end
   end
 end

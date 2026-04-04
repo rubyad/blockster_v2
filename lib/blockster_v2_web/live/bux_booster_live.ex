@@ -326,7 +326,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                   <div class="flex items-center justify-between text-[10px] sm:text-sm">
                     <div class="text-gray-500">
                       <%= if @selected_token == "ROGUE" do %>
-                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
+                        <a href="https://solscan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=coin_balance_history" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
                           <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 h-3 sm:w-4 sm:h-4 rounded-full inline" />
                           <%= if @rogue_usd_price do %>
@@ -334,7 +334,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <% end %>
                         </a>
                       <% else %>
-                        <a href="https://roguescan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
+                        <a href="https://solscan.io/address/0xb6b4cb36ce26d62fe02402ef43cb489183b2a137?tab=tokens" target="_blank" class="flex items-center gap-0.5 sm:gap-1 text-blue-500 hover:underline cursor-pointer">
                           <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
                           <img src={Map.get(@token_logos, @selected_token, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={@selected_token} class="w-3 h-3 sm:w-4 sm:h-4 rounded-full inline" />
                         </a>
@@ -420,7 +420,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <%= if @current_user do %>
                             <%= if assigns[:commitment_tx] do %>
                               <a
-                                href={"https://roguescan.io/tx/#{@commitment_tx}?tab=logs"}
+                                href={"https://solscan.io/tx/#{@commitment_tx}?tab=logs"}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 overflow-wrap-anywhere text-blue-500 hover:underline cursor-pointer"
@@ -742,7 +742,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <!-- Bet ID (nonce linked to commitment tx) -->
                           <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.commitment_tx do %>
-                              <a href={"https://roguescan.io/tx/#{game.commitment_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
+                              <a href={"https://solscan.io/tx/#{game.commitment_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono">
                                 #<%= game.nonce %>
                               </a>
                             <% else %>
@@ -752,7 +752,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                           <!-- Bet Amount (linked to bet placement tx) -->
                           <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                             <%= if game.bet_tx do %>
-                              <a href={"https://roguescan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1">
+                              <a href={"https://solscan.io/tx/#{game.bet_tx}?tab=logs"} target="_blank" class="text-blue-500 hover:underline decoration-blue-500 cursor-pointer flex items-center gap-1">
                                 <img src={Map.get(@token_logos, game.token_type, "https://ik.imagekit.io/blockster/blockster-icon.png")} alt={game.token_type} class="w-3 sm:w-4 h-3 sm:h-4 rounded-full" />
                                 <span><%= format_integer(game.bet_amount) %></span>
                               </a>
@@ -794,7 +794,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <%= if game.won do %>
                               <% profit = game.payout - game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
+                                <a href={"https://solscan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-green-600 hover:underline cursor-pointer font-medium">
                                   +<%= format_balance(profit) %>
                                 </a>
                               <% else %>
@@ -805,7 +805,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
                             <% else %>
                               <% loss = game.bet_amount %>
                               <%= if game.settlement_tx do %>
-                                <a href={"https://roguescan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
+                                <a href={"https://solscan.io/tx/#{game.settlement_tx}?tab=logs"} target="_blank" class="text-red-600 hover:underline cursor-pointer font-medium">
                                   -<%= format_balance(loss) %>
                                 </a>
                               <% else %>

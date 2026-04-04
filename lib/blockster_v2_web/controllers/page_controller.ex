@@ -12,12 +12,20 @@ defmodule BlocksterV2Web.PageController do
     case conn.assigns[:current_user] do
       nil ->
         conn
-        |> put_flash(:error, "You must be logged in to view your profile")
-        |> redirect(to: ~p"/login")
+        |> put_flash(:info, "Connect your wallet to view your profile")
+        |> redirect(to: ~p"/")
 
       user ->
-        slug = user.slug || user.smart_wallet_address
+        slug = user.slug || user.wallet_address
         redirect(conn, to: ~p"/member/#{slug}?tab=settings")
     end
+  end
+
+  @doc """
+  Redirects /login to homepage. Login page removed in Solana migration —
+  auth handled by wallet selector modal.
+  """
+  def login_redirect(conn, _params) do
+    redirect(conn, to: ~p"/")
   end
 end

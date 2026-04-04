@@ -1,11 +1,15 @@
 defmodule BlocksterV2.Wallets do
   @moduledoc """
+  @deprecated EVM/Rogue Chain - Will be removed after Solana migration is complete.
+
   Context for managing connected hardware wallets and wallet transfers.
 
   Handles:
   - Hardware wallet connection/disconnection (Postgres)
   - Token balance storage and retrieval (Mnesia)
   - Wallet transfer tracking (Postgres)
+
+  Still referenced by: onboarding_live, member_live/show.ex
   """
 
   import Ecto.Query, warn: false

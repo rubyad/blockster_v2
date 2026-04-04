@@ -4,15 +4,6 @@ defmodule BlocksterV2Web.AirdropLive do
   require Logger
 
   alias BlocksterV2.Airdrop
-  alias BlocksterV2.Wallets
-
-  @vault_proxy "0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c"
-  @vault_impl "0x1d540f6bc7d55DCa7F392b9cc7668F2f14d330F9"
-
-  def vault_impl, do: @vault_impl
-
-  defp vault_read_proxy_url(selector),
-    do: "https://roguescan.io/address/#{@vault_proxy}?tab=read_proxy&source_address=#{@vault_impl}##{selector}"
 
   # ============================================================
   # Mount
@@ -22,6 +13,7 @@ defmodule BlocksterV2Web.AirdropLive do
   def mount(_params, _session, socket) do
     current_user = socket.assigns[:current_user]
     token_balances = socket.assigns[:token_balances] || %{}
+    wallet_address = socket.assigns[:wallet_address]
 
     user_bux_balance =
       case token_balances do
@@ -32,17 +24,19 @@ defmodule BlocksterV2Web.AirdropLive do
     current_round = Airdrop.get_current_round()
     round_id = if current_round, do: current_round.round_id
 
-    # Fixed countdown: March 1, 2026 at 12:00 PM EST (17:00 UTC)
     airdrop_end_time =
-      DateTime.new!(~D[2026-03-01], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
-
-    {user_entries, connected_wallet} =
-      if current_user && round_id do
-        entries = Airdrop.get_user_entries(current_user.id, round_id)
-        wallet = Wallets.get_connected_wallet(current_user.id)
-        {entries, wallet}
+      if current_round do
+        DateTime.to_unix(current_round.end_time)
       else
-        {[], nil}
+        # Default countdown if no round
+        DateTime.new!(~D[2026-05-01], ~T[17:00:00], "Etc/UTC") |> DateTime.to_unix()
+      end
+
+    user_entries =
+      if current_user && round_id do
+        Airdrop.get_user_entries(current_user.id, round_id)
+      else
+        []
       end
 
     {total_entries, participant_count} =
@@ -79,7 +73,7 @@ defmodule BlocksterV2Web.AirdropLive do
 
     socket =
       socket
-      |> assign(:page_title, "USDT Airdrop")
+      |> assign(:page_title, "Airdrop")
       |> assign(:user_bux_balance, user_bux_balance)
       |> assign(:airdrop_end_time, airdrop_end_time)
       |> assign(:prize_summary, prize_summary)
@@ -90,7 +84,7 @@ defmodule BlocksterV2Web.AirdropLive do
       |> assign(:entry_results, entry_results)
       |> assign(:total_entries, total_entries)
       |> assign(:participant_count, participant_count)
-      |> assign(:connected_wallet, connected_wallet)
+      |> assign(:wallet_connected, wallet_address != nil)
       |> assign(:airdrop_drawn, airdrop_drawn)
       |> assign(:winners, winners)
       |> assign(:verification_data, verification_data)
@@ -120,17 +114,17 @@ defmodule BlocksterV2Web.AirdropLive do
     user = socket.assigns[:current_user]
     round = socket.assigns.current_round
     amount = parse_amount(socket.assigns.redeem_amount)
-    wallet = socket.assigns.connected_wallet
+    wallet_address = socket.assigns[:wallet_address]
 
     cond do
       user == nil ->
-        {:noreply, redirect(socket, to: ~p"/login")}
+        {:noreply, put_flash(socket, :error, "Connect your wallet to enter the airdrop")}
 
       !user.phone_verified ->
         {:noreply, put_flash(socket, :error, "Verify your phone number to enter the airdrop")}
 
-      wallet == nil ->
-        {:noreply, put_flash(socket, :error, "Connect an external wallet on your profile page first")}
+      wallet_address == nil ->
+        {:noreply, put_flash(socket, :error, "Connect your Solana wallet to enter")}
 
       round == nil || round.status != "open" ->
         {:noreply, put_flash(socket, :error, "Airdrop is not currently open")}
@@ -142,46 +136,39 @@ defmodule BlocksterV2Web.AirdropLive do
         {:noreply, put_flash(socket, :error, "Insufficient BUX balance")}
 
       true ->
-        # Push to JS hook: approve (if needed) + deposit entirely client-side
         round_id = round.round_id
-        external_wallet = wallet.wallet_address
+        user_id = user.id
 
+        # Build unsigned deposit tx via settler → push to JS hook for wallet signing
         socket =
-          socket
-          |> assign(redeeming: true)
-          |> push_event("airdrop_deposit", %{
-            amount: amount,
-            round_id: round_id,
-            external_wallet: external_wallet
-          })
+          start_async(socket, :build_deposit_tx, fn ->
+            # Get deposit count for this user to determine entry_index
+            entry_count = length(Airdrop.get_user_entries(user_id, round_id))
+            BlocksterV2.BuxMinter.airdrop_build_deposit(wallet_address, round_id, entry_count, amount)
+          end)
 
-        {:noreply, socket}
+        {:noreply, assign(socket, redeeming: true)}
     end
   end
 
-  def handle_event("airdrop_deposit_complete", %{"tx_hash" => deposit_tx, "amount" => amount, "round_id" => round_id} = params, socket) do
+  def handle_event("airdrop_deposit_confirmed", %{"signature" => signature, "amount" => amount, "round_id" => round_id}, socket) do
     user = socket.assigns[:current_user]
-    wallet = socket.assigns.connected_wallet
+    wallet_address = socket.assigns[:wallet_address]
 
-    if user == nil || wallet == nil do
+    if user == nil do
       {:noreply, socket |> assign(redeeming: false) |> put_flash(:error, "Session expired")}
     else
-      external_wallet = wallet.wallet_address
-      smart_wallet = user.smart_wallet_address || user.wallet_address
-
-      Logger.info("[Airdrop] Deposit confirmed: #{deposit_tx} for #{amount} BUX (user #{user.id})")
+      Logger.info("[Airdrop] Deposit confirmed: #{signature} for #{amount} BUX (user #{user.id})")
 
       socket =
         start_async(socket, :redeem_bux, fn ->
-          # Deposit already happened on-chain — just record in Postgres + deduct Mnesia
-          Airdrop.redeem_bux(user, amount, round_id,
-            external_wallet: external_wallet,
-            deposit_tx: deposit_tx
-          )
+          Airdrop.redeem_bux(user, amount, round_id, deposit_tx: signature)
         end)
 
-      # Sync on-chain balances in background (BUX was deducted)
-      BlocksterV2.BuxMinter.sync_user_balances_async(user.id, smart_wallet, force: true)
+      # Sync on-chain balances in background
+      if wallet_address do
+        BlocksterV2.BuxMinter.sync_user_balances_async(user.id, wallet_address, force: true)
+      end
 
       {:noreply, socket}
     end
@@ -196,32 +183,38 @@ defmodule BlocksterV2Web.AirdropLive do
     user = socket.assigns.current_user
     round_id = socket.assigns.current_round.round_id
     winner_index = String.to_integer(index_str)
-    wallet = socket.assigns.connected_wallet
+    wallet_address = socket.assigns[:wallet_address]
 
-    if wallet == nil do
-      {:noreply, put_flash(socket, :error, "Connect an external wallet on your profile page to claim")}
+    if wallet_address == nil do
+      {:noreply, put_flash(socket, :error, "Connect your Solana wallet to claim")}
     else
-      user_id = user.id
-      claim_wallet = wallet.wallet_address
-
+      # Build unsigned claim tx via settler → push to JS hook for wallet signing
       socket =
-        start_async(socket, :claim_prize, fn ->
-          # Call BUX Minter to send USDT on Arbitrum, then record the tx hash
-          claim_tx =
-            case BlocksterV2.BuxMinter.airdrop_claim(round_id, winner_index) do
-              {:ok, response} -> response["transactionHash"] || "pending"
-              {:error, _reason} -> nil
-            end
-
-          if claim_tx do
-            Airdrop.claim_prize(user_id, round_id, winner_index, claim_tx, claim_wallet)
-          else
-            {:error, :claim_tx_failed}
-          end
+        start_async(socket, :build_claim_tx, fn ->
+          BlocksterV2.BuxMinter.airdrop_build_claim(wallet_address, round_id, winner_index)
         end)
 
       {:noreply, assign(socket, claiming_index: winner_index)}
     end
+  end
+
+  def handle_event("airdrop_claim_confirmed", %{"signature" => signature, "winner_index" => winner_index_str}, socket) do
+    user = socket.assigns.current_user
+    round_id = socket.assigns.current_round.round_id
+    winner_index = if is_binary(winner_index_str), do: String.to_integer(winner_index_str), else: winner_index_str
+    wallet_address = socket.assigns[:wallet_address] || ""
+
+    socket =
+      start_async(socket, :claim_prize, fn ->
+        Airdrop.claim_prize(user.id, round_id, winner_index, signature, wallet_address)
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("airdrop_claim_error", %{"error" => error}, socket) do
+    Logger.error("[Airdrop] Claim failed: #{error}")
+    {:noreply, socket |> assign(claiming_index: nil) |> put_flash(:error, error)}
   end
 
   def handle_event("show_fairness_modal", _params, socket) do
@@ -241,6 +234,50 @@ defmodule BlocksterV2Web.AirdropLive do
   # ============================================================
 
   @impl true
+  def handle_async(:build_deposit_tx, {:ok, {:ok, %{"transaction" => tx_base64}}}, socket) do
+    amount = parse_amount(socket.assigns.redeem_amount)
+    round_id = socket.assigns.current_round.round_id
+
+    {:noreply,
+     socket
+     |> push_event("sign_airdrop_deposit", %{
+       transaction: tx_base64,
+       amount: amount,
+       round_id: round_id
+     })}
+  end
+
+  def handle_async(:build_deposit_tx, {:ok, {:error, reason}}, socket) do
+    Logger.error("[Airdrop] Build deposit tx failed: #{inspect(reason)}")
+    {:noreply, socket |> assign(redeeming: false) |> put_flash(:error, "Failed to build deposit transaction")}
+  end
+
+  def handle_async(:build_deposit_tx, {:exit, _reason}, socket) do
+    {:noreply, socket |> assign(redeeming: false) |> put_flash(:error, "Deposit failed unexpectedly")}
+  end
+
+  def handle_async(:build_claim_tx, {:ok, {:ok, %{"transaction" => tx_base64}}}, socket) do
+    winner_index = socket.assigns.claiming_index
+    round_id = socket.assigns.current_round.round_id
+
+    {:noreply,
+     socket
+     |> push_event("sign_airdrop_claim", %{
+       transaction: tx_base64,
+       round_id: round_id,
+       winner_index: winner_index
+     })}
+  end
+
+  def handle_async(:build_claim_tx, {:ok, {:error, reason}}, socket) do
+    Logger.error("[Airdrop] Build claim tx failed: #{inspect(reason)}")
+    {:noreply, socket |> assign(claiming_index: nil) |> put_flash(:error, "Failed to build claim transaction")}
+  end
+
+  def handle_async(:build_claim_tx, {:exit, _reason}, socket) do
+    {:noreply, socket |> assign(claiming_index: nil) |> put_flash(:error, "Claim failed unexpectedly")}
+  end
+
   def handle_async(:redeem_bux, {:ok, {:ok, entry}}, socket) do
     amount = entry.amount
     round_id = entry.round_id
@@ -309,7 +346,7 @@ defmodule BlocksterV2Web.AirdropLive do
         :already_claimed -> "Prize already claimed"
         :not_your_prize -> "This prize doesn't belong to you"
         :winner_not_found -> "Winner not found"
-        :claim_tx_failed -> "Failed to send prize on Arbitrum — try again"
+        :claim_tx_failed -> "Prize claim failed — try again"
         _ -> "Claim failed"
       end
 
@@ -371,7 +408,7 @@ defmodule BlocksterV2Web.AirdropLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="airdrop-deposit-hook" phx-hook="AirdropDepositHook" class="hidden"></div>
+    <div id="airdrop-solana-hook" phx-hook="AirdropSolanaHook" class="hidden"></div>
     <div class="min-h-screen bg-gray-50">
       <div class="max-w-2xl mx-auto px-4 pt-6 md:pt-24 pb-8">
         <%!-- Main Card --%>
@@ -379,7 +416,7 @@ defmodule BlocksterV2Web.AirdropLive do
           <%!-- Prize Pool Header --%>
           <div class="bg-black text-white p-6 text-center">
             <p class="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Total Prize Pool</p>
-            <div class="text-4xl font-bold font-haas_medium_65">$<%= format_prize_usd(@prize_summary.total) %> USDT</div>
+            <div class="text-4xl font-bold font-haas_medium_65">$<%= format_prize_usd(@prize_summary.total) %></div>
           </div>
 
           <%!-- Countdown --%>
@@ -447,7 +484,7 @@ defmodule BlocksterV2Web.AirdropLive do
                 entry_results={@entry_results}
                 airdrop_drawn={@airdrop_drawn}
                 current_user={@current_user}
-                connected_wallet={@connected_wallet}
+                wallet_connected={@wallet_connected}
                 claiming_index={@claiming_index}
               />
             <% end %>
@@ -519,7 +556,7 @@ defmodule BlocksterV2Web.AirdropLive do
     can_redeem =
       assigns.current_user != nil &&
         assigns.current_user.phone_verified == true &&
-        assigns.connected_wallet != nil &&
+        assigns.wallet_connected &&
         amount > 0 &&
         amount <= assigns.user_bux_balance &&
         round_open &&
@@ -551,9 +588,9 @@ defmodule BlocksterV2Web.AirdropLive do
             <%= if @current_user do %>
               <%= Number.Delimit.number_to_delimited(@user_bux_balance, precision: 0) %> BUX
             <% else %>
-              <.link navigate={~p"/login"} class="text-blue-500 hover:underline cursor-pointer text-sm font-normal">
-                Login to view
-              </.link>
+              <span class="text-gray-400 text-sm font-normal">
+                Connect wallet to view
+              </span>
             <% end %>
           </span>
         </div>
@@ -600,10 +637,10 @@ defmodule BlocksterV2Web.AirdropLive do
             <% @redeeming -> %>
               Redeeming...
             <% @current_user == nil -> %>
-              Login to Enter
+              Connect Wallet to Enter
             <% @current_user.phone_verified != true -> %>
               Verify Phone to Enter
-            <% @connected_wallet == nil -> %>
+            <% !@wallet_connected -> %>
               Connect Wallet to Enter
             <% @redeem_amount == "" or @parsed_amount == 0 -> %>
               Enter Amount
@@ -616,10 +653,7 @@ defmodule BlocksterV2Web.AirdropLive do
 
         <%= if @current_user == nil do %>
           <p class="text-center text-gray-500 text-sm mt-4">
-            <.link navigate={~p"/login"} class="text-blue-500 hover:underline cursor-pointer">Login</.link>
-            or
-            <.link navigate={~p"/login"} class="text-blue-500 hover:underline cursor-pointer">Sign up</.link>
-            to participate
+            Connect your Solana wallet to participate
           </p>
         <% end %>
       <% else %>
@@ -707,14 +741,9 @@ defmodule BlocksterV2Web.AirdropLive do
               <tr class={"border-b border-gray-100 #{row_bg}"}>
                 <td class="py-3 pr-3 font-medium text-gray-900"><%= winner.winner_index + 1 %></td>
                 <td class="py-3 pr-3">
-                  <a
-                    href={vault_read_proxy_url("0x6b1da364")}
-                    target="_blank"
-                    title="View on-chain winner info"
-                    class="text-blue-500 hover:underline font-mono text-xs cursor-pointer"
-                  >
+                  <span class="font-mono text-xs text-gray-600">
                     <%= truncate_address(winner.wallet_address) %>
-                  </a>
+                  </span>
                 </td>
                 <td class="py-3 pr-3 font-mono text-xs text-gray-600">
                   #<%= Number.Delimit.number_to_delimited(winner.random_number, precision: 0) %>
@@ -727,7 +756,7 @@ defmodule BlocksterV2Web.AirdropLive do
                   <.winner_status
                     winner={winner}
                     current_user={@current_user}
-                    connected_wallet={@connected_wallet}
+                    wallet_connected={@wallet_connected}
                     claiming_index={@claiming_index}
                   />
                 </td>
@@ -765,11 +794,11 @@ defmodule BlocksterV2Web.AirdropLive do
           </svg>
         </span>
         <%= if @winner.claim_tx && @winner.claim_tx != "pending" do %>
-          <a href={"https://arbiscan.io/tx/#{@winner.claim_tx}"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
+          <a href={"https://solscan.io/tx/#{@winner.claim_tx}?cluster=devnet"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
             View tx
           </a>
         <% end %>
-      <% @current_user && @winner.user_id == @current_user.id && @connected_wallet != nil && @winner.prize_registered -> %>
+      <% @current_user && @winner.user_id == @current_user.id && @wallet_connected -> %>
         <button
           type="button"
           phx-click="claim_prize"
@@ -779,12 +808,8 @@ defmodule BlocksterV2Web.AirdropLive do
         >
           <%= if @claiming_index == @winner.winner_index, do: "Claiming...", else: "Claim" %>
         </button>
-      <% @current_user && @winner.user_id == @current_user.id && !@winner.prize_registered -> %>
-        <span class="text-xs text-gray-400">Registering...</span>
       <% @current_user && @winner.user_id == @current_user.id -> %>
-        <.link navigate={~p"/member/#{@current_user.slug}"} class="text-xs font-medium text-blue-500 hover:underline cursor-pointer">
-          Connect Wallet
-        </.link>
+        <span class="text-xs text-gray-400">Connect wallet to claim</span>
       <% true -> %>
         <span class="text-xs text-gray-400">&mdash;</span>
     <% end %>
@@ -806,7 +831,7 @@ defmodule BlocksterV2Web.AirdropLive do
                 &#x1F3C6; Winner! &mdash; <%= ordinal(win.winner_index + 1) %> Place
               </p>
               <p class="text-sm text-gray-600">
-                Prize: <span class="font-bold">$<%= format_prize_usd(win.prize_usd) %> USDT</span>
+                Prize: <span class="font-bold">$<%= format_prize_usd(win.prize_usd) %></span>
               </p>
             </div>
             <div>
@@ -819,11 +844,11 @@ defmodule BlocksterV2Web.AirdropLive do
                     </svg>
                   </span>
                   <%= if win.claim_tx && win.claim_tx != "pending" do %>
-                    <a href={"https://arbiscan.io/tx/#{win.claim_tx}"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
+                    <a href={"https://solscan.io/tx/#{win.claim_tx}?cluster=devnet"} target="_blank" class="text-blue-500 hover:underline text-xs ml-1 cursor-pointer">
                       View tx
                     </a>
                   <% end %>
-                <% @current_user && @connected_wallet && win.prize_registered -> %>
+                <% @current_user && @wallet_connected -> %>
                   <button
                     type="button"
                     phx-click="claim_prize"
@@ -833,12 +858,8 @@ defmodule BlocksterV2Web.AirdropLive do
                   >
                     <%= if @claiming_index == win.winner_index, do: "Claiming...", else: "Claim $#{format_prize_usd(win.prize_usd)}" %>
                   </button>
-                <% @current_user && @connected_wallet && !win.prize_registered -> %>
-                  <span class="text-xs text-gray-400">Registering...</span>
                 <% @current_user -> %>
-                  <.link navigate={~p"/member/#{@current_user.slug}"} class="text-xs text-blue-500 hover:underline cursor-pointer">
-                    Connect Wallet to Claim
-                  </.link>
+                  <span class="text-xs text-gray-400">Connect wallet to claim</span>
                 <% true -> %>
               <% end %>
             </div>
@@ -875,8 +896,8 @@ defmodule BlocksterV2Web.AirdropLive do
 
       <%= if @entry.deposit_tx do %>
         <div class="mt-2">
-          <a href={"https://roguescan.io/tx/#{@entry.deposit_tx}"} target="_blank" class="text-xs text-blue-500 hover:underline cursor-pointer">
-            View on RogueScan &rarr;
+          <a href={"https://solscan.io/tx/#{@entry.deposit_tx}?cluster=devnet"} target="_blank" class="text-xs text-blue-500 hover:underline cursor-pointer">
+            View on Solscan &rarr;
           </a>
         </div>
       <% end %>
@@ -932,7 +953,7 @@ defmodule BlocksterV2Web.AirdropLive do
             <div class="ml-8">
               <label class="text-[10px] sm:text-xs font-medium text-gray-700">Commitment Hash (SHA-256 of Server Seed)</label>
               <%= if @verification_data.start_round_tx do %>
-                <a href={"https://roguescan.io/tx/#{@verification_data.start_round_tx}?tab=logs"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                <a href={"https://solscan.io/tx/#{@verification_data.start_round_tx}?cluster=devnet"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
                   <%= @verification_data.commitment_hash %>
                 </a>
               <% else %>
@@ -943,26 +964,26 @@ defmodule BlocksterV2Web.AirdropLive do
             </div>
           </div>
 
-          <%!-- Step 2: Airdrop Closed — Block Hash --%>
+          <%!-- Step 2: Airdrop Closed — Slot Captured --%>
           <div class="space-y-2">
             <div class="flex items-center gap-2">
               <div class="shrink-0 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
                 <span class="text-white text-xs font-bold">2</span>
               </div>
-              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Airdrop Closed — Block Hash Captured</h4>
+              <h4 class="text-xs sm:text-sm font-medium text-gray-900">Airdrop Closed — Solana Slot Captured</h4>
             </div>
             <p class="text-[10px] sm:text-xs text-gray-500 ml-8">
-              When the countdown expired, the blockchain provided a block hash as external randomness. Nobody — including us — could predict or control this value.
+              When the countdown expired, the Solana slot number at the time of close was captured on-chain as external randomness. Nobody — including us — could predict or control this value.
             </p>
             <div class="ml-8">
-              <label class="text-[10px] sm:text-xs font-medium text-gray-700">Block Hash at Close</label>
+              <label class="text-[10px] sm:text-xs font-medium text-gray-700">Slot at Close</label>
               <%= if @verification_data.close_tx do %>
-                <a href={"https://roguescan.io/tx/#{@verification_data.close_tx}?tab=logs"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
-                  <%= @verification_data.block_hash_at_close %>
+                <a href={"https://solscan.io/tx/#{@verification_data.close_tx}?cluster=devnet"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                  <%= @verification_data.slot_at_close %>
                 </a>
               <% else %>
                 <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto">
-                  <%= @verification_data.block_hash_at_close %>
+                  <%= @verification_data.slot_at_close %>
                 </code>
               <% end %>
             </div>
@@ -1011,9 +1032,9 @@ defmodule BlocksterV2Web.AirdropLive do
               <div class="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200">
                 <p class="text-[10px] sm:text-xs font-medium text-green-800 mb-1 sm:mb-2">Algorithm</p>
                 <ol class="text-[10px] sm:text-xs text-green-700 space-y-0.5 sm:space-y-1 list-decimal ml-4">
-                  <li>Combine seeds: <span class="font-mono">combined = keccak256(server_seed | block_hash)</span></li>
+                  <li>Combine seeds: <span class="font-mono">combined = SHA256(server_seed | slot_at_close)</span></li>
                   <li>For each winner i (0 to 32):</li>
-                  <li class="ml-4"><span class="font-mono">hash = keccak256(combined, i)</span></li>
+                  <li class="ml-4"><span class="font-mono">hash = SHA256(combined, i)</span></li>
                   <li class="ml-4"><span class="font-mono">position = (hash mod <%= Number.Delimit.number_to_delimited(@verification_data.total_entries, precision: 0) %>) + 1</span></li>
                   <li>Map position to the entry block that contains it &rarr; winner's wallet</li>
                 </ol>
@@ -1061,41 +1082,20 @@ defmodule BlocksterV2Web.AirdropLive do
               </div>
 
               <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
-                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">2. Verify combined seed (keccak256)</p>
-                <a href={"https://emn178.github.io/online-tools/keccak_256.html?input=#{URI.encode(@verification_data.server_seed <> @verification_data.block_hash_at_close)}&input_type=utf-8"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
-                  keccak256(server_seed + block_hash) &rarr; Click to verify
-                </a>
-                <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">Input: <%= @verification_data.server_seed %><%= @verification_data.block_hash_at_close %></p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">2. Verify combined seed (SHA-256)</p>
+                <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">
+                  SHA256(<%= @verification_data.server_seed %> | <%= @verification_data.slot_at_close %>)
+                </p>
               </div>
 
               <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
-                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">3. Verify on-chain (AirdropVault read functions)</p>
-                <div class="space-y-1">
-                  <a
-                    href={vault_read_proxy_url("0x35db5e5d")}
-                    target="_blank"
-                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
-                  >
-                    verifyFairness() &rarr; On-chain verification
-                  </a>
-                  <a
-                    href={vault_read_proxy_url("0x6b1da364")}
-                    target="_blank"
-                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
-                  >
-                    getWinnerInfo(position) &rarr; View any winner
-                  </a>
-                </div>
-              </div>
-
-              <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
-                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">4. View prize payouts on Arbitrum</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mb-1">3. View on-chain program state</p>
                 <a
-                  href="https://arbiscan.io/address/0x919149CA8DB412541D2d8B3F150fa567fEFB58e1#readProxyContract"
+                  href={"https://solscan.io/account/wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG?cluster=devnet"}
                   target="_blank"
-                  class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
+                  class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
                 >
-                  AirdropPrizePool on Arbiscan &rarr; Read contract
+                  Airdrop Program on Solscan &rarr;
                 </a>
               </div>
             </div>

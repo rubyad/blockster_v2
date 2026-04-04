@@ -8,20 +8,24 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 
 | Wallet | Address | Chain(s) | Purpose |
 |--------|---------|----------|---------|
-| Deployer | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` | Rogue, Arbitrum | Deploys contracts, initial owner |
-| Vault Admin | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` | Rogue, Arbitrum | AirdropVault + AirdropPrizePool owner, depositFor/sendPrize txs |
-| Referral Admin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` | Rogue | Referral system admin |
+| Deployer (Legacy EVM) | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` | Rogue, Arbitrum | Deploys EVM contracts, initial owner |
+| Vault Admin (Legacy EVM) | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` | Rogue, Arbitrum | AirdropVault + AirdropPrizePool owner, depositFor/sendPrize txs |
+| Referral Admin (Legacy EVM) | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` | Rogue | Referral system admin |
+| Authority / Mint Authority (Solana) | `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` | Solana Devnet | Program authority, BUX mint authority, settler keypair |
+| CLI Deploy Wallet (Solana) | `49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d` | Solana Devnet | Fee payer for program deploys |
 
 ### Secrets
 | Secret | App | Purpose |
 |--------|-----|---------|
-| `DEPLOYER_PRIVATE_KEY` | bux-booster-game (.env) | Contract deploys via Hardhat |
-| `VAULT_ADMIN_PRIVATE_KEY` | bux-minter (Fly) | AirdropVault deposits + AirdropPrizePool claims |
-| `API_SECRET` | bux-minter (Fly) | Auth token for Blockster backend → BUX Minter calls |
+| `DEPLOYER_PRIVATE_KEY` | legacy-evm (.env) | EVM contract deploys via Hardhat (legacy) |
+| `VAULT_ADMIN_PRIVATE_KEY` | bux-minter (Fly) | AirdropVault deposits + AirdropPrizePool claims (legacy) |
+| `API_SECRET` | bux-minter (Fly) | Auth token for Blockster backend → BUX Minter calls (legacy) |
+| `SETTLER_API_SECRET` | blockster-settler (Fly) | Auth token for Blockster backend → Settler calls |
+| `SETTLER_MINT_AUTHORITY` | blockster-settler (Fly) | Solana keypair for BUX minting + settlement |
 
 ---
 
-## Rogue Chain Mainnet (Chain ID: 560013)
+## Rogue Chain Mainnet (Legacy — EVM) (Chain ID: 560013)
 
 | Contract | Proxy Address | Purpose |
 |----------|---------------|---------|
@@ -33,7 +37,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | AirdropVault (V3) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` | BUX airdrop vault (UUPS proxy) |
 | AirdropVaultV3 Impl | `0x1d540f6bc7d55DCa7F392b9cc7668F2f14d330F9` | V3: simplified draw, server pushes winners |
 
-### Account Abstraction (Rogue Chain)
+### Account Abstraction (Legacy — EVM)
 | Contract | Address | Purpose |
 |----------|---------|---------|
 | EntryPoint v0.6.0 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` | ERC-4337 entry point |
@@ -42,7 +46,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 
 ---
 
-## Arbitrum One (Chain ID: 42161)
+## Arbitrum One (Legacy — EVM) (Chain ID: 42161)
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
@@ -52,21 +56,69 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 
 ---
 
+## Solana Devnet
+
+### Programs & Token
+| Resource | Address / ID | Purpose |
+|----------|-------------|---------|
+| BUX Mint | `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` | BUX SPL token (9 decimals, no freeze authority) |
+| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX, LP tokens, game registry, commit-reveal |
+| Airdrop Program | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` | Multi-round airdrop, any SPL/SOL prizes, BUX entries |
+
+### Wallets
+| Wallet | Address | Purpose |
+|--------|---------|---------|
+| Authority / Mint Authority | `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` | Program authority, BUX mint authority, settler keypair |
+| CLI Deploy Wallet | `49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d` | Fee payer for program deploys |
+
+### Bankroll PDAs (derived from program `49up2uz...`)
+| PDA | Address | Seeds |
+|-----|---------|-------|
+| GameRegistry | `2hydqJEvNRV1hqMSf5CENZxCbhtQBQ5PVM7PrfmufjFE` | `["game_registry"]` |
+| SOL Vault | `HU7LhJzF4NLBpyWCDZoQwZPEizQ4vxCTnZ7TeY8PjRJc` | `["sol_vault"]` |
+| SOL Vault State | `4U8SATS95zhFitRWmaBZDwtBaTfeKZ73sEfssXsKis2o` | `["sol_vault_state"]` |
+| BUX Vault State | `FNFYBcAXqQGK47dJw7TDwDa5ArD2eMxcoD7NTs6Qg5y` | `["bux_vault_state"]` |
+| bSOL LP Mint | `4ppR9BUEKbu5LdtQze8C6ksnKzgeDquucEuQCck38StJ` | `["bsol_mint"]` |
+| bBUX LP Mint | `CGNFj29F67BJhFmE3eJ2tCkb8ZwbQQ4Fd1xFynMCDMrX` | `["bbux_mint"]` |
+| BUX Vault Token | `5AE7tPRawSSnMscCKkh75DYQWJPZVfkKcdAwbn13drnh` | `["bux_token_account"]` |
+
+### Airdrop PDAs (derived from program `wxiuLBu...`)
+| PDA | Address | Seeds |
+|-----|---------|-------|
+| AirdropState | `8xoz8FsdkBCP4TMguoG5t2zCqEHYYXg38ZLk7iyzaAmj` | `["airdrop"]` |
+
+### Solana Devnet Config
+| Property | Value |
+|----------|-------|
+| Network | Devnet |
+| RPC URL | `https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/` |
+| Explorer | `https://solscan.io` (append `?cluster=devnet`) |
+
+### Solana Keypair Files (gitignored)
+| File | Purpose |
+|------|---------|
+| `contracts/blockster-settler/keypairs/mint-authority.json` | Authority keypair (`6b4n...`) |
+| `contracts/blockster-settler/keypairs/bux-mint.json` | BUX token mint keypair |
+| `~/.config/solana/id.json` | CLI deploy wallet (`49aN...`) |
+
+---
+
 ## Services
 
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Blockster App | `https://blockster.com` | Main web app |
-| BUX Minter | `https://bux-minter.fly.dev` | Token minting, game settlement, airdrop deposits/claims |
-| Bundler | `https://rogue-bundler-mainnet.fly.dev` | ERC-4337 bundler for smart wallets |
+| BUX Minter | `https://bux-minter.fly.dev` | DEPRECATED -- replaced by Blockster Settler |
+| Bundler | `https://rogue-bundler-mainnet.fly.dev` | DEPRECATED -- EVM only, not needed on Solana |
+| Blockster Settler | `https://blockster-settler.fly.dev` | Solana settler service (BUX minting, bet settlement, bankroll, airdrop) |
 
 ---
 
 ## Network Config
 
-| Property | Rogue Chain | Arbitrum One |
-|----------|-------------|--------------|
-| Chain ID | `560013` | `42161` |
-| RPC URL | `https://rpc.roguechain.io/rpc` | `https://arb1.arbitrum.io/rpc` |
-| Explorer | `https://roguescan.io` | `https://arbiscan.io` |
-| Native Token | ROGUE | ETH |
+| Property | Rogue Chain (Legacy) | Arbitrum One (Legacy) | Solana Devnet |
+|----------|----------------------|-----------------------|---------------|
+| Chain ID | `560013` | `42161` | N/A |
+| RPC URL | `https://rpc.roguechain.io/rpc` | `https://arb1.arbitrum.io/rpc` | QuickNode (see above) |
+| Explorer | `https://roguescan.io` | `https://arbiscan.io` | `https://explorer.solana.com/?cluster=devnet` |
+| Native Token | ROGUE | ETH | SOL |

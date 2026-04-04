@@ -252,7 +252,7 @@ defmodule BlocksterV2Web.Admin.StatsLive.Players do
                   <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">
                       <a
-                        href={"https://roguescan.io/address/#{player.wallet}"}
+                        href={"https://solscan.io/account/#{player.wallet}"}
                         target="_blank"
                         class="text-blue-600 hover:underline font-mono text-sm cursor-pointer"
                       >

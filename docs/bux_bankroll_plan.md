@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # BUXBankroll LP System — Implementation Plan
 
 > **Purpose**: Centralized BUX liquidity pool with LP tokens, servicing all BUX-based games (Plinko first, BuxBoosterGame migration later). Users deposit BUX, receive LP-BUX tokens, and earn/lose as the house wins/loses bets. Includes a real-time bankroll dashboard with candlestick price charts.

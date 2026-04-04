@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Solana Wallet Field Migration Bug](#solana-wallet-field-migration-bug-apr-2026)
 - [Non-Blocking Fingerprint Verification](#non-blocking-fingerprint-verification-mar-2026)
 - [FateSwap Solana Wallet Tab](#fateswap-solana-wallet-tab-mar-2026)
 - [Number Formatting in Templates](#number-formatting-in-templates)
@@ -346,6 +347,42 @@ Two background processes in `high-rollers-elixir` made individual RPC calls per 
 - Rogue Chain RPC intermittently returns 500 on large contract deploys — retry after a few minutes
 - Multicall3 ABI encoding requires careful offset calculations for dynamic types (Call3 contains `bytes callData`)
 - Old per-NFT functions kept as fallbacks — `reconcile_single_nft/1`, `sync_single_time_reward/1`, `get_owner_of/1`, `get_time_reward_raw/1`
+
+---
+
+## Solana Wallet Field Migration Bug (Apr 2026)
+
+**Problem**: BUX tokens were never minted for Solana users despite engagement tracking recording rewards correctly. Users earned BUX from reading but balance stayed at 0.
+
+**Root cause (3 bugs)**:
+1. **Wrong wallet field** (main cause): All mint/sync calls across the codebase used `smart_wallet_address` (EVM ERC-4337 smart wallet), which is nil for Solana users. Solana users' wallet lives in `wallet_address`. Since the field was nil, the `if wallet && wallet != ""` guard failed and minting was silently skipped.
+
+2. **Wrong response key**: The Solana settler service returns `{ "signature": "..." }` in mint responses, but Elixir code pattern-matched on `"transactionHash"` (EVM format). This caused pool deductions, video engagement updates, and `:mint_completed` messages to silently skip even if a mint somehow succeeded.
+
+3. **`and` vs `&&` operator**: Line 568 in `show.ex` used `wallet && wallet != "" and recorded_bux > 0`. When `wallet` is nil, `wallet && wallet != ""` short-circuits to `nil`, then `nil and ...` raises `BadBooleanError` because `and` requires strict booleans. Fixed by using `&&` throughout.
+
+**Files fixed (wallet field — `smart_wallet_address` → `wallet_address`)**:
+- `post_live/show.ex` — article read, video watch, X share minting (3 locations)
+- `referrals.ex` — referee signup bonus, referrer reward lookup and mint
+- `telegram_bot/promo_engine.ex` — promo BUX credits
+- `admin_live.ex` — admin send BUX/ROGUE
+- `share_reward_processor.ex` — share reward processing
+- `event_processor.ex` — AI notification BUX credits
+- `checkout_live/index.ex` — post-checkout balance sync
+- `orders.ex` — buyer wallet, affiliate payout minting, affiliate earning recording
+- `notification_live/referrals.ex` — referral link URL
+
+**Files fixed (response key — `"transactionHash"` → `"signature"`)**:
+- `post_live/show.ex` — article read and video watch mint responses
+- `referrals.ex` — referrer reward mint response
+- `share_reward_processor.ex` — share reward mint response
+- `admin_live.ex` — admin send BUX response
+- `member_live/show.ex` — claim read/video reward responses
+- `orders.ex` — affiliate payout tx hash (`"txHash"` → `"signature"`)
+
+**Key lesson**: When migrating from EVM to Solana, the wallet field name changes (`smart_wallet_address` → `wallet_address`) and API response keys change (`transactionHash` → `signature`). A global search for the old field/key names should be part of any chain migration checklist.
+
+**Note**: `smart_wallet_address` references in schema definitions, account creation, auth controllers, admin display templates, bot system, and DB queries were intentionally left as-is — those are either EVM-specific code paths, display-only, or schema fields that must match the DB column.
 
 ---
 

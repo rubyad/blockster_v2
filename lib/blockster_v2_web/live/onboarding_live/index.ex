@@ -36,12 +36,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         # Check if external wallet is connected
         connected_wallet = Wallets.get_connected_wallet(user.id)
 
-        # If wallet is connected, ensure multiplier is up to date
-        if connected_wallet do
-          UnifiedMultiplier.update_wallet_multiplier(user.id)
-        end
-
-        # Get user's current multipliers for display (after wallet update if any)
+        # Get user's current multipliers for display
         multipliers = UnifiedMultiplier.get_user_multipliers(user.id)
 
         socket =
@@ -206,7 +201,6 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
     }) do
       {:ok, connected_wallet} ->
         # Recalculate wallet multiplier based on connected wallet balances
-        UnifiedMultiplier.update_wallet_multiplier(user_id)
         # Refresh multipliers after wallet connection
         multipliers = UnifiedMultiplier.get_user_multipliers(user_id)
 

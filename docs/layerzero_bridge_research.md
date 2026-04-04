@@ -1,3 +1,7 @@
+> **DEPRECATED**: This document describes EVM/Rogue Chain functionality that has been replaced by the Solana migration. See [solana_migration_plan.md](solana_migration_plan.md) and [solana_build_history.md](solana_build_history.md) for current architecture.
+
+---
+
 # Cross-Chain Bridge Research for BUX Booster
 
 > Research compiled Feb 2026. Goal: Enable players to deposit any major token on Ethereum/Arbitrum/Solana and instantly receive ROGUE on Rogue Chain for gambling, and withdraw ROGUE back to any token on any chain.

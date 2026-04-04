@@ -42,7 +42,7 @@ config :high_rollers,
 
   # Arbitrum NFT contract
   nft_contract_address: "0x7176d2edd83aD037bd94b7eE717bd9F661F560DD",
-  arbitrum_rpc_url: "https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d",
+  arbitrum_rpc_url: "https://newest-old-meme.arbitrum-mainnet.quiknode.pro/c20d73f597f96ac76924c7d1928b95a58d563869/",
 
   # Rogue Chain NFTRewarder
   nft_rewarder_address: "0x96aB9560f1407586faE2b69Dc7f38a59BEACC594",

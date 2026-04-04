@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+#
+# Start the full Blockster V2 local dev environment:
+#   1. Settler service (Solana minter/settler on port 3000)
+#   2. Elixir node1 (main app on port 4000)
+#   3. Elixir node2 (cluster peer on port 4001)
+#
+# Usage:
+#   bin/dev          — start all 3 services
+#   bin/dev single   — start settler + 1 Elixir node (no cluster)
+#   bin/dev settler  — start only the settler service
+#
+# Stop: Ctrl+C kills all processes (they share a process group)
+#
+# Prerequisites:
+#   - Elixir/Erlang installed (mix available)
+#   - Node.js installed (npm/npx available)
+#   - PostgreSQL running
+#   - contracts/blockster-settler/node_modules installed (npm install)
+#   - contracts/blockster-settler/keypairs/ has mint-authority.json
+#
+
+set -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SETTLER_DIR="$ROOT/contracts/blockster-settler"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+cleanup() {
+  echo ""
+  echo -e "${YELLOW}Shutting down...${NC}"
+  kill 0 2>/dev/null
+  wait 2>/dev/null
+  exit 0
+}
+trap cleanup SIGINT SIGTERM
+
+# Check prerequisites
+if ! command -v mix &>/dev/null; then
+  echo "Error: mix not found. Install Elixir first."
+  exit 1
+fi
+
+if ! command -v npx &>/dev/null; then
+  echo "Error: npx not found. Install Node.js first."
+  exit 1
+fi
+
+if [ ! -d "$SETTLER_DIR/node_modules" ]; then
+  echo -e "${YELLOW}Installing settler dependencies...${NC}"
+  (cd "$SETTLER_DIR" && npm install)
+fi
+
+if [ ! -f "$SETTLER_DIR/keypairs/mint-authority.json" ]; then
+  echo "Error: keypairs/mint-authority.json not found in settler directory."
+  echo "This keypair is needed for BUX minting on Solana devnet."
+  exit 1
+fi
+
+MODE="${1:-all}"
+
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}  Blockster V2 — Local Dev Environment${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# Start settler service
+start_settler() {
+  echo -e "${GREEN}[settler]${NC} Starting on port 3000 (Solana devnet)..."
+  (cd "$SETTLER_DIR" && SETTLER_API_SECRET=dev-secret npx ts-node --transpile-only src/index.ts) &
+  SETTLER_PID=$!
+  sleep 2
+  echo -e "${GREEN}[settler]${NC} Ready — http://localhost:3000/health"
+}
+
+case "$MODE" in
+  settler)
+    start_settler
+    echo ""
+    echo -e "${CYAN}Settler running. Press Ctrl+C to stop.${NC}"
+    wait
+    ;;
+
+  single)
+    start_settler
+    echo ""
+    echo -e "${GREEN}[node1]${NC}   Starting Elixir on port 4000..."
+    (cd "$ROOT" && elixir --sname blockster -S mix phx.server) &
+    echo ""
+    echo -e "${CYAN}Services:${NC}"
+    echo -e "  Settler:  http://localhost:3000"
+    echo -e "  App:      http://localhost:4000"
+    echo ""
+    echo -e "${CYAN}Press Ctrl+C to stop all services.${NC}"
+    wait
+    ;;
+
+  all|*)
+    start_settler
+    echo ""
+    echo -e "${GREEN}[node1]${NC}   Starting Elixir on port 4000..."
+    (cd "$ROOT" && elixir --sname node1 -S mix phx.server) &
+    sleep 3
+    echo -e "${GREEN}[node2]${NC}   Starting Elixir on port 4001..."
+    (cd "$ROOT" && PORT=4001 elixir --sname node2 -S mix phx.server) &
+    echo ""
+    echo -e "${CYAN}Services:${NC}"
+    echo -e "  Settler:  http://localhost:3000"
+    echo -e "  Node 1:   http://localhost:4000"
+    echo -e "  Node 2:   http://localhost:4001"
+    echo ""
+    echo -e "${CYAN}Press Ctrl+C to stop all services.${NC}"
+    wait
+    ;;
+esac

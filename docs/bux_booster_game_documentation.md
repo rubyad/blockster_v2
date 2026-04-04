@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # BUX Booster Game - Comprehensive Technical Documentation
 
 > **Purpose**: This document exhaustively describes every aspect of the BUX Booster provably fair gambling game -- smart contracts, Elixir backend, database layer, UI/UX, and integrations. It is intended as the reference blueprint for building new gambling games on the same infrastructure.

@@ -219,7 +219,7 @@ defmodule BlocksterV2.Orders do
 
     # Get buyer's wallet for Mnesia referral_earnings recording
     buyer = order.user || Repo.get(User, order.user_id)
-    buyer_wallet = buyer && buyer.smart_wallet_address
+    buyer_wallet = buyer && buyer.wallet_address
 
     if order.bux_tokens_burned > 0 do
       comm =
@@ -230,9 +230,9 @@ defmodule BlocksterV2.Orders do
 
       {:ok, p} = insert_payout(order, referrer, "BUX", order.bux_tokens_burned, rate, comm)
 
-      if referrer.smart_wallet_address do
+      if referrer.wallet_address do
         BlocksterV2.BuxMinter.mint_bux(
-          referrer.smart_wallet_address,
+          referrer.wallet_address,
           comm,
           referrer.id,
           nil,
@@ -245,7 +245,9 @@ defmodule BlocksterV2.Orders do
       record_affiliate_earning(referrer, buyer_wallet, comm, "BUX")
     end
 
-    if Decimal.gt?(order.rogue_tokens_sent, 0) do
+    # ROGUE affiliate payouts deprecated — Solana migration Phase 9
+    # Kept for backwards compatibility with old orders that had ROGUE payments.
+    if Decimal.gt?(order.rogue_tokens_sent || Decimal.new("0"), 0) do
       rogue_comm = Decimal.mult(order.rogue_tokens_sent, rate)
 
       insert_payout(
@@ -292,7 +294,7 @@ defmodule BlocksterV2.Orders do
       case p.currency do
         "BUX" ->
           BlocksterV2.BuxMinter.mint_bux(
-            p.referrer.smart_wallet_address,
+            p.referrer.wallet_address,
             Decimal.to_integer(Decimal.round(p.commission_amount, 0)),
             p.referrer.id,
             nil,
@@ -300,22 +302,15 @@ defmodule BlocksterV2.Orders do
           )
 
         "ROGUE" ->
-          treasury = Application.get_env(:blockster_v2, :shop_treasury_address)
-
-          wei =
-            p.commission_amount
-            |> Decimal.mult(Decimal.new("1000000000000000000"))
-            |> Decimal.round(0)
-            |> Decimal.to_string()
-
-          BlocksterV2.BuxMinter.transfer_rogue(treasury, p.referrer.smart_wallet_address, wei)
+          # ROGUE transfers deprecated — Solana migration Phase 9
+          {:error, :deprecated}
 
         c when c in ["USDC", "SOL", "ETH", "BTC", "CARD"] ->
           {:ok, :usdc_payout_queued}
       end
 
     case result do
-      {:ok, %{"txHash" => h}} ->
+      {:ok, %{"signature" => h}} ->
         p
         |> Ecto.Changeset.change(%{status: "paid", paid_at: DateTime.utc_now() |> DateTime.truncate(:second), tx_hash: h})
         |> Repo.update()
@@ -344,10 +339,10 @@ defmodule BlocksterV2.Orders do
   end
 
   defp record_affiliate_earning(referrer, buyer_wallet, amount, token) do
-    if referrer.smart_wallet_address do
+    if referrer.wallet_address do
       Referrals.record_shop_purchase_earning(%{
         referrer_id: referrer.id,
-        referrer_wallet: referrer.smart_wallet_address,
+        referrer_wallet: referrer.wallet_address,
         referee_wallet: buyer_wallet,
         amount: amount,
         token: token
@@ -373,19 +368,8 @@ defmodule BlocksterV2.Orders do
     |> Repo.insert()
   end
 
-  defp get_current_rogue_rate do
-    case :mnesia.dirty_read(:token_prices, "rogue") do
-      [{:token_prices, "rogue", price, _}] when is_number(price) ->
-        Decimal.from_float(price)
-
-      _ ->
-        Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-    end
-  rescue
-    _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-  catch
-    :exit, _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-  end
+  # ROGUE rate deprecated — returns zero (Solana migration Phase 9)
+  defp get_current_rogue_rate, do: Decimal.new("0")
 
   @doc """
   Sends an in-app notification to the user when their order status changes.

@@ -36,7 +36,9 @@ import { FeaturedImageUpload } from "./featured_image_upload.js";
 import { ContentFeaturedImageUpload } from "./content_featured_image_upload.js";
 import { HubLogoUpload, HubLogoFormUpload } from "./hub_logo_upload.js";
 import { TwitterWidgets } from "./twitter_widgets.js";
-import { HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet } from "./home_hooks.js";
+// DEPRECATED (EVM): home_hooks.js contained ThirdwebLogin/ThirdwebWallet hooks.
+// None of those hooks are used in any template anymore. Import removed to eliminate
+// the massive Thirdweb SDK bundle (~5MB) and SES lockdown that was causing blank page on load.
 import { TimeTracker } from "./time_tracker.js";
 import { EngagementTracker } from "./engagement_tracker.js";
 import { PhoneNumberFormatter } from "./phone_number_formatter.js";
@@ -47,19 +49,29 @@ import { ProductImageUpload } from "./product_image_upload.js";
 import { ProductDescriptionEditor } from "./product_description_editor.js";
 import { ArtistImageUpload } from "./artist_image_upload.js";
 import { CoinFlip } from "./coin_flip.js";
+// DEPRECATED (EVM): BuxBoosterOnchain - Rogue Chain on-chain game, replaced by CoinFlipSolana
 import { BuxBoosterOnchain } from "./bux_booster_onchain.js";
+import { CoinFlipSolana } from "./coin_flip_solana.js";
+import { PoolHook } from "./hooks/pool_hook.js";
 import { VideoWatchTracker } from "./video_watch_tracker.js";
 import { AnonymousClaimManager } from "./anonymous_claim_manager.js";
 import { FingerprintHook } from "./fingerprint_hook.js";
+// DEPRECATED (EVM): ConnectWalletHook, BalanceFetcherHook, WalletTransferHook - Rogue Chain hardware wallet integration
+// Still used by onboarding_live wallet step and member_live profile page. Remove when those are migrated to Solana.
 import { ConnectWalletHook } from "./connect_wallet_hook.js";
 import { BalanceFetcherHook } from "./balance_fetcher.js";
 import { WalletTransferHook } from "./wallet_transfer.js";
+import { SolanaWallet } from "./hooks/solana_wallet.js";
 import { BuxPaymentHook } from "./hooks/bux_payment.js";
+// DEPRECATED (EVM): RoguePaymentHook - Rogue Chain native token shop payment. No longer used by any LiveView.
 import { RoguePaymentHook } from "./hooks/rogue_payment.js";
 import { HelioCheckoutHook } from "./hooks/helio_checkout.js"
 import { NotificationToastHook } from "./hooks/notification_toast.js";
 import { EventTracker } from "./hooks/event_tracker.js";
+// DEPRECATED (EVM): AirdropDepositHook - Rogue Chain EVM airdrop deposit, replaced by AirdropSolanaHook
 import { AirdropDepositHook } from "./hooks/airdrop_deposit.js";
+import { AirdropSolanaHook } from "./hooks/airdrop_solana.js";
+import { PriceChart } from "./hooks/price_chart.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -196,7 +208,7 @@ let MobileNavHighlight = {
 
     // Known section paths (everything else is considered "News" content)
     // Note: /hub (singular) is for hub detail pages, /hubs is the index
-    const sectionPaths = ['/hubs', '/hub', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/members', '/login', '/admin'];
+    const sectionPaths = ['/hubs', '/hub', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/pool', '/members', '/login', '/admin'];
 
     // Check if current path is in a known section
     const isInKnownSection = sectionPaths.some(section =>
@@ -216,6 +228,9 @@ let MobileNavHighlight = {
       } else if (navPath === '/shop') {
         // Shop nav: active for /shop, /cart, and /checkout pages
         isActive = currentPath === '/shop' || currentPath.startsWith('/shop/') || currentPath === '/cart' || currentPath.startsWith('/checkout/');
+      } else if (navPath === '/play') {
+        // Play nav: active for /play and /pool pages
+        isActive = currentPath === '/play' || currentPath.startsWith('/play/') || currentPath === '/pool' || currentPath.startsWith('/pool/');
       } else {
         // Other nav items: active if path matches or starts with nav path
         isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
@@ -256,7 +271,7 @@ let DesktopNavHighlight = {
       if (navPath === '/') {
         // News icon: active on homepage, category pages, and post pages
         // Post pages are any path that's not a known section
-        const knownSections = ['/hubs', '/hub/', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/login', '/members', '/admin'];
+        const knownSections = ['/hubs', '/hub/', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/pool', '/login', '/members', '/admin'];
         const isKnownSection = knownSections.some(section => currentPath.startsWith(section));
         isActive = currentPath === '/' || currentPath.startsWith('/category/') || !isKnownSection;
       } else if (navPath === '/hubs') {
@@ -265,6 +280,9 @@ let DesktopNavHighlight = {
       } else if (navPath === '/shop') {
         // Shop nav: active for /shop, /cart, and /checkout pages
         isActive = currentPath === '/shop' || currentPath.startsWith('/shop/') || currentPath === '/cart' || currentPath.startsWith('/checkout/');
+      } else if (navPath === '/play') {
+        // Play nav: active for /play and /pool pages
+        isActive = currentPath === '/play' || currentPath.startsWith('/play/') || currentPath === '/pool' || currentPath.startsWith('/pool/');
       } else {
         isActive = currentPath === navPath || currentPath.startsWith(navPath + '/');
       }
@@ -609,12 +627,20 @@ const liveSocket = new LiveSocket("/live", Socket, {
     // Get pending claims from localStorage to pass to LiveView
     const pendingClaims = AnonymousClaimManager.getPendingClaims();
 
+    // Read wallet from localStorage for session restore on connected mount
+    let walletAddress = null;
+    try {
+      const stored = localStorage.getItem("blockster_wallet");
+      if (stored) walletAddress = JSON.parse(stored).address || null;
+    } catch (_) {}
+
     return {
       _csrf_token: csrfToken,
-      pending_claims: pendingClaims.length > 0 ? pendingClaims : null
+      pending_claims: pendingClaims.length > 0 ? pendingClaims : null,
+      wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, HomeHooks, ModalHooks, DropdownHooks, SearchHooks, ThirdwebLogin, ThirdwebWallet, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, AirdropDepositHook, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, OnboardingPopup },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, OnboardingPopup, SolanaWallet },
 });
 
 // connect if there are any LiveViews on the page
@@ -793,31 +819,34 @@ window.toggleDropdown = function(dropdownId) {
   }
 };
 
-// Global function to handle wallet disconnect
+// Global function to handle wallet disconnect (legacy — prefer phx-click="disconnect_wallet")
 window.handleWalletDisconnect = async function() {
   try {
-    // Call backend logout endpoint
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    // Clear localStorage wallet data
+    // Clear Solana wallet localStorage
+    localStorage.removeItem('blockster_wallet');
+    // Clear legacy EVM localStorage
     localStorage.removeItem('walletAddress');
     localStorage.removeItem('smartAccountAddress');
 
-    // Try to disconnect wallets - check both hooks
-    if (window.ThirdwebWalletHook && typeof window.ThirdwebWalletHook.handleDisconnect === 'function') {
-      await window.ThirdwebWalletHook.handleDisconnect();
-    } else if (window.ThirdwebLoginHook && typeof window.ThirdwebLoginHook.handleDisconnect === 'function') {
-      await window.ThirdwebLoginHook.handleDisconnect();
+    // Call backend session clear
+    const csrf = document.querySelector("meta[name='csrf-token']")?.content;
+    if (csrf) {
+      await fetch('/api/auth/session', {
+        method: 'DELETE',
+        headers: { 'x-csrf-token': csrf }
+      });
     }
+
+    // Also try legacy logout endpoint
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }).catch(() => {});
 
     // Redirect to homepage
     window.location.href = '/';
   } catch (error) {
     console.error('Disconnect error:', error);
-    // Still redirect to homepage even if there's an error
     window.location.href = '/';
   }
 };

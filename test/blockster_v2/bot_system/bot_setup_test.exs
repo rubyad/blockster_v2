@@ -5,17 +5,17 @@ defmodule BlocksterV2.BotSystem.BotSetupTest do
   alias BlocksterV2.Accounts.User
 
   setup do
-    # Ensure unified_multipliers Mnesia table exists for tests
-    case :mnesia.create_table(:unified_multipliers, [
+    # Ensure unified_multipliers_v2 Mnesia table exists for tests
+    case :mnesia.create_table(:unified_multipliers_v2, [
       type: :set,
       attributes: [:user_id, :x_score, :x_multiplier, :phone_multiplier,
-                   :rogue_multiplier, :wallet_multiplier, :overall_multiplier,
+                   :sol_multiplier, :email_multiplier, :overall_multiplier,
                    :last_updated, :created_at],
       index: [:overall_multiplier],
       ram_copies: [node()]
     ]) do
       {:atomic, :ok} -> :ok
-      {:aborted, {:already_exists, :unified_multipliers}} -> :ok
+      {:aborted, {:already_exists, :unified_multipliers_v2}} -> :ok
     end
 
     :ok
@@ -115,10 +115,10 @@ defmodule BlocksterV2.BotSystem.BotSetupTest do
       {:ok, user} = BotSetup.create_bot(1)
       assert :ok = BotSetup.seed_multiplier(user.id, 1, 100)
 
-      case :mnesia.dirty_read({:unified_multipliers, user.id}) do
+      case :mnesia.dirty_read({:unified_multipliers_v2, user.id}) do
         [record] ->
           # Check all fields are set
-          assert elem(record, 0) == :unified_multipliers
+          assert elem(record, 0) == :unified_multipliers_v2
           assert elem(record, 1) == user.id
           assert is_float(elem(record, 7))  # overall_multiplier
           assert elem(record, 7) > 0
@@ -133,14 +133,14 @@ defmodule BlocksterV2.BotSystem.BotSetupTest do
       bot_ids = BotSetup.get_all_bot_ids()
 
       multipliers = Enum.map(bot_ids, fn id ->
-        case :mnesia.dirty_read({:unified_multipliers, id}) do
+        case :mnesia.dirty_read({:unified_multipliers_v2, id}) do
           [record] -> elem(record, 7)
           [] -> 0.0
         end
       end)
 
-      # All should be positive
-      assert Enum.all?(multipliers, fn m -> m > 0 end)
+      # All should be non-negative (casual bots may have 0.0 SOL multiplier → 0.0 overall)
+      assert Enum.all?(multipliers, fn m -> m >= 0 end)
 
       # Should have some variation
       min_mult = Enum.min(multipliers)

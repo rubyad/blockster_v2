@@ -120,14 +120,14 @@ defmodule BlocksterV2Web.AdminLive do
       {amount, ""} when amount > 0 ->
         user = Accounts.get_user(user_id)
 
-        if user && user.smart_wallet_address do
+        if user && user.wallet_address do
           # Send BUX using the mint function
-          case BuxMinter.mint_bux(user.smart_wallet_address, amount, user.id, nil, :signup) do
+          case BuxMinter.mint_bux(user.wallet_address, amount, user.id, nil, :signup) do
             {:ok, result} ->
               # Reload users to show updated balance
               users = Accounts.list_users()
               filtered = filter_users(users, socket.assigns.filter_query)
-              tx_hash = result["transactionHash"]
+              tx_hash = result["signature"]
 
               {:noreply,
                socket
@@ -140,7 +140,7 @@ defmodule BlocksterV2Web.AdminLive do
               {:noreply, assign(socket, send_bux_status: {:error, "Failed: #{inspect(reason)}"})}
           end
         else
-          {:noreply, assign(socket, send_bux_status: {:error, "User has no smart wallet address"})}
+          {:noreply, assign(socket, send_bux_status: {:error, "User has no wallet address"})}
         end
 
       _ ->
@@ -180,11 +180,11 @@ defmodule BlocksterV2Web.AdminLive do
       {amount, _} when amount > 0 ->
         user = Accounts.get_user(user_id)
 
-        if user && user.smart_wallet_address do
-          case BuxMinter.transfer_rogue(user.smart_wallet_address, amount, user.id, "admin_send") do
+        if user && user.wallet_address do
+          case BuxMinter.transfer_rogue(user.wallet_address, amount, user.id, "admin_send") do
             {:ok, result} ->
-              BuxMinter.sync_user_balances_async(user.id, user.smart_wallet_address, force: true)
-              tx_hash = result["transactionHash"]
+              BuxMinter.sync_user_balances_async(user.id, user.wallet_address, force: true)
+              tx_hash = result["signature"]
 
               {:noreply,
                socket
@@ -382,7 +382,7 @@ defmodule BlocksterV2Web.AdminLive do
               <thead class="bg-gray-50">
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Smart Wallet
+                    Wallet
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
@@ -411,25 +411,22 @@ defmodule BlocksterV2Web.AdminLive do
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Send BUX
                   </th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Send ROGUE
-                  </th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
                 <%= for user <- @filtered_users do %>
                   <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4">
-                      <%= if user.smart_wallet_address do %>
+                      <%= if user.wallet_address do %>
                         <a
-                          href={"https://roguescan.io/address/#{user.smart_wallet_address}"}
+                          href={"https://solscan.io/account/#{user.wallet_address}?cluster=devnet"}
                           target="_blank"
                           class="text-xs text-blue-600 hover:text-blue-800 hover:underline font-mono cursor-pointer"
                         >
-                          <%= user.smart_wallet_address %>
+                          <%= String.slice(user.wallet_address, 0, 8) %>...<%= String.slice(user.wallet_address, -4, 4) %>
                         </a>
                       <% else %>
-                        <span class="text-xs text-gray-400">No smart wallet</span>
+                        <span class="text-xs text-gray-400">—</span>
                       <% end %>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -520,7 +517,7 @@ defmodule BlocksterV2Web.AdminLive do
                               <div class="mt-1 text-xs text-green-600">
                                 Sent <%= amount %> BUX! TX:
                                 <a
-                                  href={"https://roguescan.io/tx/#{tx_hash}"}
+                                  href={"https://solscan.io/tx/#{tx_hash}?cluster=devnet"}
                                   target="_blank"
                                   class="text-blue-600 hover:underline cursor-pointer font-mono break-all"
                                 >
@@ -534,74 +531,13 @@ defmodule BlocksterV2Web.AdminLive do
                           <% end %>
                         <% end %>
                       <% else %>
-                        <%= if user.smart_wallet_address do %>
+                        <%= if user.wallet_address do %>
                           <button
                             phx-click="open_send_bux"
                             phx-value-user-id={user.id}
                             class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
                           >
                             Send BUX
-                          </button>
-                        <% else %>
-                          <span class="text-xs text-gray-400">—</span>
-                        <% end %>
-                      <% end %>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                      <%= if @send_rogue_user_id == user.id do %>
-                        <form phx-change="update_rogue_amount" phx-submit="send_rogue" class="flex items-center gap-2">
-                          <input
-                            type="number"
-                            name="amount"
-                            min="0.001"
-                            step="0.001"
-                            placeholder="Amount"
-                            value={@send_rogue_amount}
-                            autofocus
-                            class="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                          <button
-                            type="submit"
-                            disabled={@send_rogue_amount == ""}
-                            class="px-2 py-1 text-xs font-semibold text-white bg-purple-600 rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer"
-                          >
-                            Send
-                          </button>
-                          <button
-                            type="button"
-                            phx-click="close_send_rogue"
-                            class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </form>
-                        <%= if @send_rogue_status do %>
-                          <%= case @send_rogue_status do %>
-                            <% {:success, amount, tx_hash} -> %>
-                              <div class="mt-1 text-xs text-green-600">
-                                Sent <%= amount %> ROGUE! TX:
-                                <a
-                                  href={"https://roguescan.io/tx/#{tx_hash}"}
-                                  target="_blank"
-                                  class="text-blue-600 hover:underline cursor-pointer font-mono break-all"
-                                >
-                                  <%= tx_hash %>
-                                </a>
-                              </div>
-                            <% {:error, message} -> %>
-                              <div class="mt-1 text-xs text-red-600">
-                                <%= message %>
-                              </div>
-                          <% end %>
-                        <% end %>
-                      <% else %>
-                        <%= if user.smart_wallet_address do %>
-                          <button
-                            phx-click="open_send_rogue"
-                            phx-value-user-id={user.id}
-                            class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
-                          >
-                            Send ROGUE
                           </button>
                         <% else %>
                           <span class="text-xs text-gray-400">—</span>

@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # Plinko Game - Implementation Plan
 
 > **Purpose**: Complete implementation plan for a provably fair Plinko gambling game on Rogue Chain, using the same infrastructure as BUX Booster (commit-reveal, ERC-4337, BUX Minter). This document provides everything needed to build the game from scratch.

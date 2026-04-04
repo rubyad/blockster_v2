@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # X (Twitter) Integration Documentation
 
 This document provides a comprehensive guide to the X (Twitter) integration in Blockster V2, covering OAuth authentication, share campaigns, and the retweet & like reward system.

@@ -5,7 +5,7 @@ const CONFIG = {
   CHAIN_ID: 42161,
   CHAIN_ID_HEX: '0xa4b1',
   CHAIN_NAME: 'Arbitrum One',
-  RPC_URL: 'https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d',
+  RPC_URL: 'https://arb1.arbitrum.io/rpc',
   EXPLORER_URL: 'https://arbiscan.io',
 
   // Rogue Chain (for NFT Revenues)

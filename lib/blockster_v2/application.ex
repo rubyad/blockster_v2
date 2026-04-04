@@ -28,7 +28,8 @@ defmodule BlocksterV2.Application do
       BlocksterV2Web.Telemetry,
       BlocksterV2.Repo,
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: BlocksterV2.PubSub}
+      {Phoenix.PubSub, name: BlocksterV2.PubSub},
+      BlocksterV2.Auth.NonceStore
     ] ++ libcluster_child
 
     # GenServers that should not start in test mode
@@ -44,10 +45,12 @@ defmodule BlocksterV2.Application do
         {BlocksterV2.HubLogoCache, []},
         # BuxBooster bet settlement checker (runs every minute to settle stuck bets)
         {BlocksterV2.BuxBoosterBetSettler, []},
+        # Coin Flip bet settlement checker (Solana, runs every minute)
+        {BlocksterV2.CoinFlipBetSettler, []},
         # Token price tracker (polls CoinGecko every 10 minutes)
         {BlocksterV2.PriceTracker, []},
-        # Wallet multiplier refresher (daily at 3 AM UTC)
-        {BlocksterV2.WalletMultiplierRefresher, []},
+        # WalletMultiplierRefresher removed in Solana migration (Phase 5)
+        # SOL multiplier refresh happens on profile visit + periodic sync
         # Referral reward poller (polls Rogue Chain for ReferralRewardPaid events)
         {BlocksterV2.ReferralRewardPoller, []},
         # Shop checkout: serialized BUX balance deductions

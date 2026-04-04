@@ -345,67 +345,9 @@
         <% end %>
       </div>
 
-      <%!-- ROGUE Payment Option --%>
+      <%!-- Payment Breakdown --%>
       <% shipping_cost = @order.shipping_cost || Decimal.new("0") %>
       <% remaining = @order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(@order.bux_discount_amount) %>
-      <%= if Decimal.gt?(remaining, 0) do %>
-        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-          <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">Pay with ROGUE</h3>
-          <p class="text-xs text-[#515B70] font-haas_roman_55 mb-4">
-            Get a <span class="text-green-600 font-haas_medium_65">10% discount</span> when paying with ROGUE tokens. Choose how much of the remaining balance to cover.
-          </p>
-
-          <%!-- ROGUE Balance Display --%>
-          <div class="flex items-center justify-between text-xs mb-4 p-2.5 bg-gray-50 rounded-lg">
-            <span class="text-[#515B70] font-haas_roman_55">Your ROGUE balance</span>
-            <span class="font-haas_medium_65 text-[#141414]"><%= Number.Delimit.number_to_delimited(@rogue_balance, precision: 2) %> ROGUE</span>
-          </div>
-
-          <%!-- ROGUE Amount Slider --%>
-          <form phx-change="set_rogue_amount" class="space-y-3">
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-[#515B70] font-haas_roman_55">ROGUE covers</span>
-              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@rogue_usd_amount) %></span>
-            </div>
-            <% slider_pct = if Decimal.gt?(remaining, 0), do: Decimal.to_float(Decimal.div(@rogue_usd_amount, remaining)) * 100, else: 0 %>
-            <input
-              type="range"
-              min="0"
-              max={Decimal.to_string(remaining)}
-              step="0.01"
-              value={Decimal.to_string(@rogue_usd_amount)}
-              name="amount"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer rogue-slider"
-              style={"background: linear-gradient(to right, #8AE388 0%, #8AE388 #{slider_pct}%, #e5e7eb #{slider_pct}%, #e5e7eb 100%)"}
-              oninput="let pct = (this.value - this.min) / (this.max - this.min) * 100; this.style.background = 'linear-gradient(to right, #8AE388 0%, #8AE388 ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'"
-            />
-            <div class="flex justify-between text-xs text-gray-400 font-haas_roman_55">
-              <span>$0</span>
-              <span>$<%= format_usd(remaining) %></span>
-            </div>
-
-            <%!-- ROGUE Breakdown --%>
-            <%= if Decimal.gt?(@rogue_usd_amount, 0) do %>
-              <div class="mt-3 p-3 bg-gray-50 rounded-xl space-y-1.5">
-                <div class="flex justify-between text-xs">
-                  <span class="text-[#515B70] font-haas_roman_55">ROGUE rate (locked)</span>
-                  <span class="font-haas_medium_65 text-[#141414]">$<%= if @rogue_rate_locked, do: Decimal.round(@rogue_rate_locked, 6), else: "—" %></span>
-                </div>
-                <div class="flex justify-between text-xs">
-                  <span class="text-[#515B70] font-haas_roman_55">10% discount</span>
-                  <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@rogue_discount_saved) %></span>
-                </div>
-                <div class="flex justify-between text-xs">
-                  <span class="text-[#515B70] font-haas_roman_55">ROGUE to send</span>
-                  <span class="font-haas_medium_65 text-[#141414]"><%= format_rogue(@rogue_tokens) %> ROGUE</span>
-                </div>
-              </div>
-            <% end %>
-          </form>
-        </div>
-      <% end %>
-
-      <%!-- Payment Breakdown --%>
       <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
         <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">Payment Breakdown</h3>
 
@@ -427,17 +369,6 @@
             </div>
           <% end %>
 
-          <%= if Decimal.gt?(@rogue_usd_amount, 0) do %>
-            <div class="flex justify-between text-sm">
-              <span class="text-[#515B70] font-haas_roman_55">ROGUE covers</span>
-              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@rogue_usd_amount) %></span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-[#515B70] font-haas_roman_55">ROGUE discount (10%)</span>
-              <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@rogue_discount_saved) %></span>
-            </div>
-          <% end %>
-
           <%= if Decimal.gt?(@helio_amount, 0) do %>
             <div class="flex justify-between text-sm">
               <span class="text-[#515B70] font-haas_roman_55">Remaining (card/crypto)</span>
@@ -452,7 +383,7 @@
             <span class="text-lg font-haas_medium_65 text-[#141414]">Total</span>
             <span class="text-lg font-haas_medium_65 text-[#141414]">$<%= format_usd(order_total) %></span>
           </div>
-          <% total_discount = Decimal.add(@order.bux_discount_amount, @rogue_discount_saved) %>
+          <% total_discount = @order.bux_discount_amount %>
           <%= if Decimal.gt?(total_discount, 0) do %>
             <p class="text-xs text-green-600 font-haas_medium_65 text-right mt-1">You save $<%= format_usd(total_discount) %></p>
           <% end %>
@@ -537,7 +468,7 @@
             <%= if @bux_payment_status == :completed && @order.bux_burn_tx_hash do %>
               <div class="mt-2 pt-2 border-t border-green-200">
                 <p class="text-xs text-green-700 font-haas_roman_55 truncate">
-                  TX: <a href={"https://roguescan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer"><%= String.slice(@order.bux_burn_tx_hash, 0, 16) %>...</a>
+                  TX: <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer"><%= String.slice(@order.bux_burn_tx_hash, 0, 16) %>...</a>
                 </p>
               </div>
             <% end %>
@@ -576,114 +507,10 @@
           </div>
         <% end %>
 
-        <%!-- ROGUE Payment Card --%>
-        <%= if Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) do %>
-          <div
-            id="rogue-payment-hook"
-            phx-hook="RoguePaymentHook"
-            data-treasury-address={Application.get_env(:blockster_v2, :shop_treasury_address)}
-            class={[
-              "p-4 rounded-xl mb-4 border",
-              case @rogue_payment_status do
-                :completed -> "bg-green-50 border-green-200"
-                :processing -> "bg-amber-50 border-amber-200"
-                :failed -> "bg-red-50 border-red-200"
-                _ -> "bg-gray-50 border-gray-200"
-              end
-            ]}
-          >
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
-                  <span class="text-[8px] font-bold text-white">R</span>
-                </div>
-                <div>
-                  <p class="text-sm font-haas_medium_65 text-[#141414]">ROGUE Payment</p>
-                  <p class="text-xs text-[#515B70] font-haas_roman_55">
-                    <%= format_rogue(@order.rogue_tokens_sent || Decimal.new("0")) %> ROGUE = $<%= format_usd(@order.rogue_payment_amount) %>
-                    <span class="text-green-600">(10% discount applied)</span>
-                  </p>
-                </div>
-              </div>
-
-              <%= case @rogue_payment_status do %>
-                <% :completed -> %>
-                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-                    </svg>
-                    Paid
-                  </span>
-                <% :processing -> %>
-                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing
-                  </span>
-                <% :failed -> %>
-                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
-                <% _ -> %>
-                  <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-                  <%= if bux_done do %>
-                    <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
-                  <% else %>
-                    <span class="text-xs font-haas_medium_65 text-gray-500 bg-gray-200 px-2 py-1 rounded-full">Waiting</span>
-                  <% end %>
-              <% end %>
-            </div>
-
-            <%!-- ROGUE tx hash display --%>
-            <%= if @rogue_payment_status == :completed && @order.rogue_payment_tx_hash do %>
-              <div class="mt-2 pt-2 border-t border-green-200">
-                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
-                  TX: <a href={"https://roguescan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer"><%= String.slice(@order.rogue_payment_tx_hash, 0, 16) %>...</a>
-                </p>
-              </div>
-            <% end %>
-
-            <%!-- Pay with ROGUE action button --%>
-            <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-            <%= if @rogue_payment_status == :pending and bux_done do %>
-              <div class="mt-3">
-                <button
-                  phx-click="initiate_rogue_payment"
-                  phx-disable-with="Processing payment..."
-                  class="w-full bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                >
-                  Pay <%= format_rogue(@order.rogue_tokens_sent || Decimal.new("0")) %> ROGUE
-                </button>
-              </div>
-            <% end %>
-
-            <%!-- Retry button on failure --%>
-            <%= if @rogue_payment_status == :failed do %>
-              <div class="mt-3 flex gap-2">
-                <button
-                  phx-click="initiate_rogue_payment"
-                  phx-disable-with="Retrying..."
-                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
-                >
-                  Retry
-                </button>
-                <.link
-                  navigate={~p"/cart"}
-                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
-                >
-                  Back to Cart
-                </.link>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-
         <%!-- Helio Payment Card --%>
         <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
           <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-          <% has_rogue = Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) %>
-          <% rogue_done = !has_rogue or @rogue_payment_status == :completed %>
-          <% token_payments_done = bux_done and rogue_done %>
+          <% token_payments_done = bux_done %>
           <div
             id="helio-checkout-hook"
             phx-hook="HelioCheckoutHook"
@@ -824,23 +651,21 @@
         <% end %>
 
         <%!-- Action buttons based on state --%>
-        <% has_rogue = Decimal.gt?(@order.rogue_payment_amount || Decimal.new("0"), 0) %>
         <% has_helio = Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) %>
         <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-        <% rogue_done = !has_rogue or @rogue_payment_status == :completed %>
         <% helio_done = !has_helio or @helio_payment_status == :completed %>
         <%= cond do %>
-          <%# All payments done (BUX + ROGUE + Helio all complete) %>
-          <% bux_done and rogue_done and helio_done and not has_helio -> %>
+          <%# All payments done (BUX + Helio all complete) %>
+          <% bux_done and helio_done and not has_helio -> %>
             <button
-              phx-click={if @rogue_payment_status == :completed, do: "advance_after_rogue", else: "advance_after_bux"}
+              phx-click="advance_after_bux"
               class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               Complete Order
             </button>
 
-          <%# No BUX to send and no ROGUE and no Helio — show place order %>
-          <% @order.bux_tokens_burned <= 0 and not has_rogue and not has_helio -> %>
+          <%# No BUX to send and no Helio — show place order %>
+          <% @order.bux_tokens_burned <= 0 and not has_helio -> %>
             <button
               phx-click="complete_order"
               class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
@@ -937,7 +762,7 @@
             <%= if @order.bux_burn_tx_hash do %>
               <div class="flex items-center justify-between text-sm">
                 <span class="text-[#515B70] font-haas_roman_55">BUX Payment</span>
-                <a href={"https://roguescan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
+                <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
                   <%= String.slice(@order.bux_burn_tx_hash, 0, 10) %>...<%= String.slice(@order.bux_burn_tx_hash, -6..-1) %>
                 </a>
               </div>
@@ -945,7 +770,7 @@
             <%= if @order.rogue_payment_tx_hash do %>
               <div class="flex items-center justify-between text-sm">
                 <span class="text-[#515B70] font-haas_roman_55">ROGUE Payment</span>
-                <a href={"https://roguescan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
+                <a href={"https://solscan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
                   <%= String.slice(@order.rogue_payment_tx_hash, 0, 10) %>...<%= String.slice(@order.rogue_payment_tx_hash, -6..-1) %>
                 </a>
               </div>

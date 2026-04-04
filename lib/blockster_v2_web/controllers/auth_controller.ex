@@ -126,6 +126,58 @@ defmodule BlocksterV2Web.AuthController do
   end
 
   @doc """
+  POST /api/auth/session
+  Persists wallet address to session cookie (called after SIWS verification in LiveView).
+  """
+  def create_session(conn, %{"wallet_address" => wallet_address}) when is_binary(wallet_address) do
+    case Accounts.get_or_create_user_by_wallet(wallet_address) do
+      {:ok, user, session, is_new_user} ->
+        UserEvents.track(user.id, "daily_login", %{source: "solana_wallet"})
+        if is_new_user do
+          UserEvents.track(user.id, "signup", %{method: "solana_wallet"})
+          UserEvents.track(user.id, "session_start", %{source: "solana_wallet"})
+        end
+
+        conn
+        |> put_session(:wallet_address, wallet_address)
+        |> put_status(:ok)
+        |> json(%{success: true, is_new_user: is_new_user})
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{success: false, error: "Failed to create session"})
+    end
+  end
+
+  def create_session(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{success: false, error: "Missing wallet_address"})
+  end
+
+  @doc """
+  DELETE /api/auth/session
+  Clears the wallet session.
+  """
+  def delete_session_action(conn, _params) do
+    token = get_session(conn, :user_token)
+
+    if token do
+      case Accounts.get_valid_session(token) do
+        nil -> :ok
+        session -> Accounts.delete_session(session)
+      end
+    end
+
+    conn
+    |> delete_session(:user_token)
+    |> delete_session(:wallet_address)
+    |> put_status(:ok)
+    |> json(%{success: true})
+  end
+
+  @doc """
   POST /api/auth/logout
   Logs out the current user by deleting their session.
   """

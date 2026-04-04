@@ -8,14 +8,18 @@ defmodule BlocksterV2.Airdrop.Settler do
   - "open" round past end_time → settle immediately (missed timer)
   - "open" round in future → schedule timer for remaining delay
   - No active round → wait for :round_created cast
+
+  Settlement pipeline (Solana):
+  1. Close round on-chain → captures slot_at_close
+  2. Draw winners locally (SHA256 provably fair)
+  3. Submit draw_winners tx on-chain (server_seed + winner list)
+  4. Broadcast results via PubSub
   """
 
   use GenServer
   require Logger
 
   alias BlocksterV2.{Airdrop, BuxMinter, GlobalSingleton}
-
-  @rpc_url "https://rpc.roguechain.io/rpc"
 
   def start_link(opts) do
     case GlobalSingleton.start_link(__MODULE__, opts) do
@@ -38,7 +42,6 @@ defmodule BlocksterV2.Airdrop.Settler do
 
   @impl true
   def init(_) do
-    # Reconstruct state from DB on startup
     send(self(), :recover)
     {:ok, %{timer_ref: nil, round_id: nil}}
   end
@@ -63,7 +66,6 @@ defmodule BlocksterV2.Airdrop.Settler do
 
   @impl true
   def handle_cast({:round_created, round_id, end_time}, state) do
-    # Cancel any existing timer
     if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
 
     delay_ms = max(DateTime.diff(end_time, DateTime.utc_now(), :millisecond), 0)
@@ -80,28 +82,26 @@ defmodule BlocksterV2.Airdrop.Settler do
   defp settle_round(%{status: "open"} = round) do
     Logger.info("[Settler] Closing round #{round.round_id}...")
 
-    # Try on-chain close first, fall back to RPC block hash if vault has no active round
-    {block_hash, close_tx} =
-      case BuxMinter.airdrop_close(round.round_id) do
-        {:ok, response} ->
-          {response["blockHashAtClose"], response["transactionHash"]}
+    case BuxMinter.airdrop_close(round.round_id) do
+      {:ok, response} ->
+        slot_at_close = response["slotAtClose"]
+        close_tx = response["transactionHash"]
 
-        {:error, reason} ->
-          Logger.warning("[Settler] On-chain close failed (#{inspect(reason)}), falling back to RPC block hash")
-          {fetch_rogue_block_hash(), nil}
-      end
+        if slot_at_close do
+          case Airdrop.close_round(round.round_id, slot_at_close, close_tx: close_tx) do
+            {:ok, closed_round} ->
+              Logger.info("[Settler] Round #{round.round_id} closed (slot: #{slot_at_close}, tx: #{close_tx})")
+              settle_round(closed_round)
 
-    if block_hash do
-      case Airdrop.close_round(round.round_id, block_hash, close_tx: close_tx) do
-        {:ok, closed_round} ->
-          Logger.info("[Settler] Round #{round.round_id} closed (block_hash: #{block_hash})")
-          settle_round(closed_round)
+            {:error, reason} ->
+              Logger.error("[Settler] Failed to close round #{round.round_id} in DB: #{inspect(reason)}")
+          end
+        else
+          Logger.error("[Settler] Close response missing slotAtClose for round #{round.round_id}")
+        end
 
-        {:error, reason} ->
-          Logger.error("[Settler] Failed to close round #{round.round_id} in DB: #{inspect(reason)}")
-      end
-    else
-      Logger.error("[Settler] Could not obtain block hash for round #{round.round_id}")
+      {:error, reason} ->
+        Logger.error("[Settler] On-chain close failed for round #{round.round_id}: #{inspect(reason)}")
     end
   end
 
@@ -113,19 +113,19 @@ defmodule BlocksterV2.Airdrop.Settler do
         winners = Airdrop.get_winners(round.round_id)
         Logger.info("[Settler] Round #{round.round_id} drawn — #{length(winners)} winners")
 
-        # Sync draw on-chain so vault's getWinnerInfo() works
-        draw_on_chain(round)
+        # Submit draw to on-chain program
+        draw_on_chain(round, winners)
 
-        # Broadcast drawn state immediately (empty winners — they reveal one by one)
+        # Broadcast drawn state immediately
         Phoenix.PubSub.broadcast(
           BlocksterV2.PubSub,
           "airdrop:#{round.round_id}",
           {:airdrop_drawn, round.round_id, []}
         )
 
-        # Register prizes on-chain and reveal winners one by one as each confirms
+        # Reveal winners one by one via PubSub
         round_id = round.round_id
-        Task.start(fn -> register_and_reveal_prizes(round_id, winners) end)
+        Task.start(fn -> reveal_winners(round_id, winners) end)
 
       {:error, :no_entries} ->
         Logger.warning("[Settler] Round #{round.round_id} has no entries, skipping draw")
@@ -139,57 +139,26 @@ defmodule BlocksterV2.Airdrop.Settler do
     Logger.info("[Settler] Round #{round.round_id} already in status #{status}, nothing to do")
   end
 
-  defp register_and_reveal_prizes(round_id, winners) do
+  defp reveal_winners(round_id, winners) do
     Enum.each(winners, fn winner ->
-      wallet = winner.external_wallet || winner.wallet_address
-
-      # 1. Register prize on PrizePool (Arbitrum) for USDT payout
-      prize_registered =
-        case BuxMinter.airdrop_set_prize(round_id, winner.winner_index, wallet, winner.prize_usdt) do
-          {:ok, _} ->
-            Logger.debug("[Settler] Prize #{winner.winner_index} registered for #{wallet}")
-            Airdrop.mark_prize_registered(round_id, winner.winner_index)
-            true
-
-          {:error, reason} ->
-            Logger.warning("[Settler] Prize #{winner.winner_index} registration failed: #{inspect(reason)}")
-            false
-        end
-
-      # 2. Push winner to vault (Rogue Chain) for on-chain verification
-      winner_data = %{
-        random_number: winner.random_number,
-        blockster_wallet: winner.wallet_address,
-        external_wallet: winner.external_wallet || winner.wallet_address,
-        bux_redeemed: winner.deposit_amount,
-        block_start: winner.deposit_start,
-        block_end: winner.deposit_end
-      }
-
-      # prize_position is 1-indexed (winner_index is 0-indexed)
-      case BuxMinter.airdrop_set_winner(round_id, winner.winner_index + 1, winner_data) do
-        {:ok, _} ->
-          Logger.debug("[Settler] Winner #{winner.winner_index} set on vault")
-
-        {:error, reason} ->
-          Logger.warning("[Settler] Winner #{winner.winner_index} vault set failed: #{inspect(reason)}")
-      end
-
-      # 3. Reveal to UI (with current prize_registered status)
-      revealed_winner = %{winner | prize_registered: prize_registered}
-
       Phoenix.PubSub.broadcast(
         BlocksterV2.PubSub,
         "airdrop:#{round_id}",
-        {:airdrop_winner_revealed, round_id, revealed_winner}
+        {:airdrop_winner_revealed, round_id, winner}
       )
     end)
   end
 
-  defp draw_on_chain(round) do
+  defp draw_on_chain(round, winners) do
     case Airdrop.get_round(round.round_id) do
       %{server_seed: server_seed} when is_binary(server_seed) ->
-        case BuxMinter.airdrop_draw_winners(server_seed) do
+        # Build winner list for on-chain submission
+        winner_infos =
+          Enum.map(winners, fn w ->
+            %{wallet: w.wallet_address, amount: w.prize_usd}
+          end)
+
+        case BuxMinter.airdrop_draw_winners(round.round_id, server_seed, winner_infos) do
           {:ok, resp} ->
             Logger.info("[Settler] On-chain draw synced for round #{round.round_id}: tx=#{resp["transactionHash"]}")
 
@@ -205,24 +174,6 @@ defmodule BlocksterV2.Airdrop.Settler do
   # ============================================================================
   # Recovery
   # ============================================================================
-
-  defp fetch_rogue_block_hash do
-    body = %{jsonrpc: "2.0", method: "eth_getBlockByNumber", params: ["latest", false], id: 1}
-
-    case Req.post(@rpc_url, json: body, receive_timeout: 15_000) do
-      {:ok, %{status: 200, body: %{"result" => %{"hash" => hash}}}} ->
-        Logger.info("[Settler] Fetched Rogue block hash via RPC: #{hash}")
-        hash
-
-      {:ok, %{body: body}} ->
-        Logger.error("[Settler] Unexpected RPC response: #{inspect(body)}")
-        nil
-
-      {:error, reason} ->
-        Logger.error("[Settler] RPC call failed: #{inspect(reason)}")
-        nil
-    end
-  end
 
   defp recover_from_db(state) do
     verify_round_id_sync()

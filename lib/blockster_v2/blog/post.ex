@@ -1,6 +1,7 @@
 defmodule BlocksterV2.Blog.Post do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query
 
   schema "posts" do
     field :title, :string
@@ -118,12 +119,20 @@ defmodule BlocksterV2.Blog.Post do
         changeset
 
       title ->
-        slug =
+        base_slug =
           title
           |> String.downcase()
           |> String.replace(~r/[^a-z0-9\s-]/, "")
           |> String.replace(~r/\s+/, "-")
           |> String.trim("-")
+
+        slug =
+          if BlocksterV2.Repo.exists?(from p in __MODULE__, where: p.slug == ^base_slug) do
+            suffix = :crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)
+            "#{base_slug}-#{suffix}"
+          else
+            base_slug
+          end
 
         put_change(changeset, :slug, slug)
     end

@@ -14,10 +14,13 @@ defmodule BlocksterV2.PhoneVerificationIntegrationTest do
   # UnifiedMultiplier.update_phone_multiplier/1 -> refresh_multipliers -> calculate_all_multipliers
   setup_all do
     tables = [
-      {:unified_multipliers, :set,
-        [:user_id, :x_score, :x_multiplier, :phone_multiplier, :rogue_multiplier,
-         :wallet_multiplier, :overall_multiplier, :last_updated, :created_at],
+      {:unified_multipliers_v2, :set,
+        [:user_id, :x_score, :x_multiplier, :phone_multiplier, :sol_multiplier,
+         :email_multiplier, :overall_multiplier, :last_updated, :created_at],
         [:overall_multiplier]},
+      {:user_solana_balances, :set,
+        [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance],
+        []},
       {:x_connections, :set,
         [:user_id, :x_user_id, :x_username, :x_name, :x_profile_image_url,
          :access_token_encrypted, :refresh_token_encrypted, :token_expires_at,

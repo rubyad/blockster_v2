@@ -51,6 +51,7 @@ defmodule BlocksterV2Web do
       use Phoenix.LiveView
 
       on_mount BlocksterV2Web.UserAuth
+      use BlocksterV2Web.WalletAuthEvents
 
       unquote(html_helpers())
       unquote(search_handlers())

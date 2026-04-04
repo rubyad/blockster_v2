@@ -66,22 +66,22 @@ defmodule BlocksterV2Web.Layouts do
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
   attr :post_category_slug, :string, default: nil, doc: "the current post's category slug for highlighting"
   attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
-  attr :header_token, :string, default: "BUX", doc: "token to display in header (BUX or ROGUE)"
+  attr :header_token, :string, default: "BUX", doc: "token to display in header"
   attr :cart_item_count, :integer, default: 0, doc: "number of items in the user's cart"
   attr :unread_notification_count, :integer, default: 0, doc: "number of unread notifications"
   attr :notification_dropdown_open, :boolean, default: false, doc: "whether the notification dropdown is open"
   attr :recent_notifications, :list, default: [], doc: "recent notifications for dropdown"
+  attr :wallet_address, :string, default: nil, doc: "connected Solana wallet address"
+  attr :detected_wallets, :list, default: [], doc: "detected Solana wallets"
+  attr :show_wallet_selector, :boolean, default: false, doc: "whether to show wallet selector modal"
+  attr :connecting, :boolean, default: false, doc: "whether wallet is connecting"
 
   def site_header(assigns) do
     # Get the selected token balance and logo (defaults to BUX)
     token = assigns.header_token || "BUX"
     balance = Map.get(assigns.token_balances || %{}, token, 0)
     formatted_balance = Number.Currency.number_to_currency(balance, unit: "", precision: 2)
-    token_logo = if token == "ROGUE" do
-      "https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png"
-    else
-      "https://ik.imagekit.io/blockster/blockster-icon.png"
-    end
+    token_logo = "https://ik.imagekit.io/blockster/blockster-icon.png"
     assigns = assigns
       |> assign(:formatted_bux_balance, formatted_balance)
       |> assign(:display_token, token)
@@ -89,12 +89,10 @@ defmodule BlocksterV2Web.Layouts do
       |> assign(:hide_mobile_token_name, balance >= 1000)
 
     ~H"""
-    <!-- Fixed Header Container with ThirdwebWallet for silent wallet initialization -->
+    <!-- Fixed Header Container with SolanaWallet for wallet detection and connection -->
     <div
       id="site-header"
-      phx-hook="ThirdwebWallet"
-      data-user-wallet={if @current_user, do: @current_user.wallet_address}
-      data-smart-wallet={if @current_user, do: @current_user.smart_wallet_address}
+      phx-hook="SolanaWallet"
       class="fixed top-0 left-0 right-0 w-full z-50 bg-white shadow-sm transition-all duration-300"
     >
       <!-- Desktop Header -->
@@ -110,7 +108,7 @@ defmodule BlocksterV2Web.Layouts do
                 Read & Earn BUX
               </p>
               <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] transition-all duration-500 absolute inset-0 opacity-0 whitespace-nowrap flex items-center justify-center">
-                Powered by Rogue Chain
+                Powered by Solana
               </p>
             </div>
           </div>
@@ -283,41 +281,27 @@ defmodule BlocksterV2Web.Layouts do
                 <div id="desktop-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                   <div class="py-1">
                     <.link
-                      navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
+                      navigate={~p"/member/#{@current_user.slug || @current_user.wallet_address}"}
                       class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
                     >
                       My Profile
                     </.link>
-                    <!-- Token Balances (BUX and ROGUE only - hub tokens removed) -->
+                    <!-- Token Balance (BUX) -->
                     <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
                       <div class="border-t border-gray-100 py-1">
-                        <%
-                          # Only show ROGUE and BUX (hub tokens removed)
-                          rogue_balance = Map.get(@token_balances, "ROGUE", 0)
-                          bux_balance = Map.get(@token_balances, "BUX", 0)
-                          display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}]
-                        %>
-                        <%= for {token_name, balance} <- display_tokens do %>
-                          <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
-                            <div class="flex items-center gap-2">
-                              <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>
-                              <%= if logo_url do %>
-                                <img src={logo_url} alt={token_name} class="w-4 h-4 rounded-full object-cover" />
-                              <% else %>
-                                <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
-                                  <span class="text-white text-[8px] font-bold">{String.first(token_name)}</span>
-                                </div>
-                              <% end %>
-                              <span class="font-medium">{token_name}</span>
-                            </div>
-                            <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
+                        <% bux_balance = Map.get(@token_balances, "BUX", 0) %>
+                        <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
+                          <div class="flex items-center gap-2">
+                            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+                            <span class="font-medium">BUX</span>
                           </div>
-                        <% end %>
+                          <span>{Number.Delimit.number_to_delimited(bux_balance, precision: 2)}</span>
+                        </div>
                       </div>
                     <% end %>
                     <div class="border-t border-gray-100"></div>
                     <button
-                      onclick="window.handleWalletDisconnect()"
+                      phx-click="disconnect_wallet"
                       class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                     >
                       Disconnect Wallet
@@ -453,8 +437,22 @@ defmodule BlocksterV2Web.Layouts do
                 </div>
               </div>
             <% else %>
-              <!-- ThirdwebLogin nested LiveView -->
-              <.live_component module={BlocksterV2Web.ThirdwebLoginLive} id="thirdweb-login-desktop" />
+              <!-- Connect Wallet button (Solana) -->
+              <button
+                phx-click="show_wallet_selector"
+                disabled={@connecting}
+                class={"flex items-center justify-center gap-1.5 rounded-[100px] h-10 px-6 transition-all cursor-pointer #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-gradient-to-r from-[#8AE388] to-[#BAF55F] hover:shadow-lg"}"}
+              >
+                <%= if @connecting do %>
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                    <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  <span class="text-md font-haas_medium_65 text-[#141414]">Connecting...</span>
+                <% else %>
+                  <span class="text-md font-haas_medium_65 text-[#141414]">Connect Wallet</span>
+                <% end %>
+              </button>
             <% end %>
           </div>
           </div>
@@ -565,36 +563,22 @@ defmodule BlocksterV2Web.Layouts do
               <div id="mobile-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
                 <div class="py-1">
                   <.link
-                    navigate={~p"/member/#{@current_user.slug || @current_user.smart_wallet_address}"}
+                    navigate={~p"/member/#{@current_user.slug || @current_user.wallet_address}"}
                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
                   >
                     My Profile
                   </.link>
-                  <!-- Token Balances (Mobile) -->
+                  <!-- Token Balance (Mobile) -->
                   <%= if assigns[:token_balances] && map_size(@token_balances) > 0 do %>
-                    <%
-                      # Only show ROGUE and BUX (hub tokens removed)
-                      rogue_balance = Map.get(@token_balances, "ROGUE", 0)
-                      bux_balance = Map.get(@token_balances, "BUX", 0)
-                      display_tokens = [{"ROGUE", rogue_balance}, {"BUX", bux_balance}]
-                    %>
                     <div class="border-t border-gray-100 py-1">
-                      <%= for {token_name, balance} <- display_tokens do %>
-                        <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
-                          <div class="flex items-center gap-2">
-                            <% logo_url = BlocksterV2.HubLogoCache.get_logo(token_name) %>
-                            <%= if logo_url do %>
-                              <img src={logo_url} alt={token_name} class="w-4 h-4 rounded-full object-cover" />
-                            <% else %>
-                              <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
-                                <span class="text-white text-[8px] font-bold">{String.first(token_name)}</span>
-                              </div>
-                            <% end %>
-                            <span class="font-medium">{token_name}</span>
-                          </div>
-                          <span>{Number.Delimit.number_to_delimited(balance, precision: 2)}</span>
+                      <% bux_balance = Map.get(@token_balances, "BUX", 0) %>
+                      <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
+                        <div class="flex items-center gap-2">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+                          <span class="font-medium">BUX</span>
                         </div>
-                      <% end %>
+                        <span>{Number.Delimit.number_to_delimited(bux_balance, precision: 2)}</span>
+                      </div>
                     </div>
                   <% end %>
                   <div class="border-t border-gray-100"></div>
@@ -735,8 +719,22 @@ defmodule BlocksterV2Web.Layouts do
               </div>
             </div>
           <% else %>
-            <!-- Mobile ThirdwebLogin nested LiveView -->
-            <.live_component module={BlocksterV2Web.ThirdwebLoginLive} id="thirdweb-login-mobile" />
+            <!-- Connect Wallet button (Solana, mobile) -->
+            <button
+              phx-click="show_wallet_selector"
+              disabled={@connecting}
+              class={"flex items-center justify-center gap-1.5 rounded-[100px] h-8 px-3 cursor-pointer #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-gradient-to-r from-[#8AE388] to-[#BAF55F]"}"}
+            >
+              <%= if @connecting do %>
+                <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                  <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span class="text-xs font-haas_medium_65 text-[#141414]">Connecting...</span>
+              <% else %>
+                <span class="text-xs font-haas_medium_65 text-[#141414]">Connect Wallet</span>
+              <% end %>
+            </button>
           <% end %>
         </div>
       </div>
@@ -866,14 +864,13 @@ defmodule BlocksterV2Web.Layouts do
             </ul>
           </div>
 
-          <!-- Rogue Chain Links -->
+          <!-- Solana Links -->
           <div>
-            <h3 class="font-haas_bold_75 text-white mb-4">Rogue Chain</h3>
+            <h3 class="font-haas_bold_75 text-white mb-4">Solana</h3>
             <ul class="space-y-3">
-              <li><a href="https://www.coingecko.com/en/coins/rogue" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">ROGUE on CoinGecko</a></li>
-              <li><a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Buy ROGUE</a></li>
-              <li><a href="https://roguetrader.io/bridge" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Bridge ROGUE</a></li>
-              <li><a href="https://roguescan.io" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Block Explorer</a></li>
+              <li><a href="https://solscan.io/token/7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX?cluster=devnet" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX on Solscan</a></li>
+              <li><a href="https://x.com/BlocksterCom" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Blockster on X</a></li>
+              <li><a href="https://t.me/+7bIzOyrYBEc3OTdh" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Telegram</a></li>
             </ul>
           </div>
         </div>

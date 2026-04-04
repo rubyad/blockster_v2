@@ -8,11 +8,14 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
   setup do
     # Create Mnesia tables needed for tests
     tables = [
-      {:unified_multipliers, :set,
+      {:unified_multipliers_v2, :set,
         [:user_id, :x_score, :x_multiplier, :phone_multiplier,
-         :rogue_multiplier, :wallet_multiplier, :overall_multiplier,
+         :sol_multiplier, :email_multiplier, :overall_multiplier,
          :last_updated, :created_at],
         [:overall_multiplier]},
+      {:user_solana_balances, :set,
+        [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance],
+        []},
       {:user_post_engagement, :set,
         [:key, :user_id, :post_id, :time_spent, :min_read_time,
          :scroll_depth, :reached_end, :scroll_events, :avg_scroll_speed,

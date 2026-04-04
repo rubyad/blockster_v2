@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # BUX Token System
 
 > **Note (January 2026)**: Hub tokens have been removed from the application. Only BUX (for rewards and shop discounts) and ROGUE (for BUX Booster betting) are active. This document retains hub token contract addresses for historical reference.

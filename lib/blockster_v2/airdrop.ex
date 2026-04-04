@@ -23,9 +23,6 @@ defmodule BlocksterV2.Airdrop do
   }
   @default_prize_usd 5_000
 
-  # USDT has 6 decimals, so $250 = 250_000_000 micro-USDT
-  @usdt_decimals 1_000_000
-
   # ============================================================================
   # Round Management
   # ============================================================================
@@ -81,7 +78,6 @@ defmodule BlocksterV2.Airdrop do
              |> Repo.insert() do
           {:ok, round} = result ->
             BlocksterV2.Airdrop.Settler.notify_round_created(round.round_id, round.end_time)
-            sync_prize_pool_async(vault_round_id)
             result
 
           error ->
@@ -154,9 +150,12 @@ defmodule BlocksterV2.Airdrop do
   end
 
   @doc """
-  Closes the airdrop round — stops deposits, records block hash.
+  Closes the airdrop round — stops deposits, records slot at close.
+
+  The `slot_or_hash` parameter stores the Solana slot number (as string)
+  or EVM block hash — reuses the `block_hash_at_close` DB column.
   """
-  def close_round(round_id, block_hash_at_close, opts \\ []) do
+  def close_round(round_id, slot_or_hash, opts \\ []) do
     case get_round(round_id) do
       nil ->
         {:error, :round_not_found}
@@ -165,7 +164,7 @@ defmodule BlocksterV2.Airdrop do
         round
         |> Round.close_changeset(%{
           status: "closed",
-          block_hash_at_close: block_hash_at_close,
+          block_hash_at_close: to_string(slot_or_hash),
           close_tx: Keyword.get(opts, :close_tx)
         })
         |> Repo.update()
@@ -178,9 +177,9 @@ defmodule BlocksterV2.Airdrop do
   @doc """
   Draws winners for a closed round using provably fair algorithm.
 
-  The winner selection mirrors the on-chain algorithm:
-  1. combinedSeed = keccak256(serverSeed | blockHashAtClose)
-  2. For each winner i: position = hash(combinedSeed, i) mod totalEntries + 1
+  The winner selection uses SHA256 (matching the Solana on-chain program):
+  1. combinedSeed = SHA256(serverSeed | slotAtClose)
+  2. For each winner i: position = SHA256(combinedSeed, i) mod totalEntries + 1
   3. Find the deposit that contains that position
   """
   def draw_winners(round_id, opts \\ []) do
@@ -373,7 +372,7 @@ defmodule BlocksterV2.Airdrop do
         {:ok, %{
           server_seed: round.server_seed,
           commitment_hash: round.commitment_hash,
-          block_hash_at_close: round.block_hash_at_close,
+          slot_at_close: round.block_hash_at_close,
           total_entries: round.total_entries,
           round_id: round.round_id,
           start_round_tx: round.start_round_tx,
@@ -434,32 +433,18 @@ defmodule BlocksterV2.Airdrop do
   end
 
   @doc """
-  Returns the prize amount in USDT micro-units (6 decimals) for a given winner index.
+  Returns the prize amount in SOL lamports for a given winner index.
+  Prize amounts map from USD cents to lamports using a fixed rate.
   """
-  def prize_usdt_for_index(index) when index >= 0 and index <= 32 do
-    usd_cents = prize_usd_for_index(index)
-    # Convert cents to USDT: $250.00 = 25000 cents = 250_000_000 micro-USDT
-    div(usd_cents * @usdt_decimals, 100)
+  def prize_lamports_for_index(index) when index >= 0 and index <= 32 do
+    # Prize structure is in USD cents — actual on-chain prize amounts
+    # are set when funding the round. This returns the USD value for display.
+    prize_usd_for_index(index)
   end
 
   # ============================================================================
   # Private Functions
   # ============================================================================
-
-  defp sync_prize_pool_async(vault_round_id) do
-    Task.start(fn ->
-      case BlocksterV2.BuxMinter.airdrop_sync_prize_pool_round(vault_round_id) do
-        {:ok, %{"callsMade" => 0}} ->
-          Logger.info("[Airdrop] PrizePool already at roundId #{vault_round_id}")
-
-        {:ok, %{"callsMade" => calls, "currentRoundId" => current}} ->
-          Logger.info("[Airdrop] PrizePool synced to roundId #{current} (#{calls} calls)")
-
-        {:error, reason} ->
-          Logger.warning("[Airdrop] PrizePool sync failed (non-blocking): #{inspect(reason)}")
-      end
-    end)
-  end
 
   defp validate_phone_verified(%{phone_verified: true}), do: :ok
   defp validate_phone_verified(_user), do: {:error, :phone_not_verified}
@@ -468,7 +453,7 @@ defmodule BlocksterV2.Airdrop do
   defp validate_amount(_), do: {:error, :invalid_amount}
 
   defp create_entry(user, amount, round_id, opts) do
-    wallet_address = user.smart_wallet_address || user.wallet_address
+    wallet_address = user.wallet_address
 
     # Deduct BUX from Mnesia balance BEFORE creating the entry
     case BlocksterV2.EngagementTracker.deduct_user_token_balance(
@@ -516,20 +501,19 @@ defmodule BlocksterV2.Airdrop do
     end
   end
 
-  defp derive_winners(server_seed, block_hash_at_close, total_entries, entries) do
-    # Mirror the on-chain algorithm:
-    # combinedSeed = keccak256(serverSeed | blockHashAtClose)
-    combined_seed = keccak256_combined(server_seed, block_hash_at_close)
+  defp derive_winners(server_seed, slot_at_close, total_entries, entries) do
+    # Mirror the Solana on-chain algorithm:
+    # combinedSeed = SHA256(serverSeed | slotAtClose)
+    combined_seed = sha256_combined(server_seed, slot_at_close)
 
     for i <- 0..(@num_winners - 1) do
-      # position = hash(combinedSeed, i) mod totalEntries + 1
+      # position = SHA256(combinedSeed, i) mod totalEntries + 1
       random_number = derive_position(combined_seed, i, total_entries)
 
       # Find the deposit containing this position
       entry = find_entry_for_position(entries, random_number)
 
       prize_usd = prize_usd_for_index(i)
-      prize_usdt = prize_usdt_for_index(i)
 
       %{
         winner_index: i,
@@ -541,25 +525,25 @@ defmodule BlocksterV2.Airdrop do
         deposit_end: entry.end_position,
         deposit_amount: entry.amount,
         prize_usd: prize_usd,
-        prize_usdt: prize_usdt
+        prize_usdt: prize_usd
       }
     end
   end
 
   @doc false
-  def keccak256_combined(server_seed, block_hash) do
-    # Convert hex strings to binary, concatenate, then keccak256
-    seed_bytes = decode_hex(server_seed)
-    block_bytes = decode_hex(block_hash)
+  def sha256_combined(server_seed, slot_at_close) do
+    # Convert hex server seed to binary, slot to 8-byte LE, then SHA256
+    seed_bytes = decode_hex_or_raw(server_seed)
+    slot_bytes = slot_to_bytes(slot_at_close)
 
-    ExKeccak.hash_256(seed_bytes <> block_bytes)
+    :crypto.hash(:sha256, seed_bytes <> slot_bytes)
   end
 
   @doc false
   def derive_position(combined_seed, index, total_entries) do
-    # keccak256(combinedSeed ++ index_as_uint256)
+    # SHA256(combinedSeed ++ index_as_uint256)
     index_bytes = <<index::unsigned-big-integer-size(256)>>
-    hash = ExKeccak.hash_256(combined_seed <> index_bytes)
+    hash = :crypto.hash(:sha256, combined_seed <> index_bytes)
 
     # Convert to integer, mod totalEntries + 1
     <<value::unsigned-big-integer-size(256)>> = hash
@@ -567,14 +551,30 @@ defmodule BlocksterV2.Airdrop do
   end
 
   defp find_entry_for_position(entries, position) do
-    # Binary search through sorted entries
     Enum.find(entries, fn entry ->
       position >= entry.start_position and position <= entry.end_position
     end)
   end
 
-  defp decode_hex("0x" <> hex), do: Base.decode16!(hex, case: :mixed)
-  defp decode_hex(hex), do: Base.decode16!(hex, case: :mixed)
+  defp decode_hex_or_raw("0x" <> hex), do: Base.decode16!(hex, case: :mixed)
+  defp decode_hex_or_raw(hex) when is_binary(hex) do
+    case Base.decode16(hex, case: :mixed) do
+      {:ok, bytes} -> bytes
+      :error -> hex
+    end
+  end
+
+  defp slot_to_bytes(slot) when is_integer(slot) do
+    <<slot::unsigned-little-integer-size(64)>>
+  end
+
+  defp slot_to_bytes(slot) when is_binary(slot) do
+    # Could be a hex string (EVM block hash) or a slot number string
+    case Integer.parse(slot) do
+      {num, ""} -> <<num::unsigned-little-integer-size(64)>>
+      _ -> decode_hex_or_raw(slot)
+    end
+  end
 
   defp list_entries(round_id) do
     Entry

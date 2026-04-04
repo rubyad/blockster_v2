@@ -5,6 +5,7 @@
   "private": true,
   "dependencies": {
     "@fingerprintjs/fingerprintjs-pro": "^3.12.6",
+    "@solana/web3.js": "^1.98.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tiptap/core": "^2.27.1",
     "@tiptap/extension-image": "^2.1.13",
@@ -13,8 +14,10 @@
     "@tiptap/extension-text-align": "^2.1.13",
     "@tiptap/extension-underline": "^2.1.13",
     "@tiptap/starter-kit": "^2.27.1",
-    "swiper": "^12.0.3",
-    "thirdweb": "^5.110.6"
+    "@wallet-standard/app": "^1.1.0",
+    "bs58": "^6.0.0",
+    "lightweight-charts": "^5.1.0",
+    "swiper": "^12.0.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2"

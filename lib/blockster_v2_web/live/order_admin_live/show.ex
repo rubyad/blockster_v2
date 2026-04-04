@@ -152,7 +152,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
                   </div>
                   <%= if @order.bux_burn_tx_hash do %>
                     <div class="text-xs text-gray-400 text-right">
-                      TX: <a href={"https://roguescan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono"><%= String.slice(@order.bux_burn_tx_hash, 0, 16) %>...</a>
+                      TX: <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono"><%= String.slice(@order.bux_burn_tx_hash, 0, 16) %>...</a>
                     </div>
                   <% end %>
                 <% end %>
@@ -164,7 +164,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
                   </div>
                   <%= if @order.rogue_payment_tx_hash do %>
                     <div class="text-xs text-gray-400 text-right">
-                      TX: <a href={"https://roguescan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono"><%= String.slice(@order.rogue_payment_tx_hash, 0, 16) %>...</a>
+                      TX: <a href={"https://solscan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer font-mono"><%= String.slice(@order.rogue_payment_tx_hash, 0, 16) %>...</a>
                     </div>
                   <% end %>
                 <% end %>

@@ -1,4 +1,10 @@
 defmodule BlocksterV2.ConnectedWallet do
+  @moduledoc """
+  @deprecated EVM/Rogue Chain - Hardware wallet connection schema for EVM wallets.
+  Will be removed after Solana migration is complete.
+  Still referenced by: Wallets context, notifications.ex, promo_email_worker.ex
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

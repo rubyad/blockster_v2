@@ -85,8 +85,8 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       end)
 
     # Close and draw
-    block_hash = "0x" <> String.duplicate("ab", 32)
-    {:ok, _} = Airdrop.close_round(round.round_id, block_hash)
+    slot_number = "12345678"
+    {:ok, _} = Airdrop.close_round(round.round_id, slot_number)
     {:ok, _} = Airdrop.draw_winners(round.round_id)
 
     round = Airdrop.get_round(round.round_id)
@@ -96,33 +96,19 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
   end
 
   # ============================================================================
-  # BuxMinter.airdrop_deposit/4 Tests
+  # BuxMinter Airdrop Function Tests (Solana)
   # ============================================================================
 
-  describe "airdrop_deposit/4" do
-    test "returns an error tuple (endpoints not yet deployed to production minter)" do
-      wallet = "0x" <> String.duplicate("aa", 20)
-      external = "0x" <> String.duplicate("bb", 20)
-
-      result = BuxMinter.airdrop_deposit(wallet, external, 100, 1)
-
-      # Either :not_configured (no secret) or HTTP error (endpoint doesn't exist yet)
+  describe "airdrop_build_deposit/4 (integration)" do
+    test "returns an error tuple (settler not configured in test)" do
+      result = BuxMinter.airdrop_build_deposit("wallet", 1, 0, 100)
       assert {:error, _reason} = result
     end
   end
 
-  describe "airdrop_claim/2" do
-    test "returns an error tuple (endpoints not yet deployed to production minter)" do
-      result = BuxMinter.airdrop_claim(1, 0)
-
-      assert {:error, _reason} = result
-    end
-  end
-
-  describe "airdrop_set_prize/4" do
-    test "returns an error tuple (endpoints not yet deployed to production minter)" do
-      result = BuxMinter.airdrop_set_prize(1, 0, "0xwinner", 250_000_000)
-
+  describe "airdrop_build_claim/3 (integration)" do
+    test "returns an error tuple (settler not configured in test)" do
+      result = BuxMinter.airdrop_build_claim("wallet", 1, 0)
       assert {:error, _reason} = result
     end
   end
@@ -215,11 +201,11 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert Airdrop.get_total_entries(round.round_id) == 800
       assert Airdrop.get_participant_count(round.round_id) == 2
 
-      # 4. Close round
-      block_hash = "0x" <> String.duplicate("ff", 32)
-      {:ok, closed} = Airdrop.close_round(round.round_id, block_hash, close_tx: "0xclosetx")
+      # 4. Close round (slot number from Solana)
+      slot_number = "34567890"
+      {:ok, closed} = Airdrop.close_round(round.round_id, slot_number, close_tx: "5KtPn1closetx")
       assert closed.status == "closed"
-      assert closed.block_hash_at_close == block_hash
+      assert closed.block_hash_at_close == slot_number
 
       # 5. Draw winners
       {:ok, drawn} = Airdrop.draw_winners(round.round_id, draw_tx: "0xdrawtx")
@@ -259,13 +245,13 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
         first_winner.user_id,
         round.round_id,
         first_winner.winner_index,
-        "0xarbitrum_claim_tx",
-        "0xclaim_wallet"
+        "5KtPn1claimtx",
+        "7CuRyw2claim_wallet"
       )
 
       assert claimed.claimed == true
-      assert claimed.claim_tx == "0xarbitrum_claim_tx"
-      assert claimed.claim_wallet == "0xclaim_wallet"
+      assert claimed.claim_tx == "5KtPn1claimtx"
+      assert claimed.claim_wallet == "7CuRyw2claim_wallet"
 
       # 9. Verify double-claim rejected
       assert {:error, :already_claimed} = Airdrop.claim_prize(
@@ -295,7 +281,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
         external_wallet: user2.wallet_address
       )
 
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("cd", 32))
+      {:ok, _} = Airdrop.close_round(round.round_id, "23456789")
       {:ok, _} = Airdrop.draw_winners(round.round_id)
 
       winners = Airdrop.get_winners(round.round_id)
@@ -333,7 +319,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert Repo.aggregate(Airdrop.Entry, :count) == 2
 
       # After close - no new records, just status change
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ee", 32))
+      {:ok, _} = Airdrop.close_round(round.round_id, "34567890")
       assert Repo.aggregate(Airdrop.Entry, :count) == 2
       assert Repo.aggregate(Airdrop.Winner, :count) == 0
 
@@ -358,7 +344,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       {:ok, round1} = Airdrop.create_round(~U[2026-03-01 00:00:00Z], skip_vault: true)
       set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round1.round_id)
-      {:ok, _} = Airdrop.close_round(round1.round_id, "0x" <> String.duplicate("ab", 32))
+      {:ok, _} = Airdrop.close_round(round1.round_id, "12345678")
 
       # Save the seed before draw
       r1_data = Airdrop.get_round(round1.round_id)
@@ -367,7 +353,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       winners1 = Airdrop.get_winners(round1.round_id)
 
       # Derive winners manually with same inputs
-      combined_seed = Airdrop.keccak256_combined(
+      combined_seed = Airdrop.sha256_combined(
         r1_data.server_seed,
         r1_data.block_hash_at_close
       )
@@ -390,7 +376,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       round = create_round()
       set_bux_balance(user, 100)
       {:ok, _} = Airdrop.redeem_bux(user, 100, round.round_id)
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
+      {:ok, _} = Airdrop.close_round(round.round_id, "12345678")
       {:ok, _} = Airdrop.draw_winners(round.round_id)
 
       winners = Airdrop.get_winners(round.round_id)
@@ -398,7 +384,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       # All 33 winners should be the same user
       for w <- winners do
         assert w.user_id == user.id
-        assert w.wallet_address == user.smart_wallet_address
+        assert w.wallet_address == user.wallet_address
       end
     end
 
@@ -416,7 +402,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
         external_wallet: user2.wallet_address
       )
 
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
+      {:ok, _} = Airdrop.close_round(round.round_id, "12345678")
       {:ok, _} = Airdrop.draw_winners(round.round_id)
 
       winners = Airdrop.get_winners(round.round_id)
@@ -443,7 +429,7 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
       assert Airdrop.get_total_entries(round.round_id) == 1000
       assert Airdrop.get_participant_count(round.round_id) == 10
 
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
+      {:ok, _} = Airdrop.close_round(round.round_id, "12345678")
       {:ok, _} = Airdrop.draw_winners(round.round_id)
 
       winners = Airdrop.get_winners(round.round_id)

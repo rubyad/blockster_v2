@@ -36,9 +36,10 @@ defmodule BlocksterV2Web.LiveCase do
     # Create a session for the user
     {:ok, session} = BlocksterV2.Accounts.create_session(user.id)
 
-    # Set the session token in the conn
+    # Set the session token and wallet_address in the conn
     conn
     |> Plug.Test.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, session.token)
+    |> Plug.Conn.put_session("wallet_address", user.wallet_address)
   end
 end

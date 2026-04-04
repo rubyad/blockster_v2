@@ -29,12 +29,20 @@ end
 config :blockster_v2,
   s3_bucket: System.get_env("AWS_S3_BUCKET") || System.get_env("S3_BUCKET") || "your-bucket-name",
   s3_region: System.get_env("AWS_REGION") || "us-east-1",
+  # DEPRECATED (EVM): Thirdweb client ID for Rogue Chain ERC-4337 wallets. Remove when EVM auth is fully retired.
   thirdweb_client_id: System.get_env("THIRDWEB_CLIENT_ID"),
   aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
   google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY"),
+  # DEPRECATED (EVM): Legacy bux-minter service on Rogue Chain. Replaced by settler for Solana.
+  # Still read by bux_booster_onchain.ex and bux_booster_bet_settler.ex for legacy EVM games.
   bux_minter_url: System.get_env("BUX_MINTER_URL"),
   bux_minter_secret: System.get_env("BUX_MINTER_SECRET"),
+  # Solana settler service (replaces bux-minter for Solana migration)
+  settler_url: System.get_env("BLOCKSTER_SETTLER_URL"),
+  settler_secret: System.get_env("BLOCKSTER_SETTLER_SECRET"),
+  solana_rpc_url: System.get_env("SOLANA_RPC_URL"),
+  solana_authority_address: System.get_env("SOLANA_AUTHORITY_ADDRESS") || "6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1",
   # Skip fingerprint check - defaults to true in dev, false in prod (set SKIP_FINGERPRINT_CHECK=true to enable)
   skip_fingerprint_check: System.get_env("SKIP_FINGERPRINT_CHECK") == "true" || config_env() in [:dev, :test],
   # FingerprintJS Server API key for server-side event verification

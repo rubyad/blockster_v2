@@ -88,7 +88,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
 
     test "close_changeset requires status and block_hash" do
       round = %Round{status: "open"}
-      changeset = Round.close_changeset(round, %{status: "closed", block_hash_at_close: "0xhash"})
+      changeset = Round.close_changeset(round, %{status: "closed", block_hash_at_close: "12345678"})
       assert changeset.valid?
     end
 
@@ -213,7 +213,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
         deposit_end: 100,
         deposit_amount: 100,
         prize_usd: 25_000,
-        prize_usdt: 250_000_000
+        prize_usdt: 25_000
       }
 
       changeset = Winner.changeset(%Winner{}, attrs)
@@ -224,7 +224,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
       base = %{
         round_id: 1, random_number: 42, wallet_address: "0x1234",
         deposit_start: 1, deposit_end: 100, deposit_amount: 100,
-        prize_usd: 5_000, prize_usdt: 50_000_000
+        prize_usd: 5_000, prize_usdt: 5_000
       }
 
       # Valid range
@@ -245,7 +245,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
       base = %{
         round_id: 1, winner_index: 0, wallet_address: "0x1234",
         deposit_start: 1, deposit_end: 100, deposit_amount: 100,
-        prize_usd: 25_000, prize_usdt: 250_000_000
+        prize_usd: 25_000, prize_usdt: 25_000
       }
 
       changeset = Winner.changeset(%Winner{}, Map.put(base, :random_number, 0))
@@ -261,7 +261,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
         deposit_start: 1, deposit_end: 100, deposit_amount: 100
       }
 
-      changeset = Winner.changeset(%Winner{}, Map.merge(base, %{prize_usd: 0, prize_usdt: 50_000_000}))
+      changeset = Winner.changeset(%Winner{}, Map.merge(base, %{prize_usd: 0, prize_usdt: 5_000}))
       refute changeset.valid?
 
       changeset = Winner.changeset(%Winner{}, Map.merge(base, %{prize_usd: 5_000, prize_usdt: 0}))
@@ -278,7 +278,7 @@ defmodule BlocksterV2.Airdrop.SchemaTest do
         deposit_end: 100,
         deposit_amount: 100,
         prize_usd: 25_000,
-        prize_usdt: 250_000_000
+        prize_usdt: 25_000
       }
 
       assert {:ok, _} = %Winner{} |> Winner.changeset(attrs) |> Repo.insert()

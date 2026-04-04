@@ -1,6 +1,9 @@
 # lib/blockster_v2/bux_booster_onchain.ex
 defmodule BlocksterV2.BuxBoosterOnchain do
   @moduledoc """
+  @deprecated EVM/Rogue Chain - Replaced by BlocksterV2.CoinFlipGame for Solana.
+  Still used by BuxBoosterLive and BuxBoosterBetSettler for legacy EVM games.
+
   On-chain BUX Booster game orchestration.
 
   Blockster is the orchestrator:
@@ -681,8 +684,7 @@ defmodule BlocksterV2.BuxBoosterOnchain do
   defp http_post(url, body, headers) do
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000,
-                      connect_options: [transport_opts: [inet_backend: :inet]]) do
+        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}
@@ -710,8 +712,7 @@ defmodule BlocksterV2.BuxBoosterOnchain do
   defp http_get(url, headers) do
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.get(url, headers: headers, receive_timeout: 30_000,
-                     connect_options: [transport_opts: [inet_backend: :inet]]) do
+        case Req.get(url, headers: headers, receive_timeout: 30_000) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}

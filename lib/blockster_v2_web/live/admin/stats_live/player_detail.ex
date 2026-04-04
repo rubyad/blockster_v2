@@ -120,7 +120,7 @@ defmodule BlocksterV2Web.Admin.StatsLive.PlayerDetail do
           <h1 class="text-2xl font-haas_medium_65 mt-2">Player Stats</h1>
           <p class="text-sm text-gray-500 font-mono">
             <a
-              href={"https://roguescan.io/address/#{@wallet}"}
+              href={"https://solscan.io/account/#{@wallet}"}
               target="_blank"
               class="text-blue-600 hover:underline cursor-pointer"
             >

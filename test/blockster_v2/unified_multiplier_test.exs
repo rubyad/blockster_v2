@@ -87,46 +87,52 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
   end
 
   describe "calculate_overall/4" do
-    test "calculates multiplicative product" do
-      # 2.0 * 1.5 * 1.0 * 1.0 = 3.0
-      result = UnifiedMultiplier.calculate_overall(2.0, 1.5, 1.0, 1.0)
-      assert result == 3.0
+    test "calculates multiplicative product (x * phone * sol * email)" do
+      # 2.0 * 1.5 * 3.0 * 2.0 = 18.0
+      result = UnifiedMultiplier.calculate_overall(2.0, 1.5, 3.0, 2.0)
+      assert result == 18.0
     end
 
     test "minimum possible overall (all minimums)" do
-      # 1.0 * 0.5 * 1.0 * 1.0 = 0.5
-      result = UnifiedMultiplier.calculate_overall(1.0, 0.5, 1.0, 1.0)
-      assert result == 0.5
+      # 1.0 * 0.5 * 0.0 * 1.0 = 0.0
+      result = UnifiedMultiplier.calculate_overall(1.0, 0.5, 0.0, 1.0)
+      assert result == 0.0
     end
 
     test "maximum possible overall (all maximums)" do
-      # 10.0 * 2.0 * 5.0 * 3.6 = 360.0
-      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 5.0, 3.6)
-      assert result == 360.0
+      # 10.0 * 2.0 * 5.0 * 2.0 = 200.0
+      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 5.0, 2.0)
+      assert result == 200.0
     end
 
     test "rounds to 1 decimal place" do
-      # 7.5 * 1.5 * 3.0 * 2.1 = 70.875 -> 70.9
-      result = UnifiedMultiplier.calculate_overall(7.5, 1.5, 3.0, 2.1)
-      assert result == 70.9
+      # 7.5 * 1.5 * 3.5 * 1.0 = 39.375 -> 39.4
+      result = UnifiedMultiplier.calculate_overall(7.5, 1.5, 3.5, 1.0)
+      assert result == 39.4
     end
 
-    test "realistic example: moderate user" do
-      # X score 50 (5.0x) * phone premium (2.0x) * no ROGUE (1.0x) * no wallet (1.0x)
-      result = UnifiedMultiplier.calculate_overall(5.0, 2.0, 1.0, 1.0)
-      assert result == 10.0
+    test "realistic example: new user with some SOL, no extras" do
+      # X score 10 (1.0x) * phone unverified (0.5x) * 0.1 SOL (2.0x) * email unverified (1.0x)
+      result = UnifiedMultiplier.calculate_overall(1.0, 0.5, 2.0, 1.0)
+      assert result == 1.0
     end
 
-    test "realistic example: power user" do
-      # X score 75 (7.5x) * phone premium (2.0x) * 500k ROGUE (3.0x) * full wallet (2.8x)
-      result = UnifiedMultiplier.calculate_overall(7.5, 2.0, 3.0, 2.8)
-      assert result == 126.0
+    test "realistic example: engaged user" do
+      # X score 50 (5.0x) * phone premium (2.0x) * 1 SOL (3.5x) * email verified (2.0x)
+      result = UnifiedMultiplier.calculate_overall(5.0, 2.0, 3.5, 2.0)
+      assert result == 70.0
     end
 
-    test "edge case: zero multiplier component would result in zero" do
-      # But our system has minimums, so this shouldn't happen in practice
-      result = UnifiedMultiplier.calculate_overall(1.0, 0.5, 1.0, 1.0)
-      assert result == 0.5
+    test "zero SOL multiplier produces zero overall" do
+      # Any * Any * 0.0 * Any = 0.0
+      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 0.0, 2.0)
+      assert result == 0.0
+    end
+
+    test "email multiplier doubles the result" do
+      without_email = UnifiedMultiplier.calculate_overall(5.0, 2.0, 3.5, 1.0)
+      with_email = UnifiedMultiplier.calculate_overall(5.0, 2.0, 3.5, 2.0)
+      assert with_email == without_email * 2
     end
   end
 
@@ -142,12 +148,12 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
   end
 
   describe "max_overall/0 and min_overall/0" do
-    test "returns correct max overall" do
-      assert UnifiedMultiplier.max_overall() == 360.0
+    test "returns correct max overall (200.0)" do
+      assert UnifiedMultiplier.max_overall() == 200.0
     end
 
-    test "returns correct min overall" do
-      assert UnifiedMultiplier.min_overall() == 0.5
+    test "returns correct min overall (0.0)" do
+      assert UnifiedMultiplier.min_overall() == 0.0
     end
   end
 
@@ -161,8 +167,8 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
 
   describe "get_overall_multiplier/1" do
     test "returns minimum for non-integer user_id" do
-      assert UnifiedMultiplier.get_overall_multiplier(nil) == 0.5
-      assert UnifiedMultiplier.get_overall_multiplier("123") == 0.5
+      assert UnifiedMultiplier.get_overall_multiplier(nil) == 0.0
+      assert UnifiedMultiplier.get_overall_multiplier("123") == 0.0
     end
   end
 
@@ -173,9 +179,9 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
       assert result.x_score == 0
       assert result.x_multiplier == 1.0
       assert result.phone_multiplier == 0.5
-      assert result.rogue_multiplier == 1.0
-      assert result.wallet_multiplier == 1.0
-      assert result.overall_multiplier == 0.5
+      assert result.sol_multiplier == 0.0
+      assert result.email_multiplier == 1.0
+      assert result.overall_multiplier == 0.0
     end
   end
 
@@ -186,9 +192,9 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
       assert result.x_score == 0
       assert result.x_multiplier == 1.0
       assert result.phone_multiplier == 0.5
-      assert result.rogue_multiplier == 1.0
-      assert result.wallet_multiplier == 1.0
-      assert result.overall_multiplier == 0.5
+      assert result.sol_multiplier == 0.0
+      assert result.email_multiplier == 1.0
+      assert result.overall_multiplier == 0.0
     end
   end
 
@@ -211,17 +217,17 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
     end
   end
 
-  describe "update_rogue_multiplier/1" do
+  describe "update_sol_multiplier/1" do
     test "returns error for non-integer user_id" do
-      assert UnifiedMultiplier.update_rogue_multiplier(nil) == {:error, :invalid_input}
-      assert UnifiedMultiplier.update_rogue_multiplier("123") == {:error, :invalid_input}
+      assert UnifiedMultiplier.update_sol_multiplier(nil) == {:error, :invalid_input}
+      assert UnifiedMultiplier.update_sol_multiplier("123") == {:error, :invalid_input}
     end
   end
 
-  describe "update_wallet_multiplier/1" do
+  describe "update_email_multiplier/1" do
     test "returns error for non-integer user_id" do
-      assert UnifiedMultiplier.update_wallet_multiplier(nil) == {:error, :invalid_input}
-      assert UnifiedMultiplier.update_wallet_multiplier("123") == {:error, :invalid_input}
+      assert UnifiedMultiplier.update_email_multiplier(nil) == {:error, :invalid_input}
+      assert UnifiedMultiplier.update_email_multiplier("123") == {:error, :invalid_input}
     end
   end
 
@@ -242,25 +248,24 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
     end
 
     test "overall multiplier is multiplicative not additive" do
-      # If it were additive: 2.0 + 1.5 + 1.0 + 1.0 = 5.5
-      # But it's multiplicative: 2.0 * 1.5 * 1.0 * 1.0 = 3.0
-      result = UnifiedMultiplier.calculate_overall(2.0, 1.5, 1.0, 1.0)
-      assert result == 3.0
-      assert result != 5.5
-    end
-
-    test "all minimums produce minimum overall" do
-      # x_min=1.0, phone_min=0.5, rogue_min=1.0, wallet_min=1.0
-      # 1.0 * 0.5 * 1.0 * 1.0 = 0.5
-      result = UnifiedMultiplier.calculate_overall(1.0, 0.5, 1.0, 1.0)
-      assert result == UnifiedMultiplier.min_overall()
+      # If it were additive: 2.0 + 1.5 + 3.0 + 2.0 = 8.5
+      # But it's multiplicative: 2.0 * 1.5 * 3.0 * 2.0 = 18.0
+      result = UnifiedMultiplier.calculate_overall(2.0, 1.5, 3.0, 2.0)
+      assert result == 18.0
+      assert result != 8.5
     end
 
     test "all maximums produce maximum overall" do
-      # x_max=10.0, phone_max=2.0, rogue_max=5.0, wallet_max=3.6
-      # 10.0 * 2.0 * 5.0 * 3.6 = 360.0
-      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 5.0, 3.6)
+      # x_max=10.0, phone_max=2.0, sol_max=5.0, email_max=2.0
+      # 10.0 * 2.0 * 5.0 * 2.0 = 200.0
+      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 5.0, 2.0)
       assert result == UnifiedMultiplier.max_overall()
+    end
+
+    test "zero SOL kills the multiplier entirely" do
+      # SOL = 0 means user cannot earn BUX at all
+      result = UnifiedMultiplier.calculate_overall(10.0, 2.0, 0.0, 2.0)
+      assert result == 0.0
     end
   end
 end

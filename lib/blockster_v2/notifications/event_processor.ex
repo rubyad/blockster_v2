@@ -512,10 +512,10 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   defp credit_bux(user_id, amount) do
     import Ecto.Query
 
-    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{smart_wallet_address: u.smart_wallet_address})
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{wallet_address: u.wallet_address})
 
-    if user && user.smart_wallet_address do
-      wallet = user.smart_wallet_address
+    if user && user.wallet_address do
+      wallet = user.wallet_address
 
       Task.start(fn ->
         case BlocksterV2.BuxMinter.mint_bux(wallet, amount, user_id, nil, :ai_bonus) do
@@ -528,7 +528,7 @@ defmodule BlocksterV2.Notifications.EventProcessor do
         end
       end)
     else
-      Logger.debug("[EventProcessor] User #{user_id} has no smart wallet, skipping BUX credit")
+      Logger.debug("[EventProcessor] User #{user_id} has no wallet, skipping BUX credit")
     end
   rescue
     e -> Logger.warning("[EventProcessor] Error crediting BUX for user #{user_id}: #{inspect(e)}")
@@ -537,10 +537,10 @@ defmodule BlocksterV2.Notifications.EventProcessor do
   defp credit_rogue(user_id, amount) do
     import Ecto.Query
 
-    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{smart_wallet_address: u.smart_wallet_address})
+    user = Repo.one(from u in BlocksterV2.Accounts.User, where: u.id == ^user_id, select: %{wallet_address: u.wallet_address})
 
-    if user && user.smart_wallet_address do
-      wallet = user.smart_wallet_address
+    if user && user.wallet_address do
+      wallet = user.wallet_address
 
       Task.start(fn ->
         case BlocksterV2.BuxMinter.transfer_rogue(wallet, amount, user_id, "custom_rule") do

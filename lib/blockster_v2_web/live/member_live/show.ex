@@ -10,7 +10,6 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.Notifications
   alias BlocksterV2.UnifiedMultiplier
-  alias BlocksterV2.RogueMultiplier
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
   alias BlocksterV2.Wallets
@@ -29,7 +28,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   def handle_params(%{"slug" => slug_or_address} = params, _url, socket) do
     # Allow tab to be set via URL query parameter (e.g., /member/xxx?tab=settings)
     tab_from_url = params["tab"]
-    valid_tabs = ["activity", "rogue", "wallet", "refer", "settings", "following", "event", "airdrop"]
+    valid_tabs = ["activity", "refer", "settings", "following", "event", "airdrop"]
     initial_tab = if tab_from_url in valid_tabs, do: tab_from_url, else: socket.assigns[:active_tab] || "activity"
 
     case Accounts.get_user_by_slug_or_address(slug_or_address) do
@@ -56,7 +55,6 @@ defmodule BlocksterV2Web.MemberLive.Show do
           # V2 Unified Multiplier System - refresh from source data to ensure accuracy
           # This recalculates from x_connections, user table, and Mnesia tables (no external API calls)
           unified_multipliers = UnifiedMultiplier.refresh_multipliers(member.id)
-          rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
 
           # Legacy multiplier details for backwards compatibility
           multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
@@ -100,7 +98,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
           total_bux = calculate_total_bux(filtered_activities)
 
           # Load referral data
-          wallet_address = member.smart_wallet_address
+          wallet_address = member.wallet_address
           referral_link = generate_referral_link(wallet_address)
           referral_stats = Referrals.get_referrer_stats(member.id)
           referrals = Referrals.list_referrals(member.id, limit: 20)
@@ -126,15 +124,14 @@ defmodule BlocksterV2Web.MemberLive.Show do
            |> assign(:activities, filtered_activities)
            |> assign(:total_bux, total_bux)
            |> assign(:time_period, time_period)
-           # V2 Unified Multiplier System
+           # V2 Unified Multiplier System (Solana)
            |> assign(:unified_multipliers, unified_multipliers)
-           |> assign(:rogue_multiplier_data, rogue_multiplier_data)
            |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
            |> assign(:x_multiplier, unified_multipliers.x_multiplier)
            |> assign(:x_score, unified_multipliers.x_score)
            |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
-           |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
-           |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)
+           |> assign(:sol_multiplier, unified_multipliers.sol_multiplier)
+           |> assign(:email_multiplier, unified_multipliers.email_multiplier)
            # Legacy multiplier details for backwards compatibility
            |> assign(:multiplier_details, multiplier_details)
            # NOTE: Do NOT assign :token_balances here - it's set by BuxBalanceHook from current_user
@@ -462,7 +459,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
           {:noreply,
            push_event(socket, "transfer_to_blockster", %{
              amount: amount,
-             blockster_wallet: user.smart_wallet_address
+             blockster_wallet: user.wallet_address
            })}
 
         _ ->
@@ -480,10 +477,10 @@ defmodule BlocksterV2Web.MemberLive.Show do
     if connected_wallet do
       case Float.parse(amount_str) do
         {amount, _} when amount > 0 ->
-          # Check Blockster wallet has sufficient balance
-          blockster_rogue = EngagementTracker.get_user_token_balances(user.id)["ROGUE"] || 0.0
+          # Check wallet has sufficient SOL balance
+          sol_balance = EngagementTracker.get_user_sol_balance(user.id)
 
-          if amount <= blockster_rogue do
+          if amount <= sol_balance do
             # Set pending state immediately for UI feedback, then trigger JavaScript
             {:noreply,
              socket
@@ -491,10 +488,10 @@ defmodule BlocksterV2Web.MemberLive.Show do
              |> push_event("transfer_from_blockster", %{
                amount: amount,
                to_address: connected_wallet.wallet_address,
-               from_address: user.smart_wallet_address
+               from_address: user.wallet_address
              })}
           else
-            {:noreply, put_flash(socket, :error, "Insufficient ROGUE balance in Blockster wallet")}
+            {:noreply, put_flash(socket, :error, "Insufficient SOL balance")}
           end
 
         _ ->
@@ -577,7 +574,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Transfer confirmed! #{amount} ROGUE transferred successfully.")
+         |> put_flash(:info, "Transfer confirmed! #{amount} transferred successfully.")
          |> assign(:pending_transfer, nil)
          |> assign(:transfer_pending, false)
          |> assign(:recent_transfers, recent_transfers)}
@@ -644,8 +641,6 @@ defmodule BlocksterV2Web.MemberLive.Show do
     updated_stats = case earning.token do
       "BUX" ->
         %{current_stats | total_bux_earned: current_stats.total_bux_earned + earning.amount}
-      "ROGUE" ->
-        %{current_stats | total_rogue_earned: current_stats.total_rogue_earned + earning.amount}
       _ ->
         current_stats
     end
@@ -669,19 +664,17 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
     # Recalculate multipliers since phone verification affects them
     unified_multipliers = UnifiedMultiplier.get_user_multipliers(member.id)
-    rogue_multiplier_data = RogueMultiplier.calculate_rogue_multiplier(member.id)
 
     {:noreply,
      socket
      |> assign(:member, member)
      |> assign(:unified_multipliers, unified_multipliers)
-     |> assign(:rogue_multiplier_data, rogue_multiplier_data)
      |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
      |> assign(:x_multiplier, unified_multipliers.x_multiplier)
      |> assign(:x_score, unified_multipliers.x_score)
      |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
-     |> assign(:rogue_multiplier, unified_multipliers.rogue_multiplier)
-     |> assign(:wallet_multiplier, unified_multipliers.wallet_multiplier)}
+     |> assign(:sol_multiplier, unified_multipliers.sol_multiplier)
+     |> assign(:email_multiplier, unified_multipliers.email_multiplier)}
   end
 
   @impl true
@@ -707,28 +700,17 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   def handle_info(:refresh_blockster_balance, socket) do
     user_id = socket.assigns.current_user.id
-    wallet_address = socket.assigns.current_user.smart_wallet_address
+    wallet_address = socket.assigns.current_user.wallet_address
 
-    Logger.info("[MemberLive] Refreshing Blockster balance for wallet: #{wallet_address}")
+    Logger.info("[MemberLive] Refreshing Solana balances for wallet: #{wallet_address}")
 
-    # Fetch fresh ROGUE balance from blockchain via BUX Minter (use aggregated endpoint which includes ROGUE)
-    case BuxMinter.get_aggregated_balances(wallet_address) do
-      {:ok, %{balances: balances}} ->
-        Logger.info("[MemberLive] BUX Minter returned balances: #{inspect(balances)}")
-        rogue_balance = Map.get(balances, "ROGUE", 0.0)
-        Logger.info("[MemberLive] Extracted ROGUE balance: #{rogue_balance}")
-        EngagementTracker.update_user_rogue_balance(user_id, wallet_address, rogue_balance, :rogue_chain)
-        Logger.info("[MemberLive] Updated Mnesia with ROGUE balance: #{rogue_balance}")
+    # Sync Solana balances (SOL + BUX) via settler service
+    BuxMinter.sync_user_balances_async(user_id, wallet_address)
 
-        # Refresh token_balances from Mnesia and update socket
-        token_balances = EngagementTracker.get_user_token_balances(user_id)
-        Logger.info("[MemberLive] Refreshed token_balances from Mnesia: #{inspect(token_balances)}")
-        {:noreply, assign(socket, :token_balances, token_balances)}
-
-      {:error, reason} ->
-        Logger.error("[MemberLive] Failed to fetch ROGUE balance: #{inspect(reason)}")
-        {:noreply, socket}
-    end
+    # Refresh token_balances from Mnesia and update socket
+    token_balances = EngagementTracker.get_user_token_balances(user_id)
+    Logger.info("[MemberLive] Refreshed token_balances from Mnesia: #{inspect(token_balances)}")
+    {:noreply, assign(socket, :token_balances, token_balances)}
   end
 
   # Load activities from Mnesia tables (post reads, video watches, X shares) and notifications
@@ -843,7 +825,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   # Fetch all on-chain token balances via BalanceAggregator and update Mnesia (async)
-  defp maybe_refresh_bux_balance(%{id: user_id, smart_wallet_address: wallet})
+  defp maybe_refresh_bux_balance(%{id: user_id, wallet_address: wallet})
        when is_binary(wallet) and wallet != "" do
     BuxMinter.sync_user_balances_async(user_id, wallet)
   end
@@ -985,7 +967,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
       Logger.error("Missing required fields in claim: #{inspect(claim)}")
       {:error, "Invalid claim data"}
     else
-      wallet_address = user.smart_wallet_address
+      wallet_address = user.wallet_address
 
       # Check if user already received reward for this post
       already_rewarded = already_rewarded?(user.id, post_id, claim_type)
@@ -999,7 +981,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
             "read" ->
               # Mint BUX for reading
               case BuxMinter.mint_bux(wallet_address, earned_amount, user.id, post_id, :read, "BUX") do
-                {:ok, %{"transactionHash" => tx_hash}} ->
+                {:ok, %{"signature" => tx_hash}} ->
                   # Record in Mnesia with transaction hash
                   EngagementTracker.record_read_reward(user.id, post_id, earned_amount, tx_hash)
                   # Deduct from pool
@@ -1013,7 +995,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
             "video" ->
               # Mint BUX for video watching
               case BuxMinter.mint_bux(wallet_address, earned_amount, user.id, post_id, :video_watch, "BUX") do
-                {:ok, %{"transactionHash" => tx_hash}} ->
+                {:ok, %{"signature" => tx_hash}} ->
                   # Get earnable_time from claim (stored at root level, not in metrics)
                   earnable_time = claim["earnableTime"] || 0
 
@@ -1101,14 +1083,14 @@ defmodule BlocksterV2Web.MemberLive.Show do
   def earning_type_label(:signup), do: "Signup"
   def earning_type_label(:phone_verified), do: "Phone Verified"
   def earning_type_label(:bux_bet_loss), do: "BUX Bet"
-  def earning_type_label(:rogue_bet_loss), do: "ROGUE Bet"
+  def earning_type_label(:sol_bet_loss), do: "SOL Bet"
   def earning_type_label(:shop_purchase), do: "Shop Purchase"
   def earning_type_label(_), do: "Other"
 
   def earning_type_style(:signup), do: "bg-green-100 text-green-800"
   def earning_type_style(:phone_verified), do: "bg-blue-100 text-blue-800"
   def earning_type_style(:bux_bet_loss), do: "bg-purple-100 text-purple-800"
-  def earning_type_style(:rogue_bet_loss), do: "bg-indigo-100 text-indigo-800"
+  def earning_type_style(:sol_bet_loss), do: "bg-indigo-100 text-indigo-800"
   def earning_type_style(:shop_purchase), do: "bg-orange-100 text-orange-800"
   def earning_type_style(_), do: "bg-gray-100 text-gray-800"
 

@@ -218,7 +218,7 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
       hub_id = post && post.hub_id
 
       # Get user's wallet address
-      case user.smart_wallet_address do
+      case user.wallet_address do
         nil ->
           Social.mark_failed(user_id, campaign_id, "User has no wallet address")
           {:error, "No wallet address"}
@@ -227,7 +227,7 @@ defmodule BlocksterV2.Social.ShareRewardProcessor do
           # Use campaign post_id for tracking, include hub_id for hub BUX totals
           case BuxMinter.mint_bux(wallet_address, bux_amount, user_id, post_id, :x_share, "BUX", hub_id) do
             {:ok, response} ->
-              tx_hash = response["transactionHash"]
+              tx_hash = response["signature"]
 
               # Deduct from post pool
               BlocksterV2.EngagementTracker.deduct_from_pool_guaranteed(post_id, bux_amount)

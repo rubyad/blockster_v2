@@ -1,3 +1,7 @@
+> **Note**: This document was written for the EVM/Rogue Chain architecture. Blockster has since migrated to Solana. The core concepts still apply, but EVM-specific details (smart contracts, Thirdweb, ROGUE token, Rogue Chain RPC, ERC-4337) have been replaced. See [solana_migration_plan.md](solana_migration_plan.md) for current architecture.
+
+---
+
 # BUX Minter Service
 
 > **Note (January 2026)**: Hub tokens have been removed from the application. The BUX Minter now only mints BUX tokens for rewards. ROGUE (native chain token) is used for BUX Booster betting. This document has been updated to reflect the simplified token system.

@@ -33,7 +33,7 @@ module.exports = {
       httpHeaders: {}
     },
     arbitrumOne: {
-      url: "https://snowy-little-cloud.arbitrum-mainnet.quiknode.pro/f4051c078b1e168f278c0780d1d12b817152c84d",
+      url: "https://newest-old-meme.arbitrum-mainnet.quiknode.pro/c20d73f597f96ac76924c7d1928b95a58d563869/",
       chainId: 42161,
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       timeout: 120000

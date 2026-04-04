@@ -1,3 +1,7 @@
+> **DEPRECATED**: This document describes EVM/Rogue Chain functionality that has been replaced by the Solana migration. See [solana_migration_plan.md](solana_migration_plan.md) and [solana_build_history.md](solana_build_history.md) for current architecture.
+
+---
+
 # BUX Booster Bet Settlement Recovery
 
 ## Overview

@@ -151,37 +151,27 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:user_id, :campaign_id, :status, :rewarded_at]
     },
+    # LEGACY (EVM) — No longer read by any code. Replaced by user_solana_balances.
+    # Kept to avoid Mnesia schema errors on existing nodes. Do NOT write to this table.
     %{
       name: :user_bux_balances,
       type: :set,
       attributes: [
-        :user_id,                   # Primary key
-        :user_smart_wallet,         # User's smart wallet address
-        :updated_at,                # Last update timestamp
-        :aggregate_bux_balance,     # Total of all token balances combined
-        :bux_balance,               # BUX token balance
-        :moonbux_balance,           # moonBUX token balance
-        :neobux_balance,            # neoBUX token balance
-        :roguebux_balance,          # rogueBUX token balance
-        :flarebux_balance,          # flareBUX token balance
-        :nftbux_balance,            # nftBUX token balance
-        :nolchabux_balance,         # nolchaBUX token balance
-        :solbux_balance,            # solBUX token balance
-        :spacebux_balance,          # spaceBUX token balance
-        :tronbux_balance,           # tronBUX token balance
-        :tranbux_balance            # tranBUX token balance
+        :user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
+        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
+        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
+        :spacebux_balance, :tronbux_balance, :tranbux_balance
       ],
       index: [:user_smart_wallet, :aggregate_bux_balance]
     },
+    # LEGACY (EVM) — No longer read by any code. ROGUE token does not exist on Solana.
+    # Kept to avoid Mnesia schema errors on existing nodes. Do NOT write to this table.
     %{
       name: :user_rogue_balances,
       type: :set,
       attributes: [
-        :user_id,                   # Primary key
-        :user_smart_wallet,         # User's smart wallet address
-        :updated_at,                # Last update timestamp
-        :rogue_balance_rogue_chain, # ROGUE balance on Rogue Chain (native token)
-        :rogue_balance_arbitrum     # ROGUE balance on Arbitrum One (ERC-20 token)
+        :user_id, :user_smart_wallet, :updated_at,
+        :rogue_balance_rogue_chain, :rogue_balance_arbitrum
       ],
       index: [:user_smart_wallet]
     },
@@ -421,6 +411,24 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:overall_multiplier]
     },
+    # Unified multiplier V2 - Solana migration (Phase 5)
+    # New formula: X * Phone * SOL * Email (replaces ROGUE + Wallet)
+    %{
+      name: :unified_multipliers_v2,
+      type: :set,
+      attributes: [
+        :user_id,                  # PRIMARY KEY - user ID
+        :x_score,                  # Raw X score (0-100), NOT the multiplier
+        :x_multiplier,             # Calculated X multiplier (1.0-10.0)
+        :phone_multiplier,         # Phone verification multiplier (0.5-2.0)
+        :sol_multiplier,           # SOL balance multiplier (0.0-5.0)
+        :email_multiplier,         # Email verification multiplier (1.0-2.0)
+        :overall_multiplier,       # Product of all four multipliers (0.0-200.0)
+        :last_updated,             # Unix timestamp of last update
+        :created_at                # Unix timestamp of creation
+      ],
+      index: [:overall_multiplier]
+    },
     # ===== REFERRAL SYSTEM TABLES =====
     # Referral mappings: user_id -> referrer info
     %{
@@ -570,6 +578,73 @@ defmodule BlocksterV2.MnesiaInitializer do
       name: :bot_daily_rewards,
       type: :set,
       attributes: [:key, :date, :total_bux_given, :user_reward_counts],
+      index: []
+    },
+    # Solana balance tracking (Phase 3 migration — clean schema, does NOT replace user_bux_balances)
+    %{
+      name: :user_solana_balances,
+      type: :set,
+      attributes: [
+        :user_id,                   # PRIMARY KEY
+        :wallet_address,            # Solana pubkey (base58)
+        :updated_at,                # Unix timestamp
+        :sol_balance,               # SOL balance (float, lamports / 1e9)
+        :bux_balance                # SPL BUX balance (float, raw / 1e9)
+      ],
+      index: [:wallet_address]
+    },
+    # Coin Flip games on Solana (Phase 6 migration — clean schema, does NOT modify bux_booster_onchain_games)
+    %{
+      name: :coin_flip_games,
+      type: :ordered_set,
+      attributes: [
+        :game_id,                   # PRIMARY KEY - 32-char hex string
+        :user_id,                   # User who played
+        :wallet_address,            # Player's Solana wallet (base58)
+        :server_seed,               # Hex string (64 chars), revealed after settlement
+        :commitment_hash,           # SHA256 hex hash (no 0x prefix for Solana)
+        :nonce,                     # Player's nonce for this game (integer)
+        :status,                    # :pending | :committed | :placed | :settled | :expired
+        :vault_type,                # :sol | :bux (replaces token_address from EVM)
+        :bet_amount,                # Amount wagered (integer tokens or lamports)
+        :difficulty,                # Game difficulty (-4 to 5)
+        :predictions,               # List of predictions [:heads, :tails, ...]
+        :results,                   # List of results (calculated after bet placed)
+        :won,                       # Boolean - did player win
+        :payout,                    # Amount won (0 if lost)
+        :commitment_sig,            # Solana tx signature for commitment
+        :bet_sig,                   # Solana tx signature for bet placement
+        :settlement_sig,            # Solana tx signature for settlement
+        :created_at,                # Unix timestamp when game started
+        :settled_at                 # Unix timestamp when settled (nil until settled)
+      ],
+      index: [:user_id, :wallet_address, :status, :created_at]
+    },
+    # LP token balances for bankroll pools (Phase 7 — bSOL and bBUX balances)
+    %{
+      name: :user_lp_balances,
+      type: :set,
+      attributes: [
+        :user_id,                   # PRIMARY KEY
+        :wallet_address,            # Solana pubkey (base58)
+        :updated_at,                # Unix timestamp
+        :bsol_balance,              # bSOL LP token balance (float)
+        :bbux_balance               # bBUX LP token balance (float)
+      ],
+      index: [:wallet_address]
+    },
+    # Authority wallet gas tracking — daily mint cost monitoring
+    %{
+      name: :authority_gas_tracker,
+      type: :set,
+      attributes: [
+        :date,                       # PRIMARY KEY - Date struct (e.g. ~D[2026-04-03])
+        :mint_count,                 # Number of mints today (integer)
+        :ata_creations,              # Number of new ATAs created today (integer)
+        :total_tx_fees_lamports,     # Total tx fees in lamports (integer)
+        :total_ata_rent_lamports,    # Total ATA rent costs in lamports (integer)
+        :authority_balance_lamports  # Latest authority SOL balance in lamports (integer)
+      ],
       index: []
     }
   ]

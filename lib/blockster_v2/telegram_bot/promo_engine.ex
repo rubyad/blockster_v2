@@ -476,11 +476,11 @@ defmodule BlocksterV2.TelegramBot.PromoEngine do
          :ok <- check_user_reward_limit(user_id) do
       user = Repo.get(User, user_id)
 
-      if user && user.smart_wallet_address do
-        case BuxMinter.mint_bux(user.smart_wallet_address, amount, user_id, nil, reason) do
+      if user && user.wallet_address do
+        case BuxMinter.mint_bux(user.wallet_address, amount, user_id, nil, reason) do
           {:ok, _} ->
             record_reward(user_id, amount)
-            BuxMinter.sync_user_balances_async(user_id, user.smart_wallet_address, force: true)
+            BuxMinter.sync_user_balances_async(user_id, user.wallet_address, force: true)
             {:ok, amount}
 
           error ->

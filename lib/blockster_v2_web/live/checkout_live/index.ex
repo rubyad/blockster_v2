@@ -8,8 +8,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   require Logger
 
-  @rogue_discount_rate Decimal.new("0.10")
-  @rate_lock_ttl_seconds 600
+  # ROGUE payment removed in Phase 9 (Solana migration)
+  # @rogue_discount_rate and @rate_lock_ttl_seconds no longer needed
 
   @impl true
   def mount(%{"order_id" => order_id}, _session, socket) do
@@ -43,6 +43,7 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> assign_payment_defaults()}
 
           %Order{status: s} when s not in ["pending", "bux_pending", "bux_paid", "rogue_pending", "rogue_paid", "helio_pending"] ->
+            # Note: rogue_pending/rogue_paid kept for backwards compat with old orders
             {:ok,
              socket
              |> put_flash(:error, "This order cannot be modified")
@@ -70,8 +71,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> assign(:rogue_payment_status, if(Decimal.gt?(order.rogue_payment_amount || Decimal.new("0"), 0), do: :completed, else: :pending))
              |> assign(:helio_payment_status, :processing)}
 
-          %Order{status: "rogue_paid"} = order ->
-            # BUX + ROGUE already paid, resume at payment step
+          %Order{status: s} = order when s in ["rogue_paid", "rogue_pending"] ->
+            # Legacy ROGUE statuses — treat as bux_paid for backwards compat
             {:ok,
              socket
              |> assign_order(order)
@@ -85,21 +86,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> assign(:bux_payment_status, if(order.bux_tokens_burned > 0, do: :completed, else: :pending))
              |> assign(:rogue_payment_status, :completed)}
 
-          %Order{status: "rogue_pending"} = order ->
-            # ROGUE payment in progress, resume at payment step
-            {:ok,
-             socket
-             |> assign_order(order)
-             |> assign(:step, :payment)
-             |> assign(:shipping_phase, :address)
-             |> assign(:page_title, "Checkout")
-             |> assign_shipping_form(order)
-             |> assign_shipping_rates(order)
-             |> assign_rogue_defaults()
-             |> assign_payment_defaults()
-             |> assign(:bux_payment_status, if(order.bux_tokens_burned > 0, do: :completed, else: :pending))
-             |> assign(:rogue_payment_status, :processing)}
-
           %Order{status: "bux_paid"} = order ->
             # BUX already paid, resume at payment step
             {:ok,
@@ -112,7 +98,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> assign_shipping_rates(order)
              |> assign_rogue_defaults()
              |> assign_payment_defaults()
-             |> assign(:bux_payment_status, :completed)}
+             |> assign(:bux_payment_status, :completed)
+             |> assign(:rogue_payment_status, :pending)}
 
           order ->
             # If shipping already saved with a rate, show rate selection
@@ -182,7 +169,7 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              socket
              |> assign_order(order)
              |> assign(:step, :review)
-             |> lock_rogue_rate()}
+             |> assign(:helio_amount, remaining_after_bux(order))}
 
           {:error, _changeset} ->
             {:noreply, put_flash(socket, :error, "Failed to save shipping option")}
@@ -190,26 +177,15 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     end
   end
 
-  def handle_event("set_rogue_amount", %{"amount" => amount_str}, socket) do
-    rogue_usd = parse_decimal(amount_str)
-    {:noreply, recalculate_rogue(socket, rogue_usd)}
+  # ROGUE payment removed in Phase 9 (Solana migration) — no-op for backwards compat
+  def handle_event("set_rogue_amount", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("proceed_to_payment", _params, socket) do
     order = socket.assigns.order
-    rogue_usd = socket.assigns.rogue_usd_amount
-    rogue_discount_saved = socket.assigns.rogue_discount_saved
-    rogue_tokens = socket.assigns.rogue_tokens
-    helio = socket.assigns.helio_amount
-
-    {:ok, order} =
-      order
-      |> Order.rogue_payment_changeset(%{
-        rogue_payment_amount: rogue_usd,
-        rogue_discount_amount: rogue_discount_saved,
-        rogue_tokens_sent: rogue_tokens
-      })
-      |> BlocksterV2.Repo.update()
+    # Remaining after BUX discount goes entirely to Helio (no ROGUE step)
+    helio = remaining_after_bux(order)
 
     if Decimal.gt?(helio, 0) do
       {:ok, order} =
@@ -319,8 +295,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
     # Sync on-chain balance
     user = socket.assigns.current_user
-    if user.smart_wallet_address do
-      BlocksterV2.BuxMinter.sync_user_balances_async(user.id, user.smart_wallet_address, force: true)
+    if user.wallet_address do
+      BlocksterV2.BuxMinter.sync_user_balances_async(user.id, user.wallet_address, force: true)
     end
 
     {:noreply,
@@ -354,78 +330,24 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     {:noreply, advance_after_bux(socket)}
   end
 
-  # ── ROGUE Payment ──────────────────────────────────────────────────────────
+  # ── ROGUE Payment (deprecated — Solana migration Phase 9) ──────────────────
+  # These handlers are kept as no-ops for backwards compatibility with any
+  # in-flight orders that may still reference ROGUE payment events.
 
   def handle_event("initiate_rogue_payment", _params, socket) do
-    order = socket.assigns.order
-    rogue_tokens = order.rogue_tokens_sent
-
-    if is_nil(rogue_tokens) or Decimal.compare(rogue_tokens, 0) in [:eq, :lt] do
-      {:noreply, advance_after_rogue(socket)}
-    else
-      # Update order status to rogue_pending
-      {:ok, order} = Orders.update_order(order, %{status: "rogue_pending"})
-      order = Orders.get_order(order.id)
-
-      # Convert ROGUE tokens to wei (18 decimals) for the JS hook
-      amount_wei =
-        rogue_tokens
-        |> Decimal.mult(Decimal.new("1000000000000000000"))
-        |> Decimal.round(0)
-        |> Decimal.to_string()
-
-      socket =
-        socket
-        |> assign_order(order)
-        |> assign(:rogue_payment_status, :processing)
-        |> push_event("initiate_rogue_payment", %{
-          amount_wei: amount_wei,
-          order_id: order.id
-        })
-
-      {:noreply, socket}
-    end
+    {:noreply, advance_after_bux(socket)}
   end
 
-  def handle_event("rogue_payment_complete", %{"tx_hash" => hash}, socket) do
-    order = socket.assigns.order
-
-    {:ok, order} = Orders.complete_rogue_payment(order, hash)
-    order = Orders.get_order(order.id)
-
-    # Sync on-chain balance
-    user = socket.assigns.current_user
-    if user.smart_wallet_address do
-      BlocksterV2.BuxMinter.sync_user_balances_async(user.id, user.smart_wallet_address, force: true)
-    end
-
-    socket =
-      socket
-      |> assign_order(order)
-      |> assign(:rogue_payment_status, :completed)
-      |> put_flash(:info, "ROGUE payment confirmed!")
-
-    # Check if BUX + ROGUE covers full price — auto-advance
-    {:noreply, maybe_complete_after_rogue(socket)}
+  def handle_event("rogue_payment_complete", _params, socket) do
+    {:noreply, socket}
   end
 
-  def handle_event("rogue_payment_error", %{"error" => err}, socket) do
-    order = socket.assigns.order
-
-    # Revert order status to bux_paid (or pending if no BUX)
-    revert_status = if order.bux_tokens_burned > 0, do: "bux_paid", else: "pending"
-    {:ok, order} = Orders.update_order(order, %{status: revert_status})
-    order = Orders.get_order(order.id)
-
-    {:noreply,
-     socket
-     |> assign_order(order)
-     |> assign(:rogue_payment_status, :failed)
-     |> put_flash(:error, "ROGUE payment failed: #{err}")}
+  def handle_event("rogue_payment_error", _params, socket) do
+    {:noreply, put_flash(socket, :error, "ROGUE payments are no longer supported.")}
   end
 
   def handle_event("advance_after_rogue", _params, socket) do
-    {:noreply, advance_after_rogue(socket)}
+    {:noreply, advance_after_bux(socket)}
   end
 
   # ── Helio Payment ────────────────────────────────────────────────────────
@@ -519,11 +441,11 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
          |> assign(:step, :confirmation)}
 
       true ->
-        # Remaining balance needs ROGUE/Helio — proceed to confirmation with info
+        # Remaining balance needs Helio — proceed to confirmation with info
         {:noreply,
          socket
          |> assign(:step, :confirmation)
-         |> put_flash(:info, "Order placed! ROGUE/Helio payment processing will be available soon.")}
+         |> put_flash(:info, "Order placed! Card/crypto payment processing will be available soon.")}
     end
   end
 
@@ -722,9 +644,9 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> assign(:helio_payment_status, helio_status)
   end
 
+  # ROGUE defaults are zeroed out — ROGUE payment removed in Solana migration.
+  # Assigns kept because template and other functions reference them.
   defp assign_rogue_defaults(socket) do
-    rogue_balance = get_user_rogue_balance(socket.assigns.current_user)
-
     socket
     |> assign(:rogue_usd_amount, Decimal.new("0"))
     |> assign(:rogue_tokens, Decimal.new("0"))
@@ -732,60 +654,13 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> assign(:helio_amount, remaining_after_bux(socket.assigns.order))
     |> assign(:rogue_rate_locked, nil)
     |> assign(:rogue_rate_locked_at, nil)
-    |> assign(:rogue_balance, rogue_balance)
-  end
-
-  defp lock_rogue_rate(socket) do
-    rate = get_current_rogue_rate()
-
-    socket
-    |> assign(:rogue_rate_locked, rate)
-    |> assign(:rogue_rate_locked_at, System.monotonic_time(:second))
-    |> assign(:helio_amount, remaining_after_bux(socket.assigns.order))
-  end
-
-  defp recalculate_rogue(socket, rogue_usd) do
-    order = socket.assigns.order
-    remaining = remaining_after_bux(order)
-    rate = socket.assigns.rogue_rate_locked || get_current_rogue_rate()
-    discount_rate = @rogue_discount_rate
-
-    # Calculate max USD the user's ROGUE balance can cover (with 10% discount applied)
-    rogue_balance = socket.assigns[:rogue_balance] || Decimal.new("0")
-    # User's ROGUE buys at 90% rate, so max_usd = balance * rate / 0.9
-    max_usd_from_balance =
-      if Decimal.gt?(rate, 0),
-        do: Decimal.div(Decimal.mult(rogue_balance, rate), Decimal.sub(Decimal.new("1"), discount_rate)),
-        else: Decimal.new("0")
-
-    # Clamp to remaining amount AND user's balance
-    rogue_usd = Decimal.min(rogue_usd, remaining)
-    rogue_usd = Decimal.min(rogue_usd, max_usd_from_balance)
-    rogue_usd = Decimal.max(rogue_usd, Decimal.new("0"))
-
-    # Calculate: user pays 10% less in ROGUE
-    discounted = Decimal.mult(rogue_usd, Decimal.sub(Decimal.new("1"), discount_rate))
-    tokens = if Decimal.gt?(rate, 0), do: Decimal.div(discounted, rate), else: Decimal.new("0")
-    saved = Decimal.sub(rogue_usd, discounted)
-    helio = Decimal.sub(remaining, rogue_usd)
-
-    socket
-    |> assign(:rogue_usd_amount, rogue_usd)
-    |> assign(:rogue_tokens, Decimal.round(tokens, 2))
-    |> assign(:rogue_discount_saved, Decimal.round(saved, 2))
-    |> assign(:helio_amount, Decimal.max(helio, Decimal.new("0")))
+    |> assign(:rogue_balance, Decimal.new("0"))
   end
 
   defp advance_after_bux(socket) do
     order = socket.assigns.order
 
     cond do
-      Decimal.gt?(order.rogue_payment_amount || Decimal.new("0"), 0) ->
-        # ROGUE payment next — enable the ROGUE payment card
-        socket
-        |> assign(:rogue_payment_status, :pending)
-        |> put_flash(:info, "BUX payment complete! Now pay with ROGUE.")
-
       Decimal.gt?(order.helio_payment_amount || Decimal.new("0"), 0) ->
         # Helio payment next — enable the Helio payment card
         socket
@@ -805,49 +680,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     end
   end
 
-  defp advance_after_rogue(socket) do
-    order = socket.assigns.order
-
-    cond do
-      Decimal.gt?(order.helio_payment_amount || Decimal.new("0"), 0) ->
-        # Helio payment next — enable the Helio payment card
-        socket
-        |> assign(:helio_payment_status, :pending)
-        |> put_flash(:info, "ROGUE payment complete! Now pay with card or crypto.")
-
-      true ->
-        # Fully paid — BUX + ROGUE covered everything
-        {:ok, order} = Orders.update_order(order, %{status: "paid"})
-        order = Orders.get_order(order.id)
-
-        Orders.process_paid_order(order)
-
-        socket
-        |> assign_order(order)
-        |> assign(:step, :confirmation)
-    end
-  end
-
-  defp maybe_complete_after_rogue(socket) do
-    order = socket.assigns.order
-    helio = order.helio_payment_amount || Decimal.new("0")
-
-    if Decimal.compare(helio, 0) in [:eq, :lt] do
-      # BUX + ROGUE covers everything — mark as paid
-      {:ok, order} = Orders.update_order(order, %{status: "paid"})
-      order = Orders.get_order(order.id)
-
-      Orders.process_paid_order(order)
-
-      socket
-      |> assign_order(order)
-      |> assign(:step, :confirmation)
-      |> put_flash(:info, "Payment complete! Your order has been confirmed.")
-    else
-      socket
-    end
-  end
-
   defp remaining_after_bux(%Order{} = order) do
     shipping = order.shipping_cost || Decimal.new("0")
 
@@ -856,35 +688,10 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> Decimal.sub(order.bux_discount_amount)
   end
 
-  defp get_current_rogue_rate do
-    case :mnesia.dirty_read(:token_prices, "rogue") do
-      [{:token_prices, "rogue", price, _}] when is_number(price) ->
-        Decimal.from_float(price)
-
-      _ ->
-        Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-    end
-  rescue
-    _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-  catch
-    :exit, _ -> Decimal.new(Application.get_env(:blockster_v2, :rogue_usd_price, "0.00006"))
-  end
-
-  # Table: {:user_rogue_balances, user_id, wallet, updated_at, rogue_chain_balance, arbitrum_balance}
-  defp get_user_rogue_balance(user) do
-    case :mnesia.dirty_read({:user_rogue_balances, user.id}) do
-      [record] ->
-        balance = elem(record, 4) || 0.0
-        Decimal.from_float(balance * 1.0)
-
-      _ ->
-        Decimal.new("0")
-    end
-  rescue
-    _ -> Decimal.new("0")
-  catch
-    :exit, _ -> Decimal.new("0")
-  end
+  # ROGUE rate and balance functions deprecated — Solana migration Phase 9
+  # Kept as stubs returning zero for any remaining references.
+  defp get_current_rogue_rate, do: Decimal.new("0")
+  defp get_user_rogue_balance(_user), do: Decimal.new("0")
 
   defp parse_decimal(str) when is_binary(str) do
     case Decimal.parse(str) do
@@ -896,13 +703,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   defp parse_decimal(_), do: Decimal.new("0")
 
-  # Check if ROGUE rate lock has expired (10 min TTL)
-  def rate_expired?(socket) do
-    case socket.assigns[:rogue_rate_locked_at] do
-      nil -> true
-      locked_at -> System.monotonic_time(:second) - locked_at > @rate_lock_ttl_seconds
-    end
-  end
+  # ROGUE rate lock check — deprecated, always returns true (no ROGUE payments)
+  def rate_expired?(_socket), do: true
 
   # Template helpers
   def format_usd(decimal) do

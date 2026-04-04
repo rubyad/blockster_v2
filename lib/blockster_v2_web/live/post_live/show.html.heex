@@ -27,7 +27,7 @@
         <%= if @video_tx_ids && length(@video_tx_ids) > 0 do %>
           <div class="mt-2 pt-2 border-t border-white/20 space-y-1.5 max-h-32 overflow-y-auto">
             <%= for tx <- @video_tx_ids do %>
-              <a href={"https://roguescan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center justify-between gap-2 cursor-pointer group">
+              <a href={"https://solscan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center justify-between gap-2 cursor-pointer group">
                 <span class="flex items-center gap-1">
                   <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-75 group-hover:opacity-100"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                   <span class="font-mono"><%= String.slice(tx.tx_hash, 0..9) %>...</span>
@@ -52,7 +52,7 @@
         </div>
         <%= if @read_tx_id do %>
           <div class="mt-2 pt-2 border-t border-white/20">
-            <a href={"https://roguescan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
+            <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               <span>View Transaction</span>
             </a>
@@ -77,7 +77,7 @@
             </div>
             <%= if @read_tx_id do %>
               <div class="mt-2 pt-2 border-t border-white/20">
-                <a href={"https://roguescan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1 cursor-pointer">
+                <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1 cursor-pointer">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                   <span>View Transaction</span>
                 </a>
@@ -364,83 +364,18 @@
   <div class="max-w-7xl mx-auto px-4 pt-[62px] md:pt-32 pb-16">
     <div class="flex gap-8 justify-center">
 
-      <!-- LEFT SIDEBAR - Shop (Desktop only) -->
+      <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
         <div class="sticky top-36 space-y-4">
-          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider">Shop</div>
-
-          <%= for product <- @left_sidebar_products do %>
-            <% first_image = Enum.at(product.images, 0) %>
-            <% second_image = Enum.at(product.images, 1) || first_image %>
-            <% price = if Enum.any?(product.variants), do: List.first(product.variants).price, else: Decimal.new(0) %>
-            <% price_float = Decimal.to_float(price) %>
-            <% discounted_price = price_float * (1 - (product.bux_max_discount || 0) / 100) %>
-            <.link navigate={~p"/shop/#{product.handle}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
-              <div class="w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-                <%= if first_image do %>
-                  <div
-                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
-                    style="transform-style: preserve-3d;"
-                  >
-                    <%!-- Front face (first image) --%>
-                    <div class="absolute inset-0" style="backface-visibility: hidden;">
-                      <img
-                        src={ImageKit.w500_h500(first_image.src)}
-                        alt={product.title}
-                        class="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                    <%!-- Back face (second image or same if only one) --%>
-                    <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                      <img
-                        src={ImageKit.w500_h500(second_image.src)}
-                        alt={product.title}
-                        class="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                <% end %>
-                <%!-- Hub logo or Blockster lightning bolt --%>
-                <div class="absolute top-2 left-2 z-10">
-                  <%= if product.hub && product.hub.logo_url do %>
-                    <img
-                      src={ImageKit.w128_h128(product.hub.logo_url)}
-                      alt={product.hub.name}
-                      class="w-6 h-6 rounded-full object-cover shadow-sm"
-                    />
-                  <% else %>
-                    <SharedComponents.lightning_icon size={24} />
-                  <% end %>
-                </div>
-              </div>
-              <div class="px-3 py-3">
-                <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">
-                  {product.title}
-                </h4>
-                <div class="flex flex-col items-center mb-2">
-                  <span class="text-xs font-haas_roman_55 text-[#9CA3AF] line-through">
-                    $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
-                  </span>
-                  <%= if (product.bux_max_discount || 0) > 0 do %>
-                    <span class="text-lg font-haas_medium_65 text-black">
-                      $<%= :erlang.float_to_binary(discounted_price, decimals: 2) %>
-                    </span>
-                    <span class="text-[10px] font-haas_roman_55 text-[#6B7280]">
-                      with BUX tokens
-                    </span>
-                  <% else %>
-                    <span class="text-lg font-haas_medium_65 text-[#141414]">
-                      $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
-                    </span>
-                  <% end %>
-                </div>
-                <div class="w-full py-1.5 bg-black text-white font-haas_medium_65 rounded-full text-xs text-center">
-                  Buy Now
-                </div>
-              </div>
-            </.link>
+          <%= for banner <- @left_sidebar_banners do %>
+            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
+              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+            </a>
+          <% end %>
+          <%= if @left_sidebar_banners == [] do %>
+            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
+            </div>
           <% end %>
         </div>
       </aside>
@@ -537,13 +472,13 @@
                   <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full object-cover" /><%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> BUX</span>
                 </div>
                 <%= if @share_reward[:tx_hash] do %>
-                  <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on RogueScan">
+                  <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on Solscan">
                     <svg class="w-4 h-4 text-[#141414]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                   </a>
                 <% end %>
               </div>
               <%!-- Mobile: Black share reward badge (same as post cards) - clickable to tx --%>
-              <a href={"https://roguescan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
+              <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
                 <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
@@ -930,83 +865,18 @@
 
       </main>
 
-      <!-- RIGHT SIDEBAR - Shop (Desktop only) -->
+      <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
         <div class="sticky top-36 space-y-4">
-          <div class="text-xs font-haas_medium_65 text-[#141414] uppercase tracking-wider">Shop</div>
-
-          <%= for product <- @right_sidebar_products do %>
-            <% first_image = Enum.at(product.images, 0) %>
-            <% second_image = Enum.at(product.images, 1) || first_image %>
-            <% price = if Enum.any?(product.variants), do: List.first(product.variants).price, else: Decimal.new(0) %>
-            <% price_float = Decimal.to_float(price) %>
-            <% discounted_price = price_float * (1 - (product.bux_max_discount || 0) / 100) %>
-            <.link navigate={~p"/shop/#{product.handle}"} class="rounded-lg border border-[#1414141A] bg-white hover:shadow-lg transition-shadow cursor-pointer block">
-              <div class="w-full overflow-hidden rounded-t-lg group" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-                <%= if first_image do %>
-                  <div
-                    class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover:[transform:rotateY(180deg)]"
-                    style="transform-style: preserve-3d;"
-                  >
-                    <%!-- Front face (first image) --%>
-                    <div class="absolute inset-0" style="backface-visibility: hidden;">
-                      <img
-                        src={ImageKit.w500_h500(first_image.src)}
-                        alt={product.title}
-                        class="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                    <%!-- Back face (second image or same if only one) --%>
-                    <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                      <img
-                        src={ImageKit.w500_h500(second_image.src)}
-                        alt={product.title}
-                        class="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                <% end %>
-                <%!-- Hub logo or Blockster lightning bolt --%>
-                <div class="absolute top-2 left-2 z-10">
-                  <%= if product.hub && product.hub.logo_url do %>
-                    <img
-                      src={ImageKit.w128_h128(product.hub.logo_url)}
-                      alt={product.hub.name}
-                      class="w-6 h-6 rounded-full object-cover shadow-sm"
-                    />
-                  <% else %>
-                    <SharedComponents.lightning_icon size={24} />
-                  <% end %>
-                </div>
-              </div>
-              <div class="px-3 py-3">
-                <h4 class="text-sm font-haas_medium_65 text-[#101D36] text-center mb-1.5 line-clamp-1">
-                  {product.title}
-                </h4>
-                <div class="flex flex-col items-center mb-2">
-                  <span class="text-xs font-haas_roman_55 text-[#9CA3AF] line-through">
-                    $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
-                  </span>
-                  <%= if (product.bux_max_discount || 0) > 0 do %>
-                    <span class="text-lg font-haas_medium_65 text-black">
-                      $<%= :erlang.float_to_binary(discounted_price, decimals: 2) %>
-                    </span>
-                    <span class="text-[10px] font-haas_roman_55 text-[#6B7280]">
-                      with BUX tokens
-                    </span>
-                  <% else %>
-                    <span class="text-lg font-haas_medium_65 text-[#141414]">
-                      $<%= :erlang.float_to_binary(price_float, decimals: 2) %>
-                    </span>
-                  <% end %>
-                </div>
-                <div class="w-full py-1.5 bg-black text-white font-haas_medium_65 rounded-full text-xs text-center">
-                  Buy Now
-                </div>
-              </div>
-            </.link>
+          <%= for banner <- @right_sidebar_banners do %>
+            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
+              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+            </a>
+          <% end %>
+          <%= if @right_sidebar_banners == [] do %>
+            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
+            </div>
           <% end %>
         </div>
       </aside>

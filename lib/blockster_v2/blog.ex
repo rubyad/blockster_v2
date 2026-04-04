@@ -1039,10 +1039,13 @@ defmodule BlocksterV2.Blog do
   Lists all active hubs with followers preloaded.
   """
   def list_hubs_with_followers do
-    Hub
-    |> where([h], h.is_active == true)
-    |> order_by([h], asc: h.name)
-    |> preload([:followers, :posts, :events])
+    from(h in Hub,
+      where: h.is_active == true,
+      left_join: p in assoc(h, :posts),
+      group_by: h.id,
+      order_by: [desc: count(p.id)],
+      preload: [:followers, :posts, :events]
+    )
     |> Repo.all()
   end
 

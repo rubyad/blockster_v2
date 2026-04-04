@@ -19,23 +19,23 @@
               <!-- Name and Username -->
               <div class="flex-1 min-w-0">
                 <h1 class="text-2xl sm:text-3xl font-haas_bold_75 text-gray-900 tracking-tight">
-                  My Blockster Wallet
+                  My Wallet
                 </h1>
-                <%= if @member.smart_wallet_address do %>
+                <%= if @member.wallet_address do %>
                   <div class="flex items-center gap-2 mt-2">
                     <a
-                      href={"https://roguescan.io/address/#{@member.smart_wallet_address}?tab=token_transfers"}
+                      href={"https://solscan.io/account/#{@member.wallet_address}?cluster=devnet"}
                       target="_blank"
                       rel="noopener noreferrer"
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-xs font-mono text-gray-400 hover:text-gray-900 hover:border-gray-200 transition-all cursor-pointer truncate max-w-[280px] sm:max-w-none"
                     >
-                      <%= @member.smart_wallet_address %>
+                      <%= @member.wallet_address %>
                     </a>
                     <button
                       type="button"
                       id={"copy-wallet-#{@member.id}"}
                       phx-hook="CopyToClipboard"
-                      data-copy-text={@member.smart_wallet_address}
+                      data-copy-text={@member.wallet_address}
                       class="p-1.5 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-200 transition-all cursor-pointer flex-shrink-0"
                       title="Copy address"
                     >
@@ -170,7 +170,7 @@
                   <ul class="text-gray-500 text-xs space-y-1">
                     <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0"></span><strong class="text-gray-700">Shopping discounts</strong> — up to 100% off</li>
                     <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0"></span><strong class="text-gray-700">Airdrop entries</strong> — exclusive airdrops</li>
-                    <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0"></span><strong class="text-gray-700">BUX Booster</strong> — win BUX and ROGUE</li>
+                    <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0"></span><strong class="text-gray-700">Coin Flip</strong> — win BUX and SOL</li>
                   </ul>
                 </div>
               </div>
@@ -242,7 +242,7 @@
               <div class="absolute top-full left-0 right-0 mt-2 bg-wallet-card-alt rounded-2xl border border-gray-200 z-50 overflow-hidden shadow-xl">
                 <div class="p-3 bg-gray-900">
                   <h4 class="text-sm font-haas_bold_75 text-white">Your BUX Multipliers</h4>
-                  <p class="text-xs text-white/60">X × Phone × ROGUE × Wallet</p>
+                  <p class="text-xs text-white/60">X × Phone × SOL × Email</p>
                 </div>
                 <div class="divide-y divide-gray-100">
                   <!-- X Account Multiplier -->
@@ -255,7 +255,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                       <%= if @x_multiplier <= 1 do %>
-                        <a href={~p"/auth/x?redirect=/member/#{@member.slug || @member.smart_wallet_address}"} class="text-xs bg-gray-900 text-white w-16 py-1 rounded-lg hover:bg-gray-800 cursor-pointer font-haas_medium_65 text-center">Connect</a>
+                        <a href={~p"/auth/x?redirect=/member/#{@member.slug || @member.wallet_address}"} class="text-xs bg-gray-900 text-white w-16 py-1 rounded-lg hover:bg-gray-800 cursor-pointer font-haas_medium_65 text-center">Connect</a>
                       <% end %>
                       <div class="text-right w-14">
                         <span class={"text-sm font-haas_bold_75 #{if @x_multiplier > 1, do: "text-gray-900", else: "text-gray-600"}"}>
@@ -287,45 +287,39 @@
                       </div>
                     </div>
                   </div>
-                  <!-- ROGUE Holdings Multiplier -->
+                  <!-- SOL Balance Multiplier -->
                   <div class="flex items-center justify-between px-4 py-3">
                     <div class="flex items-center gap-2 shrink-0">
                       <div class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                        <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4" />
+                        <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-4 h-4" />
                       </div>
-                      <span class="text-sm font-haas_medium_65 text-gray-600">ROGUE</span>
+                      <span class="text-sm font-haas_medium_65 text-gray-600">SOL</span>
                     </div>
                     <div class="flex items-center gap-2">
-                      <%= if @rogue_multiplier <= 1 do %>
-                        <button phx-click="switch_tab" phx-value-tab="rogue" class="text-xs bg-gray-900 text-white w-16 py-1 rounded-lg hover:bg-gray-800 cursor-pointer font-haas_medium_65 text-center">Get</button>
-                      <% end %>
                       <div class="text-right w-14">
-                        <span class={"text-sm font-haas_bold_75 #{if @rogue_multiplier > 1, do: "text-gray-900", else: "text-gray-600"}"}>
-                          <%= :erlang.float_to_binary(@rogue_multiplier / 1, decimals: 1) %>x
+                        <span class={"text-sm font-haas_bold_75 #{if @sol_multiplier > 0, do: "text-gray-900", else: "text-gray-600"}"}>
+                          <%= :erlang.float_to_binary(@sol_multiplier / 1, decimals: 1) %>x
                         </span>
                         <span class="text-xs text-gray-600 block">/ 5x</span>
                       </div>
                     </div>
                   </div>
-                  <!-- External Wallet Multiplier -->
+                  <!-- Email Verification Multiplier -->
                   <div class="flex items-center justify-between px-4 py-3">
                     <div class="flex items-center gap-2 shrink-0">
                       <div class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
                         <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                         </svg>
                       </div>
-                      <span class="text-sm font-haas_medium_65 text-gray-600">Wallet</span>
+                      <span class="text-sm font-haas_medium_65 text-gray-600">Email</span>
                     </div>
                     <div class="flex items-center gap-2">
-                      <%= if @wallet_multiplier <= 1 do %>
-                        <button phx-click="switch_tab" phx-value-tab="wallet" class="text-xs bg-gray-900 text-white w-16 py-1 rounded-lg hover:bg-gray-800 cursor-pointer font-haas_medium_65 text-center">Connect</button>
-                      <% end %>
                       <div class="text-right w-14">
-                        <span class={"text-sm font-haas_bold_75 #{if @wallet_multiplier > 1, do: "text-gray-900", else: "text-gray-600"}"}>
-                          <%= :erlang.float_to_binary(@wallet_multiplier / 1, decimals: 1) %>x
+                        <span class={"text-sm font-haas_bold_75 #{if @email_multiplier > 1, do: "text-gray-900", else: "text-gray-600"}"}>
+                          <%= :erlang.float_to_binary(@email_multiplier / 1, decimals: 1) %>x
                         </span>
-                        <span class="text-xs text-gray-600 block">/ 3.6x</span>
+                        <span class="text-xs text-gray-600 block">/ 2x</span>
                       </div>
                     </div>
                   </div>
@@ -343,30 +337,28 @@
                       <span class="text-sm font-haas_bold_75 text-gray-900">
                         <%= :erlang.float_to_binary(@overall_multiplier / 1, decimals: 1) %>x
                       </span>
-                      <span class="text-xs text-gray-600 block">/ 360x</span>
+                      <span class="text-xs text-gray-600 block">/ 200x</span>
                     </div>
                   </div>
                 </div>
                 <!-- Footer info -->
                 <div class="px-4 py-2 bg-gray-50 text-xs text-gray-600 border-t border-gray-200">
-                  Multipliers are combined: X × Phone × ROGUE × Wallet
+                  Multipliers are combined: X × Phone × SOL × Email
                 </div>
               </div>
             <% end %>
           </div>
 
-          <!-- ROGUE Balance Card -->
+          <!-- SOL Balance Card -->
           <div class="bg-wallet-card border border-gray-200 rounded-2xl p-5">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-[10px] font-haas_medium_65 text-gray-500 uppercase tracking-widest">ROGUE Balance</h3>
-              <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="h-5 w-5 rounded-full" />
+              <h3 class="text-[10px] font-haas_medium_65 text-gray-500 uppercase tracking-widest">SOL Balance</h3>
+              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="h-5 w-5 rounded-full" />
             </div>
             <p class="text-2xl sm:text-3xl font-haas_bold_75 text-gray-900 tracking-tight">
-              <%= Number.Currency.number_to_currency(Map.get(@token_balances, "ROGUE", 0), unit: "", precision: 2) %>
+              <%= :erlang.float_to_binary(BlocksterV2.EngagementTracker.get_user_sol_balance(@member.id) / 1, decimals: 4) %>
             </p>
-            <p class="text-[10px] text-gray-600 mt-1">
-              <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="text-gray-900/70 hover:text-gray-900 transition-colors cursor-pointer font-haas_medium_65">Buy ROGUE</a>
-            </p>
+            <p class="text-[10px] text-gray-600 mt-1 font-haas_medium_65">SOL</p>
           </div>
         </div>
         <div class="w-full bg-wallet-card border border-gray-200 rounded-2xl md:p-6 p-3 mt-4">
@@ -395,20 +387,7 @@
               >
                 Events
               </button> %>
-              <button
-                phx-click="switch_tab"
-                phx-value-tab="rogue"
-                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "rogue", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
-              >
-                ROGUE
-              </button>
-              <button
-                phx-click="switch_tab"
-                phx-value-tab="wallet"
-                class={"flex-1 px-3 py-2.5 font-haas_medium_65 text-sm leading-[1.4] cursor-pointer rounded-xl transition-all relative z-10 #{if @active_tab == "wallet", do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700"}"}
-              >
-                External Wallet
-              </button>
+              <%# ROGUE and External Wallet tabs removed — Solana migration %>
               <%# Temporarily hidden - Airdrop tab %>
               <%# <button
                 phx-click="switch_tab"
@@ -444,8 +423,6 @@
               >
                 <option value="activity" selected={@active_tab == "activity"}>Activity</option>
                 <option value="following" selected={@active_tab == "following"}>Following</option>
-                <option value="rogue" selected={@active_tab == "rogue"}>ROGUE</option>
-                <option value="wallet" selected={@active_tab == "wallet"}>External Wallet</option>
                 <%= if @is_own_profile do %>
                 <option value="refer" selected={@active_tab == "refer"}>Refer</option>
                 <option value="settings" selected={@active_tab == "settings"}>Settings</option>
@@ -648,7 +625,7 @@
                             <% token_name = activity[:token] || "BUX" %>
                             <% token_logo = "https://ik.imagekit.io/blockster/blockster-icon.png" %>
                             <%= if activity[:tx_id] do %>
-                              <a href={"https://roguescan.io/tx/#{activity.tx_id}"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-end gap-1.5 text-gray-900 hover:text-gray-700 transition-colors whitespace-nowrap">
+                              <a href={"https://solscan.io/tx/#{activity.tx_id}?cluster=devnet"} target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-end gap-1.5 text-gray-900 hover:text-gray-700 transition-colors whitespace-nowrap">
                                 <img src={token_logo} alt={token_name} class="w-4 h-4 rounded-full flex-shrink-0" />
                                 <span><%= format_amount(activity.amount) %> <%= token_name %></span>
                               </a>
@@ -699,7 +676,7 @@
 
                 <p class="mt-3 text-[10px] sm:text-xs text-gray-500">
                   Plus earn <span class="font-haas_bold_75 text-gray-400">1%</span> of losing BUX bets and
-                  <span class="font-haas_bold_75 text-gray-400">0.2%</span> of losing ROGUE bets from your referrals!
+                  <span class="font-haas_bold_75 text-gray-400">0.2%</span> of losing SOL bets from your referrals!
                 </p>
               </div>
 
@@ -722,9 +699,9 @@
                 </div>
                 <div class="bg-wallet-card rounded-2xl p-3 sm:p-4 border border-gray-200">
                   <div class="text-xl sm:text-2xl font-haas_bold_75 text-gray-900">
-                    <%= format_referral_number(@referral_stats.total_rogue_earned) %>
+                    <%= format_referral_number(Map.get(@referral_stats, :total_sol_earned, 0)) %>
                   </div>
-                  <div class="text-[10px] uppercase tracking-widest text-gray-500 mt-1">ROGUE Earned</div>
+                  <div class="text-[10px] uppercase tracking-widest text-gray-500 mt-1">SOL Earned</div>
                 </div>
               </div>
               <% end %>
@@ -787,7 +764,7 @@
                           <td class="px-3 sm:px-6 py-3 sm:py-4">
                             <%= if earning.tx_hash do %>
                               <a
-                                href={"https://roguescan.io/tx/#{earning.tx_hash}?tab=logs"}
+                                href={"https://solscan.io/tx/#{earning.tx_hash}?cluster=devnet"}
                                 target="_blank"
                                 class="text-gray-900 hover:text-gray-700 text-[10px] sm:text-xs cursor-pointer"
                               >
@@ -815,727 +792,11 @@
           </div>
           <% end %>
 
-          <!-- ROGUE Tab Content (V2 Unified System - Smart Wallet Only) -->
-          <div class={"tab-wrapper #{if @active_tab != "rogue", do: "hidden", else: ""}"} id="rogue">
-            <div class="inner md:p-6 p-2 bg-gray-50 rounded-xl mt-4">
-              <!-- Quick Links - Top -->
-              <div class="grid md:grid-cols-2 gap-3 mb-4">
-                <a href="https://www.coingecko.com/en/coins/rogue" target="_blank" class="flex items-center gap-3 p-4 bg-wallet-card rounded-2xl border border-gray-200 hover:border-gray-300 transition-all cursor-pointer">
-                  <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="font-haas_medium_65 text-gray-900">View on CoinGecko</p>
-                    <p class="text-xs text-gray-500">Track ROGUE price</p>
-                  </div>
-                </a>
-                <a href="https://app.uniswap.org/explore/pools/arbitrum/0x9876d52d698ffad55fef13f4d631c0300cf2dc8ef90c8dd70405dc06fa10b2ec" target="_blank" class="flex items-center gap-3 p-4 bg-wallet-card rounded-2xl border border-gray-200 hover:border-gray-300 transition-all cursor-pointer">
-                  <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="font-haas_medium_65 text-gray-900">Buy ROGUE</p>
-                    <p class="text-xs text-gray-500">Swap on Uniswap</p>
-                  </div>
-                </a>
-              </div>
+          <%# ROGUE Tab removed — Solana migration %>
 
-              <!-- Send ROGUE Info Card -->
-              <div class="bg-wallet-card rounded-2xl p-4 mb-4 border border-gray-200">
-                <div class="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  <h4 class="text-gray-900 font-haas_bold_75">Send ROGUE to Your Wallet</h4>
-                </div>
-                <p class="text-gray-400 text-sm mb-3">Send ROGUE on Rogue Chain to your Blockster wallet address below:</p>
-                <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-2">
-                  <code class="text-gray-600 text-xs font-mono break-all"><%= @member.smart_wallet_address %></code>
-                  <button
-                    phx-hook="CopyToClipboard"
-                    id="copy-rogue-wallet"
-                    data-copy-text={@member.smart_wallet_address}
-                    class="flex-shrink-0 bg-gray-900 hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-haas_medium_65 cursor-pointer transition-colors flex items-center gap-1"
-                  >
-                    <span class="copy-text">Copy</span>
-                    <svg class="copy-icon w-3 h-3 text-white hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </button>
-                </div>
-              </div>
+          <%# SOL Multiplier tiers were in ROGUE tab — removed with Solana migration %>
 
-              <!-- ROGUE Multiplier Card -->
-              <div class="bg-wallet-card rounded-2xl border border-gray-200 overflow-hidden mb-4">
-                <!-- Header -->
-                <div class="bg-wallet-card-alt px-4 sm:px-5 py-4 border-b border-gray-200">
-                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div class="flex items-center gap-2">
-                      <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-6 h-6 rounded-full flex-shrink-0" />
-                      <h4 class="text-base sm:text-lg font-haas_bold_75 text-gray-900">Hold ROGUE to Boost BUX Earnings</h4>
-                    </div>
-                    <div class="bg-gray-100 border border-gray-200 rounded-xl px-3 py-1 self-start sm:self-auto">
-                      <span class="text-gray-900 text-sm font-haas_bold_75">
-                        <%= :erlang.float_to_binary(@rogue_multiplier / 1, decimals: 1) %>x
-                        <%= if @rogue_multiplier == 5.0, do: "MAX" %>
-                      </span>
-                    </div>
-                  </div>
-                  <p class="text-xs sm:text-sm text-gray-400 mt-2">Earn 0.4x more BUX for every 100k ROGUE held (4x max boost)</p>
-                </div>
-
-                <!-- Smart Wallet Balance -->
-                <div class="px-5 py-4 border-b border-gray-200">
-                  <div class="flex items-center justify-between">
-                    <div>
-                      <p class="text-[10px] uppercase tracking-widest text-gray-500 font-haas_medium_65">Your Blockster Smart Wallet</p>
-                      <p class="text-2xl font-haas_bold_75 text-gray-900 mt-1">
-                        <%= Number.Delimit.number_to_delimited(@rogue_multiplier_data.balance, precision: 0) %> ROGUE
-                      </p>
-                    </div>
-                    <div class="text-right">
-                      <p class="text-[10px] uppercase tracking-widest text-gray-500">Current Multiplier</p>
-                      <p class="text-xl font-haas_bold_75 text-gray-900 mt-1">
-                        <%= :erlang.float_to_binary(@rogue_multiplier / 1, decimals: 1) %>x
-                        <span class="text-xs text-gray-500 font-normal">/ 5.0x</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Tiers - Vertical Progress Tracker -->
-                <div class="p-5">
-                  <p class="text-[10px] uppercase tracking-widest text-gray-500 font-haas_medium_65 mb-4">ROGUE Holding Tiers</p>
-                  <div class="space-y-0">
-                    <%
-                      rogue_balance = @rogue_multiplier_data.balance
-                      tiers = [
-                        {0, 99_999, 0.0, "0 - 99,999 ROGUE"},
-                        {100_000, 199_999, 0.4, "100k - 199k ROGUE"},
-                        {200_000, 299_999, 0.8, "200k - 299k ROGUE"},
-                        {300_000, 399_999, 1.2, "300k - 399k ROGUE"},
-                        {400_000, 499_999, 1.6, "400k - 499k ROGUE"},
-                        {500_000, 599_999, 2.0, "500k - 599k ROGUE"},
-                        {600_000, 699_999, 2.4, "600k - 699k ROGUE"},
-                        {700_000, 799_999, 2.8, "700k - 799k ROGUE"},
-                        {800_000, 899_999, 3.2, "800k - 899k ROGUE"},
-                        {900_000, 999_999, 3.6, "900k - 999k ROGUE"},
-                        {1_000_000, :infinity, 4.0, "1M+ ROGUE"}
-                      ]
-                    %>
-                    <%= for {min_val, max_val, boost, label} <- tiers do %>
-                      <%
-                        is_current = if max_val == :infinity do
-                          rogue_balance >= min_val
-                        else
-                          rogue_balance >= min_val && rogue_balance <= max_val
-                        end
-                        is_achieved = rogue_balance >= min_val
-                        is_max = max_val == :infinity
-                      %>
-                      <div class="flex items-center gap-3 group">
-                        <!-- Progress line + dot -->
-                        <div class="flex flex-col items-center">
-                          <div class={[
-                            "w-3 h-3 rounded-full flex-shrink-0 border-2",
-                            if(is_current, do: "bg-gray-900 border-gray-900 shadow-sm", else: if(is_achieved, do: "bg-gray-400 border-gray-400", else: "bg-transparent border-gray-600"))
-                          ]}>
-                          </div>
-                          <%= unless is_max do %>
-                            <div class={if is_achieved, do: "w-0.5 h-6 bg-gray-200", else: "w-0.5 h-6 bg-gray-100"}></div>
-                          <% end %>
-                        </div>
-                        <!-- Tier info -->
-                        <div class={"flex items-center justify-between flex-1 py-1 #{if is_current, do: "", else: "opacity-60 group-hover:opacity-80 transition-opacity"}"}>
-                          <span class={"text-xs #{if is_current, do: "text-gray-900 font-haas_medium_65", else: if(is_achieved, do: "text-gray-600", else: "text-gray-500")}"}}>
-                            <%= label %>
-                          </span>
-                          <div class="flex items-center gap-2">
-                            <span class={"text-sm font-haas_bold_75 #{if is_current, do: "text-gray-900", else: if(is_achieved, do: "text-gray-600", else: "text-gray-600")}"}>
-                              +<%= if boost == trunc(boost), do: trunc(boost), else: :erlang.float_to_binary(boost, decimals: 1) %>x
-                            </span>
-                            <%= if is_max && is_current do %>
-                              <span class="bg-gray-900 text-white text-[10px] font-haas_bold_75 px-2 py-0.5 rounded-lg">
-                                MAX
-                              </span>
-                            <% end %>
-                            <%= if is_achieved && !is_current do %>
-                              <svg class="w-3.5 h-3.5 text-gray-900/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
-                            <% end %>
-                          </div>
-                        </div>
-                      </div>
-                    <% end %>
-                  </div>
-
-                  <!-- Info Note -->
-                  <div class="mt-4 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                    <div class="flex items-start gap-2">
-                      <svg class="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <div class="text-xs text-gray-500">
-                        <span class="font-haas_bold_75 text-gray-400">Note:</span> Only ROGUE in your Blockster smart wallet counts toward this multiplier. External wallet ROGUE does not count.
-                        <%= if @rogue_multiplier_data.balance > 1_000_000 do %>
-                          <span class="block mt-1">Only the first 1M ROGUE counts toward the multiplier (you have <%= Number.Delimit.number_to_delimited(@rogue_multiplier_data.balance - 1_000_000, precision: 0) %> ROGUE above the cap).</span>
-                        <% end %>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Play BUX Booster - Full Width Bottom -->
-              <.link navigate={~p"/play"} class="block w-full bg-gray-900 rounded-2xl p-4 hover:bg-gray-800 transition-all cursor-pointer">
-                <div class="flex items-center justify-center gap-3">
-                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX Booster" class="w-10 h-10 rounded-full" />
-                  <div class="text-left">
-                    <p class="font-haas_bold_75 text-white text-lg">Play BUX Booster</p>
-                    <p class="text-sm text-white/60">Win ROGUE with coin flips</p>
-                  </div>
-                </div>
-              </.link>
-            </div>
-          </div>
-
-          <div class={"tab-wrapper #{if @active_tab != "wallet", do: "hidden", else: ""}"} id="wallet" phx-hook="ConnectWalletHook">
-            <div class="inner md:p-6 p-2 bg-gray-50 rounded-xl mt-4" id="wallet-balances-fetcher" phx-hook="BalanceFetcherHook">
-              <div class="flex justify-between gap-2 flex-wrap mb-4">
-                <p class="text-base font-haas_medium_65 text-gray-900 leading-[24px]">
-                  Connected Wallet
-                </p>
-                <%= if @connected_wallet do %>
-                  <p class="text-sm font-haas_medium_65 text-gray-900 leading-[24px]">
-                    ✓ Connected
-                  </p>
-                <% else %>
-                  <p class="text-sm font-haas_medium_65 text-gray-500 leading-[24px]">
-                    No wallet connected
-                  </p>
-                <% end %>
-              </div>
-
-              <%= if @connected_wallet do %>
-                <!-- Connected Wallet Display -->
-                <div class="bg-wallet-card border border-gray-200 rounded-2xl p-4 mb-4">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <p class="text-sm font-haas_medium_65 text-gray-900"><%= String.capitalize(@connected_wallet.provider) %></p>
-                        <p class="text-xs font-haas_roman_55 text-gray-500 font-mono">
-                          <%= String.slice(@connected_wallet.wallet_address, 0..5) %><span>...</span><%= String.slice(@connected_wallet.wallet_address, -4..-1) %>
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      phx-click="disconnect_wallet"
-                      class="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-haas_medium_65 cursor-pointer transition-colors"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-
-                  <div class="mt-4 pt-4 border-t border-gray-200">
-                    <p class="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Full Address</p>
-                    <div class="flex items-center gap-2">
-                      <a
-                        href={"https://roguescan.io/address/#{@connected_wallet.wallet_address}"}
-                        target="_blank"
-                        class="flex-1 text-xs font-mono bg-gray-50 px-3 py-2 rounded-xl text-gray-900 hover:text-gray-700 cursor-pointer break-all min-w-0"
-                      >
-                        <%= @connected_wallet.wallet_address %>
-                      </a>
-                      <button
-                        phx-hook="CopyToClipboard"
-                        data-copy-text={@connected_wallet.wallet_address}
-                        id={"copy-address-#{@connected_wallet.id}"}
-                        class="p-2 hover:bg-gray-100 rounded-lg cursor-pointer flex-shrink-0 text-gray-400"
-                        title="Copy address"
-                      >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-
-                <!-- Token Balances with Multipliers (V2: ROGUE excluded from wallet multiplier) -->
-                <%= if @wallet_balances && map_size(@wallet_balances) > 0 do %>
-                  <%
-                    # Filter out zero-balance stablecoins and ARB
-                    filtered_balances = @wallet_balances
-                    |> Enum.reject(fn {symbol, data} ->
-                      symbol in ["USDT", "USDC", "ARB"] && data.total == 0
-                    end)
-                    |> Enum.into(%{})
-
-                    # V2: Calculate multiplier per token - ROGUE is excluded (handled in ROGUE tab)
-                    # External wallet multiplier = ETH + other tokens only (max 3.6x)
-                    token_multipliers = %{
-                      # ROGUE does NOT contribute to external wallet multiplier in V2
-                      # It's handled separately via smart wallet in the ROGUE tab
-                      "ETH" => fn total ->
-                        cond do
-                          total >= 10 -> 1.5
-                          total >= 5.0 -> 1.1
-                          total >= 2.5 -> 0.9
-                          total >= 1.0 -> 0.7
-                          total >= 0.5 -> 0.5
-                          total >= 0.1 -> 0.3
-                          total >= 0.01 -> 0.1
-                          true -> 0.0
-                        end
-                      end,
-                      # Other tokens: min(total_usd / 10000, 1.0)
-                      "USDT" => fn total -> min(total / 10_000, 1.0) end,
-                      "USDC" => fn total -> min(total / 10_000, 1.0) end,
-                      "ARB" => fn _total -> 0.0 end  # ARB doesn't contribute in V2
-                    }
-                  %>
-
-                  <%
-                    # V2: Calculate total wallet multiplier (ETH + other tokens only)
-                    base_connection_boost = 0.10
-                    individual_boosts_sum = filtered_balances
-                    |> Enum.reject(fn {symbol, _data} -> symbol == "ROGUE" end)  # Exclude ROGUE
-                    |> Enum.map(fn {symbol, data} ->
-                      multiplier_fn = Map.get(token_multipliers, symbol, fn _ -> 0.0 end)
-                      multiplier_fn.(data.total)
-                    end)
-                    |> Enum.sum()
-
-                    total_boost = base_connection_boost + individual_boosts_sum
-                  %>
-
-                  <!-- V2 External Wallet Multiplier Info -->
-                  <div class="bg-gray-50 rounded-2xl border border-gray-200 p-4 mb-4">
-                    <div class="flex items-start gap-3">
-                      <svg class="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <div>
-                        <p class="text-sm font-haas_medium_65 text-gray-600">External Wallet Multiplier = ETH + Other Tokens</p>
-                        <p class="text-xs text-gray-500 mt-1">ROGUE holdings are tracked separately in the <button phx-click="switch_tab" phx-value-tab="rogue" class="font-haas_bold_75 text-gray-900 cursor-pointer">ROGUE tab</button> (smart wallet only).</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="bg-wallet-card rounded-2xl border border-gray-200 overflow-hidden mb-4">
-                    <div class="bg-wallet-card-alt px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                      <h3 class="text-sm font-haas_medium_65 text-gray-900"><%= String.capitalize(@connected_wallet.provider) %> Wallet Balances</h3>
-                      <button
-                        phx-click="refresh_balances"
-                        class="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
-                        title="Refresh balances"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- Column Headers -->
-                    <div class="px-3 sm:px-4 py-2 border-b border-gray-200 flex items-center justify-between text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">
-                      <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div class="w-20 sm:w-32 flex-shrink-0">Token</div>
-                        <div>Balance</div>
-                      </div>
-                      <div class="flex items-center gap-2 flex-shrink-0">
-                        <span class="hidden sm:inline">BUX Multiplier</span>
-                        <span class="sm:hidden">Mult.</span>
-                      </div>
-                    </div>
-
-                    <div class="divide-y divide-gray-100">
-                      <!-- Base + Connection row (always 1.1x when wallet connected) -->
-                      <div class="px-3 sm:px-4 py-3 flex items-center justify-between bg-gray-50">
-                        <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                          <div class="text-sm font-haas_medium_65 text-gray-400 w-20 sm:w-32 flex-shrink-0">-</div>
-                          <div class="text-xs sm:text-sm text-gray-400 truncate">
-                            Base + Wallet
-                          </div>
-                        </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                          <div class="text-xs text-gray-900 font-haas_medium_65">
-                            1.1x
-                          </div>
-                          <svg class="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                          </svg>
-                        </div>
-                      </div>
-
-                      <%= for {symbol, data} <- filtered_balances do %>
-                        <%= if symbol == "ROGUE" do %>
-                          <%
-                            # Get USD price for ROGUE
-                            price_data = case BlocksterV2.PriceTracker.get_price(symbol) do
-                              {:ok, price} -> price
-                              _ -> nil
-                            end
-
-                            # Display each chain separately for ROGUE
-                            chains_to_display = data.chains
-                            |> Enum.filter(fn chain -> chain.chain_id in [560013, 42161] end)
-                            |> Enum.sort_by(fn chain -> chain.chain_id end, :desc)  # Rogue Chain first (560013), then Arbitrum (42161)
-                          %>
-                          <%= for chain <- chains_to_display do %>
-                            <%
-                              usd_value = if price_data, do: chain.balance * price_data.usd_price, else: nil
-                              chain_name = case chain.chain_id do
-                                560013 -> "Rogue Chain"
-                                42161 -> "Arbitrum One"
-                                _ -> chain.chain_name
-                              end
-                            %>
-                            <div class="px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                              <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                <div class="w-20 sm:w-32 flex-shrink-0">
-                                  <div class="flex items-center gap-1 sm:gap-2">
-                                    <img src="https://ik.imagekit.io/blockster/rogue-white-in-indigo-logo.png" alt="ROGUE" class="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0" />
-                                    <span class="text-xs sm:text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
-                                  </div>
-                                  <div class="text-[10px] sm:text-xs text-gray-500 ml-5 sm:ml-7 truncate"><%= chain_name %></div>
-                                </div>
-                                <div class="min-w-0">
-                                  <div class="text-xs sm:text-sm text-gray-900 font-haas_medium_65">
-                                    <%= Number.Delimit.number_to_delimited(chain.balance, precision: 2) %>
-                                  </div>
-                                  <%= if usd_value do %>
-                                    <div class="text-[10px] sm:text-xs text-gray-500">
-                                      $<%= Number.Delimit.number_to_delimited(usd_value, precision: 2) %>
-                                    </div>
-                                  <% end %>
-                                </div>
-                              </div>
-                              <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                                <button
-                                  phx-click="switch_tab"
-                                  phx-value-tab="rogue"
-                                  class="text-[10px] sm:text-xs text-gray-900 hover:text-gray-700 cursor-pointer whitespace-nowrap"
-                                  title="ROGUE multiplier is tracked in the ROGUE tab"
-                                >
-                                  <span class="hidden sm:inline">See ROGUE tab</span>
-                                  <span class="sm:hidden">ROGUE</span>
-                                </button>
-                              </div>
-                            </div>
-                          <% end %>
-                        <% else %>
-                          <%
-                            # Get USD price for this token
-                            price_data = case BlocksterV2.PriceTracker.get_price(symbol) do
-                              {:ok, price} -> price
-                              _ -> nil
-                            end
-                            multiplier_fn = Map.get(token_multipliers, symbol, fn _ -> 0.1 end)
-                            boost = multiplier_fn.(data.total)
-                            usd_value = if price_data, do: data.total * price_data.usd_price, else: nil
-                          %>
-                          <div class="px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                            <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                              <div class="flex items-center gap-1 sm:gap-2 w-20 sm:w-32 flex-shrink-0">
-                                <%= if symbol == "ETH" do %>
-                                  <img src="https://ik.imagekit.io/blockster/ethereum.png" alt="ETH" class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                                <% end %>
-                                <span class="text-xs sm:text-sm font-haas_medium_65 text-gray-900"><%= symbol %></span>
-                              </div>
-                              <div class="min-w-0">
-                                <div class="text-xs sm:text-sm text-gray-900 font-haas_medium_65">
-                                  <%= :erlang.float_to_binary(data.total / 1, decimals: if(data.total < 10, do: 4, else: 2)) %>
-                                </div>
-                                <%= if usd_value do %>
-                                  <div class="text-[10px] sm:text-xs text-gray-500">
-                                    $<%= Number.Delimit.number_to_delimited(usd_value, precision: 2) %>
-                                  </div>
-                                <% end %>
-                              </div>
-                            </div>
-                            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                              <div class="text-xs text-gray-900 font-haas_medium_65">
-                                +<%= if boost == trunc(boost), do: trunc(boost), else: :erlang.float_to_binary(boost, decimals: 1) %>x
-                              </div>
-                              <svg class="w-4 h-4 text-gray-900 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                              </svg>
-                            </div>
-                          </div>
-                        <% end %>
-                      <% end %>
-                    </div>
-
-                    <!-- Total Wallet Multiplier (V2: ETH + Other Tokens only, max 3.6x) -->
-                    <div class="bg-gray-50 px-3 sm:px-4 py-3 border-t border-gray-200">
-                      <div class="flex items-center justify-between gap-2">
-                        <div class="min-w-0">
-                          <span class="text-xs sm:text-sm font-haas_bold_75 text-gray-900">Wallet Multiplier</span>
-                          <span class="text-[10px] sm:text-xs text-gray-500 ml-1">/ 3.6x</span>
-                        </div>
-                        <%
-                          # Full wallet multiplier includes base 1.0
-                          full_wallet_multiplier = 1.0 + total_boost
-                        %>
-                        <span class="text-base sm:text-lg font-haas_bold_75 text-gray-900 flex-shrink-0">
-                          <%= if full_wallet_multiplier == trunc(full_wallet_multiplier), do: trunc(full_wallet_multiplier), else: :erlang.float_to_binary(full_wallet_multiplier, decimals: 1) %>x
-                          <%= if full_wallet_multiplier >= 3.6, do: "MAX" %>
-                        </span>
-                      </div>
-                      <p class="text-[10px] sm:text-xs text-gray-500 mt-1">ETH + other tokens. ROGUE in ROGUE tab.</p>
-                    </div>
-                  </div>
-                <% else %>
-                  <%= if @connected_wallet do %>
-                    <div class="bg-wallet-card rounded-2xl border border-gray-200 p-6 mb-4 text-center">
-                      <p class="text-sm text-gray-400">
-                        <button
-                          phx-click="refresh_balances"
-                          class="font-haas_medium_65 text-gray-900 hover:text-gray-700 cursor-pointer"
-                        >
-                          Click here
-                        </button>
-                        to fetch your token balances
-                      </p>
-                    </div>
-                  <% end %>
-                <% end %>
-
-                <!-- Wallet Actions -->
-                <div class="grid md:grid-cols-2 gap-3">
-                  <!-- Send to Blockster (Hardware → Smart Wallet) -->
-                  <div class="bg-wallet-card rounded-2xl p-4 border border-gray-200" phx-hook="WalletTransferHook" id="wallet-transfer-hook">
-                    <h3 class="text-sm font-haas_medium_65 text-gray-900 mb-2">Send ROGUE <span class="font-haas_bold_75 text-gray-900">to</span> Your Blockster Wallet</h3>
-                    <p class="text-xs text-gray-500 mb-3">Transfer ROGUE on Rogue Chain from your <%= String.capitalize(@connected_wallet.provider) %> wallet to your Blockster smart wallet</p>
-
-                    <%= if @wallet_balances do %>
-                      <%# Get ROGUE balance on Rogue Chain only (chain_id: 560013) %>
-                      <% rogue_chains = get_in(@wallet_balances, ["ROGUE", :chains]) || [] %>
-                      <% rogue_balance = Enum.find_value(rogue_chains, 0.0, fn chain -> if chain.chain_id == 560013, do: chain.balance end) %>
-
-                      <div class="mb-3">
-                        <p class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Available on Rogue Chain:</p>
-                        <p class="text-sm font-haas_medium_65 text-gray-900"><%= Number.Delimit.number_to_delimited(rogue_balance, precision: 2) %> ROGUE</p>
-                      </div>
-
-                      <form phx-submit="initiate_transfer_to_blockster" class="space-y-3">
-                        <div>
-                          <input
-                            type="number"
-                            name="amount"
-                            step="0.01"
-                            min="0.01"
-                            max={rogue_balance}
-                            placeholder="Amount (ROGUE)"
-                            class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                            required
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          class="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-haas_medium_65 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={rogue_balance <= 0}
-                        >
-                          <%= if rogue_balance > 0, do: "Send to Blockster", else: "No ROGUE on Rogue Chain" %>
-                        </button>
-                      </form>
-                    <% else %>
-                      <p class="text-xs text-gray-500 italic">Loading balances...</p>
-                    <% end %>
-                  </div>
-
-                  <!-- Receive from Blockster (Smart Wallet → Hardware) -->
-                  <div class="bg-wallet-card rounded-2xl p-4 border border-gray-200">
-                    <h3 class="text-sm font-haas_medium_65 text-gray-900 mb-2">Send ROGUE <span class="font-haas_bold_75 text-gray-900">from</span> Your Blockster Wallet</h3>
-                    <p class="text-xs text-gray-500 mb-3">Transfer ROGUE on Rogue Chain from your Blockster smart wallet to your <%= String.capitalize(@connected_wallet.provider) %> wallet</p>
-
-                    <% balances = EngagementTracker.get_user_token_balances(@current_user.id) %>
-                    <% blockster_rogue = (balances && balances["ROGUE"]) || 0.0 %>
-                    <div class="mb-3">
-                      <p class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Available in Blockster Wallet:</p>
-                      <p class="text-sm font-haas_medium_65 text-gray-900"><%= Number.Delimit.number_to_delimited(blockster_rogue, precision: 2) %> ROGUE</p>
-                    </div>
-
-                    <form phx-submit="initiate_transfer_from_blockster" class="space-y-3">
-                      <div>
-                        <input
-                          type="number"
-                          name="amount"
-                          step="0.01"
-                          min="0.01"
-                          max={blockster_rogue}
-                          placeholder="Amount (ROGUE)"
-                          class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                          required
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        class="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-haas_medium_65 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        disabled={blockster_rogue <= 0 || @transfer_pending}
-                      >
-                        <%= if @transfer_pending do %>
-                          <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Sending...</span>
-                        <% else %>
-                          <%= if blockster_rogue > 0, do: "Send to #{String.capitalize(@connected_wallet.provider)} Wallet", else: "No ROGUE Available" %>
-                        <% end %>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                <!-- Transfer History -->
-                <%= if @recent_transfers && length(@recent_transfers) > 0 do %>
-                  <div class="mt-4">
-                    <h3 class="text-sm font-haas_medium_65 text-gray-900 mb-3">Recent Transfers</h3>
-                    <div class="bg-wallet-card rounded-2xl border border-gray-200 overflow-hidden">
-                      <div class="overflow-x-auto">
-                        <table class="w-full text-xs">
-                          <thead class="bg-wallet-card-alt border-b border-gray-200">
-                            <tr>
-                              <th class="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">Direction</th>
-                              <th class="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">Amount</th>
-                              <th class="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">Status</th>
-                              <th class="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">Transaction</th>
-                              <th class="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody class="divide-y divide-gray-100">
-                            <%= for transfer <- @recent_transfers do %>
-                              <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3">
-                                  <%= if transfer.direction == "to_blockster" do %>
-                                    <span class="inline-flex items-center gap-1 text-gray-900">
-                                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                                      </svg>
-                                      To Blockster
-                                    </span>
-                                  <% else %>
-                                    <span class="inline-flex items-center gap-1 text-gray-600">
-                                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
-                                      </svg>
-                                      To <%= String.capitalize(@connected_wallet.provider) %>
-                                    </span>
-                                  <% end %>
-                                </td>
-                                <td class="px-4 py-3 font-haas_medium_65 text-gray-900">
-                                  <%= Number.Delimit.number_to_delimited(Decimal.to_float(transfer.amount), precision: 2) %> <%= transfer.token_symbol %>
-                                </td>
-                                <td class="px-4 py-3">
-                                  <%= case transfer.status do %>
-                                    <% "pending" -> %>
-                                      <span class="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded-lg">
-                                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Pending
-                                      </span>
-                                    <% "confirmed" -> %>
-                                      <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-900 rounded-lg">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        Confirmed
-                                      </span>
-                                    <% "failed" -> %>
-                                      <span class="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-400 rounded-lg">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                        Failed
-                                      </span>
-                                  <% end %>
-                                </td>
-                                <td class="px-4 py-3">
-                                  <a
-                                    href={if transfer.direction == "from_blockster", do: "https://roguescan.io/tx/#{transfer.tx_hash}?tab=state", else: "https://roguescan.io/tx/#{transfer.tx_hash}"}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="text-gray-900 hover:text-gray-700 cursor-pointer inline-flex items-center gap-1"
-                                  >
-                                    <%= String.slice(transfer.tx_hash, 0..5) %>...
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                    </svg>
-                                  </a>
-                                </td>
-                                <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
-                                  <%= Calendar.strftime(transfer.inserted_at, "%b %d, %Y %I:%M %p") %>
-                                </td>
-                              </tr>
-                            <% end %>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                <% end %>
-              <% else %>
-                <!-- Connect Wallet Options -->
-                <div class="text-center py-8">
-                  <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
-                    <svg class="w-8 h-8 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                    </svg>
-                  </div>
-                  <h3 class="text-lg font-haas_medium_65 text-gray-900 mb-2">Connect External Wallet</h3>
-                  <p class="text-sm text-gray-400 mb-6 max-w-md mx-auto">
-                    Connect your MetaMask, Coinbase Wallet, or other external wallet to transfer tokens and boost your multiplier
-                  </p>
-
-                  <div class="grid md:grid-cols-2 gap-3 max-w-lg mx-auto">
-                    <button
-                      phx-click="connect_metamask"
-                      class="flex items-center justify-center gap-3 px-6 py-4 bg-wallet-card hover:bg-wallet-card-alt border border-gray-200 rounded-2xl cursor-pointer transition-all hover:border-gray-300"
-                    >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" class="w-8 h-8" />
-                      <span class="font-haas_medium_65 text-gray-900">MetaMask</span>
-                    </button>
-
-                    <button
-                      phx-click="connect_coinbase"
-                      class="flex items-center justify-center gap-3 px-6 py-4 bg-wallet-card hover:bg-wallet-card-alt border border-gray-200 rounded-2xl cursor-pointer transition-all hover:border-gray-300"
-                    >
-                      <img src="https://ik.imagekit.io/blockster/coinbase-logo.png" alt="Coinbase" class="w-8 h-8" />
-                      <span class="font-haas_medium_65 text-gray-900">Coinbase</span>
-                    </button>
-
-                    <button
-                      phx-click="connect_walletconnect"
-                      class="flex items-center justify-center gap-3 px-6 py-4 bg-wallet-card hover:bg-wallet-card-alt border border-gray-200 rounded-2xl cursor-pointer transition-all hover:border-gray-300"
-                    >
-                      <img src="https://ik.imagekit.io/blockster/wallet-connect.png" alt="WalletConnect" class="w-8 h-8" />
-                      <span class="font-haas_medium_65 text-gray-900">WalletConnect</span>
-                    </button>
-
-                    <button
-                      phx-click="connect_phantom"
-                      class="flex items-center justify-center gap-3 px-6 py-4 bg-wallet-card hover:bg-wallet-card-alt border border-gray-200 rounded-2xl cursor-pointer transition-all hover:border-gray-300"
-                    >
-                      <img src="https://avatars.githubusercontent.com/u/78782331?s=280&v=4" alt="Phantom" class="w-8 h-8 rounded" />
-                      <span class="font-haas_medium_65 text-gray-900">Phantom</span>
-                    </button>
-                  </div>
-                </div>
-              <% end %>
-            </div>
-          </div>
+          <%# External Wallet tab removed — Solana migration (wallet auth replaces external wallet connection) %>
           <div class={"tabs-main tab-wrapper #{if @active_tab != "airdrop", do: "hidden", else: ""}"} id="airdrop">
             <div class="tab-secondary flex mb-3">
               <button class="!text-[14px] font-haas_medium_65 text-[#343434] leading-[24px] p-2 border-[#141414] border-b border-solid">
@@ -2706,7 +1967,7 @@
                       Profile URL
                     </label>
                     <div class="text-sm bg-gray-50 px-4 py-3 rounded-xl border border-gray-200">
-                      <span class="text-gray-500">blockster.com/member/</span><span class="text-gray-900 font-medium"><%= @member.slug || @member.smart_wallet_address %></span>
+                      <span class="text-gray-500">blockster.com/member/</span><span class="text-gray-900 font-medium"><%= @member.slug || @member.wallet_address %></span>
                     </div>
                   </div>
 
@@ -2717,12 +1978,12 @@
                     </label>
                     <div class="flex items-center gap-2">
                       <code class="flex-1 text-sm bg-gray-50 text-gray-600 px-4 py-3 rounded-xl border border-gray-200 font-mono truncate">
-                        <%= @member.smart_wallet_address %>
+                        <%= @member.wallet_address %>
                       </code>
                       <button
                         id={"copy-wallet-settings-#{@member.id}"}
                         phx-hook="CopyToClipboard"
-                        data-copy-text={@member.smart_wallet_address}
+                        data-copy-text={@member.wallet_address}
                         class="p-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors cursor-pointer"
                         title="Copy to clipboard"
                       >
@@ -2813,7 +2074,7 @@
                       </.link>
                     <% else %>
                       <.link
-                        href={~p"/auth/x?redirect=/member/#{@member.slug || @member.smart_wallet_address}"}
+                        href={~p"/auth/x?redirect=/member/#{@member.slug || @member.wallet_address}"}
                         class="px-4 py-2 bg-gray-900 text-white text-sm font-haas_medium_65 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer text-center flex-shrink-0"
                       >
                         Connect X
@@ -3044,7 +2305,7 @@
   <div class="admin-nav [box-shadow:0px_-4px_8px_0px_#0000001A,_0px_-15px_15px_0px_#00000017,_0px_-34px_21px_0px_#0000000D,_0px_-61px_24px_0px_#00000003,_0px_-95px_27px_0px_#00000000] fixed bottom-0 py-2 left-0 px-3 z-30 w-full md:hidden scrolled bg-white">
     <ul class="flex gap-3 justify-between items-center">
       <li>
-        <a class="h-12 w-12 rounded-full flex items-center justify-center active-nav cursor-pointer" phx-click="switch_tab" phx-value-tab="wallet">
+        <a class="h-12 w-12 rounded-full flex items-center justify-center active-nav cursor-pointer" phx-click="switch_tab" phx-value-tab="activity">
           <svg fill="#989898" height="24" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
             <path d="M21.3 12.2305H17.82C16.84 12.2305 15.97 12.7705 15.53 13.6505L14.69 15.3105C14.49 15.7105 14.09 15.9605 13.65 15.9605H10.37C10.06 15.9605 9.62 15.8905 9.33 15.3105L8.49 13.6605C8.05 12.7905 7.17 12.2405 6.2 12.2405H2.7C2.31 12.2405 2 12.5505 2 12.9405V16.2005C2 19.8305 4.18 22.0005 7.82 22.0005H16.2C19.63 22.0005 21.74 20.1205 22 16.7805V12.9305C22 12.5505 21.69 12.2305 21.3 12.2305Z" fill="#989898">
             </path>

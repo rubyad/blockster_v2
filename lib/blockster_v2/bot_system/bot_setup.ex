@@ -21,12 +21,12 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   @prefixes ~w(crypto defi nft web3 chain block token mint rogue pixel voxel hodl stack alpha sigma based degen ape whale shark bear bull moon laser hyper turbo nano mega giga ultra zk stark proof node hash byte fomo wagmi gm wen ser fren chad onchain)
   @suffixes ~w(hunter whale shark ninja wizard sage oracle miner staker farmer builder coder hacker trader flipper runner scout ranger keeper guard pilot rider surfer diver walker thinker reader writer dreamer seeker finder voyager nomad ghost shadow spark flame storm wave pulse echo)
 
-  # Multiplier tiers: {label, percentage, phone_verified, geo_tier, x_score_range, rogue_mult_range, wallet_mult_range}
+  # Multiplier tiers: {label, percentage, phone_verified, geo_tier, x_score_range, sol_mult_range, email_mult_range}
   @multiplier_tiers [
-    {:casual,  0.40, false, "unverified", {0, 5},    {1.0, 1.0}, {1.0, 1.0}},
-    {:engaged, 0.35, true,  "basic",      {10, 40},  {1.0, 2.0}, {1.0, 1.5}},
-    {:power,   0.20, true,  "standard",   {40, 75},  {2.0, 3.5}, {1.5, 2.5}},
-    {:whale,   0.05, true,  "premium",    {75, 100}, {3.5, 5.0}, {2.5, 3.6}}
+    {:casual,  0.40, false, "unverified", {0, 5},    {0.0, 1.0}, {1.0, 1.0}},
+    {:engaged, 0.35, true,  "basic",      {10, 40},  {1.0, 2.5}, {1.0, 2.0}},
+    {:power,   0.20, true,  "standard",   {40, 75},  {2.5, 4.0}, {2.0, 2.0}},
+    {:whale,   0.05, true,  "premium",    {75, 100}, {4.0, 5.0}, {2.0, 2.0}}
   ]
 
   @doc """
@@ -90,7 +90,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   """
   def seed_multiplier(user_id, bot_index, total \\ @total_bots) do
     tier = determine_tier(bot_index, total)
-    {_label, _pct, _phone, _geo, x_range, rogue_range, wallet_range} = tier
+    {_label, _pct, _phone, _geo, x_range, sol_range, email_range} = tier
 
     {x_min, x_max} = x_range
     x_score = x_min + :rand.uniform() * (x_max - x_min)
@@ -98,21 +98,21 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
     phone_multiplier = phone_multiplier_for_tier(tier)
 
-    {r_min, r_max} = rogue_range
-    rogue_multiplier = r_min + :rand.uniform() * (r_max - r_min)
+    {s_min, s_max} = sol_range
+    sol_multiplier = s_min + :rand.uniform() * (s_max - s_min)
 
-    {w_min, w_max} = wallet_range
-    wallet_multiplier = w_min + :rand.uniform() * (w_max - w_min)
+    {e_min, e_max} = email_range
+    email_multiplier = e_min + :rand.uniform() * (e_max - e_min)
 
-    overall = x_multiplier * phone_multiplier * rogue_multiplier * wallet_multiplier
+    overall = x_multiplier * phone_multiplier * sol_multiplier * email_multiplier
     now = System.system_time(:second)
 
-    record = {:unified_multipliers, user_id,
+    record = {:unified_multipliers_v2, user_id,
       Float.round(x_score, 1),
       Float.round(x_multiplier, 2),
       Float.round(phone_multiplier, 2),
-      Float.round(rogue_multiplier, 2),
-      Float.round(wallet_multiplier, 2),
+      Float.round(sol_multiplier, 2),
+      Float.round(email_multiplier, 2),
       Float.round(overall, 2),
       now, now}
 
@@ -207,7 +207,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
     {_cumulative, tier} =
       Enum.reduce_while(@multiplier_tiers, {0.0, List.first(@multiplier_tiers)}, fn tier_def, {cumulative, _current} ->
-        {_label, pct, _phone, _geo, _x, _r, _w} = tier_def
+        {_label, pct, _phone, _geo, _x, _s, _e} = tier_def
         new_cumulative = cumulative + pct
 
         if position <= new_cumulative do
@@ -220,7 +220,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
     tier
   end
 
-  defp phone_multiplier_for_tier({_label, _pct, phone_verified, geo_tier, _x, _r, _w}) do
+  defp phone_multiplier_for_tier({_label, _pct, phone_verified, geo_tier, _x, _s, _e}) do
     if phone_verified do
       case geo_tier do
         "premium" -> 2.0

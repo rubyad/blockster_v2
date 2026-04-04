@@ -1,7 +1,7 @@
 defmodule BlocksterV2Web.Plugs.AuthPlug do
   @moduledoc """
-  Plug for authenticating users via session tokens.
-  Checks for user_token in session and assigns current_user if valid.
+  Plug for authenticating users via Solana wallet session.
+  Clears any legacy EVM user_token from the session.
   """
   import Plug.Conn
   alias BlocksterV2.Accounts
@@ -9,20 +9,27 @@ defmodule BlocksterV2Web.Plugs.AuthPlug do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    case get_session(conn, :user_token) do
+    # Clear legacy EVM user_token if present — Solana wallet is the only auth now
+    conn =
+      if get_session(conn, :user_token) do
+        delete_session(conn, :user_token)
+      else
+        conn
+      end
+
+    # Authenticate via wallet_address in session
+    case get_session(conn, :wallet_address) do
       nil ->
         assign(conn, :current_user, nil)
 
-      token ->
-        case Accounts.get_user_by_session_token(token) do
-          nil ->
-            conn
-            |> delete_session(:user_token)
-            |> assign(:current_user, nil)
-
-          user ->
-            assign(conn, :current_user, user)
+      address when is_binary(address) and address != "" ->
+        case Accounts.get_user_by_wallet_address(address) do
+          nil -> assign(conn, :current_user, nil)
+          user -> assign(conn, :current_user, user)
         end
+
+      _ ->
+        assign(conn, :current_user, nil)
     end
   end
 

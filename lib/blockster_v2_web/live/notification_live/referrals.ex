@@ -99,8 +99,8 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
   end
 
   defp build_referral_link(user) do
-    if user.smart_wallet_address do
-      "https://blockster.com?ref=#{user.smart_wallet_address}"
+    if user.wallet_address do
+      "https://blockster.com?ref=#{user.wallet_address}"
     else
       nil
     end
@@ -344,7 +344,7 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
                       <td class="px-5 py-3.5">
                         <%= if earning.tx_hash do %>
                           <a
-                            href={"https://roguescan.io/tx/#{earning.tx_hash}"}
+                            href={"https://solscan.io/tx/#{earning.tx_hash}"}
                             target="_blank"
                             rel="noopener noreferrer"
                             class="text-xs text-gray-400 hover:text-[#141414] transition-colors cursor-pointer"

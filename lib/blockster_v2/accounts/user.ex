@@ -41,6 +41,12 @@ defmodule BlocksterV2.Accounts.User do
     field :telegram_connected_at, :utc_datetime
     field :telegram_group_joined_at, :utc_datetime
 
+    # Solana migration fields
+    field :email_verified, :boolean, default: false
+    field :email_verification_code, :string
+    field :email_verification_sent_at, :utc_datetime
+    field :legacy_email, :string
+
     # Referral fields
     field :referred_at, :utc_datetime
     belongs_to :referrer, __MODULE__
@@ -71,7 +77,8 @@ defmodule BlocksterV2.Accounts.User do
                     :phone_verified, :geo_multiplier, :geo_tier, :sms_opt_in,
                     :referrer_id, :referred_at,
                     :telegram_user_id, :telegram_username, :telegram_connect_token, :telegram_connected_at,
-                    :telegram_group_joined_at, :is_bot])
+                    :telegram_group_joined_at, :is_bot,
+                    :email_verified, :email_verification_code, :email_verification_sent_at, :legacy_email])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)
@@ -131,7 +138,9 @@ defmodule BlocksterV2.Accounts.User do
   defp downcase_wallet_address(changeset) do
     case get_change(changeset, :wallet_address) do
       nil -> changeset
-      address -> put_change(changeset, :wallet_address, String.downcase(address))
+      # Only downcase EVM addresses (0x prefix) — Solana base58 is case-sensitive
+      "0x" <> _ = address -> put_change(changeset, :wallet_address, String.downcase(address))
+      _solana_address -> changeset
     end
   end
 

@@ -14,6 +14,16 @@
     unread_notification_count={assigns[:unread_notification_count] || 0}
     notification_dropdown_open={assigns[:notification_dropdown_open] || false}
     recent_notifications={assigns[:recent_notifications] || []}
+    wallet_address={assigns[:wallet_address]}
+    detected_wallets={assigns[:detected_wallets] || []}
+    show_wallet_selector={assigns[:show_wallet_selector] || false}
+    connecting={assigns[:connecting] || false}
+  />
+
+  <BlocksterV2Web.WalletComponents.wallet_selector_modal
+    detected_wallets={assigns[:detected_wallets] || []}
+    show={assigns[:show_wallet_selector] || false}
+    connecting={assigns[:connecting] || false}
   />
 
   <main class="flex-grow pb-16 md:pb-0">

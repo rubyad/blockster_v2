@@ -102,11 +102,11 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
   describe "winner derivation determinism" do
     test "same inputs produce same winners" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      block_hash = "0x" <> String.duplicate("ab", 32)
+      slot_at_close = "12345678"
       total_entries = 1000
 
-      combined1 = Airdrop.keccak256_combined(server_seed, block_hash)
-      combined2 = Airdrop.keccak256_combined(server_seed, block_hash)
+      combined1 = Airdrop.sha256_combined(server_seed, slot_at_close)
+      combined2 = Airdrop.sha256_combined(server_seed, slot_at_close)
 
       assert combined1 == combined2
 
@@ -120,11 +120,11 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
     test "different server seeds produce different winners" do
       seed1 = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
       seed2 = "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5"
-      block_hash = "0x" <> String.duplicate("ab", 32)
+      slot_at_close = "12345678"
       total_entries = 1000
 
-      combined1 = Airdrop.keccak256_combined(seed1, block_hash)
-      combined2 = Airdrop.keccak256_combined(seed2, block_hash)
+      combined1 = Airdrop.sha256_combined(seed1, slot_at_close)
+      combined2 = Airdrop.sha256_combined(seed2, slot_at_close)
 
       positions1 = for i <- 0..32, do: Airdrop.derive_position(combined1, i, total_entries)
       positions2 = for i <- 0..32, do: Airdrop.derive_position(combined2, i, total_entries)
@@ -132,14 +132,14 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
       refute positions1 == positions2
     end
 
-    test "different block hashes produce different winners" do
+    test "different slots produce different winners" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      hash1 = "0x" <> String.duplicate("ab", 32)
-      hash2 = "0x" <> String.duplicate("cd", 32)
+      slot1 = "12345678"
+      slot2 = "87654321"
       total_entries = 1000
 
-      combined1 = Airdrop.keccak256_combined(server_seed, hash1)
-      combined2 = Airdrop.keccak256_combined(server_seed, hash2)
+      combined1 = Airdrop.sha256_combined(server_seed, slot1)
+      combined2 = Airdrop.sha256_combined(server_seed, slot2)
 
       positions1 = for i <- 0..32, do: Airdrop.derive_position(combined1, i, total_entries)
       positions2 = for i <- 0..32, do: Airdrop.derive_position(combined2, i, total_entries)
@@ -149,10 +149,10 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
 
     test "positions are within valid range" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      block_hash = "0x" <> String.duplicate("ab", 32)
+      slot_at_close = "12345678"
       total_entries = 500
 
-      combined = Airdrop.keccak256_combined(server_seed, block_hash)
+      combined = Airdrop.sha256_combined(server_seed, slot_at_close)
 
       for i <- 0..32 do
         pos = Airdrop.derive_position(combined, i, total_entries)
@@ -163,10 +163,10 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
 
     test "produces 33 positions" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      block_hash = "0x" <> String.duplicate("ab", 32)
+      slot_at_close = "12345678"
       total_entries = 10000
 
-      combined = Airdrop.keccak256_combined(server_seed, block_hash)
+      combined = Airdrop.sha256_combined(server_seed, slot_at_close)
       positions = for i <- 0..32, do: Airdrop.derive_position(combined, i, total_entries)
 
       assert length(positions) == 33
@@ -177,23 +177,21 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
   # keccak256 Combined Seed
   # ============================================================================
 
-  describe "keccak256_combined/2" do
+  describe "sha256_combined/2" do
     test "produces 32-byte binary" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      block_hash = "0x" <> String.duplicate("ab", 32)
+      slot_at_close = "12345678"
 
-      result = Airdrop.keccak256_combined(server_seed, block_hash)
+      result = Airdrop.sha256_combined(server_seed, slot_at_close)
       assert byte_size(result) == 32
     end
 
-    test "handles 0x prefix in block hash" do
+    test "handles integer slot as string" do
       server_seed = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-      hash_with_prefix = "0x" <> String.duplicate("ab", 32)
-      hash_without_prefix = String.duplicate("ab", 32)
 
-      # Both should produce the same result since decode_hex strips 0x
-      result1 = Airdrop.keccak256_combined(server_seed, hash_with_prefix)
-      result2 = Airdrop.keccak256_combined(server_seed, hash_without_prefix)
+      # Both string and integer representations should produce the same result
+      result1 = Airdrop.sha256_combined(server_seed, "12345678")
+      result2 = Airdrop.sha256_combined(server_seed, "12345678")
 
       assert result1 == result2
     end
@@ -215,8 +213,8 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
       set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
 
-      # 3. Close round
-      {:ok, _} = Airdrop.close_round(round.round_id, "0x" <> String.duplicate("ab", 32))
+      # 3. Close round (Solana slot number)
+      {:ok, _} = Airdrop.close_round(round.round_id, "12345678")
 
       # 4. Draw winners
       {:ok, _} = Airdrop.draw_winners(round.round_id)
@@ -234,15 +232,15 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
       user = create_user()
       set_bux_balance(user, 1000)
       {:ok, _} = Airdrop.redeem_bux(user, 1000, round.round_id)
-      block_hash = "0x" <> String.duplicate("ab", 32)
-      {:ok, _} = Airdrop.close_round(round.round_id, block_hash)
+      slot_at_close = "12345678"
+      {:ok, _} = Airdrop.close_round(round.round_id, slot_at_close)
       {:ok, _} = Airdrop.draw_winners(round.round_id)
 
       # Get verification data
       {:ok, data} = Airdrop.get_verification_data(round.round_id)
 
       # Re-derive winners independently
-      combined = Airdrop.keccak256_combined(data.server_seed, data.block_hash_at_close)
+      combined = Airdrop.sha256_combined(data.server_seed, data.slot_at_close)
 
       winners = Airdrop.get_winners(round.round_id)
 

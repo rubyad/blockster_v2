@@ -7,6 +7,9 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoSchedulerTest do
   setup do
     setup_mnesia()
 
+    # Clear any leftover custom_rules from other test modules (prevents cross-test pollution)
+    BlocksterV2.Notifications.SystemConfig.put("custom_rules", [], "test_cleanup")
+
     # Null out Telegram config so tests don't send real messages to the group
     original_token = Application.get_env(:blockster_v2, :telegram_v2_bot_token)
     original_channel = Application.get_env(:blockster_v2, :telegram_v2_channel_id)

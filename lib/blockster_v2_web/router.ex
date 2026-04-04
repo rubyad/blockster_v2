@@ -86,6 +86,8 @@ defmodule BlocksterV2Web.Router do
 
     # Redirect /profile to member page Settings tab
     get "/profile", PageController, :profile_redirect
+    # Redirect /login to homepage (login page removed in Solana migration)
+    get "/login", PageController, :login_redirect
 
     live_session :authenticated,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
@@ -136,8 +138,9 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/", PostLive.Index, :index
-      live "/login", LoginLive, :index
-      live "/play", BuxBoosterLive, :index
+      live "/play", CoinFlipLive, :index
+      live "/pool", PoolIndexLive, :index
+      live "/pool/:vault_type", PoolDetailLive, :show
       live "/airdrop", AirdropLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/privacy", LegalLive.Privacy, :index
@@ -174,6 +177,10 @@ defmodule BlocksterV2Web.Router do
     post "/auth/email/verify", AuthController, :verify_email
     post "/auth/logout", AuthController, :logout
     get "/auth/me", AuthController, :me
+
+    # Solana wallet session (SIWS flow)
+    post "/auth/session", AuthController, :create_session
+    delete "/auth/session", AuthController, :delete_session_action
   end
 
   # Public API endpoints (no authentication required)

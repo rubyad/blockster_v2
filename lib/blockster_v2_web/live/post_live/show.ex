@@ -158,15 +158,16 @@ defmodule BlocksterV2Web.PostLive.Show do
     suggested_user_id = if socket.assigns[:current_user], do: socket.assigns.current_user.id, else: nil
     suggested_posts = Blog.get_suggested_posts(post.id, suggested_user_id, 4)
 
-    # Load sidebar products (2 tees, 1 hat, 1 hoodie - shuffled) only on connected mount
-    # Split into 2 for left sidebar and 2 for right sidebar
-    {left_sidebar_products, right_sidebar_products} =
-      if connected?(socket) do
-        all_products = Shop.get_sidebar_products()
-        {Enum.take(all_products, 2), Enum.drop(all_products, 2)}
-      else
-        {socket.assigns[:left_sidebar_products] || [], socket.assigns[:right_sidebar_products] || []}
-      end
+    # Load sidebar ad banners
+    left_sidebar_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("sidebar_left"),
+        else: []
+
+    right_sidebar_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("sidebar_right"),
+        else: []
 
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
@@ -213,8 +214,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:pool_available, pool_available)
      |> assign(:pool_balance, pool_balance)
      |> assign(:offer_data, offer_data)
-     |> assign(:left_sidebar_products, left_sidebar_products)
-     |> assign(:right_sidebar_products, right_sidebar_products)
+     |> assign(:left_sidebar_banners, left_sidebar_banners)
+     |> assign(:right_sidebar_banners, right_sidebar_banners)
      |> assign(:video_modal_open, false)
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
@@ -226,6 +227,12 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:show_onboarding_popup, false)
      |> assign_onboarding_popup_eligible()
      |> load_video_engagement()}
+  end
+
+  @impl true
+  def handle_event("track_ad_click", %{"id" => id}, socket) do
+    BlocksterV2.Ads.increment_clicks(String.to_integer(id))
+    {:noreply, socket}
   end
 
   @impl true
@@ -557,13 +564,13 @@ defmodule BlocksterV2Web.PostLive.Show do
                   # Mint BUX tokens to user's smart wallet (async)
                   # Pool deduction happens AFTER successful mint
                   if socket.assigns[:current_user] do
-                    wallet = socket.assigns.current_user.smart_wallet_address
-                    if wallet && wallet != "" and recorded_bux > 0 do
+                    wallet = socket.assigns.current_user.wallet_address
+                    if wallet && wallet != "" && recorded_bux > 0 do
                       lv_pid = self()
                       post_id_capture = post_id
                       Task.start(fn ->
                         case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id_capture, :read) do
-                          {:ok, %{"transactionHash" => tx_hash}} ->
+                          {:ok, %{"signature" => tx_hash}} ->
                             # GUARANTEED EARNINGS: Deduct from pool (can go negative)
                             EngagementTracker.deduct_from_pool_guaranteed(post_id_capture, recorded_bux)
                             send(lv_pid, {:mint_completed, tx_hash})
@@ -862,16 +869,16 @@ defmodule BlocksterV2Web.PostLive.Show do
 
         # Mint the BUX for this session (async)
         current_user = socket.assigns[:current_user]
-        wallet_address = current_user && current_user.smart_wallet_address
+        wallet_address = current_user && current_user.wallet_address
         new_total_earned = previous_total_earned + actual_bux
         video_duration = post.video_duration || 0
         fully_watched = video_duration > 0 && metrics.new_high_water_mark >= video_duration
 
-        if wallet_address && wallet_address != "" and actual_bux > 0 do
+        if wallet_address && wallet_address != "" && actual_bux > 0 do
           lv_pid = self()
           Task.start(fn ->
             case BuxMinter.mint_bux(wallet_address, actual_bux, user_id, post.id, :video_watch) do
-              {:ok, %{"transactionHash" => tx_hash}} ->
+              {:ok, %{"signature" => tx_hash}} ->
                 # Update video engagement with new high water mark and BUX earned
                 EngagementTracker.update_video_engagement_session(user_id, post.id, %{
                   new_high_water_mark: metrics.new_high_water_mark,
@@ -1124,13 +1131,13 @@ defmodule BlocksterV2Web.PostLive.Show do
       Social.increment_campaign_shares(share_campaign)
 
       # Mint BUX tokens
-      wallet = user.smart_wallet_address
+      wallet = user.wallet_address
       tx_hash =
-        if wallet && wallet != "" and actual_bux > 0 do
+        if wallet && wallet != "" && actual_bux > 0 do
           case BuxMinter.mint_bux(wallet, actual_bux, user.id, post.id, :x_share) do
             {:ok, response} ->
               EngagementTracker.deduct_from_pool_guaranteed(post.id, actual_bux)
-              response["transactionHash"]
+              response["signature"]
             {:error, _} -> nil
           end
         else

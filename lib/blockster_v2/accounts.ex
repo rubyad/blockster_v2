@@ -19,6 +19,47 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
+  Gets a user by wallet address (case-sensitive, for Solana base58 addresses).
+  """
+  def get_user_by_wallet_address(wallet_address) when is_binary(wallet_address) do
+    # Try exact match first (Solana), then case-insensitive (EVM legacy)
+    Repo.get_by(User, wallet_address: wallet_address) ||
+      Repo.get_by(User, wallet_address: String.downcase(wallet_address))
+  end
+
+  @doc """
+  Gets or creates a user by Solana wallet address.
+  Returns {:ok, user, session, is_new_user} or {:error, reason}.
+  """
+  def get_or_create_user_by_wallet(wallet_address) when is_binary(wallet_address) do
+    case get_user_by_wallet_address(wallet_address) do
+      nil ->
+        # Create new user
+        attrs = %{
+          wallet_address: wallet_address,
+          username: "user_#{String.slice(wallet_address, 0..5)}"
+        }
+
+        case create_user_from_wallet(attrs) do
+          {:ok, user} ->
+            case create_session(user.id) do
+              {:ok, session} -> {:ok, user, session, true}
+              error -> error
+            end
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+
+      user ->
+        # Existing user — create session
+        case create_session(user.id) do
+          {:ok, session} -> {:ok, user, session, false}
+          error -> error
+        end
+    end
+  end
+
+  @doc """
   Gets a user by email.
   """
   def get_user_by_email(email) when is_binary(email) do
@@ -45,12 +86,16 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
-  Gets a user by slug or smart wallet address.
-  Tries slug first, then falls back to smart wallet address lookup.
+  Gets a user by slug or wallet address.
+  Tries slug first, then wallet_address (Solana), then smart_wallet_address (legacy EVM).
   """
   def get_user_by_slug_or_address(identifier) when is_binary(identifier) do
     case get_user_by_slug(identifier) do
-      nil -> get_user_by_smart_wallet_address(identifier)
+      nil ->
+        case get_user_by_wallet_address(identifier) do
+          nil -> get_user_by_smart_wallet_address(identifier)
+          user -> user
+        end
       user -> user
     end
   end

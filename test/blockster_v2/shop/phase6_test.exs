@@ -224,22 +224,13 @@ defmodule BlocksterV2.Shop.Phase6Test do
   # ============================================================================
 
   describe "ROGUE rate locking" do
-    test "rate is stored on order at creation" do
+    test "rate is stored as zero on order at creation (ROGUE deprecated)" do
       user = create_user()
       order = create_order_no_bux(user)
 
-      # rogue_usd_rate_locked should be set by create_order_from_cart
+      # ROGUE rate deprecated in Solana migration Phase 9 — always zero
       assert order.rogue_usd_rate_locked != nil
-      assert Decimal.gt?(order.rogue_usd_rate_locked, 0)
-    end
-
-    test "fallback rate is used when Mnesia has no price" do
-      user = create_user()
-      order = create_order_no_bux(user)
-
-      # In test env, Mnesia won't have token_prices, so fallback $0.00006 is used
-      fallback = Decimal.new("0.00006")
-      assert Decimal.compare(order.rogue_usd_rate_locked, fallback) == :eq
+      assert Decimal.compare(order.rogue_usd_rate_locked, Decimal.new("0")) == :eq
     end
   end
 
