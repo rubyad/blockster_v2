@@ -9,6 +9,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   alias BlocksterV2.EngagementTracker
   alias BlocksterV2.BuxMinter
+  alias BlocksterV2.CoinFlipGame
+  alias BlocksterV2.LpPriceHistory
 
   import BlocksterV2Web.PoolComponents
 
@@ -22,16 +24,21 @@ defmodule BlocksterV2Web.PoolDetailLive do
       socket
       |> assign(vault_type: vault_type)
       |> assign(page_title: "#{String.upcase(vault_type)} Pool")
+      |> assign(header_token: String.upcase(vault_type))
       |> assign(pool_stats: nil)
       |> assign(pool_loading: true)
       |> assign(tab: :deposit)
       |> assign(amount: "")
       |> assign(processing: false)
       |> assign(timeframe: "24H")
+      |> assign(chart_price_stats: nil)
       |> assign(activity_tab: :all)
       |> assign(activities: [])
+      |> assign(show_fairness_modal: false)
+      |> assign(fairness_game: nil)
       |> assign(lp_balances: %{bsol: 0.0, bbux: 0.0})
       |> assign(balances: %{"SOL" => 0.0, "BUX" => 0.0})
+      |> assign(period_stats: %{total: 0, wins: 0, volume: 0.0, payout: 0.0, profit: 0.0})
 
     socket =
       if current_user do
@@ -56,6 +63,26 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     socket =
       if connected?(socket) do
+        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "pool_activity:#{vault_type}")
+        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "pool_chart:#{vault_type}")
+
+        # Fetch period stats and recent bet activity from Mnesia
+        vault_atom = String.to_existing_atom(vault_type)
+        period_stats = CoinFlipGame.period_stats(vault_atom, timeframe_seconds("24H"))
+        socket = assign(socket, period_stats: period_stats)
+
+        bet_activities = CoinFlipGame.get_recent_games_by_vault(vault_atom, 50)
+                         |> Enum.map(&format_activity/1)
+
+        # Fetch recent deposit/withdraw activity from Mnesia
+        lp_activities = load_pool_activities(vault_type)
+
+        # Merge and sort by time (most recent first)
+        activities = (bet_activities ++ lp_activities)
+                     |> Enum.sort_by(& &1["_created_at"], :desc)
+                     |> Enum.take(50)
+
+        socket = assign(socket, activities: activities)
         socket = start_async(socket, :fetch_pool_stats, fn -> BuxMinter.get_pool_stats() end)
 
         if current_user && current_user.wallet_address do
@@ -120,6 +147,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
     {:noreply, assign(socket, balances: %{"SOL" => sol, "BUX" => bux})}
   end
 
+  def handle_info({:pool_activity, activity}, socket) do
+    activities = [activity | socket.assigns.activities] |> Enum.take(50)
+    {:noreply, assign(socket, activities: activities)}
+  end
+
+  def handle_info({:chart_point, point}, socket) do
+    {:noreply, push_event(socket, "chart_update", point)}
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ── Tab Switching ──
@@ -131,45 +167,70 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   # ── Chart Events ──
 
-  def handle_event("request_chart_data", %{"timeframe" => timeframe}, socket) do
-    # Initial approach: push single current price point (no history DB yet)
-    lp_price = get_vault_stat(socket.assigns.pool_stats, socket.assigns.vault_type, "lpPrice")
-    now = System.os_time(:second)
-
-    points =
-      if is_number(lp_price) and lp_price > 0 do
-        [%{time: now, value: lp_price}]
-      else
-        []
-      end
-
-    {:noreply,
-     socket
-     |> assign(timeframe: timeframe)
-     |> push_event("chart_data", %{points: points})}
+  def handle_event("request_chart_data", _params, socket) do
+    push_chart_data(socket, socket.assigns.timeframe)
   end
 
   def handle_event("set_chart_timeframe", %{"timeframe" => timeframe}, socket) do
-    lp_price = get_vault_stat(socket.assigns.pool_stats, socket.assigns.vault_type, "lpPrice")
-    now = System.os_time(:second)
-
-    points =
-      if is_number(lp_price) and lp_price > 0 do
-        [%{time: now, value: lp_price}]
-      else
-        []
-      end
-
-    {:noreply,
-     socket
-     |> assign(timeframe: timeframe)
-     |> push_event("chart_data", %{points: points})}
+    push_chart_data(socket, timeframe)
   end
 
   # ── Activity Tab ──
 
   def handle_event("set_activity_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, activity_tab: String.to_existing_atom(tab))}
+  end
+
+  # ── Fairness Modal ──
+
+  def handle_event("show_fairness_modal", %{"game-id" => game_id}, socket) do
+    case CoinFlipGame.get_game(game_id) do
+      {:ok, game} when game.status == :settled ->
+        predictions_str = game.predictions |> Enum.map(&Atom.to_string/1) |> Enum.join(",")
+        vault_type_str = if is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)
+
+        client_seed_input = "#{game.user_id}:#{game.bet_amount}:#{vault_type_str}:#{game.difficulty}:#{predictions_str}"
+        client_seed = :crypto.hash(:sha256, client_seed_input) |> Base.encode16(case: :lower)
+
+        combined_input = "#{game.server_seed}:#{client_seed}:#{game.nonce}"
+        combined_seed = :crypto.hash(:sha256, combined_input)
+        combined_seed_hex = Base.encode16(combined_seed, case: :lower)
+
+        bytes = for i <- 0..(length(game.results) - 1), do: :binary.at(combined_seed, i)
+
+        fairness_game = %{
+          game_id: game_id,
+          user_id: game.user_id,
+          bet_amount: game.bet_amount,
+          vault_type: vault_type_str,
+          difficulty: game.difficulty,
+          predictions_str: predictions_str,
+          client_seed_input: client_seed_input,
+          nonce: game.nonce,
+          server_seed: game.server_seed,
+          server_seed_hash: game.commitment_hash,
+          client_seed: client_seed,
+          combined_seed: combined_seed_hex,
+          results: game.results,
+          predictions: game.predictions,
+          bytes: bytes,
+          won: game.won,
+          payout: game.payout
+        }
+
+        {:noreply, assign(socket, show_fairness_modal: true, fairness_game: fairness_game)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("hide_fairness_modal", _params, socket) do
+    {:noreply, assign(socket, show_fairness_modal: false)}
+  end
+
+  def handle_event("stop_propagation", _params, socket) do
+    {:noreply, socket}
   end
 
   # ── Amount Input ──
@@ -208,6 +269,30 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     action_label = if action == "deposit", do: "Deposit", else: "Withdrawal"
     token_label = String.upcase(vault_type)
+
+    # Persist and broadcast pool activity for deposit/withdraw
+    amount_raw = parse_amount(socket.assigns.amount)
+    wallet = socket.assigns[:wallet_address] || ""
+    now = System.system_time(:second)
+
+    record = {:pool_activities, System.unique_integer([:monotonic, :positive]), action, vault_type, amount_raw, truncate_wallet(wallet), now}
+    :mnesia.dirty_write(record)
+
+    decimals = if vault_type == "sol", do: 4, else: 2
+    amount_formatted = format_amount(amount_raw, decimals)
+    activity = %{
+      "type" => action,
+      "game" => nil,
+      "bet" => nil,
+      "payout" => nil,
+      "profit" => "#{amount_formatted} #{token_label}",
+      "wallet" => truncate_wallet(wallet),
+      "full_wallet" => wallet,
+      "tx_sig" => sig,
+      "time" => "just now",
+      "_created_at" => now
+    }
+    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "pool_activity:#{vault_type}", {:pool_activity, activity})
 
     socket =
       socket
@@ -257,6 +342,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   @impl true
   def handle_async(:fetch_pool_stats, {:ok, {:ok, stats}}, socket) do
+    vault_type = socket.assigns.vault_type
+    lp_price = get_vault_stat(stats, vault_type, "lpPrice")
+
+    # Record price snapshot (broadcasts via PubSub for chart_update)
+    LpPriceHistory.record(vault_type, lp_price)
+
     {:noreply, assign(socket, pool_stats: stats, pool_loading: false)}
   end
 
@@ -503,6 +594,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
               token={@token}
               timeframe={@timeframe}
               loading={@pool_loading}
+              chart_price_stats={@chart_price_stats}
             />
 
             <%!-- Stats Grid --%>
@@ -511,18 +603,21 @@ defmodule BlocksterV2Web.PoolDetailLive do
               loading={@pool_loading}
               vault_type={@vault_type}
               timeframe={@timeframe}
+              period_stats={@period_stats}
             />
 
             <%!-- Activity Table --%>
             <.activity_table
               activity_tab={@activity_tab}
               vault_type={@vault_type}
-              activities={@activities}
+              activities={filter_activities(@activities, @activity_tab)}
             />
           </div>
         </div>
       </div>
     </div>
+
+    <.coin_flip_fairness_modal show={@show_fairness_modal} fairness_game={@fairness_game} />
     """
   end
 
@@ -605,6 +700,137 @@ defmodule BlocksterV2Web.PoolDetailLive do
         "0"
     end
   end
+
+  defp format_activity(%{type: type, game: game, game_id: game_id, bet_amount: bet_amount, payout: payout, wallet: wallet, vault_type: vault_type, difficulty: difficulty, predictions: predictions, results: results, commitment_sig: commitment_sig, bet_sig: bet_sig, settlement_sig: settlement_sig, status: status, created_at: created_at}) do
+    token = String.upcase(vault_type)
+    decimals = if vault_type == "sol", do: 4, else: 2
+
+    bet_str = format_amount(bet_amount, decimals)
+    payout_str = if type == "win" and is_number(payout), do: format_amount(payout, decimals), else: nil
+
+    profit = cond do
+      type == "win" and is_number(bet_amount) and is_number(payout) ->
+        "+#{format_amount(payout - bet_amount, decimals)} #{token}"
+      type == "loss" and is_number(bet_amount) ->
+        "-#{format_amount(bet_amount, decimals)} #{token}"
+      true -> ""
+    end
+
+    %{
+      "type" => type,
+      "game" => game,
+      "game_id" => game_id,
+      "commitment_sig" => commitment_sig,
+      "bet_sig" => bet_sig,
+      "settlement_sig" => settlement_sig,
+      "settled" => status == :settled,
+      "bet" => "#{bet_str} #{token}",
+      "payout" => if(payout_str, do: "#{payout_str} #{token}"),
+      "profit" => profit,
+      "multiplier" => format_multiplier(difficulty),
+      "predictions" => predictions,
+      "results" => results,
+      "wallet" => truncate_wallet(wallet || ""),
+      "full_wallet" => wallet,
+      "time" => time_ago(created_at),
+      "_created_at" => created_at || 0
+    }
+  end
+
+  defp load_pool_activities(vault_type) do
+    :mnesia.dirty_index_read(:pool_activities, vault_type, :vault_type)
+    |> Enum.sort_by(fn record -> elem(record, 1) end, :desc)
+    |> Enum.take(50)
+    |> Enum.map(fn {:pool_activities, _id, type, _vt, amount, wallet, created_at} ->
+      token = String.upcase(vault_type)
+      decimals = if vault_type == "sol", do: 4, else: 2
+      amount_str = format_amount(amount, decimals)
+
+      %{
+        "type" => type,
+        "game" => nil,
+        "bet" => nil,
+        "payout" => nil,
+        "profit" => "#{amount_str} #{token}",
+        "wallet" => wallet,
+        "full_wallet" => nil,
+        "tx_sig" => nil,
+        "time" => time_ago(created_at),
+        "_created_at" => created_at || 0
+      }
+    end)
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  defp format_amount(nil, _), do: "0"
+  defp format_amount(amount, decimals) when is_number(amount) do
+    abs_val = abs(amount / 1.0)
+    d = cond do
+      abs_val >= 1.0 -> decimals
+      abs_val >= 0.01 -> max(decimals, 4)
+      abs_val >= 0.0001 -> max(decimals, 6)
+      abs_val > 0 -> max(decimals, 8)
+      true -> decimals
+    end
+    :erlang.float_to_binary(amount / 1.0, decimals: d) |> String.trim_trailing("0") |> String.trim_trailing(".")
+  end
+  defp format_amount(_, _), do: "0"
+
+  @multiplier_map %{
+    -4 => "1.02x", -3 => "1.05x", -2 => "1.13x", -1 => "1.32x",
+    1 => "1.98x", 2 => "3.96x", 3 => "7.92x", 4 => "15.84x", 5 => "31.68x"
+  }
+
+  defp format_multiplier(difficulty) when is_integer(difficulty), do: Map.get(@multiplier_map, difficulty)
+  defp format_multiplier(_), do: nil
+
+  defp truncate_wallet(wallet) when byte_size(wallet) > 8 do
+    "#{String.slice(wallet, 0, 4)}..#{String.slice(wallet, -4, 4)}"
+  end
+  defp truncate_wallet(wallet), do: wallet
+
+  defp time_ago(nil), do: ""
+  defp time_ago(unix) when is_integer(unix) do
+    diff = System.system_time(:second) - unix
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86400 -> "#{div(diff, 3600)}h ago"
+      true -> "#{div(diff, 86400)}d ago"
+    end
+  end
+
+  defp push_chart_data(socket, timeframe) do
+    vault_type = socket.assigns.vault_type
+    data = LpPriceHistory.get_price_history(vault_type, timeframe)
+    chart_stats = LpPriceHistory.compute_stats(data)
+
+    vault_atom = String.to_existing_atom(vault_type)
+    period_stats = CoinFlipGame.period_stats(vault_atom, timeframe_seconds(timeframe))
+
+    {:noreply,
+     socket
+     |> assign(timeframe: timeframe, chart_price_stats: chart_stats, period_stats: period_stats)
+     |> push_event("chart_data", %{data: data})}
+  end
+
+  @timeframe_seconds %{
+    "1H" => 3600,
+    "24H" => 86400,
+    "7D" => 7 * 86400,
+    "30D" => 30 * 86400,
+    "All" => nil
+  }
+
+  defp timeframe_seconds(tf), do: Map.get(@timeframe_seconds, tf, 86400)
+
+  defp filter_activities(activities, :all), do: activities
+  defp filter_activities(activities, :wins), do: Enum.filter(activities, &(&1["type"] == "win"))
+  defp filter_activities(activities, :losses), do: Enum.filter(activities, &(&1["type"] == "loss"))
+  defp filter_activities(activities, :liquidity), do: Enum.filter(activities, &(&1["type"] in ["deposit", "withdraw"]))
 
   defp pool_share(user_lp, total_supply) when is_number(user_lp) and is_number(total_supply) and total_supply > 0 do
     pct = user_lp / total_supply * 100

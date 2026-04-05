@@ -247,7 +247,7 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 
 **Deployment status (devnet)**: Both programs deployed and fully initialized. Coin Flip game registered (game_id=1). Authority = `6b4n...` (settler keypair). Deploy fee payer = `49aN...` (CLI wallet). See `docs/addresses.md` for all PDA addresses.
 
-**Bankroll Program** (`contracts/blockster-bankroll/`): Anchor 0.30.1, dual-vault (SOL + BUX), LP tokens (bSOL + bBUX), game registry, provably fair commit-reveal, two-tier referrals. 4-step init due to SBF stack limits. IDL manually maintained at `target/idl/blockster_bankroll.json` (auto-gen broken on modern Rust).
+**Bankroll Program** (`contracts/blockster-bankroll/`): Anchor 0.30.1, dual-vault (SOL + BUX), LP tokens (bSOL + bBUX), game registry, provably fair commit-reveal, two-tier referrals. 4-step init due to SBF stack limits. IDL manually maintained at `target/idl/blockster_bankroll.json` (auto-gen broken on modern Rust). Per-difficulty max bet enforcement: `place_bet` accepts `difficulty: u8` (not `max_payout`), program computes max_payout on-chain from stored multipliers (matching EVM BuxBoosterGame). GameEntry stores `multipliers: [u16; 9]` as BPS/100. Config: `max_bet_bps=10` (0.1%), `min_bet=0.01 tokens`.
 
 **Airdrop Program** (`contracts/blockster-airdrop/`): Anchor 0.30.1, multi-round, any SPL/SOL prizes, BUX entries, SHA256 commit-reveal. IDL at `target/idl/blockster_airdrop.json`.
 
@@ -293,6 +293,9 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - New Mnesia table `coin_flip_games` (19 fields, vault_type instead of token_address, Solana tx sigs instead of EVM hashes)
 - Bet settler: `lib/blockster_v2/coin_flip_bet_settler.ex` (GlobalSingleton, checks every minute)
 - JS hook: `assets/js/coin_flip_solana.js` (Wallet Standard API, optimistic flow)
+- **Payout/max bet math**: MUST use `trunc`/`div` (not `Float.round`) to match on-chain integer truncation. See `calculate_payout` and `calculate_max_bet`.
+- **Settlement status UI**: Result screen shows pending/settled/failed indicator. Settled links to Solscan tx. Failed shows auto-retry + 5min reclaim info.
+- **Settler tx reliability**: All txs use priority fees (`computeBudgetIxs`). Settler-signed txs use `sendSettlerTx` (rebroadcast, blockhash-aware confirmation, signature status check on expiry). See `contracts/blockster-settler/src/services/rpc-client.ts`.
 - LiveView: `lib/blockster_v2_web/live/coin_flip_live.ex` (SOL + BUX tokens, no ROGUE)
 - Route `/play` → `CoinFlipLive` (was `BuxBoosterLive`)
 - Old EVM game files preserved but no longer routed (BuxBoosterLive, bux_booster_onchain.ex)
@@ -308,7 +311,11 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - Pool Detail: `lib/blockster_v2_web/live/pool_detail_live.ex` (two-column layout: order form + chart/stats/activity)
 - Pool Components: `lib/blockster_v2_web/components/pool_components.ex` (pool_card, lp_price_chart, pool_stats_grid, stat_card, activity_table)
 - Pool JS hook: `assets/js/hooks/pool_hook.js` (Wallet Standard signing for deposit/withdraw)
-- Price Chart hook: `assets/js/hooks/price_chart.js` (TradingView lightweight-charts)
+- Price Chart hook: `assets/js/hooks/price_chart.js` (TradingView lightweight-charts, area series)
+- LP Price History: `lib/blockster_v2/lp_price_history.ex` — Mnesia-backed price snapshots with per-timeframe downsampling (1H=60s, 24H=5m, 7D=30m, 30D=2h, All=1d), PubSub broadcast on `"pool_chart:#{vault_type}"`, chart stats (high/low/change_pct). Skips downsampling when <500 points.
+- LP Price Tracker: `lib/blockster_v2/lp_price_tracker.ex` — GlobalSingleton GenServer, polls settler every 60s, subscribes to `"pool:settlements"` for real-time chart updates on bet settlement, daily Mnesia prune
+- New Mnesia table `lp_price_history` `{id={vault_type,timestamp}, vault_type, timestamp, lp_price}` ordered_set, indexed by vault_type
+- Real-time chart flow: bet settles → `CoinFlipGame` broadcasts `{:bet_settled, vault_type}` → LpPriceTracker fetches fresh LP price → records with `force: true` → PubSub → PoolDetailLive pushes `chart_update` to JS
 - Routes: `/pool` → `PoolIndexLive`, `/pool/sol` → `PoolDetailLive`, `/pool/bux` → `PoolDetailLive`
 - LP token display names: SOL-LP (was bSOL), BUX-LP (was bBUX)
 - Old `pool_live.ex` deprecated (no longer routed)

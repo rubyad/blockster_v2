@@ -27,7 +27,7 @@ import {
   BUX_DECIMALS,
   MINT_AUTHORITY,
 } from "../config";
-import { getRecentBlockhash } from "./rpc-client";
+import { getRecentBlockhash, getBlockhashWithExpiry, sendAndConfirmTx, sendSettlerTx, computeBudgetIxs } from "./rpc-client";
 
 const SYSVAR_RENT = new PublicKey(
   "SysvarRent111111111111111111111111111111111"
@@ -451,7 +451,7 @@ export async function buildDepositSolTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(...ataIxs, ix);
+  tx.add(...computeBudgetIxs(), ...ataIxs, ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -504,7 +504,7 @@ export async function buildWithdrawSolTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(ix);
+  tx.add(...computeBudgetIxs(), ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -584,7 +584,7 @@ export async function buildDepositBuxTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(...ataIxs, ix);
+  tx.add(...computeBudgetIxs(), ...ataIxs, ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -640,7 +640,7 @@ export async function buildWithdrawBuxTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(ix);
+  tx.add(...computeBudgetIxs(), ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -655,7 +655,7 @@ export async function buildPlaceBetTx(
   gameId: number,
   nonce: number,
   amount: number,
-  maxPayout: number,
+  difficulty: number,
   vaultType: "sol" | "bux"
 ): Promise<string> {
   const player = new PublicKey(wallet);
@@ -671,15 +671,14 @@ export async function buildPlaceBetTx(
     : DISCRIMINATORS.placeBetBux;
   const decimals = isSol ? 9 : BUX_DECIMALS;
   const rawAmount = BigInt(Math.floor(amount * 10 ** decimals));
-  const rawMaxPayout = BigInt(Math.floor(maxPayout * 10 ** decimals));
 
-  // Instruction data: discriminator + game_id (u64) + nonce (u64) + amount (u64) + max_payout (u64)
-  const data = Buffer.alloc(40);
+  // Instruction data: discriminator(8) + game_id(u64) + nonce(u64) + amount(u64) + difficulty(u8)
+  const data = Buffer.alloc(33);
   discriminator.copy(data, 0);
   data.writeBigUInt64LE(BigInt(gameId), 8);
   data.writeBigUInt64LE(nonceBigint, 16);
   data.writeBigUInt64LE(rawAmount, 24);
-  data.writeBigUInt64LE(rawMaxPayout, 32);
+  data.writeUInt8(difficulty, 32);
 
   // Account order MUST match Anchor struct exactly.
   // PlaceBetSol: player, game_registry, sol_vault, sol_vault_state, player_state, bet_order, system_program
@@ -728,7 +727,7 @@ export async function buildPlaceBetTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(ix);
+  tx.add(...computeBudgetIxs(), ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -816,7 +815,7 @@ export async function buildReclaimExpiredTx(
     recentBlockhash: blockhash,
     feePayer: player,
   });
-  tx.add(ix);
+  tx.add(...computeBudgetIxs(), ix);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -872,17 +871,7 @@ export async function submitCommitment(
     data,
   });
 
-  const blockhash = await getRecentBlockhash();
-  const tx = new Transaction({
-    recentBlockhash: blockhash,
-    feePayer: settler.publicKey,
-  });
-  tx.add(ix);
-  tx.sign(settler);
-
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
-  return sig;
+  return sendSettlerTx(() => [ix], settler);
 }
 
 /**
@@ -970,17 +959,7 @@ export async function settleBet(
     data,
   });
 
-  const blockhash = await getRecentBlockhash();
-  const tx = new Transaction({
-    recentBlockhash: blockhash,
-    feePayer: settler.publicKey,
-  });
-  tx.add(ix);
-  tx.sign(settler);
-
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
-  return sig;
+  return sendSettlerTx(() => [ix], settler);
 }
 
 /**

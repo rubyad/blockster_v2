@@ -169,6 +169,22 @@ function parseError(error) {
   if (msg.includes("timeout") || msg.includes("Timeout")) {
     return "Transaction confirmation timed out. Please refresh and try again.";
   }
+  if (msg.includes("simulation") || msg.includes("Simulation") || msg.includes("simulate")) {
+    // Try to extract the program error from simulation logs
+    const maxBetMatch = msg.match(/BetExceedsMax|MaxBetExceeded/i);
+    if (maxBetMatch) {
+      return "Bet exceeds the maximum allowed for this difficulty. Try a smaller amount.";
+    }
+    const payoutMatch = msg.match(/PayoutExceedsMax/i);
+    if (payoutMatch) {
+      return "Payout exceeds maximum. Try a smaller bet amount.";
+    }
+    const fundsMatch = msg.match(/insufficient|InsufficientFunds/i);
+    if (fundsMatch) {
+      return "Insufficient funds for this bet (including transaction fees).";
+    }
+    return "Transaction failed during simulation. The bet may exceed on-chain limits or funds are insufficient.";
+  }
 
   return msg;
 }

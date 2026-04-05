@@ -7,6 +7,9 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Solana Tx Reliability: Priority Fees + Confirmation Recovery](#solana-tx-reliability-priority-fees--confirmation-recovery-apr-2026)
+- [Payout Rounding: Float.round vs On-Chain Integer Truncation](#payout-rounding-floatround-vs-on-chain-integer-truncation-apr-2026)
+- [LP Price Chart History Implementation](#lp-price-chart-history-implementation-apr-2026)
 - [Solana Wallet Field Migration Bug](#solana-wallet-field-migration-bug-apr-2026)
 - [Non-Blocking Fingerprint Verification](#non-blocking-fingerprint-verification-mar-2026)
 - [FateSwap Solana Wallet Tab](#fateswap-solana-wallet-tab-mar-2026)
@@ -347,6 +350,61 @@ Two background processes in `high-rollers-elixir` made individual RPC calls per 
 - Rogue Chain RPC intermittently returns 500 on large contract deploys — retry after a few minutes
 - Multicall3 ABI encoding requires careful offset calculations for dynamic types (Call3 contains `bytes callData`)
 - Old per-NFT functions kept as fallbacks — `reconcile_single_nft/1`, `sync_single_time_reward/1`, `get_owner_of/1`, `get_time_reward_raw/1`
+
+---
+
+## Solana Tx Reliability: Priority Fees + Confirmation Recovery (Apr 2026)
+
+**Symptom**: Settler txs (commitments and settlements) frequently timing out on devnet. Bets would show results but settlement got stuck. After 3-4 bets, game init would block.
+
+**Investigation path**: Initially assumed devnet RPC congestion. User correctly pushed back — bet placements (via wallet) worked fine while settlements (via settler) failed. The difference: wallets have their own well-provisioned RPC; the settler was using QuickNode devnet with no priority fees.
+
+**Root causes found (in order)**:
+1. **No priority fees** — all settler and user-signed txs had zero compute unit price. Devnet validators routinely drop zero-fee txs.
+2. **Default preflight used "finalized" commitment** — added ~15s latency before the tx was even sent to the leader.
+3. **No rebroadcasting** — if a leader dropped the tx, it was never resent.
+4. **Deprecated confirmation API** — `confirmTransaction(sig, "confirmed")` has a blanket 30s timeout with no blockhash expiry awareness.
+5. **Txs landing but confirmation missed** — the most insidious issue. The tx would land on-chain during the rebroadcast window, but `confirmTransaction` would time out. On retry, the settler rebuilt the SAME instruction with a fresh blockhash — but the bet_order PDA was already closed by the first (successful) tx, so attempt 2 failed with `AccountNotInitialized`.
+
+**Fix**: `sendSettlerTx` in rpc-client.ts — builds fresh blockhash per attempt, rebroadcasts every 2s, and critically: after blockhash expiry, checks `getSignatureStatus` on the original signature before retrying. If the tx landed ("Tx landed despite timeout"), returns success instead of retrying with a stale instruction.
+
+**Key learning**: On Solana, "transaction not confirmed" ≠ "transaction failed." Always check signature status before retrying write operations that modify/close accounts.
+
+---
+
+## Payout Rounding: Float.round vs On-Chain Integer Truncation (Apr 2026)
+
+**Symptom**: `PayoutExceedsMax` error during settlement when betting near max bet. Also, wallet simulation revert when clicking the max bet button.
+
+**Root cause**: Elixir's `Float.round(bet * multiplier / 10000, decimals)` can round UP, producing a value 1-2 lamports above what the on-chain Rust program computes with integer division (which always truncates DOWN).
+
+Example: bet = 0.123456789 SOL, multiplier = 10200 BPS
+- **Rust**: `(123456789 * 10200) / 10000 = 125,925,924` lamports (truncated)
+- **Elixir Float.round**: `0.125926` → 125,926,000 lamports (**exceeds by 76 lamports**)
+
+**Two locations affected**:
+1. `calculate_payout` in coin_flip_game.ex — payout sent to settle_bet exceeded on-chain max_payout
+2. `calculate_max_bet` in coin_flip_live.ex — max bet displayed to user exceeded on-chain per-difficulty limit. Had an additional subtlety: on-chain does TWO integer divisions (base then max_bet), each truncating. Single float operation skips the intermediate truncation.
+
+**Fix**: Both functions now replicate on-chain integer math exactly — convert to lamports, use `div` for each step, convert back. Verified with test: old = 125,926,000 (exceeds), new = 125,925,924 (matches Rust exactly).
+
+---
+
+## LP Price Chart History Implementation (Apr 2026)
+
+Ported FateSwap's LP price chart approach to Blockster pool pages. Key decisions and learnings:
+
+**Architecture choice**: FateSwap uses ETS ordered_set (in-memory, fast range queries) + PostgreSQL (persistence). Blockster uses Mnesia ordered_set which serves both roles (in-memory + persistent). The `dirty_index_read` on `:vault_type` secondary index returns all records for a vault, then filters in Elixir — acceptable at current scale (~1 record/min = ~43k/month).
+
+**Downsampling**: Copied FateSwap's exact approach — group by time bucket (`div(timestamp, interval)`), take last point per bucket. Timeframes: 1H=60s, 24H=5min, 7D=30min, 30D=2hr, All=1day. Added a guard to skip downsampling when <500 raw points — without this, a fresh chart with only minutes of data gets collapsed to 1-2 points on the 24H view.
+
+**Real-time chart updates on settlement**: FateSwap computes LP price incrementally from settlement data (vault_delta = amount - payout - fees). Blockster instead fetches fresh pool stats from the settler HTTP endpoint after each settlement — simpler, one extra HTTP call to localhost, acceptable latency. The `LpPriceHistory.record/3` accepts `force: true` to bypass the 60s throttle for settlement-triggered updates.
+
+**PubSub chain**: `CoinFlipGame.settle_game` → broadcasts `{:bet_settled, vault_type}` on `"pool:settlements"` → `LpPriceTracker` receives, fetches stats, records price → broadcasts `{:chart_point, point}` on `"pool_chart:#{vault_type}"` → `PoolDetailLive` receives, pushes `"chart_update"` to JS → `series.update(point)`.
+
+**JS changes**: Event key changed from `points` to `data` to match FateSwap. Added deferred init with `requestAnimationFrame` + retry if container width=0 (race condition on mount). Debounced resize observer (100ms).
+
+**Restart required**: LpPriceTracker GenServer must restart to subscribe to the new `"pool:settlements"` PubSub topic (subscription happens in `:registered` handler, not hot-reloadable).
 
 ---
 

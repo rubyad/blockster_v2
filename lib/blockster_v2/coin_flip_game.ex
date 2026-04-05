@@ -223,6 +223,8 @@ defmodule BlocksterV2.CoinFlipGame do
           {:ok, signature} ->
             mark_game_settled(game_id, game, signature)
             update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
+            broadcast_pool_activity(game)
+            broadcast_bet_settled(game.vault_type)
             Logger.info("[CoinFlipGame] Game #{game_id} settled: #{signature}")
             {:ok, %{signature: signature}}
 
@@ -231,6 +233,8 @@ defmodule BlocksterV2.CoinFlipGame do
               Logger.info("[CoinFlipGame] Game #{game_id} was already settled on-chain, marking as settled")
               mark_game_settled(game_id, game, "already_settled_on_chain")
               update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
+              broadcast_pool_activity(game)
+              broadcast_bet_settled(game.vault_type)
               {:ok, %{signature: "already_settled_on_chain", already_settled: true}}
             else
               Logger.error("[CoinFlipGame] Failed to settle game #{game_id}: #{inspect(reason)}")
@@ -277,6 +281,75 @@ defmodule BlocksterV2.CoinFlipGame do
     }
     :mnesia.dirty_write(updated_record)
   end
+
+  defp broadcast_pool_activity(game) do
+    vault_str = if is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)
+    token = String.upcase(vault_str)
+    type = if game.won, do: "win", else: "loss"
+    decimals = if vault_str == "sol", do: 4, else: 2
+
+    bet_str = format_amount(game.bet_amount, decimals)
+    payout_str = format_amount(game.payout, decimals)
+
+    wallet = game.wallet_address || ""
+    short_wallet = if byte_size(wallet) > 8 do
+      "#{String.slice(wallet, 0, 4)}..#{String.slice(wallet, -4, 4)}"
+    else
+      wallet
+    end
+
+    activity = %{
+      "type" => type,
+      "game" => "Coin Flip",
+      "game_id" => game.game_id,
+      "commitment_sig" => game.commitment_sig,
+      "bet_sig" => game.bet_sig,
+      "settlement_sig" => game.settlement_sig,
+      "bet" => "#{bet_str} #{token}",
+      "payout" => "#{payout_str} #{token}",
+      "profit" => format_profit(game.won, game.bet_amount, game.payout, decimals, token),
+      "wallet" => short_wallet,
+      "time" => "just now",
+      "_created_at" => System.system_time(:second)
+    }
+
+    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "pool_activity:#{vault_str}", {:pool_activity, activity})
+  rescue
+    _ -> :ok
+  end
+
+  defp broadcast_bet_settled(vault_type) do
+    vault_str = if is_atom(vault_type), do: Atom.to_string(vault_type), else: to_string(vault_type)
+    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "pool:settlements", {:bet_settled, vault_str})
+  rescue
+    _ -> :ok
+  end
+
+  defp format_amount(nil, _), do: "0"
+  defp format_amount(amount, decimals) when is_number(amount), do: smart_format(amount, decimals)
+  defp format_amount(_, _), do: "0"
+
+  # Use more decimals for small values so they don't display as 0.00
+  defp smart_format(amount, min_decimals) when is_number(amount) do
+    abs_val = abs(amount / 1.0)
+    decimals = cond do
+      abs_val >= 1.0 -> min_decimals
+      abs_val >= 0.01 -> max(min_decimals, 4)
+      abs_val >= 0.0001 -> max(min_decimals, 6)
+      abs_val > 0 -> max(min_decimals, 8)
+      true -> min_decimals
+    end
+    :erlang.float_to_binary(amount / 1.0, decimals: decimals) |> String.trim_trailing("0") |> String.trim_trailing(".")
+  end
+
+  defp format_profit(true, bet, payout, decimals, token) when is_number(bet) and is_number(payout) do
+    profit = payout - bet
+    "+#{smart_format(profit, decimals)} #{token}"
+  end
+  defp format_profit(false, bet, _payout, decimals, token) when is_number(bet) do
+    "-#{smart_format(bet, decimals)} #{token}"
+  end
+  defp format_profit(_, _, _, _, _), do: ""
 
   defp update_user_betting_stats(user_id, vault_type, bet_amount, won, payout) do
     # Map vault_type to the existing stats format
@@ -593,7 +666,7 @@ defmodule BlocksterV2.CoinFlipGame do
   defp http_post(url, body, headers) do
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.post(url, body: body, headers: headers, receive_timeout: 60_000) do
+        case Req.post(url, body: body, headers: headers, receive_timeout: 120_000) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}
@@ -676,7 +749,85 @@ defmodule BlocksterV2.CoinFlipGame do
 
   defp calculate_payout(bet_amount, difficulty) do
     multiplier = Map.get(@multipliers, difficulty, 10000)
-    Float.round(bet_amount * multiplier / 10000, 2)
+    # Must floor (not round) to match on-chain integer truncation in calculate_max_payout.
+    # Rust: max_payout = (raw_amount * multiplier_bps) / 10_000 (integer division truncates).
+    # If we round up here, payout can exceed max_payout by 1 lamport → PayoutExceedsMax.
+    raw = bet_amount * multiplier / 10000
+    decimals = if bet_amount < 1.0, do: 9, else: 6
+    trunc(raw * :math.pow(10, decimals)) / :math.pow(10, decimals)
+  end
+
+  @doc """
+  Get recent settled/placed games for a vault type (for pool activity feed).
+  Returns up to `limit` games sorted by created_at descending.
+  """
+  def get_recent_games_by_vault(vault_type, limit \\ 50) when vault_type in [:sol, :bux] do
+    # Match all games with the given vault_type (position 8)
+    :mnesia.dirty_match_object(
+      {:coin_flip_games, :_, :_, :_, :_, :_, :_, :_, vault_type, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+    )
+    |> Enum.filter(fn record ->
+      status = elem(record, 7)
+      status in [:placed, :settled]
+    end)
+    |> Enum.sort_by(fn record -> elem(record, 18) end, :desc)
+    |> Enum.take(limit)
+    |> Enum.map(fn record ->
+      %{
+        type: if(elem(record, 13), do: "win", else: "loss"),
+        game: "Coin Flip",
+        game_id: elem(record, 1),
+        bet_amount: elem(record, 9),
+        payout: elem(record, 14),
+        wallet: elem(record, 3),
+        vault_type: Atom.to_string(elem(record, 8)),
+        difficulty: elem(record, 10),
+        predictions: elem(record, 11),
+        results: elem(record, 12),
+        commitment_sig: elem(record, 15),
+        bet_sig: elem(record, 16),
+        settlement_sig: elem(record, 17),
+        status: elem(record, 7),
+        created_at: elem(record, 18)
+      }
+    end)
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
+  @doc """
+  Compute period stats for a vault type, optionally filtered by seconds_back.
+  Pass nil for all-time. Returns %{total: n, wins: n, volume: f, payout: f, profit: f}.
+  """
+  def period_stats(vault_type, seconds_back \\ nil) when vault_type in [:sol, :bux] do
+    cutoff = if seconds_back, do: System.system_time(:second) - seconds_back, else: 0
+
+    games =
+      :mnesia.dirty_match_object(
+        {:coin_flip_games, :_, :_, :_, :_, :_, :_, :settled, vault_type, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+      )
+      |> Enum.filter(fn record -> elem(record, 19) >= cutoff end)
+
+    total = length(games)
+    wins = Enum.count(games, fn record -> elem(record, 13) == true end)
+
+    volume = Enum.reduce(games, 0.0, fn record, acc ->
+      bet = elem(record, 9)
+      if is_number(bet), do: acc + bet, else: acc
+    end)
+
+    payout = Enum.reduce(games, 0.0, fn record, acc ->
+      p = elem(record, 14)
+      if is_number(p), do: acc + p, else: acc
+    end)
+
+    %{total: total, wins: wins, volume: volume, payout: payout, profit: volume - payout}
+  rescue
+    _ -> %{total: 0, wins: 0, volume: 0.0, payout: 0.0, profit: 0.0}
+  catch
+    :exit, _ -> %{total: 0, wins: 0, volume: 0.0, payout: 0.0, profit: 0.0}
   end
 
   # Public accessors

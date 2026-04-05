@@ -431,3 +431,144 @@ Split the single `/pool` page into a pool index and two dedicated vault pages (S
 | 11 (Cleanup) | 0 | 2126 |
 | 12 (Final) | 0 | 2126 |
 | Pool Overhaul | 47 new, 43 updated | 2192 |
+
+---
+
+## Per-Difficulty Max Bet Enforcement (2026-04-04)
+
+**Problem**: Solana bankroll program had no per-difficulty max bet validation. It used a flat `max_bet_bps=1000` (10% of vault) and trusted the caller-supplied `max_payout` — a security gap where a malicious caller could inflate payouts. The EVM BuxBoosterGame enforces per-difficulty limits with stored multipliers.
+
+**Changes**:
+
+### On-Chain Program (Rust)
+- `GameEntry._reserved: [u8; 20]` → `multipliers: [u16; 9]` + `_reserved: [u8; 2]` (same 73-byte size)
+- Multipliers stored as BPS/100 to fit u16 (e.g., 1.98x = 19800 BPS → stored as 198, 31.68x → 3168)
+- `place_bet_sol`/`place_bet_bux`: `max_payout: u64` arg → `difficulty: u8`
+  - Program looks up `multiplier = game.multipliers[difficulty] * 100`
+  - Computes `max_bet = (net * max_bet_bps / 10000) * 20000 / multiplier` (matches EVM `_calculateMaxBet`)
+  - Computes `max_payout = amount * multiplier / 10000` on-chain (no longer trusts caller)
+  - Validates `potential_profit <= net_balance`
+- `register_game`: added `multipliers: [u16; 9]` parameter
+- `update_config`: added `new_game_multipliers: Option<[u16; 9]>` parameter
+- Added `calculate_max_bet_for_difficulty()` and `calculate_max_payout()` to math.rs
+- Added `InvalidDifficulty` and `MultipliersNotConfigured` error variants
+- Instruction data: 40 bytes → 33 bytes (u8 difficulty instead of u64 max_payout)
+
+### Settler (TypeScript)
+- `buildPlaceBetTx`: `maxPayout` param → `difficulty` (0-8 diffIndex)
+- `/build-place-bet` route: accepts `difficulty` instead of `maxPayout`
+- `update-game-config.ts`: sets multipliers, max_bet_bps=10, min_bet=10M
+
+### Elixir Frontend
+- `bux_minter.ex`: sends `difficulty` instead of `maxPayout` to settler
+- `coin_flip_live.ex`: added `difficulty_to_diff_index/1` helper, passes diffIndex to build_place_bet_tx
+
+### Coin Flip Game Config (via update_config after deploy)
+| Setting | Old | New |
+|---------|-----|-----|
+| max_bet_bps | 1000 (10%) | 10 (0.1%) |
+| min_bet | 1000 lamports | 10,000,000 (0.01 tokens) |
+| multipliers | [0;9] | [102,105,113,132,198,396,792,1584,3168] |
+
+---
+
+## Post-Migration: LP Price Chart History (2026-04-04)
+
+Ported FateSwap's LP price chart approach to Blockster's pool pages. Charts now show real historical price data with per-timeframe downsampling and real-time updates on bet settlement.
+
+### Architecture (matching FateSwap)
+- **Storage**: Mnesia `:lp_price_history` ordered_set (FateSwap uses ETS + PostgreSQL; Mnesia serves both roles)
+- **Recording**: LpPriceTracker polls settler every 60s; also records on each bet settlement via PubSub
+- **Downsampling**: Per-timeframe intervals (1H=60s, 24H=5min, 7D=30min, 30D=2hr, All=1day). Takes last point per bucket. Skipped when <500 points to avoid over-compressing sparse data.
+- **Real-time updates**: Bet settlement → PubSub broadcast → LiveView pushes incremental `chart_update` to JS
+- **Chart stats**: High, low, change % computed per timeframe and displayed in chart header
+
+### Data Flow
+1. `LpPriceTracker` (60s poll or bet settlement) → `LpPriceHistory.record/3` �� Mnesia write
+2. `record/3` broadcasts `{:chart_point, point}` on `"pool_chart:#{vault_type}"`
+3. `PoolDetailLive` subscribes → `push_event("chart_update", point)` to JS
+4. JS `series.update(point)` for real-time; `series.setData(data)` for timeframe changes
+
+### Settlement → Chart Integration
+- `CoinFlipGame.settle_game/1` broadcasts `{:bet_settled, vault_type}` on `"pool:settlements"`
+- `LpPriceTracker` subscribes, fetches fresh pool stats from settler, records with `force: true` (bypasses 60s throttle)
+
+### Files Created
+- `lib/blockster_v2/lp_price_history.ex` — Mnesia price snapshots, downsampling, chart stats, PubSub broadcast
+- `lib/blockster_v2/lp_price_tracker.ex` — GlobalSingleton GenServer, 60s poll + settlement listener + daily prune
+
+### Files Modified
+- `lib/blockster_v2_web/live/pool_detail_live.ex` — PubSub subscription for `pool_chart:#{vault_type}`, `chart_price_stats` assign, `push_chart_data/2` helper, `handle_info({:chart_point, point})`, period stats from Mnesia
+- `lib/blockster_v2_web/components/pool_components.ex` — `chart_price_stats` attr, change % badge (green/red), `format_change_pct/1`, responsive flex-wrap layout, period stats with timeframe labels, coin flip predictions/results in activity rows, tx-linked amounts
+- `assets/js/hooks/price_chart.js` — Event key `data` (was `points`), deferred init with `requestAnimationFrame`, empty state message, debounced resize
+- `lib/blockster_v2/coin_flip_game.ex` — `broadcast_bet_settled/1` after settlement, `period_stats/2` for time-filtered stats, predictions/results/difficulty in `get_recent_games_by_vault`
+- `lib/blockster_v2/mnesia_initializer.ex` — `:lp_price_history` table definition (ordered_set, vault_type index)
+- `lib/blockster_v2/application.ex` — `LpPriceTracker` in supervision tree
+
+---
+
+## Post-Migration: Pool Activity Table + Coin Flip UX (2026-04-04)
+
+### Pool Activity Table
+- Coin flip rows show predictions → results (🚀/💩 emojis), multiplier odds (e.g., "1.98x")
+- Game name linked to commitment tx on Solscan, bet amount linked to bet tx, P/L linked to settlement tx
+- Verify fairness button retained, separate tx link row removed
+
+### Coin Flip Play Page (/play)
+- Recent games table: ID (#nonce) linked to commitment tx, Bet column linked to bet tx, P/L linked to settlement tx
+- Provably fair modal: commitment hash displayed in blue as Solscan link
+- Default bet: closest preset to 10% of balance, capped by max bet when house balance loads
+- Max bet validation before sending to chain: "Bet exceeds max bet of X SOL for this difficulty"
+- Better error messages: simulation reverts parsed for specific program errors (BetExceedsMax, PayoutExceedsMax, InsufficientVault)
+- Settlement status indicator on result screen: pending (spinning), settled (Solscan link), failed (retry info + 5min reclaim timeout)
+- "Game not ready" replaces generic "Wallet not connected" when previous bet still settling
+
+### Pool Stats Grid
+- Stats filtered by chart timeframe (was all-time from settler)
+- Labels show period: "Volume (24H)", "Bets (24H)", "Win Rate (24H)", "Profit (24H)", "Payout (24H)"
+- All-time stats (LP Price, Supply, Bankroll) remain from settler
+- Period stats computed from Mnesia `CoinFlipGame.period_stats/2`
+- Win rate fixed: was always 0% because `totalWins` doesn't exist in on-chain VaultState
+
+---
+
+## Post-Migration: Payout Rounding Fix (2026-04-04)
+
+**Bug**: `PayoutExceedsMax` settlement failures when betting near max bet.
+
+**Root cause**: Elixir used `Float.round` for payout and max bet calculations, which can round UP. On-chain Rust uses integer division which truncates DOWN. Difference of 1-2 lamports causes `PayoutExceedsMax`.
+
+**Fix**: Both `calculate_payout` (coin_flip_game.ex) and `calculate_max_bet` (coin_flip_live.ex) now use `trunc` / `div` to replicate on-chain integer math exactly, including intermediate truncations.
+
+### Files Modified
+- `lib/blockster_v2/coin_flip_game.ex` — `calculate_payout/2`: `trunc(raw * 10^decimals) / 10^decimals` instead of `Float.round`
+- `lib/blockster_v2_web/live/coin_flip_live.ex` — `calculate_max_bet/2`: integer `div` matching Rust's `calculate_max_bet_for_difficulty`
+
+---
+
+## Post-Migration: Settler Transaction Reliability (2026-04-04)
+
+**Problem**: Settlement and commitment txs frequently timing out on devnet. Txs were landing on-chain but confirmation was missed, causing unnecessary retries that failed with `AccountNotInitialized`.
+
+### Root causes
+1. No priority fees — devnet validators deprioritize zero-fee txs
+2. Default `preflightCommitment: "finalized"` added ~15s latency
+3. No tx rebroadcasting — dropped txs never resent
+4. Deprecated `confirmTransaction(sig, "confirmed")` with blanket 30s timeout
+5. No blockhash expiry detection — couldn't tell if tx landed but confirmation was missed
+
+### Fixes (contracts/blockster-settler/)
+- **Priority fees**: All txs (settler-signed and user-signed) include `ComputeBudgetProgram.setComputeUnitLimit(200k)` + `setComputeUnitPrice(50k microLamports)`
+- **`sendSettlerTx`**: New function for settler-signed txs with:
+  - Preflight simulation to catch errors early
+  - Rebroadcast every 2s while waiting for confirmation
+  - Blockhash-aware confirmation (`lastValidBlockHeight`)
+  - After blockhash expiry: checks `getSignatureStatus` to detect txs that landed but confirmation was missed ("Tx landed despite timeout")
+  - Auto-retry up to 3 times with fresh blockhash on expiry
+  - Logs tx signature for Solscan debugging
+- **Elixir HTTP timeout**: Increased from 60s to 120s to cover settler retry cycle
+
+### Files Created/Modified
+- `contracts/blockster-settler/src/services/rpc-client.ts` — `getBlockhashWithExpiry`, `sendAndConfirmTx`, `sendSettlerTx`, `computeBudgetIxs`
+- `contracts/blockster-settler/src/services/bankroll-service.ts` — All tx builders use `computeBudgetIxs()`, settler txs use `sendSettlerTx`
+- `lib/blockster_v2/coin_flip_game.ex` — HTTP timeout 60s → 120s
