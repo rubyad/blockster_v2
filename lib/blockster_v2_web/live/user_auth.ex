@@ -10,9 +10,13 @@ defmodule BlocksterV2Web.UserAuth do
   import Phoenix.LiveView
 
   alias BlocksterV2.Accounts
+  alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.BuxMinter
 
   def on_mount(:default, _params, session, socket) do
-    {:cont, mount_current_user(socket, session)}
+    socket = mount_current_user(socket, session)
+    socket = sync_balances_on_nav(socket)
+    {:cont, socket}
   end
 
   defp mount_current_user(socket, session) do
@@ -52,6 +56,19 @@ defmodule BlocksterV2Web.UserAuth do
       end
     else
       nil
+    end
+  end
+
+  # Sync balances on every LiveView navigation for logged-in users
+  defp sync_balances_on_nav(socket) do
+    user = socket.assigns[:current_user]
+
+    if user && connected?(socket) && user.wallet_address do
+      BuxMinter.sync_user_balances_async(user.id, user.wallet_address)
+      token_balances = EngagementTracker.get_user_token_balances(user.id)
+      assign(socket, :token_balances, token_balances)
+    else
+      socket
     end
   end
 

@@ -100,8 +100,13 @@ defmodule BlocksterV2.CoinFlipGame do
         }}
 
       {:error, reason} ->
-        Logger.error("[CoinFlipGame] Failed to submit commitment: #{inspect(reason)}")
-        {:error, reason}
+        Logger.error("[CoinFlipGame] Failed to submit commitment for nonce #{nonce}, player #{wallet_address}: #{inspect(reason)}")
+        reason_str = if is_binary(reason), do: reason, else: inspect(reason)
+        if String.contains?(reason_str, "NonceMismatch") or String.contains?(reason_str, "0x1771") do
+          {:error, {:nonce_mismatch, nonce}}
+        else
+          {:error, reason}
+        end
     end
   end
 
@@ -496,52 +501,42 @@ defmodule BlocksterV2.CoinFlipGame do
 
   @doc """
   Get or create a game session.
-  Calculates next nonce from Mnesia by finding the highest nonce from placed bets.
+  Calculates next nonce from Mnesia (like old BuxBoosterOnchain) — no on-chain state check.
+  This is fast (<1ms) because it only reads local Mnesia, not Solana RPC.
   """
   def get_or_init_game(user_id, wallet_address) do
-    # Read on-chain state to get correct nonce and check for stuck bets
-    onchain_state = case BlocksterV2.BuxMinter.get_player_state(wallet_address) do
-      {:ok, state} -> state
-      _ -> %{"nonce" => 0, "has_active_order" => false, "exists" => false}
+    # Calculate next nonce from Mnesia — same pattern as old BuxBoosterOnchain
+    next_nonce = case :mnesia.dirty_match_object(
+      {:coin_flip_games, :_, user_id, wallet_address, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+    ) do
+      [] -> 0
+      games ->
+        placed_games = Enum.filter(games, fn game -> elem(game, 7) in [:placed, :settled] end)
+        case placed_games do
+          [] -> 0
+          _ ->
+            placed_games
+            |> Enum.map(fn game -> elem(game, 6) end)
+            |> Enum.max()
+            |> Kernel.+(1)
+        end
     end
 
-    if onchain_state["has_active_order"] do
-      # Return the on-chain nonce so the caller can build a reclaim tx
-      pending_nonce = onchain_state["pending_nonce"] || 0
-      Logger.warning("[CoinFlipGame] Player #{wallet_address} has active bet order at nonce #{pending_nonce}")
-      {:error, {:active_order, pending_nonce}}
-    else
-      next_nonce = onchain_state["nonce"] || 0
-
-      # Check if we already have a pending commitment with this nonce
-      case get_pending_game(user_id) do
-        %{wallet_address: ^wallet_address, commitment_sig: sig, nonce: nonce} = existing
-            when sig != nil and nonce == next_nonce ->
-          Logger.info("[CoinFlipGame] Reusing existing game: #{existing.game_id}, nonce: #{existing.nonce}")
-          {:ok, %{
-            game_id: existing.game_id,
-            commitment_hash: existing.commitment_hash,
-            commitment_sig: existing.commitment_sig,
-            nonce: existing.nonce
-          }}
-
-        _ ->
-          Logger.info("[CoinFlipGame] Creating new game with nonce #{next_nonce}")
-          init_game_with_nonce(user_id, wallet_address, next_nonce)
-      end
-    end
-  end
-
-  defp calculate_next_nonce(_user_id, wallet_address) do
-    # Read on-chain nonce from PlayerState — this is the source of truth
-    case BlocksterV2.BuxMinter.get_player_state(wallet_address) do
-      {:ok, %{"nonce" => onchain_nonce}} when is_integer(onchain_nonce) ->
-        Logger.debug("[CoinFlipGame] On-chain nonce for #{wallet_address}: #{onchain_nonce}")
-        onchain_nonce
+    # Reuse existing pending commitment if nonce matches
+    case get_pending_game(user_id) do
+      %{wallet_address: ^wallet_address, commitment_sig: sig, nonce: nonce} = existing
+          when sig != nil and nonce == next_nonce ->
+        Logger.info("[CoinFlipGame] Reusing existing game: #{existing.game_id}, nonce: #{existing.nonce}")
+        {:ok, %{
+          game_id: existing.game_id,
+          commitment_hash: existing.commitment_hash,
+          commitment_sig: existing.commitment_sig,
+          nonce: existing.nonce
+        }}
 
       _ ->
-        Logger.debug("[CoinFlipGame] No on-chain state for #{wallet_address}, using nonce 0")
-        0
+        Logger.info("[CoinFlipGame] Creating new game with nonce #{next_nonce} (from Mnesia) for user #{user_id}, wallet #{wallet_address}")
+        init_game_with_nonce(user_id, wallet_address, next_nonce)
     end
   end
 
@@ -638,7 +633,8 @@ defmodule BlocksterV2.CoinFlipGame do
 
     url = "#{settler_url()}/settle-bet"
 
-    case http_post(url, body, headers) do
+    # Settlement needs longer timeout — sendSettlerTx retries up to 3x with blockhash refresh
+    case http_post(url, body, headers, receive_timeout: 60_000) do
       {:ok, %{status_code: 200, body: resp_body}} ->
         case Jason.decode(resp_body) do
           {:ok, %{"success" => true, "signature" => sig}} ->
@@ -663,10 +659,11 @@ defmodule BlocksterV2.CoinFlipGame do
     end
   end
 
-  defp http_post(url, body, headers) do
+  defp http_post(url, body, headers, opts \\ []) do
+    timeout = Keyword.get(opts, :receive_timeout, 30_000)
     case Code.ensure_loaded(Req) do
       {:module, Req} ->
-        case Req.post(url, body: body, headers: headers, receive_timeout: 120_000) do
+        case Req.post(url, body: body, headers: headers, receive_timeout: timeout) do
           {:ok, %Req.Response{status: status, body: response_body}} ->
             body_string = if is_binary(response_body), do: response_body, else: Jason.encode!(response_body)
             {:ok, %{status_code: status, body: body_string}}

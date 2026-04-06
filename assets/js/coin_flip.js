@@ -1,53 +1,77 @@
-// CoinFlip Hook for BUX Booster
+// CoinFlip Hook for Coin Flip game
 // Handles continuous coin spinning until backend reveals result
-// Listens for reveal_result event to stop spinning and show final result
+// Flip 1: instant stop (result revealed immediately after bet confirmation)
+// Flips 2+: smooth deceleration animation (result is already known)
 export const CoinFlip = {
   mounted() {
     this.currentFlipId = this.el.id;
     this.flipCompleted = false;
-    this.resultRevealed = false;
-    this.animationStartTime = Date.now();
 
     requestAnimationFrame(() => {
       this.coinEl = this.el.querySelector('.coin');
       if (!this.coinEl) return;
 
-      const flipIndex = parseInt(this.el.dataset.flipIndex || '1');
-
-      // First flip: continuous spin until reveal_result event
-      // Subsequent flips: result comes via reveal_result event too
       this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
       this.coinEl.classList.add('animate-flip-continuous');
-      this.animationStartTime = Date.now();
     });
 
-    // Listen for reveal_result event from backend (only sent after bet confirmed)
+    // Listen for reveal_result event from backend
     this.handleEvent("reveal_result", ({ flip_index, result }) => {
-      this.resultRevealed = true;
-      this.pendingResult = result;
-
       if (!this.coinEl) {
         this.coinEl = this.el.querySelector('.coin');
       }
+      if (!this.coinEl) return;
 
-      if (this.coinEl) {
-        const switchAnimation = () => {
-          const finalAnimation = this.pendingResult === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
-          this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
-          this.coinEl.classList.add(finalAnimation);
-          this.coinEl.removeEventListener('animationiteration', switchAnimation);
-        };
+      if (flip_index === 0) {
+        // First flip: find next 0° crossing (coin does 7 rotations in 3s cycle,
+        // passes through 0° every 3000/7 ≈ 429ms — max wait ~430ms)
+        const CYCLE_MS = 3000;
+        const ROTATIONS = 7;
+        const MS_PER_ROTATION = CYCLE_MS / ROTATIONS;
+        const animations = this.coinEl.getAnimations();
+        let msUntilZero = 0;
 
-        this.coinEl.addEventListener('animationiteration', switchAnimation);
-      }
-
-      // Wait for final animation to complete (3 seconds)
-      setTimeout(() => {
-        if (!this.flipCompleted && this.el.id === this.currentFlipId) {
-          this.flipCompleted = true;
-          this.pushEvent('flip_complete', {});
+        if (animations.length > 0) {
+          const elapsed = animations[0].currentTime % CYCLE_MS;
+          const intoRotation = elapsed % MS_PER_ROTATION;
+          msUntilZero = MS_PER_ROTATION - intoRotation;
+          if (msUntilZero < 30) msUntilZero += MS_PER_ROTATION; // avoid near-zero timing
         }
-      }, 3000);
+
+        setTimeout(() => {
+          if (!this.coinEl) return;
+          this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
+          this.coinEl.style.transform = '';
+          void this.coinEl.offsetWidth;
+          const finalClass = result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+          this.coinEl.classList.add(finalClass);
+
+          setTimeout(() => {
+            if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+              this.flipCompleted = true;
+              this.pushEvent('flip_complete', {});
+            }
+          }, 3000);
+        }, msUntilZero);
+      } else {
+        // Subsequent flips: play deceleration animation directly (no continuous spin)
+        this.coinEl.classList.remove('animate-flip-continuous', 'animate-flip-heads', 'animate-flip-tails');
+        this.coinEl.style.transform = '';
+
+        // Force reflow so the animation restarts cleanly
+        void this.coinEl.offsetWidth;
+
+        const finalClass = result === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails';
+        this.coinEl.classList.add(finalClass);
+
+        // Signal complete when deceleration finishes (3s animation)
+        setTimeout(() => {
+          if (!this.flipCompleted && this.el.id === this.currentFlipId) {
+            this.flipCompleted = true;
+            this.pushEvent('flip_complete', {});
+          }
+        }, 3000);
+      }
     });
   },
 
@@ -55,12 +79,11 @@ export const CoinFlip = {
     if (this.el.id !== this.currentFlipId) {
       this.currentFlipId = this.el.id;
       this.flipCompleted = false;
-      this.resultRevealed = false;
 
       requestAnimationFrame(() => {
         this.coinEl = this.el.querySelector('.coin');
         if (this.coinEl) {
-          // Always start with continuous spin — result comes via reveal_result event
+          this.coinEl.style.transform = '';
           this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
           this.coinEl.classList.add('animate-flip-continuous');
         }

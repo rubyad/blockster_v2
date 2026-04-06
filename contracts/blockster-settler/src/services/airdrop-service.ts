@@ -26,7 +26,7 @@ import {
   BUX_DECIMALS,
   MINT_AUTHORITY,
 } from "../config";
-import { getRecentBlockhash } from "./rpc-client";
+import { getRecentBlockhash, waitForConfirmation } from "./rpc-client";
 
 // -------------------------------------------------------------------
 // PDA Seeds (must match the Anchor program)
@@ -309,8 +309,8 @@ export async function startRound(
   tx.add(ix);
   tx.sign(authority);
 
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+  await waitForConfirmation(sig);
   return sig;
 }
 
@@ -378,8 +378,8 @@ export async function fundPrizes(
   tx.add(ix);
   tx.sign(authority);
 
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+  await waitForConfirmation(sig);
   return sig;
 }
 
@@ -414,8 +414,8 @@ export async function closeRound(roundId: number): Promise<string> {
   tx.add(ix);
   tx.sign(authority);
 
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+  await waitForConfirmation(sig);
   return sig;
 }
 
@@ -476,8 +476,8 @@ export async function drawWinners(
   tx.add(ix);
   tx.sign(authority);
 
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+  await waitForConfirmation(sig);
   return sig;
 }
 

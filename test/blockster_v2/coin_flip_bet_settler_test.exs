@@ -97,6 +97,56 @@ defmodule BlocksterV2.CoinFlipBetSettlerTest do
     end
   end
 
+  describe "concurrent unsettled bets" do
+    test "finds multiple unsettled bets for different users" do
+      old_time = System.system_time(:second) - 300
+
+      record1 = {:coin_flip_games,
+        "user1_bet", 1, "wallet1", "seed1", "hash1", 0, :placed,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig1", "bet1", nil, old_time, nil}
+      record2 = {:coin_flip_games,
+        "user2_bet", 2, "wallet2", "seed2", "hash2", 0, :placed,
+        :bux, 200, 1, [:tails], [:tails], false, 0,
+        "sig2", "bet2", nil, old_time, nil}
+      :mnesia.dirty_write(record1)
+      :mnesia.dirty_write(record2)
+
+      cutoff = System.system_time(:second) - 120
+      unsettled = :mnesia.dirty_match_object(
+        {:coin_flip_games, :_, :_, :_, :_, :_, :_, :placed, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+      )
+      |> Enum.filter(fn r -> elem(r, 18) != nil and elem(r, 18) < cutoff end)
+
+      assert length(unsettled) == 2
+    end
+
+    test "finds multiple unsettled bets for same user (concurrent nonces)" do
+      old_time = System.system_time(:second) - 300
+
+      record0 = {:coin_flip_games,
+        "same_user_0", 1, "wallet1", "seed0", "hash0", 0, :placed,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig0", "bet0", nil, old_time, nil}
+      record1 = {:coin_flip_games,
+        "same_user_1", 1, "wallet1", "seed1", "hash1", 1, :placed,
+        :bux, 100, 1, [:tails], [:tails], false, 0,
+        "sig1", "bet1", nil, old_time, nil}
+      :mnesia.dirty_write(record0)
+      :mnesia.dirty_write(record1)
+
+      cutoff = System.system_time(:second) - 120
+      unsettled = :mnesia.dirty_match_object(
+        {:coin_flip_games, :_, :_, :_, :_, :_, :_, :placed, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+      )
+      |> Enum.filter(fn r -> elem(r, 18) != nil and elem(r, 18) < cutoff end)
+
+      assert length(unsettled) == 2
+      nonces = Enum.map(unsettled, fn r -> elem(r, 6) end) |> Enum.sort()
+      assert nonces == [0, 1]
+    end
+  end
+
   describe "module attributes" do
     test "check_interval is 1 minute" do
       # The module is configured with @check_interval :timer.minutes(1)

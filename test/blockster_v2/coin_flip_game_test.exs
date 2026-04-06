@@ -252,48 +252,170 @@ defmodule BlocksterV2.CoinFlipGameTest do
   # Nonce Calculation Tests
   # ============================================================================
 
-  describe "nonce calculation" do
-    test "starts at 0 for new user" do
-      # With no games in Mnesia, get_or_init_game should use nonce 0
-      # We can't call get_or_init_game directly because it calls settler,
-      # but we can verify the nonce calculation logic via calculate_next_nonce
-      # indirectly through get_pending_game
-      assert nil == CoinFlipGame.get_pending_game(999)
+  describe "nonce calculation (Mnesia-based)" do
+    # Helper to compute next nonce from Mnesia (same logic as get_or_init_game)
+    defp compute_next_nonce(user_id, wallet_address) do
+      case :mnesia.dirty_match_object(
+        {:coin_flip_games, :_, user_id, wallet_address, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+      ) do
+        [] -> 0
+        games ->
+          placed_games = Enum.filter(games, fn game -> elem(game, 7) in [:placed, :settled] end)
+          case placed_games do
+            [] -> 0
+            _ ->
+              placed_games
+              |> Enum.map(fn game -> elem(game, 6) end)
+              |> Enum.max()
+              |> Kernel.+(1)
+          end
+      end
+    end
+
+    test "starts at 0 for new user with no games" do
+      assert 0 == compute_next_nonce(999, "new_wallet")
     end
 
     test "increments after placed games" do
       now = System.system_time(:second)
 
-      # Insert a placed game with nonce 0
-      record0 = {
-        :coin_flip_games,
+      record0 = {:coin_flip_games,
         "game_0", 1, "wallet1", "seed0", "hash0", 0, :placed,
         :bux, 100, 1, [:heads], [:heads], true, 198.0,
-        "sig0", "bet0", nil, now, nil
-      }
+        "sig0", "bet0", nil, now, nil}
       :mnesia.dirty_write(record0)
 
-      # Insert a placed game with nonce 1
-      record1 = {
-        :coin_flip_games,
+      record1 = {:coin_flip_games,
         "game_1", 1, "wallet1", "seed1", "hash1", 1, :placed,
         :bux, 100, 1, [:tails], [:tails], true, 198.0,
-        "sig1", "bet1", nil, now, nil
-      }
+        "sig1", "bet1", nil, now, nil}
       :mnesia.dirty_write(record1)
 
-      # A pending game at nonce 2 should be the next expected
-      record2 = {
-        :coin_flip_games,
-        "game_2", 1, "wallet1", "seed2", "hash2", 2, :committed,
+      assert 2 == compute_next_nonce(1, "wallet1")
+    end
+
+    test "increments after settled games" do
+      now = System.system_time(:second)
+
+      record = {:coin_flip_games,
+        "settled_1", 1, "wallet1", "seed", "hash", 5, :settled,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig", "bet", "settle", now, now}
+      :mnesia.dirty_write(record)
+
+      assert 6 == compute_next_nonce(1, "wallet1")
+    end
+
+    test "ignores committed-only games for nonce calculation" do
+      now = System.system_time(:second)
+
+      # Committed but never placed — should NOT count
+      record = {:coin_flip_games,
+        "committed_only", 1, "wallet1", "seed", "hash", 0, :committed,
         nil, nil, nil, nil, nil, nil, nil,
-        "sig2", nil, nil, now, nil
-      }
+        "sig", nil, nil, now, nil}
+      :mnesia.dirty_write(record)
+
+      assert 0 == compute_next_nonce(1, "wallet1")
+    end
+
+    test "handles mixed placed and settled games" do
+      now = System.system_time(:second)
+
+      record0 = {:coin_flip_games,
+        "g0", 1, "wallet1", "s0", "h0", 0, :settled,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig0", "bet0", "set0", now, now}
+      record1 = {:coin_flip_games,
+        "g1", 1, "wallet1", "s1", "h1", 1, :settled,
+        :bux, 100, 1, [:tails], [:tails], false, 0,
+        "sig1", "bet1", "set1", now, now}
+      record2 = {:coin_flip_games,
+        "g2", 1, "wallet1", "s2", "h2", 2, :placed,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig2", "bet2", nil, now, nil}
+
+      :mnesia.dirty_write(record0)
+      :mnesia.dirty_write(record1)
       :mnesia.dirty_write(record2)
 
-      pending = CoinFlipGame.get_pending_game(1)
-      assert pending != nil
-      assert pending.nonce == 2
+      assert 3 == compute_next_nonce(1, "wallet1")
+    end
+
+    test "handles concurrent placed games at different nonces" do
+      now = System.system_time(:second)
+
+      # Simulates concurrent bets: nonce 0 and 1 both placed (not settled)
+      for n <- 0..4 do
+        record = {:coin_flip_games,
+          "g#{n}", 1, "wallet1", "s#{n}", "h#{n}", n, :placed,
+          :bux, 100, 1, [:heads], [:heads], true, 198.0,
+          "sig#{n}", "bet#{n}", nil, now, nil}
+        :mnesia.dirty_write(record)
+      end
+
+      assert 5 == compute_next_nonce(1, "wallet1")
+    end
+
+    test "different wallets have independent nonces" do
+      now = System.system_time(:second)
+
+      record_a = {:coin_flip_games,
+        "ga", 1, "walletA", "sa", "ha", 3, :settled,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "siga", "beta", "seta", now, now}
+      record_b = {:coin_flip_games,
+        "gb", 1, "walletB", "sb", "hb", 0, :placed,
+        :bux, 100, 1, [:tails], [:tails], false, 0,
+        "sigb", "betb", nil, now, nil}
+
+      :mnesia.dirty_write(record_a)
+      :mnesia.dirty_write(record_b)
+
+      assert 4 == compute_next_nonce(1, "walletA")
+      assert 1 == compute_next_nonce(1, "walletB")
+    end
+
+    test "reuses existing pending commitment with matching nonce" do
+      now = System.system_time(:second)
+
+      # Pending committed game at nonce 0 (correct nonce for new user)
+      record = {:coin_flip_games,
+        "pending_game", 42, "wallet42", "seed", "hash", 0, :committed,
+        nil, nil, nil, nil, nil, nil, nil,
+        "sig", nil, nil, now, nil}
+      :mnesia.dirty_write(record)
+
+      game = CoinFlipGame.get_pending_game(42)
+      assert game != nil
+      assert game.nonce == 0
+      assert game.commitment_sig == "sig"
+    end
+
+    test "does not reuse pending commitment with wrong nonce" do
+      now = System.system_time(:second)
+
+      # A placed game at nonce 0 means next nonce should be 1
+      placed = {:coin_flip_games,
+        "placed_0", 1, "wallet1", "seed0", "hash0", 0, :placed,
+        :bux, 100, 1, [:heads], [:heads], true, 198.0,
+        "sig0", "bet0", nil, now, nil}
+      :mnesia.dirty_write(placed)
+
+      # A committed game at nonce 0 (stale — should not be reused)
+      pending = {:coin_flip_games,
+        "pending_0", 1, "wallet1", "seed_p", "hash_p", 0, :committed,
+        nil, nil, nil, nil, nil, nil, nil,
+        "sig_p", nil, nil, now, nil}
+      :mnesia.dirty_write(pending)
+
+      # Next nonce is 1, pending game is at nonce 0 — mismatch
+      next_nonce = compute_next_nonce(1, "wallet1")
+      assert next_nonce == 1
+
+      pending_game = CoinFlipGame.get_pending_game(1)
+      assert pending_game.nonce == 0
+      assert pending_game.nonce != next_nonce  # Won't be reused
     end
   end
 

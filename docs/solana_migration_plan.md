@@ -97,6 +97,7 @@
 - **6E: CoinFlipLive LiveView** (`lib/blockster_v2_web/live/coin_flip_live.ex`) — Adapted from `bux_booster_live.ex`. SOL + BUX tokens only (no ROGUE). Uses CoinFlipGame module, CoinFlipSolana hook, Solana balance functions. Same game UI, difficulty options, provably fair modal, confetti, game history. Deducts/credits SOL and BUX via EngagementTracker Solana functions.
 - **6F: Router & App.js** — `/play` route now points to `CoinFlipLive` instead of `BuxBoosterLive`. `CoinFlipSolana` hook registered in `app.js`. `CoinFlip` animation hook unchanged.
 - **Tests**: 29 new tests (coin_flip_game_test: 26, coin_flip_bet_settler_test: 3). **2034 total, 1 pre-existing flaky test (AdminCommands GenServer timeout).**
+- **Post-Phase 6 Update (2026-04-05)**: Removed `has_active_order` constraint from bankroll program — concurrent bets now allowed. `get_or_init_game` rewritten to use Mnesia nonce (like old BuxBoosterOnchain) instead of on-chain state check. Bet-to-bet time reduced from 12-15s to 1-3s. Added global "Reclaim Bet" banner for expired bets (30s polling, 5min threshold). NonceMismatch fallback to on-chain state. 20 new tests (46 total coin flip tests). Program redeployed to devnet.
 
 ### Phase 7: Bankroll Program & LP System — COMPLETE (2026-04-03)
 - **7A: Deployment Scripts & Settler Endpoints**
@@ -384,9 +385,12 @@ BlocksterBankroll Program
 │   ├── game_count: u64
 │   └── registered_games: Vec<GameEntry>
 │       ├── game_id: u64
-│       ├── game_program: Pubkey (authorized caller)
 │       ├── name: [u8; 32]
-│       └── active: bool
+│       ├── active: bool
+│       ├── min_bet: u64
+│       ├── max_bet_bps: u16
+│       ├── fee_bps: u16
+│       └── multipliers: [u16; 9]  (stored as BPS/100)
 │
 ├── SolVault (PDA: seeds=[b"sol_vault"])
 │   ├── total_balance: u64
@@ -424,14 +428,14 @@ BlocksterBankroll Program
 
 **Instructions**:
 1. `initialize` — Create GameRegistry, SolVault, BuxVault, LP mints
-2. `register_game(game_id, game_program, name)` — Authority adds authorized game
+2. `register_game(game_id, name, min_bet, max_bet_bps, fee_bps, multipliers)` — Authority adds game
 3. `deposit_sol(amount)` — LP deposit SOL, receive bSOL LP tokens
 4. `withdraw_sol(lp_amount)` — Burn bSOL, receive SOL
 5. `deposit_bux(amount)` — LP deposit BUX, receive bBUX LP tokens
 6. `withdraw_bux(lp_amount)` — Burn bBUX, receive BUX
 7. `submit_commitment(nonce, commitment_hash)` — Settler submits for player
-8. `place_bet_sol(game_id, nonce, amount, max_payout, ...)` — Player bets SOL
-9. `place_bet_bux(game_id, nonce, amount, max_payout, ...)` — Player bets BUX
+8. `place_bet_sol(game_id, nonce, amount, difficulty)` — Player bets SOL (max_payout computed on-chain from multipliers)
+9. `place_bet_bux(game_id, nonce, amount, difficulty)` — Player bets BUX (max_payout computed on-chain from multipliers)
 10. `settle_bet(nonce, server_seed, won, payout)` — Settler settles
 11. `reclaim_expired_bet(nonce)` — Player reclaims timed-out bet
 12. `set_referrer(referrer)` — Player sets referrer
@@ -445,11 +449,14 @@ BlocksterBankroll Program
 - Available balance for withdrawals: `vault_balance - total_liability`
 - LP price: `effective_balance * 1e9 / lp_supply`
 
-**Game Authorization**:
-- Games are registered by authority with a program address
-- `place_bet_*` validates `game_id` maps to a registered, active game
-- The calling game program is NOT required to be the signer — the player signs the bet tx. Instead, the `game_id` and `max_payout` are validated against registered game configs
-- Each game can have its own max_payout_bps, min_bet, and fee config (stored in GameEntry)
+**Game Authorization & Per-Difficulty Max Bet** (matches EVM BuxBoosterGame):
+- Games are registered by authority with multipliers, min_bet, max_bet_bps, fee_bps
+- `place_bet_*` accepts `difficulty` (0-8 index) instead of `max_payout`
+- Program looks up `multiplier = game.multipliers[difficulty] * 100` (stored as BPS/100)
+- `max_bet = (net_balance * max_bet_bps / 10000) * 20000 / multiplier` — per-difficulty cap
+- `max_payout = amount * multiplier / 10000` — computed on-chain, NOT trusted from caller
+- `potential_profit = max_payout - amount` must be <= `net_balance`
+- Coin Flip config: `max_bet_bps=100` (1%), `min_bet=10M` (0.01 tokens), multipliers=[102,105,113,132,198,396,792,1584,3168]
 
 **Referral Rewards** (on losing bets):
 - Tier 1: configurable bps (e.g., 100 = 1%)

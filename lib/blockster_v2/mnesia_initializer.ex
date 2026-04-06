@@ -633,6 +633,32 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:wallet_address]
     },
+    # Pool activity feed — deposits, withdrawals (bets come from coin_flip_games)
+    %{
+      name: :pool_activities,
+      type: :ordered_set,
+      attributes: [
+        :id,                          # PRIMARY KEY - monotonic integer (System.unique_integer)
+        :type,                        # "deposit" | "withdraw"
+        :vault_type,                  # "sol" | "bux"
+        :amount,                      # Float amount
+        :wallet,                      # Truncated wallet "abc..xyz"
+        :created_at                   # Unix timestamp
+      ],
+      index: [:vault_type]
+    },
+    # LP price history for pool charts
+    %{
+      name: :lp_price_history,
+      type: :ordered_set,
+      attributes: [
+        :id,                          # PRIMARY KEY - {vault_type, timestamp}
+        :vault_type,                  # "sol" or "bux"
+        :timestamp,                   # Unix timestamp (seconds)
+        :lp_price                     # Float LP price
+      ],
+      index: [:vault_type]
+    },
     # Authority wallet gas tracking — daily mint cost monitoring
     %{
       name: :authority_gas_tracker,

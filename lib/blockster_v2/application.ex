@@ -49,6 +49,8 @@ defmodule BlocksterV2.Application do
         {BlocksterV2.CoinFlipBetSettler, []},
         # Token price tracker (polls CoinGecko every 10 minutes)
         {BlocksterV2.PriceTracker, []},
+        # LP price snapshot recorder (every 10s for pool charts)
+        {BlocksterV2.LpPriceTracker, []},
         # WalletMultiplierRefresher removed in Solana migration (Phase 5)
         # SOL multiplier refresh happens on profile visit + periodic sync
         # Referral reward poller (polls Rogue Chain for ReferralRewardPaid events)

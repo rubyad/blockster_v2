@@ -457,7 +457,7 @@ Split the single `/pool` page into a pool index and two dedicated vault pages (S
 ### Settler (TypeScript)
 - `buildPlaceBetTx`: `maxPayout` param → `difficulty` (0-8 diffIndex)
 - `/build-place-bet` route: accepts `difficulty` instead of `maxPayout`
-- `update-game-config.ts`: sets multipliers, max_bet_bps=10, min_bet=10M
+- `update-game-config.ts`: sets multipliers, max_bet_bps=100, min_bet=10M
 
 ### Elixir Frontend
 - `bux_minter.ex`: sends `difficulty` instead of `maxPayout` to settler
@@ -466,7 +466,7 @@ Split the single `/pool` page into a pool index and two dedicated vault pages (S
 ### Coin Flip Game Config (via update_config after deploy)
 | Setting | Old | New |
 |---------|-----|-----|
-| max_bet_bps | 1000 (10%) | 10 (0.1%) |
+| max_bet_bps | 1000 (10%) | 100 (1%) |
 | min_bet | 1000 lamports | 10,000,000 (0.01 tokens) |
 | multipliers | [0;9] | [102,105,113,132,198,396,792,1584,3168] |
 
@@ -572,3 +572,101 @@ Ported FateSwap's LP price chart approach to Blockster's pool pages. Charts now 
 - `contracts/blockster-settler/src/services/rpc-client.ts` — `getBlockhashWithExpiry`, `sendAndConfirmTx`, `sendSettlerTx`, `computeBudgetIxs`
 - `contracts/blockster-settler/src/services/bankroll-service.ts` — All tx builders use `computeBudgetIxs()`, settler txs use `sendSettlerTx`
 - `lib/blockster_v2/coin_flip_game.ex` — HTTP timeout 60s → 120s
+
+---
+
+## Max Bet BPS Increase: 0.1% → 1% (2026-04-05)
+
+Increased `max_bet_bps` from 10 (0.1%) to 100 (1%) across all three layers. With 43 SOL in the bankroll, max bet at difficulty 1 goes from ~0.043 SOL to ~0.434 SOL. Max payout is ~2% of bankroll across all difficulties.
+
+### Changes
+- `coin_flip_live.ex`: `calculate_max_bet` — `* 10` → `* 100`
+- `bankroll-service.ts`: `getGameConfig` — `maxBetBps = 1000` → `100`
+- `update-game-config.ts`: `NEW_MAX_BET_BPS = 10` → `100`
+- On-chain game config updated via `update_config` tx: `5iKdgrHWHCpTgKpZxaf3tPtMjGhYGwE4kc8LVw7eGNQ5B8qx7ZHq3kFU8t6cf3Qwtx4FKRK2iBfRSeToUcJa9zHv`
+
+---
+
+## Remove Concurrent Bet Constraint + Fast Game Re-Init (2026-04-05)
+
+**Problem**: Placing consecutive bets on `/play` caused 12-15s delays. Root cause: the bankroll program enforced one active bet per player via `has_active_order` flag on PlayerState. After a bet, `get_or_init_game` queried on-chain state via HTTP→settler→Solana RPC, found `has_active_order=true` (settlement still in progress), and entered a 5-retry exponential backoff loop (1s, 2s, 3s, 3s, 3s = 12+s). The old EVM system (BuxBoosterOnchain) didn't have this problem because: (1) no on-chain state check — nonces computed from Mnesia only, (2) no `has_active_order` concept — EVM contract allowed concurrent bets.
+
+### Analysis
+- `submit_commitment` does NOT check `has_active_order` — only stores pending commitment
+- `place_bet` (both SOL + BUX) checks `require!(!player_state.has_active_order)` — this is where the block happens
+- `settle_bet` sets `has_active_order = false`
+- Each BetOrder has unique PDA: `[b"bet", player, nonce_le_bytes]` — multiple can coexist
+- Settlement reads commitment from BetOrder (not PlayerState) — fully independent per nonce
+- Nonce advances at `place_bet` time, not at settlement — concurrent nonces are safe
+
+### Bankroll Program Changes (4 files, 7 lines removed)
+- `place_bet_sol.rs`: Removed `require!(!player_state.has_active_order)` check and `has_active_order = true` set
+- `place_bet_bux.rs`: Same
+- `settle_bet.rs`: Removed `has_active_order = false` in both SOL and BUX paths
+- `reclaim_expired.rs`: Removed `has_active_order = false`
+- `player_state.rs`: Field KEPT for layout compatibility (removing breaks deserialization of existing accounts)
+- Program redeployed to devnet
+
+### Elixir Changes
+- `coin_flip_game.ex`: Rewrote `get_or_init_game` to compute nonce from Mnesia (like old BuxBoosterOnchain). No HTTP calls. Deleted `calculate_next_nonce`. Added `{:error, {:nonce_mismatch, nonce}}` return on NonceMismatch from `submit_commitment` for on-chain fallback recovery.
+- `coin_flip_live.ex`: Replaced `active_order` 5-retry handler with `nonce_mismatch` handler that does one-time on-chain fallback via `get_player_state`. Added `init_game_onchain` async handlers. Settlement remains fire-and-forget `spawn` (like old EVM system). Reduced HTTP timeout from 120s to 30s.
+- `coin_flip_live.ex`: Added global "Reclaim Bet" banner — checks every 30s for placed bets older than `bet_timeout` (5 min). Shows amber banner at top of play area regardless of game state. Reclaim handler finds oldest expired bet, builds reclaim tx for wallet signing.
+
+### Performance
+| Metric | Before | After |
+|--------|--------|-------|
+| `get_or_init_game` | 200-500ms (HTTP) + 12s retry | <1ms (Mnesia) |
+| Bet-to-bet total | 12-15s | 1-3s (commitment tx) |
+| Settlement coupling | Blocks next bet | Independent |
+
+### Tests
+- 46 coin flip tests passing (0 failures)
+- New: 10 Mnesia nonce tests, 8 concurrent bet tests, 2 concurrent settler tests
+
+---
+
+## Transaction Confirmation Refactor (2026-04-05)
+
+### Problem
+Settler and client-side code used Solana web3.js `confirmTransaction` (websocket subscriptions) with manual rebroadcast loops for transaction confirmation. This caused:
+- **Unreliable on devnet**: websocket subscriptions drop or delay notifications
+- **RPC contention**: concurrent `sendSettlerTx` calls (commitment + settlement) with overlapping rebroadcast intervals and websocket subscriptions on the same `Connection` object
+- **Slow second bets**: first bet settled instantly, second bet consistently slow due to competing websocket subscriptions and rebroadcast loops from concurrent settler txs
+- **Unnecessary complexity**: rebroadcast intervals, blockhash retry loops, multi-attempt logic
+
+### Solution
+Replaced all confirmation with simple `getSignatureStatuses` polling — the Solana equivalent of ethers.js `tx.wait()`. Send the tx once (RPC handles retries via `maxRetries`), then poll HTTP status until confirmed.
+
+### Changes
+
+**`contracts/blockster-settler/src/services/rpc-client.ts`** — complete rewrite:
+- New `waitForConfirmation(signature, timeoutMs, pollIntervalMs)`: polls `getSignatureStatuses` every 2s until "confirmed"/"finalized", throws on on-chain error or 60s timeout
+- `sendSettlerTx`: simplified to build → sign → `sendRawTransaction` (preflight + maxRetries:5) → `waitForConfirmation`. Single attempt, no blockhash retry loops, no rebroadcast intervals
+- `sendAndConfirmTx`: simplified to `sendRawTransaction` (maxRetries:5) → `waitForConfirmation`
+- Removed: `getBlockhashWithExpiry`, `confirmTransaction` legacy helper, all websocket usage
+
+**`contracts/blockster-settler/src/services/bankroll-service.ts`**:
+- Updated import (removed `getBlockhashWithExpiry`, `sendAndConfirmTx`)
+- `submitCommitment` and `settleBet` unchanged (they call `sendSettlerTx` which is now simpler)
+
+**`contracts/blockster-settler/src/services/airdrop-service.ts`**:
+- All 4 authority-signed tx functions (`startRound`, `fundPrizes`, `closeRound`, `drawWinners`) switched from `connection.confirmTransaction(sig, "confirmed")` to `waitForConfirmation(sig)`
+- Added `maxRetries: 5` to `sendRawTransaction` calls
+
+**`assets/js/coin_flip_solana.js`** — client-side:
+- New `pollForConfirmation(connection, signature, timeoutMs, intervalMs)`: same pattern as settler's `waitForConfirmation`
+- `signAndPlaceBet` and `signAndSendSimple` both use polling instead of `confirmTransaction`
+
+### Before vs After
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Confirmation method | Websocket subscription (`confirmTransaction`) | HTTP polling (`getSignatureStatuses`) |
+| Rebroadcasting | Manual `setInterval` every 2s | None — `maxRetries:5` on `sendRawTransaction` |
+| Retry logic | 3 attempts with blockhash refresh | Single send, RPC handles retries |
+| Concurrent tx safety | Competing websocket subs on shared Connection | Independent HTTP polls, no shared state |
+| Code complexity | ~80 lines (`sendSettlerTx`) | ~20 lines |
+
+### Tests
+- 46 coin flip tests passing (0 failures)
+- TypeScript compiles cleanly (`npx tsc --noEmit`)

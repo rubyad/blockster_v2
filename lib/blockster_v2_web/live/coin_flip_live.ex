@@ -46,6 +46,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
         Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
         Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "coin_flip_settlement:#{current_user.id}")
 
+        # Check for expired bets periodically (every 30s)
+        Process.send_after(self(), :check_expired_bets, 1000)
+
         socket
         |> assign(:onchain_ready, false)
         |> assign(:wallet_address, wallet_address)
@@ -86,6 +89,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(payout: 0)
         |> assign(error_message: error_msg)
         |> assign(settlement_status: nil)
+        |> assign(has_expired_bet: false)
         |> assign(show_token_dropdown: false)
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
@@ -101,6 +105,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(fairness_game: nil)
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
+        |> assign(next_game_session: nil)
 
       socket = if connected?(socket) do
         user_id = current_user.id
@@ -138,6 +143,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(payout: 0)
         |> assign(error_message: nil)
         |> assign(settlement_status: nil)
+        |> assign(has_expired_bet: false)
         |> assign(show_token_dropdown: false)
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
@@ -155,6 +161,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(onchain_initializing: false)
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
+        |> assign(next_game_session: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
 
       {:ok, socket}
@@ -991,6 +998,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
      socket
      |> assign(:error_message, nil)
      |> assign(:init_retry_count, 0)
+     |> assign(:has_expired_bet, false)
      |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet) end)}
   end
 
@@ -1031,17 +1039,35 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   bet_sig: nil, settlement_sig: nil, error_message: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
-      socket = if wallet_address do
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:onchain_initializing, true)
-        |> assign(:init_retry_count, 0)
-        |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
-      else
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:init_retry_count, 0)
-        |> assign(:error_message, "No wallet connected")
+      socket = cond do
+        # Use pre-initialized game from bet_confirmed if available (instant)
+        socket.assigns[:next_game_session] != nil ->
+          game_session = socket.assigns.next_game_session
+          Logger.info("[CoinFlip] Using pre-initialized game: nonce #{game_session.nonce}")
+          socket
+          |> assign(:onchain_game_id, game_session.game_id)
+          |> assign(:commitment_hash, game_session.commitment_hash)
+          |> assign(:commitment_sig, game_session[:commitment_sig])
+          |> assign(:onchain_nonce, game_session.nonce)
+          |> assign(:onchain_ready, true)
+          |> assign(:onchain_initializing, false)
+          |> assign(:init_retry_count, 0)
+          |> assign(:server_seed_hash, game_session.commitment_hash)
+          |> assign(:nonce, game_session.nonce)
+          |> assign(:next_game_session, nil)
+
+        wallet_address != nil ->
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:onchain_initializing, true)
+          |> assign(:init_retry_count, 0)
+          |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
+
+        true ->
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:init_retry_count, 0)
+          |> assign(:error_message, "No wallet connected")
       end
 
       {:noreply, socket}
@@ -1490,6 +1516,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
         %{"SOL" => sol, "BUX" => bux}
       end)
 
+    # Pre-init next game commitment now that settlement is done (no playerState write conflict)
+    socket = start_async(socket, :pre_init_next_game, fn ->
+      CoinFlipGame.get_or_init_game(user_id, wallet_address)
+    end)
+
     {:noreply, socket}
   end
 
@@ -1500,12 +1531,63 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   def handle_async(:sync_post_settle, _, socket), do: {:noreply, socket}
 
+  # Pre-init next game: cache the result so Play Again is instant
   @impl true
-  def handle_info({:settlement_failed, _reason}, socket) do
-    {:noreply, assign(socket, settlement_status: :failed)}
+  def handle_async(:pre_init_next_game, {:ok, {:ok, game_session}}, socket) do
+    Logger.info("[CoinFlip] Next game pre-initialized: nonce #{game_session.nonce}")
+    {:noreply, assign(socket, :next_game_session, game_session)}
+  end
+
+  @impl true
+  def handle_async(:pre_init_next_game, _result, socket) do
+    # Failed to pre-init — no problem, reset_game will init normally
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:settlement_failed, reason}, socket) do
+    # Timeouts don't mean the tx failed — it's likely still in flight on Solana.
+    # The background BetSettler will pick it up. Keep status as :pending for timeouts.
+    reason_str = if is_binary(reason), do: reason, else: inspect(reason)
+    if String.contains?(reason_str, "timeout") or String.contains?(reason_str, "TransportError") do
+      Logger.warning("[CoinFlip] Settlement timed out — tx likely still in flight, background settler will retry")
+      {:noreply, socket}
+    else
+      {:noreply, assign(socket, settlement_status: :failed)}
+    end
   end
 
   def handle_info({:bux_balance_updated, _new_balance}, socket), do: {:noreply, socket}
+
+  def handle_info(:check_expired_bets, socket) do
+    if socket.assigns.current_user && socket.assigns.wallet_address do
+      user_id = socket.assigns.current_user.id
+      wallet = socket.assigns.wallet_address
+
+      bet_timeout = 300
+      now = System.system_time(:second)
+
+      has_expired = try do
+        case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
+          games when is_list(games) ->
+            Enum.any?(games, fn record ->
+              status = elem(record, 7)
+              created_at = elem(record, 18)
+              status == :placed and created_at != nil and (now - created_at) > bet_timeout
+            end)
+          _ -> false
+        end
+      rescue
+        _ -> false
+      end
+
+      Process.send_after(self(), :check_expired_bets, 30_000)
+      {:noreply, assign(socket, has_expired_bet: has_expired)}
+    else
+      Process.send_after(self(), :check_expired_bets, 30_000)
+      {:noreply, socket}
+    end
+  end
 
   def handle_info({:new_settled_game, settled_game}, socket) do
     {:noreply, assign(socket, :recent_games, [settled_game | socket.assigns.recent_games])}

@@ -12,11 +12,18 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > **CRITICAL GIT RULES**:
 > - NEVER add, commit, or push changes to git without EXPLICIT user instructions
 > - NEVER change git branches without EXPLICIT user instructions
+> - **NEVER run `git checkout --`, `git restore`, or `git stash` on files without first running `git diff` to verify no pre-existing uncommitted changes exist** — these commands destroy ALL unstaged work irreversibly, not just your own edits. To undo only your changes, use targeted Edit tool calls.
 >
 > **CRITICAL SECURITY RULES**:
 > - NEVER read or access any `.env` file - these contain private keys and secrets
-> - NEVER use public RPC endpoints for scripts/server code - use project-configured RPC URLs
+> - **NEVER use public RPC endpoints** (`api.devnet.solana.com`, `api.mainnet-beta.solana.com`) for ANY Solana command — always use the project QuickNode RPC from `contracts/blockster-settler/src/config.ts`. This applies to `solana program deploy`, `solana balance`, `solana transfer`, scripts, and ALL CLI commands. Public RPCs are rate-limited and unreliable.
 > - NEVER use `solana airdrop` or any devnet faucet — they are rate-limited and do not work. Ask the user to fund the wallet manually.
+>
+> **CRITICAL SOLANA TX CONFIRMATION RULES**:
+> - **NEVER use `confirmTransaction` (websocket subscriptions)** for confirming Solana transactions — it is unreliable, creates RPC contention when multiple txs are in flight, and causes slow/stuck confirmations
+> - **NEVER use manual rebroadcast loops** (`setInterval` + `sendRawTransaction`) — `maxRetries` on `sendRawTransaction` handles delivery retries at the RPC level
+> - **ALWAYS use `getSignatureStatuses` polling** (like ethers.js `tx.wait()`) — send the tx once with `maxRetries:5`, then poll `getSignatureStatuses` every 2s until "confirmed". See `rpc-client.ts:waitForConfirmation` and `coin_flip_solana.js:pollForConfirmation`
+> - This applies to ALL Solana code: settler services, client-side JS hooks, scripts, and any new services
 >
 > **CRITICAL DEPENDENCY RULES**:
 > - NEVER update Phoenix, LiveView, Ecto, or other core dependencies without EXPLICIT user permission
@@ -41,6 +48,35 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - `flyctl secrets set` WITHOUT `--stage` **immediately restarts the production server** — this is destructive
 > - Staged secrets take effect on the next deploy, which is the safe and expected behavior
 > - NEVER run `flyctl secrets set` without `--stage` unless the user EXPLICITLY says to restart production
+>
+> **CRITICAL SOLANA PROGRAM DEPLOY RULES**:
+> - **Upgrade authority** for both Bankroll and Airdrop programs is the settler keypair (`6b4n...`), NOT the CLI wallet (`49aN...`)
+> - Deploy command MUST use `--upgrade-authority` pointing to settler keypair:
+>   ```
+>   solana program deploy target/deploy/blockster_bankroll.so \
+>     --program-id 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm \
+>     --upgrade-authority contracts/blockster-settler/keypairs/mint-authority.json \
+>     --url https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/
+>   ```
+> - Fee payer is the CLI wallet (`49aN...`) — needs ~5 SOL for program deploys
+> - **IF DEPLOY FAILS** (insufficient funds, network error): Solana creates a **buffer account** with an ephemeral keypair. The output shows a 12-word seed phrase. **YOU MUST RECOVER AND CLOSE THIS BUFFER** or the SOL is lost:
+>   1. Save the seed phrase from the error output
+>   2. Recover keypair using `expect` (solana-keygen needs TTY, use this pattern):
+>      ```
+>      expect -c '
+>      spawn solana-keygen recover --outfile /tmp/buffer-keypair.json --force --skip-seed-phrase-validation
+>      expect "seed phrase:"
+>      send "PASTE_SEED_PHRASE_HERE\r"
+>      expect "passphrase"
+>      send "\r"
+>      expect "Continue"
+>      send "y\r"
+>      expect eof
+>      '
+>      ```
+>   3. Close buffer to recover SOL: `solana program close /tmp/buffer-keypair.json --url https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/`
+>   4. Retry deploy after funding the wallet
+> - **NEVER ignore a failed deploy** — always recover the buffer first
 >
 > **CRITICAL BUX TOKEN RULES**:
 > - BUX tokens live ON-CHAIN in users' smart wallets — they are real ERC-20 tokens, not just Mnesia entries
@@ -247,7 +283,7 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 
 **Deployment status (devnet)**: Both programs deployed and fully initialized. Coin Flip game registered (game_id=1). Authority = `6b4n...` (settler keypair). Deploy fee payer = `49aN...` (CLI wallet). See `docs/addresses.md` for all PDA addresses.
 
-**Bankroll Program** (`contracts/blockster-bankroll/`): Anchor 0.30.1, dual-vault (SOL + BUX), LP tokens (bSOL + bBUX), game registry, provably fair commit-reveal, two-tier referrals. 4-step init due to SBF stack limits. IDL manually maintained at `target/idl/blockster_bankroll.json` (auto-gen broken on modern Rust). Per-difficulty max bet enforcement: `place_bet` accepts `difficulty: u8` (not `max_payout`), program computes max_payout on-chain from stored multipliers (matching EVM BuxBoosterGame). GameEntry stores `multipliers: [u16; 9]` as BPS/100. Config: `max_bet_bps=10` (0.1%), `min_bet=0.01 tokens`.
+**Bankroll Program** (`contracts/blockster-bankroll/`): Anchor 0.30.1, dual-vault (SOL + BUX), LP tokens (bSOL + bBUX), game registry, provably fair commit-reveal, two-tier referrals. 4-step init due to SBF stack limits. IDL manually maintained at `target/idl/blockster_bankroll.json` (auto-gen broken on modern Rust). Per-difficulty max bet enforcement: `place_bet` accepts `difficulty: u8` (not `max_payout`), program computes max_payout on-chain from stored multipliers (matching EVM BuxBoosterGame). GameEntry stores `multipliers: [u16; 9]` as BPS/100. Config: `max_bet_bps=100` (1%), `min_bet=0.01 tokens`. **Concurrent bets**: `has_active_order` constraint removed from `place_bet` — multiple BetOrders can exist per player at different nonces. Each BetOrder PDA is seeded `[b"bet", player, nonce_le_bytes]` so they're fully independent. The `has_active_order` field is kept in PlayerState for layout compatibility but is no longer read or enforced.
 
 **Airdrop Program** (`contracts/blockster-airdrop/`): Anchor 0.30.1, multi-round, any SPL/SOL prizes, BUX entries, SHA256 commit-reveal. IDL at `target/idl/blockster_airdrop.json`.
 
@@ -294,8 +330,10 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - Bet settler: `lib/blockster_v2/coin_flip_bet_settler.ex` (GlobalSingleton, checks every minute)
 - JS hook: `assets/js/coin_flip_solana.js` (Wallet Standard API, optimistic flow)
 - **Payout/max bet math**: MUST use `trunc`/`div` (not `Float.round`) to match on-chain integer truncation. See `calculate_payout` and `calculate_max_bet`.
-- **Settlement status UI**: Result screen shows pending/settled/failed indicator. Settled links to Solscan tx. Failed shows auto-retry + 5min reclaim info.
-- **Settler tx reliability**: All txs use priority fees (`computeBudgetIxs`). Settler-signed txs use `sendSettlerTx` (rebroadcast, blockhash-aware confirmation, signature status check on expiry). See `contracts/blockster-settler/src/services/rpc-client.ts`.
+- **Nonce management**: `get_or_init_game` computes nonce from Mnesia (like old `BuxBoosterOnchain`), NOT from on-chain state. This makes init instant (<1ms). On-chain fallback only on NonceMismatch (Mnesia out of sync). Settlement is fire-and-forget (`spawn`) — next bet doesn't wait for previous settlement.
+- **Settlement status UI**: Result screen shows pending/settled/failed indicator. Settled links to Solscan tx. Failed shows auto-retry info.
+- **Reclaim expired bets**: Global banner on `/play` checks every 30s for placed bets older than `bet_timeout` (5 min). User signs `reclaim_expired` tx to recover funds. Handler: `"reclaim_stuck_bet"` event in `coin_flip_live.ex`.
+- **Settler tx confirmation**: All txs use priority fees (`computeBudgetIxs`) and `maxRetries:5` on `sendRawTransaction`. Confirmation uses `getSignatureStatuses` polling (like ethers `tx.wait()`), NOT websocket subscriptions. See `rpc-client.ts:waitForConfirmation`. Client-side JS (`coin_flip_solana.js`) uses the same polling pattern.
 - LiveView: `lib/blockster_v2_web/live/coin_flip_live.ex` (SOL + BUX tokens, no ROGUE)
 - Route `/play` → `CoinFlipLive` (was `BuxBoosterLive`)
 - Old EVM game files preserved but no longer routed (BuxBoosterLive, bux_booster_onchain.ex)

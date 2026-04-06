@@ -4,13 +4,16 @@
  * Handles on-chain interactions for the Coin Flip game on Solana:
  * 1. Receives unsigned place_bet transaction from LiveView
  * 2. Signs with connected Solana wallet via Wallet Standard API
- * 3. Confirms on-chain, reports real signature back to LiveView
+ * 3. Polls for on-chain confirmation, reports signature back to LiveView
  *
  * Flow:
  * - Server submits commitment via settler (settler wallet signs)
  * - Server builds unsigned place_bet tx via settler
- * - Frontend signs tx with user wallet, sends to RPC, confirms
+ * - Frontend signs tx with user wallet, sends to RPC, polls for confirmation
  * - Server settles the bet via settler after animation
+ *
+ * Confirmation uses simple getSignatureStatuses polling (like ethers tx.wait()),
+ * NOT websocket subscriptions which are unreliable on devnet.
  *
  * Events from LiveView:
  * - "sign_place_bet" { transaction, game_id, vault_type } → sign & send
@@ -23,6 +26,25 @@
 import { Connection } from "@solana/web3.js";
 
 const DEVNET_RPC = "https://api.devnet.solana.com";
+
+/**
+ * Poll getSignatureStatuses until confirmed. Simple HTTP polling — no websockets.
+ */
+async function pollForConfirmation(connection, signature, timeoutMs = 60000, intervalMs = 1000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const response = await connection.getSignatureStatuses([signature]);
+    const status = response?.value?.[0];
+    if (status) {
+      if (status.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
+        return signature;
+      }
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  throw new Error("Transaction confirmation timed out. Please refresh and try again.");
+}
 
 export const CoinFlipSolana = {
   mounted() {
@@ -68,7 +90,7 @@ export const CoinFlipSolana = {
       const sig = bs58.encode(new Uint8Array(signature));
 
       console.log(`[CoinFlipSolana] ${successEvent} tx submitted, confirming: ${sig}`);
-      await this.connection.confirmTransaction(sig, "confirmed");
+      await pollForConfirmation(this.connection, sig);
       console.log(`[CoinFlipSolana] ${successEvent} confirmed: ${sig}`);
 
       this.pushEvent(successEvent, { signature: sig });
@@ -129,9 +151,9 @@ export const CoinFlipSolana = {
       const { default: bs58 } = await import("bs58");
       const sig = bs58.encode(new Uint8Array(signature));
 
-      // Wait for on-chain confirmation
+      // Poll for on-chain confirmation (no websockets)
       console.log(`[CoinFlipSolana] Bet tx submitted, confirming: ${sig}`);
-      await this.connection.confirmTransaction(sig, "confirmed");
+      await pollForConfirmation(this.connection, sig);
 
       const confirmationTime = Date.now() - startTime;
       console.log(`[CoinFlipSolana] Bet confirmed in ${confirmationTime}ms: ${sig}`);

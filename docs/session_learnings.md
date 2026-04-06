@@ -483,3 +483,19 @@ LiveView tests using both `MnesiaCase` + `ConnCase` were failing (16 tests) beca
 - `get_sales/2` was filtering on `mint_price` instead of `mint_tx_hash` — unminted NFTs with default price passed the filter
 - Sorting was by `token_id` desc instead of `created_at` desc — pagination tests expected chronological order
 - `format_eth/1` used `decimals: 3` instead of `decimals: 6`
+
+### Solana Transaction Confirmation — Websockets vs Polling (2026-04-05)
+
+**Problem**: The settler's `sendSettlerTx` and client-side `coin_flip_solana.js` used Solana web3.js `confirmTransaction` which relies on websocket subscriptions internally. This caused:
+1. Second bet settlement consistently slower than first — concurrent `sendSettlerTx` calls (commitment + settlement) created competing websocket subscriptions and rebroadcast `setInterval` loops on the same shared `Connection` object
+2. Unreliable on devnet — websocket connections drop, delay, or miss notifications
+3. Unnecessary complexity — rebroadcast every 2s, 3-attempt blockhash retry loops, signature status checks on expiry
+
+**Root cause**: In EVM, `tx.wait()` uses simple HTTP polling (`eth_getTransactionReceipt`). The Solana code was doing something fundamentally different — websocket subscriptions + manual rebroadcasting — which is fragile and creates contention when multiple txs are in flight.
+
+**Fix**: Replaced all confirmation with `getSignatureStatuses` polling — the Solana equivalent of `tx.wait()`:
+- `rpc-client.ts`: new `waitForConfirmation()` polls every 2s, 60s timeout. `sendSettlerTx` simplified to single send + poll. Removed `getBlockhashWithExpiry`, rebroadcast intervals, multi-attempt retry logic
+- `airdrop-service.ts`: 4 functions switched from `confirmTransaction` to `waitForConfirmation`
+- `coin_flip_solana.js`: new `pollForConfirmation()` replaces `confirmTransaction` for bet placement and reclaim
+
+**Key insight**: `sendRawTransaction` with `maxRetries: 5` already tells the RPC node to handle delivery retries. Application-level rebroadcasting on top of that is redundant and creates RPC contention.

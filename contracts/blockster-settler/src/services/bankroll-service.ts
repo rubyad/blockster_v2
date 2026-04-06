@@ -27,7 +27,7 @@ import {
   BUX_DECIMALS,
   MINT_AUTHORITY,
 } from "../config";
-import { getRecentBlockhash, getBlockhashWithExpiry, sendAndConfirmTx, sendSettlerTx, computeBudgetIxs } from "./rpc-client";
+import { getRecentBlockhash, sendSettlerTx, computeBudgetIxs } from "./rpc-client";
 
 const SYSVAR_RENT = new PublicKey(
   "SysvarRent111111111111111111111111111111111"
@@ -348,7 +348,7 @@ export async function getGameConfig(gameId: number): Promise<GameConfig> {
 
   // GameRegistry stores game entries — for now use stats-based calculation
   // Max bet = 0.1% of total balance, adjusted by game's maxBetBps
-  const maxBetBps = 1000; // 10% default — overridden by on-chain game entry when deployed
+  const maxBetBps = 100; // 1% of vault
   const houseBalanceSol = stats.sol.netBalance;
   const houseBalanceBux = stats.bux.netBalance;
 

@@ -5,16 +5,17 @@ const router = Router();
 
 /**
  * POST /build-place-bet
- * Body: { wallet, gameId, nonce, amount, maxPayout, vaultType }
+ * Body: { wallet, gameId, nonce, amount, difficulty, vaultType }
  *
  * Builds an unsigned place_bet transaction for user signing.
+ * difficulty: 0-8 (diffIndex matching on-chain multiplier array)
  * vaultType: "sol" or "bux"
  */
 router.post("/build-place-bet", async (req: Request, res: Response) => {
   try {
-    const { wallet, gameId, nonce, amount, maxPayout, vaultType } = req.body;
+    const { wallet, gameId, nonce, amount, difficulty, vaultType } = req.body;
 
-    if (!wallet || gameId === undefined || nonce === undefined || !amount || maxPayout === undefined || !vaultType) {
+    if (!wallet || gameId === undefined || nonce === undefined || !amount || difficulty === undefined || !vaultType) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -22,16 +23,20 @@ router.post("/build-place-bet", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "vaultType must be 'sol' or 'bux'" });
     }
 
+    if (difficulty < 0 || difficulty > 8) {
+      return res.status(400).json({ error: "difficulty must be 0-8" });
+    }
+
     const tx = await buildPlaceBetTx(
       wallet,
       gameId,
       nonce,
       amount,
-      maxPayout,
+      difficulty,
       vaultType as "sol" | "bux"
     );
 
-    res.json({ transaction: tx, wallet, gameId, nonce, amount, maxPayout, vaultType });
+    res.json({ transaction: tx, wallet, gameId, nonce, amount, difficulty, vaultType });
   } catch (err: any) {
     console.error("Build tx error:", err.message);
     res.status(500).json({ error: err.message });

@@ -394,7 +394,7 @@ defmodule BlocksterV2.BuxMinter do
   vault_type: "sol" or "bux"
   Returns {:ok, base64_tx} or {:error, reason}
   """
-  def build_place_bet_tx(wallet_address, game_id, nonce, amount, max_payout, vault_type) do
+  def build_place_bet_tx(wallet_address, game_id, nonce, amount, difficulty, vault_type) do
     settler_url = get_settler_url()
     api_secret = get_api_secret()
 
@@ -406,7 +406,7 @@ defmodule BlocksterV2.BuxMinter do
         gameId: game_id,
         nonce: nonce,
         amount: amount,
-        maxPayout: max_payout,
+        difficulty: difficulty,
         vaultType: vault_type
       }
       headers = auth_headers(api_secret)

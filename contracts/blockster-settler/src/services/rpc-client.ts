@@ -1,4 +1,4 @@
-import { PublicKey, ComputeBudgetProgram, Transaction, TransactionInstruction, Keypair, type BlockhashWithExpiryBlockHeight } from "@solana/web3.js";
+import { PublicKey, ComputeBudgetProgram, Transaction, TransactionInstruction, Keypair } from "@solana/web3.js";
 import { connection } from "../config";
 
 /**
@@ -9,18 +9,11 @@ export async function getBalanceLamports(wallet: string): Promise<number> {
 }
 
 /**
- * Get recent blockhash with expiry for transaction building + confirmation.
+ * Get recent blockhash for transaction building.
  */
 export async function getRecentBlockhash(): Promise<string> {
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
   return blockhash;
-}
-
-/**
- * Get blockhash with lastValidBlockHeight (needed for proper confirmation).
- */
-export async function getBlockhashWithExpiry(): Promise<BlockhashWithExpiryBlockHeight> {
-  return connection.getLatestBlockhash("confirmed");
 }
 
 /**
@@ -35,145 +28,83 @@ export function computeBudgetIxs(units = 200_000, microLamports = 50_000) {
 }
 
 /**
- * Send a signed transaction with retry-friendly options and confirm with blockhash expiry.
- * This replaces the raw sendRawTransaction + confirmTransaction pattern.
- */
-/**
- * Send a signed transaction with rebroadcast and blockhash-aware confirmation.
- * If the blockhash expires, rebuilds with a fresh blockhash and retries (up to 3 times).
+ * Poll getSignatureStatuses until a transaction reaches "confirmed" or "finalized".
+ * This is the Solana equivalent of ethers.js tx.wait() — simple HTTP polling,
+ * no websockets, no rebroadcasting. Predictable and reliable.
  *
- * @param buildTx - function that builds and signs a Transaction given a blockhash.
- *                  Called on each retry with a fresh blockhash.
+ * @param signature - Transaction signature to poll for
+ * @param timeoutMs - Maximum time to wait (default 60s)
+ * @param pollIntervalMs - Time between polls (default 2s)
+ */
+export async function waitForConfirmation(
+  signature: string,
+  timeoutMs = 60_000,
+  pollIntervalMs = 1_000
+): Promise<string> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const response = await connection.getSignatureStatuses([signature]);
+    const status = response?.value?.[0];
+
+    if (status) {
+      if (status.err) {
+        throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+      }
+      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
+        return signature;
+      }
+    }
+
+    await new Promise(r => setTimeout(r, pollIntervalMs));
+  }
+
+  throw new Error(`Transaction confirmation timed out after ${timeoutMs}ms: ${signature}`);
+}
+
+/**
+ * Send a signed transaction and wait for confirmation via polling.
+ * Use for pre-signed transactions (e.g. user-signed txs forwarded by settler).
  */
 export async function sendAndConfirmTx(
-  serializedTx: Buffer | Uint8Array,
-  blockhashInfo: BlockhashWithExpiryBlockHeight
+  serializedTx: Buffer | Uint8Array
 ): Promise<string> {
   const sig = await connection.sendRawTransaction(serializedTx, {
     skipPreflight: true,
     maxRetries: 5,
   });
 
-  // Resend the tx every 2s while waiting for confirmation.
-  // Devnet leaders sometimes drop transactions; rebroadcasting ensures delivery.
-  const resendInterval = setInterval(() => {
-    connection.sendRawTransaction(serializedTx, { skipPreflight: true }).catch(() => {});
-  }, 2000);
-
-  try {
-    await connection.confirmTransaction(
-      {
-        signature: sig,
-        blockhash: blockhashInfo.blockhash,
-        lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
-      },
-      "confirmed"
-    );
-  } finally {
-    clearInterval(resendInterval);
-  }
-
-  return sig;
+  return waitForConfirmation(sig);
 }
 
 /**
- * Build, send, and confirm a settler-signed transaction with automatic retry on blockhash expiry.
- * Use this instead of sendAndConfirmTx for settler-signed txs where we can rebuild.
+ * Build, send, and confirm a settler-signed transaction.
+ * Simple pattern: build tx → sign → send with preflight → poll for confirmation.
+ * No websockets, no rebroadcast loops. maxRetries on sendRawTransaction handles delivery.
  *
  * @param buildIxs - function returning the instruction(s) to include
  * @param signer - the settler Keypair
- * @param maxAttempts - number of attempts (default 3)
  */
 export async function sendSettlerTx(
   buildIxs: () => TransactionInstruction[],
-  signer: { publicKey: PublicKey; secretKey: Uint8Array },
-  maxAttempts = 3
+  signer: { publicKey: PublicKey; secretKey: Uint8Array }
 ): Promise<string> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const bhInfo = await getBlockhashWithExpiry();
-    const tx = new Transaction({
-      recentBlockhash: bhInfo.blockhash,
-      feePayer: signer.publicKey,
-    });
-    tx.add(...computeBudgetIxs(), ...buildIxs());
-    tx.sign(Keypair.fromSecretKey(signer.secretKey));
+  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const tx = new Transaction({
+    recentBlockhash: blockhash,
+    feePayer: signer.publicKey,
+  });
+  tx.add(...computeBudgetIxs(), ...buildIxs());
+  tx.sign(Keypair.fromSecretKey(signer.secretKey));
 
-    const raw = tx.serialize();
+  const sig = await connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    maxRetries: 5,
+  });
 
-    // First send WITH preflight to catch simulation errors early
-    let sig: string;
-    try {
-      sig = await connection.sendRawTransaction(raw, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-        maxRetries: 5,
-      });
-    } catch (preflightErr: any) {
-      console.error(`[sendSettlerTx] Preflight failed (attempt ${attempt}/${maxAttempts}):`, preflightErr.message?.slice(0, 200));
-      throw preflightErr;
-    }
-
-    console.log(`[sendSettlerTx] Sent tx (attempt ${attempt}/${maxAttempts}): ${sig}`);
-
-    const resendInterval = setInterval(() => {
-      connection.sendRawTransaction(raw, { skipPreflight: true }).catch(() => {});
-    }, 2000);
-
-    try {
-      await connection.confirmTransaction(
-        {
-          signature: sig,
-          blockhash: bhInfo.blockhash,
-          lastValidBlockHeight: bhInfo.lastValidBlockHeight,
-        },
-        "confirmed"
-      );
-      clearInterval(resendInterval);
-      return sig;
-    } catch (err: any) {
-      clearInterval(resendInterval);
-      const msg = err?.message || "";
-
-      // If blockhash expired, check if the tx actually landed before retrying
-      if (msg.includes("block height exceeded") || msg.includes("Blockhash not found")) {
-        // Give the RPC a moment to index the tx
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          const status = await connection.getSignatureStatus(sig);
-          if (status?.value?.confirmationStatus === "confirmed" || status?.value?.confirmationStatus === "finalized") {
-            console.log(`[sendSettlerTx] Tx landed despite timeout: ${sig}`);
-            return sig;
-          }
-          if (status?.value?.err) {
-            console.error(`[sendSettlerTx] Tx failed on-chain: ${sig}`, status.value.err);
-            throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.value.err)}`);
-          }
-        } catch (statusErr: any) {
-          // getSignatureStatus failed, fall through to retry
-          if (statusErr.message?.includes("failed on-chain")) throw statusErr;
-        }
-
-        if (attempt < maxAttempts) {
-          console.log(`[sendSettlerTx] Blockhash expired, tx not found, retrying (attempt ${attempt + 1}/${maxAttempts})`);
-          continue;
-        }
-      }
-      throw err;
-    }
-  }
-  throw new Error("sendSettlerTx: max attempts exceeded");
-}
-
-/**
- * Confirm a transaction signature (legacy, for backwards compat).
- */
-export async function confirmTransaction(signature: string): Promise<boolean> {
-  try {
-    const result = await connection.confirmTransaction(signature, "confirmed");
-    return !result.value.err;
-  } catch {
-    return false;
-  }
+  console.log(`[sendSettlerTx] Sent tx: ${sig}`);
+  return waitForConfirmation(sig);
 }
 
 /**
