@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Solana RPC State Propagation: Never Chain Dependent Txs Back-to-Back](#solana-rpc-state-propagation-never-chain-dependent-txs-back-to-back-apr-2026)
 - [Solana Tx Reliability: Priority Fees + Confirmation Recovery](#solana-tx-reliability-priority-fees--confirmation-recovery-apr-2026)
 - [Payout Rounding: Float.round vs On-Chain Integer Truncation](#payout-rounding-floatround-vs-on-chain-integer-truncation-apr-2026)
 - [LP Price Chart History Implementation](#lp-price-chart-history-implementation-apr-2026)
@@ -350,6 +351,37 @@ Two background processes in `high-rollers-elixir` made individual RPC calls per 
 - Rogue Chain RPC intermittently returns 500 on large contract deploys — retry after a few minutes
 - Multicall3 ABI encoding requires careful offset calculations for dynamic types (Call3 contains `bytes callData`)
 - Old per-NFT functions kept as fallbacks — `reconcile_single_nft/1`, `sync_single_time_reward/1`, `get_owner_of/1`, `get_time_reward_raw/1`
+
+---
+
+## Solana RPC State Propagation: Never Chain Dependent Txs Back-to-Back (Apr 2026)
+
+**Problem**: Coin flip bets were failing with `NonceMismatch` on `PlaceBetSol` even though the on-chain `PlayerState` showed correct values (`nonce`, `pending_nonce`, and `pending_commitment` all matched). The error occurred intermittently, especially on rapid consecutive games.
+
+**Root cause**: Solana RPC state propagation lag between dependent transactions. The flow was:
+1. `settle_bet` tx confirms (modifies `PlayerState.nonce`, closes `BetOrder`)
+2. Immediately after, `submit_commitment` tx confirms (modifies `PlayerState.pending_nonce`, `PlayerState.pending_commitment`)
+3. Player places next bet → wallet sends `place_bet` tx
+4. Wallet's RPC (Phantom/Backpack use their own RPCs like Triton) hasn't seen both state changes yet
+5. `place_bet` simulation fails because it reads stale `PlayerState`
+
+The critical insight: even the **settler's own QuickNode RPC** showed correct state via `getAccountInfo`, but `simulateTransaction` on the same RPC returned `NonceMismatch`. The simulation engine may resolve to a different slot than `getAccountInfo`, especially when `replaceRecentBlockhash: true` is used.
+
+**What we tried (and failed)**:
+- 2s Process.sleep after `submit_commitment` — still failed
+- 4s Process.sleep — still failed
+- Preflight simulation on settler RPC before returning tx — confirmed NonceMismatch but didn't fix it
+- JS retry loop (3 retries, 2s apart) — all 3 attempts failed over 6 seconds
+
+**Fix**: Removed the `pre_init_next_game` pattern that submitted the next commitment immediately after settlement. Instead, `submit_commitment` now only happens when the player clicks "Play Again" (triggers `init_game` async). The natural UI delay (player picking predictions, choosing bet amount) gives all RPCs time to propagate state from the previous settlement + commitment.
+
+**Rule**: On Solana, NEVER chain dependent transactions back-to-back and expect the next operation to see updated state immediately — even on the same RPC endpoint. If tx B reads state modified by tx A, ensure there is meaningful time (user interaction, explicit delay, or a fresh user action trigger) between A's confirmation and B's submission. This applies to ALL Solana code: settler services, client-side JS, scripts.
+
+**Also fixed in this session**:
+- `calculate_max_bet`: was using `net_lamports * 10 / 10000` (0.1%) instead of `net_lamports * 100 / 10000` (1%) — max bet was 10x too low
+- Play Again button now hidden until `settlement_status == :settled`
+- Token icons (SOL/BUX) and capitalized labels restored in game history table
+- Expired bet reclaim banner and `reclaim_stuck_bet` handler added
 
 ---
 

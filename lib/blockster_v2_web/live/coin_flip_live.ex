@@ -179,6 +179,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
       data-commitment-hash={assigns[:commitment_hash]}
     >
       <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
+        <%!-- Expired bet reclaim banner — always visible regardless of game state --%>
+        <%= if @has_expired_bet do %>
+          <div class="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-sm text-amber-800">
+              <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <span>You have a stuck bet older than 5 minutes.</span>
+            </div>
+            <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-all cursor-pointer">
+              Reclaim
+            </button>
+          </div>
+        <% end %>
         <!-- Main Game Area -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[540px] sm:h-[580px] flex flex-col overflow-hidden">
           <!-- Difficulty Tabs -->
@@ -593,9 +605,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <% end %>
 
                   <div class="mt-auto flex flex-col items-center gap-2">
-                    <button type="button" phx-click="reset_game" class="px-6 sm:px-8 py-2.5 sm:py-3 bg-black text-white font-bold text-sm sm:text-base rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in">
-                      Play Again
-                    </button>
+                    <%= if @settlement_status == :settled do %>
+                      <button type="button" phx-click="reset_game" class="px-6 sm:px-8 py-2.5 sm:py-3 bg-black text-white font-bold text-sm sm:text-base rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in">
+                        Play Again
+                      </button>
+                    <% end %>
                     <%= if @onchain_game_id do %>
                       <button type="button" phx-click="show_fairness_modal" phx-value-game-id={@onchain_game_id} class="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer">
                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -646,9 +660,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         </td>
                         <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                           <%= if game.bet_sig do %>
-                            <a href={"https://solscan.io/tx/#{game.bet_sig}?cluster=devnet"} target="_blank" class="text-gray-900 hover:text-gray-600 hover:underline cursor-pointer" title="View bet tx"><%= format_balance(game.bet_amount) %> <%= game.vault_type %></a>
+                            <a href={"https://solscan.io/tx/#{game.bet_sig}?cluster=devnet"} target="_blank" class="inline-flex items-center gap-1 text-gray-900 hover:text-gray-600 hover:underline cursor-pointer" title="View bet tx">
+                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
+                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                            </a>
                           <% else %>
-                            <span class="text-gray-900"><%= format_balance(game.bet_amount) %> <%= game.vault_type %></span>
+                            <span class="inline-flex items-center gap-1 text-gray-900">
+                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
+                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                            </span>
                           <% end %>
                         </td>
                         <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
@@ -675,14 +695,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         </td>
                         <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
                           <%= if game.settlement_sig do %>
-                            <a href={"https://solscan.io/tx/#{game.settlement_sig}?cluster=devnet"} target="_blank" class={"font-medium hover:underline cursor-pointer #{if game.won, do: "text-green-600", else: "text-red-600"}"} title="View settlement tx">
-                              <%= if game.won, do: "+#{format_balance(game.payout - game.bet_amount)}", else: "-#{format_balance(game.bet_amount)}" %>
+                            <a href={"https://solscan.io/tx/#{game.settlement_sig}?cluster=devnet"} target="_blank" class={"inline-flex items-center gap-1 font-medium hover:underline cursor-pointer #{if game.won, do: "text-green-600", else: "text-red-600"}"} title="View settlement tx">
+                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
+                              <%= if game.won, do: "+#{format_balance(game.payout - game.bet_amount)}", else: "-#{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
                             </a>
                           <% else %>
                             <%= if game.won do %>
-                              <span class="text-green-600 font-medium">+<%= format_balance(game.payout - game.bet_amount) %></span>
+                              <span class="inline-flex items-center gap-1 text-green-600 font-medium">
+                                <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
+                                +<%= format_balance(game.payout - game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                              </span>
                             <% else %>
-                              <span class="text-red-600 font-medium">-<%= format_balance(game.bet_amount) %></span>
+                              <span class="inline-flex items-center gap-1 text-red-600 font-medium">
+                                <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
+                                -<%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                              </span>
                             <% end %>
                           <% end %>
                         </td>
@@ -989,6 +1016,52 @@ defmodule BlocksterV2Web.CoinFlipLive do
     {:noreply, assign(socket, error_message: error, game_state: :idle, results: [], won: nil, payout: 0, bet_confirmed: false)}
   end
 
+  def handle_event("reclaim_stuck_bet", _params, socket) do
+    user_id = socket.assigns.current_user.id
+    wallet = socket.assigns.wallet_address
+    bet_timeout = 300
+    now = System.system_time(:second)
+
+    # Find the expired placed bet
+    expired_nonce = try do
+      case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
+        games when is_list(games) ->
+          expired = games
+          |> Enum.filter(fn record ->
+            status = elem(record, 7)
+            created_at = elem(record, 18)
+            status == :placed and created_at != nil and (now - created_at) > bet_timeout
+          end)
+          |> Enum.sort_by(fn record -> elem(record, 18) end, :asc)
+          |> List.first()
+
+          if expired, do: elem(expired, 6), else: nil
+        _ -> nil
+      end
+    rescue
+      _ -> nil
+    end
+
+    if expired_nonce do
+      Logger.info("[CoinFlip] Reclaiming stuck bet at nonce #{expired_nonce} for #{wallet}")
+      {:noreply,
+       socket
+       |> assign(:error_message, "Building reclaim transaction...")
+       |> start_async(:build_reclaim_tx, fn ->
+         case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, expired_nonce, "bux") do
+           {:ok, tx} -> {:ok, tx, expired_nonce}
+           {:error, _} ->
+             case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, expired_nonce, "sol") do
+               {:ok, tx} -> {:ok, tx, expired_nonce}
+               {:error, reason} -> {:error, reason}
+             end
+         end
+       end)}
+    else
+      {:noreply, assign(socket, has_expired_bet: false, error_message: nil)}
+    end
+  end
+
   def handle_event("reclaim_confirmed", %{"signature" => sig}, socket) do
     Logger.info("[CoinFlip] Reclaim confirmed: #{sig}. Re-initializing game...")
     user_id = socket.assigns.current_user.id
@@ -1039,35 +1112,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   bet_sig: nil, settlement_sig: nil, error_message: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
-      socket = cond do
-        # Use pre-initialized game from bet_confirmed if available (instant)
-        socket.assigns[:next_game_session] != nil ->
-          game_session = socket.assigns.next_game_session
-          Logger.info("[CoinFlip] Using pre-initialized game: nonce #{game_session.nonce}")
-          socket
-          |> assign(:onchain_game_id, game_session.game_id)
-          |> assign(:commitment_hash, game_session.commitment_hash)
-          |> assign(:commitment_sig, game_session[:commitment_sig])
-          |> assign(:onchain_nonce, game_session.nonce)
-          |> assign(:onchain_ready, true)
-          |> assign(:onchain_initializing, false)
-          |> assign(:init_retry_count, 0)
-          |> assign(:server_seed_hash, game_session.commitment_hash)
-          |> assign(:nonce, game_session.nonce)
-          |> assign(:next_game_session, nil)
-
-        wallet_address != nil ->
-          socket
-          |> assign(:onchain_ready, false)
-          |> assign(:onchain_initializing, true)
-          |> assign(:init_retry_count, 0)
-          |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
-
-        true ->
-          socket
-          |> assign(:onchain_ready, false)
-          |> assign(:init_retry_count, 0)
-          |> assign(:error_message, "No wallet connected")
+      socket = if wallet_address do
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:onchain_initializing, true)
+        |> assign(:init_retry_count, 0)
+        |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
+      else
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:init_retry_count, 0)
+        |> assign(:error_message, "No wallet connected")
       end
 
       {:noreply, socket}
@@ -1516,11 +1571,6 @@ defmodule BlocksterV2Web.CoinFlipLive do
         %{"SOL" => sol, "BUX" => bux}
       end)
 
-    # Pre-init next game commitment now that settlement is done (no playerState write conflict)
-    socket = start_async(socket, :pre_init_next_game, fn ->
-      CoinFlipGame.get_or_init_game(user_id, wallet_address)
-    end)
-
     {:noreply, socket}
   end
 
@@ -1530,19 +1580,6 @@ defmodule BlocksterV2Web.CoinFlipLive do
   end
 
   def handle_async(:sync_post_settle, _, socket), do: {:noreply, socket}
-
-  # Pre-init next game: cache the result so Play Again is instant
-  @impl true
-  def handle_async(:pre_init_next_game, {:ok, {:ok, game_session}}, socket) do
-    Logger.info("[CoinFlip] Next game pre-initialized: nonce #{game_session.nonce}")
-    {:noreply, assign(socket, :next_game_session, game_session)}
-  end
-
-  @impl true
-  def handle_async(:pre_init_next_game, _result, socket) do
-    # Failed to pre-init — no problem, reset_game will init normally
-    {:noreply, socket}
-  end
 
   @impl true
   def handle_info({:settlement_failed, reason}, socket) do
@@ -1800,7 +1837,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
     if difficulty do
       multiplier_bp = trunc(difficulty.multiplier * 10000)
       net_lamports = trunc(house_balance * 1.0e9)
-      base = div(net_lamports * 10, 10000)
+      base = div(net_lamports * 100, 10000)
       max_bet_lamports = div(base * 20000, multiplier_bp)
       max_bet_lamports / 1.0e9
     else

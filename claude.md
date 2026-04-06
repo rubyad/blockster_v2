@@ -25,6 +25,11 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
 > - **ALWAYS use `getSignatureStatuses` polling** (like ethers.js `tx.wait()`) — send the tx once with `maxRetries:5`, then poll `getSignatureStatuses` every 2s until "confirmed". See `rpc-client.ts:waitForConfirmation` and `coin_flip_solana.js:pollForConfirmation`
 > - This applies to ALL Solana code: settler services, client-side JS hooks, scripts, and any new services
 >
+> **CRITICAL SOLANA STATE PROPAGATION RULES**:
+> - **NEVER chain dependent Solana transactions back-to-back** — if tx B reads state modified by tx A, there MUST be meaningful time between A's confirmation and B's submission. Even the SAME RPC endpoint can return stale state in `simulateTransaction` immediately after confirming tx A via `getSignatureStatuses`.
+> - **NEVER pre-submit the next game's `submit_commitment` immediately after `settle_bet`** — the `place_bet` that follows will fail with `NonceMismatch` because wallet RPCs (and even the settler RPC's simulation engine) haven't propagated the state changes yet. Sleeps (2s, 4s) and JS retries (3x over 6s) were all insufficient.
+> - **The fix**: trigger dependent transactions from USER ACTIONS (button clicks, page loads), not programmatically back-to-back. The natural delay of user interaction gives RPCs time to sync. See `docs/session_learnings.md` for the full debugging narrative.
+>
 > **CRITICAL DEPENDENCY RULES**:
 > - NEVER update Phoenix, LiveView, Ecto, or other core dependencies without EXPLICIT user permission
 >
