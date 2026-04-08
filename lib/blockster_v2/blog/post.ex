@@ -98,11 +98,19 @@ defmodule BlocksterV2.Blog.Post do
   @doc """
   Computes the author_name from the loaded author association.
   Returns "Unknown" if author is not loaded or doesn't exist.
+
+  Persona usernames (marcus_stone) are formatted via `AuthorRotator.display_name/1`
+  so they render as "Marcus Stone" everywhere they appear. Real usernames are
+  returned unchanged so legacy auth fallbacks (`author_name == username`) still
+  match.
   """
   def compute_author_name(%__MODULE__{author: %Ecto.Association.NotLoaded{}}), do: "Unknown"
   def compute_author_name(%__MODULE__{author: nil}), do: "Unknown"
   def compute_author_name(%__MODULE__{author: author}) when is_map(author) do
-    author.username || author.email || "Unknown"
+    case author.username do
+      nil -> author.email || "Unknown"
+      username -> BlocksterV2.ContentAutomation.AuthorRotator.display_name(username)
+    end
   end
 
   @doc """

@@ -583,45 +583,6 @@ let InfiniteScroll = {
   }
 };
 
-// OnboardingPopup Hook - shows profile completion popup on first scroll
-// Triggered when user skipped onboarding and scrolls 20% into an article
-let OnboardingPopup = {
-  mounted() {
-    // Check if popup should be shown (data attribute from server)
-    if (this.el.dataset.showPopup !== "true") {
-      return;
-    }
-
-    // Prevent showing multiple times
-    if (sessionStorage.getItem('onboarding_popup_shown')) {
-      return;
-    }
-
-    let hasTriggered = false;
-    const scrollThreshold = 0.2; // 20% scroll depth
-
-    this.handleScroll = () => {
-      if (hasTriggered) return;
-
-      const scrollPercent = window.scrollY / (document.body.scrollHeight - window.innerHeight);
-
-      if (scrollPercent >= scrollThreshold) {
-        hasTriggered = true;
-        sessionStorage.setItem('onboarding_popup_shown', 'true');
-        this.pushEvent("show_onboarding_popup", {});
-      }
-    };
-
-    window.addEventListener('scroll', this.handleScroll, { passive: true });
-  },
-
-  destroyed() {
-    if (this.handleScroll) {
-      window.removeEventListener('scroll', this.handleScroll);
-    }
-  }
-};
-
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: (liveViewName) => {
@@ -641,7 +602,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, OnboardingPopup, SolanaWallet },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet },
 });
 
 // connect if there are any LiveViews on the page

@@ -207,6 +207,18 @@ Req.get(url, receive_timeout: 30_000)
 
 **Double Mount**: LiveView mounts twice. Use `connected?(socket)` for side effects (API calls, blockchain transactions) to avoid duplicates.
 
+**Modal Backdrop "Click outside to close"**: Use `phx-click-away="close_modal"` on the inner content div, NOT `phx-click="close_modal"` on an outer backdrop with a `phx-click="stop_propagation"` no-op on the inner div. The no-op handler does NOT actually call DOM `e.stopPropagation()` — submit-button clicks bubble through, fire BOTH the form submit AND `close_modal`, modal disappears mid-submit. See `docs/session_learnings.md` for the full debugging narrative.
+
+**Never silently discard `Repo.insert` / `Repo.update` results**: if the call has side effects (notification rows that back activity feeds, reward records, etc.), always pattern-match the return and at least log on failure. A real example: a `Notifications.create_notification` call in `event_processor.ex` was silently failing on a `validate_inclusion(:type, ...)` mismatch — BUX was minted via `credit_bux` but no notification record existed, so the activity tab was empty for users who'd just verified their phone. Pattern:
+```elixir
+case Notifications.create_notification(user_id, attrs) do
+  {:ok, _} -> :ok
+  {:error, changeset} -> Logger.error("[X] failed: #{inspect(changeset.errors)}")
+end
+```
+
+**Sticky banners on animated-height headers**: anything that needs to stay flush against the bottom of a fixed header that animates its height (e.g. the global `site_header` collapses on scroll) MUST be a child of the same fixed container as the header. `position: sticky` + a static `top:` offset will not work because the offset is constant while the header height changes between two states. The "Why Earn BUX?" lime banner lives inside `site_header/1` for this reason — gated by an `attr :show_why_earn_bux` so individual LiveViews opt in via `assign(:show_why_earn_bux, true)` in mount.
+
 ### Mnesia
 - **Always use dirty operations** (`dirty_read`, `dirty_write`, `dirty_delete`, `dirty_index_read`)
 - **For concurrent updates**: Route writes through a dedicated GenServer to serialize

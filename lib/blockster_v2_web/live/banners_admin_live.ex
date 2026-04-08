@@ -11,6 +11,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Article — Left Sidebar", "sidebar_left"},
     {"Article — Right Sidebar", "sidebar_right"},
     {"Article — Bottom", "article_bottom"},
+    {"Video Player — Top", "video_player_top"},
     {"Play — Left Sidebar", "play_sidebar_left"},
     {"Play — Right Sidebar", "play_sidebar_right"},
     {"Airdrop — Left Sidebar", "airdrop_sidebar_left"},

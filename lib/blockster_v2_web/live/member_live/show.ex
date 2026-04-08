@@ -22,7 +22,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(active_tab: "activity", time_period: "24h", show_multiplier_dropdown: false)
      |> assign(show_phone_modal: false)
      |> assign(show_email_modal: false)
-     |> assign(countdown: nil)}
+     |> assign(countdown: nil)
+     |> assign(show_why_earn_bux: true)}
   end
 
   @impl true

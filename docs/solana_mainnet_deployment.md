@@ -399,6 +399,41 @@ Migrations run automatically on deploy. If needed manually:
 flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'BlocksterV2.Release.migrate()'"
 ```
 
+### Seed Content Author Personas
+
+The AI content automation pipeline assigns posts to one of the personas defined in `lib/blockster_v2/content_automation/author_rotator.ex`. Each persona needs a `User` row so that posts have a valid `author_id`. The seed script is **idempotent** — existing authors (matched by email) are skipped, so it's always safe to re-run.
+
+This is required on the first mainnet deploy and any time new personas are added to `AuthorRotator`. The current run will provision the 2 Solana-focused personas added in `feat/solana-migration` (`priya_nakamura`, `diego_martinez`) alongside any other missing authors.
+
+The seed logic from `priv/repo/seeds/content_authors.exs` is inlined below so it can run inside a release (release builds don't ship raw `.exs` seed files at predictable paths):
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+alias BlocksterV2.{Repo, Accounts.User}
+for persona <- BlocksterV2.ContentAutomation.AuthorRotator.personas() do
+  wallet_hash = :crypto.hash(:sha256, persona.email) |> Base.encode16(case: :lower)
+  fake_wallet = \"0x\" <> String.slice(wallet_hash, 0, 40)
+  attrs = %{email: persona.email, wallet_address: fake_wallet, username: persona.username, auth_method: \"email\", is_admin: false, is_author: true}
+  case Repo.insert(User.changeset(%User{}, attrs)) do
+    {:ok, user} -> IO.puts(\"Created: #{persona.username} (id=#{user.id})\")
+    {:error, _} -> IO.puts(\"Skipped (exists): #{persona.username}\")
+  end
+end
+'"
+```
+
+Verify all 10 personas exist:
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query
+emails = BlocksterV2.ContentAutomation.AuthorRotator.author_emails()
+count = Repo.one(from u in User, where: u.email in ^emails, select: count(u.id))
+IO.puts(\"Author personas in DB: #{count} / #{length(emails)}\")
+'"
+```
+
+Expected: `Author personas in DB: 10 / 10`.
+
 ### Bot Wallet Auto-Rotation (first deploy only)
 
 On the first boot after this deploy, `BotCoordinator.handle_info(:initialize, ...)` calls `BotSetup.rotate_to_solana_keypairs/0` exactly once. The function:

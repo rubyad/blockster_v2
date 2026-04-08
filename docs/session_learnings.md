@@ -7,6 +7,9 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Notification.@valid_types Silent Validation Failure Swallowed Reward Records](#notificationvalid_types-silent-validation-failure-swallowed-reward-records-apr-2026)
+- [LiveView Modal Backdrop: Use phx-click-away, NOT phx-click + stop_propagation](#liveview-modal-backdrop-use-phx-click-away-not-phx-click--stop_propagation-apr-2026)
+- [Sticky Banners and Animated-Height Headers: Make the Banner a Child of the Header](#sticky-banners-and-animated-height-headers-make-the-banner-a-child-of-the-header-apr-2026)
 - [Legacy Account Reclaim — LegacyMerge Implementation Gotchas](#legacy-account-reclaim--legacymerge-implementation-gotchas-apr-2026)
 - [Solana RPC State Propagation: Never Chain Dependent Txs Back-to-Back](#solana-rpc-state-propagation-never-chain-dependent-txs-back-to-back-apr-2026)
 - [Solana Tx Reliability: Priority Fees + Confirmation Recovery](#solana-tx-reliability-priority-fees--confirmation-recovery-apr-2026)
@@ -49,6 +52,196 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
+
+---
+
+## Notification.@valid_types Silent Validation Failure Swallowed Reward Records (Apr 2026)
+
+User reported: *"I earned 500 BUX for verifying my phone but nothing displays in my Activity tab"*. The BUX really did show up in their wallet, but no notification record existed for it. Took ~20 minutes to track down because the failure was completely silent.
+
+### What the flow was supposed to do
+
+1. `PhoneVerification.verify_code/2` succeeds
+2. `UserEvents.track(user_id, "phone_verified", ...)` fires
+3. `Notifications.EventProcessor` (a `GlobalSingleton` GenServer subscribed to the `"user_events"` PubSub topic) receives the event
+4. `evaluate_custom_rules/3` looks up the `phone_verified` rule from `SystemConfig`
+5. `execute_rule_action_inner/6` creates a `Notification` record AND calls `credit_bux/2` to mint the BUX
+6. The Activity tab on `/member/:slug` reads notifications via `Notifications.list_notification_activities/1` and renders them as activity rows
+
+### Why it failed
+
+The custom rule defined in `system_config.ex:73-81` sets `notification_type: "reward"`:
+
+```elixir
+%{
+  "event_type" => "phone_verified",
+  "action" => "notification",
+  "title" => "Phone Verified!",
+  "body" => "You earned 500 BUX for verifying your phone!",
+  "channel" => "in_app",
+  "notification_type" => "reward",
+  "bux_bonus" => 500,
+  "source" => "permanent"
+}
+```
+
+But `Notification.changeset/2` does:
+
+```elixir
+@valid_types ~w(new_article hub_post hub_event ... bux_earned referral_reward
+                ... promo_reward)
+|> validate_inclusion(:type, @valid_types)
+```
+
+`"reward"` was **NOT** in `@valid_types`. There were similar names (`bux_earned`, `referral_reward`, `promo_reward`, `daily_bonus`) but never just plain `"reward"`. The changeset failed validation. And `execute_rule_action_inner/6` looked like this:
+
+```elixir
+if channel in ["in_app", "both", "all"] do
+  Notifications.create_notification(user_id, %{
+    type: rule["notification_type"] || "special_offer",
+    ...
+  })
+end
+
+# BUX crediting (formula-resolved)
+if is_number(bux_bonus) and bux_bonus > 0 do
+  credit_bux(user_id, bux_bonus)
+end
+```
+
+The result of `create_notification` was never pattern-matched. The function returned `{:error, %Ecto.Changeset{...}}` and Elixir threw it on the floor. Code kept going. `credit_bux` ran. BUX got minted. No notification record. No log message.
+
+### Triple impact
+
+- `phone_verified` rewards never showed up in the activity tab
+- Same bug affected `x_connected` and `wallet_connected` rules — both use `notification_type: "reward"`
+- Future rules that pick a non-whitelisted type would silently fail the same way
+
+### Fix
+
+Three layers:
+
+1. **Add `"reward"` to `@valid_types`** in `notification.ex`. This is the actual root cause.
+2. **Stop silently discarding `Notifications.create_notification` failures** — wrap the call in a `case` and log changeset errors via `Logger.error(...)`. Pattern:
+   ```elixir
+   case Notifications.create_notification(user_id, attrs) do
+     {:ok, _notification} -> :ok
+     {:error, changeset} ->
+       Logger.error(
+         "[EventProcessor] Failed to create notification for user #{user_id}, " <>
+           "rule event=#{event_type} type=#{inspect(rule["notification_type"])}: " <>
+           inspect(changeset.errors)
+       )
+   end
+   ```
+3. **Backfill missing notification rows** for users who already hit the bug. The dedup_key prevents the rule from firing again on retry, so the only way to recover is to insert the row manually. Pattern:
+   ```elixir
+   Notifications.create_notification(user_id, %{
+     type: "reward",
+     category: "engagement",
+     title: "Phone Verified!",
+     body: "You earned 500 BUX for verifying your phone!",
+     metadata: %{"dedup_key" => "custom_rule:phone_verified", "bux_bonus" => 500}
+   })
+   ```
+
+### General lessons
+
+- **Never discard `Repo.insert` / `Repo.update` results.** If the call has side effects you care about (a notification row that backs an activity feed, a reward log entry, etc.), pattern-match the return and at least log on failure. `case Repo.insert(...) do ... end` is one extra line and saves hours of debugging later.
+- **Whitelists and the things that feed them have to live in the same place** or there has to be a cross-check. The `@valid_types` whitelist on `Notification` and the `notification_type` field on every custom rule in `SystemConfig.@defaults` are conceptually coupled but were defined in different files with no validation between them. Adding a single `notification_type` to a custom rule could (and did) silently break the whole reward path. Possible mitigations:
+  1. Validate every default rule against `@valid_types` at app startup
+  2. Have the custom rules engine fall back to a guaranteed-valid type when the configured one is invalid
+  3. Just have one source of truth (the rule's `notification_type` IS the schema's type, not a separate vocabulary)
+- **For long-running event-driven systems, "the BUX is real but the activity is missing" is a real failure mode and you should test for it.** Easy regression test: set up a custom rule, fire the event, assert that BOTH the BUX balance went up AND a `Notification` row exists with the expected `dedup_key` in metadata.
+
+---
+
+## LiveView Modal Backdrop: Use phx-click-away, NOT phx-click + stop_propagation (Apr 2026)
+
+User reported: *"I entered phone number and it correctly sent code to my phone but the modal disappeared so I have nowhere to enter it"*.
+
+### The bug
+
+`PhoneVerificationModalComponent` (and `EmailVerificationModalComponent`) was structured like:
+
+```html
+<div class="fixed inset-0 ..." phx-click="close_modal" phx-target={@myself}>
+  <div class="bg-white ..." phx-click="stop_propagation" phx-target={@myself}>
+    <form phx-submit="submit_phone" phx-target={@myself}>
+      <button type="submit">Send Code</button>
+      ...
+```
+
+The intent: clicks on the backdrop close the modal; clicks on the inner content are absorbed by a `stop_propagation` no-op handler so they don't bubble to the backdrop.
+
+The problem: **`phx-click="stop_propagation"` is just a normal event handler that returns `{:noreply, socket}`. It does NOT call DOM `e.stopPropagation()`.** Phoenix LiveView wires up the click listener but doesn't actually stop the underlying browser event from bubbling — at least not reliably for clicks that originate from a `<button type="submit">` inside a `<form phx-submit="...">`.
+
+What happened on submit:
+1. Browser fires the button click
+2. Form submit fires → `phx-submit` event sent to server → SMS sent
+3. The same click bubbles up the DOM → reaches the backdrop's `phx-click="close_modal"` → ALSO sent to server
+4. Server processes both events: `submit_phone` succeeds (so the modal *should* transition to the code-entry step) AND `close_modal` fires (which sets `show_phone_modal = false` on the parent LiveView)
+5. The parent re-renders without the modal → it disappears
+
+So the SMS was real (the user did get a code), but the UI was gone before they could enter it.
+
+### The fix
+
+Replace the manual backdrop click handler with `phx-click-away`, which is the canonical LiveView pattern for "fire when clicking outside this element":
+
+```html
+<div class="fixed inset-0 ...">                                    <!-- backdrop, no handler -->
+  <div class="bg-white ..." phx-click-away="close_modal" phx-target={@myself}>
+    <form phx-submit="submit_phone" phx-target={@myself}>
+      <button type="submit">Send Code</button>
+```
+
+`phx-click-away` only fires for clicks that land OUTSIDE the element. Clicks INSIDE — including `<button type="submit">` clicks that bubble through the form — never trigger it. No `stopPropagation` gymnastics needed. The dead `stop_propagation` no-op handler can be deleted.
+
+### Lessons
+
+- **`phx-click="stop_propagation"` (or any other no-op event handler) does NOT actually stop DOM event propagation.** It's just an Elixir function that returns `{:noreply, socket}`. The browser keeps bubbling the underlying click event to ancestors with their own `phx-click` handlers. If you need both an inner action AND an outer "click outside to close" behavior, use `phx-click-away` on the inner, not `phx-click` on the outer.
+- **Modals that have a form inside are extra fragile** because submit-button clicks bubble independently of the form submit. If you have any `phx-click` on a parent of the form, audit it.
+- **Same bug, multiple components**: when you find a backdrop bug in one modal, grep for `phx-click="close_modal"` (or whatever the event name is) across the codebase. We had identical bugs in `phone_verification_modal_component` and `email_verification_modal_component`.
+
+---
+
+## Sticky Banners and Animated-Height Headers: Make the Banner a Child of the Header (Apr 2026)
+
+User wanted a thin lime *"Why Earn BUX?"* announcement bar stuck flush against the bottom of the global header. The global header has a JS-driven collapse-on-scroll animation (logo row hides, header shrinks from ~170px to ~96px). Burned a few iterations before landing on the right approach.
+
+### Failed approaches
+
+1. **Sticky banner inside `profile-main` with `mt-16 lg:mt-24` and `sticky top-16 lg:top-24`**. Looked snug visually... until I noticed the layout's `site_header` already provides an `h-14 lg:h-24` spacer to clear the fixed header. So I was double-clearing — adding ~120-192px of empty space before page content instead of ~56-96px.
+
+2. **Removed the `mt`, kept sticky `top-14 lg:top-24` to match the spacer**. Banner was now flush at the bottom of the spacer (y=56 mobile, y=96 desktop). **But** the actual desktop header is ~170px tall in its initial (full logo) state and only collapses to ~96px on scroll. So at scroll=0 the banner was hidden behind the bottom 74px of the full header. As the user scrolled and the header animated to its collapsed state, the banner appeared with a transient gap. User complained: *"now its not visible until you scroll and top logo area disappears and then you can see the banner with a gap above it"*.
+
+The fundamental problem: **sticky positioning uses a static `top:` value. A header that animates its height between two states doesn't have a single number you can target.** No matter what `top:` you pick, you'll be wrong in one of the two states.
+
+### The right approach: make the banner a child of the same fixed container as the header
+
+Add the banner inside the existing `<div id="site-header" class="fixed top-0 ...">` wrapper as the LAST child. That way:
+
+- The banner is part of the same fixed element as the header
+- When the header collapses, the banner moves up with it (because they share a position context)
+- It's always flush against the bottom edge of the header in BOTH states
+- No `position: sticky`, no `top:` math, no JS to keep them in sync
+
+Implementation:
+
+1. Add `attr :show_why_earn_bux, :boolean, default: false` to the `site_header/1` function component in `layouts.ex`.
+2. Inside the function, render the banner as the last child of the fixed container, conditional on `@show_why_earn_bux`.
+3. Bump the spacer (the second top-level element returned by `site_header/1` that pushes page content down) when the banner is shown — `h-14 lg:h-24` → `h-[88px] lg:h-[128px]` (adds ~32px of spacer height to account for the banner).
+4. In `app.html.heex`, pass `show_why_earn_bux={assigns[:show_why_earn_bux] || false}` from socket assigns through to `site_header`.
+5. In each LiveView that wants the banner, set `assign(:show_why_earn_bux, true)` in `mount/3`.
+
+Pages that don't set the assign default to `false` and get no banner — no spacer change either, so existing layouts are unaffected.
+
+### Lessons
+
+- **Anything that needs to stay flush against the bottom of an animated-height header has to be a child of the same fixed container as the header.** Trying to track it from outside with `position: sticky` + a static `top:` offset never works because the offset is constant while the header height changes.
+- **When debugging "banner has a gap" complaints on a fixed header, check whether the layout has an existing spacer to clear the header.** Adding your own `pt-*` or `mt-*` on top of an existing spacer is the most common cause of doubled spacing.
+- **The page's `pt-*` clearance is for the COLLAPSED header height, not the full one.** Original page content is *intentionally* hidden behind the bottom portion of the full header at scroll=0; the collapse animation is what reveals it. Don't try to "fix" this by adding more padding — you'll break the collapse pattern.
 
 ---
 

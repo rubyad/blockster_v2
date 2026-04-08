@@ -11,6 +11,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Shop
   alias BlocksterV2.ImageKit
   alias BlocksterV2.UserEvents
+  alias BlocksterV2.ContentAutomation.AuthorRotator
   alias BlocksterV2Web.PostLive.TipTapRenderer
   alias BlocksterV2Web.SharedComponents
 
@@ -195,6 +196,11 @@ defmodule BlocksterV2Web.PostLive.Show do
         do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_bottom"),
         else: []
 
+    video_player_top_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("video_player_top"),
+        else: []
+
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
 
@@ -208,9 +214,18 @@ defmodule BlocksterV2Web.PostLive.Show do
       })
     end
 
+    # Look up author persona (bio/style) for the byline popover and
+    # "About the author" card. Returns nil for real (non-persona) authors.
+    author_persona =
+      case post.author do
+        %{username: username} when is_binary(username) -> AuthorRotator.get_persona(username)
+        _ -> nil
+      end
+
     {:noreply,
      socket
      |> assign(:page_title, post.title)
+     |> assign(:author_persona, author_persona)
      |> assign(:show_categories, true)
      |> assign(:post_category_slug, if(updated_post.category, do: updated_post.category.slug, else: nil))
      |> assign(:post, updated_post)
@@ -247,6 +262,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:mobile_top_banners, mobile_top_banners)
      |> assign(:mobile_mid_banners, mobile_mid_banners)
      |> assign(:mobile_bottom_banners, mobile_bottom_banners)
+     |> assign(:video_player_top_banners, video_player_top_banners)
      |> assign(:video_modal_open, false)
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
@@ -255,8 +271,6 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:anonymous_earned, 0)
      |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
-     |> assign(:show_onboarding_popup, false)
-     |> assign_onboarding_popup_eligible()
      |> load_video_engagement()}
   end
 
@@ -314,6 +328,44 @@ defmodule BlocksterV2Web.PostLive.Show do
     :exit, _ -> nil
   end
 
+  # =============================================================================
+  # Author Avatar Helpers (initials + deterministic color)
+  # =============================================================================
+
+  # Tailwind class pairs (background, text) — pre-declared so JIT picks them up.
+  @author_palette [
+    {"bg-violet-100", "text-violet-700"},
+    {"bg-amber-100", "text-amber-700"},
+    {"bg-rose-100", "text-rose-700"},
+    {"bg-sky-100", "text-sky-700"},
+    {"bg-emerald-100", "text-emerald-700"},
+    {"bg-fuchsia-100", "text-fuchsia-700"},
+    {"bg-orange-100", "text-orange-700"},
+    {"bg-teal-100", "text-teal-700"},
+    {"bg-indigo-100", "text-indigo-700"},
+    {"bg-lime-100", "text-lime-700"}
+  ]
+
+  @doc """
+  Initial letter for an author avatar. Uses the part before `_` in usernames
+  like `marcus_stone` → "M". Falls back to "?" for nil/empty input.
+  """
+  def author_initial(nil), do: "?"
+  def author_initial(""), do: "?"
+  def author_initial(username) when is_binary(username) do
+    username |> String.first() |> String.upcase()
+  end
+
+  @doc """
+  Deterministic color pair `{bg_class, text_class}` for an author avatar based
+  on a stable hash of the username — Marcus is always the same color.
+  """
+  def author_colors(nil), do: List.first(@author_palette)
+  def author_colors(username) when is_binary(username) do
+    idx = :erlang.phash2(username, length(@author_palette))
+    Enum.at(@author_palette, idx)
+  end
+
   # Always return "BUX" (hub tokens removed)
   defp get_hub_token(_), do: "BUX"
 
@@ -340,34 +392,6 @@ defmodule BlocksterV2Web.PostLive.Show do
     end
   rescue
     _ -> nil
-  end
-
-  # Check if user is eligible for onboarding popup
-  # Eligible if logged in AND has incomplete profile (missing phone, wallet, or X)
-  defp assign_onboarding_popup_eligible(socket) do
-    case socket.assigns[:current_user] do
-      nil ->
-        assign(socket, :onboarding_popup_eligible, false)
-
-      user ->
-        # Check if profile is incomplete
-        phone_verified = user.phone_verified || false
-        email_verified = user.email_verified || false
-
-        multipliers = BlocksterV2.UnifiedMultiplier.get_user_multipliers(user.id)
-
-        x_connected = socket.assigns[:x_connection] != nil
-
-        # Eligible if ANY of these are not complete
-        incomplete = !phone_verified || !email_verified || !x_connected
-
-        # Use the overall_multiplier from multipliers for display
-        multiplier = multipliers.overall_multiplier
-
-        socket
-        |> assign(:onboarding_popup_eligible, incomplete)
-        |> assign(:onboarding_popup_multiplier, multiplier)
-    end
   end
 
   # Calculate engagement score from metrics (for anonymous users)
@@ -1081,16 +1105,6 @@ defmodule BlocksterV2Web.PostLive.Show do
      socket
      |> assign(:show_video_signup_prompt, false)
      |> assign(:earning_bar_dismissed, true)}
-  end
-
-  @impl true
-  def handle_event("show_onboarding_popup", _params, socket) do
-    {:noreply, assign(socket, :show_onboarding_popup, true)}
-  end
-
-  @impl true
-  def handle_event("dismiss_onboarding_popup", _params, socket) do
-    {:noreply, assign(socket, :show_onboarding_popup, false)}
   end
 
   @impl true

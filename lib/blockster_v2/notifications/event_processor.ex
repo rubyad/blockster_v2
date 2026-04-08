@@ -236,15 +236,25 @@ defmodule BlocksterV2.Notifications.EventProcessor do
 
       # In-app notification (for "in_app", "both", or "all")
       if channel in ["in_app", "both", "all"] do
-        Notifications.create_notification(user_id, %{
-          type: rule["notification_type"] || "special_offer",
-          category: rule["category"] || "engagement",
-          title: final_title,
-          body: final_body,
-          action_url: rule["action_url"],
-          action_label: rule["action_label"],
-          metadata: notif_metadata
-        })
+        case Notifications.create_notification(user_id, %{
+               type: rule["notification_type"] || "special_offer",
+               category: rule["category"] || "engagement",
+               title: final_title,
+               body: final_body,
+               action_url: rule["action_url"],
+               action_label: rule["action_label"],
+               metadata: notif_metadata
+             }) do
+          {:ok, _notification} ->
+            :ok
+
+          {:error, changeset} ->
+            Logger.error(
+              "[EventProcessor] Failed to create notification for user #{user_id}, " <>
+                "rule event=#{event_type} type=#{inspect(rule["notification_type"])}: " <>
+                inspect(changeset.errors)
+            )
+        end
       end
 
       # Email (for "email" or "both" or "all")

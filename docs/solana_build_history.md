@@ -893,3 +893,134 @@ Applied to all three reclaim sites:
 - Telegram reclaim test for the active legacy EVM user case.
 
 97 tests across the touched files, 0 failures. All 6 previously-passing reclaim tests still pass.
+
+---
+
+## Profile UI Polish + Notification Type Fix + Why Earn BUX Banner (2026-04-08)
+
+A grab-bag of bug fixes and UI improvements that landed after the legacy reclaim work. Roughly in the order they were caught:
+
+### Modal closes on submit (phx-click backdrop bug)
+
+**Symptom**: user enters phone number on the profile-page phone verification modal → SMS code is sent successfully → modal disappears → no way to enter the code.
+
+**Cause**: both `PhoneVerificationModalComponent` and `EmailVerificationModalComponent` had a `phx-click="close_modal"` on the outer backdrop div and a `phx-click="stop_propagation"` no-op handler on the inner content div. The `stop_propagation` event handler is just a no-op in Elixir — it does NOT actually call DOM `e.stopPropagation()`. So when the user clicks the submit button inside the form, the click bubbles up to the backdrop div in parallel with the form's `phx-submit`. Both fire on the server simultaneously: the submit handler sends the SMS, and `close_modal` flips `show_*_modal` to `false`. Modal vanishes; SMS is real.
+
+**Fix**: replaced the manual backdrop handler with `phx-click-away="close_modal"` on the inner content div. That's the canonical LiveView pattern for "close when clicking outside" — it only fires for clicks that land OUTSIDE the element, never on clicks inside it (including submit buttons inside forms). Removed the dead `stop_propagation` event handler from both components.
+
+Files: `phone_verification_modal_component.{ex,html.heex}`, `email_verification_modal_component.{ex,html.heex}`. 48 phone + email verification tests pass.
+
+### Change Email post-verification + email merge security gap
+
+Added a "Change" button next to the verified email field on the profile settings tab so users can update their email after the first verification. The backend already supported this — only the UI was missing.
+
+Surfacing the Change button revealed a real security gap in the merge dispatch:
+
+- The original `find_legacy_user_for_email/2` only filtered `is_active = true`. So if an active *Solana wallet* user (not a legacy EVM user) happened to have the email you typed, the helper would return them and dispatch into `LegacyMerge.merge_legacy_into!/2`. The `LegacyMerge` guards (`same_user`, `is_bot`, `is_active = false`) wouldn't catch an active wallet user. Result: you'd accidentally merge two active Solana accounts.
+- This couldn't be triggered through the normal onboarding flow (the email step always runs on a fresh user with `email = nil`, so the unique constraint catches it before merge dispatch even matters). But Change Email — where one user picks an arbitrary email — exposes it.
+
+**Fix** (three layers of defense):
+
+1. **`find_legacy_user_for_email/2` filters `auth_method = "email"`** — only matches legacy EVM holders.
+2. **`promote_pending_email/2` returns `{:error, :email_taken}`** when it hits the unique constraint on `users.email`. The modal + both onboarding email handlers (regular + migrate_email) surface this as *"This email is already used by another active account. Please use a different email."* and reset to the enter-email step.
+3. **`LegacyMerge.merge_legacy_into!/2` adds a guard via `User.reclaimable_holder?/1`** — refuses to merge anything that isn't a legacy holder, even if a caller bypasses the helper. New error: `{:error, :not_a_legacy_holder}`.
+
+Tests added: 4
+- `does NOT merge against an active Solana wallet user that shares the email`
+- `returns :email_taken when promote hits the unique constraint on email`
+- `user can change their already-verified email to a fresh address`
+- `rejects merging an active Solana wallet user (not a legacy holder)` (LegacyMerge)
+
+110 tests across the touched files, 0 failures.
+
+Files: `email_verification.ex`, `legacy_merge.ex`, `email_verification_modal_component.ex`, `onboarding_live/index.ex`, `member_live/show.html.heex` (Change button), test files.
+
+### "Boost Your Earnings!" article popup removed
+
+Deleted the modal HTML, the JS hook, the `OnboardingPopup` LiveView event handlers, and the `:show_onboarding_popup` / `:onboarding_popup_eligible` / `:onboarding_popup_multiplier` assigns. Per user request — they didn't want it interrupting the article reading flow.
+
+Files removed/cleaned: `post_live/show.html.heex` (modal block + trigger div), `post_live/show.ex` (mount assigns, `assign_onboarding_popup_eligible/1`, two event handlers), `assets/js/app.js` (`OnboardingPopup` hook + registration).
+
+### Phone-verified reward not showing in Activity tab — silent notification create failure
+
+**Symptom**: user verifies phone → 500 BUX shows up in their balance → activity tab is empty for that reward.
+
+**Cause** (subtle and important): the custom rule for `phone_verified` in `system_config.ex` sets `notification_type: "reward"`. The `Notification` schema's `@valid_types` whitelist did NOT include `"reward"` — it had `bux_earned`, `referral_reward`, `daily_bonus`, `promo_reward`, but never just `"reward"`. So:
+
+1. `EventProcessor.execute_rule_action_inner/6` calls `Notifications.create_notification(user_id, %{type: "reward", ...})`
+2. The changeset fails `validate_inclusion(:type, @valid_types)`
+3. The result is **silently discarded** — there was no `case ... do {:error, ...}` around the call
+4. Code keeps going → `credit_bux/2` runs → BUX is minted via the settler
+5. User sees +500 BUX but no notification record exists, so the activity tab has nothing to show
+
+The same bug affected the `x_connected` and `wallet_connected` rules — they all use `notification_type: "reward"`.
+
+**Fix** (three pieces):
+
+1. **Added `"reward"` to `@valid_types`** in `notification.ex`. This is the actual root cause.
+2. **Stopped silently discarding `Notifications.create_notification` failures** in `event_processor.ex`. Wrapped the call in `case ... do {:error, changeset} -> Logger.error(...)` so any future invalid-type failures show up in the logs instead of vanishing.
+3. **Backfilled the missing notification** for the user who hit this in dev — inserted a `Phone Verified!` notification with `bux_bonus: 500` and `dedup_key: "custom_rule:phone_verified"` for their `user_id` so it shows up in their activity tab now.
+
+Files: `notifications/notification.ex`, `notifications/event_processor.ex`.
+
+### Profile page UI cleanup (multiplier dropdown + SOL banner + permanent badge removal)
+
+A handful of profile-page polish requests, all in `member_live/show.html.heex`:
+
+- **Removed permanent "Phone Verified" badge** that was showing as a dedicated row at the top of the profile when phone was verified (lines 171-187 of the old layout).
+- **Multiplier dropdown rows now show status pills** in the action area (where the Connect/Verify button used to live):
+  - X row → green "Connected" pill with checkmark when `x_multiplier > 1`
+  - Phone row → green "Verified" pill with checkmark when `phone_multiplier >= 1.0`
+  - Email row → green "Verified" pill with checkmark when `email_multiplier >= 2.0`
+  - SOL row → green pill with the actual `BlocksterV2.EngagementTracker.get_user_sol_balance/1` value (e.g., `0.1234 SOL`), gray pill when balance is 0
+- **Updated the SOL banner subtext** to *"Hold at least 0.01 SOL in your connected wallet to start earning BUX. The more SOL you hold, the more BUX you earn."*
+
+### Why Earn BUX sticky lime banner (homepage + profile)
+
+User wanted a thin lime announcement bar stuck to the top of the page that says *"Why Earn BUX? Redeem BUX to enter sponsored airdrops"* with a "Coming Soon" pill.
+
+**Approach**: it lives **inside** the global `site_header` fixed container so it stays flush against the bottom edge of the header in BOTH initial (full logo) and scrolled (collapsed logo) states. The header's collapse animation drags the banner up with it — there's no positioning math to maintain, no JS, no `position: fixed` offset to keep in sync with the dynamic header height.
+
+Wiring:
+
+1. **`site_header/1` got a new `attr :show_why_earn_bux, :boolean, default: false`** in `layouts.ex`. When true, the banner renders as the last child inside the `id="site-header"` fixed container, and the spacer below the header bumps from `h-14 lg:h-24` to `h-[88px] lg:h-[128px]` to preserve clearance for content.
+2. **`app.html.heex` passes `show_why_earn_bux={assigns[:show_why_earn_bux] || false}`** through to `site_header`. Pages that don't set the assign default to false (no banner).
+3. **Profile page** sets `assign(:show_why_earn_bux, true)` in `member_live/show.ex` mount.
+4. **Homepage** sets `assign(:show_why_earn_bux, true)` in `post_live/index.ex` mount.
+
+The banner uses solid `bg-[#CAFC00]` (brand lime), `border-y border-black/10` for definition, and a `bg-black/10` "Coming Soon" pill on the right with a clock icon. Mobile shows a shorter version of the copy.
+
+### Earlier dead-end attempts (documented for future me)
+
+Before landing on the "put it inside `site_header`" approach, I burned a few iterations:
+- Added the banner inside `profile-main` with `sticky top-16 lg:top-24` and `mt-16 lg:mt-24`. **Problem**: doubled the spacing. The layout's `site_header` already provides an `h-14 lg:h-24` spacer to clear the fixed header, so adding margin on top created ~120-192px of empty space before the content.
+- Removed the `mt` and used `sticky top-14 lg:top-24` to match the spacer. **Problem**: the spacer is sized for the *collapsed* header state (~96px), not the *initial* full-logo state (~170px). At scroll=0 the banner was hidden behind the bottom of the full header. As the user scrolled and the logo row animated away, the banner appeared with a transient gap. Sticky positioning can't ride a header that changes height during animation.
+- The only way to make the banner always-visible AND snug in both states is to make it part of the header's fixed container so it inherits the collapse animation. That's the final design.
+
+**Lesson**: when you have a fixed header with a collapse-on-scroll animation, anything that needs to stay flush against the bottom of that header has to be a child of the same fixed container. Trying to track it from outside with `sticky` + `top` offsets never works because the offset is a static value while the header height is dynamic.
+
+### Files (this batch)
+
+**Modified**:
+- `lib/blockster_v2_web/components/layouts.ex` — `site_header/1` got `:show_why_earn_bux` attr + banner block + dynamic spacer
+- `lib/blockster_v2_web/components/layouts/app.html.heex` — passes `show_why_earn_bux` through to `site_header`
+- `lib/blockster_v2_web/live/member_live/show.ex` — `assign(:show_why_earn_bux, true)`
+- `lib/blockster_v2_web/live/post_live/index.ex` — `assign(:show_why_earn_bux, true)`
+- `lib/blockster_v2_web/live/member_live/show.html.heex` — removed permanent phone badge, multiplier dropdown badges, SOL banner copy
+- `lib/blockster_v2_web/live/phone_verification_modal_component.{ex,html.heex}` — phx-click-away
+- `lib/blockster_v2_web/live/email_verification_modal_component.{ex,html.heex}` — phx-click-away + `:email_taken` error case
+- `lib/blockster_v2_web/live/onboarding_live/index.ex` — `:email_taken` error in both email handlers
+- `lib/blockster_v2_web/live/post_live/show.{ex,html.heex}` — removed onboarding popup
+- `assets/js/app.js` — removed `OnboardingPopup` hook + registration
+- `lib/blockster_v2/notifications/notification.ex` — added `"reward"` to `@valid_types`
+- `lib/blockster_v2/notifications/event_processor.ex` — log create_notification failures
+- `lib/blockster_v2/accounts/email_verification.ex` — `auth_method = "email"` filter + `:email_taken` error
+- `lib/blockster_v2/migration/legacy_merge.ex` — `:not_a_legacy_holder` defense-in-depth guard
+
+**Tests added** (4):
+- `does NOT merge against an active Solana wallet user that shares the email`
+- `returns :email_taken when promote hits the unique constraint on email`
+- `user can change their already-verified email to a fresh address`
+- `rejects merging an active Solana wallet user (not a legacy holder)`
+
+49 email/legacy_merge tests, 0 failures. Full reclaim test set: 110 tests, 0 failures.

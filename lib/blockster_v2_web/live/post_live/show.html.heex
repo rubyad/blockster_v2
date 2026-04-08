@@ -293,75 +293,6 @@
 
 <!-- Onboarding Popup Hook Wrapper - triggers popup on 20% scroll for eligible users -->
 <div
-  id="onboarding-popup-trigger"
-  phx-hook="OnboardingPopup"
-  data-show-popup={to_string(@onboarding_popup_eligible && !@show_onboarding_popup)}
->
-</div>
-
-<!-- Onboarding Popup Modal -->
-<%= if @show_onboarding_popup do %>
-  <div class="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/50" phx-click="dismiss_onboarding_popup"></div>
-
-    <!-- Popup Card - Mobile: bottom sheet, Desktop: centered card -->
-    <div class="relative w-full md:w-[400px] md:max-w-[90vw] bg-white md:rounded-2xl rounded-t-2xl shadow-2xl animate-slide-up md:animate-fade-in-bottom-right">
-      <!-- Close Button -->
-      <button
-        phx-click="dismiss_onboarding_popup"
-        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-      >
-        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-
-      <!-- Content -->
-      <div class="p-6 pt-8">
-        <!-- ROGUE Token Icon with Glow -->
-        <div class="flex justify-center mb-4">
-          <div class="w-20 h-20 rounded-full bg-[#CAFC00] flex items-center justify-center animate-rogue-glow">
-            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-12 h-12" />
-          </div>
-        </div>
-
-        <!-- Title -->
-        <h3 class="text-xl font-haas_bold_75 text-center text-gray-900 mb-2">
-          Boost Your Earnings!
-        </h3>
-
-        <!-- Current Multiplier -->
-        <p class="text-center text-gray-600 mb-4">
-          Your current earning power: <span class="font-haas_bold_75 text-[#CAFC00]"><%= :erlang.float_to_binary(@onboarding_popup_multiplier, decimals: 2) %>x</span>
-        </p>
-
-        <!-- Description -->
-        <p class="text-center text-gray-500 text-sm mb-6">
-          Complete your profile to unlock up to <span class="font-haas_medium_65">5.0x</span> earning power and maximize your BUX rewards!
-        </p>
-
-        <!-- CTA Button -->
-        <a
-          href="/onboarding"
-          class="block w-full py-3 px-6 bg-black text-white text-center font-haas_medium_65 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
-        >
-          Complete Profile
-        </a>
-
-        <!-- Skip Link -->
-        <button
-          phx-click="dismiss_onboarding_popup"
-          class="w-full mt-3 text-sm text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-        >
-          Maybe Later
-        </button>
-      </div>
-    </div>
-  </div>
-<% end %>
-
-<div
   class="article-page bg-white min-h-screen"
   id="post-engagement-tracker"
   phx-hook="EngagementTracker"
@@ -471,7 +402,30 @@
 
         <!-- Author & Date Row -->
         <div class="flex items-center gap-3 mb-6 text-sm">
-          <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+          <%= if @author_persona do %>
+            <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
+            <div class="relative group/author flex items-center gap-2">
+              <span class={"flex items-center justify-center w-6 h-6 rounded-full text-xs font-haas_medium_65 #{bg} #{text}"}>
+                {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+              </span>
+              <span class="font-haas_medium_65 text-[#141414] cursor-default">{@post.author_name}</span>
+              <!-- Hover popover -->
+              <div class="absolute left-0 top-full mt-2 z-20 w-72 p-4 bg-white rounded-xl shadow-lg ring-1 ring-[#E7E8F1] opacity-0 invisible group-hover/author:opacity-100 group-hover/author:visible transition-all duration-150 pointer-events-none">
+                <div class="flex items-center gap-2.5 mb-2">
+                  <span class={"flex items-center justify-center w-9 h-9 rounded-full text-sm font-haas_medium_65 #{bg} #{text}"}>
+                    {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+                  </span>
+                  <div class="flex flex-col leading-tight">
+                    <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+                    <span class="text-xs text-[#141414A3]">Blockster contributor</span>
+                  </div>
+                </div>
+                <p class="text-xs text-[#141414A3] leading-relaxed">{@author_persona.bio}</p>
+              </div>
+            </div>
+          <% else %>
+            <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+          <% end %>
           <span class="text-[#141414A3]">·</span>
           <span class="text-[#141414A3]">{if @post.published_at, do: Calendar.strftime(@post.published_at, "%b %d, %Y"), else: "Draft"}</span>
           <%= if @post.hub do %>
@@ -738,6 +692,26 @@
           <% end %>
         </article>
 
+        <!-- About the Author Card -->
+        <%= if @author_persona do %>
+          <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
+          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+            <div class="flex items-start gap-4">
+              <span class={"shrink-0 flex items-center justify-center w-14 h-14 rounded-full text-xl font-haas_medium_65 #{bg} #{text}"}>
+                {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline justify-between gap-3 mb-1">
+                  <h3 class="font-haas_medium_65 text-lg text-[#141414]">{@post.author_name}</h3>
+                  <span class="text-xs uppercase tracking-wider text-[#141414A3]">About the author</span>
+                </div>
+                <p class="text-sm text-[#141414] leading-relaxed mb-2">{@author_persona.bio}</p>
+                <p class="text-xs text-[#141414A3] italic">{@author_persona.style}</p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
         <!-- Mobile Mid Banner (managed via /admin/banners) -->
         <%= if @mobile_mid_banners != [] do %>
           <% banner = Enum.random(@mobile_mid_banners) %>
@@ -898,24 +872,58 @@
       </svg>
     </button>
 
-    <!-- Video Container -->
-    <div
-      id="video-watch-container"
-      class="w-full max-w-5xl mx-4 aspect-video"
-      phx-hook="VideoWatchTracker"
-      data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
-      data-post-id={@post.id}
-      data-video-id={@post.video_id}
-      data-video-duration={@post.video_duration || 0}
-      data-bux-per-minute={Decimal.to_float(@post.video_bux_per_minute || Decimal.new("1.0"))}
-      data-max-reward={if @post.video_max_reward, do: Decimal.to_float(@post.video_max_reward), else: ""}
-      data-high-water-mark={@video_high_water_mark || 0}
-      data-total-bux-earned={@video_total_bux_earned || 0}
-      data-pool-available={to_string(@pool_available)}
-      data-user-multiplier={@user_multiplier || 1.0}
-    >
-      <!-- YouTube player will be injected here -->
-      <div data-video-player class="w-full h-full bg-black"></div>
+    <!-- Video + Banner Wrapper -->
+    <div class="w-full max-w-5xl mx-4 flex flex-col gap-4">
+      <!-- Video Player Top Banner (managed via /admin/banners) — full width of player -->
+      <%= if @video_player_top_banners != [] do %>
+        <% banner = Enum.random(@video_player_top_banners) %>
+        <div class="w-full">
+          <%= if banner.link_url do %>
+            <a
+              href={banner.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block group cursor-pointer"
+              phx-click="track_ad_click"
+              phx-value-id={banner.id}
+            >
+              <img
+                src={banner.image_url}
+                alt={banner.name}
+                class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
+                loading="lazy"
+              />
+            </a>
+          <% else %>
+            <img
+              src={banner.image_url}
+              alt={banner.name}
+              class="w-full h-auto rounded-2xl"
+              loading="lazy"
+            />
+          <% end %>
+        </div>
+      <% end %>
+
+      <!-- Video Container -->
+      <div
+        id="video-watch-container"
+        class="w-full aspect-video"
+        phx-hook="VideoWatchTracker"
+        data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
+        data-post-id={@post.id}
+        data-video-id={@post.video_id}
+        data-video-duration={@post.video_duration || 0}
+        data-bux-per-minute={Decimal.to_float(@post.video_bux_per_minute || Decimal.new("1.0"))}
+        data-max-reward={if @post.video_max_reward, do: Decimal.to_float(@post.video_max_reward), else: ""}
+        data-high-water-mark={@video_high_water_mark || 0}
+        data-total-bux-earned={@video_total_bux_earned || 0}
+        data-pool-available={to_string(@pool_available)}
+        data-user-multiplier={@user_multiplier || 1.0}
+      >
+        <!-- YouTube player will be injected here -->
+        <div data-video-player class="w-full h-full bg-black"></div>
+      </div>
     </div>
 
     <!-- BUX Earnings Panel - HIGH WATER MARK AWARE -->

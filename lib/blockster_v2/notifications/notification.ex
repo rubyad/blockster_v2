@@ -5,7 +5,7 @@ defmodule BlocksterV2.Notifications.Notification do
   @valid_types ~w(new_article hub_post hub_event content_recommendation weekly_roundup
                   special_offer flash_sale shop_new_product shop_restock price_drop cart_abandonment
                   referral_prompt referral_signup referral_reward hub_milestone
-                  bux_earned bux_milestone reward_summary multiplier_upgrade game_settlement
+                  bux_earned bux_milestone reward reward_summary multiplier_upgrade game_settlement
                   order_confirmed order_paid order_shipped order_delivered order_cancelled
                   order_processing order_bux_paid order_rogue_paid
                   welcome welcome_back re_engagement churn_intervention daily_bonus

@@ -2,7 +2,7 @@ defmodule BlocksterV2.Ads.Banner do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @valid_placements ~w(sidebar_left sidebar_right article_bottom mobile_top mobile_mid mobile_bottom play_sidebar_left play_sidebar_right airdrop_sidebar_left airdrop_sidebar_right homepage_top_desktop homepage_top_mobile homepage_inline_desktop homepage_inline_mobile)
+  @valid_placements ~w(sidebar_left sidebar_right article_bottom mobile_top mobile_mid mobile_bottom play_sidebar_left play_sidebar_right airdrop_sidebar_left airdrop_sidebar_right homepage_top_desktop homepage_top_mobile homepage_inline_desktop homepage_inline_mobile video_player_top)
 
   schema "ad_banners" do
     field :name, :string

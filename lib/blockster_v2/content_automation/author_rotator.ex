@@ -67,11 +67,51 @@ defmodule BlocksterV2.ContentAutomation.AuthorRotator do
       bio: "DeFi yield farmer and stablecoin analyst. Believes sound money wins.",
       style: "Numbers-focused. Compares protocols fairly. Calls out unsustainable yields.",
       categories: [:stablecoins, :defi, :cbdc, :macro_trends]
+    },
+    %{
+      username: "priya_nakamura",
+      email: "priya@blockster.com",
+      bio: "Solana ecosystem analyst tracking validators, network upgrades, and dev activity. Ex-protocol engineer.",
+      style: "Technical clarity. Cites TPS, slot times, and commit metrics. Calm, no-hype tone.",
+      categories: [:solana, :adoption, :token_launches]
+    },
+    %{
+      username: "diego_martinez",
+      email: "diego@blockster.com",
+      bio: "On-chain DeFi sleuth focused on Solana liquidity, MEV, and perp markets. Lives in dashboards.",
+      style: "Chart-driven. Walks through flows step by step. Skeptical of incentive games.",
+      categories: [:solana, :defi, :trading]
     }
   ]
 
   @doc "Returns the static list of persona definitions."
   def personas, do: @personas
+
+  @doc """
+  Convert a username into a public-facing display name.
+
+  Persona usernames are stored as `marcus_stone`-style snake_case but should be
+  rendered as `Marcus Stone`. Real (non-persona) usernames are returned
+  unchanged so legacy auth checks and existing display behavior keep working.
+
+  ## Examples
+
+      iex> display_name("marcus_stone")
+      "Marcus Stone"
+
+      iex> display_name("alice")
+      "alice"
+  """
+  def display_name(nil), do: nil
+  def display_name(username) when is_binary(username) do
+    if get_persona(username) do
+      username
+      |> String.split("_")
+      |> Enum.map_join(" ", &String.capitalize/1)
+    else
+      username
+    end
+  end
 
   @doc """
   Select an author persona for a given category string.
