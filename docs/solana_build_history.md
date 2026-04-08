@@ -859,3 +859,37 @@ This is the boundary fix that prevents deactivated rows from leaking into auth, 
 ### What this unblocks
 
 After the Solana cutover, every legacy user can reconnect their old wallet's worth of BUX, username, social connections, content authorship, and referral attribution to a brand-new Solana wallet — without manual intervention, in a single transaction, with all-or-nothing semantics. The `legacy_bux_migrations` snapshot table is the on-chain source of truth for BUX amounts; the snapshot script (`priv/scripts/snapshot_legacy_bux.exs`, future) must run a few hours before deploy.
+
+### Followup: chicken-and-egg fix for "I'm new" + reclaim (2026-04-08)
+
+The first version of the per-step reclaim hooks gated reclaim on `is_active = false` only — i.e., the legacy user had to be ALREADY merged before their phone/X/Telegram could be transferred. This created a chicken-and-egg trap:
+
+1. User clicks "I'm new" on welcome → bypasses the migrate_email step.
+2. User goes through phone step → enters their old phone → blocked because the legacy user that owns it is still `is_active = true`.
+
+In the post-cutover world, every EVM/Thirdweb user is a "legacy user" the moment we deploy. They don't become reclaimable until their email is verified, but the user might never get to the email step (or might do phone/X first).
+
+**Fix**: introduce `BlocksterV2.Accounts.User.reclaimable_holder?/1` as the single source of truth:
+
+```elixir
+def reclaimable_holder?(%__MODULE__{is_bot: true}), do: false
+def reclaimable_holder?(%__MODULE__{is_active: false}), do: true
+def reclaimable_holder?(%__MODULE__{auth_method: "email"}), do: true
+def reclaimable_holder?(_), do: false
+```
+
+`auth_method = "email"` is the discriminator: every legacy EVM/Thirdweb user has it (set by `User.email_registration_changeset/1`); every new Solana user has `auth_method = "wallet"`. Bots are excluded explicitly (defensive — they're `auth_method = "wallet"` anyway).
+
+Applied to all three reclaim sites:
+
+- **`PhoneVerification.check_phone_reclaimable/2`** — uses the helper. Plus `send_verification_code`'s reclaim path now resets the legacy user's user-level phone fields (`phone_verified`, `geo_multiplier`, `geo_tier`) immediately when the row is reassigned, so the legacy user doesn't keep reporting phone-verified state after losing the row. The verify-time `clear_inactive_user_phone_fields/2` cleanup is removed (was redundant + only handled `is_active = false` users anyway).
+- **`Social.reclaim_x_account_if_needed/2`** — uses the helper. Active-Solana-user collisions still return `:x_account_locked`.
+- **`TelegramWebhookController.handle/2` /start branch** — uses the helper. Same.
+
+**New tests** (4 added):
+- Phone reclaim test for the active legacy EVM user case.
+- Phone reclaim test for the bot case (always blocked, even with `auth_method = "email"`).
+- X reclaim test for the active legacy EVM user case.
+- Telegram reclaim test for the active legacy EVM user case.
+
+97 tests across the touched files, 0 failures. All 6 previously-passing reclaim tests still pass.

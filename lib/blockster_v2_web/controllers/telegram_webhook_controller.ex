@@ -34,24 +34,29 @@ defmodule BlocksterV2Web.TelegramWebhookController do
           nil ->
             link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn)
 
-          %User{is_active: false} = legacy_user ->
-            # RECLAIM: free the legacy user's telegram fields, then link to the new user.
-            {:ok, _} =
-              legacy_user
-              |> Ecto.Changeset.change(%{
-                telegram_user_id: nil,
-                telegram_username: nil,
-                telegram_connect_token: nil,
-                telegram_connected_at: nil,
-                telegram_group_joined_at: nil
-              })
-              |> Repo.update()
+          %User{} = existing_user ->
+            if User.reclaimable_holder?(existing_user) do
+              # RECLAIM: free the legacy holder's telegram fields, then link.
+              {:ok, _} =
+                existing_user
+                |> Ecto.Changeset.change(%{
+                  telegram_user_id: nil,
+                  telegram_username: nil,
+                  telegram_connect_token: nil,
+                  telegram_connected_at: nil,
+                  telegram_group_joined_at: nil
+                })
+                |> Repo.update()
 
-            link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn)
+              link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn)
+            else
+              send_telegram_message(
+                tg_user_id,
+                "This Telegram account is already connected to another Blockster user."
+              )
 
-          _existing_user ->
-            send_telegram_message(tg_user_id, "This Telegram account is already connected to another Blockster user.")
-            json(conn, %{ok: true})
+              json(conn, %{ok: true})
+            end
         end
     end
   end

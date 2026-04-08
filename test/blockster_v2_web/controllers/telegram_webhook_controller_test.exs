@@ -190,6 +190,54 @@ defmodule BlocksterV2Web.TelegramWebhookControllerTest do
       assert reloaded_new.telegram_username == "reclaimed"
     end
 
+    test "RECLAIMS Telegram from an ACTIVE legacy EVM user (chicken-and-egg fix)", %{conn: conn} do
+      # Legacy EVM/Thirdweb user — auth_method = "email", still active
+      suffix = Integer.to_string(System.unique_integer([:positive]))
+
+      {:ok, legacy} =
+        %User{}
+        |> User.changeset(%{
+          wallet_address: "0xLegacyEvm" <> suffix,
+          smart_wallet_address: "0xLegacySmart" <> suffix,
+          auth_method: "email",
+          telegram_user_id: "legacy_evm_tg_888",
+          telegram_username: "legacy_evm_handle",
+          telegram_connected_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        })
+        |> Repo.insert()
+
+      # Legacy is still ACTIVE — they have NOT gone through the merge yet
+      assert legacy.is_active == true
+      assert legacy.auth_method == "email"
+
+      {new_user, token} = create_user_with_connect_token()
+
+      conn =
+        post(conn, "/api/webhooks/telegram", %{
+          "message" => %{
+            "text" => "/start #{token}",
+            "from" => %{
+              "id" => "legacy_evm_tg_888",
+              "username" => "new_handle",
+              "first_name" => "New"
+            }
+          }
+        })
+
+      assert json_response(conn, 200) == %{"ok" => true}
+
+      # Legacy still exists (NOT deactivated by the reclaim) but lost telegram fields
+      reloaded_legacy = Repo.get!(User, legacy.id)
+      assert reloaded_legacy.is_active == true
+      assert reloaded_legacy.telegram_user_id == nil
+      assert reloaded_legacy.telegram_username == nil
+
+      # New user picked them up
+      reloaded_new = Repo.get!(User, new_user.id)
+      assert reloaded_new.telegram_user_id == "legacy_evm_tg_888"
+      assert reloaded_new.telegram_username == "new_handle"
+    end
+
     test "handles trimmed token with whitespace", %{conn: conn} do
       {user, token} = create_user_with_connect_token()
 

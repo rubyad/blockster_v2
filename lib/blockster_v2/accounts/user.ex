@@ -189,4 +189,22 @@ defmodule BlocksterV2.Accounts.User do
         put_change(changeset, :slug, slug)
     end
   end
+
+  @doc """
+  Returns true when this user is a "legacy" holder of an identifier (email,
+  phone, X, Telegram) and a new Solana wallet user is allowed to reclaim that
+  identifier from them.
+
+  Two cases:
+    * `is_active = false` — the user has already been merged/deactivated.
+    * `auth_method = "email"` — pre-Solana EVM/Thirdweb signup that hasn't
+      gone through the merge yet. Every legacy Blockster account is in this
+      state until its email is verified through the new flow.
+
+  Bots and new Solana users (`auth_method = "wallet"`) are NOT reclaimable.
+  """
+  def reclaimable_holder?(%__MODULE__{is_bot: true}), do: false
+  def reclaimable_holder?(%__MODULE__{is_active: false}), do: true
+  def reclaimable_holder?(%__MODULE__{auth_method: "email"}), do: true
+  def reclaimable_holder?(_), do: false
 end

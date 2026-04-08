@@ -341,10 +341,24 @@ defmodule BlocksterV2.PhoneVerificationTest do
 
   describe "phone reclaim (check_phone_reclaimable/2)" do
     setup do
-      active_user = create_user()
-      legacy_user = create_user(%{is_active: false})
+      # Active Solana wallet user (auth_method: "wallet")
+      active_solana_user = create_user()
+      # Deactivated legacy user (already merged)
+      deactivated_legacy = create_user(%{is_active: false})
+      # ACTIVE legacy EVM/Thirdweb user — hasn't been merged yet
+      active_legacy_evm =
+        create_user(%{
+          auth_method: "email",
+          smart_wallet_address: "0xLegacySmartWallet#{System.unique_integer([:positive])}"
+        })
+
       new_user = create_user()
-      {:ok, active_user: active_user, legacy_user: legacy_user, new_user: new_user}
+
+      {:ok,
+       active_solana_user: active_solana_user,
+       deactivated_legacy: deactivated_legacy,
+       active_legacy_evm: active_legacy_evm,
+       new_user: new_user}
     end
 
     test "no existing row → available", %{new_user: new_user} do
@@ -366,13 +380,13 @@ defmodule BlocksterV2.PhoneVerificationTest do
                PhoneVerification.check_phone_reclaimable(new_user.id, "+15558882222")
     end
 
-    test "phone owned by an active user → blocked", %{
-      active_user: active_user,
+    test "phone owned by an active Solana user → blocked", %{
+      active_solana_user: active_solana_user,
       new_user: new_user
     } do
       {:ok, _} =
         Repo.insert(%PhoneVerificationSchema{
-          user_id: active_user.id,
+          user_id: active_solana_user.id,
           phone_number: "+15558883333",
           country_code: "US",
           geo_tier: "premium",
@@ -386,12 +400,12 @@ defmodule BlocksterV2.PhoneVerificationTest do
     end
 
     test "phone owned by a deactivated legacy user → reclaimable", %{
-      legacy_user: legacy_user,
+      deactivated_legacy: legacy,
       new_user: new_user
     } do
       {:ok, _} =
         Repo.insert(%PhoneVerificationSchema{
-          user_id: legacy_user.id,
+          user_id: legacy.id,
           phone_number: "+15558884444",
           country_code: "US",
           geo_tier: "premium",
@@ -400,6 +414,44 @@ defmodule BlocksterV2.PhoneVerificationTest do
 
       assert {:ok, :phone_reclaimable} =
                PhoneVerification.check_phone_reclaimable(new_user.id, "+15558884444")
+    end
+
+    test "phone owned by an ACTIVE legacy EVM user → reclaimable (chicken-and-egg fix)",
+         %{active_legacy_evm: legacy, new_user: new_user} do
+      {:ok, _} =
+        Repo.insert(%PhoneVerificationSchema{
+          user_id: legacy.id,
+          phone_number: "+15558885555",
+          country_code: "US",
+          geo_tier: "premium",
+          geo_multiplier: Decimal.new("2.0")
+        })
+
+      assert {:ok, :phone_reclaimable} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558885555")
+    end
+
+    test "phone owned by a bot is NEVER reclaimable", %{new_user: new_user} do
+      bot =
+        create_user(%{
+          auth_method: "email",
+          smart_wallet_address: "0xBotWallet#{System.unique_integer([:positive])}",
+          is_bot: true
+        })
+
+      {:ok, _} =
+        Repo.insert(%PhoneVerificationSchema{
+          user_id: bot.id,
+          phone_number: "+15558886666",
+          country_code: "US",
+          geo_tier: "premium",
+          geo_multiplier: Decimal.new("2.0")
+        })
+
+      assert {:error, message} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558886666")
+
+      assert message =~ "already registered"
     end
   end
 end

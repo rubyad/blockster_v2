@@ -108,9 +108,10 @@ defmodule BlocksterV2.Social do
     end
   end
 
-  # If the X account is currently locked to a deactivated/legacy user,
-  # transfer the lock and the Mnesia connection row to the new user. If it's
-  # locked to an active user, return :x_account_locked.
+  # If the X account is currently locked to a "legacy holder" — a deactivated
+  # user OR an EVM/Thirdweb user that hasn't been merged yet — transfer the
+  # lock and the Mnesia connection row to the new user. Locks held by active
+  # Solana users still return :x_account_locked.
   defp reclaim_x_account_if_needed(_new_user_id, nil), do: {:ok, :no_x_user_id}
 
   defp reclaim_x_account_if_needed(new_user_id, x_user_id) do
@@ -121,33 +122,34 @@ defmodule BlocksterV2.Social do
       %User{id: id} when id == new_user_id ->
         {:ok, :same_user}
 
-      %User{is_active: false} = legacy_user ->
-        # Free the lock on the legacy user, then move the Mnesia row.
-        legacy_user
-        |> Ecto.Changeset.change(%{locked_x_user_id: nil})
-        |> Repo.update!()
+      %User{} = other_user ->
+        if User.reclaimable_holder?(other_user) do
+          # Free the lock on the legacy user, then move the Mnesia row.
+          other_user
+          |> Ecto.Changeset.change(%{locked_x_user_id: nil})
+          |> Repo.update!()
 
-        try do
-          case :mnesia.dirty_read({:x_connections, legacy_user.id}) do
-            [] ->
-              :ok
+          try do
+            case :mnesia.dirty_read({:x_connections, other_user.id}) do
+              [] ->
+                :ok
 
-            [record] ->
-              new_record = put_elem(record, 1, new_user_id)
-              :mnesia.dirty_delete({:x_connections, legacy_user.id})
-              :mnesia.dirty_write(new_record)
-              :ok
+              [record] ->
+                new_record = put_elem(record, 1, new_user_id)
+                :mnesia.dirty_delete({:x_connections, other_user.id})
+                :mnesia.dirty_write(new_record)
+                :ok
+            end
+          rescue
+            _ -> :ok
+          catch
+            :exit, _ -> :ok
           end
-        rescue
-          _ -> :ok
-        catch
-          :exit, _ -> :ok
+
+          {:ok, :reclaimed}
+        else
+          {:error, :x_account_locked}
         end
-
-        {:ok, :reclaimed}
-
-      %User{} ->
-        {:error, :x_account_locked}
     end
   end
 

@@ -68,17 +68,49 @@ defmodule BlocksterV2.PhoneVerification do
           |> Repo.update()
 
         is_nil(existing_for_user) and existing_for_phone ->
-          # Reclaim path: take over the legacy/inactive user's row.
+          # Reclaim path: take over the legacy holder's row. The legacy
+          # holder was either deactivated by a prior merge OR is still an
+          # active EVM/Thirdweb user that hasn't merged yet — in both cases
+          # `check_phone_reclaimable/2` already approved the transfer.
+          legacy_user_id = existing_for_phone.user_id
+
           attrs =
             base_attrs
             |> Map.put(:attempts, 1)
             |> Map.put(:verified, false)
             |> Map.put(:verified_at, nil)
 
-          existing_for_phone
-          |> PhoneVerification.changeset(attrs)
-          |> Repo.update()
+          result =
+            existing_for_phone
+            |> PhoneVerification.changeset(attrs)
+            |> Repo.update()
+
+          # The legacy user no longer owns the phone — wipe their user-level
+          # phone state so they don't keep reporting `phone_verified = true`.
+          if match?({:ok, _}, result) and legacy_user_id != user_id do
+            reset_legacy_phone_fields(legacy_user_id)
+          end
+
+          result
       end
+    end
+  end
+
+  defp reset_legacy_phone_fields(legacy_user_id) do
+    case Repo.get(User, legacy_user_id) do
+      nil ->
+        :ok
+
+      %User{} = legacy_user ->
+        legacy_user
+        |> Ecto.Changeset.change(%{
+          phone_verified: false,
+          geo_multiplier: Decimal.new("0.5"),
+          geo_tier: "unverified"
+        })
+        |> Repo.update()
+
+        :ok
     end
   end
 
@@ -102,11 +134,6 @@ defmodule BlocksterV2.PhoneVerification do
           # Update user record with multiplier and SMS opt-in
           update_user_multiplier(user_id, updated.geo_multiplier, updated.geo_tier, updated.sms_opt_in)
 
-          # Clean up any leftover user-level phone fields on legacy/inactive
-          # users that previously held this phone number (the actual
-          # phone_verifications row was reassigned in send_verification_code).
-          clear_inactive_user_phone_fields(updated.phone_number, user_id)
-
           # Award referral reward to referrer (if user was referred)
           Referrals.process_phone_verification_reward(user_id)
 
@@ -123,29 +150,6 @@ defmodule BlocksterV2.PhoneVerification do
     end
   end
 
-  # When a phone number is reclaimed from a deactivated/legacy user, we wipe
-  # the user-level phone fields on those users so they no longer report as
-  # phone-verified anywhere.
-  defp clear_inactive_user_phone_fields(_phone_number, _new_user_id) do
-    # The User schema doesn't store the phone number directly, only the
-    # `phone_verified` boolean and geo fields. We can't filter by phone here,
-    # but the legacy user will be deactivated by `LegacyMerge` (which already
-    # clears these fields). For users reclaimed via the standalone phone
-    # reclaim path (no legacy email match), the legacy row should already be
-    # is_active = false; we update those rows here.
-    import Ecto.Query
-
-    Repo.update_all(
-      from(u in User, where: u.is_active == false and u.phone_verified == true),
-      set: [
-        phone_verified: false,
-        geo_multiplier: Decimal.new("0.5"),
-        geo_tier: "unverified"
-      ]
-    )
-
-    :ok
-  end
 
   @doc """
   Get geo tier and multiplier for a country code.
@@ -306,10 +310,11 @@ defmodule BlocksterV2.PhoneVerification do
   end
 
   @doc false
-  # Reclaim-aware version: a phone owned by an INACTIVE (legacy/merged) user is
-  # treated as available so the new Solana user can verify it. Active-user
-  # collisions are still blocked. The actual transfer happens in `verify_code`
-  # after the SMS code is validated.
+  # Reclaim-aware version: a phone held by a legacy holder
+  # (`User.reclaimable_holder?/1` — deactivated users + EVM/Thirdweb users
+  # that haven't been merged yet) is treated as available. The new Solana
+  # user takes over the row in `send_verification_code`'s reclaim path.
+  # Active Solana-user collisions are still blocked.
   def check_phone_reclaimable(user_id, phone_number) do
     case Repo.get_by(PhoneVerification, phone_number: phone_number) do
       nil ->
@@ -324,11 +329,12 @@ defmodule BlocksterV2.PhoneVerification do
           nil ->
             {:ok, :phone_reclaimable}
 
-          %User{is_active: false} ->
-            {:ok, :phone_reclaimable}
-
-          %User{} ->
-            {:error, "This phone number is already registered to another account."}
+          %User{} = other_user ->
+            if User.reclaimable_holder?(other_user) do
+              {:ok, :phone_reclaimable}
+            else
+              {:error, "This phone number is already registered to another account."}
+            end
         end
     end
   end

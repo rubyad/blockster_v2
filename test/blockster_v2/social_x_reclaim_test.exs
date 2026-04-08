@@ -157,7 +157,7 @@ defmodule BlocksterV2.SocialXReclaimTest do
     assert :mnesia.dirty_read({:x_connections, legacy.id}) == []
   end
 
-  test "X account locked to an ACTIVE other user is blocked" do
+  test "X account locked to an ACTIVE Solana user is blocked" do
     other = create_user() |> set_locked_x("xid_active_block")
 
     new_user = create_user()
@@ -179,5 +179,75 @@ defmodule BlocksterV2.SocialXReclaimTest do
     # New user has nothing
     reloaded_new = Repo.get!(User, new_user.id)
     assert reloaded_new.locked_x_user_id == nil
+  end
+
+  test "X account locked to an ACTIVE legacy EVM user is reclaimed (chicken-and-egg fix)" do
+    suffix = Integer.to_string(System.unique_integer([:positive]))
+
+    {:ok, legacy} =
+      %User{}
+      |> User.changeset(%{
+        wallet_address: "0xLegacy" <> suffix,
+        smart_wallet_address: "0xLegacySmart" <> suffix,
+        auth_method: "email"
+      })
+      |> Repo.insert()
+
+    legacy = set_locked_x(legacy, "xid_legacy_active")
+
+    :mnesia.dirty_write({
+      :x_connections,
+      legacy.id,
+      "xid_legacy_active",
+      "legacy_active_handle",
+      "Legacy Active",
+      nil,
+      nil,
+      nil,
+      nil,
+      [],
+      System.system_time(:second),
+      80,
+      300,
+      150,
+      75,
+      0,
+      0.04,
+      20,
+      nil,
+      nil,
+      System.system_time(:second)
+    })
+
+    # Legacy is still ACTIVE — has not been merged yet
+    assert legacy.is_active == true
+    assert legacy.auth_method == "email"
+
+    new_user = create_user()
+
+    attrs = %{
+      x_user_id: "xid_legacy_active",
+      x_username: "new_handle",
+      x_name: "New",
+      access_token: "tok",
+      connected_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    assert {:ok, _conn} = Social.upsert_x_connection(new_user.id, attrs)
+
+    # Lock moved
+    reloaded_new = Repo.get!(User, new_user.id)
+    assert reloaded_new.locked_x_user_id == "xid_legacy_active"
+
+    # Legacy lost the lock
+    reloaded_legacy = Repo.get!(User, legacy.id)
+    assert reloaded_legacy.locked_x_user_id == nil
+    # Legacy is still active — only the lock was reclaimed, not the whole user
+    assert reloaded_legacy.is_active == true
+
+    # Mnesia row moved
+    [record] = :mnesia.dirty_read({:x_connections, new_user.id})
+    assert elem(record, 1) == new_user.id
+    assert :mnesia.dirty_read({:x_connections, legacy.id}) == []
   end
 end
