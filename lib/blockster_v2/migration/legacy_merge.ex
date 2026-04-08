@@ -43,6 +43,12 @@ defmodule BlocksterV2.Migration.LegacyMerge do
       legacy_user.is_active == false ->
         {:error, :legacy_already_deactivated}
 
+      not User.reclaimable_holder?(legacy_user) ->
+        # Defense-in-depth: refuse to merge an active Solana wallet user.
+        # `User.reclaimable_holder?/1` only returns true for legacy EVM
+        # holders (`auth_method = "email"`) and deactivated rows.
+        {:error, :not_a_legacy_holder}
+
       true ->
         do_merge(new_user, legacy_user)
     end

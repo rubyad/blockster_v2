@@ -71,6 +71,15 @@ defmodule BlocksterV2Web.EmailVerificationModalComponent do
       {:error, :no_code_sent} ->
         {:noreply, assign(socket, :error_message, "No code sent yet. Please request one first.")}
 
+      {:error, :email_taken} ->
+        {:noreply,
+         socket
+         |> assign(:step, :enter_email)
+         |> assign(
+           :error_message,
+           "This email is already used by another active account. Please use a different email."
+         )}
+
       {:error, _} ->
         {:noreply, assign(socket, :error_message, "Verification failed. Please try again.")}
     end

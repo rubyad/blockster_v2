@@ -633,6 +633,24 @@ defmodule BlocksterV2.Migration.LegacyMergeTest do
       new_user = create_new_user() |> set_pending_email(deactivated.email)
       assert {:error, :legacy_already_deactivated} = LegacyMerge.merge_legacy_into!(new_user, deactivated)
     end
+
+    test "rejects merging an active Solana wallet user (not a legacy holder)" do
+      # An active wallet user is NOT a valid merge target.
+      {:ok, active_wallet_user} =
+        %User{}
+        |> User.changeset(%{
+          wallet_address: "ActiveWallet" <> unique_suffix(),
+          username: "active_wallet_#{unique_suffix()}",
+          auth_method: "wallet",
+          email: "active@example.com"
+        })
+        |> Repo.insert()
+
+      new_user = create_new_user() |> set_pending_email("active@example.com")
+
+      assert {:error, :not_a_legacy_holder} =
+               LegacyMerge.merge_legacy_into!(new_user, active_wallet_user)
+    end
   end
 
   describe "merge_legacy_into!/2 - username collision invariant" do

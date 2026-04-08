@@ -124,11 +124,20 @@ defmodule BlocksterV2.Accounts.EmailVerification do
         BlocksterV2.UnifiedMultiplier.update_email_multiplier(user.id)
         {:ok, updated_user, %{merged: false}}
 
-      {:error, changeset} ->
-        {:error, changeset}
+      {:error, %Ecto.Changeset{errors: errors}} ->
+        if Keyword.has_key?(errors, :email) do
+          {:error, :email_taken}
+        else
+          {:error, errors}
+        end
     end
   end
 
+  # Only matches LEGACY holders — `auth_method = "email"` filters out active
+  # Solana wallet users who happen to have set the same address. The
+  # current_user_id check prevents matching self. The is_active filter
+  # excludes already-deactivated rows (handled by the unique constraint
+  # being free anyway, but cheap to keep).
   defp find_legacy_user_for_email(email, current_user_id) do
     email = String.downcase(email)
 
@@ -137,6 +146,7 @@ defmodule BlocksterV2.Accounts.EmailVerification do
         where: u.email == ^email,
         where: u.id != ^current_user_id,
         where: u.is_active == true,
+        where: u.auth_method == "email",
         limit: 1
     )
   end

@@ -224,6 +224,15 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
       {:error, :no_code_sent} ->
         {:noreply, assign(socket, :email_error, "No code sent yet. Please request one first.")}
 
+      {:error, :email_taken} ->
+        {:noreply,
+         socket
+         |> assign(:email_step_state, :enter_email)
+         |> assign(
+           :email_error,
+           "This email is already used by another active account. Please use a different email."
+         )}
+
       {:error, _} ->
         {:noreply, assign(socket, :email_error, "Verification failed. Please try again.")}
     end
@@ -315,6 +324,15 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
 
       {:error, :no_code_sent} ->
         {:noreply, assign(socket, :migrate_email_error, "No code sent yet. Please request one first.")}
+
+      {:error, :email_taken} ->
+        {:noreply,
+         socket
+         |> assign(:migrate_email_step_state, :enter_email)
+         |> assign(
+           :migrate_email_error,
+           "This email is already used by another active account. Please use a different email."
+         )}
 
       {:error, _} ->
         {:noreply, assign(socket, :migrate_email_error, "Verification failed. Please try again.")}
