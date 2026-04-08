@@ -22,11 +22,6 @@ defmodule BlocksterV2Web.EmailVerificationModalComponent do
   end
 
   @impl true
-  def handle_event("stop_propagation", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("submit_email", %{"email" => email}, socket) do
     user = socket.assigns.current_user
 

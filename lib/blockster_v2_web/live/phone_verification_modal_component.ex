@@ -22,11 +22,6 @@ defmodule BlocksterV2Web.PhoneVerificationModalComponent do
   end
 
   @impl true
-  def handle_event("stop_propagation", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("submit_phone", %{"phone_number" => phone} = params, socket) do
     user_id = socket.assigns.current_user.id
     sms_opt_in = Map.get(params, "sms_opt_in") == "true"
