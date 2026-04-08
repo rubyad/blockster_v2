@@ -38,14 +38,14 @@ defmodule BlocksterV2.ContentAutomation.AuthorRotator do
       email: "sophia@blockster.com",
       bio: "Web3 gaming and NFT specialist. Believes in the metaverse (unironically).",
       style: "Enthusiastic about innovation. Pop culture references. Younger voice.",
-      categories: [:gaming, :nft, :token_launches, :ai_crypto]
+      categories: [:gaming, :nft, :token_launches, :ai_crypto, :solana]
     },
     %{
       username: "marcus_stone",
       email: "marcus@blockster.com",
       bio: "Reformed Wall Street trader. Now full-time crypto. Never going back.",
       style: "Sharp, confident takes. Loves contrarian positions. Uses trader slang.",
-      categories: [:trading, :altcoins, :investment, :gambling]
+      categories: [:trading, :altcoins, :investment, :gambling, :solana]
     },
     %{
       username: "nina_takashi",

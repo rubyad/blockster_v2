@@ -24,54 +24,58 @@ defmodule BlocksterV2.PhoneVerification do
     normalized = normalize_phone_number(phone_number)
 
     with {:ok, _} <- validate_phone_format(normalized),
-         {:ok, _} <- check_phone_not_registered(user_id, normalized),
+         {:ok, _} <- check_phone_reclaimable(user_id, normalized),
          {:ok, _} <- check_rate_limit(user_id),
          {:ok, phone_data} <- @twilio_client.lookup_phone_number(normalized),
          {:ok, geo_data} <- determine_geo_tier(phone_data.country_code),
          {:ok, _} <- check_fraud_flags(phone_data),
          {:ok, verification_sid} <- @twilio_client.send_verification_code(normalized) do
 
-      # Create or update phone verification record
-      case get_by_user(user_id) do
-        nil ->
-          # First attempt
-          attrs = %{
-            user_id: user_id,
-            phone_number: normalized,
-            country_code: phone_data.country_code,
-            carrier_name: phone_data.carrier_name,
-            line_type: phone_data.line_type,
-            geo_tier: geo_data.tier,
-            geo_multiplier: geo_data.multiplier,
-            verification_sid: verification_sid,
-            attempts: 1,
-            last_attempt_at: DateTime.utc_now(),
-            fraud_flags: phone_data.fraud_flags,
-            sms_opt_in: sms_opt_in
-          }
+      # Create, update, or RECLAIM the phone verification record. Reclaim
+      # means: if the phone_number is currently held by a deactivated legacy
+      # user, transfer that row to the new user_id so the unique constraint
+      # is satisfied and we don't need to insert a duplicate.
+      existing_for_user = get_by_user(user_id)
+      existing_for_phone = Repo.get_by(PhoneVerification, phone_number: normalized)
+
+      base_attrs = %{
+        user_id: user_id,
+        phone_number: normalized,
+        country_code: phone_data.country_code,
+        carrier_name: phone_data.carrier_name,
+        line_type: phone_data.line_type,
+        geo_tier: geo_data.tier,
+        geo_multiplier: geo_data.multiplier,
+        verification_sid: verification_sid,
+        last_attempt_at: DateTime.utc_now(),
+        fraud_flags: phone_data.fraud_flags,
+        sms_opt_in: sms_opt_in
+      }
+
+      cond do
+        is_nil(existing_for_user) and is_nil(existing_for_phone) ->
+          attrs = Map.put(base_attrs, :attempts, 1)
 
           %PhoneVerification{}
           |> PhoneVerification.changeset(attrs)
           |> Repo.insert()
 
-        existing ->
-          # Subsequent attempt - increment counter
-          attrs = %{
-            user_id: user_id,
-            phone_number: normalized,
-            country_code: phone_data.country_code,
-            carrier_name: phone_data.carrier_name,
-            line_type: phone_data.line_type,
-            geo_tier: geo_data.tier,
-            geo_multiplier: geo_data.multiplier,
-            verification_sid: verification_sid,
-            attempts: existing.attempts + 1,
-            last_attempt_at: DateTime.utc_now(),
-            fraud_flags: phone_data.fraud_flags,
-            sms_opt_in: sms_opt_in
-          }
+        existing_for_user ->
+          attrs = Map.put(base_attrs, :attempts, existing_for_user.attempts + 1)
 
-          existing
+          existing_for_user
+          |> PhoneVerification.changeset(attrs)
+          |> Repo.update()
+
+        is_nil(existing_for_user) and existing_for_phone ->
+          # Reclaim path: take over the legacy/inactive user's row.
+          attrs =
+            base_attrs
+            |> Map.put(:attempts, 1)
+            |> Map.put(:verified, false)
+            |> Map.put(:verified_at, nil)
+
+          existing_for_phone
           |> PhoneVerification.changeset(attrs)
           |> Repo.update()
       end
@@ -98,6 +102,11 @@ defmodule BlocksterV2.PhoneVerification do
           # Update user record with multiplier and SMS opt-in
           update_user_multiplier(user_id, updated.geo_multiplier, updated.geo_tier, updated.sms_opt_in)
 
+          # Clean up any leftover user-level phone fields on legacy/inactive
+          # users that previously held this phone number (the actual
+          # phone_verifications row was reassigned in send_verification_code).
+          clear_inactive_user_phone_fields(updated.phone_number, user_id)
+
           # Award referral reward to referrer (if user was referred)
           Referrals.process_phone_verification_reward(user_id)
 
@@ -112,6 +121,30 @@ defmodule BlocksterV2.PhoneVerification do
         error -> error
       end
     end
+  end
+
+  # When a phone number is reclaimed from a deactivated/legacy user, we wipe
+  # the user-level phone fields on those users so they no longer report as
+  # phone-verified anywhere.
+  defp clear_inactive_user_phone_fields(_phone_number, _new_user_id) do
+    # The User schema doesn't store the phone number directly, only the
+    # `phone_verified` boolean and geo fields. We can't filter by phone here,
+    # but the legacy user will be deactivated by `LegacyMerge` (which already
+    # clears these fields). For users reclaimed via the standalone phone
+    # reclaim path (no legacy email match), the legacy row should already be
+    # is_active = false; we update those rows here.
+    import Ecto.Query
+
+    Repo.update_all(
+      from(u in User, where: u.is_active == false and u.phone_verified == true),
+      set: [
+        phone_verified: false,
+        geo_multiplier: Decimal.new("0.5"),
+        geo_tier: "unverified"
+      ]
+    )
+
+    :ok
   end
 
   @doc """
@@ -269,6 +302,34 @@ defmodule BlocksterV2.PhoneVerification do
 
       %PhoneVerification{} ->
         {:error, "This phone number is already registered to another account."}
+    end
+  end
+
+  @doc false
+  # Reclaim-aware version: a phone owned by an INACTIVE (legacy/merged) user is
+  # treated as available so the new Solana user can verify it. Active-user
+  # collisions are still blocked. The actual transfer happens in `verify_code`
+  # after the SMS code is validated.
+  def check_phone_reclaimable(user_id, phone_number) do
+    case Repo.get_by(PhoneVerification, phone_number: phone_number) do
+      nil ->
+        {:ok, :phone_available}
+
+      %PhoneVerification{user_id: ^user_id} ->
+        # Same user trying their own number again - that's fine
+        {:ok, :phone_available}
+
+      %PhoneVerification{user_id: other_user_id} ->
+        case Repo.get(User, other_user_id) do
+          nil ->
+            {:ok, :phone_reclaimable}
+
+          %User{is_active: false} ->
+            {:ok, :phone_reclaimable}
+
+          %User{} ->
+            {:error, "This phone number is already registered to another account."}
+        end
     end
   end
 

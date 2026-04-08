@@ -14,7 +14,7 @@ defmodule BlocksterV2.UnifiedMultiplier do
   | X Multiplier      | 1.0x  | 10.0x  |
   | Phone Multiplier  | 0.5x  | 2.0x   |
   | SOL Multiplier    | 0.0x  | 5.0x   |
-  | Email Multiplier  | 1.0x  | 2.0x   |
+  | Email Multiplier  | 0.5x  | 2.0x   |
   | **Overall**       | **0.0x** | **200.0x** |
 
   ## Component Sources
@@ -22,7 +22,7 @@ defmodule BlocksterV2.UnifiedMultiplier do
   - **X Multiplier**: Based on X account quality score (0-100) -> `max(score/10, 1.0)`
   - **Phone Multiplier**: Based on phone verification + geo tier (0.5x unverified, 1.0-2.0x verified)
   - **SOL Multiplier**: Based on SOL balance in Solana wallet (see `SolMultiplier`)
-  - **Email Multiplier**: Based on email verification status (see `EmailMultiplier`)
+  - **Email Multiplier**: Based on email verification status (0.5x unverified, 2.0x verified)
 
   ## Storage
 
@@ -40,7 +40,7 @@ defmodule BlocksterV2.UnifiedMultiplier do
   @phone_max 2.0
   @sol_min 0.0
   @sol_max 5.0
-  @email_min 1.0
+  @email_min 0.5
   @email_max 2.0
 
   # Overall limits

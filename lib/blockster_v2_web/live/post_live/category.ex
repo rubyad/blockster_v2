@@ -38,8 +38,10 @@ defmodule BlocksterV2Web.PostLive.Category do
          |> redirect(to: "/")}
 
       category ->
-        # Initialize with first batch of components - default to "latest" sort
-        {components, displayed_post_ids, bux_balances} = build_initial_components(category.slug, "latest")
+        # Initialize with first batch of components - default to "latest" sort.
+        # Each component is tagged with an :inline_banner_index for rotating
+        # inline ad banners (see build_components_batch).
+        {components, displayed_post_ids, bux_balances} = build_initial_components(category.slug, "latest", 0)
 
         # Build post_to_component map for targeted updates
         post_to_component = build_post_to_component_map(components)
@@ -50,6 +52,12 @@ defmodule BlocksterV2Web.PostLive.Category do
         else
           %{}
         end
+
+        # Listing ad banners (shared across home/category/tag — see /admin/banners)
+        top_desktop_banners = load_listing_banners(socket, "homepage_top_desktop")
+        top_mobile_banners = load_listing_banners(socket, "homepage_top_mobile")
+        inline_desktop_banners = load_listing_banners(socket, "homepage_inline_desktop")
+        inline_mobile_banners = load_listing_banners(socket, "homepage_inline_mobile")
 
         {:ok,
          socket
@@ -63,8 +71,19 @@ defmodule BlocksterV2Web.PostLive.Category do
          |> assign(:user_post_rewards, user_post_rewards)
          |> assign(:post_to_component_map, post_to_component)
          |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
+         |> assign(:top_desktop_banners, top_desktop_banners)
+         |> assign(:top_mobile_banners, top_mobile_banners)
+         |> assign(:inline_desktop_banners, inline_desktop_banners)
+         |> assign(:inline_mobile_banners, inline_mobile_banners)
+         |> assign(:inline_banner_offset, length(components))
          |> stream(:components, components)}
     end
+  end
+
+  defp load_listing_banners(socket, placement) do
+    if connected?(socket),
+      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
+      else: []
   end
 
   @impl true
@@ -79,10 +98,11 @@ defmodule BlocksterV2Web.PostLive.Category do
     last_module = socket.assigns.last_component_module
     bux_balances = socket.assigns.bux_balances
     sort_mode = socket.assigns.sort_mode
+    inline_banner_offset = socket.assigns.inline_banner_offset
 
     # Build next batch of 4 components (Three, Four, Five, Six)
     {new_components, new_displayed_post_ids, new_bux_balances} =
-      build_components_batch(category_slug, displayed_post_ids, last_module, sort_mode)
+      build_components_batch(category_slug, displayed_post_ids, last_module, sort_mode, inline_banner_offset)
 
     if new_components == [] do
       {:reply, %{end_reached: true}, socket}
@@ -105,7 +125,8 @@ defmodule BlocksterV2Web.PostLive.Category do
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:bux_balances, Map.merge(bux_balances, new_bux_balances))
        |> assign(:post_to_component_map, updated_post_to_component)
-       |> assign(:last_component_module, last_module)}
+       |> assign(:last_component_module, last_module)
+       |> assign(:inline_banner_offset, inline_banner_offset + length(new_components))}
     end
   end
 
@@ -144,12 +165,15 @@ defmodule BlocksterV2Web.PostLive.Category do
   end
 
   # Build initial batch of 4 components (Three, Four, Five, Six)
-  defp build_initial_components(category_slug, sort_mode) do
-    build_components_batch(category_slug, [], BlocksterV2Web.PostLive.PostsSixComponent, sort_mode)
+  defp build_initial_components(category_slug, sort_mode, inline_banner_offset) do
+    build_components_batch(category_slug, [], BlocksterV2Web.PostLive.PostsSixComponent, sort_mode, inline_banner_offset)
   end
 
-  # Build a batch of 4 components cycling through the component modules
-  defp build_components_batch(category_slug, displayed_post_ids, last_module, sort_mode) do
+  # Build a batch of 4 components cycling through the component modules.
+  # `inline_banner_offset` is the running count of components built so far across
+  # all batches — used to assign each component an `:inline_banner_index` so the
+  # inline ad banner that follows it rotates deterministically.
+  defp build_components_batch(category_slug, displayed_post_ids, last_module, sort_mode, inline_banner_offset) do
     # Start from the component after last_module
     start_index = Enum.find_index(@component_modules, &(&1 == last_module))
     start_index = if start_index, do: rem(start_index + 1, 4), else: 0
@@ -188,6 +212,11 @@ defmodule BlocksterV2Web.PostLive.Category do
           {acc_components ++ [component], acc_ids ++ post_ids, Map.merge(acc_balances, new_balances)}
         end
       end)
+
+    components =
+      components
+      |> Enum.with_index(inline_banner_offset)
+      |> Enum.map(fn {comp, idx} -> Map.put(comp, :inline_banner_index, idx) end)
 
     {components, final_displayed_ids, bux_balances}
   end

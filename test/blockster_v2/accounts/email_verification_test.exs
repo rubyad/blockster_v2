@@ -66,9 +66,11 @@ defmodule BlocksterV2.Accounts.EmailVerificationTest do
   end
 
   describe "send_verification_code/2" do
-    test "stores code and timestamp on user", %{user: user} do
+    test "stores code and timestamp on pending_email", %{user: user} do
       assert {:ok, updated} = EmailVerification.send_verification_code(user, "test@example.com")
-      assert updated.email == "test@example.com"
+      assert updated.pending_email == "test@example.com"
+      # email is NOT promoted until verify_code succeeds
+      assert updated.email != "test@example.com"
       assert updated.email_verification_code != nil
       assert String.length(updated.email_verification_code) == 6
       assert updated.email_verification_sent_at != nil
@@ -76,7 +78,7 @@ defmodule BlocksterV2.Accounts.EmailVerificationTest do
 
     test "normalizes email to lowercase", %{user: user} do
       assert {:ok, updated} = EmailVerification.send_verification_code(user, "  Test@EXAMPLE.com  ")
-      assert updated.email == "test@example.com"
+      assert updated.pending_email == "test@example.com"
     end
 
     test "generates 6-digit numeric code", %{user: user} do
@@ -86,12 +88,15 @@ defmodule BlocksterV2.Accounts.EmailVerificationTest do
   end
 
   describe "verify_code/2" do
-    test "verifies correct code and sets email_verified", %{user: user} do
+    test "verifies correct code and promotes pending_email -> email", %{user: user} do
       {:ok, user_with_code} = EmailVerification.send_verification_code(user, "test@example.com")
       code = user_with_code.email_verification_code
 
-      assert {:ok, verified_user} = EmailVerification.verify_code(user_with_code, code)
+      assert {:ok, verified_user, info} = EmailVerification.verify_code(user_with_code, code)
+      assert info[:merged] == false
+      assert verified_user.email == "test@example.com"
       assert verified_user.email_verified == true
+      assert verified_user.pending_email == nil
       assert verified_user.email_verification_code == nil
       assert verified_user.email_verification_sent_at == nil
     end
@@ -150,6 +155,52 @@ defmodule BlocksterV2.Accounts.EmailVerificationTest do
 
       # Should not find because auth_method is "wallet" not "email"
       assert nil == EmailVerification.find_legacy_account("wallet_user@example.com")
+    end
+  end
+
+  describe "merge dispatch in verify_code/2" do
+    test "no merge when no legacy account matches", %{user: user} do
+      {:ok, user_with_code} = EmailVerification.send_verification_code(user, "fresh@example.com")
+      code = user_with_code.email_verification_code
+
+      assert {:ok, _verified_user, info} = EmailVerification.verify_code(user_with_code, code)
+      assert info[:merged] == false
+    end
+
+    test "ignores legacy match when same user_id", %{user: user} do
+      # If the email already lives on this user, we should NOT try to merge.
+      {:ok, user_with_email} =
+        user
+        |> User.changeset(%{email: "owned@example.com"})
+        |> Repo.update()
+
+      {:ok, user_with_code} = EmailVerification.send_verification_code(user_with_email, "owned@example.com")
+      code = user_with_code.email_verification_code
+
+      assert {:ok, _verified_user, info} = EmailVerification.verify_code(user_with_code, code)
+      assert info[:merged] == false
+    end
+
+    test "skips deactivated legacy users", %{user: user, legacy_user: legacy_user} do
+      # Deactivation in real flow also NULLs the email (frees the unique slot).
+      # Simulate that here so we can verify the new user picks up the email
+      # without colliding.
+      {:ok, _} =
+        legacy_user
+        |> User.changeset(%{
+          is_active: false,
+          legacy_email: legacy_user.email,
+          email: nil
+        })
+        |> Repo.update()
+
+      {:ok, user_with_code} =
+        EmailVerification.send_verification_code(user, "legacy@example.com")
+
+      code = user_with_code.email_verification_code
+
+      assert {:ok, _verified_user, info} = EmailVerification.verify_code(user_with_code, code)
+      assert info[:merged] == false
     end
   end
 

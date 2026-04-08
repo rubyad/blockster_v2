@@ -92,9 +92,15 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Get existing engagement data if any
     engagement = safe_get_engagement(user_id, post.id)
 
-    # Get unified multiplier for BUX calculation (X × Phone × ROGUE × Wallet)
+    # Get unified multiplier for BUX calculation (X × Phone × SOL × Email)
     # Phone multiplier is already included in the unified multiplier
     user_multiplier = safe_get_user_multiplier(user_id)
+
+    # A logged-in user is "eligible to earn" only if their unified multiplier is
+    # > 0. The SOL component drops the whole product to 0 when SOL balance is
+    # below 0.01, so this is the right gate for the "add SOL to start earning"
+    # messaging on the article page.
+    user_eligible_to_earn = socket.assigns[:current_user] != nil and user_multiplier > 0
 
     # geo_multiplier is now included in unified multiplier as "phone multiplier"
     # Set to 1.0 to avoid double-counting (V2 unified multiplier system)
@@ -169,6 +175,26 @@ defmodule BlocksterV2Web.PostLive.Show do
         do: BlocksterV2.Ads.list_active_banners_by_placement("sidebar_right"),
         else: []
 
+    article_bottom_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("article_bottom"),
+        else: []
+
+    mobile_top_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_top"),
+        else: []
+
+    mobile_mid_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_mid"),
+        else: []
+
+    mobile_bottom_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_bottom"),
+        else: []
+
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
 
@@ -192,6 +218,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:word_count, word_count)
      |> assign(:engagement, engagement)
      |> assign(:user_multiplier, user_multiplier)
+     |> assign(:user_eligible_to_earn, user_eligible_to_earn)
      |> assign(:geo_multiplier, geo_multiplier)
      |> assign(:base_bux_reward, base_bux_reward)
      |> assign(:rewards, rewards)
@@ -216,6 +243,10 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:offer_data, offer_data)
      |> assign(:left_sidebar_banners, left_sidebar_banners)
      |> assign(:right_sidebar_banners, right_sidebar_banners)
+     |> assign(:article_bottom_banners, article_bottom_banners)
+     |> assign(:mobile_top_banners, mobile_top_banners)
+     |> assign(:mobile_mid_banners, mobile_mid_banners)
+     |> assign(:mobile_bottom_banners, mobile_bottom_banners)
      |> assign(:video_modal_open, false)
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
@@ -267,7 +298,7 @@ defmodule BlocksterV2Web.PostLive.Show do
     :exit, _ -> nil
   end
 
-  # Returns overall unified multiplier (X × Phone × ROGUE × Wallet)
+  # Returns overall unified multiplier (X × Phone × SOL × Email)
   # Phone multiplier is already included, so no separate geo_multiplier needed
   defp safe_get_user_multiplier("anonymous"), do: 0.5  # Minimum: unverified phone (0.5x)
   defp safe_get_user_multiplier(user_id) do
@@ -321,17 +352,14 @@ defmodule BlocksterV2Web.PostLive.Show do
       user ->
         # Check if profile is incomplete
         phone_verified = user.phone_verified || false
+        email_verified = user.email_verified || false
 
-        # For wallet: check if they have an external wallet connected
-        # auth_method == "wallet" means they signed up with an external wallet
-        # OR wallet_multiplier > 1.0 means they connected an external wallet with tokens later
         multipliers = BlocksterV2.UnifiedMultiplier.get_user_multipliers(user.id)
-        wallet_connected = user.auth_method == "wallet" || multipliers.wallet_multiplier > 1.0
 
         x_connected = socket.assigns[:x_connection] != nil
 
         # Eligible if ANY of these are not complete
-        incomplete = !phone_verified || !wallet_connected || !x_connected
+        incomplete = !phone_verified || !email_verified || !x_connected
 
         # Use the overall_multiplier from multipliers for display
         multiplier = multipliers.overall_multiplier

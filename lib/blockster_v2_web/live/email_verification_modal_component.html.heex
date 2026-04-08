@@ -1,0 +1,213 @@
+<div
+  id="email-verification-modal"
+  class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+  phx-click="close_modal"
+  phx-target={@myself}
+>
+  <div
+    class="bg-white rounded-lg shadow-xl max-w-md w-full"
+    phx-click="stop_propagation"
+    phx-target={@myself}
+  >
+    <%= case @step do %>
+      <% :enter_email -> %>
+        <!-- STEP 1: Email Entry -->
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-haas_medium_65">Verify Your Email</h2>
+            <button
+              phx-click="close_modal"
+              phx-target={@myself}
+              class="text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </div>
+
+          <p class="text-gray-600 mb-6">
+            Boost your earnings from <strong>0.5x</strong> to <strong>2x</strong> by verifying your email
+          </p>
+
+          <!-- Email Input Form -->
+          <form phx-submit="submit_email" phx-target={@myself} class="bg-white">
+            <div class="mb-4">
+              <label class="block text-sm font-haas_medium_65 text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                id="email-modal-input"
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={@email_address}
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                required
+                autofocus
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                We'll send a 6-digit code to verify it's yours
+              </p>
+            </div>
+
+            <%= if @error_message do %>
+              <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                <%= @error_message %>
+              </div>
+            <% end %>
+
+            <div class="flex gap-3 mt-6">
+              <button
+                type="button"
+                phx-click="close_modal"
+                phx-target={@myself}
+                class="flex-1 bg-gray-300 text-black font-haas_medium_65 py-3 rounded-lg hover:bg-gray-400 transition cursor-pointer border-2 border-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="flex-1 bg-black text-white font-haas_medium_65 py-3 rounded-lg hover:bg-gray-800 transition cursor-pointer shadow-lg border-2 border-black"
+              >
+                Send Code →
+              </button>
+            </div>
+          </form>
+        </div>
+
+      <% :enter_code -> %>
+        <!-- STEP 2: Code Entry -->
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-haas_medium_65">Enter Code</h2>
+            <button
+              phx-click="close_modal"
+              phx-target={@myself}
+              class="text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </div>
+
+          <%= if @success_message do %>
+            <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
+              <%= @success_message %>
+            </div>
+          <% end %>
+
+          <!-- Code Input Form -->
+          <form phx-submit="submit_code" phx-target={@myself}>
+            <div class="mb-4">
+              <label class="block text-sm font-haas_medium_65 text-gray-700 mb-2">
+                6-Digit Code
+              </label>
+              <input
+                id="email-code-input"
+                type="text"
+                name="code"
+                placeholder="123456"
+                inputmode="numeric"
+                maxlength="6"
+                class="w-full px-4 py-3 text-2xl text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent tracking-widest font-mono"
+                autofocus
+              />
+            </div>
+
+            <%= if @error_message do %>
+              <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                <%= @error_message %>
+              </div>
+            <% end %>
+
+            <button
+              type="submit"
+              class="w-full bg-black text-white font-haas_medium_65 py-3 rounded-lg hover:bg-gray-800 transition cursor-pointer mb-3 shadow-md"
+            >
+              Verify Code
+            </button>
+          </form>
+
+          <!-- Resend / Change Options -->
+          <div class="flex justify-between text-sm pt-3 border-t border-gray-200">
+            <button
+              phx-click="resend_code"
+              phx-target={@myself}
+              disabled={@countdown && @countdown > 0}
+              class={"text-black hover:underline cursor-pointer #{if @countdown && @countdown > 0, do: "opacity-50 cursor-not-allowed"}"}
+            >
+              <%= if @countdown && @countdown > 0 do %>
+                Resend in <%= @countdown %>s
+              <% else %>
+                Resend Code
+              <% end %>
+            </button>
+            <button
+              phx-click="change_email"
+              phx-target={@myself}
+              class="text-gray-600 hover:underline cursor-pointer"
+            >
+              Change Email
+            </button>
+          </div>
+
+          <div class="mt-3 text-xs text-gray-500 text-center">
+            Code expires in 10 minutes
+          </div>
+        </div>
+
+      <% :success -> %>
+        <!-- STEP 3: Success -->
+        <div class="p-6 text-center">
+          <div class="mb-6">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-haas_medium_65 mb-2">Email Verified!</h2>
+            <p class="text-gray-600">Your earnings boost is now active</p>
+          </div>
+
+          <!-- Multiplier Visualization -->
+          <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 mb-6">
+            <div class="text-sm text-gray-600 mb-2">Your Email Multiplier</div>
+            <div class="flex items-center justify-center gap-4 mb-4">
+              <div class="text-center">
+                <div class="text-3xl font-haas_medium_65 text-gray-400 line-through">0.5x</div>
+                <div class="text-xs text-gray-500">Before</div>
+              </div>
+              <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <div class="text-center">
+                <div class="text-3xl font-haas_medium_65 text-black">2.0x</div>
+                <div class="text-xs text-gray-600">After</div>
+              </div>
+            </div>
+
+            <div class="flex justify-center">
+              <div class="bg-white rounded-lg p-3">
+                <div class="text-gray-600">Email</div>
+                <div class="font-haas_medium_65"><%= @current_user.email %></div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            phx-click="close_success"
+            phx-target={@myself}
+            class="w-full bg-black text-white font-haas_medium_65 py-3 rounded-lg hover:bg-gray-800 transition cursor-pointer shadow-md"
+          >
+            Start Earning BUX →
+          </button>
+
+          <p class="mt-4 text-sm text-gray-600">
+            You now earn 4x more BUX when reading!
+          </p>
+        </div>
+    <% end %>
+  </div>
+</div>

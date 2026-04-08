@@ -115,15 +115,26 @@ The 5 BUX minimum floor ensures even casual bots earn meaningful amounts.
 
 ## Bot Wallet Keypairs
 
-Each bot has a real Ethereum keypair (private key → derived address) stored in the `users` table:
+Each bot has a real Solana ed25519 keypair stored in the `users` table:
 
-- **`wallet_address`** — Real Ethereum address derived from the private key (secp256k1 + keccak256)
-- **`bot_private_key`** — 0x-prefixed hex private key (32 bytes). Stored so bots can later enter airdrops, use BUX, or act as real users
-- **`smart_wallet_address`** — Currently random hex (ERC-4337 smart wallets require on-chain deployment)
+- **`wallet_address`** — Base58-encoded ed25519 public key (32 bytes). This is the bot's Solana wallet address — what the settler mints BUX SPL tokens to and what shows up on Solscan.
+- **`bot_private_key`** — Base58-encoded 64-byte Solana secret key in the standard `seed(32) || pubkey(32)` layout. Compatible with `@solana/web3.js`'s `Keypair.fromSecretKey()`, so bots can later sign transactions, enter airdrops, etc.
+- **`smart_wallet_address`** — Random EVM hex placeholder. Legacy schema field, **not used** by the bot system. Kept only because `User.email_registration_changeset/1` still requires it.
 
-New bots get real keypairs on creation. Existing bots can be backfilled via `BotSetup.backfill_keypairs/0`.
+New bots get a real Solana keypair on creation via `BotSetup.create_bot/1` → `SolanaWalletCrypto.generate_keypair/0`.
 
-Dependencies: `ex_keccak` (Rust NIF via precompiled binaries) for keccak256 hashing.
+### Automatic EVM → Solana migration on deploy
+
+`BotCoordinator.handle_info(:initialize, ...)` calls `BotSetup.rotate_to_solana_keypairs/0` once per boot, **before** the bot cache is built. The function:
+
+1. Selects every bot whose `wallet_address` is not a valid 32-byte base58 Solana pubkey (`SolanaWalletCrypto.solana_address?/1`).
+2. Generates a fresh ed25519 keypair for each.
+3. Updates `wallet_address` + `bot_private_key` in Postgres.
+4. Deletes the bot's stale `user_solana_balances` Mnesia row (the cached SOL/BUX balance belonged to the orphaned EVM wallet).
+
+It's fully idempotent — once every bot has a Solana wallet, subsequent boots are a no-op (`{:ok, 0}`). One-time cost on first deploy: ~0.002 SOL per bot for ATA creation by the settler authority on the first mint, so ~2 SOL total for 1000 bots. Confirm the authority wallet has headroom before deploying.
+
+Dependencies: `:b58` (base58 encoding), Erlang's built-in `:crypto.generate_key(:eddsa, :ed25519)` for keypair generation. The legacy `WalletCrypto` module (secp256k1 + keccak256, used pre-Solana) is still on disk but no longer referenced.
 
 ## Where Pools Come From
 

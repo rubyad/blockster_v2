@@ -3,7 +3,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.RequestArticle do
 
   alias BlocksterV2.ContentAutomation.{AltcoinAnalyzer, AuthorRotator, ContentGenerator, EventRoundup, XProfileFetcher}
 
-  @categories ~w(defi rwa regulation gaming trading token_launches gambling privacy macro_trends investment bitcoin ethereum altcoins nft ai_crypto stablecoins cbdc security_hacks adoption mining fundraising events blockster_of_week)
+  @categories ~w(defi rwa regulation gaming trading token_launches gambling privacy macro_trends investment bitcoin ethereum solana altcoins nft ai_crypto stablecoins cbdc security_hacks adoption mining fundraising events blockster_of_week)
 
   @impl true
   def mount(_params, _session, socket) do

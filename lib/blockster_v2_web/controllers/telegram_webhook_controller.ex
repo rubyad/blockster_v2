@@ -32,31 +32,52 @@ defmodule BlocksterV2Web.TelegramWebhookController do
         # Check if this Telegram account is already linked to another user
         case Repo.one(from u in User, where: u.telegram_user_id == ^tg_user_id, limit: 1) do
           nil ->
-            # Link the account
-            {:ok, _updated} = Accounts.update_user(user, %{
-              telegram_user_id: tg_user_id,
-              telegram_username: tg_username,
-              telegram_connect_token: nil,
-              telegram_connected_at: DateTime.utc_now() |> DateTime.truncate(:second)
-            })
+            link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn)
 
-            # Track event — custom rules handle BUX rewards
-            UserEvents.track(user.id, "telegram_connected", %{
-              telegram_user_id: tg_user_id,
-              telegram_username: tg_username
-            })
+          %User{is_active: false} = legacy_user ->
+            # RECLAIM: free the legacy user's telegram fields, then link to the new user.
+            {:ok, _} =
+              legacy_user
+              |> Ecto.Changeset.change(%{
+                telegram_user_id: nil,
+                telegram_username: nil,
+                telegram_connect_token: nil,
+                telegram_connected_at: nil,
+                telegram_group_joined_at: nil
+              })
+              |> Repo.update()
 
-            # Check if user is already in the group
-            check_group_membership(tg_user_id, user.id)
-
-            send_telegram_message(tg_user_id, "Connected! Welcome #{tg_first_name} — your Telegram is now linked to Blockster.\n\nJoin our group to get notified of new articles and earn BUX: https://t.me/+7bIzOyrYBEc3OTdh")
-            json(conn, %{ok: true})
+            link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn)
 
           _existing_user ->
             send_telegram_message(tg_user_id, "This Telegram account is already connected to another Blockster user.")
             json(conn, %{ok: true})
         end
     end
+  end
+
+  defp link_telegram_to_user(user, tg_user_id, tg_username, tg_first_name, conn) do
+    {:ok, _updated} =
+      Accounts.update_user(user, %{
+        telegram_user_id: tg_user_id,
+        telegram_username: tg_username,
+        telegram_connect_token: nil,
+        telegram_connected_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+    UserEvents.track(user.id, "telegram_connected", %{
+      telegram_user_id: tg_user_id,
+      telegram_username: tg_username
+    })
+
+    check_group_membership(tg_user_id, user.id)
+
+    send_telegram_message(
+      tg_user_id,
+      "Connected! Welcome #{tg_first_name} — your Telegram is now linked to Blockster.\n\nJoin our group to get notified of new articles and earn BUX: https://t.me/+7bIzOyrYBEc3OTdh"
+    )
+
+    json(conn, %{ok: true})
   end
 
   # Handle chat_member updates (user joined/left the Telegram group)

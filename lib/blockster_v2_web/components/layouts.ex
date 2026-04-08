@@ -104,10 +104,10 @@ defmodule BlocksterV2Web.Layouts do
               <img id="header-logo" src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-7 transition-all duration-300" />
             </.link>
             <div id="header-tagline-container" class="relative mt-0.5" phx-hook="TaglineRotator">
-              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] pl-1.5 transition-all duration-500">
-                Read & Earn BUX
+              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.3em] pl-1.5 transition-all duration-500">
+                Read.Watch.Share.Earn BUX.
               </p>
-              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.5em] transition-all duration-500 absolute inset-0 opacity-0 whitespace-nowrap flex items-center justify-center">
+              <p class="tagline-text uppercase font-extralight text-xs text-black tracking-[0.3em] transition-all duration-500 absolute inset-0 opacity-0 whitespace-nowrap flex items-center justify-center">
                 Powered by Solana
               </p>
             </div>
@@ -426,6 +426,12 @@ defmodule BlocksterV2Web.Layouts do
                           AI Manager
                         </.link>
                         <.link
+                          navigate={~p"/admin/banners"}
+                          class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Ad Banners
+                        </.link>
+                        <.link
                           navigate={~p"/admin/promo"}
                           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
@@ -706,6 +712,12 @@ defmodule BlocksterV2Web.Layouts do
                         class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         AI Manager
+                      </.link>
+                      <.link
+                        navigate={~p"/admin/banners"}
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Ad Banners
                       </.link>
                       <.link
                         navigate={~p"/admin/promo"}

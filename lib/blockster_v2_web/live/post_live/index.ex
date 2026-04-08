@@ -37,8 +37,10 @@ defmodule BlocksterV2Web.PostLive.Index do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
 
-    # Build initial 4 components (19 posts total) - default to "latest" sort
-    {components, displayed_post_ids} = build_initial_components("latest")
+    # Build initial 4 components (19 posts total) - default to "latest" sort.
+    # Each component gets an :inline_banner_index used to deterministically pick
+    # the inline ad banner that follows it (rotates through active banners).
+    {components, displayed_post_ids} = build_initial_components("latest", 0)
 
     # Build bux_balances map from posts
     all_posts = Enum.flat_map(components, fn c -> c.posts end)
@@ -59,6 +61,11 @@ defmodule BlocksterV2Web.PostLive.Index do
       %{}
     end
 
+    homepage_top_desktop_banners = load_homepage_banners(socket, "homepage_top_desktop")
+    homepage_top_mobile_banners = load_homepage_banners(socket, "homepage_top_mobile")
+    inline_desktop_banners = load_homepage_banners(socket, "homepage_inline_desktop")
+    inline_mobile_banners = load_homepage_banners(socket, "homepage_inline_mobile")
+
     {:ok,
      socket
      |> assign(:page_title, "Latest Posts")
@@ -77,7 +84,18 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:show_mobile_search, false)
      |> assign(:show_bux_deposit_modal, false)
      |> assign(:deposit_modal_post, nil)
+     |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
+     |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
+     |> assign(:inline_desktop_banners, inline_desktop_banners)
+     |> assign(:inline_mobile_banners, inline_mobile_banners)
+     |> assign(:inline_banner_offset, length(components))
      |> stream(:components, components)}
+  end
+
+  defp load_homepage_banners(socket, placement) do
+    if connected?(socket),
+      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
+      else: []
   end
 
   @impl true
@@ -121,9 +139,10 @@ defmodule BlocksterV2Web.PostLive.Index do
     offset = socket.assigns.current_offset
     displayed_post_ids = socket.assigns.displayed_post_ids
     sort_mode = socket.assigns.sort_mode
+    inline_banner_offset = socket.assigns.inline_banner_offset
 
     {new_components, new_displayed_post_ids} =
-      build_components_batch(offset, displayed_post_ids, sort_mode)
+      build_components_batch(offset, displayed_post_ids, sort_mode, inline_banner_offset)
 
     if new_components == [] do
       {:reply, %{end_reached: true}, socket}
@@ -152,6 +171,7 @@ defmodule BlocksterV2Web.PostLive.Index do
        socket
        |> assign(:displayed_post_ids, new_displayed_post_ids)
        |> assign(:current_offset, offset + @posts_per_cycle)
+       |> assign(:inline_banner_offset, inline_banner_offset + length(new_components))
        |> assign(:component_module_map, updated_component_map)
        |> assign(:post_to_component_map, updated_post_to_component)
        |> assign(:bux_balances, updated_bux_balances)
@@ -308,12 +328,15 @@ defmodule BlocksterV2Web.PostLive.Index do
   # ============================================================================
 
   # Build initial batch of 4 components (19 posts total)
-  defp build_initial_components(sort_mode) do
-    build_components_batch(0, [], sort_mode)
+  defp build_initial_components(sort_mode, inline_banner_offset) do
+    build_components_batch(0, [], sort_mode, inline_banner_offset)
   end
 
-  # Build a batch of 4 components cycling through the component modules
-  defp build_components_batch(offset, displayed_post_ids, sort_mode) do
+  # Build a batch of 4 components cycling through the component modules.
+  # `inline_banner_offset` is the running count of components built so far across
+  # all batches — used to assign each component an `:inline_banner_index` so the
+  # inline ad banner that follows it rotates deterministically.
+  defp build_components_batch(offset, displayed_post_ids, sort_mode, inline_banner_offset) do
     # Calculate posts needed for one full cycle (19 posts)
     total_posts_needed = @posts_per_cycle
 
@@ -364,8 +387,13 @@ defmodule BlocksterV2Web.PostLive.Index do
         }
       ]
 
-      # Filter out empty components
-      components = Enum.filter(components, fn c -> c.posts != [] end)
+      # Filter out empty components, then tag each with its global index for
+      # rotating the inline ad banner that renders after it.
+      components =
+        components
+        |> Enum.filter(fn c -> c.posts != [] end)
+        |> Enum.with_index(inline_banner_offset)
+        |> Enum.map(fn {comp, idx} -> Map.put(comp, :inline_banner_index, idx) end)
 
       new_post_ids = Enum.map(posts, & &1.id)
       {components, displayed_post_ids ++ new_post_ids}

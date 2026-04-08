@@ -84,11 +84,18 @@ defmodule BlocksterV2.Social do
 
     case check_x_account_lock(user, x_user_id) do
       {:ok, :first_connection} ->
-        # First X connection - lock the user to this X account in PostgreSQL
-        with {:ok, _user} <- lock_user_to_x_account(user, x_user_id),
-             {:ok, connection} <- EngagementTracker.upsert_x_connection(user_id, attrs) do
-          BlocksterV2.UserEvents.track(user_id, "x_connected", %{x_user_id: x_user_id})
-          {:ok, connection}
+        # First X connection - try to reclaim from a deactivated legacy user
+        # if the X account is already linked, then lock and write the row.
+        case reclaim_x_account_if_needed(user_id, x_user_id) do
+          {:ok, _} ->
+            with {:ok, _user} <- lock_user_to_x_account(user, x_user_id),
+                 {:ok, connection} <- EngagementTracker.upsert_x_connection(user_id, attrs) do
+              BlocksterV2.UserEvents.track(user_id, "x_connected", %{x_user_id: x_user_id})
+              {:ok, connection}
+            end
+
+          {:error, :x_account_locked} = error ->
+            error
         end
 
       {:ok, :same_account} ->
@@ -98,6 +105,49 @@ defmodule BlocksterV2.Social do
       {:error, :x_account_locked} = error ->
         # Trying to connect a different X account
         error
+    end
+  end
+
+  # If the X account is currently locked to a deactivated/legacy user,
+  # transfer the lock and the Mnesia connection row to the new user. If it's
+  # locked to an active user, return :x_account_locked.
+  defp reclaim_x_account_if_needed(_new_user_id, nil), do: {:ok, :no_x_user_id}
+
+  defp reclaim_x_account_if_needed(new_user_id, x_user_id) do
+    case Repo.get_by(User, locked_x_user_id: x_user_id) do
+      nil ->
+        {:ok, :no_existing_lock}
+
+      %User{id: id} when id == new_user_id ->
+        {:ok, :same_user}
+
+      %User{is_active: false} = legacy_user ->
+        # Free the lock on the legacy user, then move the Mnesia row.
+        legacy_user
+        |> Ecto.Changeset.change(%{locked_x_user_id: nil})
+        |> Repo.update!()
+
+        try do
+          case :mnesia.dirty_read({:x_connections, legacy_user.id}) do
+            [] ->
+              :ok
+
+            [record] ->
+              new_record = put_elem(record, 1, new_user_id)
+              :mnesia.dirty_delete({:x_connections, legacy_user.id})
+              :mnesia.dirty_write(new_record)
+              :ok
+          end
+        rescue
+          _ -> :ok
+        catch
+          :exit, _ -> :ok
+        end
+
+        {:ok, :reclaimed}
+
+      %User{} ->
+        {:error, :x_account_locked}
     end
   end
 

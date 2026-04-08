@@ -670,3 +670,192 @@ Replaced all confirmation with simple `getSignatureStatuses` polling — the Sol
 ### Tests
 - 46 coin flip tests passing (0 failures)
 - TypeScript compiles cleanly (`npx tsc --noEmit`)
+
+---
+
+## Bot Wallet Solana Migration (2026-04-07)
+
+### Problem
+The 1000 read-to-earn bot accounts (`is_bot = true`) were created during the EVM era. Each had:
+- A real Ethereum keypair in `users.wallet_address` (secp256k1 + keccak256, 0x-prefixed hex) and `users.bot_private_key`
+- A random 0x-hex placeholder in `users.smart_wallet_address`
+
+`BotCoordinator.process_mint_job/1` and `build_bot_cache/1` read `smart_wallet_address` and passed it to `BuxMinter.mint_bux/5`. After Phase 3 (the BUX minter rewrite), `BuxMinter.mint_bux/5` calls the Solana settler `/mint` endpoint, which expects a base58 ed25519 pubkey. The placeholder hex addresses fail to decode → every bot mint silently errors → on-chain BUX supply counter never moves.
+
+This is the same trap as the 2026-04-04 wallet field fix, but for the bot system specifically (which has its own wallet field handling and was missed during that pass).
+
+### Solution
+Three changes, all idempotent and automatic on first deploy:
+
+1. **New `SolanaWalletCrypto` module** generates ed25519 keypairs via `:crypto.generate_key(:eddsa, :ed25519)` and base58-encodes them. Pubkey → 32 bytes → base58 (the Solana wallet address). Secret → 64 bytes (`seed(32) || pubkey(32)`, the standard Solana secret key layout compatible with `@solana/web3.js`'s `Keypair.fromSecretKey()`) → base58. Includes a `solana_address?/1` validator that returns true only for 32-byte base58 strings (rejects nil, `0x` prefixes, malformed base58, wrong lengths).
+
+2. **`BotSetup` updated**:
+   - `create_bot/1` uses `SolanaWalletCrypto.generate_keypair/0` for new bots. `smart_wallet_address` still gets a random 0x placeholder because `User.email_registration_changeset/1` requires it (legacy schema field), but the bot system never reads it.
+   - `backfill_keypairs/0` replaced with `rotate_to_solana_keypairs/0`: selects every bot whose `wallet_address` is not a valid Solana base58 pubkey, generates a fresh ed25519 keypair for each, writes new `wallet_address` + `bot_private_key`, and deletes the bot's row from `user_solana_balances` Mnesia (the cached SOL/BUX belonged to the orphaned EVM wallet). Idempotent — second call returns `{:ok, 0}`.
+
+3. **`BotCoordinator` wired**:
+   - `build_bot_cache/1` and `get_bot_cache_entry/1` read `u.wallet_address` instead of `u.smart_wallet_address`. Cache shape changed from `%{smart_wallet_address: ...}` to `%{wallet_address: ...}`.
+   - `process_mint_job/1` reads `bot_cache.wallet_address`.
+   - `:initialize` calls `BotSetup.rotate_to_solana_keypairs/0` after `get_all_bot_ids/0` and **before** `build_bot_cache/1`, so the very first cache build uses the rotated wallets.
+
+### Files Changed
+
+**New**:
+- `lib/blockster_v2/bot_system/solana_wallet_crypto.ex` — ed25519 keypair generator + Solana address validator
+- `test/blockster_v2/bot_system/solana_wallet_crypto_test.exs` — 10 tests (keypair shape, seed/pubkey layout, uniqueness, validator edge cases)
+
+**Modified**:
+- `lib/blockster_v2/bot_system/bot_setup.ex` — `create_bot/1` uses Solana keypairs; `backfill_keypairs/0` replaced with `rotate_to_solana_keypairs/0`
+- `lib/blockster_v2/bot_system/bot_coordinator.ex` — wallet field swap (3 sites) + auto-rotation call in `:initialize`
+- `test/blockster_v2/bot_system/bot_setup_test.exs` — `create_bot/1` test asserts Solana format; 3 new rotation tests (rotates EVM bots + clears stale Mnesia cache, idempotency, mixed-population)
+- `test/blockster_v2/bot_system/bot_coordinator_test.exs` — bulk swap of bot_cache map shape (~16 sites)
+
+**Docs updated**:
+- `docs/bot_reader_system.md` — rewrote "Bot Wallet Keypairs" section + added "Automatic EVM → Solana migration on deploy" subsection
+- `docs/solana_mainnet_deployment.md` — added bot ATA surge to Cost Summary (~2 SOL one-time), bumped Step 1 authority funding 1 → 3 SOL, added Step 7 explainer for the rotation, added Step 8 verification commands
+
+### Auto-rotation on deploy
+On the first main-app boot after this lands, `BotCoordinator.handle_info(:initialize, ...)`:
+1. Loads bot ids from PG
+2. **NEW**: calls `BotSetup.rotate_to_solana_keypairs/0` — rotates all 1000 EVM wallets in one pass, logs `[BotCoordinator] Rotated 1000 bot wallets from EVM → Solana`
+3. Builds the bot cache from the rotated wallets
+4. Continues normal initialization (subscribe to PubSub, schedule backfill, daily rotation)
+
+Every subsequent boot is a no-op (`{:ok, 0}` from the rotation step).
+
+### One-time SOL cost
+~2 SOL paid by the settler authority (`6b4n...`) for ATA creation as the first mint to each rotated bot lands. Surge is paced by the bot mint queue at 500ms/mint, not a single burst. Documented in `docs/solana_mainnet_deployment.md` with verification commands.
+
+### Tests
+- 84 bot system tests pass (`mix test test/blockster_v2/bot_system/`) — 10 new in `solana_wallet_crypto_test.exs`, 3 new in `bot_setup_test.exs` for rotation, all existing coordinator/simulator tests pass after the field swap
+- Full suite: 2234 tests, 106 pre-existing failures on `feat/solana-migration` (Airdrop, Shop, PoolDetailLive, etc.), 0 new failures introduced
+
+---
+
+## Legacy Account Reclaim (2026-04-08)
+
+After the Solana auth migration, every legacy Blockster user who reconnects with a Solana wallet creates a brand-new `users` row (Solana base58 ≠ legacy EVM hex). Onboarding then tries to write the user's existing identifiers (email, phone, X, Telegram, username) and collides with the legacy row's unique constraints. This phase implements the reclaim/merge flow so returning users can:
+
+1. Pick "I have an account" on welcome and verify their old email → triggers a full account merge.
+2. OR fall through to the regular email step on the "I'm new" path → same merge fires there too.
+3. OR connect phone / X / Telegram independently and have those identifiers transferred from a deactivated legacy user.
+
+Full design: `docs/legacy_account_reclaim_plan.md`.
+
+### Approach
+
+Three pieces working together:
+
+1. **Onboarding migration branch** — welcome step asks "new or returning?". Returning users go to a new `migrate_email` step that verifies their old email and triggers `LegacyMerge.merge_legacy_into!/2` if it matches. After the merge they fast-forward through any onboarding step the merge already filled (`next_unfilled_step/2`).
+
+2. **Per-step reclaim** (phone / X / Telegram) — when the user proves ownership of an identifier already held by a *deactivated* legacy user, transfer the row + user-level fields. Active-user collisions are still blocked. This is the safety net for users who skipped the migration branch and for Telegram (which is connected outside onboarding from profile/settings).
+
+3. **Email full-merge** — triggered when a verified email matches an active legacy user. Wraps everything in an Ecto transaction; rolls back the entire merge if the settler BUX mint fails so we never lose state to a half-claim.
+
+### Schema changes
+
+New migration `20260407200001_add_legacy_deactivation_fields.exs` adds 4 columns to `users`:
+
+- `is_active` (bool, default true) — false on deactivated legacy rows. All public lookups in `BlocksterV2.Accounts` now filter `is_active = true`.
+- `merged_into_user_id` (FK → users) — audit pointer to the new Solana user that absorbed this legacy account.
+- `deactivated_at` (utc_datetime) — timestamp.
+- `pending_email` (string) — email being verified, before we promote it to `email`. Avoids the unique-constraint collision during the verify step.
+
+### LegacyMerge transaction (10 ordered steps)
+
+`lib/blockster_v2/migration/legacy_merge.ex` — `merge_legacy_into!(new_user, legacy_user)`:
+
+1. **Deactivate legacy first** — sets `is_active=false`, NULLs `email`, replaces `username`/`slug` with `deactivated_<id>` placeholders, NULLs `telegram_*`, `smart_wallet_address`, `locked_x_user_id`. Frees every unique slot for the new user.
+2. **Mint legacy BUX** to new Solana wallet via `BuxMinter.mint_bux/5` with reward type `:legacy_migration`. Reads from `legacy_bux_migrations` snapshot table (keyed by lowercased email). Marks the snapshot row as `migrated=true` on success. **Failure rolls back the entire merge** so the user can retry.
+3. **Username + slug transfer** — takes the freed username/slug from the original (pre-deactivation) legacy values.
+4. **X connection transfer** — moves the Mnesia `x_connections` row by rewriting its first tuple element (user_id) and copies `locked_x_user_id`. If new user already has X, the legacy row is dropped instead.
+5. **Telegram transfer** — copies `telegram_user_id`, `telegram_username`, `telegram_connected_at`, `telegram_group_joined_at` (legacy fields already nulled in step 1).
+6. **Phone transfer** — `UPDATE phone_verifications SET user_id = new_user_id WHERE phone_number = legacy_phone`, syncs `phone_verified` / `geo_*` to new user, resets them to defaults on legacy.
+7. **Content & social FK rewrites** — bulk `UPDATE` on: `posts.author_id`, `events.organizer_id`, `event_attendees.user_id`, `hub_followers.user_id`, `orders.user_id`. Returns counts for the success card.
+8. **Referrals** — copies `referrer_id` + `referred_at` onto new user (only if new user has none — never overwrites), reassigns outbound referees (`users.referrer_id`), reassigns `orders.referrer_id` and `affiliate_payouts.referrer_id`.
+9. **Fingerprints** — bulk move `user_fingerprints` rows to new user. Data continuity only — fingerprint anti-Sybil is non-blocking on the Solana auth path.
+10. **Finalize email** — promotes `pending_email → email`, sets `email_verified=true`, clears verification fields.
+
+After the transaction commits, `UnifiedMultiplier.refresh_multipliers/1` runs outside the transaction. Returns `{:ok, %{user: refreshed_user, summary: %{...}}}` where the summary describes everything that was transferred so the UI can render a "Welcome back, X BUX claimed, [items] restored" success card.
+
+The merge captures the original (pre-deactivation) values into an `originals` map at the start of `do_merge` so steps 3-8 can reference fields that step 1 has already nulled.
+
+### Reclaim hooks (per-step)
+
+- **Phone** (`lib/blockster_v2/phone_verification.ex`) — added `check_phone_reclaimable/2` (treats phones owned by inactive users as available; active-user collisions still blocked) and a reclaim path in `send_verification_code` that updates the existing legacy row in place (sets `verified=false`, new `attempts`, new `verification_sid`, new `user_id`) instead of inserting a new row. After successful `verify_code`, `clear_inactive_user_phone_fields/2` wipes user-level phone state on any inactive user with `phone_verified=true`.
+
+- **X OAuth callback** (`lib/blockster_v2/social.ex`) — `upsert_x_connection` calls new `reclaim_x_account_if_needed/2` which transfers the lock and the Mnesia row from a deactivated legacy user before the new user's first connection attempt. Active-user lock still returns `{:error, :x_account_locked}`.
+
+- **Telegram /start handler** (`lib/blockster_v2_web/controllers/telegram_webhook_controller.ex`) — when `telegram_user_id` collides with a legacy user that has `is_active=false`, the controller NULLs all telegram fields on the legacy row first and then links the same Telegram account to the new user. Refactored the link logic into `link_telegram_to_user/5` to avoid duplication.
+
+### Email verification rewrite (`lib/blockster_v2/accounts/email_verification.ex`)
+
+- `send_verification_code` now writes to `pending_email`, NOT `email`. This avoids the unique-constraint collision when a legacy user already owns the address.
+- `verify_code` returns `{:ok, user, %{merged: bool, summary: map}}` (was `{:ok, user}`). On a legacy match it dispatches to `LegacyMerge.merge_legacy_into!/2`; otherwise it just promotes `pending_email → email`. Looks up legacy via a fresh helper that filters `is_active = true` (and excludes the current user_id).
+- All existing call sites in `OnboardingLive.Index` and `EmailVerificationModalComponent` updated for the new 3-tuple return shape and to read `updated_user.pending_email` instead of `updated_user.email` for the success message.
+
+### Onboarding LiveView (`lib/blockster_v2_web/live/onboarding_live/index.ex`)
+
+- `@steps` extended to `["welcome", "migrate_email", "redeem", "profile", "phone", "email", "x", "complete"]` (8 total).
+- Welcome step replaced its single "Next" button with two intent buttons ("I'm new" → `redeem`, "I have an account" → `migrate_email`). Handler: `set_migration_intent`.
+- New `migrate_email_step` component with three phases (`:enter_email`, `:enter_code`, `:success`) wired to `send_migration_code` / `verify_migration_code` / `resend_migration_code` / `change_migration_email` events. Uses the same `EmailVerification.send_verification_code` + `verify_code` API as the regular email step.
+- Success card shows merge summary (BUX restored, username restored, phone/X/Telegram restored) with a "Continue" button that fires `continue_after_merge`, which calls `next_unfilled_step/2` to fast-forward.
+- `next_unfilled_step(user, current_step)` walks `@steps` from `current_step + 1` and returns the first one not yet filled by the user's current state. Skip rules:
+  - `welcome` / `migrate_email` → never the answer (always skipped)
+  - `redeem` → never skipped (per the plan: informational, useful for returning users)
+  - `profile` → skip if `username` set
+  - `phone` → skip if `phone_verified`
+  - `email` → skip if `email_verified`
+  - `x` → skip if an `x_connections` Mnesia row exists for the user
+  - `complete` → never skipped
+- Added catch-all `handle_info({:email, _swoosh_email}, socket)` to swallow Swoosh test adapter messages that land in the LiveView when `Task.start` runs from inside it.
+
+### Account lookups filtered
+
+`lib/blockster_v2/accounts.ex`:
+- `get_user_by_wallet/1`, `get_user_by_wallet_address/1`, `get_user_by_email/1`, `get_user_by_slug/1`, `get_user_by_smart_wallet_address/1` — all rewritten to filter `is_active = true`.
+- `list_users/0`, `list_users_with_followed_hubs/0`, `list_authors/0` — same filter.
+
+This is the boundary fix that prevents deactivated rows from leaking into auth, profile views, member pages, etc.
+
+### BuxMinter
+
+- Added `:legacy_migration` to the `mint_bux/5` reward_type whitelist.
+
+### Tests
+
+- **`test/blockster_v2/migration/legacy_merge_test.exs` (NEW, 23 tests)** — happy paths (everything transfers), per-step transfer behavior (X, Telegram, phone, content/social FKs, referrals, fingerprints), guards (same-user, bot, already-deactivated), settler mint failure rollback, BUX claim edge cases (no snapshot, zero balance, already-migrated), username collision invariant.
+- **`test/blockster_v2/social_x_reclaim_test.exs` (NEW, 3 tests)** — fresh X connect, reclaim from deactivated legacy, block on active legacy.
+- **`test/blockster_v2_web/live/onboarding_live_test.exs` (NEW, 9 tests)** — welcome branch buttons + patches, migrate_email step (full merge with summary card + no-match flow), `next_unfilled_step/2` skip-completed-steps logic.
+- **`test/blockster_v2/accounts/email_verification_test.exs`** — updated for new `pending_email` write semantics + 3-tuple return; added 3 merge dispatch tests (no-match, same-user no-op, deactivated legacy skip).
+- **`test/blockster_v2/phone_verification_test.exs`** — added 4 phone reclaim tests for `check_phone_reclaimable/2`.
+- **`test/blockster_v2_web/controllers/telegram_webhook_controller_test.exs`** — added 1 reclaim test for the deactivated-legacy path.
+- **`test/support/bux_minter_stub.ex` (NEW)** — process-dictionary-backed stub for `BuxMinter.mint_bux/5` so merge tests can simulate success and failure without hitting the real settler. Wired via `config :blockster_v2, :bux_minter, BlocksterV2.BuxMinterStub` in `config/test.exs` and read at compile time in `LegacyMerge` via `Application.compile_env`.
+
+**Results**: 102 tests across all modified/created files, 0 failures. Full suite: 2277 tests, 106 pre-existing failures (Airdrop, Shop Phase 5/6, etc.) — verified identical via `git stash` baseline comparison. **0 new failures** introduced by this phase.
+
+### Files
+
+**New** (6):
+- `priv/repo/migrations/20260407200001_add_legacy_deactivation_fields.exs`
+- `lib/blockster_v2/migration/legacy_merge.ex`
+- `test/support/bux_minter_stub.ex`
+- `test/blockster_v2/migration/legacy_merge_test.exs`
+- `test/blockster_v2/social_x_reclaim_test.exs`
+- `test/blockster_v2_web/live/onboarding_live_test.exs`
+
+**Modified** (10):
+- `lib/blockster_v2/accounts/user.ex` — schema fields + cast list
+- `lib/blockster_v2/accounts.ex` — `is_active` filter on all public lookups
+- `lib/blockster_v2/accounts/email_verification.ex` — `pending_email` writes + merge dispatch
+- `lib/blockster_v2/phone_verification.ex` — reclaim hooks
+- `lib/blockster_v2/social.ex` — X reclaim
+- `lib/blockster_v2_web/controllers/telegram_webhook_controller.ex` — Telegram reclaim
+- `lib/blockster_v2/bux_minter.ex` — `:legacy_migration` reward type
+- `lib/blockster_v2_web/live/onboarding_live/index.ex` — migrate_email step + skip logic
+- `lib/blockster_v2_web/live/email_verification_modal_component.ex` — 3-tuple return + pending_email read
+- `config/test.exs` — wire `BuxMinterStub`
+
+### What this unblocks
+
+After the Solana cutover, every legacy user can reconnect their old wallet's worth of BUX, username, social connections, content authorship, and referral attribution to a brand-new Solana wallet — without manual intervention, in a single transaction, with all-or-nothing semantics. The `legacy_bux_migrations` snapshot table is the on-chain source of truth for BUX amounts; the snapshot script (`priv/scripts/snapshot_legacy_bux.exs`, future) must run a few hours before deploy.

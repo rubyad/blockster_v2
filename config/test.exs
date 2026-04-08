@@ -50,3 +50,7 @@ config :blockster_v2, :claude_client, BlocksterV2.ContentAutomation.ClaudeClient
 
 # Use mock X API client in tests
 config :blockster_v2, :x_api_client, BlocksterV2.Social.XApiClientMock
+
+# Use a stubbed BuxMinter so LegacyMerge / EmailVerification merge paths can be
+# unit-tested without hitting the real settler service.
+config :blockster_v2, :bux_minter, BlocksterV2.BuxMinterStub

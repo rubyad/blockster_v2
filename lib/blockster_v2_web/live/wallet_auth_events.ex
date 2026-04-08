@@ -16,23 +16,54 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         view = socket.view
 
         Phoenix.LiveView.attach_hook(socket, :wallet_auth, :handle_info, fn
-          {:wallet_authenticated, wallet_address}, socket ->
+          {:wallet_authenticated, wallet_address, is_new_from_auth}, socket ->
             if BlocksterV2Web.WalletAuthEvents.has_custom_wallet_handler?(view) do
               {:cont, socket}
             else
-              case BlocksterV2.Accounts.get_or_create_user_by_wallet(wallet_address) do
-                {:ok, user, _session, _is_new} ->
+              # NOTE: do NOT call get_or_create_user_by_wallet here — the user was
+              # already created by AuthController.create_session during the
+              # persist_session HTTP call. Calling get_or_create again would always
+              # return is_new=false (because the user now exists), which is why we
+              # rely on `is_new_from_auth` passed through the JS session_persisted
+              # event for the onboarding redirect decision.
+              case BlocksterV2.Accounts.get_user_by_wallet_address(wallet_address) do
+                nil ->
+                  {:halt, socket}
+
+                user ->
+                  is_new = is_new_from_auth == true
                   BlocksterV2.BuxMinter.sync_user_balances_async(user.id, wallet_address, force: true)
                   token_balances = BlocksterV2.EngagementTracker.get_user_token_balances(user.id)
 
-                  {:halt,
-                   socket
-                   |> Phoenix.Component.assign(:current_user, user)
-                   |> Phoenix.Component.assign(:wallet_address, wallet_address)
-                   |> Phoenix.Component.assign(:token_balances, token_balances)}
+                  prev_user_id = case socket.assigns[:current_user] do
+                    %{id: id} -> id
+                    _ -> nil
+                  end
+                  user_changed? = prev_user_id != nil and prev_user_id != user.id
 
-                {:error, _reason} ->
-                  {:halt, socket}
+                  socket =
+                    socket
+                    |> Phoenix.Component.assign(:current_user, user)
+                    |> Phoenix.Component.assign(:wallet_address, wallet_address)
+                    |> Phoenix.Component.assign(:token_balances, token_balances)
+
+                  cond do
+                    is_new ->
+                      # Brand new wallet → walk through onboarding. Use redirect/2
+                      # (full HTTP reload) so the new session cookie is read fresh
+                      # by the next mount instead of relying on the stale
+                      # WebSocket-cached session map.
+                      {:halt, Phoenix.LiveView.redirect(socket, to: "/onboarding")}
+
+                    user_changed? ->
+                      # Switched accounts mid-session → hard reload to wipe all
+                      # LiveView assigns (rewards, multipliers, balances) and to
+                      # re-read the now-updated session cookie.
+                      {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
+
+                    true ->
+                      {:halt, socket}
+                  end
               end
             end
 
@@ -136,9 +167,13 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                 |> assign(:wallet_address, wallet_address)
                 |> assign(:connecting, false)
                 |> assign(:auth_challenge, nil)
+                # Wait for `session_persisted` before firing :wallet_authenticated.
+                # This prevents a race where push_navigate to a different
+                # live_session loads /onboarding before the session cookie
+                # has been written by the JS hook.
+                |> assign(:pending_wallet_auth, wallet_address)
                 |> push_event("persist_session", %{wallet_address: wallet_address})
 
-              send(self(), {:wallet_authenticated, wallet_address})
               {:noreply, socket}
 
             {:error, _reason} ->
@@ -155,6 +190,23 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         end
       end
 
+      # JS confirms the session cookie has been written — now safe to load the
+      # user and (if needed) push_navigate. `is_new_user` was returned by
+      # AuthController.create_session and forwarded here by JS so we can
+      # authoritatively decide whether to redirect to /onboarding.
+      def handle_event("session_persisted", %{"wallet_address" => wallet_address} = params, socket) do
+        is_new_user = Map.get(params, "is_new_user", false) == true
+
+        case socket.assigns[:pending_wallet_auth] do
+          ^wallet_address ->
+            send(self(), {:wallet_authenticated, wallet_address, is_new_user})
+            {:noreply, assign(socket, :pending_wallet_auth, nil)}
+
+          _ ->
+            {:noreply, socket}
+        end
+      end
+
       # ── Wallet Auto-Reconnect (skip SIWS) ──
 
       def handle_event("wallet_reconnected", %{"pubkey" => pubkey}, socket) do
@@ -163,9 +215,9 @@ defmodule BlocksterV2Web.WalletAuthEvents do
             socket
             |> assign(:wallet_address, pubkey)
             |> assign(:connecting, false)
+            |> assign(:pending_wallet_auth, pubkey)
             |> push_event("persist_session", %{wallet_address: pubkey})
 
-          send(self(), {:wallet_authenticated, pubkey})
           {:noreply, socket}
         else
           {:noreply, socket}
@@ -192,7 +244,10 @@ defmodule BlocksterV2Web.WalletAuthEvents do
           |> push_event("request_disconnect", %{})
           |> push_event("clear_session", %{})
 
-        {:noreply, socket}
+        # Hard reload so the cleared session cookie is re-read and all
+        # per-user LiveView assigns (rewards, multipliers, balances) don't
+        # leak across logins.
+        {:noreply, redirect(socket, to: "/")}
       end
 
       def handle_event("wallet_disconnected", _, socket) do
@@ -205,7 +260,8 @@ defmodule BlocksterV2Web.WalletAuthEvents do
           |> assign(:connecting, false)
           |> assign(:auth_challenge, nil)
 
-        {:noreply, socket}
+        # Same reason as disconnect_wallet — full reset.
+        {:noreply, redirect(socket, to: "/")}
       end
 
       # ── Balance Async Handlers ──

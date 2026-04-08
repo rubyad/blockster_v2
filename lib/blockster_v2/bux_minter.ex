@@ -42,7 +42,7 @@ defmodule BlocksterV2.BuxMinter do
     - {:error, reason} on failure
   """
   def mint_bux(wallet_address, amount, user_id, post_id, reward_type, _token \\ "BUX", _hub_id \\ nil)
-      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified, :shop_affiliate, :shop_refund, :ai_bonus] do
+      when reward_type in [:read, :x_share, :video_watch, :signup, :phone_verified, :shop_affiliate, :shop_refund, :ai_bonus, :legacy_migration] do
     settler_url = get_settler_url()
     api_secret = get_api_secret()
 

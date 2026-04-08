@@ -116,6 +116,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
         socket
       end
 
+      socket =
+        socket
+        |> assign(:play_sidebar_left_banners, load_play_sidebar_banners(socket, "play_sidebar_left"))
+        |> assign(:play_sidebar_right_banners, load_play_sidebar_banners(socket, "play_sidebar_right"))
+
       {:ok, socket}
     else
       # Not logged in
@@ -162,10 +167,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
+        |> assign(:play_sidebar_left_banners, load_play_sidebar_banners(socket, "play_sidebar_left"))
+        |> assign(:play_sidebar_right_banners, load_play_sidebar_banners(socket, "play_sidebar_right"))
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
 
       {:ok, socket}
     end
+  end
+
+  defp load_play_sidebar_banners(socket, placement) do
+    if connected?(socket),
+      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
+      else: []
   end
 
   @impl true
@@ -178,7 +191,19 @@ defmodule BlocksterV2Web.CoinFlipLive do
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}
     >
-      <div class="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8">
+      <div class="max-w-7xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8 flex gap-8 justify-center">
+        <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
+        <aside class="hidden lg:block w-[200px] shrink-0">
+          <div class="sticky top-36 space-y-4">
+            <%= for banner <- @play_sidebar_left_banners do %>
+              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+              </a>
+            <% end %>
+          </div>
+        </aside>
+
+        <main class="w-full max-w-2xl">
         <%!-- Expired bet reclaim banner — always visible regardless of game state --%>
         <%= if @has_expired_bet do %>
           <div class="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
@@ -732,6 +757,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
             <% end %>
           </div>
         </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
+        <aside class="hidden lg:block w-[200px] shrink-0">
+          <div class="sticky top-36 space-y-4">
+            <%= for banner <- @play_sidebar_right_banners do %>
+              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+              </a>
+            <% end %>
+          </div>
+        </aside>
       </div>
     </div>
 

@@ -152,6 +152,44 @@ defmodule BlocksterV2Web.TelegramWebhookControllerTest do
       assert json_response(conn, 200) == %{"ok" => true}
     end
 
+    test "RECLAIMS Telegram from a deactivated legacy user", %{conn: conn} do
+      # Legacy user has the Telegram account
+      legacy = create_connected_user("legacy_tg_777")
+
+      # Deactivate them
+      {:ok, legacy} =
+        legacy
+        |> User.changeset(%{is_active: false})
+        |> Repo.update()
+
+      # New user tries to connect the same Telegram account
+      {new_user, token} = create_user_with_connect_token()
+
+      conn =
+        post(conn, "/api/webhooks/telegram", %{
+          "message" => %{
+            "text" => "/start #{token}",
+            "from" => %{
+              "id" => "legacy_tg_777",
+              "username" => "reclaimed",
+              "first_name" => "Reclaim"
+            }
+          }
+        })
+
+      assert json_response(conn, 200) == %{"ok" => true}
+
+      # Legacy lost the telegram fields
+      reloaded_legacy = Repo.get!(User, legacy.id)
+      assert reloaded_legacy.telegram_user_id == nil
+      assert reloaded_legacy.telegram_username == nil
+
+      # New user got them
+      reloaded_new = Repo.get!(User, new_user.id)
+      assert reloaded_new.telegram_user_id == "legacy_tg_777"
+      assert reloaded_new.telegram_username == "reclaimed"
+    end
+
     test "handles trimmed token with whitespace", %{conn: conn} do
       {user, token} = create_user_with_connect_token()
 

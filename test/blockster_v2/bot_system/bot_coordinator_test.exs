@@ -173,9 +173,9 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         all_bot_ids: [bot1.id, bot2.id, bot3.id],
         active_bot_ids: MapSet.new([bot1.id, bot2.id, bot3.id]),
         bot_cache: %{
-          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
-          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address},
-          bot3.id => %{smart_wallet_address: bot3.smart_wallet_address}
+          bot1.id => %{wallet_address: bot1.wallet_address},
+          bot2.id => %{wallet_address: bot2.wallet_address},
+          bot3.id => %{wallet_address: bot3.wallet_address}
         },
         reading_sessions: %{},
         mint_queue: :queue.new(),
@@ -222,7 +222,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -255,7 +255,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -330,7 +330,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{ref => session},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -388,7 +388,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{ref => session},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -435,7 +435,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{ref => session},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -524,8 +524,8 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         all_bot_ids: [bot1.id, bot2.id],
         active_bot_ids: MapSet.new([bot1.id, bot2.id]),
         bot_cache: %{
-          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
-          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address}
+          bot1.id => %{wallet_address: bot1.wallet_address},
+          bot2.id => %{wallet_address: bot2.wallet_address}
         },
         reading_sessions: %{},
         mint_queue: :queue.new(),
@@ -714,7 +714,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -744,7 +744,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -771,8 +771,8 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         all_bot_ids: [bot1.id, bot2.id],
         active_bot_ids: MapSet.new([bot1.id, bot2.id]),
         bot_cache: %{
-          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
-          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address}
+          bot1.id => %{wallet_address: bot1.wallet_address},
+          bot2.id => %{wallet_address: bot2.wallet_address}
         },
         reading_sessions: %{},
         mint_queue: :queue.new(),
@@ -802,7 +802,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         initialized: true,
         all_bot_ids: [bot.id],
         active_bot_ids: MapSet.new([bot.id]),
-        bot_cache: %{bot.id => %{smart_wallet_address: bot.smart_wallet_address}},
+        bot_cache: %{bot.id => %{wallet_address: bot.wallet_address}},
         reading_sessions: %{},
         mint_queue: :queue.new(),
         mint_timer: nil,
@@ -869,8 +869,8 @@ defmodule BlocksterV2.BotSystem.BotCoordinatorTest do
         all_bot_ids: [bot1.id, bot2.id],
         active_bot_ids: MapSet.new([bot1.id, bot2.id]),
         bot_cache: %{
-          bot1.id => %{smart_wallet_address: bot1.smart_wallet_address},
-          bot2.id => %{smart_wallet_address: bot2.smart_wallet_address}
+          bot1.id => %{wallet_address: bot1.wallet_address},
+          bot2.id => %{wallet_address: bot2.wallet_address}
         },
         reading_sessions: %{},
         mint_queue: :queue.new(),

@@ -1,4 +1,38 @@
-<div class="bg-[#F5F6FB] md:pt-32" id="homepage">
+<!-- Homepage Top Banner — Desktop (managed via /admin/banners) -->
+<%= if @homepage_top_desktop_banners != [] do %>
+  <% banner = Enum.random(@homepage_top_desktop_banners) %>
+  <div class="hidden md:block bg-[#F5F6FB] pt-32">
+    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+      <%= if banner.link_url do %>
+        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
+          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+        </a>
+      <% else %>
+        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-xl" />
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<!-- Homepage Top Banner — Mobile (managed via /admin/banners) — edge-to-edge, flush under header -->
+<%= if @homepage_top_mobile_banners != [] do %>
+  <% banner = Enum.random(@homepage_top_mobile_banners) %>
+  <div class="md:hidden">
+    <%= if banner.link_url do %>
+      <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+      </a>
+    <% else %>
+      <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+    <% end %>
+  </div>
+<% end %>
+
+<div class={[
+  "bg-[#F5F6FB]",
+  if(@homepage_top_desktop_banners == [], do: "md:pt-32", else: "md:pt-6"),
+  if(@homepage_top_mobile_banners != [], do: "pt-0", else: "")
+]} id="homepage">
   <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
     <%= for {dom_id, comp} <- @streams.components do %>
       <div id={dom_id}>
@@ -13,6 +47,36 @@
           bux_balances={@bux_balances}
           user_post_rewards={@user_post_rewards}
         />
+
+        <!-- Inline ad banner after each component (managed via /admin/banners) -->
+        <%= if @inline_desktop_banners != [] do %>
+          <% d_banner = Enum.at(@inline_desktop_banners, rem(comp.inline_banner_index, length(@inline_desktop_banners))) %>
+          <div class="hidden md:block py-4">
+            <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+              <div class="w-3/4 mx-auto">
+                <%= if d_banner.link_url do %>
+                  <a href={d_banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
+                    <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block" loading="lazy" />
+                  </a>
+                <% else %>
+                  <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block rounded-xl" loading="lazy" />
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+        <%= if @inline_mobile_banners != [] do %>
+          <% m_banner = Enum.at(@inline_mobile_banners, rem(comp.inline_banner_index, length(@inline_mobile_banners))) %>
+          <div class="md:hidden py-3">
+            <%= if m_banner.link_url do %>
+              <a href={m_banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+                <img src={m_banner.image_url} alt={m_banner.name} class="w-full h-auto block" loading="lazy" />
+              </a>
+            <% else %>
+              <img src={m_banner.image_url} alt={m_banner.name} class="w-full h-auto block" loading="lazy" />
+            <% end %>
+          </div>
+        <% end %>
       </div>
     <% end %>
   </div>

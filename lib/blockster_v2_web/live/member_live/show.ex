@@ -21,6 +21,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
      socket
      |> assign(active_tab: "activity", time_period: "24h", show_multiplier_dropdown: false)
      |> assign(show_phone_modal: false)
+     |> assign(show_email_modal: false)
      |> assign(countdown: nil)}
   end
 
@@ -281,6 +282,11 @@ defmodule BlocksterV2Web.MemberLive.Show do
   @impl true
   def handle_event("open_phone_verification", _params, socket) do
     {:noreply, assign(socket, :show_phone_modal, true)}
+  end
+
+  @impl true
+  def handle_event("open_email_verification", _params, socket) do
+    {:noreply, assign(socket, :show_email_modal, true)}
   end
 
   # Wallet Connection Events
@@ -657,13 +663,26 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
 
   @impl true
+  def handle_info({:close_email_verification_modal}, socket) do
+    {:noreply, assign(socket, :show_email_modal, false)}
+  end
+
+  @impl true
   def handle_info({:refresh_user_data}, socket) do
-    # Reload member data to get updated phone verification status
+    # Reload member data to get updated phone/email verification status
     member = Accounts.get_user(socket.assigns.member.id)
     member = BlocksterV2.Repo.preload(member, :phone_verification, force: true)
 
-    # Recalculate multipliers since phone verification affects them
+    # Recalculate multipliers since phone/email verification affects them
     unified_multipliers = UnifiedMultiplier.get_user_multipliers(member.id)
+
+    # Keep current_user in sync if the user is viewing their own profile
+    socket =
+      if socket.assigns[:current_user] && socket.assigns.current_user.id == member.id do
+        assign(socket, :current_user, member)
+      else
+        socket
+      end
 
     {:noreply,
      socket

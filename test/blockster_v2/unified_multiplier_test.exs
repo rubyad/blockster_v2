@@ -180,7 +180,7 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
       assert result.x_multiplier == 1.0
       assert result.phone_multiplier == 0.5
       assert result.sol_multiplier == 0.0
-      assert result.email_multiplier == 1.0
+      assert result.email_multiplier == 0.5
       assert result.overall_multiplier == 0.0
     end
   end
@@ -193,7 +193,7 @@ defmodule BlocksterV2.UnifiedMultiplierTest do
       assert result.x_multiplier == 1.0
       assert result.phone_multiplier == 0.5
       assert result.sol_multiplier == 0.0
-      assert result.email_multiplier == 1.0
+      assert result.email_multiplier == 0.5
       assert result.overall_multiplier == 0.0
     end
   end

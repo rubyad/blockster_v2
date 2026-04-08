@@ -300,7 +300,7 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - WalletAuthEvents macro: `lib/blockster_v2_web/live/wallet_auth_events.ex`
 - Wallet UI: `lib/blockster_v2_web/components/wallet_components.ex` (connect_button, wallet_selector_modal)
 - Session: `POST/DELETE /api/auth/session`, UserAuth on_mount reads wallet_address from session + connect_params
-- User model: `email_verified`, `legacy_email` fields added (migration `20260402200001`)
+- User model: `email_verified`, `legacy_email` fields added (migration `20260402200001`); `is_active`, `merged_into_user_id`, `deactivated_at`, `pending_email` added later for legacy reclaim (migration `20260407200001`). All public lookups in `BlocksterV2.Accounts` filter `is_active = true`.
 - `downcase_wallet_address` skips Solana base58 addresses (case-sensitive)
 - Deps: hex `base58`; npm `@wallet-standard/app`, `bs58`, `@solana/web3.js`
 
@@ -314,8 +314,11 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - Deprecated: `get_aggregated_balances`, `get_rogue_house_balance`, `transfer_rogue` (return `{:error, :deprecated}`)
 
 **User Onboarding & Migration** (Phase 4 — complete):
-- Email verification: `lib/blockster_v2/accounts/email_verification.ex` (6-digit code, 10min expiry, Swoosh delivery)
+- Email verification: `lib/blockster_v2/accounts/email_verification.ex` (6-digit code, 10min expiry, Swoosh delivery). `send_verification_code` writes to `pending_email`, NOT `email`. `verify_code` returns `{:ok, user, %{merged: bool, summary: map}}` and dispatches to `LegacyMerge` if the email matches an active legacy user.
 - Legacy BUX migration: `lib/blockster_v2/migration/legacy_bux.ex` + PG table `legacy_bux_migrations`
+- Legacy account merge: `lib/blockster_v2/migration/legacy_merge.ex` — `merge_legacy_into!/2` runs the full all-or-nothing transaction (deactivate → BUX mint → username → X → Telegram → phone → content/social FKs → referrals → fingerprints → finalize email). Settler mint failure rolls back the entire merge. BUX minter is configurable via `Application.compile_env(:blockster_v2, :bux_minter, BuxMinter)` so tests can use `BlocksterV2.BuxMinterStub`. Reward type for legacy mints: `:legacy_migration`.
+- Per-step reclaim hooks (phone, X OAuth callback, Telegram /start handler) — when a deactivated legacy user holds the identifier, the reclaim path transfers the row + locked fields to the new Solana user. Active-user collisions still blocked.
+- Onboarding flow (8 steps): `welcome → migrate_email → redeem → profile → phone → email → x → complete`. Welcome branches on `set_migration_intent` ("I'm new" → redeem, "I have an account" → migrate_email). `next_unfilled_step/2` walks the steps and skips any step the user's state already satisfies (filled by the merge or by prior verification). `redeem` is never skipped.
 - Onboarding modal: `lib/blockster_v2_web/components/onboarding_modal.ex` (welcome → email → claim)
 - `/login` route removed — redirects to `/` via `PageController.login_redirect`
 
@@ -459,8 +462,10 @@ Users earn BUX for reading: `bux = (engagement_score / 10) * base_reward * multi
 1000 bot accounts simulate reading with real on-chain BUX minting. See [docs/bot_reader_system.md](docs/bot_reader_system.md) for full docs.
 
 - **Feature flag**: `BOT_SYSTEM_ENABLED=true` env var
-- **Fully automatic**: auto-creates bots, seeds pools, schedules reads on deploy
-- **Files**: `lib/blockster_v2/bot_system/` (coordinator, setup, simulator, deploy, dev_setup)
+- **Fully automatic**: auto-creates bots, seeds pools, schedules reads, **rotates legacy EVM wallets to Solana** on deploy
+- **Wallets**: Solana ed25519 keypairs (base58 pubkey in `wallet_address`, base58 64-byte secret in `bot_private_key`). `smart_wallet_address` is a legacy 0x placeholder, **never read** by the bot system. Bot mints use `wallet_address` (same rule as real users).
+- **EVM → Solana auto-rotation**: `BotCoordinator.handle_info(:initialize, ...)` calls `BotSetup.rotate_to_solana_keypairs/0` once per boot, before building the bot cache. Idempotent — only rotates bots whose `wallet_address` is not a valid 32-byte base58 string. First production deploy will rotate all 1000 EVM bots; subsequent boots are no-ops. ~2 SOL one-time cost for ATA creation surge — see `docs/solana_mainnet_deployment.md`.
+- **Files**: `lib/blockster_v2/bot_system/` (coordinator, setup, simulator, deploy, dev_setup, solana_wallet_crypto)
 - **Config**: `config :blockster_v2, :bot_system` in `runtime.exs`
 - **Key behavior**: 60-85% of 300 active bots read each post, ~55% in first hour, 500ms mint interval, 5 BUX minimum reward, 50% pool cap
 - **Pools**: Content automation auto-deposits on publish; coordinator auto-seeds 5000 BUX on posts with < 100 during backfill

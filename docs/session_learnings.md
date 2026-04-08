@@ -7,11 +7,13 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Legacy Account Reclaim — LegacyMerge Implementation Gotchas](#legacy-account-reclaim--legacymerge-implementation-gotchas-apr-2026)
 - [Solana RPC State Propagation: Never Chain Dependent Txs Back-to-Back](#solana-rpc-state-propagation-never-chain-dependent-txs-back-to-back-apr-2026)
 - [Solana Tx Reliability: Priority Fees + Confirmation Recovery](#solana-tx-reliability-priority-fees--confirmation-recovery-apr-2026)
 - [Payout Rounding: Float.round vs On-Chain Integer Truncation](#payout-rounding-floatround-vs-on-chain-integer-truncation-apr-2026)
 - [LP Price Chart History Implementation](#lp-price-chart-history-implementation-apr-2026)
 - [Solana Wallet Field Migration Bug](#solana-wallet-field-migration-bug-apr-2026)
+- [Bot Wallet Solana Migration](#bot-wallet-solana-migration-apr-2026)
 - [Non-Blocking Fingerprint Verification](#non-blocking-fingerprint-verification-mar-2026)
 - [FateSwap Solana Wallet Tab](#fateswap-solana-wallet-tab-mar-2026)
 - [Number Formatting in Templates](#number-formatting-in-templates)
@@ -47,6 +49,117 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
+
+---
+
+## Legacy Account Reclaim — LegacyMerge Implementation Gotchas (Apr 2026)
+
+Implementing `BlocksterV2.Migration.LegacyMerge` (the all-or-nothing email-triggered merge from a legacy EVM-auth user into a new Solana-auth user) surfaced several non-obvious issues. Full design at `docs/legacy_account_reclaim_plan.md`, build log at `docs/solana_build_history.md`.
+
+### Originals must be captured BEFORE deactivation
+
+The merge transaction runs in this order: (1) deactivate legacy → (2) mint BUX → (3) transfer username → (4) X → (5) Telegram → (6) phone → ... The deactivation step is FIRST so it can free unique slots (`email`, `username`, `slug`, `telegram_user_id`, `locked_x_user_id`) before subsequent steps try to take them on the new user. But that means by the time step 3 runs, the in-memory `legacy_user` struct returned by `Repo.update!` has placeholders/nils — we need the ORIGINAL values to copy onto the new user.
+
+Solution: capture an `originals` map at the start of `do_merge/2` BEFORE calling `deactivate_legacy_user`, and pass it through to every transfer step:
+
+```elixir
+originals = %{
+  email: legacy_user.email,
+  username: legacy_user.username,
+  slug: legacy_user.slug,
+  telegram_user_id: legacy_user.telegram_user_id,
+  telegram_username: legacy_user.telegram_username,
+  telegram_connected_at: legacy_user.telegram_connected_at,
+  telegram_group_joined_at: legacy_user.telegram_group_joined_at,
+  locked_x_user_id: legacy_user.locked_x_user_id,
+  referrer_id: legacy_user.referrer_id,
+  referred_at: legacy_user.referred_at
+}
+```
+
+The first attempt used a `Process.put(:legacy_merge_pre_deactivation_telegram, ...)` hack — never do that. Pass state through function arguments.
+
+### `locked_x_user_id` has its own unique constraint — null it in deactivate
+
+`users.locked_x_user_id` is a unique field. If you try to copy it from legacy → new in the X transfer step without first nulling it on legacy, you get `users_locked_x_user_id_index` constraint violation. The fix: include `locked_x_user_id: nil` in the `deactivate_legacy_user` change set, alongside the email/username/slug/telegram nulling.
+
+### `Ecto.Changeset.change/2` works on fields not in the cast list
+
+`User.changeset/2` does not include `locked_x_user_id` in the cast list (it's set by `Social.upsert_x_connection` via a direct `Ecto.Changeset.change/2`). When writing tests that need to set `locked_x_user_id` on a freshly inserted user, going through `User.changeset(attrs)` will silently drop the value. You must use `Ecto.Changeset.change(%{locked_x_user_id: ...}) |> Repo.update()` directly.
+
+### Configurable BUX minter for tests via `Application.compile_env`
+
+`LegacyMerge.merge_legacy_into!/2` calls `BuxMinter.mint_bux/5` to mint legacy BUX onto the new Solana wallet, and rolls back the entire transaction if the mint fails. Testing both the success path AND the rollback path requires faking `BuxMinter`. Pattern:
+
+```elixir
+@bux_minter Application.compile_env(:blockster_v2, :bux_minter, BlocksterV2.BuxMinter)
+# ... later ...
+@bux_minter.mint_bux(wallet_address, amount, user_id, nil, :legacy_migration)
+```
+
+In `config/test.exs`: `config :blockster_v2, :bux_minter, BlocksterV2.BuxMinterStub`. The stub (in `test/support/bux_minter_stub.ex`) is a process-dictionary-backed module with `set_response/1` and `calls/0` so each test can simulate success or failure independently.
+
+`Application.compile_env` (not `Application.get_env`) is required because the swap must happen at compile time — `LegacyMerge` references `@bux_minter` directly in function bodies. The first `mix test` after wiring the stub via `compile_env` requires `MIX_ENV=test mix compile --force` so the new value gets baked in.
+
+### Swoosh test adapter delivers `{:email, _}` to the spawning process
+
+`EmailVerification.send_verification_code` spawns a Task to deliver the email asynchronously. When that Task is started from inside a LiveView's event handler, the Swoosh test adapter sends a `{:email, %Swoosh.Email{}}` message back to the spawner — which is the LiveView. Without a matching `handle_info` clause, the LiveView crashes with `FunctionClauseError`. Fix: add a swallow clause:
+
+```elixir
+@impl true
+def handle_info({:email, _swoosh_email}, socket), do: {:noreply, socket}
+```
+
+### `EmailVerification.verify_code` return shape change is a breaking API change
+
+I changed the return from `{:ok, user}` to `{:ok, user, %{merged: bool, summary: map}}` so callers can render the merge result. Every existing call site (`OnboardingLive.Index.submit_email_code`, `EmailVerificationModalComponent.submit_code`) had to be updated to pattern-match on the 3-tuple. Plus `send_verification_code` now writes to `pending_email` not `email`, so callers reading `updated_user.email` for the success message had to switch to `updated_user.pending_email || updated_user.email`. Easy to miss.
+
+### `find_legacy_user_for_email` MUST filter `is_active = true`
+
+The new helper that detects whether a verified email matches a legacy user uses:
+
+```elixir
+from u in User,
+  where: u.email == ^email,
+  where: u.id != ^current_user_id,
+  where: u.is_active == true,
+  limit: 1
+```
+
+The `is_active = true` filter is critical: after a merge, the legacy user has `is_active = false` AND `email = nil` (deactivation nulls the email column). But if you forget the filter and a legacy user somehow has `is_active = false` while still holding the email (e.g., manual SQL state), `find_legacy_user_for_email` would find them, then `LegacyMerge.merge_legacy_into!` would fail with `:legacy_already_deactivated`, and `verify_code` would return `{:error, {:merge_failed, :legacy_already_deactivated}}` — confusing for the user. Filter at the source.
+
+### Phone reclaim transfers the row at SEND time, not VERIFY time
+
+The original plan said "transfer the phone_verifications row at verify_code time". But the existing `send_verification_code` flow inserts a new `phone_verifications` row immediately, which would fail the unique constraint if a legacy/inactive user already owns the phone number. Two options: (a) insert at verify time only, (b) transfer the legacy row at send time. I went with (b) — when `check_phone_reclaimable/2` returns `:phone_reclaimable`, `send_verification_code` UPDATEs the existing legacy row in place: `user_id = new_user_id`, `verified = false`, `attempts = 1`, new `verification_sid`. Then `verify_code` works as today, finds the row by user_id, and marks it verified.
+
+The risk with (b) is that if the new user fails to verify, the row is now on the new user — the legacy user has lost the phone. But the legacy user is INACTIVE so it's fine. This approach also lets the user retry without inserting/deleting rows on each attempt.
+
+### `next_unfilled_step/2` skip-completed-steps logic must run at every step transition
+
+After a merge fires (whether at `migrate_email` or at the regular `email` step in the "I'm new" path), the user's state has changed: they suddenly have a username, phone, email, X connection, etc. The next onboarding step button should fast-forward past anything the merge already filled. This means the skip logic can't be tied to the migrate branch only — it needs to fire at every step transition for any user. Implemented as a public `next_unfilled_step(user, current_step)` helper that walks `@steps` from `current_step + 1` and returns the first step where `step_unfilled?(step, user)` is `true`.
+
+Skip rules per the plan:
+- `welcome` / `migrate_email` → never the answer (always skipped, since they're entry points)
+- `redeem` → never skipped (informational, useful for returning users — even though "everyone connected" cases would technically skip everything else)
+- `profile` → skip if `username` set
+- `phone` → skip if `phone_verified`
+- `email` → skip if `email_verified`
+- `x` → skip if an `x_connections` Mnesia row exists for the user
+- `complete` → never skipped
+
+### Don't filter `is_active` in `Repo.get_by(User, locked_x_user_id: ...)` for X reclaim
+
+The X reclaim logic in `Social.reclaim_x_account_if_needed/2` looks up the user that currently holds `locked_x_user_id`. If you filter `is_active = true` here, you'll never find the deactivated legacy user → reclaim never fires → unique constraint violation when the new user tries to take the lock. The reclaim path needs to find users in BOTH states (active = block, inactive = reclaim). Same pattern in the Telegram webhook handler.
+
+`BlocksterV2.Accounts.get_user_by_*` functions are the public interface where `is_active` filtering belongs. Reclaim helpers go directly through `Repo.get_by` (or equivalent) so they can see deactivated rows.
+
+### Test diff between baseline and new run is tricky with randomized output
+
+Comparing `mix test` failures across two runs (with vs without changes) seems straightforward but is tripped up by:
+- ExUnit randomizes test order, so failure numbers (`1)`, `2)`, ...) shuffle between runs.
+- `git stash` doesn't stash untracked files by default — your new test files still run during a "baseline" comparison run. They'll fail (because the new lib code is stashed), inflating the baseline failure count for files you haven't touched.
+
+The reliable check: run a focused subset (`mix test test/blockster_v2/shop test/blockster_v2/notifications`) with and without changes, compare the totals. Or use the `comm` trick after stripping the leading numbers: `awk -F') ' '{print $2}' file | sort -u`. Either way, don't trust raw failure counts.
 
 ---
 
@@ -473,6 +586,29 @@ Ported FateSwap's LP price chart approach to Blockster pool pages. Key decisions
 **Key lesson**: When migrating from EVM to Solana, the wallet field name changes (`smart_wallet_address` → `wallet_address`) and API response keys change (`transactionHash` → `signature`). A global search for the old field/key names should be part of any chain migration checklist.
 
 **Note**: `smart_wallet_address` references in schema definitions, account creation, auth controllers, admin display templates, bot system, and DB queries were intentionally left as-is — those are either EVM-specific code paths, display-only, or schema fields that must match the DB column.
+
+---
+
+## Bot Wallet Solana Migration (Apr 2026)
+
+**Problem**: The bot system wasn't covered by the April wallet field migration above. The 1000 read-to-earn bots had real EVM ed25519 keypairs (`wallet_address` = `0x...`, generated by `WalletCrypto.generate_keypair/0` using secp256k1 + keccak256) but `BotCoordinator.process_mint_job/1` and `build_bot_cache/1` were reading `smart_wallet_address` (a random 0x hex placeholder). After Phase 3 rewrote `BuxMinter` to call the Solana settler, every bot mint silently failed: the placeholder hex strings can't be decoded as base58 ed25519 pubkeys, so the settler `/mint` endpoint rejected them.
+
+**Root cause**: Two distinct issues stacked on top of each other:
+1. **Wrong field**: Bot coordinator used `smart_wallet_address` instead of `wallet_address` (the same trap as the main wallet field bug, but the bot system was missed in that pass).
+2. **Wrong key format**: Even after fixing #1, the bot wallets in `wallet_address` were EVM 0x addresses, not Solana base58 pubkeys. The settler still couldn't accept them.
+
+**Solution**:
+- New `BlocksterV2.BotSystem.SolanaWalletCrypto` module generates ed25519 keypairs via `:crypto.generate_key(:eddsa, :ed25519)`. Pubkey gets base58-encoded (32 bytes → Solana address); secret gets concatenated as `seed(32) || pubkey(32)` and base58-encoded (the standard Solana 64-byte secret key format compatible with `@solana/web3.js`'s `Keypair.fromSecretKey()`).
+- `BotSetup.create_bot/1` switched from `WalletCrypto.generate_keypair/0` (EVM) to `SolanaWalletCrypto.generate_keypair/0`. `smart_wallet_address` still gets a random 0x placeholder because `User.email_registration_changeset/1` requires it (legacy schema field) — but the bot system never reads it.
+- New `BotSetup.rotate_to_solana_keypairs/0` (replaces the old `backfill_keypairs/0`): finds every bot whose `wallet_address` is not a 32-byte base58 string, generates a fresh ed25519 keypair, updates `wallet_address` + `bot_private_key` in PG, and deletes the bot's row from `user_solana_balances` Mnesia (the cached SOL/BUX belonged to the now-orphaned EVM wallet). Idempotent — second call returns `{:ok, 0}`.
+- `BotCoordinator.handle_info(:initialize, ...)` calls `rotate_to_solana_keypairs/0` after `get_all_bot_ids/0` and **before** `build_bot_cache/1`. This means the very first cache built on first deploy uses the rotated wallets — no race window where the cache holds stale EVM addresses.
+- `build_bot_cache/1`, `get_bot_cache_entry/1`, and `process_mint_job/1` all switched from `smart_wallet_address` → `wallet_address`.
+
+**Cost on production deploy**: ~2 SOL one-time to the settler authority for the ATA creation surge as the rate-limited bot mint queue (one mint per 500 ms) creates Associated Token Accounts for the 1000 rotated bots. Documented in `docs/solana_mainnet_deployment.md` Step 1 (bumped recommended authority funding from 1 SOL → 3 SOL) and Step 8 (verification commands).
+
+**Key lesson**: When migrating bot/automated user wallets between chains, cache invalidation matters in two places — Postgres (the source of truth) AND any read-side caches (Mnesia balance rows, in-memory bot caches in GenServers). If the rotation runs before the GenServer cache is built, no race exists. If you rotate after, in-flight mint jobs will use stale addresses until the cache is rebuilt. Order of operations in `:initialize` is load-bearing.
+
+**Files**: `solana_wallet_crypto.ex` (new), `bot_setup.ex`, `bot_coordinator.ex`. Tests: `solana_wallet_crypto_test.exs` (10 new), 3 new rotation tests in `bot_setup_test.exs`, ~16 cache-shape swaps in `bot_coordinator_test.exs`. Full breakdown in `docs/solana_build_history.md` § "Bot Wallet Solana Migration (2026-04-07)".
 
 ---
 

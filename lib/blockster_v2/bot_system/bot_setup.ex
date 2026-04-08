@@ -10,7 +10,7 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
   alias BlocksterV2.Repo
   alias BlocksterV2.Accounts.User
-  alias BlocksterV2.BotSystem.WalletCrypto
+  alias BlocksterV2.BotSystem.SolanaWalletCrypto
   import Ecto.Query
   require Logger
 
@@ -23,8 +23,8 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
   # Multiplier tiers: {label, percentage, phone_verified, geo_tier, x_score_range, sol_mult_range, email_mult_range}
   @multiplier_tiers [
-    {:casual,  0.40, false, "unverified", {0, 5},    {0.0, 1.0}, {1.0, 1.0}},
-    {:engaged, 0.35, true,  "basic",      {10, 40},  {1.0, 2.5}, {1.0, 2.0}},
+    {:casual,  0.40, false, "unverified", {0, 5},    {0.0, 1.0}, {0.5, 0.5}},
+    {:engaged, 0.35, true,  "basic",      {10, 40},  {1.0, 2.5}, {0.5, 2.0}},
     {:power,   0.20, true,  "standard",   {40, 75},  {2.5, 4.0}, {2.0, 2.0}},
     {:whale,   0.05, true,  "premium",    {75, 100}, {4.0, 5.0}, {2.0, 2.0}}
   ]
@@ -64,10 +64,16 @@ defmodule BlocksterV2.BotSystem.BotSetup do
 
   @doc """
   Creates a single bot user with index `i` (1-based).
+
+  Generates a real Solana ed25519 keypair: the base58-encoded pubkey is
+  stored in `wallet_address`, and the base58-encoded 64-byte secret key
+  is stored in `bot_private_key`. `smart_wallet_address` gets a random
+  EVM hex placeholder only because the User changeset still requires it
+  (legacy schema field) — the bot system never reads it.
   """
   def create_bot(i) do
     email = bot_email(i)
-    {wallet, private_key} = WalletCrypto.generate_keypair()
+    {wallet, private_key} = SolanaWalletCrypto.generate_keypair()
     smart_wallet = generate_eth_address()
     username = generate_username(i)
 
@@ -139,43 +145,64 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   end
 
   @doc """
-  Backfills real keypairs for existing bots that have random addresses (no private key).
-  Generates a new keypair, updates wallet_address and stores bot_private_key.
-  Returns `{:ok, updated_count}`.
+  Rotates any bot whose `wallet_address` is not a valid Solana base58 pubkey
+  (e.g. legacy EVM `0x` addresses, or `nil`) onto a fresh Solana ed25519
+  keypair. Idempotent — bots that already have a Solana wallet are skipped,
+  so this is safe to call on every coordinator boot.
+
+  For each rotated bot:
+    * generates a new ed25519 keypair via `SolanaWalletCrypto`
+    * writes the base58 pubkey to `wallet_address`
+    * writes the base58 64-byte secret key to `bot_private_key`
+    * deletes the bot's row from the `user_solana_balances` Mnesia table
+      (any cached SOL/BUX balance belonged to the now-orphaned EVM wallet)
+
+  Returns `{:ok, rotated_count}`.
   """
-  def backfill_keypairs do
-    bots_without_keys =
+  def rotate_to_solana_keypairs do
+    alias BlocksterV2.BotSystem.SolanaWalletCrypto
+
+    bots_to_rotate =
       Repo.all(
         from u in User,
-          where: u.is_bot == true and is_nil(u.bot_private_key),
-          select: u
+          where: u.is_bot == true,
+          select: %{id: u.id, wallet_address: u.wallet_address}
       )
+      |> Enum.reject(&SolanaWalletCrypto.solana_address?(&1.wallet_address))
 
-    if bots_without_keys == [] do
-      Logger.info("[BotSetup] All bots already have private keys")
+    if bots_to_rotate == [] do
+      Logger.info("[BotSetup] All bots already have Solana wallets — nothing to rotate")
       {:ok, 0}
     else
-      Logger.info("[BotSetup] Backfilling keypairs for #{length(bots_without_keys)} bots")
+      Logger.info("[BotSetup] Rotating #{length(bots_to_rotate)} bot wallets from EVM → Solana")
 
-      updated =
-        Enum.reduce(bots_without_keys, 0, fn bot, acc ->
-          {wallet, private_key} = WalletCrypto.generate_keypair()
+      rotated =
+        Enum.reduce(bots_to_rotate, 0, fn %{id: id}, acc ->
+          {wallet, private_key} = SolanaWalletCrypto.generate_keypair()
 
-          case bot
-               |> Ecto.Changeset.change(%{
-                 wallet_address: wallet,
-                 bot_private_key: private_key
-               })
-               |> Repo.update() do
-            {:ok, _} -> acc + 1
-            {:error, err} ->
-              Logger.warning("[BotSetup] Failed to backfill bot #{bot.id}: #{inspect(err)}")
+          case Repo.update_all(
+                 from(u in User, where: u.id == ^id),
+                 set: [wallet_address: wallet, bot_private_key: private_key]
+               ) do
+            {1, _} ->
+              # Drop any cached SOL/BUX balance for this user — it belonged
+              # to the old EVM wallet which we just orphaned.
+              try do
+                :mnesia.dirty_delete({:user_solana_balances, id})
+              rescue
+                _ -> :ok
+              end
+
+              acc + 1
+
+            other ->
+              Logger.warning("[BotSetup] Failed to rotate bot #{id}: #{inspect(other)}")
               acc
           end
         end)
 
-      Logger.info("[BotSetup] Backfilled #{updated} bots with real keypairs")
-      {:ok, updated}
+      Logger.info("[BotSetup] Rotated #{rotated} bots to Solana keypairs")
+      {:ok, rotated}
     end
   end
 

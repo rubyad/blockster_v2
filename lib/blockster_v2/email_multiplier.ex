@@ -4,18 +4,18 @@ defmodule BlocksterV2.EmailMultiplier do
 
   | Status       | Multiplier |
   |-------------|-----------|
-  | Not verified | 1.0x      |
+  | Not verified | 0.5x      |
   | Verified     | 2.0x      |
   """
 
   alias BlocksterV2.Accounts
 
   @verified_multiplier 2.0
-  @unverified_multiplier 1.0
+  @unverified_multiplier 0.5
 
   @doc """
   Calculate email multiplier for a user.
-  Returns 2.0 if email is verified, 1.0 otherwise.
+  Returns 2.0 if email is verified, 0.5 otherwise.
   """
   def calculate(%{email_verified: true}), do: @verified_multiplier
   def calculate(%{email_verified: _}), do: @unverified_multiplier

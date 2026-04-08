@@ -27,10 +27,16 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   @categories ~w(
     defi rwa regulation gaming trading token_launches gambling privacy
-    macro_trends investment bitcoin ethereum altcoins nft ai_crypto
+    macro_trends investment bitcoin ethereum solana altcoins nft ai_crypto
     stablecoins cbdc security_hacks adoption mining fundraising events
     blockster_of_week
   )
+
+  # Baseline category configuration applied on top of admin Settings.
+  # Admin overrides win per-key (Settings.category_config[cat] replaces this entry entirely).
+  @baseline_category_config %{
+    "solana" => %{boost: 3.0, max_per_day: 4}
+  }
 
   # ── Client API ──
 
@@ -381,7 +387,7 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
   # ── Scoring & Ranking ──
 
   defp rank_topics(topics) do
-    category_config = Settings.get(:category_config, %{})
+    category_config = merged_category_config()
     keyword_boosts = Settings.get(:keyword_boosts, [])
     now = DateTime.utc_now()
 
@@ -480,7 +486,7 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   @doc false
   def apply_category_diversity(ranked_topics) do
-    category_config = Settings.get(:category_config, %{})
+    category_config = merged_category_config()
     today_counts = FeedStore.get_today_category_counts()
 
     {selected, _counts} =
@@ -602,6 +608,13 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
   end
 
   # ── Helpers ──
+
+  # Merges admin Settings.category_config over the built-in baseline.
+  # Admin entries fully replace baseline entries for the same category key.
+  defp merged_category_config do
+    admin_config = Settings.get(:category_config, %{})
+    Map.merge(@baseline_category_config, admin_config)
+  end
 
   defp hours_since(nil), do: 999
 

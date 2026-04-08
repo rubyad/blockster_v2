@@ -14,6 +14,7 @@ defmodule BlocksterV2.Accounts.EmailVerification do
 
   alias BlocksterV2.{Repo, Mailer}
   alias BlocksterV2.Accounts.User
+  alias BlocksterV2.Migration.LegacyMerge
   import Ecto.Query
   require Logger
 
@@ -22,7 +23,10 @@ defmodule BlocksterV2.Accounts.EmailVerification do
 
   @doc """
   Sends a verification code to the given email address.
-  Stores the code and timestamp on the user record.
+  Writes the email to `pending_email` (NOT `email`) so it doesn't collide with a
+  legacy user that owns the same address. The final promotion to `email` only
+  happens in `verify_code/2`, after the code has been validated and any legacy
+  merge has run.
 
   Returns {:ok, user} or {:error, changeset | reason}.
   """
@@ -32,7 +36,7 @@ defmodule BlocksterV2.Accounts.EmailVerification do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     changeset = User.changeset(user, %{
-      email: email,
+      pending_email: email,
       email_verification_code: code,
       email_verification_sent_at: now
     })
@@ -50,14 +54,30 @@ defmodule BlocksterV2.Accounts.EmailVerification do
 
   @doc """
   Verifies the code the user entered.
-  Returns {:ok, user} on success, {:error, reason} on failure.
+
+  On success:
+    * If the verified `pending_email` matches an active legacy user (different
+      user_id), dispatches to `LegacyMerge.merge_legacy_into!/2` which moves
+      BUX, username, X, Telegram, phone, content, referrals, and fingerprints
+      onto the new user and deactivates the legacy row. Returns
+      `{:ok, user, %{merged: true, summary: ...}}`.
+    * Otherwise just promotes `pending_email` → `email`, sets
+      `email_verified = true`, and clears the verification fields. Returns
+      `{:ok, user, %{merged: false}}`.
+
+  Returns `{:error, reason}` on failure.
   """
   def verify_code(user, code) do
+    pending_email = user.pending_email
+
     cond do
       is_nil(user.email_verification_code) ->
         {:error, :no_code_sent}
 
       is_nil(user.email_verification_sent_at) ->
+        {:error, :no_code_sent}
+
+      is_nil(pending_email) ->
         {:error, :no_code_sent}
 
       code_expired?(user.email_verification_sent_at) ->
@@ -67,23 +87,58 @@ defmodule BlocksterV2.Accounts.EmailVerification do
         {:error, :invalid_code}
 
       true ->
-        changeset = User.changeset(user, %{
-          email_verified: true,
-          email_verification_code: nil,
-          email_verification_sent_at: nil
-        })
+        finalize_verification(user, pending_email)
+    end
+  end
 
-        case Repo.update(changeset) do
-          {:ok, updated_user} ->
-            Logger.info("[EmailVerification] User #{user.id} verified email #{user.email}")
-            # Update email multiplier (1.0x → 2.0x)
-            BlocksterV2.UnifiedMultiplier.update_email_multiplier(user.id)
-            {:ok, updated_user}
+  defp finalize_verification(user, pending_email) do
+    case find_legacy_user_for_email(pending_email, user.id) do
+      nil ->
+        promote_pending_email(user, pending_email)
 
-          {:error, changeset} ->
-            {:error, changeset}
+      %User{} = legacy_user ->
+        case LegacyMerge.merge_legacy_into!(user, legacy_user) do
+          {:ok, %{user: merged_user, summary: summary}} ->
+            BlocksterV2.UnifiedMultiplier.update_email_multiplier(merged_user.id)
+            Logger.info("[EmailVerification] Merged legacy user #{legacy_user.id} into user #{merged_user.id}")
+            {:ok, merged_user, %{merged: true, summary: summary}}
+
+          {:error, reason} ->
+            {:error, {:merge_failed, reason}}
         end
     end
+  end
+
+  defp promote_pending_email(user, pending_email) do
+    changeset = User.changeset(user, %{
+      email: pending_email,
+      email_verified: true,
+      pending_email: nil,
+      email_verification_code: nil,
+      email_verification_sent_at: nil
+    })
+
+    case Repo.update(changeset) do
+      {:ok, updated_user} ->
+        Logger.info("[EmailVerification] User #{user.id} verified email #{pending_email}")
+        BlocksterV2.UnifiedMultiplier.update_email_multiplier(user.id)
+        {:ok, updated_user, %{merged: false}}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  defp find_legacy_user_for_email(email, current_user_id) do
+    email = String.downcase(email)
+
+    Repo.one(
+      from u in User,
+        where: u.email == ^email,
+        where: u.id != ^current_user_id,
+        where: u.is_active == true,
+        limit: 1
+    )
   end
 
   @doc """

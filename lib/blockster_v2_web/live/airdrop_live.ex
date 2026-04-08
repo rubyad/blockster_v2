@@ -91,8 +91,16 @@ defmodule BlocksterV2Web.AirdropLive do
       |> assign(:redeeming, false)
       |> assign(:claiming_index, nil)
       |> assign(:show_fairness_modal, false)
+      |> assign(:airdrop_sidebar_left_banners, load_airdrop_sidebar_banners(socket, "airdrop_sidebar_left"))
+      |> assign(:airdrop_sidebar_right_banners, load_airdrop_sidebar_banners(socket, "airdrop_sidebar_right"))
 
     {:ok, socket}
+  end
+
+  defp load_airdrop_sidebar_banners(socket, placement) do
+    if connected?(socket),
+      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
+      else: []
   end
 
   # ============================================================
@@ -410,7 +418,19 @@ defmodule BlocksterV2Web.AirdropLive do
     ~H"""
     <div id="airdrop-solana-hook" phx-hook="AirdropSolanaHook" class="hidden"></div>
     <div class="min-h-screen bg-gray-50">
-      <div class="max-w-2xl mx-auto px-4 pt-6 md:pt-24 pb-8">
+      <div class="max-w-7xl mx-auto px-4 pt-6 md:pt-24 pb-8 flex gap-8 justify-center">
+        <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
+        <aside class="hidden lg:block w-[200px] shrink-0">
+          <div class="sticky top-36 space-y-4">
+            <%= for banner <- @airdrop_sidebar_left_banners do %>
+              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+              </a>
+            <% end %>
+          </div>
+        </aside>
+
+        <main class="w-full max-w-2xl">
         <%!-- Main Card --%>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <%!-- Prize Pool Header --%>
@@ -522,6 +542,18 @@ defmodule BlocksterV2Web.AirdropLive do
         <p class="text-center text-gray-400 text-xs mt-6">
           Winners selected via on-chain verifiable randomness when countdown ends
         </p>
+        </main>
+
+        <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
+        <aside class="hidden lg:block w-[200px] shrink-0">
+          <div class="sticky top-36 space-y-4">
+            <%= for banner <- @airdrop_sidebar_right_banners do %>
+              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+              </a>
+            <% end %>
+          </div>
+        </aside>
       </div>
     </div>
 

@@ -13,18 +13,34 @@ defmodule BlocksterV2.Accounts do
 
   @doc """
   Gets a user by wallet address.
+
+  Excludes deactivated (merged) legacy users.
   """
   def get_user_by_wallet(wallet_address) when is_binary(wallet_address) do
-    Repo.get_by(User, wallet_address: String.downcase(wallet_address))
+    Repo.one(
+      from u in User,
+        where: u.wallet_address == ^String.downcase(wallet_address) and u.is_active == true,
+        limit: 1
+    )
   end
 
   @doc """
   Gets a user by wallet address (case-sensitive, for Solana base58 addresses).
+
+  Excludes deactivated (merged) legacy users.
   """
   def get_user_by_wallet_address(wallet_address) when is_binary(wallet_address) do
-    # Try exact match first (Solana), then case-insensitive (EVM legacy)
-    Repo.get_by(User, wallet_address: wallet_address) ||
-      Repo.get_by(User, wallet_address: String.downcase(wallet_address))
+    # Try exact match first (Solana), then case-insensitive (EVM legacy).
+    Repo.one(
+      from u in User,
+        where: u.wallet_address == ^wallet_address and u.is_active == true,
+        limit: 1
+    ) ||
+      Repo.one(
+        from u in User,
+          where: u.wallet_address == ^String.downcase(wallet_address) and u.is_active == true,
+          limit: 1
+      )
   end
 
   @doc """
@@ -61,9 +77,15 @@ defmodule BlocksterV2.Accounts do
 
   @doc """
   Gets a user by email.
+
+  Excludes deactivated (merged) legacy users.
   """
   def get_user_by_email(email) when is_binary(email) do
-    Repo.get_by(User, email: String.downcase(email))
+    Repo.one(
+      from u in User,
+        where: u.email == ^String.downcase(email) and u.is_active == true,
+        limit: 1
+    )
   end
 
   @doc """
@@ -73,16 +95,28 @@ defmodule BlocksterV2.Accounts do
 
   @doc """
   Gets a user by slug.
+
+  Excludes deactivated (merged) legacy users.
   """
   def get_user_by_slug(slug) when is_binary(slug) do
-    Repo.get_by(User, slug: slug)
+    Repo.one(
+      from u in User,
+        where: u.slug == ^slug and u.is_active == true,
+        limit: 1
+    )
   end
 
   @doc """
   Gets a user by smart wallet address.
+
+  Excludes deactivated (merged) legacy users.
   """
   def get_user_by_smart_wallet_address(address) when is_binary(address) do
-    Repo.get_by(User, smart_wallet_address: String.downcase(address))
+    Repo.one(
+      from u in User,
+        where: u.smart_wallet_address == ^String.downcase(address) and u.is_active == true,
+        limit: 1
+    )
   end
 
   @doc """
@@ -102,9 +136,14 @@ defmodule BlocksterV2.Accounts do
 
   @doc """
   Lists all users ordered by most recent first.
+
+  Excludes deactivated (merged) legacy users.
   """
   def list_users do
-    from(u in User, order_by: [desc: u.inserted_at])
+    from(u in User,
+      where: u.is_active == true,
+      order_by: [desc: u.inserted_at]
+    )
     |> Repo.all()
   end
 
@@ -120,19 +159,26 @@ defmodule BlocksterV2.Accounts do
 
   @doc """
   Lists all users with followed hubs preloaded.
+
+  Excludes deactivated (merged) legacy users.
   """
   def list_users_with_followed_hubs do
-    from(u in User, order_by: [desc: u.inserted_at])
+    from(u in User,
+      where: u.is_active == true,
+      order_by: [desc: u.inserted_at]
+    )
     |> preload(:followed_hubs)
     |> Repo.all()
   end
 
   @doc """
   Lists all authors (users with is_author = true) with their usernames.
+
+  Excludes deactivated (merged) legacy users.
   """
   def list_authors do
     from(u in User,
-      where: u.is_author == true and not is_nil(u.username),
+      where: u.is_author == true and not is_nil(u.username) and u.is_active == true,
       select: %{id: u.id, username: u.username},
       order_by: u.username
     )

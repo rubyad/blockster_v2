@@ -54,8 +54,10 @@
           </div>
         </div>
 
+        <% is_own_profile = @current_user && @current_user.id == @member.id %>
+
         <!-- Phone Verification Banner (shown only to own profile, unverified) -->
-        <%= if @current_user && @current_user.id == @member.id && (!@member.phone_verification || !@member.phone_verification.verified) do %>
+        <%= if is_own_profile && (!@member.phone_verification || !@member.phone_verification.verified) do %>
           <div class="relative bg-wallet-card border border-gray-200 rounded-2xl p-5 sm:p-6 mb-6 overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -78,6 +80,90 @@
               >
                 Verify Now
               </button>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- SOL Balance Banner (shown only to own profile when SOL multiplier is 0) -->
+        <%= if is_own_profile && @sol_multiplier <= 0 do %>
+          <div class="relative bg-wallet-card border border-gray-200 rounded-2xl p-5 sm:p-6 mb-6 overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-gray-900 rounded-xl flex items-center justify-center overflow-hidden">
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 class="text-sm sm:text-base font-haas_medium_65 text-gray-900">
+                    Add SOL to start earning BUX
+                  </h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Hold at least 0.01 SOL — up to 5x multiplier on all rewards</p>
+                </div>
+              </div>
+              <button
+                id="copy-sol-deposit-address"
+                phx-hook="CopyToClipboard"
+                data-copy-text={@member.wallet_address}
+                class="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-haas_medium_65 text-sm hover:bg-gray-800 transition cursor-pointer whitespace-nowrap flex-shrink-0 w-full sm:w-auto text-center"
+              >
+                Copy Wallet Address
+              </button>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Email Verification Banner (shown only to own profile, unverified) -->
+        <%= if is_own_profile && !@member.email_verified do %>
+          <div class="relative bg-wallet-card border border-gray-200 rounded-2xl p-5 sm:p-6 mb-6 overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-gray-900 rounded-xl flex items-center justify-center">
+                  <svg class="w-5 h-5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-sm sm:text-base font-haas_medium_65 text-gray-900">
+                    <%= if @member.email, do: "Verify your email to boost BUX earnings", else: "Add an email to boost BUX earnings" %>
+                  </h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Boost from 0.5x to 2.0x multiplier on all rewards</p>
+                </div>
+              </div>
+              <button
+                phx-click="open_email_verification"
+                class="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-haas_medium_65 text-sm hover:bg-gray-800 transition cursor-pointer whitespace-nowrap flex-shrink-0 w-full sm:w-auto text-center"
+              >
+                <%= if @member.email, do: "Verify Now", else: "Add Email" %>
+              </button>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- X Connection Banner (shown only to own profile, not connected) -->
+        <%= if is_own_profile && !@x_connection do %>
+          <div class="relative bg-wallet-card border border-gray-200 rounded-2xl p-5 sm:p-6 mb-6 overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-gray-900 rounded-xl flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-sm sm:text-base font-haas_medium_65 text-gray-900">
+                    Connect X to boost BUX earnings
+                  </h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Up to 10x multiplier based on your X account quality</p>
+                </div>
+              </div>
+              <.link
+                href={~p"/auth/x?redirect=/member/#{@member.slug || @member.wallet_address}"}
+                class="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-haas_medium_65 text-sm hover:bg-gray-800 transition cursor-pointer whitespace-nowrap flex-shrink-0 w-full sm:w-auto text-center"
+              >
+                Connect X
+              </.link>
             </div>
           </div>
         <% end %>
@@ -315,8 +401,11 @@
                       <span class="text-sm font-haas_medium_65 text-gray-600">Email</span>
                     </div>
                     <div class="flex items-center gap-2">
+                      <%= if @email_multiplier < 2.0 do %>
+                        <button phx-click="open_email_verification" class="text-xs bg-gray-900 text-white w-16 py-1 rounded-lg hover:bg-gray-800 cursor-pointer font-haas_medium_65 text-center">Verify</button>
+                      <% end %>
                       <div class="text-right w-14">
-                        <span class={"text-sm font-haas_bold_75 #{if @email_multiplier > 1, do: "text-gray-900", else: "text-gray-600"}"}>
+                        <span class={"text-sm font-haas_bold_75 #{if @email_multiplier >= 2.0, do: "text-gray-900", else: "text-amber-500"}"}>
                           <%= :erlang.float_to_binary(@email_multiplier / 1, decimals: 1) %>x
                         </span>
                         <span class="text-xs text-gray-600 block">/ 2x</span>
@@ -1994,17 +2083,58 @@
                     </div>
                   </div>
 
-                  <%# Email (if available) %>
-                  <%= if @member.email do %>
-                    <div>
-                      <label class="block text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500 mb-1.5">
-                        Email Address
-                      </label>
-                      <div class="text-sm bg-gray-50 text-gray-600 px-4 py-3 rounded-xl border border-gray-200">
-                        <%= @member.email %>
-                      </div>
-                    </div>
-                  <% end %>
+                  <%# Email Address %>
+                  <div>
+                    <label class="block text-[10px] uppercase tracking-widest font-haas_medium_65 text-gray-500 mb-1.5">
+                      Email Address
+                    </label>
+                    <%= cond do %>
+                      <% @member.email && @member.email_verified -> %>
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 flex items-center gap-2 text-sm bg-gray-50 px-4 py-3 rounded-xl border border-gray-200">
+                            <span class="text-gray-900 font-haas_medium_65 truncate"><%= @member.email %></span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-haas_medium_65 bg-green-100 text-green-700 flex-shrink-0">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                              </svg>
+                              Verified
+                            </span>
+                          </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1.5">Earning a 2.0x email multiplier</p>
+
+                      <% @member.email -> %>
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 flex items-center gap-2 text-sm bg-gray-50 px-4 py-3 rounded-xl border border-gray-200">
+                            <span class="text-gray-900 truncate"><%= @member.email %></span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-haas_medium_65 bg-amber-100 text-amber-700 flex-shrink-0">
+                              Unverified
+                            </span>
+                          </div>
+                          <button
+                            phx-click="open_email_verification"
+                            class="px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-haas_medium_65 rounded-xl transition-colors cursor-pointer flex-shrink-0"
+                          >
+                            Verify
+                          </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1.5">Verify to boost your earnings from 0.5x to 2.0x</p>
+
+                      <% true -> %>
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 text-sm bg-gray-50 text-gray-400 px-4 py-3 rounded-xl border border-gray-200 italic">
+                            No email added
+                          </div>
+                          <button
+                            phx-click="open_email_verification"
+                            class="px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-haas_medium_65 rounded-xl transition-colors cursor-pointer flex-shrink-0"
+                          >
+                            Add Email
+                          </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1.5">Add an email to boost your earnings from 0.5x to 2.0x</p>
+                    <% end %>
+                  </div>
 
                   <%# Auth Method %>
                   <div>
@@ -2360,6 +2490,16 @@
     <.live_component
       module={BlocksterV2Web.PhoneVerificationModalComponent}
       id="phone-verification-modal"
+      current_user={@current_user}
+      countdown={@countdown}
+    />
+  <% end %>
+
+  <!-- Email Verification Modal -->
+  <%= if @show_email_modal do %>
+    <.live_component
+      module={BlocksterV2Web.EmailVerificationModalComponent}
+      id="email-verification-modal"
       current_user={@current_user}
       countdown={@countdown}
     />

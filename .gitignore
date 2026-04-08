@@ -41,3 +41,15 @@ node_modules
 # Mnesia database files (local development)
 /priv/mnesia/
 .playwright-mcp/
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Solana contract projects — these are nested git repos with their own
+# history; don't try to vendor them into the main repo.
+contracts/blockster-airdrop/
+contracts/blockster-bankroll/
+
+# Dev-time screenshots dropped at the repo root by chrome-devtools / playwright
+/*.png

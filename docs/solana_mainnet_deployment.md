@@ -79,7 +79,10 @@ Solana Mainnet
 | Initialize Bankroll (6 PDAs) | ~0.1 SOL | Authority (`6b4n...`) |
 | Initialize Airdrop (1 PDA) | ~0.01 SOL | Authority (`6b4n...`) |
 | Seed initial liquidity | Variable | Authority (`6b4n...`) |
-| **Total one-time** | **~5 SOL** | |
+| Bot wallet rotation ATAs (1000 bots × 0.002 SOL) | ~2 SOL | Authority (`6b4n...`) |
+| **Total one-time** | **~7 SOL** | |
+
+> **Bot ATA surge**: On the first main-app boot after deploy, `BotCoordinator` automatically rotates the 1000 read-to-earn bot wallets from EVM (`0x...`) to fresh Solana ed25519 keypairs. The first mint to each rotated bot creates an Associated Token Account, costing ~0.002 SOL each. This is a **one-time** cost — every subsequent boot is a no-op. See [Step 7](#step-7-deploy-main-app) for details. Make sure the authority has at least 3 SOL of headroom on top of init costs before deploying the main app, otherwise some bot mints will fail until you top up.
 
 ### Ongoing Costs (Monthly)
 
@@ -115,7 +118,10 @@ solana balance 49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d --url mainnet-beta
 
 ### Fund Authority Wallet
 
-Send **1 SOL** (real SOL) to the authority wallet for initialization + first month of minting:
+Send **3 SOL** (real SOL) to the authority wallet. Breakdown:
+- ~0.1 SOL for program initialization (Bankroll + Airdrop PDAs, BUX mint)
+- ~2 SOL for the one-time bot wallet rotation ATA surge (see [Step 7](#step-7-deploy-main-app))
+- ~1 SOL of headroom for the first month of minting
 
 ```
 6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1
@@ -393,6 +399,21 @@ Migrations run automatically on deploy. If needed manually:
 flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'BlocksterV2.Release.migrate()'"
 ```
 
+### Bot Wallet Auto-Rotation (first deploy only)
+
+On the first boot after this deploy, `BotCoordinator.handle_info(:initialize, ...)` calls `BotSetup.rotate_to_solana_keypairs/0` exactly once. The function:
+
+1. Selects every bot user whose `wallet_address` is not a valid 32-byte base58 Solana pubkey (i.e. legacy `0x...` EVM addresses).
+2. Generates a fresh ed25519 keypair for each via `SolanaWalletCrypto.generate_keypair/0`.
+3. Updates `users.wallet_address` (base58 pubkey) and `users.bot_private_key` (base58 64-byte secret) in Postgres.
+4. Deletes the bot's stale `user_solana_balances` Mnesia row (the cached SOL/BUX balance belonged to the orphaned EVM wallet).
+
+This runs ~30 seconds after the main app boots (the coordinator's `:initialize` delay). The rotation is **idempotent** — once every bot has a Solana wallet, every subsequent boot returns `{:ok, 0}` and is a no-op. No manual action required.
+
+**Cost**: ~2 SOL one-time, charged to the authority wallet (`6b4n...`) as the rate-limited bot mint queue creates ATAs for the 1000 rotated bots over the following minutes/hours. The mint queue runs at one mint per 500ms, so the surge is paced — not a single burst.
+
+**Confirm rotation succeeded** (see [Step 8](#step-8-post-deploy-verification)).
+
 ---
 
 ## Step 8: Post-Deploy Verification
@@ -415,6 +436,49 @@ curl https://blockster.com
 4. **Coin Flip**: Go to `/play` → place a SOL bet → verify game works
 5. **Pool**: Go to `/pool` → deposit SOL → verify LP tokens received
 6. **Airdrop**: Go to `/airdrop` → verify page loads (round must be started first)
+
+### Verify Bot Wallet Rotation
+
+Confirm `BotCoordinator` rotated the bot wallets on first boot:
+
+```bash
+flyctl logs --app blockster-v2 | grep -i "Rotated.*bot wallets"
+```
+
+Expected log line (~30s after the first machine started):
+```
+[BotCoordinator] Rotated 1000 bot wallets from EVM → Solana
+```
+
+Then verify in the database that all bot wallets are Solana base58 (no `0x` prefix):
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query
+total = Repo.one(from u in User, where: u.is_bot == true, select: count(u.id))
+evm_remaining = Repo.one(from u in User, where: u.is_bot == true and like(u.wallet_address, \"0x%\"), select: count(u.id))
+IO.puts(\"Total bots: #{total}, EVM remaining: #{evm_remaining}\")
+'"
+```
+
+Expected: `Total bots: 1000, EVM remaining: 0`. If `EVM remaining > 0`, check the logs for `[BotSetup] Failed to rotate bot N` errors and re-run rotation manually:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'BlocksterV2.BotSystem.BotSetup.rotate_to_solana_keypairs() |> IO.inspect()'"
+```
+
+Finally, verify a bot mint actually landed on-chain by picking any bot and checking its Solana balance:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query
+user = Repo.one(from u in User, where: u.is_bot == true, limit: 1)
+IO.puts(\"Bot wallet: #{user.wallet_address}\")
+BlocksterV2.BuxMinter.get_balance(user.wallet_address) |> IO.inspect()
+'"
+```
+
+After ~10 minutes of bot reads landing, this should show non-zero `bux` balance and a Solscan-visible tx history.
 
 ### Start First Airdrop Round (optional)
 

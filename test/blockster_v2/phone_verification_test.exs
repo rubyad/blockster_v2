@@ -338,4 +338,68 @@ defmodule BlocksterV2.PhoneVerificationTest do
       assert %{phone_number: ["This phone number is already registered"]} = errors_on(changeset)
     end
   end
+
+  describe "phone reclaim (check_phone_reclaimable/2)" do
+    setup do
+      active_user = create_user()
+      legacy_user = create_user(%{is_active: false})
+      new_user = create_user()
+      {:ok, active_user: active_user, legacy_user: legacy_user, new_user: new_user}
+    end
+
+    test "no existing row → available", %{new_user: new_user} do
+      assert {:ok, :phone_available} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558881111")
+    end
+
+    test "phone owned by self → available", %{new_user: new_user} do
+      {:ok, _} =
+        Repo.insert(%PhoneVerificationSchema{
+          user_id: new_user.id,
+          phone_number: "+15558882222",
+          country_code: "US",
+          geo_tier: "premium",
+          geo_multiplier: Decimal.new("2.0")
+        })
+
+      assert {:ok, :phone_available} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558882222")
+    end
+
+    test "phone owned by an active user → blocked", %{
+      active_user: active_user,
+      new_user: new_user
+    } do
+      {:ok, _} =
+        Repo.insert(%PhoneVerificationSchema{
+          user_id: active_user.id,
+          phone_number: "+15558883333",
+          country_code: "US",
+          geo_tier: "premium",
+          geo_multiplier: Decimal.new("2.0")
+        })
+
+      assert {:error, message} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558883333")
+
+      assert message =~ "already registered"
+    end
+
+    test "phone owned by a deactivated legacy user → reclaimable", %{
+      legacy_user: legacy_user,
+      new_user: new_user
+    } do
+      {:ok, _} =
+        Repo.insert(%PhoneVerificationSchema{
+          user_id: legacy_user.id,
+          phone_number: "+15558884444",
+          country_code: "US",
+          geo_tier: "premium",
+          geo_multiplier: Decimal.new("2.0")
+        })
+
+      assert {:ok, :phone_reclaimable} =
+               PhoneVerification.check_phone_reclaimable(new_user.id, "+15558884444")
+    end
+  end
 end

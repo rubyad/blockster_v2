@@ -125,10 +125,19 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
         Process.send_after(self(), :initialize, :timer.seconds(60))
         {:noreply, %{state | initialized: false}}
       else
+        # Idempotent migration: rotate any bot wallets that aren't yet
+        # Solana base58 pubkeys (e.g. legacy EVM 0x addresses) onto fresh
+        # ed25519 keypairs. On every subsequent boot this is a no-op.
+        case BotSetup.rotate_to_solana_keypairs() do
+          {:ok, 0} -> :ok
+          {:ok, count} ->
+            Logger.info("[BotCoordinator] Rotated #{count} bot wallets from EVM → Solana")
+        end
+
         active_count = get_config(:active_bot_count, 300)
         active_ids = bot_ids |> Enum.shuffle() |> Enum.take(active_count) |> MapSet.new()
 
-        # Build cache of bot smart wallets
+        # Build cache of bot wallets (Solana base58 pubkeys, post-rotation)
         cache = build_bot_cache(bot_ids)
 
         # Subscribe to post published and pool deposit events
@@ -541,11 +550,11 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
     users = Repo.all(
       from u in User,
         where: u.id in ^bot_ids,
-        select: {u.id, u.smart_wallet_address}
+        select: {u.id, u.wallet_address}
     )
 
-    Map.new(users, fn {id, smart_wallet} ->
-      {id, %{smart_wallet_address: smart_wallet}}
+    Map.new(users, fn {id, wallet} ->
+      {id, %{wallet_address: wallet}}
     end)
   end
 
@@ -651,7 +660,7 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
 
   defp process_mint_job(job) do
     bot_cache = get_bot_cache_entry(job.user_id)
-    wallet = bot_cache && bot_cache.smart_wallet_address
+    wallet = bot_cache && bot_cache.wallet_address
 
     if wallet do
       case BuxMinter.mint_bux(wallet, job.amount, job.user_id, job.post_id, job.reward_type) do
@@ -690,9 +699,9 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
     alias BlocksterV2.Accounts.User
     import Ecto.Query
 
-    case Repo.one(from u in User, where: u.id == ^user_id, select: u.smart_wallet_address) do
+    case Repo.one(from u in User, where: u.id == ^user_id, select: u.wallet_address) do
       nil -> nil
-      address -> %{smart_wallet_address: address}
+      address -> %{wallet_address: address}
     end
   end
 

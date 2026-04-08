@@ -16,6 +16,8 @@ export const SolanaWallet = {
 
     this._wallets = []
     this._connectedWallet = null
+    this._connectedAccount = null
+    this._unsubscribeAccountChange = null
     this._autoReconnectPending = true
 
     this._discoverWallets()
@@ -30,6 +32,19 @@ export const SolanaWallet = {
     this._onVisibility = () => {
       if (document.visibilityState !== "visible") return
       if (this._connectedWallet && this._connectedAccount) {
+        // Re-query the wallet's CURRENT account before pushing reconnect.
+        // The user may have switched accounts in their wallet extension while
+        // the tab was hidden.
+        const currentAccount = this._currentWalletAccount()
+        if (!currentAccount) {
+          // Wallet revoked authorization while tab was hidden
+          this._handleExternalDisconnect()
+          return
+        }
+        if (currentAccount.address !== this._connectedAccount.address) {
+          this._handleAccountChange(currentAccount)
+          return
+        }
         this.pushEvent("wallet_reconnected", {
           pubkey: this._connectedAccount.address,
           wallet_name: this._connectedWallet.name,
@@ -43,6 +58,18 @@ export const SolanaWallet = {
 
   reconnected() {
     if (this._connectedWallet && this._connectedAccount) {
+      // Mirror the visibilitychange logic — re-query the wallet for its
+      // current account in case the user switched accounts while the
+      // WebSocket was disconnected.
+      const currentAccount = this._currentWalletAccount()
+      if (!currentAccount) {
+        this._handleExternalDisconnect()
+        return
+      }
+      if (currentAccount.address !== this._connectedAccount.address) {
+        this._handleAccountChange(currentAccount)
+        return
+      }
       this.pushEvent("wallet_reconnected", {
         pubkey: this._connectedAccount.address,
         wallet_name: this._connectedWallet.name,
@@ -54,6 +81,10 @@ export const SolanaWallet = {
 
   destroyed() {
     if (this._unsubscribe) this._unsubscribe()
+    if (this._unsubscribeAccountChange) {
+      try { this._unsubscribeAccountChange() } catch (_) {}
+      this._unsubscribeAccountChange = null
+    }
     if (this._onVisibility) document.removeEventListener("visibilitychange", this._onVisibility)
     this._connectedWallet = null
     this._connectedAccount = null
@@ -125,6 +156,7 @@ export const SolanaWallet = {
       this._connectedWallet = wallet
       this._connectedAccount = account
       window.__solanaWallet = wallet
+      this._subscribeWalletEvents(wallet)
 
       // Do NOT write localStorage here — wait for persist_session (after SIWS verification)
       this.pushEvent("wallet_connected", {
@@ -135,6 +167,86 @@ export const SolanaWallet = {
       console.error("SolanaWallet: connect failed", e)
       this.pushEvent("wallet_error", { error: e.message || "Connection rejected" })
     }
+  },
+
+  // Subscribe to the wallet's `standard:events` so we get notified when the
+  // user switches accounts inside the wallet extension (Phantom etc.) or when
+  // they revoke authorization. The wallet emits a `change` event with the
+  // properties that changed (accounts, chains, features).
+  _subscribeWalletEvents(wallet) {
+    if (this._unsubscribeAccountChange) {
+      try { this._unsubscribeAccountChange() } catch (_) {}
+      this._unsubscribeAccountChange = null
+    }
+
+    const eventsFeature = wallet.features?.["standard:events"]
+    if (!eventsFeature || typeof eventsFeature.on !== "function") return
+
+    try {
+      this._unsubscribeAccountChange = eventsFeature.on("change", (props) => {
+        // Only react to account changes — ignore chain/feature changes
+        if (!props || !("accounts" in props)) return
+
+        const newAccount = (props.accounts || [])[0]
+        if (!newAccount) {
+          // Wallet revoked all accounts → user disconnected from extension
+          this._handleExternalDisconnect()
+          return
+        }
+
+        if (!this._connectedAccount || newAccount.address !== this._connectedAccount.address) {
+          this._handleAccountChange(newAccount)
+        }
+      })
+    } catch (e) {
+      console.warn("SolanaWallet: failed to subscribe to wallet events", e)
+    }
+  },
+
+  // Helper: read the wallet's current first account directly from the wallet
+  // object (used by the visibilitychange path to detect background switches)
+  _currentWalletAccount() {
+    if (!this._connectedWallet) return null
+    try {
+      const accounts = this._connectedWallet.accounts || []
+      return accounts[0] || null
+    } catch (_) {
+      return null
+    }
+  },
+
+  // User switched accounts inside their wallet extension. Treat this as a
+  // fresh sign-in for the new pubkey: clear the stale session, update local
+  // state, and push wallet_connected so the server kicks off a new SIWS.
+  _handleAccountChange(newAccount) {
+    this._connectedAccount = newAccount
+    try {
+      // Stale localStorage points at the old pubkey — wipe it so a refresh
+      // doesn't auto-reconnect to the wrong account
+      localStorage.removeItem(STORAGE_KEY)
+    } catch (_) {}
+    // Tell server to clear its session for the previous wallet
+    this._clearSession()
+    // Then start a fresh SIWS for the new account
+    this.pushEvent("wallet_connected", {
+      pubkey: newAccount.address,
+      wallet_name: this._connectedWallet.name,
+    })
+  },
+
+  // Wallet extension revoked authorization while we still thought we were
+  // connected. Mirror a normal disconnect on both client and server.
+  _handleExternalDisconnect() {
+    this._connectedWallet = null
+    this._connectedAccount = null
+    window.__solanaWallet = null
+    if (this._unsubscribeAccountChange) {
+      try { this._unsubscribeAccountChange() } catch (_) {}
+      this._unsubscribeAccountChange = null
+    }
+    try { localStorage.removeItem(STORAGE_KEY) } catch (_) {}
+    this._clearSession()
+    this.pushEvent("wallet_disconnected", {})
   },
 
   async _handleSign({ message, nonce }) {
@@ -161,6 +273,10 @@ export const SolanaWallet = {
   },
 
   async _handleDisconnect() {
+    if (this._unsubscribeAccountChange) {
+      try { this._unsubscribeAccountChange() } catch (_) {}
+      this._unsubscribeAccountChange = null
+    }
     if (this._connectedWallet) {
       try {
         const disconnectFeature = this._connectedWallet.features["standard:disconnect"]
@@ -195,14 +311,20 @@ export const SolanaWallet = {
       this._connectedWallet = wallet
       this._connectedAccount = account
       window.__solanaWallet = wallet
+      this._subscribeWalletEvents(wallet)
 
       if (account.address !== stored.address) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            name: wallet.name,
-            address: account.address,
-          }))
-        } catch (_) {}
+        // User switched accounts in the wallet between page loads — treat as a
+        // fresh sign-in (force SIWS for the new pubkey) instead of silent
+        // reconnect, which would otherwise leave the server session pointing
+        // at the previous wallet.
+        try { localStorage.removeItem(STORAGE_KEY) } catch (_) {}
+        this._clearSession()
+        this.pushEvent("wallet_connected", {
+          pubkey: account.address,
+          wallet_name: wallet.name,
+        })
+        return
       }
 
       this.pushEvent("wallet_reconnected", {
@@ -231,7 +353,7 @@ export const SolanaWallet = {
     }
   },
 
-  _persistSession(walletAddress) {
+  async _persistSession(walletAddress) {
     if (this._connectedWallet) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -241,13 +363,26 @@ export const SolanaWallet = {
       } catch (_) {}
     }
 
+    let isNewUser = false
     const csrf = document.querySelector("meta[name='csrf-token']")?.content
-    if (!csrf) return
-    fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ wallet_address: walletAddress }),
-    }).catch(() => {})
+    if (csrf) {
+      try {
+        // AWAIT the fetch so the session cookie is guaranteed to be set
+        // before the server fires `:wallet_authenticated` (which may
+        // push_navigate to a new live_session). Otherwise the next page
+        // load races the cookie write and current_user comes back nil.
+        const resp = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-csrf-token": csrf },
+          body: JSON.stringify({ wallet_address: walletAddress }),
+        })
+        if (resp.ok) {
+          const json = await resp.json()
+          isNewUser = !!json.is_new_user
+        }
+      } catch (_) {}
+    }
+    this.pushEvent("session_persisted", { wallet_address: walletAddress, is_new_user: isNewUser })
   },
 
   _clearSession() {
