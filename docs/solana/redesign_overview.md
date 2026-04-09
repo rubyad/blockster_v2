@@ -1,6 +1,8 @@
 # Blockster Redesign — Project Overview
 
 > The north-star doc for the design refresh that started as a small sidebar-widget integration and quietly grew into a full design-language overhaul. Read this first; it explains what we're doing, how we got here, and the order in which everything happens.
+>
+> **For design tokens, typography, the canonical CSS template, component patterns, conventions, and rejected approaches, read [`design_system.md`](design_system.md).** That doc is the spec. This doc is the project plan.
 
 ---
 
@@ -109,67 +111,6 @@ We'll mock both states in the same file.
 
 ---
 
-## Order of operations (current → eventual)
-
-```
-NOW          ↓
-─────────────────────────────────────────────────────────
-Phase 1 — Mocks (in order)
-  [done]     Article page mock         (realtime_widgets_mock.html)
-  [next]     Homepage mock             (homepage_mock.html)
-             Hub page mock             (hub_mock.html)
-             Profile mock              (profile_mock.html)
-             Shop / Product mock       (shop_mock.html, product_mock.html)
-             Pool index + detail mocks (pool_mock.html)
-             Play / Coin Flip mock     (play_mock.html)
-             Airdrop mock              (airdrop_mock.html)
-             Category mock             (category_mock.html)
-             Member mock               (member_mock.html)
-─────────────────────────────────────────────────────────
-Phase 1.5 — Doc split
-             Split realtime_widgets_plan.md into widget-only + redesign plans
-             Write design_system.md based on the union of all mocks
-             Write per-page redesign plans (article, homepage, hub, etc.)
-─────────────────────────────────────────────────────────
-Phase 2 — Component extraction
-             Build lib/blockster_v2_web/components/design_system/
-               header.ex
-               footer.ex
-               article_byline.ex
-               earned_pill.ex
-               earning_panel.ex
-               ad_banner.ex (inline_dark | split_bottom | portrait | follow_strip)
-               post_card.ex (small | medium | large | hero variants)
-               hub_card.ex
-               hub_badge.ex
-               suggest_card.ex
-               drop_cap.ex
-               sponsored_label.ex
-               (+ any new components discovered in later mocks)
-─────────────────────────────────────────────────────────
-Phase 3 — Build (page by page, behind feature flag)
-             Article page redesign (preserves all existing LiveView state)
-             Homepage redesign
-             Hub page
-             Profile
-             Shop
-             Pool
-             Play
-             Airdrop
-             Category
-             Member
-─────────────────────────────────────────────────────────
-Phase 4 — Sister-project widgets (the original ask)
-             FateSwap API endpoint
-             RogueTrader API endpoint
-             Blockster pollers (GlobalSingleton)
-             Widget Phoenix components
-             Widget JS hooks
-             Wire into the redesigned article page sidebars
-─────────────────────────────────────────────────────────
-LATER        ↓
-```
-
 The widgets are at the END of the build sequence on purpose. They live inside the redesigned article page, so they get built once on top of stable foundations rather than twice (once on the old page, once on the new page).
 
 ---
@@ -187,14 +128,88 @@ The unusual thing about this project is that the design language emerged from th
 
 ---
 
-## What happens next
+## Mocks status · what's done and what's next
 
-1. Write `docs/homepage_mock.html` per the locked-in directional decisions above.
-2. Iterate with the user until signed off.
-3. Pick the next page (probably Hub, since it's the next-most-trafficked reading surface) and mock it.
-4. Repeat until all pages are mocked.
-5. Then split the docs and start Phase 2.
+> **Read [`design_system.md`](design_system.md) first.** It captures every reusable pattern, the canonical CSS template, color tokens, conventions, and the things we tried and rejected. A new session can read that doc + one example mock and produce a stylistically consistent next page.
+
+### Done ✓
+
+- [x] **Article page** → `realtime_widgets_mock.html` (drop caps, ad banner system, sister-project widgets in sidebars, BUX earning UI, suggested reading)
+- [x] **Homepage** → `homepage_mock.html` (anonymous lead with Connect Wallet header, magazine-cover featured story, AI × Crypto category row, trending mosaic, hub showcase, dedicated videos section, logged-in additions)
+- [x] **Hubs index** → `hubs_index_mock.html` (featured hub strip, sticky search + category chips, 4-col hub grid)
+- [x] **Hub show** (Moonpay example) → `hub_show_mock.html` (full-bleed brand banner, sticky tab nav, pinned post, mosaic, authors, hub-sponsored ad)
+- [x] **Profile** → `profile_mock.html` (identity hero, 3 stat cards, multiplier breakdown, all 5 stacked tab states: Activity / Following / Refer / Rewards / Settings)
+- [x] **Play** (Coin Flip) → `play_mock.html` (3 stacked states: Place bet / In progress / Result win+loss, stylized H/T coin design, recent games table)
+- [x] **Pool index** → `pool_index_mock.html` (two big vault cards SOL + BUX, how it works 3-step, cross-pool activity)
+- [x] **Pool detail** (SOL pool example) → `pool_detail_mock.html` (brand banner, sticky order form with deposit/withdraw tabs, LP price chart, 8-stat grid, activity table)
+
+### Remaining ☐
+
+**Hub show — additional tab states**
+- [ ] Update `hub_show_mock.html` to add stacked tab states for the remaining tabs (currently only the **All** tab is shown). Add: News, Videos, Long reads, Shop (hub-specific products), Events, Authors (full author roster), About (full hub bio + team + links). Use the `state-divider` pattern with mono labels above each tab state. The Moonpay example should remain consistent throughout.
+
+
+**Shop**
+- [ ] `shop_index_mock.html` — main shop page (product grid, category filters, featured products, BUX/Helio price toggle, trending strip)
+- [ ] `product_detail_mock.html` — single product page (image gallery, variants/sizes, description, BUX vs Helio payment, reviews, related products, partner hub badge if applicable)
+- [ ] `cart_mock.html` — cart drawer or page (line items, totals, BUX balance check, proceed to checkout)
+- [ ] `checkout_mock.html` — multi-step checkout (shipping, payment method selector — BUX or Helio, order confirmation, all states)
+
+**Airdrop**
+- [ ] `airdrop_mock.html` — airdrop page (current round, prize pool, your entries, recent winners, deposit BUX to enter, history of past rounds)
+
+**Token Sales** *(new section requested)*
+- [ ] `token_sales_index_mock.html` — index of upcoming token sales (cards with project name, brand color, raise target, allocation type, countdown, "Register" CTA)
+- [ ] `token_sale_detail_mock.html` — single sale page (project hero, tokenomics, schedule, allocation tiers, your entry status, FAQ)
+- [ ] **Plus**: add a token sales promo strip section to `homepage_mock.html` showing the next 2-3 upcoming sales
+
+**Categories + Tags** *(new section requested)*
+- [ ] `category_mock.html` — category browse page (e.g. /category/defi) — filtered post grid with category-specific styling, related categories, featured author in this category
+- [ ] `tag_mock.html` — tag browse page (e.g. /tag/solana) — similar to category but for free-form tags
+
+**Member**
+- [ ] `member_public_mock.html` — public-facing member page (`/member/:slug` viewed by someone else, not the owner) — author bio, post count, BUX earned, reading streak, recent published articles, social links, follow button. Distinct from `profile_mock.html` which is the owner-only view.
+
+**Wallet UI** *(new request)*
+- [ ] `wallet_modal_mock.html` — wallet connect modal that appears when "Connect Wallet" is clicked, showing Phantom / Solflare / Backpack with logos and connect buttons. Could be a standalone mock or included as a state in the homepage mock.
+
+### After all mocks are done
+
+- Split `realtime_widgets_plan.md` into widget-only plan (what stays) + redesign plans per page
+- Update `design_system.md` if any new patterns emerged during the remaining mocks
+- Start Phase 2 (component extraction in `lib/blockster_v2_web/components/design_system/`)
 
 ---
 
-*Last updated when this doc was created. Update the "Order of operations" section as mocks complete.*
+## Order of operations (current → eventual)
+
+```
+NOW          ↓
+─────────────────────────────────────────────────────────
+Phase 1 — Mocks (in progress)
+  [done]     Article page · Home · Hubs index · Hub show · Profile · Play · Pool index · Pool detail
+  [next]     Shop main · Product · Cart · Checkout
+             Airdrop
+             Token sales index · Token sale detail · homepage promo strip
+             Category · Tag
+             Public member page
+             Wallet connect modal
+─────────────────────────────────────────────────────────
+Phase 1.5 — Doc split + design system finalization
+             Split realtime_widgets_plan.md into widget-only + redesign plans
+             Finalize design_system.md
+             Write per-page redesign plans
+─────────────────────────────────────────────────────────
+Phase 2 — Component extraction
+             Build lib/blockster_v2_web/components/design_system/
+─────────────────────────────────────────────────────────
+Phase 3 — Build (page by page, behind feature flag)
+─────────────────────────────────────────────────────────
+Phase 4 — Sister-project widgets
+─────────────────────────────────────────────────────────
+LATER        ↓
+```
+
+---
+
+*Last updated 2026-04-09. Update the "Mocks status" checklist as mocks complete.*
