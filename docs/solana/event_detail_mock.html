@@ -8,10 +8,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Two stacked states:
-       1. Free meetup (Moonpay × Solana NYC happy hour) — RSVP card on the right
-       2. Paid music event (Memetic AI Berlin warehouse rave) — ticket card with
-          tier selector + BUX discount input. Both share the brand-banner pattern. -->
+  <!-- POSTER LAYOUT — distinct from hub show + token sale detail.
+
+       No brand-color full-bleed banner. Instead: full-container poster image
+       up top, massive date tile overhanging the bottom-left, huge editorial
+       title below, 3 stat cards in a row, vertical-timeline agenda, polaroid-
+       style speakers, sticky enrollment card on a clean white page.
+
+       Two stacked states:
+       1. Free meetup (Moonpay × Solana NYC happy hour)
+       2. Paid music event (Memetic AI synth night Berlin) with BUX discount -->
   <style>
     :root {
       --bg-page: #fafaf9;
@@ -30,70 +36,51 @@
     .header-bg { background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); }
     .profile-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; }
     .author-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 700; }
+
     @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.15); } }
     .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
     .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; color: var(--text-primary); }
     .eyebrow { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
 
-    /* Brand banner — uses --evt-primary / --evt-secondary set per state */
-    .event-banner {
-      background: linear-gradient(135deg, var(--evt-primary) 0%, var(--evt-secondary) 100%);
-      position: relative;
-      overflow: hidden;
-    }
-    .event-banner::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10) 1.5px, transparent 1.5px);
-      background-size: 32px 32px;
-      pointer-events: none;
-    }
-    .event-banner::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 50%;
-      height: 100%;
-      background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);
-      pointer-events: none;
-    }
-
-    /* Date tile */
-    .date-tile {
+    /* Massive date tile — the signature events component, larger than ever */
+    .date-tile-massive {
       background: white;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      border-radius: 18px;
-      padding: 10px 18px 14px;
-      box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.25), 0 4px 8px -2px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 24px;
+      padding: 18px 32px 24px;
+      box-shadow:
+        0 40px 80px -20px rgba(0, 0, 0, 0.45),
+        0 16px 32px -10px rgba(0, 0, 0, 0.20),
+        0 0 0 1px rgba(255, 255, 255, 0.6) inset;
       text-align: center;
-      min-width: 88px;
+      min-width: 168px;
       font-family: 'Inter', sans-serif;
     }
-    .date-tile .month {
-      font-size: 11px;
+    .date-tile-massive .month {
+      font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: #C73E1D;
       line-height: 1;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
-    .date-tile .day {
+    .date-tile-massive .day {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 38px;
+      font-size: 72px;
       font-weight: 700;
       color: #141414;
-      line-height: 1.05;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
     }
-    .date-tile .weekday {
-      font-size: 10px;
-      font-weight: 500;
-      color: #9CA3AF;
-      letter-spacing: 0.1em;
+    .date-tile-massive .weekday {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6B7280;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      margin-top: 4px;
+      margin-top: 8px;
     }
 
     .price-badge {
@@ -101,24 +88,113 @@
       align-items: center;
       gap: 4px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.06em;
-      padding: 4px 9px;
+      padding: 6px 12px;
       border-radius: 999px;
       text-transform: uppercase;
     }
     .price-badge.free { background: #CAFC00; color: #141414; }
     .price-badge.paid { background: #141414; color: white; }
 
-    .sticky-rsvp {
-      position: sticky;
-      top: 100px;
-      align-self: flex-start;
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 999px;
     }
 
-    .going-bar { background: #f3f4f6; border-radius: 999px; height: 6px; overflow: hidden; }
-    .going-fill { height: 100%; border-radius: 999px; background: #141414; }
+    /* Vertical timeline agenda */
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(to bottom, #e5e5e2, #f3f4f6 90%, transparent);
+    }
+    .timeline-item {
+      position: relative;
+      padding-bottom: 28px;
+    }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -32px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: white;
+      border: 2px solid #141414;
+      box-shadow: 0 0 0 4px var(--bg-page);
+    }
+    .timeline-item.active::before {
+      background: #CAFC00;
+    }
+    .timeline-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #C73E1D;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .timeline-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: #141414;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+    .timeline-body {
+      font-size: 13px;
+      color: #6B7280;
+      line-height: 1.55;
+      max-width: 460px;
+    }
+
+    /* Polaroid speaker card */
+    .polaroid {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 10px 10px 14px;
+      border-radius: 4px;
+      box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.18), 0 6px 12px -4px rgba(0, 0, 0, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .polaroid:hover {
+      transform: translateY(-3px) rotate(0deg);
+      box-shadow: 0 28px 50px -20px rgba(0, 0, 0, 0.22), 0 10px 18px -6px rgba(0, 0, 0, 0.10);
+    }
+    .polaroid-photo {
+      aspect-ratio: 1 / 1;
+      background: linear-gradient(135deg, #2a2a35, #0a0a0a);
+      border-radius: 2px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 12px;
+    }
+    .polaroid:nth-child(odd)  { transform: rotate(-1deg); }
+    .polaroid:nth-child(even) { transform: rotate(0.8deg); }
+
+    .sticky-rsvp { position: sticky; top: 100px; align-self: flex-start; }
 
     /* State divider */
     .state-divider {
@@ -155,19 +231,10 @@
       transition: border-color 0.15s ease, background-color 0.15s ease;
     }
     .tier-card:hover { border-color: #141414; }
-    .tier-card.active {
-      border-color: #141414;
-      background: #fafaf9;
-    }
+    .tier-card.active { border-color: #141414; background: #fafaf9; }
 
-    .agenda-row {
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 18px;
-      padding: 14px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    .agenda-row:last-child { border-bottom: 0; }
+    .going-bar { background: #f3f4f6; border-radius: 999px; height: 6px; overflow: hidden; }
+    .going-fill { height: 100%; border-radius: 999px; background: #141414; }
 
     .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   </style>
@@ -215,189 +282,204 @@
        STATE 1 — FREE MEETUP (Moonpay × Solana NYC happy hour)
   ═════════════════════════════════════════════════════════════════ -->
 
-  <section class="event-banner text-white" style="--evt-primary: #7D00FF; --evt-secondary: #4A00B8;">
-    <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
-
-      <div class="mb-7 flex items-center gap-2 text-[11px] text-white/60 font-haas">
-        <a href="#" class="hover:text-white transition-colors">Events</a>
-        <span>/</span>
-        <span class="text-white/85">Moonpay × Solana NYC happy hour</span>
-      </div>
-
-      <div class="grid grid-cols-12 gap-8 items-start">
-
-        <div class="col-span-12 md:col-span-7">
-
-          <div class="flex items-start gap-5 mb-6">
-            <div class="date-tile">
-              <div class="month">APR</div>
-              <div class="day">22</div>
-              <div class="weekday">TUE</div>
-            </div>
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-[10px] uppercase tracking-[0.16em] text-white/65 font-haas-bold">Hosted by Moonpay</span>
-                <span class="price-badge free">Free meetup</span>
-              </div>
-              <h1 class="font-haas-bold text-[44px] md:text-[56px] tracking-[-0.025em] leading-[1.0]">Moonpay × Solana NYC happy hour</h1>
-            </div>
-          </div>
-
-          <p class="text-white/85 text-[16px] leading-[1.55] font-haas max-w-[640px] mb-7">
-            Drinks, talks, and product demos with the Moonpay team and the Solana Foundation. 200 spots, RSVP required, dress code casual. Free for Blockster members.
-          </p>
-
-          <!-- Key info row -->
-          <div class="flex items-start flex-wrap gap-x-8 gap-y-4">
-            <div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 font-haas-bold mb-1.5">Time</div>
-              <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-white/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span class="font-mono text-[15px] font-bold text-white">6:00 PM</span>
-              </div>
-              <div class="text-[11px] text-white/60 font-haas mt-1">3 hours · ends 9:00 PM</div>
-            </div>
-            <div class="w-px h-12 bg-white/15 mt-1"></div>
-            <div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 font-haas-bold mb-1.5">Where</div>
-              <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-white/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span class="font-haas-bold text-[15px] text-white">Soho House Meatpacking</span>
-              </div>
-              <div class="text-[11px] text-white/60 font-haas mt-1">29-35 9th Ave · New York, NY</div>
-            </div>
-            <div class="w-px h-12 bg-white/15 mt-1"></div>
-            <div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 font-haas-bold mb-1.5">Capacity</div>
-              <div class="flex items-baseline gap-1.5">
-                <span class="font-mono font-bold text-[18px] text-white">142</span>
-                <span class="text-white/60 text-[11px]">/ 200 going</span>
-              </div>
-              <div class="text-[11px] text-white/60 font-haas mt-1">58 spots left</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: live going widget -->
-        <div class="col-span-12 md:col-span-5 mt-2">
-          <div class="bg-white/[0.07] backdrop-blur rounded-2xl p-5 ring-1 ring-white/15 shadow-2xl">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
-                <span class="text-[9px] font-haas-bold uppercase tracking-[0.14em] text-white/85">Recent RSVPs</span>
-              </div>
-              <span class="text-[9px] font-mono text-white/45">live</span>
-            </div>
-            <div class="space-y-3">
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">SK</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Sara K. is going</div>
-                  <div class="text-[9px] text-white/45 font-mono">1 minute ago</div>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">JC</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Jamie Chen is going · +1 guest</div>
-                  <div class="text-[9px] text-white/45 font-mono">8 minutes ago</div>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">DK</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Daniyar K. is going</div>
-                  <div class="text-[9px] text-white/45 font-mono">14 minutes ago</div>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-[#CAFC00] grid place-items-center text-[10px] font-haas-bold text-black">+5</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">5 more RSVPs in the last hour</div>
-                  <div class="text-[9px] text-white/45 font-mono">trending up</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <main class="max-w-[1280px] mx-auto px-6">
 
-    <section class="py-10">
-      <div class="grid grid-cols-12 gap-8">
+    <!-- Breadcrumb -->
+    <nav class="pt-8 pb-4 flex items-center gap-2 text-[11px] text-neutral-500 font-haas">
+      <a href="#" class="hover:text-[#141414]">Events</a>
+      <span>/</span>
+      <span class="text-[#141414]">Moonpay × Solana NYC happy hour</span>
+    </nav>
 
-        <!-- LEFT — Body content -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         POSTER HERO — image with overhanging date tile
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-24">
+      <div class="aspect-[21/9] rounded-3xl overflow-hidden relative ring-1 ring-black/5 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.25)]">
+        <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1800&q=85&auto=format&fit=crop" alt="" class="w-full h-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-tr from-black/55 via-black/15 to-transparent"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/35"></div>
+
+        <!-- Top-left: live going indicator -->
+        <div class="absolute top-6 left-6 md:top-8 md:left-8">
+          <div class="live-pill">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+            142 going · 58 spots left
+          </div>
+        </div>
+
+        <!-- Top-right: free badge + share -->
+        <div class="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2">
+          <span class="price-badge free">Free meetup</span>
+          <button class="w-9 h-9 rounded-full bg-black/60 backdrop-blur ring-1 ring-white/20 grid place-items-center hover:bg-black/80 transition-colors">
+            <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
+
+        <!-- Bottom-left: hub credit -->
+        <div class="absolute bottom-6 right-6 md:bottom-8 md:right-8">
+          <div class="inline-flex items-center gap-2 bg-black/60 backdrop-blur ring-1 ring-white/15 rounded-full px-3 py-1.5">
+            <div class="w-5 h-5 rounded bg-[#7D00FF] grid place-items-center"><svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>
+            <span class="text-[11px] font-haas-bold text-white">Hosted by Moonpay</span>
+          </div>
+        </div>
+
+        <!-- Massive date tile, overhanging the bottom-left -->
+        <div class="absolute -bottom-12 left-8 md:left-16">
+          <div class="date-tile-massive">
+            <div class="month">APR</div>
+            <div class="day">22</div>
+            <div class="weekday">TUESDAY</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         TITLE BLOCK
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-10">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-8">
+          <div class="eyebrow mb-3">New York · 6:00 PM start</div>
+          <h1 class="article-title text-[56px] md:text-[80px] leading-[0.94] mb-5">Moonpay × Solana NYC happy hour</h1>
+          <p class="text-[18px] text-neutral-600 font-haas leading-[1.5] max-w-[640px]">
+            Drinks, talks, and product demos with the Moonpay team and the Solana Foundation. Free for Blockster members — RSVP your spot.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-4 flex flex-wrap gap-2 md:justify-end">
+          <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Add to calendar
+          </button>
+          <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-3 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors" title="Share">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         3 STAT CARDS (replaces banner stat row)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-12">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="eyebrow mb-1">When</div>
+              <div class="font-mono font-bold text-[22px] text-[#141414] leading-none mb-1">6:00 PM</div>
+              <div class="text-[11px] text-neutral-500 font-haas">3 hours · ends 9:00 PM EDT</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="eyebrow mb-1">Where</div>
+              <div class="font-haas-bold text-[15px] text-[#141414] leading-tight mb-1">Soho House Meatpacking</div>
+              <div class="text-[11px] text-neutral-500 font-haas">29-35 9th Ave · NYC</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-1">
+                <div class="eyebrow">Capacity</div>
+                <span class="font-mono text-[10px] text-neutral-500">71%</span>
+              </div>
+              <div class="font-mono font-bold text-[20px] text-[#141414] leading-none mb-2"><span class="text-[#15803d]">142</span> / 200 going</div>
+              <div class="going-bar"><div class="going-fill" style="width: 71%;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         BODY + STICKY ENROLLMENT
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-12">
+      <div class="grid grid-cols-12 gap-10">
+
+        <!-- LEFT — body -->
         <div class="col-span-12 md:col-span-7">
 
           <!-- About -->
           <div class="mb-12">
             <div class="eyebrow mb-3">About this event</div>
             <h2 class="article-title text-[36px] mb-6">An evening with the Moonpay product team</h2>
-            <div class="space-y-4 text-[15px] text-neutral-700 leading-[1.7] font-haas max-w-[640px]">
+            <div class="space-y-4 text-[15px] text-neutral-700 leading-[1.7] font-haas">
               <p>Once a quarter the Moonpay team takes over the Soho House rooftop in Meatpacking, opens the bar, and lets the Solana NYC community ask anything. This time we're focused on the new card flow and what it means for stablecoin payouts in emerging markets.</p>
               <p>Two short talks (15 minutes each, max). The rest of the night is drinks, demos, and the kind of conversations you only have when everyone in the room actually ships things.</p>
               <p>Casual dress. Bring a friend (just RSVP a +1). The first 50 people through the door get a Moonpay × Blockster pin.</p>
             </div>
           </div>
 
-          <!-- Agenda -->
+          <!-- Agenda — VERTICAL TIMELINE -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
-            <div class="eyebrow mb-3">Agenda</div>
-            <h2 class="section-title text-[24px] mb-5">Run of show</h2>
-            <div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">6:00 — 6:30</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Doors open · drinks</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Sign in at the front, grab a drink, find a friend.</div>
-                </div>
+            <div class="eyebrow mb-3">Run of show · 3 hours</div>
+            <h2 class="article-title text-[36px] mb-8">Agenda</h2>
+            <div class="timeline">
+              <div class="timeline-item active">
+                <div class="timeline-time">6:00 — 6:30 PM</div>
+                <div class="timeline-title">Doors open · drinks</div>
+                <div class="timeline-body">Sign in at the front desk, grab a drink from the rooftop bar, find a friend.</div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">6:30 — 7:00</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Two short talks</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Sara K. on the new card flow. Jamie Chen on Solana DEX volume in EM.</div>
-                </div>
+              <div class="timeline-item">
+                <div class="timeline-time">6:30 — 7:00 PM</div>
+                <div class="timeline-title">Two short talks</div>
+                <div class="timeline-body">Sara K. on the new card flow. Jamie Chen on Solana DEX volume in emerging markets. 15 minutes each, max.</div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">7:00 — 7:30</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Q&A · open mic</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Ask the speakers anything. Blockster mods will pass the mic around.</div>
-                </div>
+              <div class="timeline-item">
+                <div class="timeline-time">7:00 — 7:30 PM</div>
+                <div class="timeline-title">Q&A · open mic</div>
+                <div class="timeline-body">Ask the speakers anything. Blockster mods will pass the mic around the rooftop.</div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">7:30 — 9:00</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Drinks · demos · networking</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Open bar continues. Demo stations on the rooftop.</div>
-                </div>
+              <div class="timeline-item">
+                <div class="timeline-time">7:30 — 9:00 PM</div>
+                <div class="timeline-title">Drinks · demos · networking</div>
+                <div class="timeline-body">Open bar continues. Demo stations on the rooftop. First 50 in get a Moonpay × Blockster pin.</div>
               </div>
             </div>
           </div>
 
-          <!-- Speakers -->
+          <!-- Speakers — POLAROID GRID -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
-            <div class="eyebrow mb-3">Speakers</div>
-            <h2 class="section-title text-[24px] mb-5">Who's talking</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
-                <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">SK</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Sara K.</div>
-                  <div class="text-[11px] text-neutral-500 font-haas">Compliance Lead, Moonpay</div>
-                  <div class="text-[10px] text-neutral-400 font-haas mt-0.5">Talk: "The new card flow"</div>
+            <div class="eyebrow mb-3">Two speakers · 30 minutes total</div>
+            <h2 class="article-title text-[36px] mb-8">Who's talking</h2>
+            <div class="grid grid-cols-2 md:grid-cols-2 gap-6 max-w-[520px]">
+              <div class="polaroid">
+                <div class="polaroid-photo">
+                  <span class="text-[#E8E4DD] font-haas-bold text-[64px]">SK</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[14px] text-[#141414]">Sara K.</div>
+                  <div class="text-[11px] text-neutral-500 font-haas mt-0.5">Compliance Lead · Moonpay</div>
+                  <div class="text-[10px] text-neutral-400 font-haas italic mt-2">"The new card flow"</div>
                 </div>
               </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
-                <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">JC</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">Jamie Chen</div>
-                  <div class="text-[11px] text-neutral-500 font-haas">Markets writer, Blockster</div>
-                  <div class="text-[10px] text-neutral-400 font-haas mt-0.5">Talk: "Solana DEX volume in EM"</div>
+              <div class="polaroid">
+                <div class="polaroid-photo">
+                  <span class="text-[#E8E4DD] font-haas-bold text-[64px]">JC</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[14px] text-[#141414]">Jamie Chen</div>
+                  <div class="text-[11px] text-neutral-500 font-haas mt-0.5">Markets writer · Blockster</div>
+                  <div class="text-[10px] text-neutral-400 font-haas italic mt-2">"Solana DEX volume in EM"</div>
                 </div>
               </div>
             </div>
@@ -406,12 +488,12 @@
           <!-- Venue -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
             <div class="eyebrow mb-3">Venue</div>
-            <h2 class="section-title text-[24px] mb-5">Soho House Meatpacking</h2>
+            <h2 class="article-title text-[36px] mb-6">Soho House Meatpacking</h2>
             <div class="bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div class="aspect-[16/7] bg-gradient-to-br from-neutral-200 to-neutral-300 relative">
-                <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(125,0,255,0.08),transparent)]"></div>
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(125,0,255,0.10),transparent)]"></div>
                 <div class="absolute inset-0 grid place-items-center">
-                  <div class="bg-white/95 backdrop-blur rounded-full px-4 py-2 shadow-2xl">
+                  <div class="bg-white rounded-full px-4 py-2 shadow-2xl">
                     <div class="flex items-center gap-2 text-[12px] text-[#141414] font-haas">
                       <svg class="w-3.5 h-3.5 text-[#7D00FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                       <span class="font-haas-bold">29-35 9th Avenue</span>
@@ -422,22 +504,10 @@
                 </div>
               </div>
               <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] font-haas">
-                <div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Subway</div>
-                  <div class="text-[#141414]">14 St / 8 Av · A C E L</div>
-                </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Wheelchair</div>
-                  <div class="text-[#141414]">Accessible · elevator</div>
-                </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Wifi</div>
-                  <div class="text-[#141414]">Free, fast</div>
-                </div>
-                <div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Dress code</div>
-                  <div class="text-[#141414]">Smart casual</div>
-                </div>
+                <div><div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Subway</div><div class="text-[#141414]">14 St / 8 Av · A C E L</div></div>
+                <div><div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Wheelchair</div><div class="text-[#141414]">Accessible · elevator</div></div>
+                <div><div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Wifi</div><div class="text-[#141414]">Free, fast</div></div>
+                <div><div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Dress code</div><div class="text-[#141414]">Smart casual</div></div>
               </div>
             </div>
           </div>
@@ -447,77 +517,30 @@
             <div class="flex items-baseline justify-between mb-5">
               <div>
                 <div class="eyebrow mb-1">142 confirmed · 58 spots left</div>
-                <h2 class="section-title text-[24px]">Who's going</h2>
+                <h2 class="article-title text-[36px]">Who's going</h2>
               </div>
               <a href="#" class="text-[12px] text-neutral-500 hover:text-[#141414] font-haas">See all 142 →</a>
             </div>
-            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">SK</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Sara K.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@sara</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">JC</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Jamie Chen</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@jamie</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">DK</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Daniyar K.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@daniyar</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">LP</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Lena Park</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@lena</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">IC</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Iris Chen</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@iris</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">RH</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Rachel H.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@rachel</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">MV</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Marcus V.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@marcus</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">EZ</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Elena Z.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@elena</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">AM</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Amir M.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@amir</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">YT</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Yuki T.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@yuki</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">RC</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">Rohan C.</div>
-                <div class="text-[9px] text-neutral-500 font-haas truncate">@rohan</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-neutral-200/70 p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div class="author-avatar w-10 h-10 rounded-full grid place-items-center text-[12px] mx-auto mb-2">+131</div>
-                <div class="text-[11px] font-haas-bold text-[#141414] truncate">more</div>
-              </div>
+            <div class="flex items-center -space-x-2 flex-wrap">
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">SK</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">JC</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">DK</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">LP</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">IC</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">RH</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">MV</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">EZ</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">AM</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">YT</div>
+              <div class="author-avatar w-12 h-12 rounded-full grid place-items-center text-[13px] ring-4 ring-[var(--bg-page)]">RC</div>
+              <div class="w-12 h-12 rounded-full bg-white border border-neutral-200 grid place-items-center text-[11px] font-mono font-bold text-neutral-600 ring-4 ring-[var(--bg-page)]">+131</div>
             </div>
           </div>
 
           <!-- FAQ -->
           <div class="mb-2 pt-10 border-t border-neutral-200/70">
             <div class="eyebrow mb-3">FAQ</div>
-            <h2 class="section-title text-[24px] mb-5">Common questions</h2>
+            <h2 class="article-title text-[36px] mb-6">Common questions</h2>
             <div class="space-y-3">
               <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
                 <summary class="cursor-pointer flex items-center justify-between">
@@ -544,15 +567,16 @@
           </div>
         </div>
 
-        <!-- RIGHT — Sticky RSVP -->
+        <!-- RIGHT — Sticky enrollment (clean white card, no frosted glass) -->
         <div class="col-span-12 md:col-span-5">
           <div class="sticky-rsvp">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_18px_30px_-12px_rgba(0,0,0,0.10)] overflow-hidden">
 
-            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div class="px-6 py-4 border-b border-neutral-100" style="background: linear-gradient(135deg, rgba(125,0,255,0.08), rgba(74,0,184,0.08));">
+              <!-- Header strip -->
+              <div class="px-6 py-4 border-b border-neutral-100 bg-neutral-50">
                 <div class="flex items-center justify-between">
                   <div>
-                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold" style="color: #4A00B8;">Free meetup</div>
+                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold text-neutral-500">Free meetup</div>
                     <div class="text-[18px] font-haas-bold text-[#141414]">RSVP your spot</div>
                   </div>
                   <span class="price-badge free">$0</span>
@@ -577,7 +601,6 @@
                     <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-1.5 block">Display name</label>
                     <input type="text" value="Marcus Verren" class="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[13px] font-haas text-[#141414] focus:outline-none focus:border-[#141414]" />
                   </div>
-
                   <div class="grid grid-cols-[1fr_90px] gap-3 items-end">
                     <div>
                       <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-1.5 block">Bring a +1?</label>
@@ -588,7 +611,6 @@
                       <div class="font-mono font-bold text-[14px] text-[#141414]">1 / 1</div>
                     </div>
                   </div>
-
                   <div>
                     <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-1.5 block">Dietary needs <span class="text-neutral-400 normal-case font-haas">(optional)</span></label>
                     <input type="text" placeholder="Vegan, gluten-free, etc." class="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[13px] font-haas text-[#141414] focus:outline-none focus:border-[#141414]" />
@@ -606,16 +628,32 @@
               </div>
             </div>
 
-            <!-- Add to calendar -->
-            <div class="mt-3 grid grid-cols-2 gap-2">
-              <button class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Add to calendar
-              </button>
-              <button class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                Share
-              </button>
+            <!-- Recent RSVPs feed -->
+            <div class="mt-3 bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                  <span class="text-[9px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Recent RSVPs</span>
+                </div>
+                <span class="text-[9px] font-mono text-neutral-400">live</span>
+              </div>
+              <div class="space-y-2.5">
+                <div class="flex items-center gap-3">
+                  <div class="author-avatar w-7 h-7 rounded-full grid place-items-center text-[10px]">SK</div>
+                  <div class="flex-1 min-w-0 text-[11px] text-neutral-700 font-haas truncate">Sara K. is going</div>
+                  <span class="text-[9px] font-mono text-neutral-400">1m</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="author-avatar w-7 h-7 rounded-full grid place-items-center text-[10px]">JC</div>
+                  <div class="flex-1 min-w-0 text-[11px] text-neutral-700 font-haas truncate">Jamie Chen · +1 guest</div>
+                  <span class="text-[9px] font-mono text-neutral-400">8m</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="author-avatar w-7 h-7 rounded-full grid place-items-center text-[10px]">DK</div>
+                  <div class="flex-1 min-w-0 text-[11px] text-neutral-700 font-haas truncate">Daniyar K. is going</div>
+                  <span class="text-[9px] font-mono text-neutral-400">14m</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -630,151 +668,250 @@
        STATE 2 — PAID MUSIC EVENT (Memetic AI synth night Berlin)
   ═════════════════════════════════════════════════════════════════ -->
 
-  <section class="event-banner text-white" style="--evt-primary: #FF007A; --evt-secondary: #870042;">
-    <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
-
-      <div class="mb-7 flex items-center gap-2 text-[11px] text-white/60 font-haas">
-        <a href="#" class="hover:text-white transition-colors">Events</a>
-        <span>/</span>
-        <span class="text-white/85">Memetic AI synth night</span>
-      </div>
-
-      <div class="grid grid-cols-12 gap-8 items-start">
-        <div class="col-span-12 md:col-span-7">
-          <div class="flex items-start gap-5 mb-6">
-            <div class="date-tile">
-              <div class="month">APR</div>
-              <div class="day">19</div>
-              <div class="weekday">SAT</div>
-            </div>
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-[10px] uppercase tracking-[0.16em] text-white/65 font-haas-bold">Hosted by Memetic AI Records</span>
-                <span class="price-badge paid">From $25</span>
-              </div>
-              <h1 class="font-haas-bold text-[44px] md:text-[56px] tracking-[-0.025em] leading-[1.0]">Memetic AI synth night<br>Berlin warehouse rave</h1>
-            </div>
-          </div>
-
-          <p class="text-white/85 text-[16px] leading-[1.55] font-haas max-w-[640px] mb-7">
-            One night, eight live AI x synth acts, one of the last unscheduled warehouses in Kreuzberg. Doors at 11, music until 6 AM, no phones on the dance floor. BUX-tier holders get up to 50% off the door.
-          </p>
-
-          <!-- Lineup pills -->
-          <div class="mb-7">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 font-haas-bold mb-2">Lineup · 8 acts</div>
-            <div class="flex flex-wrap gap-2">
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">PROMPT01</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">latentspace</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">VECTORIAL</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">tensor.dance</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">EMBEDDING</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">∇·SOUND</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">phantom_layer</span>
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/20 text-[11px] font-mono text-white">RESIDUAL.fm</span>
-            </div>
-          </div>
-
-          <!-- Stats row -->
-          <div class="flex items-center flex-wrap gap-x-8 gap-y-3">
-            <div>
-              <div class="font-mono font-bold text-[24px] text-white leading-none">11:00 PM</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Doors</div>
-            </div>
-            <div class="w-px h-10 bg-white/15"></div>
-            <div>
-              <div class="font-mono font-bold text-[24px] text-white leading-none">600</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Capacity</div>
-            </div>
-            <div class="w-px h-10 bg-white/15"></div>
-            <div>
-              <div class="font-mono font-bold text-[24px] text-[#CAFC00] leading-none">109</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Tickets left</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: hero image -->
-        <div class="col-span-12 md:col-span-5 mt-2">
-          <div class="aspect-[4/5] rounded-2xl overflow-hidden ring-1 ring-white/15 shadow-2xl">
-            <img src="https://picsum.photos/seed/blockster-event-rave-hero/600/750" alt="" class="w-full h-full object-cover" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <main class="max-w-[1280px] mx-auto px-6">
 
-    <section class="py-10">
-      <div class="grid grid-cols-12 gap-8">
+    <nav class="pt-8 pb-4 flex items-center gap-2 text-[11px] text-neutral-500 font-haas">
+      <a href="#" class="hover:text-[#141414]">Events</a>
+      <span>/</span>
+      <span class="text-[#141414]">Memetic AI synth night</span>
+    </nav>
 
-        <!-- LEFT — body -->
+    <!-- Poster hero -->
+    <section class="pb-24">
+      <div class="aspect-[21/9] rounded-3xl overflow-hidden relative ring-1 ring-black/5 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.30)]">
+        <img src="https://images.unsplash.com/photo-1493676304819-0d7a8d026dcf?w=1800&q=85&auto=format&fit=crop" alt="" class="w-full h-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/30 to-transparent"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/45"></div>
+
+        <div class="absolute top-6 left-6 md:top-8 md:left-8">
+          <div class="live-pill">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#FF007A] pulse-dot"></span>
+            491 sold · 109 left · selling fast
+          </div>
+        </div>
+
+        <div class="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2">
+          <span class="price-badge paid">From $25</span>
+          <button class="w-9 h-9 rounded-full bg-black/60 backdrop-blur ring-1 ring-white/20 grid place-items-center hover:bg-black/80 transition-colors">
+            <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
+
+        <div class="absolute bottom-6 right-6 md:bottom-8 md:right-8">
+          <div class="inline-flex items-center gap-2 bg-black/60 backdrop-blur ring-1 ring-white/15 rounded-full px-3 py-1.5">
+            <div class="w-5 h-5 rounded bg-gradient-to-br from-[#FF007A] to-[#870042]"></div>
+            <span class="text-[11px] font-haas-bold text-white">Hosted by Memetic AI Records</span>
+          </div>
+        </div>
+
+        <!-- Massive date tile overhanging -->
+        <div class="absolute -bottom-12 left-8 md:left-16">
+          <div class="date-tile-massive">
+            <div class="month">APR</div>
+            <div class="day">19</div>
+            <div class="weekday">SATURDAY</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Title block -->
+    <section class="pb-10">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-8">
+          <div class="eyebrow mb-3">Berlin · Kreuzberg · 11 PM doors</div>
+          <h1 class="article-title text-[56px] md:text-[80px] leading-[0.94] mb-5">Memetic AI synth night<br>Berlin warehouse rave</h1>
+          <p class="text-[18px] text-neutral-600 font-haas leading-[1.5] max-w-[640px]">
+            One night, eight live AI × synth acts, one of the last unscheduled warehouses in Kreuzberg. Doors at 11, music until 6 AM, no phones on the dance floor.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-4 flex flex-wrap gap-2 md:justify-end">
+          <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Add to calendar
+          </button>
+          <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-3 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors" title="Share">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 stat cards -->
+    <section class="pb-12">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="eyebrow mb-1">When</div>
+              <div class="font-mono font-bold text-[22px] text-[#141414] leading-none mb-1">11:00 PM</div>
+              <div class="text-[11px] text-neutral-500 font-haas">7 hours · ends 6:00 AM</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="eyebrow mb-1">Where</div>
+              <div class="font-haas-bold text-[15px] text-[#141414] leading-tight mb-1">Klein Hamburg</div>
+              <div class="text-[11px] text-neutral-500 font-haas">Köpenicker 142 · Berlin</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+              <svg class="w-6 h-6 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-1">
+                <div class="eyebrow">Capacity</div>
+                <span class="font-mono text-[10px] text-[#a16207]">82%</span>
+              </div>
+              <div class="font-mono font-bold text-[20px] text-[#141414] leading-none mb-2">491 / 600 sold</div>
+              <div class="going-bar"><div class="going-fill" style="width: 82%; background: linear-gradient(90deg, #FF007A, #870042);"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Body + sticky ticket card -->
+    <section class="pb-12">
+      <div class="grid grid-cols-12 gap-10">
         <div class="col-span-12 md:col-span-7">
 
+          <!-- About -->
           <div class="mb-12">
             <div class="eyebrow mb-3">About this event</div>
             <h2 class="article-title text-[36px] mb-6">A night of generative sound and physical bass</h2>
-            <div class="space-y-4 text-[15px] text-neutral-700 leading-[1.7] font-haas max-w-[640px]">
+            <div class="space-y-4 text-[15px] text-neutral-700 leading-[1.7] font-haas">
               <p>Memetic AI Records is a small Berlin label putting out music made by humans collaborating with models. Once a year they take over Klein Hamburg, a 600-capacity warehouse in Kreuzberg, and run a single night of eight live AI × synth acts. This year is the fourth.</p>
               <p>Soundsystem is a custom Funktion-One rig built for the room. Lights are by the Mixed Reality crew. The bar runs all night. The dance floor doesn't sit down.</p>
               <p>Phones go in pouches at the door. You'll get them back at the end. Photo and video by the resident crew only — they'll post it the next day.</p>
             </div>
           </div>
 
-          <!-- Lineup detail -->
+          <!-- Lineup as polaroids (8 acts compact) -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
-            <div class="eyebrow mb-3">Lineup · in order of appearance</div>
-            <h2 class="section-title text-[24px] mb-5">8 acts · 7 hours</h2>
-            <div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">11:00 PM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">PROMPT01</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Berlin · ambient opener · resident</div>
+            <div class="eyebrow mb-3">8 acts · in order of appearance</div>
+            <h2 class="article-title text-[36px] mb-8">Lineup</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#FF007A,#870042);">
+                  <span class="text-white font-mono font-bold text-[18px]">P01</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">PROMPT01</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">11 PM · Berlin</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">12:00 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">latentspace</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Lisbon · downtempo · live AI</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#7D00FF,#4A00B8);">
+                  <span class="text-white font-mono font-bold text-[14px]">latent</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">latentspace</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">12 AM · Lisbon</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">1:00 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">VECTORIAL</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Tokyo · breaks · debut EU show</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#06B6D4,#0E7490);">
+                  <span class="text-white font-mono font-bold text-[14px]">VECTOR</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">VECTORIAL</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">1 AM · Tokyo</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">2:00 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">tensor.dance</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Berlin · techno · headliner part 1</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#14F195,#0B7548);">
+                  <span class="text-black font-mono font-bold text-[14px]">tensor</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">tensor.dance</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">2 AM · Berlin</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">3:30 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">EMBEDDING</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Amsterdam · acid · live</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#FFD23F,#EE7B30);">
+                  <span class="text-black font-mono font-bold text-[14px]">EMBED</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">EMBEDDING</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">3:30 AM · A'dam</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">4:30 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">∇·SOUND</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Berlin · industrial · headliner part 2</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#2A2D3A,#6B0DAD);">
+                  <span class="text-white font-mono font-bold text-[14px]">∇·SND</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">∇·SOUND</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">4:30 AM · Berlin</div>
                 </div>
               </div>
-              <div class="agenda-row">
-                <div class="font-mono font-bold text-[12px] text-[#141414]">5:30 AM</div>
-                <div>
-                  <div class="text-[14px] font-haas-bold text-[#141414]">phantom_layer · b2b · RESIDUAL.fm</div>
-                  <div class="text-[12px] text-neutral-500 font-haas mt-0.5">Closing back-to-back · sunrise set</div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#AB9FF2,#534BB1);">
+                  <span class="text-white font-mono font-bold text-[12px]">phantom</span>
                 </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">phantom_layer</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">5:30 AM · b2b</div>
+                </div>
+              </div>
+              <div class="polaroid">
+                <div class="polaroid-photo" style="background: linear-gradient(135deg,#E42575,#7B0B33);">
+                  <span class="text-white font-mono font-bold text-[14px]">RES.fm</span>
+                </div>
+                <div class="text-center">
+                  <div class="font-haas-bold text-[12px] text-[#141414]">RESIDUAL.fm</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">5:30 AM · b2b</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule timeline -->
+          <div class="mb-12 pt-10 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Run of show · 7 hours</div>
+            <h2 class="article-title text-[36px] mb-8">Schedule</h2>
+            <div class="timeline">
+              <div class="timeline-item active">
+                <div class="timeline-time">11:00 PM</div>
+                <div class="timeline-title">Doors · PROMPT01</div>
+                <div class="timeline-body">Ambient opener. Resident DJ warming the room.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-time">12:00 AM</div>
+                <div class="timeline-title">latentspace</div>
+                <div class="timeline-body">Downtempo · live AI · debut Berlin show.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-time">2:00 AM</div>
+                <div class="timeline-title">tensor.dance · headliner part 1</div>
+                <div class="timeline-body">Techno · 90 minute set · the room peaks here.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-time">4:30 AM</div>
+                <div class="timeline-title">∇·SOUND · headliner part 2</div>
+                <div class="timeline-body">Industrial · live · 60 minute set.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-time">5:30 AM</div>
+                <div class="timeline-title">phantom_layer · b2b · RESIDUAL.fm</div>
+                <div class="timeline-body">Sunrise closing back-to-back. Coffee starts being served.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-time">6:00 AM</div>
+                <div class="timeline-title">Lights up · phones returned</div>
+                <div class="timeline-body">Pouches collected at the front. Walk back to Görlitzer. See you next year.</div>
               </div>
             </div>
           </div>
@@ -782,12 +919,12 @@
           <!-- Venue -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
             <div class="eyebrow mb-3">Venue</div>
-            <h2 class="section-title text-[24px] mb-5">Klein Hamburg · Kreuzberg</h2>
+            <h2 class="article-title text-[36px] mb-6">Klein Hamburg · Kreuzberg</h2>
             <div class="bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div class="aspect-[16/7] bg-gradient-to-br from-neutral-200 to-neutral-300 relative">
                 <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,0,122,0.10),transparent)]"></div>
                 <div class="absolute inset-0 grid place-items-center">
-                  <div class="bg-white/95 backdrop-blur rounded-full px-4 py-2 shadow-2xl">
+                  <div class="bg-white rounded-full px-4 py-2 shadow-2xl">
                     <div class="flex items-center gap-2 text-[12px] text-[#141414] font-haas">
                       <svg class="w-3.5 h-3.5 text-[#FF007A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                       <span class="font-haas-bold">Köpenicker Str. 142, 10997 Berlin</span>
@@ -809,7 +946,7 @@
           <!-- FAQ -->
           <div class="mb-2 pt-10 border-t border-neutral-200/70">
             <div class="eyebrow mb-3">FAQ</div>
-            <h2 class="section-title text-[24px] mb-5">Common questions</h2>
+            <h2 class="article-title text-[36px] mb-6">Common questions</h2>
             <div class="space-y-3">
               <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
                 <summary class="cursor-pointer flex items-center justify-between">
@@ -840,11 +977,11 @@
         <div class="col-span-12 md:col-span-5">
           <div class="sticky-rsvp">
 
-            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div class="px-6 py-4 border-b border-neutral-100" style="background: linear-gradient(135deg, rgba(255,0,122,0.08), rgba(135,11,51,0.08));">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_18px_30px_-12px_rgba(0,0,0,0.10)] overflow-hidden">
+              <div class="px-6 py-4 border-b border-neutral-100 bg-neutral-50">
                 <div class="flex items-center justify-between">
                   <div>
-                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold" style="color: #870042;">Music event · ticketed</div>
+                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold text-neutral-500">Music event · ticketed</div>
                     <div class="text-[18px] font-haas-bold text-[#141414]">Get your ticket</div>
                   </div>
                   <span class="price-badge paid">$25 — $80</span>
@@ -852,7 +989,6 @@
               </div>
 
               <div class="p-6">
-
                 <!-- Tier picker -->
                 <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">Pick a tier</div>
                 <div class="space-y-2 mb-5">
@@ -868,7 +1004,6 @@
                       </div>
                     </div>
                   </label>
-
                   <label class="tier-card active">
                     <div class="flex items-start gap-3">
                       <div class="w-4 h-4 rounded-full border-2 border-[#141414] bg-white grid place-items-center shrink-0 mt-1">
@@ -883,7 +1018,6 @@
                       </div>
                     </div>
                   </label>
-
                   <label class="tier-card">
                     <div class="flex items-start gap-3">
                       <div class="w-4 h-4 rounded-full border-2 border-neutral-300 bg-white shrink-0 mt-1"></div>
@@ -955,18 +1089,6 @@
                   BUX burned on chain at checkout · USD via Helio · No refunds, transferable
                 </div>
               </div>
-            </div>
-
-            <!-- Add to calendar -->
-            <div class="mt-3 grid grid-cols-2 gap-2">
-              <button class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Add to calendar
-              </button>
-              <button class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                Share
-              </button>
             </div>
           </div>
         </div>

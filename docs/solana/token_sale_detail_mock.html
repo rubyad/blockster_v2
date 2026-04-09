@@ -8,6 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- TRADING TERMINAL LAYOUT — distinct from hub show + event detail.
+
+       Bloomberg-style dark hero with mono ticker strip across the top, big
+       project ticker symbol, mono stat row, frosted live commitments terminal.
+       Light body content area with sticky tabs. The sticky right column
+       allocation card is also DARK — styled as a trading panel. Brand color
+       (Phoenix orange) is a small accent only — most of the color is mono
+       white-on-black. -->
   <style>
     :root {
       --bg-page: #fafaf9;
@@ -25,47 +33,98 @@
     .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
     .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
     .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
-    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+    body             { font-family: 'Inter', sans-serif; }
 
     .article-title { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-primary); letter-spacing: -0.022em; line-height: 1.04; }
     .header-bg { background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); }
     .profile-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; }
     .author-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 700; }
 
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.55; transform: scale(1.15); }
-    }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.15); } }
     .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
     .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; color: var(--text-primary); }
     .eyebrow { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
 
-    /* Sale brand banner */
-    .sale-banner {
-      background: linear-gradient(135deg, var(--sale-primary) 0%, var(--sale-secondary) 100%);
+    /* ──────── DARK TRADING TERMINAL HERO ──────── */
+    .terminal-hero {
+      background: #0a0a0a;
+      color: #E8E4DD;
       position: relative;
       overflow: hidden;
     }
-    .sale-banner::before {
+    .terminal-hero::before {
       content: '';
       position: absolute;
       inset: 0;
-      background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10) 1.5px, transparent 1.5px);
+      background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px);
       background-size: 32px 32px;
       pointer-events: none;
     }
-    .sale-banner::after {
+    .terminal-hero::after {
       content: '';
       position: absolute;
       top: 0;
       right: 0;
-      width: 50%;
+      width: 60%;
       height: 100%;
-      background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);
+      background: radial-gradient(ellipse at top right, rgba(255, 107, 53, 0.18), transparent 60%);
       pointer-events: none;
     }
 
+    /* Bloomberg-style ticker strip */
+    .ticker-strip {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .ticker-divider {
+      width: 1px;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Dark stat block in hero */
+    .terminal-stat {
+      padding-right: 24px;
+    }
+    .terminal-stat .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin-bottom: 6px;
+    }
+    .terminal-stat .value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+    .terminal-stat .sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 6px;
+    }
+
+    /* ──────── COMMITMENTS WIDGET (frosted on dark) ──────── */
+    .commits-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* ──────── LIGHT BODY TABS ──────── */
     .tab-button {
       position: relative;
       padding: 16px 4px;
@@ -98,16 +157,109 @@
       -webkit-backdrop-filter: saturate(180%) blur(12px);
     }
 
-    .sticky-allocation {
-      position: sticky;
-      top: 160px;
-      align-self: flex-start;
+    /* ──────── DARK ALLOCATION CARD (sticky right column) ──────── */
+    .alloc-terminal {
+      background: #0a0a0a;
+      color: #E8E4DD;
+      border-radius: 18px;
+      box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.45), 0 10px 24px -8px rgba(0, 0, 0, 0.25);
+      ring: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      position: relative;
+    }
+    .alloc-terminal::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 80% 0%, rgba(255, 107, 53, 0.10), transparent 60%);
+      pointer-events: none;
+    }
+
+    .alloc-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .alloc-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+    .alloc-input:focus {
+      outline: none;
+      border-color: var(--sale-primary);
+    }
+
+    .alloc-quick {
+      padding: 8px 0;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.65);
+      transition: all 0.15s ease;
+    }
+    .alloc-quick:hover { background: rgba(255, 255, 255, 0.08); color: white; }
+    .alloc-quick.active {
+      background: var(--sale-primary);
+      color: white;
+      border-color: var(--sale-primary);
+    }
+
+    .alloc-preview {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .alloc-preview .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+    }
+    .alloc-preview .row .k { color: rgba(255, 255, 255, 0.45); }
+    .alloc-preview .row .v { color: #ffffff; font-weight: 700; }
+    .alloc-preview .row.div {
+      border-top: 1px solid rgba(255, 255, 255, 0.10);
+      margin-top: 6px;
+      padding-top: 8px;
+    }
+
+    .progress-track-dark {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      height: 4px;
+      overflow: hidden;
+    }
+    .progress-fill-dark {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--sale-primary), var(--sale-secondary));
     }
 
     .progress-track { background: #f3f4f6; border-radius: 999px; height: 6px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 999px; }
 
-    /* Tokenomics pie placeholder */
     .pie {
       width: 200px;
       height: 200px;
@@ -138,6 +290,8 @@
       box-shadow: 0 18px 30px -12px rgba(0,0,0,0.12);
       border-color: rgba(0,0,0,0.12);
     }
+
+    .sticky-allocation { position: sticky; top: 160px; align-self: flex-start; }
   </style>
 </head>
 <body class="relative">
@@ -180,121 +334,162 @@
   </header>
 
   <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       SALE BRAND BANNER
+       DARK TERMINAL HERO
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-  <section class="sale-banner text-white">
+  <section class="terminal-hero">
+
+    <!-- Bloomberg ticker strip (full bleed within container) -->
+    <div class="ticker-strip relative">
+      <div class="max-w-[1280px] mx-auto px-6 py-2 flex items-center gap-4 overflow-x-auto whitespace-nowrap">
+        <div class="flex items-center gap-2 text-[#CAFC00]">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+          Live now
+        </div>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">$PHX</span>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">Round 1</span>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">Closes <span class="text-white">04D 12H 38M</span></span>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">Raised <span class="text-white">62%</span></span>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">Wallets <span class="text-white">482</span></span>
+        <span class="ticker-divider"></span>
+        <span class="text-white/55">Token <span class="text-white">$0.085</span></span>
+        <span class="ticker-divider hidden md:block"></span>
+        <span class="text-white/55 hidden md:inline">FDV <span class="text-white">$8.5M</span></span>
+        <span class="ml-auto text-white/40 hidden md:inline">→ Solana</span>
+      </div>
+    </div>
+
     <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
 
-      <div class="mb-7 flex items-center gap-2 text-[11px] text-white/60 font-haas">
-        <a href="#" class="hover:text-white transition-colors">Sales</a>
+      <!-- Breadcrumb -->
+      <div class="mb-8 flex items-center gap-2 text-[11px] text-white/45 font-mono">
+        <a href="#" class="hover:text-white transition-colors">SALES</a>
         <span>/</span>
-        <span class="text-white/85">Phoenix Protocol</span>
+        <span class="text-white/85">PHOENIX PROTOCOL</span>
       </div>
 
       <div class="grid grid-cols-12 gap-8 items-start">
-        <div class="col-span-12 md:col-span-7">
 
-          <div class="flex items-center gap-5 mb-6">
-            <div class="w-20 h-20 rounded-2xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl">
-              <span class="text-white font-haas-bold text-[28px]">P</span>
+        <div class="col-span-12 md:col-span-8">
+
+          <!-- Eyebrow -->
+          <div class="text-[10px] uppercase tracking-[0.16em] text-white/55 font-mono mb-5">Token sale · Round 1</div>
+
+          <!-- Big project identity -->
+          <div class="flex items-start gap-5 mb-7">
+            <div class="w-20 h-20 rounded-2xl grid place-items-center shrink-0 ring-1 ring-white/20" style="background: linear-gradient(135deg, var(--sale-primary), var(--sale-secondary));">
+              <span class="font-haas-bold text-white text-[28px]">P</span>
             </div>
-            <div>
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-[10px] uppercase tracking-[0.16em] text-white/65 font-haas-bold">Token sale · Round 1</span>
-                <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[10px] font-haas-bold">
-                  <span class="w-1.5 h-1.5 rounded-full bg-black pulse-dot"></span>
-                  Live now
-                </span>
+            <div class="min-w-0">
+              <div class="flex items-baseline gap-3 mb-2">
+                <span class="font-mono font-bold text-[var(--sale-primary)] text-[22px]" style="color: var(--sale-primary);">$PHX</span>
+                <span class="text-white/40 text-[11px] font-mono">SPL · Solana</span>
               </div>
-              <h1 class="font-haas-bold text-[56px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">Phoenix Protocol</h1>
+              <h1 class="font-haas-bold text-white text-[44px] md:text-[56px] tracking-[-0.025em] leading-[0.95]">Phoenix Protocol</h1>
             </div>
           </div>
 
-          <p class="text-white/85 text-[18px] leading-[1.5] font-haas max-w-[640px] mb-8">
+          <!-- Long description -->
+          <p class="text-white/75 text-[16px] leading-[1.55] font-haas max-w-[640px] mb-8">
             The rebirth of high-frequency markets on Solana. Phoenix is a fully on-chain limit-orderbook DEX with sub-millisecond matching, no front-running, and zero MEV extraction. $PHX is the protocol token that pays MMs and governs upgrades.
           </p>
 
-          <!-- Stats row -->
-          <div class="flex items-center flex-wrap gap-x-8 gap-y-3 mb-7">
-            <div>
-              <div class="font-mono font-bold text-[28px] text-white leading-none">$3.1M</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Raised · 62% of $5M</div>
+          <!-- Mono stat row -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-y-6 max-w-[660px] mb-8">
+            <div class="terminal-stat">
+              <div class="label">Raised</div>
+              <div class="value">$3.1M</div>
+              <div class="sub">/ $5M target</div>
             </div>
-            <div class="w-px h-10 bg-white/15"></div>
-            <div>
-              <div class="font-mono font-bold text-[28px] text-white leading-none">$0.085</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Token price</div>
+            <div class="terminal-stat">
+              <div class="label">Token price</div>
+              <div class="value">$0.085</div>
+              <div class="sub">USD</div>
             </div>
-            <div class="w-px h-10 bg-white/15"></div>
-            <div>
-              <div class="font-mono font-bold text-[28px] text-white leading-none">100M</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Total supply</div>
+            <div class="terminal-stat">
+              <div class="label">Round size</div>
+              <div class="value">5.0M</div>
+              <div class="sub">5% of supply</div>
             </div>
-            <div class="w-px h-10 bg-white/15"></div>
-            <div>
-              <div class="font-mono font-bold text-[28px] text-[#CAFC00] leading-none">5%</div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Round size</div>
+            <div class="terminal-stat">
+              <div class="label">FDV</div>
+              <div class="value">$8.5M</div>
+              <div class="sub">at TGE</div>
             </div>
           </div>
 
-          <!-- Countdown -->
-          <div class="flex items-center gap-3 mb-2">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/65 font-haas-bold">Round closes in</div>
-            <div class="flex items-center gap-2">
-              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
-                <div class="font-mono font-bold text-[22px] text-white leading-none">04</div>
-                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">DAYS</div>
-              </div>
-              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
-                <div class="font-mono font-bold text-[22px] text-white leading-none">12</div>
-                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">HRS</div>
-              </div>
-              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
-                <div class="font-mono font-bold text-[22px] text-white leading-none">38</div>
-                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">MIN</div>
-              </div>
+          <!-- Raise progress dark bar -->
+          <div class="max-w-[660px]">
+            <div class="flex items-baseline justify-between mb-2 text-[10px] font-mono uppercase tracking-[0.14em] text-white/55">
+              <span>Round 1 raise · 62%</span>
+              <span class="text-white">$3.1M / $5M</span>
+            </div>
+            <div class="progress-track-dark">
+              <div class="progress-fill-dark" style="width: 62%;"></div>
             </div>
           </div>
         </div>
 
-        <!-- Right: live activity -->
-        <div class="col-span-12 md:col-span-5 mt-2">
-          <div class="bg-white/[0.07] backdrop-blur rounded-2xl p-5 ring-1 ring-white/15 shadow-2xl">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-1.5">
+        <!-- Right: live commitments terminal widget -->
+        <div class="col-span-12 md:col-span-4">
+          <div class="commits-card p-5">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+              <div class="flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.14em] text-white/85">
                 <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
-                <span class="text-[9px] font-haas-bold uppercase tracking-[0.14em] text-white/85">Recent commitments</span>
+                Recent commits
               </div>
-              <span class="text-[9px] font-mono text-white/45">live</span>
+              <span class="text-[9px] font-mono text-white/40">live</span>
             </div>
-            <div class="space-y-3.5">
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">SK</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Sara K. committed <span class="font-mono">$2,500</span></div>
-                  <div class="text-[9px] text-white/45 font-mono">1 minute ago</div>
+            <div class="space-y-2.5 font-mono">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">7xQk8…3mPa</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$2,500</div>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">DK</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Daniyar K. committed <span class="font-mono">$10,000</span></div>
-                  <div class="text-[9px] text-white/45 font-mono">3 minutes ago</div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">9aBc…2vNm</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$10,000</div>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">JC</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">Jamie Chen committed <span class="font-mono">$1,000</span></div>
-                  <div class="text-[9px] text-white/45 font-mono">8 minutes ago</div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">3FpQ…8RtY</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$750</div>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-full bg-[#CAFC00] grid place-items-center text-[10px] font-haas-bold text-black">$</div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white/85 font-haas truncate">$3.1M raised by 482 wallets</div>
-                  <div class="text-[9px] text-white/45 font-mono">total</div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">hQ4n…6mLk</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$5,000</div>
                 </div>
+              </div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">5gWp…1nVx</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$1,200</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white/55">2xMq…7vPk</span>
+                <div class="text-right">
+                  <div class="text-[#CAFC00]">+$3,400</div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 gap-3 font-mono">
+              <div>
+                <div class="text-[9px] uppercase tracking-[0.14em] text-white/45">Wallets</div>
+                <div class="text-white text-[16px] font-bold mt-0.5">482</div>
+              </div>
+              <div>
+                <div class="text-[9px] uppercase tracking-[0.14em] text-white/45">Avg commit</div>
+                <div class="text-white text-[16px] font-bold mt-0.5">$6,432</div>
               </div>
             </div>
           </div>
@@ -304,7 +499,7 @@
   </section>
 
   <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       STICKY TAB NAV
+       STICKY TAB NAV (light)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
   <div class="sale-tabs border-b border-neutral-200/70">
     <div class="max-w-[1280px] mx-auto px-6 flex items-center gap-8 overflow-x-auto">
@@ -321,7 +516,7 @@
     <section class="py-10">
       <div class="grid grid-cols-12 gap-8">
 
-        <!-- LEFT — Tab content -->
+        <!-- LEFT — tab content (light) -->
         <div class="col-span-12 md:col-span-7">
 
           <!-- Overview -->
@@ -335,7 +530,7 @@
             </div>
           </div>
 
-          <!-- Tokenomics preview -->
+          <!-- Tokenomics -->
           <div class="mb-12 pt-10 border-t border-neutral-200/70">
             <div class="eyebrow mb-3">Tokenomics · 100M total supply</div>
             <h2 class="article-title text-[28px] mb-6">Where the tokens go</h2>
@@ -525,86 +720,94 @@
               </details>
             </div>
           </div>
-
         </div>
 
-        <!-- RIGHT — Sticky allocation card -->
+        <!-- RIGHT — Dark trading-terminal allocation card -->
         <div class="col-span-12 md:col-span-5">
           <div class="sticky-allocation">
-            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div class="alloc-terminal">
 
-              <!-- Tier banner -->
-              <div class="px-6 py-4 border-b border-neutral-100" style="background: linear-gradient(135deg, rgba(255,107,53,0.08), rgba(199,62,29,0.08));">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold" style="color: #C73E1D;">Your tier</div>
-                    <div class="text-[18px] font-haas-bold text-[#141414]">Tier 3 · Aurora</div>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-[10px] text-neutral-500 font-haas">10K BUX held</div>
-                    <div class="text-[10px] text-[#22C55E] font-haas-bold">Eligible ✓</div>
-                  </div>
+              <!-- Terminal header -->
+              <div class="alloc-header relative z-10">
+                <div class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                  <span>Allocation terminal</span>
                 </div>
+                <span style="color: var(--sale-primary);">Tier 3 · Aurora</span>
               </div>
 
-              <div class="p-6">
-                <!-- Allocation -->
+              <div class="p-5 relative z-10">
+
+                <!-- Big number -->
                 <div class="mb-5">
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">Your max allocation</div>
-                  <div class="font-mono font-bold text-[40px] text-[#141414] leading-none">$2,500</div>
-                  <div class="text-[11px] text-neutral-500 font-haas mt-1">≈ <span class="font-mono">29,411</span> $PHX</div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/45 font-mono mb-2">Your max allocation</div>
+                  <div class="font-mono font-bold text-[44px] text-white leading-none tracking-tight">$2,500</div>
+                  <div class="text-[11px] text-white/45 font-mono mt-2">≈ 29,411 $PHX @ $0.085</div>
+                </div>
+
+                <!-- Tier progress -->
+                <div class="mb-5 pb-5 border-b border-white/8">
+                  <div class="flex items-baseline justify-between mb-2 text-[10px] font-mono text-white/55">
+                    <span>BUX held · 10,000 / 25,000</span>
+                    <span class="text-white">Tier 3</span>
+                  </div>
+                  <div class="progress-track-dark">
+                    <div class="progress-fill-dark" style="width: 40%;"></div>
+                  </div>
+                  <div class="mt-2 text-[10px] font-mono text-white/45">Hold 25K BUX to unlock Tier 4 · $5,000 max</div>
                 </div>
 
                 <!-- Commit input -->
                 <div class="mb-5">
                   <div class="flex items-center justify-between mb-2">
-                    <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Commit amount</label>
-                    <span class="text-[10px] font-mono text-neutral-400">SOL · USDC</span>
+                    <label class="text-[10px] uppercase tracking-[0.14em] font-mono text-white/55">Commit amount</label>
+                    <span class="text-[10px] font-mono text-white/45">SOL · USDC</span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <input type="text" value="2,500.00" class="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[18px] font-mono font-bold text-[#141414] focus:outline-none focus:border-[#141414]" />
-                    <button class="bg-[#0a0a0a] text-white px-4 py-2.5 rounded-xl text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">Max</button>
-                  </div>
+                  <input type="text" value="2,500.00" class="alloc-input" />
                 </div>
 
                 <!-- Quick steps -->
                 <div class="grid grid-cols-4 gap-2 mb-5">
-                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">25%</button>
-                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">50%</button>
-                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">75%</button>
-                  <button class="px-2 py-2 bg-white border border-[#141414] rounded-full text-[11px] font-mono font-bold text-[#141414]">MAX</button>
+                  <button class="alloc-quick">25%</button>
+                  <button class="alloc-quick">50%</button>
+                  <button class="alloc-quick">75%</button>
+                  <button class="alloc-quick active">MAX</button>
                 </div>
 
                 <!-- Preview -->
-                <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 mb-5 space-y-2 text-[11px]">
-                  <div class="flex justify-between">
-                    <span class="text-neutral-500 font-haas">Token price</span>
-                    <span class="font-mono font-bold text-[#141414]">$0.085</span>
+                <div class="alloc-preview mb-5">
+                  <div class="row">
+                    <span class="k">Token price</span>
+                    <span class="v">$0.085</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-neutral-500 font-haas">Your $PHX</span>
-                    <span class="font-mono font-bold text-[#141414]">29,411</span>
+                  <div class="row">
+                    <span class="k">Your $PHX</span>
+                    <span class="v">29,411.76</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-neutral-500 font-haas">Vesting</span>
-                    <span class="font-mono text-neutral-700">6mo cliff + 18mo linear</span>
+                  <div class="row">
+                    <span class="k">Vesting</span>
+                    <span class="v">6mo + 18mo</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-neutral-500 font-haas">Claim starts</span>
-                    <span class="font-mono text-neutral-700">Apr 27, 2026</span>
+                  <div class="row">
+                    <span class="k">Claim opens</span>
+                    <span class="v">Apr 27, 2026</span>
+                  </div>
+                  <div class="row div">
+                    <span class="k">Total commit</span>
+                    <span class="v" style="color: var(--sale-primary); font-size: 14px;">$2,500.00</span>
                   </div>
                 </div>
 
                 <!-- Submit -->
-                <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                <button class="w-full inline-flex items-center justify-center gap-2 bg-[#CAFC00] text-black px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-white transition-colors">
                   Commit $2,500
                   <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
-                <div class="mt-3 text-center text-[10px] text-neutral-400 font-haas">Commitments are non-refundable after round close.</div>
+                <div class="mt-3 text-center text-[9px] font-mono text-white/40 uppercase tracking-[0.14em]">Non-refundable after round close</div>
               </div>
             </div>
 
-            <!-- Round progress -->
+            <!-- Round progress (light card) -->
             <div class="mt-4 bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div class="flex items-baseline justify-between mb-2">
                 <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Round progress</span>
@@ -721,6 +924,7 @@
             <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
             <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
             <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Events</a></li>
           </ul>
         </div>
         <div class="col-span-12 md:col-span-3">

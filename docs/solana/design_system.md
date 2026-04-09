@@ -37,11 +37,11 @@ When you need an example of a particular pattern, look here first:
 | `checkout_mock.html` | 4-step checkout · Shipping → Review → Payment → Confirmation · payment step has dual BUX-burn (Solana tx) + Helio USD widget |
 | `airdrop_mock.html` | Single ongoing round · 1 BUX = 1 entry · 33 winners · prize structure grid · open + drawn celebration states stacked · provably-fair commitment + revealed seed verification |
 | `token_sales_index_mock.html` | Token sales index · stat tiles · filter chips · featured sale magazine cover · 6-card grid covering live / upcoming / closed states with brand-color stripes |
-| `token_sale_detail_mock.html` | Single sale page · brand-color full-bleed banner with countdown + live commitments widget · sticky tab nav (Overview / Tokenomics / Schedule / Team / FAQ) · sticky allocation card with tier badge / commit input / vesting preview |
+| `token_sale_detail_mock.html` | Single sale page · **dark trading-terminal hero** with Bloomberg-style ticker strip + mono stats + frosted live-commitments widget · sticky light tab nav · **dark allocation card** styled as a trading panel (the right column is the second major dark surface in the system after the footer) |
 | `category_mock.html` | Category browse (DeFi example) · editorial title hero · featured post · filter chips · mosaic grid · related categories · big featured author card |
 | `tag_mock.html` | Tag browse (#solana example) · compact hero · 3-col post grid · related tags chip cloud (slimmer than category by design) |
 | `events_index_mock.html` | Events index · stat tiles · filter chips for Free / Music / Online / IRL · featured event magazine cover · 9-card grid mixing free meetups + paid music events with **date-tile** component + free/paid badges · hosting communities strip |
-| `event_detail_mock.html` | Event page · host-branded full-bleed banner with date tile + key info row + going widget · sticky enrollment card · About / Agenda / Speakers / Venue / Going / FAQ sections · two stacked states: free meetup (RSVP form) + paid music event (tier picker + BUX discount) |
+| `event_detail_mock.html` | Event page · **poster layout** (no brand banner) · full-container 21:9 image hero with massive overhanging date tile · big editorial title block below · 3 stat cards (When/Where/Capacity) · vertical-timeline agenda · polaroid-style speakers/lineup · clean white sticky enrollment card · two stacked states: free meetup (RSVP) + paid music event (tier picker + BUX discount) |
 | `event_checkout_mock.html` | Enrollment flow · two stacked flows · Flow A: free RSVP in 2 steps (attendee details → confirmation) · Flow B: paid ticket purchase in 4 steps (attendees → review → payment with BUX burn + Helio → confirmation) |
 
 ---
@@ -527,6 +527,179 @@ See `homepage_mock.html` lines 230-289 for the canonical example.
 Full-bleed gradient using the hub or pool brand color. Identity block (logo + name) + description + stats row + CTAs + a frosted-glass card on the right (live activity widget for hub show, your-position card for pool detail).
 
 See `hub_show_mock.html` lines 145-260 and `pool_detail_mock.html` lines 165-250 for the canonical examples.
+
+### Variant D · Poster hero (used on event detail)
+
+A full-width 21:9 image with a massive **date tile** overhanging the bottom-left corner, a small `live-pill` top-left, a `price-badge` and share button top-right, and a hub-credit pill bottom-right. The title block lives **below** the image — eyebrow + huge `article-title` + tagline + a CTA cluster on the right. Then a row of 3 stat cards (When / Where / Capacity).
+
+```html
+<section class="pb-24">
+  <div class="aspect-[21/9] rounded-3xl overflow-hidden relative ring-1 ring-black/5 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.25)]">
+    <img src="..." alt="" class="w-full h-full object-cover" />
+    <div class="absolute inset-0 bg-gradient-to-tr from-black/55 via-black/15 to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/35"></div>
+
+    <!-- Top-left: live indicator -->
+    <div class="absolute top-6 left-6 md:top-8 md:left-8">
+      <div class="live-pill">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+        142 going · 58 spots left
+      </div>
+    </div>
+
+    <!-- Top-right: price badge + share -->
+    <div class="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2">
+      <span class="price-badge free">Free meetup</span>
+      <button class="w-9 h-9 rounded-full bg-black/60 backdrop-blur ring-1 ring-white/20 grid place-items-center"></button>
+    </div>
+
+    <!-- Bottom-right: hub credit pill -->
+    <div class="absolute bottom-6 right-6">…hub badge…</div>
+
+    <!-- The signature move: massive date tile overhanging the bottom-left -->
+    <div class="absolute -bottom-12 left-8 md:left-16">
+      <div class="date-tile-massive">
+        <div class="month">APR</div>
+        <div class="day">22</div>
+        <div class="weekday">TUESDAY</div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**Rules:**
+- Image aspect MUST be `21/9` — wider than the editorial article hero (16/11) so the date tile has room to breathe
+- Date tile must overhang the bottom edge of the image (`-bottom-12`) — that's the signature move; without it the page looks like the hub show
+- The title goes BELOW the image — never overlay it on top. The image is for atmosphere, the title is for reading
+- Two soft gradient overlays (`from-black/55 via-black/15 to-transparent` + `from-transparent to-black/35`) so any image works
+- The 3 stat cards row that follows the title block uses `WHEN / WHERE / CAPACITY` icons in `bg-neutral-100 rounded-xl` icon squares — different from the hub show's stats which sit inline on the dark banner
+
+This pattern is **only** for event detail pages. Don't use it on hubs, pools, sales, or anything else.
+
+See `event_detail_mock.html` for the canonical example.
+
+### Variant E · Dark trading terminal (used on token sale detail)
+
+The second major dark surface on a light page (after the footer). A `#0a0a0a` hero with a Bloomberg-style ticker strip running across the top, big project identity (mono ticker symbol + name), mono stat row, and a frosted live-commitments terminal on the right. Below the hero: light tab nav, light body content, and a **dark allocation card** in the right sticky column that doubles down on the trading-panel vibe.
+
+Key elements:
+
+```html
+<!-- The dark hero shell -->
+<section class="terminal-hero">
+  <!-- Bloomberg ticker strip — top edge -->
+  <div class="ticker-strip">
+    <div class="max-w-[1280px] mx-auto px-6 py-2 flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.14em]">
+      <span class="text-[#CAFC00] flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span> Live now
+      </span>
+      <span class="ticker-divider"></span>
+      <span class="text-white/55">$PHX</span>
+      <span class="ticker-divider"></span>
+      <span class="text-white/55">Closes <span class="text-white">04D 12H 38M</span></span>
+      …
+    </div>
+  </div>
+  …
+</section>
+```
+
+```css
+.terminal-hero {
+  background: #0a0a0a;
+  color: #E8E4DD;
+  position: relative;
+  overflow: hidden;
+}
+.terminal-hero::before {                    /* pixel grid texture */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+}
+.terminal-hero::after {                     /* brand-color glow */
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 60%; height: 100%;
+  background: radial-gradient(ellipse at top right, rgba(255, 107, 53, 0.18), transparent 60%);
+}
+
+.ticker-strip {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'JetBrains Mono', monospace;
+}
+.ticker-divider { width: 1px; height: 12px; background: rgba(255, 255, 255, 0.15); }
+
+.terminal-stat .label  { font-family: monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+.terminal-stat .value  { font-family: monospace; font-size: 26px; font-weight: 700; color: #fff; line-height: 1; }
+.terminal-stat .sub    { font-family: monospace; font-size: 10px; color: rgba(255,255,255,0.45); }
+```
+
+**Rules:**
+- Dark surface is `#0a0a0a` (same as the footer). Brand color is a **glow accent only** in the top-right of the hero — never a flat background fill, never a CTA fill on the dark surface
+- All numbers in the hero are `JetBrains Mono` — this is the *one* page hero where mono dominates
+- The ticker strip sits at the top edge with `border-y border-white/8` and uses the same `ticker-divider` between fields. It's the signature element that says "this is finance"
+- The frosted commitments widget on the right uses `bg-white/[0.04] border border-white/10` — softer than the footer's `white/[0.06]` because it's against a textured ground
+- After the hero ends, the body content goes back to light. Tabs are light. Body sections are light. The next dark surface is the right-column allocation card
+
+**Allocation card** (the dark sticky widget on the right of the body):
+
+```css
+.alloc-terminal {
+  background: #0a0a0a;
+  color: #E8E4DD;
+  border-radius: 18px;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.45), 0 10px 24px -8px rgba(0, 0, 0, 0.25);
+}
+.alloc-header {                  /* mono terminal title bar */
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.alloc-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+.alloc-quick {                   /* dark mono quick-step pills */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255, 255, 255, 0.65);
+}
+.alloc-quick.active {
+  background: var(--sale-primary);  /* brand color */
+  color: white;
+}
+```
+
+The submit button at the bottom of the allocation card is **lime on dark** (`bg-[#CAFC00] text-black`) — that's the one place lime works as a primary CTA fill, *because* it sits inside a dark surface and not on the page eggshell.
+
+**This pattern is only for token sale detail pages.** Don't use it for hubs, events, pools, or anything else.
+
+See `token_sale_detail_mock.html` for the canonical example.
+
+### Picking the right hero variant
+
+| Page type | Variant | Why |
+|---|---|---|
+| Index pages (shop, hubs, pool, play, events, sales, airdrop, profile, member, category, tag) | A · Editorial title hero | Pages that ARE a list need a calm, type-led hero so the content below dominates |
+| Homepage main story | B · Magazine cover | Pulls a single article forward with a 7/5 image-text grid |
+| Hub show, pool detail | C · Brand-color full-bleed banner | These pages ARE a brand — the brand color earns its full bleed |
+| Event detail | D · Poster hero | An event is closer to a poster than a brand — image leads, type follows |
+| Token sale detail | E · Dark trading terminal | A token sale is a financial product. Mono numbers, dark surfaces, ticker strip — earns the gravity of a trading venue |
+
+**The rule:** if a new page type comes along, pick the variant that *means the right thing*. Don't reach for the brand banner just because it's the most dramatic. The brand banner means "this is a brand." The poster means "this is an event." The terminal means "this is a market."
 
 ---
 
