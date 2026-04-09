@@ -154,12 +154,23 @@ The unusual thing about this project is that the design language emerged from th
 - [x] **Category** → `category_mock.html` (DeFi example. Editorial title hero, featured post, filter chips, mosaic grid, related categories, big featured author card)
 - [x] **Tag** → `tag_mock.html` (#solana example. Slimmer than category — compact hero, 3-col post grid, related tags chip cloud)
 - [x] **Events index** → `events_index_mock.html` (page hero with stat tiles, filter chips for Free meetups / Music & culture / Online / IRL / This week, featured event magazine cover, 9-card grid mixing free meetups + paid music events with **date-tile component** + free/paid badges, hosting communities strip)
-- [x] **Event detail** → `event_detail_mock.html` (host-branded full-bleed banner with date tile + key info + going widget, sticky enrollment card on right, body sections About / Agenda / Speakers / Venue / Going / FAQ. **Two stacked states**: free meetup (RSVP form) + paid music event (tier picker + BUX discount input))
-- [x] **Event checkout** → `event_checkout_mock.html` (enrollment flow with **two stacked flows**: Flow A is free RSVP in 2 steps (attendee details → confirmation), Flow B is paid ticket purchase in 4 steps (attendees → review → payment with BUX burn + Helio → confirmation))
+- [x] **Event detail** → `event_detail_mock.html` (poster layout · 16:7 image hero with title + description **inside** the banner, date tile overhanging the right edge, 3 stat cards above the fold. Vertical-timeline agenda, polaroid speakers/lineup, sticky enrollment card. **Two stacked states**: free meetup + paid music event)
+- [x] **Event checkout** → `event_checkout_mock.html` (full-page enrollment flow · **two stacked flows**: Flow A free RSVP in 2 steps, Flow B paid purchase in 4 steps with BUX burn + Helio)
+- [x] **Event register modal** → `event_register_modal_mock.html` (in-page click-to-register modal · Flow A free RSVP form → confirming → confirmed · Flow B paid tickets → payment → confirmed · 6 stacked modal states)
+- [x] **Article page (discover sidebar)** → `article_page_mock.html` (same layout as `realtime_widgets_mock.html` but the left FateSwap widget is replaced with a stack of 3 discovery cards: Event / Token Sale / Airdrop, sharing one frame with distinct content shapes. Right RogueTrader widget preserved)
+- [x] **Logo variations** → `logo_variations_mock.html` (24 wordmark explorations across sans / display / mono / case + spacing experiments — the gallery the locked-in wordmark was chosen from)
+- [x] **Logo lockup** → `logo_lockup_mock.html` (the locked-in wordmark in 9 sizes, light + dark, plus 5 circle-size A/B variants and real contexts: site header, footer, email signature, business card, t-shirt back, OG image)
+- [x] **Media kit** → `media_kit_mock.html` (press kit & brand assets page — downloadable logos in 6 variants, color palette with copy-hex, typography, brand voice + locked phrases, do/don't, press contact. **Linked from every footer**)
 
 ### Remaining ☐
 
 *All planned mocks done.* Future additions get appended here.
+
+### Other doc + asset changes folded in
+
+- **Locked wordmark** documented in `design_system.md` — Inter 800 uppercase, +0.06em tracking, lime icon at `0.78em` swapped in for the O. Dark variant uses `#E8E4DD`. Sizing table from 12px (footer fineprint) to 96px (poster).
+- **Address in every footer** — `1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA` added under the brand description in all 27 mocks and the canonical footer template in `design_system.md`.
+- **Media kit link** added to the canonical footer link row, replacing the placeholder "Press Kit" entry. Highlighted in lime so it stands out as a real destination.
 
 ### After all mocks are done
 

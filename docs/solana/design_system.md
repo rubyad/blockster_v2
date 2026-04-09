@@ -41,8 +41,13 @@ When you need an example of a particular pattern, look here first:
 | `category_mock.html` | Category browse (DeFi example) · editorial title hero · featured post · filter chips · mosaic grid · related categories · big featured author card |
 | `tag_mock.html` | Tag browse (#solana example) · compact hero · 3-col post grid · related tags chip cloud (slimmer than category by design) |
 | `events_index_mock.html` | Events index · stat tiles · filter chips for Free / Music / Online / IRL · featured event magazine cover · 9-card grid mixing free meetups + paid music events with **date-tile** component + free/paid badges · hosting communities strip |
-| `event_detail_mock.html` | Event page · **poster layout** (no brand banner) · full-container 21:9 image hero with massive overhanging date tile · big editorial title block below · 3 stat cards (When/Where/Capacity) · vertical-timeline agenda · polaroid-style speakers/lineup · clean white sticky enrollment card · two stacked states: free meetup (RSVP) + paid music event (tier picker + BUX discount) |
+| `event_detail_mock.html` | Event page · **poster layout** (no brand banner) · 16:7 image hero with title + description **inside** the banner over a left-side dark gradient · date tile overhanging the right edge · 3 stat cards row right under the banner (above the fold) · vertical-timeline agenda · polaroid-style speakers/lineup · clean white sticky enrollment card · two stacked states: free meetup (RSVP) + paid music event (tier picker + BUX discount) |
 | `event_checkout_mock.html` | Enrollment flow · two stacked flows · Flow A: free RSVP in 2 steps (attendee details → confirmation) · Flow B: paid ticket purchase in 4 steps (attendees → review → payment with BUX burn + Helio → confirmation) |
+| `event_register_modal_mock.html` | Click-to-register modal that pops over the event detail page · two stacked flows · Flow A free RSVP (form → confirming → confirmed) · Flow B paid checkout (tickets → payment with BUX burn + Helio → confirmed) · 6 stacked modal states |
+| `article_page_mock.html` | Article page with **discover sidebar** instead of the FateSwap widget · 3 cards stacked (Event / Token Sale / Airdrop) sharing the same outer frame but distinct color dots and content shapes · the right RogueTrader widget is preserved unchanged |
+| `logo_variations_mock.html` | 24 wordmark explorations · Inter / Manrope / DM Sans / Space Grotesk / Bricolage / Anton / Bebas Neue / Big Shoulders / JetBrains Mono / Major Mono · case + spacing experiments · the gallery the locked-in wordmark was chosen from |
+| `logo_lockup_mock.html` | The locked-in wordmark in 9 sizes (light + dark), 5 circle-size A/B variants, and real contexts (site header, footer, email signature, business card, t-shirt back, OG image) · canonical sizing reference |
+| `media_kit_mock.html` | Press kit & brand assets page · downloadable logos in 6 variants (wordmark light/dark, lime icon, mono icons, stacked lockup) · color palette with copy-hex · typography (Inter + JetBrains Mono) · brand voice + locked phrases · do/don't · press contact · linked from every footer |
 
 ---
 
@@ -138,6 +143,61 @@ DISPLAY HEADINGS:
 - **Eyebrows**: Use `.eyebrow` above section headings and inside cards. They give the page rhythm and editorial weight.
 - **Sentence case** for headlines (not Title Case). One exception: tab labels and short button labels can be Title Case.
 - **No emojis** in production text. The play page used to use 🚀/💩 for coin faces — these were replaced with stylized `H` / `T` letters in gradient circles. Don't reintroduce emojis.
+
+---
+
+## Wordmark · the Blockster lockup
+
+The wordmark is **`BLOCKSTER`** in Inter 800 uppercase, with the lime brand icon swapped in for the **O**. The icon is sized at `0.78em` so it sits in proportion to the cap height. Compared with the older `blockster-logo.png` raster wordmark, this version is a real HTML element that scales perfectly at any size and stays accessible (the alt text is `o`, so screen readers still spell BLOCKSTER).
+
+```css
+.logo {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;          /* extra-bold */
+  text-transform: uppercase;
+  letter-spacing: 0.06em;    /* +6% tracking */
+  line-height: 1;
+  white-space: nowrap;
+  color: #141414;            /* on dark surfaces: #E8E4DD */
+}
+.logo .logo-o {
+  display: inline-block;
+  width: 0.78em;             /* circle scales with parent font-size */
+  height: 0.78em;
+  object-fit: contain;
+  margin: 0 0.04em;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.logo.dark { color: #E8E4DD; }
+```
+
+```html
+<span class="logo" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+```
+
+**Sizes** (per `logo_lockup_mock.html`):
+
+| Size | Use case |
+|---|---|
+| `12px` | Footer fineprint |
+| `14px` | Email signature |
+| `16px` | Header (compact) |
+| `22-24px` | Header (default) |
+| `28px` | Sub-page hero |
+| `36-48px` | Marketing card / hero secondary |
+| `64px` | Hero primary |
+| `96px` | Poster · t-shirt back print |
+
+**Rules:**
+- Always use the locked CSS class — never recolor the lime, never substitute a different bolt SVG, never change the tracking or weight
+- The dark variant (`.logo.dark`) uses `#E8E4DD` for the type — slightly off-white so it sits inside the same family as the `--text-on-dark` token
+- Maintain at least the height of the lime circle as clear space on every side
+- For places where the wordmark needs a real `<img>` (e.g. `og:image` meta tags, email templates that don't render fonts reliably), use the canonical PNG export from `media_kit_mock.html`
+
+**Examples**: `logo_lockup_mock.html` shows the wordmark across 9 sizes (light + dark), 5 circle-size A/B variants, and 7 real contexts (header, footer, email signature, business card, t-shirt back, OG image, social avatar). `logo_variations_mock.html` shows the 24 typographic variations the wordmark was chosen from.
 
 ---
 
@@ -435,6 +495,10 @@ The dark footer is shared across every page. It carries the mission line, social
         </div>
         <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
         <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 font-haas leading-relaxed max-w-[360px]">
+          <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA</span>
+        </div>
       </div>
       <div class="col-span-6 md:col-span-2">
         <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
@@ -472,10 +536,10 @@ The dark footer is shared across every page. It carries the mission line, social
     <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
       <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
       <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+        <a href="media_kit_mock.html" class="hover:text-[#CAFC00] transition-colors">Media kit</a>
         <a href="#" class="hover:text-white transition-colors">Privacy</a>
         <a href="#" class="hover:text-white transition-colors">Terms</a>
         <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
-        <a href="#" class="hover:text-white transition-colors">Press Kit</a>
         <a href="#" class="hover:text-white transition-colors">Status</a>
       </div>
     </div>

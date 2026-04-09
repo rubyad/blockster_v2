@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Logo Variations — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Big+Shoulders+Display:wght@400;700;800;900&family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@500;700;800&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@500;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&family=Krona+One&family=Major+Mono+Display&family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .font-haas       { font-family: 'Inter', sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+    .article-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+    .eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       LOGO LOCKUP — base class shared by every variation
+       The .logo-o is the lime brand icon swapped in for the "O".
+       Each variation overrides only font, weight, and tracking.
+    ───────────────────────────────────────────────────────── */
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      color: #141414;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .logo .logo-o {
+      display: inline-block;
+      width: 1.05em;
+      height: 1.05em;
+      object-fit: contain;
+      margin: 0 0.02em;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    /* Card chrome */
+    .logo-card {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 18px;
+      padding: 32px 28px 22px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 160px;
+    }
+    .logo-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.10);
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+    .logo-card.dark {
+      background: #0a0a0a;
+    }
+    .logo-card.dark .logo { color: #E8E4DD; }
+    .logo-card.dark .meta { color: rgba(255,255,255,0.5); }
+    .logo-card.dark .meta strong { color: rgba(255,255,255,0.85); }
+    .logo-card .meta {
+      margin-top: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: #9CA3AF;
+      text-transform: lowercase;
+    }
+    .logo-card .meta strong {
+      color: #141414;
+      font-weight: 700;
+    }
+    .logo-card .label {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+      margin-bottom: 18px;
+    }
+
+    /* Section headings */
+    .section-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER (uses the current logo for reference) -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6 py-12">
+
+    <!-- Page hero -->
+    <section class="pb-10">
+      <div class="eyebrow mb-3">Wordmark exploration · 24 variations</div>
+      <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">Logo variations</h1>
+      <p class="text-[16px] text-neutral-600 font-haas leading-[1.5] max-w-[640px]">
+        The Blockster wordmark with the lime circle + lightning bolt swapped in as the <strong class="font-haas-bold">O</strong>. Same icon throughout — only the surrounding type changes. Hover any card for the lift.
+      </p>
+    </section>
+
+    <!-- Reference: current logo -->
+    <section class="pb-10">
+      <div class="bg-white border border-neutral-200/70 rounded-2xl p-7 flex items-center justify-between flex-wrap gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div>
+          <div class="eyebrow mb-2">Current production wordmark</div>
+          <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-12 w-auto" />
+        </div>
+        <div class="flex items-center gap-2 text-[10px] font-mono text-neutral-500">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+          Currently in use across the site
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         SANS SERIFS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Group 1 · 9 variations</div>
+      <h2 class="section-title text-[28px] mb-7">Sans serifs</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- 1 · Inter 800 / -0.04 -->
+        <div class="logo-card">
+          <div class="label">01 · Modern · tightest</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 800 · −0.04em</div>
+        </div>
+
+        <!-- 2 · Inter 900 / -0.05 -->
+        <div class="logo-card">
+          <div class="label">02 · Modern · max weight</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 900; font-size: 56px; letter-spacing: -0.05em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 900 · −0.05em</div>
+        </div>
+
+        <!-- 3 · Inter 600 / -0.02 -->
+        <div class="logo-card">
+          <div class="label">03 · Modern · friendly</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 56px; letter-spacing: -0.02em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 600 · −0.02em</div>
+        </div>
+
+        <!-- 4 · Inter 500 / 0 -->
+        <div class="logo-card">
+          <div class="label">04 · Modern · light</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 500; font-size: 56px; letter-spacing: 0;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 500 · 0</div>
+        </div>
+
+        <!-- 5 · Manrope -->
+        <div class="logo-card">
+          <div class="label">05 · Geometric · soft</div>
+          <span class="logo" style="font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Manrope</strong> · 800 · −0.03em</div>
+        </div>
+
+        <!-- 6 · DM Sans -->
+        <div class="logo-card">
+          <div class="label">06 · Geometric · open</div>
+          <span class="logo" style="font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>DM Sans</strong> · 800 · −0.04em</div>
+        </div>
+
+        <!-- 7 · Space Grotesk -->
+        <div class="logo-card">
+          <div class="label">07 · Geometric · technical</div>
+          <span class="logo" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 56px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Space Grotesk</strong> · 700 · −0.03em</div>
+        </div>
+
+        <!-- 8 · Bricolage Grotesque -->
+        <div class="logo-card">
+          <div class="label">08 · Editorial · grotesque</div>
+          <span class="logo" style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Bricolage Grotesque</strong> · 800 · −0.03em</div>
+        </div>
+
+        <!-- 9 · IBM Plex Sans -->
+        <div class="logo-card">
+          <div class="label">09 · Industrial · IBM</div>
+          <span class="logo" style="font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; font-size: 56px; letter-spacing: -0.02em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>IBM Plex Sans</strong> · 700 · −0.02em</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         DISPLAY FACES
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Group 2 · 5 variations</div>
+      <h2 class="section-title text-[28px] mb-7">Display faces</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- 10 · Archivo Black -->
+        <div class="logo-card">
+          <div class="label">10 · Brutal · maximum weight</div>
+          <span class="logo" style="font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 52px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Archivo Black</strong> · 400 · −0.04em</div>
+        </div>
+
+        <!-- 11 · Anton -->
+        <div class="logo-card">
+          <div class="label">11 · Condensed · poster</div>
+          <span class="logo" style="font-family: 'Anton', sans-serif; font-weight: 400; font-size: 64px; letter-spacing: 0.02em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="meta"><strong>Anton</strong> · 400 · uppercase · +0.02em</div>
+        </div>
+
+        <!-- 12 · Bebas Neue -->
+        <div class="logo-card">
+          <div class="label">12 · Condensed · editorial caps</div>
+          <span class="logo" style="font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 64px; letter-spacing: 0.06em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="meta"><strong>Bebas Neue</strong> · 400 · uppercase · +0.06em</div>
+        </div>
+
+        <!-- 13 · Big Shoulders Display -->
+        <div class="logo-card">
+          <div class="label">13 · Industrial · narrow</div>
+          <span class="logo" style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 64px; letter-spacing: -0.02em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="meta"><strong>Big Shoulders Display</strong> · 800 · uppercase</div>
+        </div>
+
+        <!-- 14 · Krona One -->
+        <div class="logo-card">
+          <div class="label">14 · Geometric uppercase</div>
+          <span class="logo" style="font-family: 'Krona One', sans-serif; font-weight: 400; font-size: 38px; letter-spacing: -0.02em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Krona One</strong> · 400 · −0.02em</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         MONOSPACE FACES
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Group 3 · 3 variations</div>
+      <h2 class="section-title text-[28px] mb-7">Monospace · terminal feel</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- 15 · JetBrains Mono -->
+        <div class="logo-card">
+          <div class="label">15 · Code · default</div>
+          <span class="logo" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 44px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>JetBrains Mono</strong> · 700 · −0.04em</div>
+        </div>
+
+        <!-- 16 · IBM Plex Mono -->
+        <div class="logo-card">
+          <div class="label">16 · Code · IBM</div>
+          <span class="logo" style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 44px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>IBM Plex Mono</strong> · 700 · −0.03em</div>
+        </div>
+
+        <!-- 17 · Major Mono Display (uppercase only font) -->
+        <div class="logo-card">
+          <div class="label">17 · Display mono</div>
+          <span class="logo" style="font-family: 'Major Mono Display', monospace; font-weight: 400; font-size: 38px; letter-spacing: 0; text-transform: lowercase;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Major Mono Display</strong> · 400 · 0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         CASE / SPACING EXPLORATIONS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Group 4 · 7 variations</div>
+      <h2 class="section-title text-[28px] mb-7">Case + spacing experiments</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- 18 · all caps wide -->
+        <div class="logo-card">
+          <div class="label">18 · ALL CAPS · WIDE</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 44px; letter-spacing: 0.06em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="meta"><strong>Inter</strong> · 800 · uppercase · +0.06em</div>
+        </div>
+
+        <!-- 19 · super wide caps -->
+        <div class="logo-card">
+          <div class="label">19 · Editorial caps · airy</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 32px; letter-spacing: 0.22em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="meta"><strong>Inter</strong> · 600 · uppercase · +0.22em</div>
+        </div>
+
+        <!-- 20 · super tight lowercase -->
+        <div class="logo-card">
+          <div class="label">20 · Lowercase · super tight</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 60px; letter-spacing: -0.07em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 800 · −0.07em</div>
+        </div>
+
+        <!-- 21 · sentence case -->
+        <div class="logo-card">
+          <div class="label">21 · Sentence case · classic</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 56px; letter-spacing: -0.03em;">Bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 700 · capitalized</div>
+        </div>
+
+        <!-- 22 · Syne -->
+        <div class="logo-card">
+          <div class="label">22 · Modern · Syne</div>
+          <span class="logo" style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Syne</strong> · 800 · −0.04em</div>
+        </div>
+
+        <!-- 23 · Inter on dark surface -->
+        <div class="logo-card dark">
+          <div class="label" style="color: rgba(255,255,255,0.45);">23 · Dark surface · Inter 800</div>
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Inter</strong> · 800 · −0.04em · on #0a0a0a</div>
+        </div>
+
+        <!-- 24 · Bricolage on dark -->
+        <div class="logo-card dark">
+          <div class="label" style="color: rgba(255,255,255,0.45);">24 · Dark surface · Bricolage</div>
+          <span class="logo" style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <div class="meta"><strong>Bricolage Grotesque</strong> · 800 · on #0a0a0a</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         REAL-SIZE NAVIGATION TEST
+         How each finalist would actually look in the site header
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">At header size · 22px tall</div>
+      <h2 class="section-title text-[28px] mb-7">Real-size sanity check</h2>
+
+      <div class="space-y-3">
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-neutral-500">Inter · 800 · −0.04em</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-neutral-500">Manrope · 800 · −0.03em</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'DM Sans', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-neutral-500">DM Sans · 800 · −0.04em</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-neutral-500">Space Grotesk · 700 · −0.03em</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.03em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-neutral-500">Bricolage Grotesque · 800 · −0.03em</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Anton', sans-serif; font-weight: 400; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="text-[11px] font-mono text-neutral-500">Anton · 400 · uppercase</span>
+        </div>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="text-[11px] font-mono text-neutral-500">Bebas Neue · 400 · uppercase</span>
+        </div>
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+          <span class="logo" style="color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.04em;">bl<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />ckster</span>
+          <span class="text-[11px] font-mono text-white/50">Inter · 800 · on dark</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+          <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 font-haas leading-relaxed max-w-[360px]">
+            <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA</span>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Events</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

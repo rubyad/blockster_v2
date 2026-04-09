@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Logo Lockup — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+    html, body { background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body { font-family: 'Inter', sans-serif; }
+
+    .font-haas       { font-family: 'Inter', sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+    .article-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.022em; line-height: 1.04; }
+    .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; }
+    .eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       LOCKED-IN BLOCKSTER WORDMARK
+       Inter 800 · uppercase · +0.06em · circle = 0.8em
+    ───────────────────────────────────────────────────────── */
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      white-space: nowrap;
+      color: #141414;
+    }
+    .logo .logo-o {
+      display: inline-block;
+      width: 0.78em;
+      height: 0.78em;
+      object-fit: contain;
+      margin: 0 0.04em;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .logo.dark { color: #E8E4DD; }
+
+    /* Tightening variants — lets the user A/B compare */
+    .logo.size-070 .logo-o { width: 0.70em; height: 0.70em; }
+    .logo.size-075 .logo-o { width: 0.75em; height: 0.75em; }
+    .logo.size-080 .logo-o { width: 0.80em; height: 0.80em; }
+    .logo.size-085 .logo-o { width: 0.85em; height: 0.85em; }
+    .logo.size-090 .logo-o { width: 0.90em; height: 0.90em; }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .card {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 18px;
+    }
+    .card-dark {
+      background: #0a0a0a;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    /* Minimal context "iframe" frames so the user can see the logo in real surfaces */
+    .ctx-frame {
+      border: 1px dashed rgba(0, 0, 0, 0.10);
+      border-radius: 14px;
+      overflow: hidden;
+      background: white;
+      position: relative;
+    }
+    .ctx-frame.dark { background: #0a0a0a; border-color: rgba(255,255,255,0.10); }
+    .ctx-label {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+    }
+    .ctx-frame.dark .ctx-label { color: rgba(255,255,255,0.45); }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER (uses the locked-in wordmark, not the imagekit image) -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center">
+          <span class="logo" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+        </a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6 py-12">
+
+    <!-- Hero -->
+    <section class="pb-12">
+      <div class="eyebrow mb-3">Locked in · variation 18 · smaller circle</div>
+      <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">The wordmark</h1>
+      <p class="text-[16px] text-neutral-600 font-haas leading-[1.5] max-w-[640px]">
+        Inter 800 · uppercase · <span class="font-mono text-[#141414]">+0.06em</span> tracking · the lime icon swapped in for the <strong class="font-haas-bold">O</strong> at <span class="font-mono text-[#141414]">0.78em</span> so the circle reads in proportion to the cap height.
+      </p>
+    </section>
+
+    <!-- Hero showcase — the logo at hero size -->
+    <section class="pb-14">
+      <div class="card p-14 grid place-items-center">
+        <span class="logo" style="font-size: 96px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         CIRCLE SIZE A/B — pick a finalist
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Fine-tune the circle</div>
+      <h2 class="section-title text-[28px] mb-7">Circle size A/B</h2>
+      <div class="space-y-3">
+        <div class="card p-7 flex items-center justify-between flex-wrap gap-4">
+          <span class="logo size-070" style="font-size: 56px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Tighter</div>
+            <div class="font-mono text-[12px] text-[#141414]">0.70em</div>
+          </div>
+        </div>
+        <div class="card p-7 flex items-center justify-between flex-wrap gap-4">
+          <span class="logo size-075" style="font-size: 56px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Compact</div>
+            <div class="font-mono text-[12px] text-[#141414]">0.75em</div>
+          </div>
+        </div>
+        <div class="card p-7 flex items-center justify-between flex-wrap gap-4 ring-2 ring-[#CAFC00]">
+          <span class="logo size-080" style="font-size: 56px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-[#141414] font-haas-bold">Default ★</div>
+            <div class="font-mono text-[12px] text-[#141414]">0.78em</div>
+          </div>
+        </div>
+        <div class="card p-7 flex items-center justify-between flex-wrap gap-4">
+          <span class="logo size-085" style="font-size: 56px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Slightly larger</div>
+            <div class="font-mono text-[12px] text-[#141414]">0.85em</div>
+          </div>
+        </div>
+        <div class="card p-7 flex items-center justify-between flex-wrap gap-4">
+          <span class="logo size-090" style="font-size: 56px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Generous</div>
+            <div class="font-mono text-[12px] text-[#141414]">0.90em</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         SIZE LADDER — LIGHT
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Same wordmark · 9 sizes</div>
+      <h2 class="section-title text-[28px] mb-7">Size ladder · light</h2>
+      <div class="card p-10 space-y-7">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 12px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">12px · footer fineprint</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 14px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">14px · email signature</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 16px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">16px · header (current)</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 22px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">22px · header (larger)</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 28px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">28px · sub-page hero</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 36px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">36px · marketing card</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 48px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">48px · hero secondary</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 64px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">64px · hero primary</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo" style="font-size: 96px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-neutral-500">96px · poster · t-shirt</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         SIZE LADDER — DARK
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">Same ladder · on #0a0a0a</div>
+      <h2 class="section-title text-[28px] mb-7">Size ladder · dark</h2>
+      <div class="card-dark p-10 space-y-7">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 12px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">12px · footer fineprint</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 14px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">14px · email signature</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 16px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">16px · header</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 22px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">22px · header (larger)</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 28px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">28px · sub-page hero</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 36px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">36px · marketing card</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 48px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">48px · hero secondary</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 64px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">64px · hero primary</span>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <span class="logo dark" style="font-size: 96px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <span class="font-mono text-[10px] text-white/45">96px · poster · t-shirt</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         REAL CONTEXTS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">In the wild</div>
+      <h2 class="section-title text-[28px] mb-7">Real contexts</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- Site header (light) -->
+        <div class="ctx-frame p-5 pt-9">
+          <div class="ctx-label">site header · light</div>
+          <div class="border-b border-neutral-200/70 pb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="logo" style="font-size: 16px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+              <span class="text-[10px] text-neutral-500 font-mono">Solana mainnet</span>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] text-neutral-500 font-haas">
+              <span>Hubs</span><span>Shop</span><span>Play</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Site header (dark) -->
+        <div class="ctx-frame dark p-5 pt-9">
+          <div class="ctx-label">site header · dark</div>
+          <div class="border-b border-white/10 pb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="logo dark" style="font-size: 16px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+              <span class="text-[10px] text-white/55 font-mono">Solana mainnet</span>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] text-white/55 font-haas">
+              <span>Hubs</span><span>Shop</span><span>Play</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer dark -->
+        <div class="ctx-frame dark p-7 pt-10 col-span-12 md:col-span-2">
+          <div class="ctx-label">footer · dark</div>
+          <span class="logo dark" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <p class="mt-4 text-[12px] text-white/55 font-haas max-w-[420px] leading-relaxed">Where the chain meets the model. © 2026 Blockster Inc.</p>
+        </div>
+
+        <!-- Email signature -->
+        <div class="ctx-frame p-7 pt-10">
+          <div class="ctx-label">email signature</div>
+          <span class="logo" style="font-size: 14px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <div class="mt-3 text-[11px] text-neutral-600 font-haas leading-relaxed">
+            <strong class="font-haas-bold text-[#141414]">Marcus Verren</strong> · Editor at large<br>
+            marcus@blockster.com · +1 555 555 1234
+          </div>
+        </div>
+
+        <!-- Business card -->
+        <div class="ctx-frame p-0 aspect-[1.75/1] grid place-items-center bg-white pt-9">
+          <div class="ctx-label">business card · 3.5×2 in</div>
+          <div class="text-center">
+            <span class="logo mb-2" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+            <div class="text-[9px] text-neutral-500 font-mono mt-2">Where the chain meets the model</div>
+          </div>
+        </div>
+
+        <!-- T-shirt back print on dark -->
+        <div class="ctx-frame dark p-0 aspect-[1.75/1] grid place-items-center pt-9">
+          <div class="ctx-label">apparel back print · centered</div>
+          <span class="logo dark" style="font-size: 64px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+        </div>
+
+        <!-- Social card / OG image -->
+        <div class="ctx-frame p-0 aspect-[1.91/1] relative col-span-12 md:col-span-2 overflow-hidden pt-9">
+          <div class="ctx-label">og image · 1200×630</div>
+          <div class="absolute inset-0 bg-[#0a0a0a] grid place-items-center">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(202,252,0,0.10),transparent_60%)]"></div>
+            <div class="relative text-center px-8">
+              <span class="logo dark mb-4" style="font-size: 80px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+              <div class="mt-5 text-[14px] text-white/65 font-haas">Where the chain meets the model.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         THE SPEC — copy-pasteable
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="eyebrow mb-2">For developers</div>
+      <h2 class="section-title text-[28px] mb-7">The spec</h2>
+      <div class="card-dark p-7 font-mono text-[12px] text-white/85 leading-[1.7]">
+<pre class="whitespace-pre">.logo {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;          /* extra-bold */
+  text-transform: uppercase;
+  letter-spacing: 0.06em;    /* +6% tracking */
+  line-height: 1;
+  white-space: nowrap;
+  color: #141414;            /* on dark: #E8E4DD */
+}
+.logo .logo-o {
+  display: inline-block;
+  width: 0.78em;             /* circle scales with font-size */
+  height: 0.78em;
+  object-fit: contain;
+  margin: 0 0.04em;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+&lt;span class="logo"&gt;BL&lt;img src="…blockster-icon.png" class="logo-o" /&gt;CKSTER&lt;/span&gt;</pre>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER (with media kit link) -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <span class="logo dark mb-5" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4 mt-5">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+          <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 font-haas leading-relaxed max-w-[360px]">
+            <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA</span>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Events</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="media_kit_mock.html" class="hover:text-[#CAFC00] transition-colors">Media kit</a>
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

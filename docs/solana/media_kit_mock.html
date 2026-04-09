@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Media kit & brand assets — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+    html, body { background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body { font-family: 'Inter', sans-serif; }
+
+    .font-haas       { font-family: 'Inter', sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+    .article-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.022em; line-height: 1.04; }
+    .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; }
+    .eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    /* Locked-in wordmark */
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      white-space: nowrap;
+      color: #141414;
+    }
+    .logo .logo-o {
+      display: inline-block;
+      width: 0.78em;
+      height: 0.78em;
+      object-fit: contain;
+      margin: 0 0.04em;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .logo.dark { color: #E8E4DD; }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    /* Asset card */
+    .asset-card {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 18px;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .asset-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.10);
+      border-color: rgba(0, 0, 0, 0.16);
+    }
+    .asset-preview {
+      aspect-ratio: 16 / 9;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .asset-preview.light { background: #fafaf9; border-bottom: 1px solid #f3f4f6; }
+    .asset-preview.dark  { background: #0a0a0a; }
+    .asset-preview.lime  { background: #CAFC00; }
+    .asset-meta {
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .asset-meta .name {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: #141414;
+    }
+    .asset-meta .desc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      color: #9CA3AF;
+      margin-top: 2px;
+    }
+    .download-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid #e5e5e2;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      color: #6B7280;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .download-pill:hover {
+      background: #141414;
+      color: white;
+      border-color: #141414;
+    }
+
+    /* Color swatch */
+    .swatch {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .swatch:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.10);
+    }
+    .swatch-color {
+      aspect-ratio: 4 / 3;
+      position: relative;
+    }
+    .swatch-meta {
+      padding: 12px 14px 14px;
+    }
+    .swatch-name {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      color: #141414;
+      margin-bottom: 2px;
+    }
+    .swatch-hex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #6B7280;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+    .swatch-hex:hover { color: #141414; }
+    .swatch-hex .copy {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .swatch:hover .swatch-hex .copy { opacity: 1; }
+
+    .copy-block {
+      background: #0a0a0a;
+      color: #E8E4DD;
+      border-radius: 14px;
+      padding: 16px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .copy-block .comment { color: rgba(255,255,255,0.4); }
+    .copy-block .key     { color: #CAFC00; }
+    .copy-block .val     { color: #E8E4DD; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center">
+          <span class="logo" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+        </a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- Page hero -->
+    <section class="pt-12 pb-10">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-7">
+          <div class="eyebrow mb-3">Press · brand · downloads</div>
+          <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">Media kit</h1>
+          <p class="text-[16px] text-neutral-600 font-haas leading-[1.5] max-w-[560px]">
+            Logos, colors, fonts, screenshots, and the brand voice — everything you need to write about Blockster or build something with us. Free to use, attribution appreciated.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-5">
+          <div class="grid grid-cols-3 gap-3">
+            <a href="#assets" class="bg-white rounded-2xl border border-neutral-200/70 p-4 hover:border-[#141414] transition-colors text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <div class="text-[11px] font-haas-bold text-[#141414]">Download all</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">.zip · 8.4 MB</div>
+            </a>
+            <a href="#colors" class="bg-white rounded-2xl border border-neutral-200/70 p-4 hover:border-[#141414] transition-colors text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+              <div class="text-[11px] font-haas-bold text-[#141414]">Color palette</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">29 swatches</div>
+            </a>
+            <a href="#typography" class="bg-white rounded-2xl border border-neutral-200/70 p-4 hover:border-[#141414] transition-colors text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+              <div class="text-[11px] font-haas-bold text-[#141414]">Typography</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">2 typefaces</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         LOGOS & MARKS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section id="assets" class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">All formats · vector + raster</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Logos & marks</h2>
+        </div>
+        <a href="#" class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-4 py-2 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download all logos · .zip
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- Wordmark · light -->
+        <div class="asset-card">
+          <div class="asset-preview light">
+            <span class="logo" style="font-size: 48px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Wordmark · light surfaces</div>
+              <div class="desc">Black type · use on #fafaf9 or white</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+              <button class="download-pill">PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wordmark · dark -->
+        <div class="asset-card">
+          <div class="asset-preview dark">
+            <span class="logo dark" style="font-size: 48px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Wordmark · dark surfaces</div>
+              <div class="desc">Light type · use on #0a0a0a or photography</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+              <button class="download-pill">PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Icon · lime -->
+        <div class="asset-card">
+          <div class="asset-preview light">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-32 h-32 rounded-3xl" />
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Icon · primary lime</div>
+              <div class="desc">Lightning bolt in lime circle · favicon, app icon, social avatar</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+              <button class="download-pill">ICO</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Icon · mono dark -->
+        <div class="asset-card">
+          <div class="asset-preview dark">
+            <div class="w-32 h-32 rounded-3xl bg-[#E8E4DD] grid place-items-center">
+              <svg class="w-16 h-16 text-[#0a0a0a]" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2L4 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            </div>
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Icon · mono · dark surface</div>
+              <div class="desc">Light fill · for use when lime isn't available</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Icon · mono light -->
+        <div class="asset-card">
+          <div class="asset-preview light">
+            <div class="w-32 h-32 rounded-3xl bg-[#0a0a0a] grid place-items-center">
+              <svg class="w-16 h-16 text-[#fafaf9]" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2L4 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            </div>
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Icon · mono · light surface</div>
+              <div class="desc">Dark fill · for print, embroidery, single-color uses</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stacked lockup on lime -->
+        <div class="asset-card">
+          <div class="asset-preview lime">
+            <div class="text-center">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-16 h-16 mx-auto mb-3" style="filter: brightness(0);" />
+              <span class="logo" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" style="filter: brightness(0);" />CKSTER</span>
+            </div>
+          </div>
+          <div class="asset-meta">
+            <div>
+              <div class="name">Stacked lockup · on lime</div>
+              <div class="desc">Mono icon + wordmark · merch &amp; sticker use</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="download-pill">SVG</button>
+              <button class="download-pill">PNG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         CLEAR SPACE + DON'T
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-3">Clear space</div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-4 tracking-tight">Give it room</h3>
+          <p class="text-[13px] text-neutral-600 font-haas leading-relaxed mb-5">Maintain at least the height of the lime circle as clear space on every side of the wordmark. Don't crowd it with other elements.</p>
+          <div class="bg-[#fafaf9] border border-dashed border-neutral-300 rounded-xl p-10 grid place-items-center">
+            <span class="logo" style="font-size: 36px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          </div>
+        </div>
+
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-3">Don't</div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-4 tracking-tight">Things we don't do</h3>
+          <ul class="space-y-2 text-[13px] text-neutral-600 font-haas leading-relaxed">
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't change the font · always Inter 800 uppercase
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't recolor the lime circle to anything other than <span class="font-mono text-[#141414]">#CAFC00</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't add a drop shadow, gradient, or stroke
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't rotate, skew, or stretch the wordmark
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't place the lime icon on a busy photo without a backing layer
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Don't pair the wordmark with another logo without space between
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         COLOR PALETTE
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section id="colors" class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">29 swatches · click hex to copy</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Color palette</h2>
+        </div>
+        <a href="#" class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download palette · .ase / .clr
+        </a>
+      </div>
+
+      <!-- Brand -->
+      <div class="mb-7">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Brand</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="swatch">
+            <div class="swatch-color" style="background: #CAFC00;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Blockster lime</div>
+              <div class="swatch-hex"><span>#CAFC00</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #0a0a0a;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Surface · dark</div>
+              <div class="swatch-hex"><span>#0A0A0A</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #fafaf9;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Surface · page</div>
+              <div class="swatch-hex"><span>#FAFAF9</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #ffffff; box-shadow: inset 0 0 0 1px #f3f4f6;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Surface · card</div>
+              <div class="swatch-hex"><span>#FFFFFF</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #141414;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · primary</div>
+              <div class="swatch-hex"><span>#141414</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #E8E4DD;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · on dark</div>
+              <div class="swatch-hex"><span>#E8E4DD</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text scale -->
+      <div class="mb-7">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Text scale</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="swatch">
+            <div class="swatch-color" style="background: #343434;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · body</div>
+              <div class="swatch-hex"><span>#343434</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #6B7280;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · muted</div>
+              <div class="swatch-hex"><span>#6B7280</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #9CA3AF;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · faint</div>
+              <div class="swatch-hex"><span>#9CA3AF</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #d4d4d2;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Text · skeleton</div>
+              <div class="swatch-hex"><span>#D4D4D2</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #e5e5e2;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Border · default</div>
+              <div class="swatch-hex"><span>#E5E5E2</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #f3f4f6;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Divider · subtle</div>
+              <div class="swatch-hex"><span>#F3F4F6</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Semantic -->
+      <div class="mb-7">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Semantic · win / loss / warning</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="swatch">
+            <div class="swatch-color" style="background: #22C55E;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Win · primary</div>
+              <div class="swatch-hex"><span>#22C55E</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #4ade80;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Win · light</div>
+              <div class="swatch-hex"><span>#4ADE80</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #15803d;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Win · dark</div>
+              <div class="swatch-hex"><span>#15803D</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #EF4444;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Loss · primary</div>
+              <div class="swatch-hex"><span>#EF4444</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #facc15;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Warn · amber</div>
+              <div class="swatch-hex"><span>#FACC15</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: #a16207;"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Warn · dark</div>
+              <div class="swatch-hex"><span>#A16207</span><span class="copy">copy</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hub colors -->
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Hub brand colors · 5 most common</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div class="swatch">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #7D00FF, #4A00B8);"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Moonpay</div>
+              <div class="swatch-hex"><span>#7D00FF → #4A00B8</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Solana</div>
+              <div class="swatch-hex"><span>#00FFA3 → #00DC82</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #AB9FF2, #534BB1);"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Phantom</div>
+              <div class="swatch-hex"><span>#AB9FF2 → #534BB1</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #F7931A, #B86811);"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Bitcoin</div>
+              <div class="swatch-hex"><span>#F7931A → #B86811</span></div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #627EEA, #454A75);"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Ethereum</div>
+              <div class="swatch-hex"><span>#627EEA → #454A75</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CSS variables -->
+      <div class="mt-6">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">CSS variables · paste into :root</div>
+        <pre class="copy-block whitespace-pre"><span class="comment">/* Blockster brand · v1 */</span>
+<span class="key">--blockster-lime</span>:    #CAFC00;
+<span class="key">--surface-dark</span>:      #0A0A0A;
+<span class="key">--surface-page</span>:      #FAFAF9;
+<span class="key">--surface-card</span>:      #FFFFFF;
+<span class="key">--text-primary</span>:      #141414;
+<span class="key">--text-on-dark</span>:      #E8E4DD;
+<span class="key">--text-body</span>:         #343434;
+<span class="key">--text-muted</span>:        #6B7280;
+<span class="key">--text-faint</span>:        #9CA3AF;
+<span class="key">--win</span>:               #22C55E;
+<span class="key">--loss</span>:              #EF4444;
+<span class="key">--warn</span>:              #FACC15;</pre>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         TYPOGRAPHY
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section id="typography" class="py-12 border-t border-neutral-200/70">
+      <div class="eyebrow mb-1">2 typefaces · free & open source</div>
+      <h2 class="section-title text-[28px] md:text-[34px] mb-7">Typography</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- Inter -->
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-baseline justify-between mb-5">
+            <div>
+              <div class="eyebrow mb-1">Sans · display + body</div>
+              <div class="text-[24px] font-haas-bold text-[#141414] tracking-tight">Inter</div>
+            </div>
+            <span class="text-[10px] font-mono text-neutral-500">9 weights</span>
+          </div>
+          <div class="border-t border-neutral-100 pt-5 space-y-3 mb-5">
+            <div class="flex items-baseline gap-3"><span class="text-[36px] font-haas-bold text-[#141414] tracking-tight leading-none">Aa Bb Cc</span></div>
+            <div class="flex items-baseline gap-3 text-[14px] font-mono text-neutral-500"><span>0123456789</span></div>
+            <div class="text-[13px] text-neutral-700 font-haas leading-relaxed">The quick brown fox jumps over the lazy dog. — used for all headings, body text, and the wordmark.</div>
+          </div>
+          <div class="flex items-center justify-between pt-4 border-t border-neutral-100">
+            <span class="text-[10px] font-mono text-neutral-500">Open Font License</span>
+            <a href="https://fonts.google.com/specimen/Inter" target="_blank" class="inline-flex items-center gap-1.5 bg-[#0a0a0a] text-white px-3.5 py-1.5 rounded-full text-[11px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              Get from Google Fonts
+              <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- JetBrains Mono -->
+        <div class="bg-white border border-neutral-200/70 rounded-2xl p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-baseline justify-between mb-5">
+            <div>
+              <div class="eyebrow mb-1">Mono · numbers + data</div>
+              <div class="text-[24px] font-mono font-bold text-[#141414] tracking-tight">JetBrains Mono</div>
+            </div>
+            <span class="text-[10px] font-mono text-neutral-500">4 weights</span>
+          </div>
+          <div class="border-t border-neutral-100 pt-5 space-y-3 mb-5">
+            <div class="flex items-baseline gap-3"><span class="text-[36px] font-mono font-bold text-[#141414] tracking-tight leading-none">Aa 0123</span></div>
+            <div class="flex items-baseline gap-3 text-[14px] font-mono text-neutral-500"><span>$12,450 · 0.0234 SOL · 142 BUX</span></div>
+            <div class="text-[13px] text-neutral-700 font-mono leading-relaxed">7xQk8…3mPa · used for all prices, balances, addresses, dates, IDs.</div>
+          </div>
+          <div class="flex items-center justify-between pt-4 border-t border-neutral-100">
+            <span class="text-[10px] font-mono text-neutral-500">Apache 2.0</span>
+            <a href="https://fonts.google.com/specimen/JetBrains+Mono" target="_blank" class="inline-flex items-center gap-1.5 bg-[#0a0a0a] text-white px-3.5 py-1.5 rounded-full text-[11px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              Get from Google Fonts
+              <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Embed code -->
+      <div class="mt-5">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Embed · drop into &lt;head&gt;</div>
+        <pre class="copy-block whitespace-pre">&lt;<span class="key">link</span> rel=<span class="val">"preconnect"</span> href=<span class="val">"https://fonts.googleapis.com"</span>&gt;
+&lt;<span class="key">link</span> rel=<span class="val">"preconnect"</span> href=<span class="val">"https://fonts.gstatic.com"</span> crossorigin&gt;
+&lt;<span class="key">link</span> href=<span class="val">"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap"</span> rel=<span class="val">"stylesheet"</span>&gt;</pre>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         BRAND VOICE
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="eyebrow mb-1">How we sound · what we say</div>
+      <h2 class="section-title text-[28px] md:text-[34px] mb-7">Brand voice</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+
+        <!-- Mission card -->
+        <div class="md:col-span-5 bg-[#0a0a0a] text-white rounded-2xl p-8 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.08] to-transparent pointer-events-none"></div>
+          <div class="relative">
+            <div class="text-[10px] uppercase tracking-[0.16em] text-white/45 font-haas-bold mb-4">Mission line</div>
+            <h3 class="font-haas-bold text-[40px] leading-[1.05] tracking-tight mb-5">Where the chain meets the model.</h3>
+            <p class="text-[13px] text-white/65 font-haas leading-relaxed">Use this verbatim. It's the one line that should appear on every press page, social profile, deck cover, and footer.</p>
+          </div>
+        </div>
+
+        <!-- Locked phrases -->
+        <div class="md:col-span-7 bg-white border border-neutral-200/70 rounded-2xl p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-4">Locked phrases · use verbatim</div>
+          <div class="space-y-4 text-[13px]">
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1.5">Description (50 words)</div>
+              <p class="text-neutral-700 font-haas leading-relaxed">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+            </div>
+            <div class="pt-4 border-t border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1.5">Newsletter subhead</div>
+              <p class="text-neutral-700 font-haas italic">"The best of crypto × AI, every Friday. No spam, no shilling."</p>
+            </div>
+            <div class="pt-4 border-t border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1.5">Why Earn BUX header</div>
+              <p class="text-neutral-700 font-haas">"Why Earn BUX? Redeem BUX to enter sponsored airdrops."</p>
+            </div>
+            <div class="pt-4 border-t border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1.5">One-line tagline</div>
+              <p class="text-neutral-700 font-haas">"Read. Earn. Spend on chain."</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tone do/don't -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+        <div class="bg-white border border-[#22C55E]/30 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-4 h-4 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-[#15803d] font-haas-bold">Do</div>
+          </div>
+          <ul class="space-y-2 text-[13px] text-neutral-700 font-haas leading-relaxed">
+            <li>Write with the same precision you'd want from a Bloomberg terminal</li>
+            <li>Use mono font for all numbers, addresses, and dates</li>
+            <li>Lead with the data, then the human</li>
+            <li>Sentence case in headlines</li>
+            <li>Treat lime <span class="font-mono text-[#141414]">#CAFC00</span> as an accent — not a button background on light pages</li>
+          </ul>
+        </div>
+        <div class="bg-white border border-[#EF4444]/30 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-4 h-4 text-[#EF4444]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-[#EF4444] font-haas-bold">Don't</div>
+          </div>
+          <ul class="space-y-2 text-[13px] text-neutral-700 font-haas leading-relaxed">
+            <li>Don't use emojis in production text — ever</li>
+            <li>Don't say "to the moon", "wagmi", "gm fren", or any of that</li>
+            <li>Don't promise gains. Don't shill. Don't financialize the vibe</li>
+            <li>Don't use random greens for "earning" — only lime <span class="font-mono text-[#141414]">#CAFC00</span></li>
+            <li>Don't use Title Case in headlines</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         PRESS CONTACT
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="bg-white border border-neutral-200/70 rounded-2xl p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)] grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+        <div class="md:col-span-7">
+          <div class="eyebrow mb-2">Press inquiries</div>
+          <h3 class="article-title text-[28px] mb-2">Need something not in the kit?</h3>
+          <p class="text-[14px] text-neutral-600 font-haas leading-relaxed max-w-[460px]">Founder bios, original-resolution screenshots, or interview requests — we usually reply within a day.</p>
+        </div>
+        <div class="md:col-span-5 md:text-right">
+          <a href="mailto:press@blockster.com" class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            press@blockster.com
+          </a>
+          <div class="mt-3 text-[11px] text-neutral-500 font-mono">Usually reply within 24h</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER (with media kit link highlighted) -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <span class="logo dark mb-5" style="font-size: 24px;">BL<img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="o" class="logo-o" />CKSTER</span>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4 mt-5">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+          <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 font-haas leading-relaxed max-w-[360px]">
+            <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA</span>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Events</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="media_kit_mock.html" class="text-[#CAFC00] hover:text-white transition-colors">Media kit</a>
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
