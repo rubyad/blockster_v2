@@ -135,43 +135,31 @@ The unusual thing about this project is that the design language emerged from th
 ### Done ✓
 
 - [x] **Article page** → `realtime_widgets_mock.html` (drop caps, ad banner system, sister-project widgets in sidebars, BUX earning UI, suggested reading)
-- [x] **Homepage** → `homepage_mock.html` (anonymous lead with Connect Wallet header, magazine-cover featured story, AI × Crypto category row, trending mosaic, hub showcase, dedicated videos section, logged-in additions)
+- [x] **Homepage** → `homepage_mock.html` (anonymous lead with Connect Wallet header, magazine-cover featured story, AI × Crypto category row, trending mosaic, hub showcase, dedicated videos section, **Upcoming token sales promo strip**, logged-in additions)
 - [x] **Hubs index** → `hubs_index_mock.html` (featured hub strip, sticky search + category chips, 4-col hub grid)
-- [x] **Hub show** (Moonpay example) → `hub_show_mock.html` (full-bleed brand banner, sticky tab nav, pinned post, mosaic, authors, hub-sponsored ad)
+- [x] **Hub show** (Moonpay example) → `hub_show_mock.html` (full-bleed brand banner, sticky tab nav, pinned post, mosaic, authors, hub-sponsored ad, **plus stacked tab states for News / Videos / Long reads / Shop / Events / Authors / About**)
 - [x] **Profile** → `profile_mock.html` (identity hero, 3 stat cards, multiplier breakdown, all 5 stacked tab states: Activity / Following / Refer / Rewards / Settings)
+- [x] **Public member page** → `member_public_mock.html` (the `/member/:slug` view someone *other* than the owner sees — identity hero, public stats, articles tab, sidebar with "Published in" hubs and recent activity. No settings/multiplier/email banner/referral)
 - [x] **Play** (Coin Flip) → `play_mock.html` (3 stacked states: Place bet / In progress / Result win+loss, stylized H/T coin design, recent games table)
 - [x] **Pool index** → `pool_index_mock.html` (two big vault cards SOL + BUX, how it works 3-step, cross-pool activity)
 - [x] **Pool detail** (SOL pool example) → `pool_detail_mock.html` (brand banner, sticky order form with deposit/withdraw tabs, LP price chart, 8-stat grid, activity table)
+- [x] **Wallet modal** → `wallet_modal_mock.html` (Phantom / Solflare / Backpack connect modal with empty + connecting states stacked)
+- [x] **Shop index** → `shop_index_mock.html` (full-bleed hero banner, sidebar filter Products / Communities / Brands, equal-aspect 3-col product grid. **USD prices, BUX as a discount** — 1 BUX = $0.01 off, capped at product max %)
+- [x] **Product detail** → `product_detail_mock.html` (gallery + size/color/qty + BUX-redemption card, related products. Hub badge as black pill, categories as gray badges)
+- [x] **Cart** → `cart_mock.html` (per-item BUX redemption input matching the live cart, USD totals with discount line, empty state stacked)
+- [x] **Checkout** → `checkout_mock.html` (4 stacked steps: Shipping → Review → Payment → Confirmation. Payment step has the dual BUX-burn (Solana tx) + Helio USD widget that the live checkout uses)
+- [x] **Airdrop** → `airdrop_mock.html` (single ongoing round model · 1 BUX = 1 entry · 33 winners · $250/$150/$100/$50×30 prize structure · two stacked states: open + drawn celebration. Provably-fair commitment + revealed seed verification)
+- [x] **Token sales index** → `token_sales_index_mock.html` (page hero with stat tiles, filter chips, featured sale magazine cover, 6-card grid covering live / upcoming / closed states)
+- [x] **Token sale detail** → `token_sale_detail_mock.html` (Phoenix Protocol example. Brand-color full-bleed banner with stats + countdown + live commitments widget, sticky tab nav, sticky allocation card on right with tier badge / commit input / vesting preview)
+- [x] **Category** → `category_mock.html` (DeFi example. Editorial title hero, featured post, filter chips, mosaic grid, related categories, big featured author card)
+- [x] **Tag** → `tag_mock.html` (#solana example. Slimmer than category — compact hero, 3-col post grid, related tags chip cloud)
+- [x] **Events index** → `events_index_mock.html` (page hero with stat tiles, filter chips for Free meetups / Music & culture / Online / IRL / This week, featured event magazine cover, 9-card grid mixing free meetups + paid music events with **date-tile component** + free/paid badges, hosting communities strip)
+- [x] **Event detail** → `event_detail_mock.html` (host-branded full-bleed banner with date tile + key info + going widget, sticky enrollment card on right, body sections About / Agenda / Speakers / Venue / Going / FAQ. **Two stacked states**: free meetup (RSVP form) + paid music event (tier picker + BUX discount input))
+- [x] **Event checkout** → `event_checkout_mock.html` (enrollment flow with **two stacked flows**: Flow A is free RSVP in 2 steps (attendee details → confirmation), Flow B is paid ticket purchase in 4 steps (attendees → review → payment with BUX burn + Helio → confirmation))
 
 ### Remaining ☐
 
-**Hub show — additional tab states**
-- [ ] Update `hub_show_mock.html` to add stacked tab states for the remaining tabs (currently only the **All** tab is shown). Add: News, Videos, Long reads, Shop (hub-specific products), Events, Authors (full author roster), About (full hub bio + team + links). Use the `state-divider` pattern with mono labels above each tab state. The Moonpay example should remain consistent throughout.
-
-
-**Shop**
-- [ ] `shop_index_mock.html` — main shop page (product grid, category filters, featured products, BUX/Helio price toggle, trending strip)
-- [ ] `product_detail_mock.html` — single product page (image gallery, variants/sizes, description, BUX vs Helio payment, reviews, related products, partner hub badge if applicable)
-- [ ] `cart_mock.html` — cart drawer or page (line items, totals, BUX balance check, proceed to checkout)
-- [ ] `checkout_mock.html` — multi-step checkout (shipping, payment method selector — BUX or Helio, order confirmation, all states)
-
-**Airdrop**
-- [ ] `airdrop_mock.html` — airdrop page (current round, prize pool, your entries, recent winners, deposit BUX to enter, history of past rounds)
-
-**Token Sales** *(new section requested)*
-- [ ] `token_sales_index_mock.html` — index of upcoming token sales (cards with project name, brand color, raise target, allocation type, countdown, "Register" CTA)
-- [ ] `token_sale_detail_mock.html` — single sale page (project hero, tokenomics, schedule, allocation tiers, your entry status, FAQ)
-- [ ] **Plus**: add a token sales promo strip section to `homepage_mock.html` showing the next 2-3 upcoming sales
-
-**Categories + Tags** *(new section requested)*
-- [ ] `category_mock.html` — category browse page (e.g. /category/defi) — filtered post grid with category-specific styling, related categories, featured author in this category
-- [ ] `tag_mock.html` — tag browse page (e.g. /tag/solana) — similar to category but for free-form tags
-
-**Member**
-- [ ] `member_public_mock.html` — public-facing member page (`/member/:slug` viewed by someone else, not the owner) — author bio, post count, BUX earned, reading streak, recent published articles, social links, follow button. Distinct from `profile_mock.html` which is the owner-only view.
-
-**Wallet UI** *(new request)*
-- [ ] `wallet_modal_mock.html` — wallet connect modal that appears when "Connect Wallet" is clicked, showing Phantom / Solflare / Backpack with logos and connect buttons. Could be a standalone mock or included as a state in the homepage mock.
+*All planned mocks done.* Future additions get appended here.
 
 ### After all mocks are done
 
@@ -186,14 +174,15 @@ The unusual thing about this project is that the design language emerged from th
 ```
 NOW          ↓
 ─────────────────────────────────────────────────────────
-Phase 1 — Mocks (in progress)
-  [done]     Article page · Home · Hubs index · Hub show · Profile · Play · Pool index · Pool detail
-  [next]     Shop main · Product · Cart · Checkout
+Phase 1 — Mocks (COMPLETE)
+  [done]     Article page · Home · Hubs index · Hub show (with all tab states)
+             Profile · Public member page
+             Play · Pool index · Pool detail · Wallet modal
+             Shop index · Product · Cart · Checkout
              Airdrop
              Token sales index · Token sale detail · homepage promo strip
              Category · Tag
-             Public member page
-             Wallet connect modal
+             Events index · Event detail · Event checkout
 ─────────────────────────────────────────────────────────
 Phase 1.5 — Doc split + design system finalization
              Split realtime_widgets_plan.md into widget-only + redesign plans

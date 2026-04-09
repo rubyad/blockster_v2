@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Event Checkout — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Two stacked enrollment flows:
+
+       FLOW A — Free meetup RSVP (2 steps):
+         Step 1 · Attendee details (name + email if guest + +1 + dietary)
+         Step 2 · Confirmation
+
+       FLOW B — Paid music event purchase (4 steps):
+         Step 1 · Attendee details (name on ticket + email)
+         Step 2 · Review tickets + BUX discount applied
+         Step 3 · Payment (BUX burn → Helio USD)
+         Step 4 · Confirmation -->
+  <style>
+    :root { --bg-page: #fafaf9; --text-primary: #141414; --text-body: #343434; --text-muted: #6B7280; --text-faint: #9CA3AF; --blockster-lime: #CAFC00; }
+    html, body { background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', sans-serif; }
+    .article-title { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-primary); letter-spacing: -0.022em; line-height: 1.04; }
+    .header-bg { background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); }
+    .profile-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.15); } }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; color: var(--text-primary); }
+    .eyebrow { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+
+    .form-input {
+      width: 100%;
+      background: white;
+      border: 1px solid #e5e5e2;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      color: #141414;
+      transition: border-color 0.15s ease;
+    }
+    .form-input:focus { outline: none; border-color: #141414; }
+    .form-input::placeholder { color: #9CA3AF; }
+    .form-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #6B7280; text-transform: uppercase; margin-bottom: 6px; display: block; }
+
+    .step-dot {
+      width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+      transition: background-color 0.2s ease;
+    }
+    .step-dot.done { background: #141414; color: white; }
+    .step-dot.current { background: #CAFC00; color: #141414; box-shadow: 0 0 0 4px rgba(202, 252, 0, 0.2); }
+    .step-dot.future { background: #f3f4f6; color: #9CA3AF; border: 1px solid #e5e5e2; }
+    .step-line { flex: 1; height: 2px; background: #e5e5e2; }
+    .step-line.done { background: #141414; }
+    .step-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 6px; }
+
+    .sticky-summary { position: sticky; top: 100px; align-self: flex-start; }
+
+    .state-divider {
+      position: relative;
+      margin: 100px 0 60px;
+      text-align: center;
+    }
+    .state-divider::before {
+      content: '';
+      position: absolute;
+      inset: 50% 0 0 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #d4d4d2, transparent);
+    }
+    .state-divider span {
+      position: relative;
+      background: var(--bg-page);
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+    }
+
+    .pay-card {
+      display: block;
+      background: white;
+      border: 1px solid #e5e5e2;
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .pay-card.done { background: #fafaf9; border-color: #22C55E; }
+    .pay-card.active { border-color: #141414; }
+
+    /* Date tile small */
+    .date-tile-sm {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+      padding: 8px 11px 9px;
+      box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.12);
+      text-align: center;
+      min-width: 56px;
+      font-family: 'Inter', sans-serif;
+      flex-shrink: 0;
+    }
+    .date-tile-sm .month { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #C73E1D; line-height: 1; margin-bottom: 2px; }
+    .date-tile-sm .day { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #141414; line-height: 1.05; }
+    .date-tile-sm .weekday { font-size: 9px; font-weight: 500; color: #9CA3AF; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+
+    .price-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+      padding: 4px 9px; border-radius: 999px; text-transform: uppercase;
+    }
+    .price-badge.free { background: #CAFC00; color: #141414; }
+    .price-badge.paid { background: #141414; color: white; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Events</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]"><div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div></div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- INTRO -->
+    <section class="pt-12 pb-6">
+      <div class="eyebrow mb-3">Two enrollment flows · 6 stacked states</div>
+      <h1 class="article-title text-[44px] md:text-[52px] mb-2 leading-[0.96]">Event checkout</h1>
+      <p class="text-[14px] text-neutral-600 font-haas max-w-[640px]">Free meetups use a 2-step RSVP flow. Paid music events use the same 4-step pattern as the shop checkout, with BUX burn + Helio at the payment step.</p>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         FLOW A — FREE RSVP (2 steps)
+    ════════════════════════════════════════════════════════════ -->
+
+    <section class="pb-6">
+      <div class="bg-white rounded-2xl border border-[#CAFC00]/40 p-4 inline-flex items-center gap-3">
+        <span class="price-badge free">Free meetup</span>
+        <span class="text-[12px] text-neutral-600 font-haas">Flow A · 2 steps · Moonpay × Solana NYC happy hour</span>
+      </div>
+    </section>
+
+    <!-- Step indicator A.1 -->
+    <section class="pb-6">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3 max-w-[400px]">
+          <div class="flex flex-col items-center">
+            <div class="step-dot current">1</div>
+            <div class="step-label text-[#141414]">Your details</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center">
+            <div class="step-dot future">2</div>
+            <div class="step-label text-neutral-400">Done</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-7">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-2">Step 1 of 2</div>
+            <h2 class="article-title text-[28px] mb-1">Tell us who's coming</h2>
+            <p class="text-[13px] text-neutral-500 font-haas mb-7">We need a name for the door list and an email for the confirmation.</p>
+
+            <div class="space-y-4 mb-5">
+              <div>
+                <label class="form-label">Display name</label>
+                <input type="text" class="form-input" value="Marcus Verren" />
+                <div class="text-[10px] text-neutral-400 font-haas mt-1">Will appear on the public going list.</div>
+              </div>
+
+              <div>
+                <label class="form-label">Email · for confirmation</label>
+                <input type="email" class="form-input" value="marcus@blockster.com" />
+              </div>
+
+              <div class="grid grid-cols-[1fr_80px] gap-4 items-end">
+                <div>
+                  <label class="form-label">Bring a +1?</label>
+                  <input type="text" placeholder="Friend's full name (optional)" class="form-input" />
+                </div>
+                <div class="text-right pb-3">
+                  <div class="text-[10px] text-neutral-500 font-haas">Allowed</div>
+                  <div class="font-mono font-bold text-[14px] text-[#141414]">1 / 1</div>
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label">Dietary needs <span class="text-neutral-400 normal-case font-haas">(optional)</span></label>
+                <input type="text" placeholder="Vegan, gluten-free, allergy notes…" class="form-input" />
+              </div>
+
+              <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 flex items-start gap-3">
+                <input type="checkbox" checked class="mt-0.5 w-4 h-4 rounded" />
+                <div class="text-[11px] text-neutral-600 font-haas leading-relaxed">
+                  Add me to the host's mailing list. <span class="text-neutral-400">Hosts can email you about future events from their hub. You can unsubscribe anytime.</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              Confirm RSVP
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <a href="#" class="block text-center text-[12px] text-neutral-500 hover:text-[#141414] font-haas py-3 mt-1">← Back to event</a>
+          </div>
+        </div>
+
+        <!-- Sticky summary -->
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-summary">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-4">Event summary</div>
+              <div class="flex items-start gap-4 mb-5">
+                <div class="date-tile-sm">
+                  <div class="month">APR</div>
+                  <div class="day">22</div>
+                  <div class="weekday">TUE</div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Hosted by Moonpay</div>
+                  <h3 class="font-haas-bold text-[15px] text-[#141414] leading-tight tracking-tight mb-2">Moonpay × Solana NYC happy hour</h3>
+                  <div class="space-y-1 text-[11px] text-neutral-500 font-haas">
+                    <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="font-mono">6:00 PM</span> · 3 hours</div>
+                    <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Soho House Meatpacking</div>
+                  </div>
+                </div>
+              </div>
+              <div class="pt-4 border-t border-neutral-100 flex items-baseline justify-between">
+                <span class="text-[13px] font-haas-bold text-[#141414]">Total</span>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[24px] text-[#141414] leading-none">$0.00</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-1">Free meetup</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step indicator A.2 - Confirmation -->
+    <section class="pb-12">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3 max-w-[400px]">
+          <div class="flex flex-col items-center">
+            <div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="step-label text-[#141414]">Your details</div>
+          </div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center">
+            <div class="step-dot current">2</div>
+            <div class="step-label text-[#141414]">Done</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center max-w-[640px] mx-auto">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-3xl bg-[#22C55E]/12 border border-[#22C55E]/30 grid place-items-center">
+          <svg class="w-10 h-10 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="eyebrow mb-2">RSVP confirmed</div>
+        <h2 class="article-title text-[36px] mb-3 leading-[1.0]">You're on the list, Marcus.</h2>
+        <p class="text-[14px] text-neutral-600 font-haas max-w-[420px] mx-auto mb-7">Confirmation sent to <strong class="font-haas-bold text-[#141414]">marcus@blockster.com</strong>. Show this at the door, or just tell them your name.</p>
+
+        <!-- Event reminder card -->
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5 max-w-[480px] mx-auto mb-7 text-left">
+          <div class="flex items-start gap-4">
+            <div class="date-tile-sm">
+              <div class="month">APR</div>
+              <div class="day">22</div>
+              <div class="weekday">TUE</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Hosted by Moonpay</div>
+              <h3 class="font-haas-bold text-[15px] text-[#141414] leading-tight tracking-tight mb-2">Moonpay × Solana NYC happy hour</h3>
+              <div class="space-y-1 text-[11px] text-neutral-500 font-haas">
+                <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="font-mono">Tue Apr 22 · 6:00 PM</span></div>
+                <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Soho House Meatpacking · NYC</div>
+                <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg>+1 included · spot reserved</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center gap-3 flex-wrap">
+          <button class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Add to calendar
+          </button>
+          <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-5 py-3 rounded-full text-[13px] font-haas hover:border-[#141414] transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share with friends
+          </button>
+        </div>
+
+        <div class="mt-7 pt-7 border-t border-neutral-100 text-[11px] text-neutral-500 font-haas">
+          Cancel your RSVP from the email confirmation if your plans change.
+        </div>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Flow B · paid music event ↓</span></div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         FLOW B — PAID PURCHASE (4 steps)
+    ════════════════════════════════════════════════════════════ -->
+
+    <section class="pb-6">
+      <div class="bg-white rounded-2xl border border-neutral-300 p-4 inline-flex items-center gap-3">
+        <span class="price-badge paid">Music event · $45</span>
+        <span class="text-[12px] text-neutral-600 font-haas">Flow B · 4 steps · Memetic AI synth night Berlin</span>
+      </div>
+    </section>
+
+    <!-- Step indicator B.1 -->
+    <section class="pb-12">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col items-center"><div class="step-dot current">1</div><div class="step-label text-[#141414]">Attendees</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">2</div><div class="step-label text-neutral-400">Review</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">3</div><div class="step-label text-neutral-400">Payment</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">4</div><div class="step-label text-neutral-400">Done</div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-7">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-2">Step 1 of 4</div>
+            <h2 class="article-title text-[28px] mb-1">Who are these tickets for?</h2>
+            <p class="text-[13px] text-neutral-500 font-haas mb-7">Each ticket needs a real name for ID check at the door. You can transfer them later.</p>
+
+            <!-- Ticket 1 -->
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 mb-3">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-700">Ticket 1 · GA · $45</div>
+                <span class="inline-flex items-center gap-1 text-[10px] font-mono text-neutral-500"><span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>Lead attendee</span>
+              </div>
+              <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                  <div><label class="form-label">Full name on ID</label><input type="text" class="form-input" value="Marcus Verren" /></div>
+                  <div><label class="form-label">Email · for ticket</label><input type="email" class="form-input" value="marcus@blockster.com" /></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ticket 2 -->
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 mb-7">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-700">Ticket 2 · GA · $45</div>
+                <button class="text-[10px] text-neutral-400 hover:text-[#EF4444] font-haas">Remove</button>
+              </div>
+              <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                  <div><label class="form-label">Full name on ID</label><input type="text" class="form-input" placeholder="Sara Kim" /></div>
+                  <div><label class="form-label">Email <span class="text-neutral-400 normal-case font-haas">(optional)</span></label><input type="email" class="form-input" placeholder="sara@example.com" /></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <a href="#" class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-5 py-3.5 rounded-full text-[13px] font-haas hover:border-[#141414] transition-colors">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m0 0l7-7m-7 7l7 7"/></svg>
+                Back to event
+              </a>
+              <button class="inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                Continue to review
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-summary">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-4">Order summary</div>
+              <div class="flex items-start gap-4 mb-5">
+                <div class="date-tile-sm">
+                  <div class="month">APR</div>
+                  <div class="day">19</div>
+                  <div class="weekday">SAT</div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Memetic AI Records</div>
+                  <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight tracking-tight mb-2">Memetic AI synth night · Berlin warehouse rave</h3>
+                  <div class="space-y-1 text-[10px] text-neutral-500 font-haas">
+                    <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="font-mono">11:00 PM</span></div>
+                    <div class="flex items-center gap-1.5"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Klein Hamburg · Berlin</div>
+                  </div>
+                </div>
+              </div>
+              <div class="space-y-2 pt-4 border-t border-neutral-100 text-[12px]">
+                <div class="flex justify-between"><span class="text-neutral-500">2 × GA · $45</span><span class="font-mono text-[#141414]">$90.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">BUX discount · 4,500 BUX</span><span class="font-mono text-[#15803d]">−$45.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">Service fee</span><span class="font-mono text-[#141414]">$2.50</span></div>
+              </div>
+              <div class="pt-4 mt-2 border-t border-neutral-100 flex items-baseline justify-between">
+                <span class="text-[13px] font-haas-bold text-[#141414]">Total · USD</span>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">$47.50</div>
+                  <div class="text-[10px] text-neutral-500 font-mono mt-1">+ 4,500 BUX burned</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step indicator B.2 - Review -->
+    <section class="pb-12">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Attendees</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot current">2</div><div class="step-label text-[#141414]">Review</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">3</div><div class="step-label text-neutral-400">Payment</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">4</div><div class="step-label text-neutral-400">Done</div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-7 space-y-5">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-2">Step 2 of 4</div>
+            <h2 class="article-title text-[28px] mb-7">Review your tickets</h2>
+
+            <!-- Tickets -->
+            <div class="mb-7">
+              <div class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Tickets · 2 × GA</div>
+              <div class="space-y-3">
+                <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF007A] to-[#870042] grid place-items-center text-white font-haas-bold text-[12px]">M</div>
+                  <div class="flex-1">
+                    <div class="text-[13px] font-haas-bold text-[#141414]">Marcus Verren</div>
+                    <div class="text-[11px] text-neutral-500 font-haas">marcus@blockster.com · GA</div>
+                  </div>
+                  <div class="font-mono font-bold text-[14px] text-[#141414]">$45.00</div>
+                </div>
+                <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF007A] to-[#870042] grid place-items-center text-white font-haas-bold text-[12px]">S</div>
+                  <div class="flex-1">
+                    <div class="text-[13px] font-haas-bold text-[#141414]">Sara Kim</div>
+                    <div class="text-[11px] text-neutral-500 font-haas">sara@example.com · GA</div>
+                  </div>
+                  <div class="font-mono font-bold text-[14px] text-[#141414]">$45.00</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- BUX applied -->
+            <div class="mb-2 pt-6 border-t border-neutral-100">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">BUX discount</div>
+                <button class="text-[11px] text-neutral-500 hover:text-[#141414] font-haas underline">Edit</button>
+              </div>
+              <div class="bg-[#CAFC00]/12 border border-[#CAFC00]/40 rounded-xl p-4 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center shrink-0">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+                </div>
+                <div class="flex-1">
+                  <div class="text-[13px] font-haas-bold text-[#141414]">Burning <span class="font-mono">4,500 BUX</span> at checkout</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-0.5">Applies $45.00 (50%) off your tickets</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-5 py-3.5 rounded-full text-[13px] font-haas hover:border-[#141414] transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m0 0l7-7m-7 7l7 7"/></svg>
+              Back to attendees
+            </button>
+            <button class="inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              Continue to payment
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-summary">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-4">Final total</div>
+              <div class="space-y-2 text-[12px]">
+                <div class="flex justify-between"><span class="text-neutral-500">2 × GA · $45</span><span class="font-mono text-[#141414]">$90.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">BUX discount</span><span class="font-mono text-[#15803d]">−$45.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">Service fee</span><span class="font-mono text-[#141414]">$2.50</span></div>
+              </div>
+              <div class="pt-4 mt-4 border-t border-neutral-100 flex items-baseline justify-between">
+                <span class="text-[13px] font-haas-bold text-[#141414]">Total · USD</span>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[24px] text-[#141414] leading-none">$47.50</div>
+                  <div class="text-[10px] text-neutral-500 font-mono mt-1">+ 4,500 BUX burned</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step indicator B.3 - Payment -->
+    <section class="pb-12">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Attendees</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Review</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot current">3</div><div class="step-label text-[#141414]">Payment</div></div>
+          <div class="step-line"></div>
+          <div class="flex flex-col items-center"><div class="step-dot future">4</div><div class="step-label text-neutral-400">Done</div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-7 space-y-5">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-2">Step 3 of 4</div>
+            <h2 class="article-title text-[28px] mb-2">Pay for your tickets</h2>
+            <p class="text-[13px] text-neutral-500 font-haas mb-7">Burn the BUX you redeemed (one Solana tx) then pay the remainder via Helio.</p>
+
+            <!-- BUX burn — done -->
+            <div class="pay-card done mb-3">
+              <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-xl bg-[#CAFC00] grid place-items-center shrink-0">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-haas-bold text-[15px] text-[#141414]">Burn 4,500 BUX</span>
+                    <span class="inline-flex items-center gap-1 bg-[#22C55E]/12 text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">
+                      <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      Confirmed
+                    </span>
+                  </div>
+                  <p class="text-[12px] text-neutral-600 font-haas leading-relaxed">BUX burned on chain. $45.00 discount applied.</p>
+                  <a href="#" class="mt-2 inline-flex items-center gap-1 text-[10px] text-neutral-500 hover:text-[#141414] font-mono">tx · 5gWp…1nVx ↗</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Helio active -->
+            <div class="pay-card active">
+              <div class="flex items-start gap-4 mb-5">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0052FF] to-[#001E5C] grid place-items-center shrink-0">
+                  <span class="text-white font-haas-bold text-[12px]">$</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-haas-bold text-[15px] text-[#141414]">Pay $47.50 via Helio</span>
+                  </div>
+                  <p class="text-[12px] text-neutral-600 font-haas leading-relaxed">USDC settled on chain. Cards, Apple Pay, Google Pay.</p>
+                </div>
+              </div>
+
+              <div class="bg-neutral-50 border border-dashed border-neutral-300 rounded-xl p-5 mb-4">
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-3">Helio embedded checkout</div>
+                <div class="space-y-3">
+                  <div class="bg-white border border-neutral-200 rounded-lg px-3 py-2.5 text-[12px] font-mono text-neutral-400">Card number · 4242 4242 4242 4242</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white border border-neutral-200 rounded-lg px-3 py-2.5 text-[12px] font-mono text-neutral-400">MM / YY</div>
+                    <div class="bg-white border border-neutral-200 rounded-lg px-3 py-2.5 text-[12px] font-mono text-neutral-400">CVC</div>
+                  </div>
+                </div>
+              </div>
+
+              <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                Pay $47.50
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="mt-3 text-center text-[10px] text-neutral-400 font-haas">Powered by <span class="font-haas-bold">Helio</span> · settles in USDC on Solana</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-summary">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-4">Final total</div>
+              <div class="space-y-2 text-[12px]">
+                <div class="flex justify-between"><span class="text-neutral-500">2 × GA · $45</span><span class="font-mono text-[#141414]">$90.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">BUX discount</span><span class="font-mono text-[#15803d]">−$45.00</span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">Service fee</span><span class="font-mono text-[#141414]">$2.50</span></div>
+              </div>
+              <div class="pt-4 mt-4 border-t border-neutral-100">
+                <div class="flex items-baseline justify-between">
+                  <span class="text-[13px] font-haas-bold text-[#141414]">Total · USD</span>
+                  <div class="font-mono font-bold text-[24px] text-[#141414] leading-none">$47.50</div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between text-[11px]">
+                  <span class="text-neutral-500 font-haas">BUX burned on chain</span>
+                  <span class="font-mono font-bold text-[#15803d]">4,500 BUX ✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step indicator B.4 - Confirmation -->
+    <section class="pb-12">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Attendees</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Review</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot done"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="step-label text-[#141414]">Payment</div></div>
+          <div class="step-line done"></div>
+          <div class="flex flex-col items-center"><div class="step-dot current">4</div><div class="step-label text-[#141414]">Done</div></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center max-w-[640px] mx-auto">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-3xl bg-[#22C55E]/12 border border-[#22C55E]/30 grid place-items-center">
+          <svg class="w-10 h-10 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="eyebrow mb-2">Tickets confirmed</div>
+        <h2 class="article-title text-[36px] mb-3 leading-[1.0]">See you in Berlin.</h2>
+        <p class="text-[14px] text-neutral-600 font-haas max-w-[420px] mx-auto mb-7">Two tickets sent to <strong class="font-haas-bold text-[#141414]">marcus@blockster.com</strong>. They live in your wallet — show the QR at the door.</p>
+
+        <!-- Order ID + tx -->
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5 max-w-[480px] mx-auto mb-7">
+          <div class="grid grid-cols-2 gap-4 text-left">
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Order ID</div>
+              <div class="font-mono font-bold text-[14px] text-[#141414]">EVT-Q39X7K</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Total paid</div>
+              <div class="font-mono font-bold text-[14px] text-[#141414]">$47.50 USD</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">BUX burn tx</div>
+              <a href="#" class="font-mono text-[12px] text-[#141414] hover:text-[#15803d]">5gWp…1nVx ↗</a>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">BUX redeemed</div>
+              <div class="font-mono text-[12px] text-[#141414]">4,500 BUX</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Tickets</div>
+              <div class="font-mono text-[12px] text-[#141414]">2 × GA</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Doors</div>
+              <div class="font-mono text-[12px] text-[#141414]">Sat Apr 19 · 11 PM</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center gap-3 flex-wrap">
+          <a href="#" class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+            View tickets
+            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="#" class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-5 py-3 rounded-full text-[13px] font-haas hover:border-[#141414] transition-colors">
+            Add to calendar
+          </a>
+        </div>
+
+        <div class="mt-7 pt-7 border-t border-neutral-100 text-[11px] text-neutral-500 font-haas">
+          Tickets are transferable. Can't go? Sell at face value through Blockster up to 24h before doors.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Events</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

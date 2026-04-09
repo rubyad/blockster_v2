@@ -22,13 +22,27 @@ When you need an example of a particular pattern, look here first:
 | Mock file | Best examples of |
 |---|---|
 | `realtime_widgets_mock.html` | Article page · drop caps · article body styles · sidebar widgets · all 4 ad banner styles · Why Earn BUX banner · floating BUX panel · suggested reading cards |
-| `homepage_mock.html` | Magazine cover hero · AI × Crypto category row · trending mosaic · hub showcase grid · videos section · logged-in additions divider · anonymous welcome hero |
+| `homepage_mock.html` | Magazine cover hero · AI × Crypto category row · trending mosaic · hub showcase grid · videos section · upcoming token sales promo strip · logged-in additions divider · anonymous welcome hero |
 | `hubs_index_mock.html` | Browse hubs page · featured hub strip · sticky search + category chips · 4-col hub grid |
-| `hub_show_mock.html` | Brand-color full-bleed banner · sticky tab nav · pinned post · hub-scoped mosaic · authors strip · about + stats two-column · hub-sponsored ad pattern |
+| `hub_show_mock.html` | Brand-color full-bleed banner · sticky tab nav · pinned post · hub-scoped mosaic · authors strip · about + stats two-column · hub-sponsored ad pattern · all 7 stacked tab states (News / Videos / Long reads / Shop / Events / Authors / About) |
 | `profile_mock.html` | Identity hero · 3 stat cards · email verification banner · multiplier breakdown card · all 5 stacked tab states (Activity / Following / Refer / Rewards / Settings) |
+| `member_public_mock.html` | Public `/member/:slug` view · identity hero with bio + social + Follow CTA · public stats row · sticky tab nav · "Published in" hub cards in sidebar |
 | `play_mock.html` | Coin Flip game · 3 stacked states (Place bet / In progress / Result win+loss) · stylized H/T coin design · difficulty pill grid · provably-fair commitment box · live activity sidebar · recent games table |
 | `pool_index_mock.html` | Two big vault feature cards (SOL + BUX) · how it works 3-step · cross-pool activity table |
 | `pool_detail_mock.html` | Pool brand banner · sticky order form (deposit/withdraw tabs) · LP price chart with timeframe controls · 8-stat grid · pool activity table |
+| `wallet_modal_mock.html` | Wallet connect modal · Phantom / Solflare / Backpack rows with brand badges · empty + connecting states stacked · shimmer progress strip |
+| `shop_index_mock.html` | Shop main page · full-bleed hero banner · sidebar filter (Products / Communities / Brands) · equal-aspect 3-col product grid · USD prices with strikethrough + BUX-discounted price |
+| `product_detail_mock.html` | Product page · gallery + thumbnails · BUX-redemption card (1 BUX = $0.01 off) · size pills + color swatches · spec table · related products |
+| `cart_mock.html` | Cart page · per-item BUX redemption input · USD subtotal/discount/total summary · empty state stacked |
+| `checkout_mock.html` | 4-step checkout · Shipping → Review → Payment → Confirmation · payment step has dual BUX-burn (Solana tx) + Helio USD widget |
+| `airdrop_mock.html` | Single ongoing round · 1 BUX = 1 entry · 33 winners · prize structure grid · open + drawn celebration states stacked · provably-fair commitment + revealed seed verification |
+| `token_sales_index_mock.html` | Token sales index · stat tiles · filter chips · featured sale magazine cover · 6-card grid covering live / upcoming / closed states with brand-color stripes |
+| `token_sale_detail_mock.html` | Single sale page · brand-color full-bleed banner with countdown + live commitments widget · sticky tab nav (Overview / Tokenomics / Schedule / Team / FAQ) · sticky allocation card with tier badge / commit input / vesting preview |
+| `category_mock.html` | Category browse (DeFi example) · editorial title hero · featured post · filter chips · mosaic grid · related categories · big featured author card |
+| `tag_mock.html` | Tag browse (#solana example) · compact hero · 3-col post grid · related tags chip cloud (slimmer than category by design) |
+| `events_index_mock.html` | Events index · stat tiles · filter chips for Free / Music / Online / IRL · featured event magazine cover · 9-card grid mixing free meetups + paid music events with **date-tile** component + free/paid badges · hosting communities strip |
+| `event_detail_mock.html` | Event page · host-branded full-bleed banner with date tile + key info row + going widget · sticky enrollment card · About / Agenda / Speakers / Venue / Going / FAQ sections · two stacked states: free meetup (RSVP form) + paid music event (tier picker + BUX discount) |
+| `event_checkout_mock.html` | Enrollment flow · two stacked flows · Flow A: free RSVP in 2 steps (attendee details → confirmation) · Flow B: paid ticket purchase in 4 steps (attendees → review → payment with BUX burn + Helio → confirmation) |
 
 ---
 
@@ -865,6 +879,127 @@ Used on the play page. 9-column grid of stacked difficulty buttons.
 ```
 
 Each button has 3 stacked text rows: small uppercase mode label, big multiplier, tiny flip count. See `play_mock.html`.
+
+---
+
+## Component pattern · Date tile (events)
+
+The signature component for the events section. A floating white tile with a colored month label, big mono day number, and small uppercase weekday. Used in two sizes — small for cards, large for the event detail banner.
+
+```css
+/* Large variant — used on event detail brand banner */
+.date-tile {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 10px 18px 14px;
+  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.25), 0 4px 8px -2px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  min-width: 88px;
+  font-family: 'Inter', sans-serif;
+}
+.date-tile .month {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #C73E1D;        /* terracotta — the signature month color */
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.date-tile .day {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 38px;
+  font-weight: 700;
+  color: #141414;
+  line-height: 1.05;
+}
+.date-tile .weekday {
+  font-size: 10px;
+  font-weight: 500;
+  color: #9CA3AF;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+```
+
+```html
+<div class="date-tile">
+  <div class="month">APR</div>
+  <div class="day">22</div>
+  <div class="weekday">TUE</div>
+</div>
+```
+
+**Small variant** (`.date-tile-sm`, used in event cards and order summaries): 56px min-width, 22px day number, 12px border-radius, lighter shadow. Both variants use the same terracotta `#C73E1D` for the month label — that's the only place this color appears in the system.
+
+**Placement**: top-left of an event card image (overlaying the photo with a soft drop shadow), or floating to the left of the event title in a brand-banner identity block. Never use on a non-event surface.
+
+---
+
+## Component pattern · Free / Paid event badge
+
+A small mono pill that classifies an event at a glance. Three variants:
+
+```css
+.price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.price-badge.free   { background: #CAFC00; color: #141414; }
+.price-badge.paid   { background: #141414; color: white; }
+.price-badge.online { background: rgba(34, 197, 94, 0.12); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.25); }
+```
+
+**Rules:**
+- Lime + black for free (community / free meetup)
+- Black for paid (music / culture / ticketed)
+- Soft green for online (modifier — usually stacked under a free or paid badge)
+- Always small. Place top-right of the event card image. Never bigger than the date tile.
+
+The lime free badge is one of the **only** places lime works as a button-shaped background on a light page — and only because it's a small pill, not a large surface.
+
+---
+
+## Component pattern · Event card
+
+Combines the date tile + price badge over a 16:10 image, then standard card body below. See `events_index_mock.html` for canonical examples.
+
+```html
+<a href="#" class="event-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+  <div class="aspect-[16/10] bg-neutral-100 overflow-hidden relative">
+    <img src="..." alt="" class="w-full h-full object-cover" />
+    <div class="absolute top-3 left-3"><div class="date-tile">…</div></div>
+    <div class="absolute top-3 right-3"><span class="price-badge free">Free</span></div>
+  </div>
+  <div class="p-5">
+    <!-- hub badge row -->
+    <!-- title (line-clamp-2) -->
+    <!-- 2-line meta: time + location -->
+    <!-- (optional) BUX discount strip if paid -->
+    <!-- footer: avatar stack + going count -->
+  </div>
+</a>
+```
+
+**Conventions:**
+- Image aspect: `16/10` (taller than the article post card's `16/9` — gives more room for the date tile)
+- Date tile sits in `top-3 left-3` of the image; price badge in `top-3 right-3`. Online modifier stacks under the price badge if present.
+- Hub badge row mirrors the post card (small color dot + hub name)
+- Title `line-clamp-2`, body meta uses `font-haas` 11px in `text-neutral-500`
+- Avatar stack at the bottom-left footer with `+N` overflow chip; going count in mono on the right
+- Paid events get an extra `bg-[#CAFC00]/12 border border-[#CAFC00]/40 rounded-lg` strip above the footer mentioning the BUX discount cap
+
+**Hover**: same lift as `.post-card` plus slightly heavier shadow. Brand color stripe at the top is optional — use it to differentiate sponsored events on a busy index.
 
 ---
 
