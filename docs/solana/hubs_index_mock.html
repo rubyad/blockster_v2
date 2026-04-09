@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Hubs Index — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .section-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .eyebrow {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    .hub-card {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .hub-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.18), transparent 60%);
+      pointer-events: none;
+    }
+    .hub-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.35);
+    }
+
+    .hub-feature {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .hub-feature:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.40);
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .chip-default {
+      background: white;
+      border: 1px solid #e5e5e2;
+      color: #6B7280;
+    }
+    .chip-default:hover {
+      border-color: #141414;
+      color: #141414;
+    }
+    .chip-active {
+      background: #141414;
+      color: white;
+      border: 1px solid #141414;
+    }
+    .chip-count {
+      margin-left: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      opacity: 0.6;
+    }
+    .chip-active .chip-count { opacity: 0.7; }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #141414;
+      box-shadow: 0 0 0 4px rgba(20, 20, 20, 0.06);
+    }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center">
+          <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" />
+        </a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a href="#" class="hidden sm:inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-3.5 py-2 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a1a] transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="14" rx="2"/>
+            <path d="M22 10h-4a2 2 0 100 4h4"/>
+          </svg>
+          Connect Wallet
+        </a>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         PAGE HEADER
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-16 pb-12">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-8">
+          <div class="eyebrow mb-3">Browse</div>
+          <h1 class="article-title text-[64px] md:text-[80px] mb-5 leading-[0.96]">Hubs</h1>
+          <p class="text-[18px] leading-[1.5] text-neutral-600 max-w-[520px] font-haas">
+            66 publications at the intersection of crypto and AI. Follow the ones you care about, earn BUX from every story you read, and shape your own daily edition.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-4">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="text-right">
+              <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">66</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5 font-haas">Hubs</div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">12.4k</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5 font-haas">Articles</div>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">4.2M</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5 font-haas">BUX Paid</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         FEATURED HUBS — 3 large cards
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-10">
+      <div class="flex items-baseline justify-between mb-5">
+        <div class="eyebrow">Featured this week</div>
+        <a href="#" class="text-[12px] font-haas text-neutral-500 hover:text-neutral-900 transition-colors">All featured →</a>
+      </div>
+      <div class="grid grid-cols-12 gap-5">
+
+        <!-- Featured: Moonpay (sponsor) -->
+        <a href="#" class="hub-feature col-span-12 md:col-span-6 lg:col-span-5 rounded-3xl p-8 text-white relative overflow-hidden" style="background: linear-gradient(135deg, #7D00FF 0%, #4A00B8 100%); min-height: 320px;">
+          <div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
+          <div class="absolute -top-32 -right-32 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="relative h-full flex flex-col">
+            <div class="flex items-start justify-between mb-12">
+              <div class="w-14 h-14 rounded-xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-lg">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none"/>
+                  <circle cx="12" cy="12" r="5" fill="white"/>
+                </svg>
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] bg-white/15 backdrop-blur px-2.5 py-1 rounded-full font-haas-bold ring-1 ring-white/15">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+                Sponsor
+              </div>
+            </div>
+            <h3 class="font-haas-bold text-[36px] tracking-tight mb-2 leading-none">Moonpay</h3>
+            <p class="text-white/75 text-[14px] leading-[1.5] font-haas mb-6 max-w-[320px]">The simplest way to buy and sell crypto. Trusted by 30 million users in 160 countries.</p>
+            <div class="mt-auto">
+              <div class="flex items-center gap-5 mb-5 text-white/85">
+                <div><span class="font-mono font-bold text-[18px]">142</span> <span class="text-[10px] text-white/60 ml-0.5">posts</span></div>
+                <div><span class="font-mono font-bold text-[18px]">8.2k</span> <span class="text-[10px] text-white/60 ml-0.5">followers</span></div>
+                <div><span class="font-mono font-bold text-[18px]">340k</span> <span class="text-[10px] text-white/60 ml-0.5">BUX</span></div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="bg-white text-[#7D00FF] text-[12px] font-haas-bold px-4 py-2 rounded-full hover:bg-[#CAFC00] hover:text-black transition-colors">+ Follow Hub</button>
+                <button class="text-white/80 hover:text-white text-[12px] font-haas px-3 py-2 transition-colors">Visit →</button>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <!-- Featured: Solana -->
+        <a href="#" class="hub-feature col-span-12 md:col-span-6 lg:col-span-4 rounded-3xl p-8 text-white relative overflow-hidden" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 50%, #0a3d2f 130%); min-height: 320px;">
+          <div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
+          <div class="absolute -top-32 -right-32 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="relative h-full flex flex-col">
+            <div class="flex items-start justify-between mb-12">
+              <div class="w-14 h-14 rounded-xl bg-black/25 backdrop-blur grid place-items-center ring-1 ring-white/20 shadow-lg">
+                <span class="text-white font-haas-bold text-[18px]">SOL</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] bg-white/15 backdrop-blur px-2.5 py-1 rounded-full font-haas-bold ring-1 ring-white/15">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+                Trending
+              </div>
+            </div>
+            <h3 class="font-haas-bold text-[36px] tracking-tight mb-2 leading-none">Solana</h3>
+            <p class="text-white/85 text-[14px] leading-[1.5] font-haas mb-6 max-w-[320px]">High-performance blockchain. The best place to read about the chain that wouldn't slow down.</p>
+            <div class="mt-auto">
+              <div class="flex items-center gap-5 mb-5 text-white">
+                <div><span class="font-mono font-bold text-[18px]">2.1k</span> <span class="text-[10px] text-white/70 ml-0.5">posts</span></div>
+                <div><span class="font-mono font-bold text-[18px]">42k</span> <span class="text-[10px] text-white/70 ml-0.5">followers</span></div>
+                <div><span class="font-mono font-bold text-[18px]">1.4M</span> <span class="text-[10px] text-white/70 ml-0.5">BUX</span></div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="bg-black/30 backdrop-blur text-white text-[12px] font-haas-bold px-4 py-2 rounded-full ring-1 ring-white/25 hover:bg-black/50 transition-colors">+ Follow Hub</button>
+                <button class="text-white/80 hover:text-white text-[12px] font-haas px-3 py-2 transition-colors">Visit →</button>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <!-- Featured: Bitcoin -->
+        <a href="#" class="hub-feature col-span-12 md:col-span-12 lg:col-span-3 rounded-3xl p-8 text-white relative overflow-hidden" style="background: linear-gradient(135deg, #F7931A 0%, #B86811 100%); min-height: 320px;">
+          <div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
+          <div class="absolute -top-32 -right-32 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="relative h-full flex flex-col">
+            <div class="flex items-start justify-between mb-12">
+              <div class="w-14 h-14 rounded-xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-lg">
+                <span class="text-white font-haas-bold text-[24px]">₿</span>
+              </div>
+            </div>
+            <h3 class="font-haas-bold text-[36px] tracking-tight mb-2 leading-none">Bitcoin</h3>
+            <p class="text-white/85 text-[14px] leading-[1.5] font-haas mb-6">The original cryptocurrency, fifteen years on.</p>
+            <div class="mt-auto">
+              <div class="flex flex-col gap-1 mb-5 text-white">
+                <div class="flex items-center justify-between"><span class="text-[10px] uppercase tracking-[0.12em] text-white/65">Posts</span><span class="font-mono font-bold text-[14px]">5.6k</span></div>
+                <div class="flex items-center justify-between"><span class="text-[10px] uppercase tracking-[0.12em] text-white/65">Followers</span><span class="font-mono font-bold text-[14px]">112k</span></div>
+                <div class="flex items-center justify-between"><span class="text-[10px] uppercase tracking-[0.12em] text-white/65">BUX paid</span><span class="font-mono font-bold text-[14px]">3.8M</span></div>
+              </div>
+              <button class="w-full bg-black/25 backdrop-blur text-white text-[12px] font-haas-bold px-4 py-2.5 rounded-full ring-1 ring-white/25 hover:bg-black/40 transition-colors">+ Follow Hub</button>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         SEARCH + FILTERS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-8 sticky top-[88px] bg-[#fafaf9]/95 backdrop-blur z-10 -mx-6 px-6 pt-2">
+      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+        <!-- Search input -->
+        <div class="flex items-center gap-3 mb-4">
+          <div class="relative flex-1">
+            <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" placeholder="Search 66 hubs by name, topic, or asset..." class="search-input w-full pl-11 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-full text-[14px] font-haas placeholder-neutral-400 transition-all" />
+          </div>
+          <div class="hidden md:flex items-center gap-1.5 text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+            <span>Sort by:</span>
+            <button class="text-[#141414] font-haas-bold hover:text-black">Most followed</button>
+            <span class="text-neutral-300">▾</span>
+          </div>
+        </div>
+        <!-- Category chips -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button class="chip chip-active">All <span class="chip-count">66</span></button>
+          <button class="chip chip-default">Layer 1 <span class="chip-count">8</span></button>
+          <button class="chip chip-default">Layer 2 <span class="chip-count">12</span></button>
+          <button class="chip chip-default">DeFi <span class="chip-count">14</span></button>
+          <button class="chip chip-default">NFTs <span class="chip-count">9</span></button>
+          <button class="chip chip-default">Wallets <span class="chip-count">6</span></button>
+          <button class="chip chip-default">Exchanges <span class="chip-count">7</span></button>
+          <button class="chip chip-default">Infrastructure <span class="chip-count">5</span></button>
+          <button class="chip chip-default">AI × Crypto <span class="chip-count">5</span></button>
+          <button class="chip chip-default">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00]"></span>
+            Sponsors <span class="chip-count">3</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         ALL HUBS GRID — 4 columns, 16 hubs visible
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-12">
+
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+        <!-- Ethereum -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #627EEA 0%, #454A75 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">Ξ</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Layer 1</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Ethereum</h3>
+            <p class="text-white/75 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Leading smart contract platform.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">3.4k</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">68k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-white text-[#454A75] text-[10px] font-haas-bold px-2.5 py-1 rounded-full hover:bg-[#CAFC00] hover:text-black transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Polygon -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #8247E5 0%, #5A2DAA 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[12px]">POL</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Layer 2</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Polygon</h3>
+            <p class="text-white/75 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Ethereum scaling solution.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">1.8k</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">34k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Arbitrum -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #28A0F0 0%, #0F4F7B 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[12px]">ARB</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Layer 2</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Arbitrum</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Ethereum layer 2 scaling.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">1.2k</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">28k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-white text-[#0F4F7B] text-[10px] font-haas-bold px-2.5 py-1 rounded-full hover:bg-[#CAFC00] hover:text-black transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Base -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #0052FF 0%, #002a82 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[12px]">BASE</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Layer 2</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Base</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Coinbase layer 2 network.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">980</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">22k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Binance -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #F3BA2F 0%, #B88712 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[12px]">BNB</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Exchange</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Binance</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Leading cryptocurrency exchange.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">2.4k</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">54k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Phantom -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #AB9FF2 0%, #534BB1 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">P</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Wallet</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Phantom</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">The friendly crypto wallet for DeFi & NFTs.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">680</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">31k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-white text-[#534BB1] text-[10px] font-haas-bold px-2.5 py-1 rounded-full hover:bg-[#CAFC00] hover:text-black transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Uniswap -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #FF007A 0%, #870042 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">U</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">DeFi</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Uniswap</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Decentralized exchange protocol.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">1.5k</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">38k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Aave -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #B6509E 0%, #2EBAC6 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">A</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">DeFi</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Aave</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Open-source liquidity protocol.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">920</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">24k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Magic Eden -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #E42575 0%, #7B0B33 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">ME</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">NFTs</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Magic Eden</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Cross-chain NFT marketplace.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">1.1k</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">30k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Helius -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #06B6D4 0%, #0E7490 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">H</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Infra</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Helius</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">RPC infrastructure for Solana.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">340</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">14k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Jito -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #14F195 0%, #0B7548 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-black/25 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">J</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">DeFi</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Jito</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Liquid staking on Solana.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">410</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">16k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Pyth -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #2A2D3A 0%, #6B0DAD 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">π</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Infra</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Pyth Network</h3>
+            <p class="text-white/80 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">High-fidelity oracle network.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">280</span> <span class="text-[10px] text-white/65">posts</span></div><div><span class="text-[14px] font-haas-bold">11k</span> <span class="text-[10px] text-white/65">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- OpenSea -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #2081E2 0%, #0E5BA6 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">OS</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">NFTs</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">OpenSea</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">The largest NFT marketplace.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">1.3k</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">36k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Coinbase -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #0052FF 0%, #001E5C 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">C</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-white/12 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">Exchange</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Coinbase</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">The on-ramp the world plugged into.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">2.0k</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">48k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/25 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/40 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- Jupiter -->
+        <a href="#" class="hub-card rounded-2xl p-5 text-white relative" style="background: linear-gradient(135deg, #C7F284 0%, #4F7D2B 100%); min-height: 240px;">
+          <div class="relative z-10 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+              <div class="w-9 h-9 rounded-md bg-black/25 backdrop-blur grid place-items-center ring-1 ring-white/20"><span class="text-white font-haas-bold text-[14px]">JUP</span></div>
+              <div class="text-[9px] uppercase tracking-[0.12em] bg-black/15 backdrop-blur px-2 py-0.5 rounded-full font-haas-bold">DeFi</div>
+            </div>
+            <h3 class="font-haas-bold text-[20px] tracking-tight mb-1">Jupiter</h3>
+            <p class="text-white/85 text-[11px] font-haas line-clamp-2 mb-4 mt-auto">Solana's swap aggregator.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3"><div><span class="text-[14px] font-haas-bold">740</span> <span class="text-[10px] text-white/70">posts</span></div><div><span class="text-[14px] font-haas-bold">22k</span> <span class="text-[10px] text-white/70">readers</span></div></div>
+              <button class="bg-black/35 backdrop-blur text-white text-[10px] font-haas-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 hover:bg-black/55 transition-colors">+ Follow</button>
+            </div>
+          </div>
+        </a>
+
+        <!-- View all -->
+        <a href="#" class="hub-card rounded-2xl p-5 bg-white border-2 border-dashed border-neutral-300 hover:border-[#141414] grid place-items-center text-center group" style="min-height: 240px;">
+          <div>
+            <div class="w-12 h-12 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4 group-hover:bg-[#CAFC00] transition-colors">
+              <svg class="w-5 h-5 text-neutral-600 group-hover:text-black transition-colors" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 class="font-haas-bold text-[16px] text-[#141414] mb-1">+51 more hubs</h3>
+            <p class="text-[11px] text-neutral-500 font-haas">Browse all categories</p>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- Showing X stat -->
+      <div class="mt-8 text-center text-[11px] text-neutral-500 font-haas">
+        Showing <span class="font-haas-bold text-neutral-700">15 of 66 hubs</span> · Sorted by most followed
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -65,6 +65,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> assign(:page_title, "#{tag.name} - Blockster")
          |> assign(:sort_mode, "latest")
          |> assign(:show_categories, true)
+         |> assign(:show_why_earn_bux, true)
          |> assign(:displayed_post_ids, displayed_post_ids)
          |> assign(:bux_balances, bux_balances)
          |> assign(:user_post_rewards, user_post_rewards)
