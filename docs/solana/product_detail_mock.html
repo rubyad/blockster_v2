@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Phantom ghost crewneck — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Mock structure aligned to lib/blockster_v2_web/live/shop_live/show.html.heex:
+       USD price + BUX-as-discount mechanic. 1 BUX = $0.01 discount, capped at
+       product max % discount (e.g. 40%). Product hub badge as black pill.
+       Categories as gray badges. Token redemption card with input + Max button. -->
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .profile-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .section-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .eyebrow {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    .size-pill {
+      padding: 9px 14px;
+      border-radius: 12px;
+      border: 2px solid #e5e5e2;
+      background: white;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      color: #6B7280;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .size-pill:hover { border-color: #141414; color: #141414; }
+    .size-pill.active {
+      background: #0a0a0a;
+      color: white;
+      border-color: #0a0a0a;
+    }
+    .size-pill.disabled {
+      color: #d4d4d2;
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    .color-swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px #e5e5e2;
+      cursor: pointer;
+      transition: box-shadow 0.15s ease;
+    }
+    .color-swatch:hover { box-shadow: 0 0 0 1px #141414; }
+    .color-swatch.active { box-shadow: 0 0 0 2px #141414; }
+
+    .sticky-buy {
+      position: sticky;
+      top: 100px;
+      align-self: flex-start;
+    }
+
+    .product-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0,0,0,0.12);
+      border-color: rgba(0,0,0,0.12);
+    }
+
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]"><div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div></div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- Breadcrumb -->
+    <div class="pt-8 pb-6 flex items-center gap-2 text-[11px] text-neutral-500 font-haas">
+      <a href="#" class="hover:text-[#141414]">Shop</a>
+      <span>/</span>
+      <a href="#" class="hover:text-[#141414]">Apparel</a>
+      <span>/</span>
+      <span class="text-[#141414]">Phantom ghost crewneck</span>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         HERO — Gallery + Buy
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-10">
+      <div class="grid grid-cols-12 gap-10">
+
+        <!-- LEFT: gallery -->
+        <div class="col-span-12 md:col-span-6">
+          <div class="aspect-square bg-white rounded-2xl border border-neutral-200/70 overflow-hidden ring-1 ring-black/5">
+            <img src="https://picsum.photos/seed/blockster-pdp-main/900/900" alt="" class="w-full h-full object-cover" />
+          </div>
+          <div class="mt-3 grid grid-cols-4 gap-3">
+            <button class="aspect-square bg-white rounded-xl border-2 border-[#141414] overflow-hidden">
+              <img src="https://picsum.photos/seed/blockster-pdp-thumb-1/300/300" alt="" class="w-full h-full object-cover" />
+            </button>
+            <button class="aspect-square bg-white rounded-xl border border-neutral-200 hover:border-[#141414] transition-colors overflow-hidden">
+              <img src="https://picsum.photos/seed/blockster-pdp-thumb-2/300/300" alt="" class="w-full h-full object-cover" />
+            </button>
+            <button class="aspect-square bg-white rounded-xl border border-neutral-200 hover:border-[#141414] transition-colors overflow-hidden">
+              <img src="https://picsum.photos/seed/blockster-pdp-thumb-3/300/300" alt="" class="w-full h-full object-cover" />
+            </button>
+            <button class="aspect-square bg-white rounded-xl border border-neutral-200 hover:border-[#141414] transition-colors overflow-hidden">
+              <img src="https://picsum.photos/seed/blockster-pdp-thumb-4/300/300" alt="" class="w-full h-full object-cover" />
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT: buy panel -->
+        <div class="col-span-12 md:col-span-6">
+          <div class="sticky-buy">
+
+            <!-- Collection eyebrow -->
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.16em] text-neutral-500 mb-2">PHANTOM HOLIDAY 2026</div>
+
+            <!-- Title -->
+            <h1 class="article-title text-[36px] md:text-[44px] mb-4 leading-[1.0]">Phantom ghost crewneck</h1>
+
+            <!-- Hub + categories badges -->
+            <div class="flex flex-wrap items-center gap-2 mb-5">
+              <a href="#" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a0a] text-white text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                <div class="w-4 h-4 rounded-full bg-gradient-to-br from-[#AB9FF2] to-[#534BB1]"></div>
+                Phantom
+              </a>
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-neutral-100 text-neutral-700 text-[12px] font-haas-bold">
+                Apparel
+              </span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#CAFC00]/20 text-[#141414] text-[10px] font-haas-bold">#fleece</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 text-[10px] font-haas-bold">#streetwear</span>
+            </div>
+
+            <!-- Price block -->
+            <div class="flex flex-wrap items-baseline gap-3 mb-2">
+              <span class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">$33.00</span>
+              <span class="text-[18px] font-mono text-neutral-400 line-through">$55.00</span>
+              <span class="px-2 py-1 rounded-full bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 text-[11px] font-haas-bold">40% OFF</span>
+            </div>
+            <button class="text-[12px] text-neutral-500 hover:text-[#141414] font-haas underline mb-6 cursor-pointer">Hide discount breakdown</button>
+
+            <!-- BUX redemption card -->
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 mb-6">
+              <div class="flex items-center gap-2 mb-4">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+                <span class="text-[13px] font-haas-bold text-[#141414]">Redeem BUX tokens</span>
+              </div>
+
+              <!-- Balance -->
+              <div class="flex items-center justify-between mb-4 text-[12px]">
+                <span class="text-neutral-500 font-haas">Your BUX balance</span>
+                <span class="font-mono font-bold text-[#141414]">12,450 BUX</span>
+              </div>
+
+              <!-- Input -->
+              <div class="mb-3">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-[11px] text-neutral-500 font-haas">BUX to redeem</label>
+                  <span class="text-[10px] font-mono text-neutral-400">Max: 2,200 (40% off)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="text" value="2,200" class="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[16px] font-mono font-bold text-[#141414] focus:outline-none focus:border-[#141414]" />
+                  <button class="bg-[#0a0a0a] text-white px-4 py-2.5 rounded-xl text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">Max</button>
+                </div>
+              </div>
+
+              <!-- Calculation -->
+              <div class="pt-4 border-t border-neutral-200 space-y-2 text-[12px]">
+                <div class="flex items-center justify-between">
+                  <span class="text-neutral-500 font-haas">Token discount</span>
+                  <span class="font-mono font-bold text-[#15803d]">−$22.00 (40% off)</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-neutral-500 font-haas">You pay</span>
+                  <span class="font-mono font-bold text-[18px] text-[#141414]">$33.00</span>
+                </div>
+              </div>
+
+              <div class="mt-3 text-[10px] text-neutral-400 font-mono">1 BUX = $0.01 discount</div>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-6">
+              <h3 class="text-[14px] font-haas-bold text-[#141414] mb-2">Description</h3>
+              <div class="text-[13px] text-neutral-600 font-haas leading-relaxed">
+                Heavyweight 14oz fleece pullover with embroidered Phantom ghost on the chest. Garment dyed in California, pre-shrunk so the size you order is the size you keep. Drop shoulders, ribbed cuffs, woven inside-collar label.
+              </div>
+            </div>
+
+            <!-- Size -->
+            <div class="mb-6">
+              <h3 class="text-[14px] font-haas-bold text-[#141414] mb-3">Select size</h3>
+              <div class="flex flex-wrap gap-2">
+                <button class="size-pill">XS</button>
+                <button class="size-pill">S</button>
+                <button class="size-pill active">M</button>
+                <button class="size-pill">L</button>
+                <button class="size-pill">XL</button>
+                <button class="size-pill disabled">2XL</button>
+              </div>
+            </div>
+
+            <!-- Color -->
+            <div class="mb-6">
+              <h3 class="text-[14px] font-haas-bold text-[#141414] mb-3">Select color · <span class="text-neutral-500 font-haas font-normal">Charcoal</span></h3>
+              <div class="flex items-center gap-3">
+                <button class="color-swatch active" style="background: #2a2a35;"></button>
+                <button class="color-swatch" style="background: #fafaf9;"></button>
+                <button class="color-swatch" style="background: #534BB1;"></button>
+                <button class="color-swatch" style="background: #064e3b;"></button>
+              </div>
+            </div>
+
+            <!-- Quantity -->
+            <div class="mb-6">
+              <h3 class="text-[14px] font-haas-bold text-[#141414] mb-3">Quantity</h3>
+              <div class="inline-flex items-center bg-white border border-neutral-200 rounded-full overflow-hidden">
+                <button class="px-4 py-2 text-[14px] font-haas text-neutral-500 hover:text-[#141414] hover:bg-neutral-50">−</button>
+                <span class="px-3 font-mono font-bold text-[14px] text-[#141414] min-w-[36px] text-center">1</span>
+                <button class="px-4 py-2 text-[14px] font-haas text-neutral-500 hover:text-[#141414] hover:bg-neutral-50">+</button>
+              </div>
+            </div>
+
+            <!-- CTAs -->
+            <div class="space-y-2 mb-5">
+              <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                Add to cart · $33.00
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button class="w-full text-center text-[12px] text-neutral-500 hover:text-[#141414] font-haas py-2 underline">Buy it now</button>
+            </div>
+
+            <!-- Reassurance -->
+            <div class="grid grid-cols-3 gap-3 text-center">
+              <div class="bg-white rounded-xl border border-neutral-200/70 p-3">
+                <svg class="w-4 h-4 mx-auto mb-1 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <div class="text-[10px] text-neutral-500 font-haas leading-tight">Ships in 3-5 days</div>
+              </div>
+              <div class="bg-white rounded-xl border border-neutral-200/70 p-3">
+                <svg class="w-4 h-4 mx-auto mb-1 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <div class="text-[10px] text-neutral-500 font-haas leading-tight">Sustainably sourced</div>
+              </div>
+              <div class="bg-white rounded-xl border border-neutral-200/70 p-3">
+                <svg class="w-4 h-4 mx-auto mb-1 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <div class="text-[10px] text-neutral-500 font-haas leading-tight">30-day returns</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         RELATED PRODUCTS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">More from the Phantom community</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">You may also like</h2>
+        </div>
+        <a href="#" class="text-[13px] font-haas text-neutral-600 hover:text-neutral-900 transition-colors">All Phantom →</a>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <a href="#" class="product-card group block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-pdp-rel-1/500/500" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2">Phantom logo cap · 6-panel</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="text-[10px] text-neutral-400 line-through font-mono">$28.00</span>
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$16.80</span>
+              <span class="text-[9px] text-neutral-500 font-haas">with BUX tokens</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="product-card group block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-pdp-rel-2/500/500" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2">Phantom ghost mug · ceramic</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$14.00</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="product-card group block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-pdp-rel-3/500/500" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2">Ledger × Phantom hardware bundle</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="text-[10px] text-neutral-400 line-through font-mono">$149.00</span>
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$104.30</span>
+              <span class="text-[9px] text-neutral-500 font-haas">with BUX tokens</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="product-card group block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-pdp-rel-4/500/500" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2">Phantom seed phrase notebook</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$19.00</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -190,6 +190,39 @@
       color: white;
       border: 1px solid #141414;
     }
+
+    /* State-stacked mock divider */
+    .state-divider {
+      position: relative;
+      margin: 100px 0 60px;
+      text-align: center;
+    }
+    .state-divider::before {
+      content: '';
+      position: absolute;
+      inset: 50% 0 0 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #d4d4d2, transparent);
+    }
+    .state-divider span {
+      position: relative;
+      background: var(--bg-page);
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+    }
+
+    .author-card {
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .author-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0,0,0,0.12);
+      border-color: rgba(0,0,0,0.12);
+    }
   </style>
 </head>
 <body class="relative">
@@ -703,6 +736,515 @@
                 <span class="text-[13px] text-neutral-600 font-haas">First post</span>
                 <span class="font-mono text-[12px] text-neutral-500">Mar 14, 2024</span>
               </div>
+            </div>
+            <div class="mt-5 pt-4 border-t border-neutral-100">
+              <button class="w-full bg-[#7D00FF] hover:bg-[#5A00B8] text-white text-[13px] font-haas-bold py-2.5 rounded-full transition-colors">+ Follow Hub</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════════════
+         STACKED TAB STATES — News / Videos / Long reads / Shop /
+         Events / Authors / About. Above this point is the All tab.
+    ═════════════════════════════════════════════════════════════════ -->
+
+    <div class="state-divider"><span>News tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Filtered to news</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">News from Moonpay</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">98 stories</div>
+      </div>
+      <div class="mosaic">
+        <a href="#" class="post-card col-span-12 md:col-span-7 row-span-2 block rounded-2xl overflow-hidden relative bg-neutral-900">
+          <img src="https://picsum.photos/seed/blockster-mp-news-1/900/700" alt="" class="absolute inset-0 w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+          <div class="absolute inset-x-0 bottom-0 p-6">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-[#CAFC00] text-[10px] font-mono uppercase tracking-[0.14em]">BREAKING</span>
+              <span class="text-white/40">·</span>
+              <span class="text-white/70 text-[11px] font-haas">12 minutes ago</span>
+            </div>
+            <h3 class="article-title text-white text-[28px] md:text-[32px] mb-3 max-w-[480px]">Moonpay launches USDC card in Brazil, Argentina, and Mexico</h3>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-2 text-white/80 text-[12px] font-haas">
+                <div class="w-7 h-7 rounded-full bg-white/20 backdrop-blur grid place-items-center text-[10px] font-haas-bold text-white">SK</div>
+                <span>Sara K. · 5 min</span>
+              </div>
+              <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-haas-bold"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />Earn 30 BUX</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="flex h-full">
+            <div class="w-2/5 bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-2/300/300" alt="" class="w-full h-full object-cover" /></div>
+            <div class="flex-1 p-4 flex flex-col">
+              <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+              <h3 class="font-haas-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Moonpay × Visa partnership expands to 14 new countries</h3>
+              <div class="flex items-center justify-between text-[10px] mt-2"><span class="text-neutral-500 font-haas">Lena Park · 4m</span><div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-haas-bold"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />+22</div></div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="flex h-full">
+            <div class="w-2/5 bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-3/300/300" alt="" class="w-full h-full object-cover" /></div>
+            <div class="flex-1 p-4 flex flex-col">
+              <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+              <h3 class="font-haas-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Stripe and Moonpay announce on-ramp integration</h3>
+              <div class="flex items-center justify-between text-[10px] mt-2"><span class="text-neutral-500 font-haas">Daniyar K. · 6m</span><div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-haas-bold"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />+28</div></div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-4/400/225" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-3 flex flex-col flex-1">
+            <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+            <h3 class="font-haas-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Moonpay opens DeFi yield product in beta</h3>
+            <div class="flex items-center justify-between text-[9px] mt-2"><span class="text-neutral-500 font-haas">3 min</span><span class="text-[#141414] font-haas-bold">+15 BUX</span></div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-5/400/225" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-3 flex flex-col flex-1">
+            <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+            <h3 class="font-haas-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Q3 metrics: 30M users, $14B processed</h3>
+            <div class="flex items-center justify-between text-[9px] mt-2"><span class="text-neutral-500 font-haas">4 min</span><span class="text-[#141414] font-haas-bold">+18 BUX</span></div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-6/400/225" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-3 flex flex-col flex-1">
+            <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+            <h3 class="font-haas-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Senior compliance hire from JP Morgan</h3>
+            <div class="flex items-center justify-between text-[9px] mt-2"><span class="text-neutral-500 font-haas">3 min</span><span class="text-[#141414] font-haas-bold">+12 BUX</span></div>
+          </div>
+        </a>
+        <a href="#" class="post-card col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-news-7/400/225" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-3 flex flex-col flex-1">
+            <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas mb-1.5">News</div>
+            <h3 class="font-haas-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">Sponsoring Breakpoint 2026 as title partner</h3>
+            <div class="flex items-center justify-between text-[9px] mt-2"><span class="text-neutral-500 font-haas">2 min</span><span class="text-[#141414] font-haas-bold">+10 BUX</span></div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Videos tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Watch from Moonpay</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Videos</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">26 videos</div>
+      </div>
+      <div class="grid grid-cols-12 gap-4">
+        <a href="#" class="post-card col-span-12 md:col-span-7 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
+          <div class="aspect-[16/9] overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-vid-1/900/500" alt="" class="w-full h-full object-cover" /></div>
+          <div class="absolute inset-0 grid place-items-center pointer-events-none">
+            <div class="w-20 h-20 rounded-full bg-white/95 backdrop-blur grid place-items-center shadow-2xl group-hover:scale-110 transition-transform">
+              <svg class="w-8 h-8 text-[#0a0a0a] ml-1" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+          </div>
+          <div class="absolute top-4 right-4 bg-black/85 backdrop-blur px-2.5 py-1 rounded text-white text-[11px] font-mono font-semibold">14:32</div>
+          <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/85 to-transparent">
+            <h3 class="font-haas-bold text-white text-[22px] tracking-tight max-w-[460px]">Inside Moonpay's compliance machine</h3>
+            <div class="text-[11px] text-white/70 font-haas mt-2">Sara K. · 24k views</div>
+          </div>
+        </a>
+        <div class="col-span-12 md:col-span-5 grid grid-cols-1 gap-4">
+          <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+            <div class="grid grid-cols-[140px_1fr]">
+              <div class="bg-neutral-100 relative">
+                <img src="https://picsum.photos/seed/blockster-mp-vid-2/280/200" alt="" class="w-full h-full object-cover" />
+                <div class="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-white text-[9px] font-mono">06:48</div>
+              </div>
+              <div class="p-3">
+                <h3 class="font-haas-bold text-[13px] text-[#141414] leading-tight tracking-tight line-clamp-2 mb-2">A walkthrough of the new Moonpay swap UI</h3>
+                <div class="text-[10px] text-neutral-500 font-haas">Lena Park · 8.2k views</div>
+              </div>
+            </div>
+          </a>
+          <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+            <div class="grid grid-cols-[140px_1fr]">
+              <div class="bg-neutral-100 relative">
+                <img src="https://picsum.photos/seed/blockster-mp-vid-3/280/200" alt="" class="w-full h-full object-cover" />
+                <div class="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-white text-[9px] font-mono">11:22</div>
+              </div>
+              <div class="p-3">
+                <h3 class="font-haas-bold text-[13px] text-[#141414] leading-tight tracking-tight line-clamp-2 mb-2">CFO interview: how stablecoin rails are changing on-ramp economics</h3>
+                <div class="text-[10px] text-neutral-500 font-haas">Daniyar K. · 14k views</div>
+              </div>
+            </div>
+          </a>
+          <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+            <div class="grid grid-cols-[140px_1fr]">
+              <div class="bg-neutral-100 relative">
+                <img src="https://picsum.photos/seed/blockster-mp-vid-4/280/200" alt="" class="w-full h-full object-cover" />
+                <div class="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-white text-[9px] font-mono">04:15</div>
+              </div>
+              <div class="p-3">
+                <h3 class="font-haas-bold text-[13px] text-[#141414] leading-tight tracking-tight line-clamp-2 mb-2">Card flow demo · USDC payouts in 90 seconds</h3>
+                <div class="text-[10px] text-neutral-500 font-haas">Marcus Verren · 6.4k views</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Long reads tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Editorial deep-dives</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Long reads</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">12 long reads · avg 18 min</div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-long-1/700/400" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-7">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Investigation · 22 min read</span>
+            </div>
+            <h3 class="article-title text-[26px] mb-3 leading-tight">The on-ramp wars: what 30 million users actually buy first</h3>
+            <p class="text-[13px] text-neutral-600 font-haas leading-relaxed mb-4">A six-month look at the real funnel of crypto adoption — what coins new users buy, what they hold, and what makes them come back.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-[12px] text-neutral-600 font-haas">
+                <div class="author-avatar w-7 h-7 rounded-full grid place-items-center text-[10px]">DK</div>
+                <span>Daniyar K.</span>
+              </div>
+              <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[11px] font-haas-bold"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />+95</div>
+            </div>
+          </div>
+        </a>
+
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden"><img src="https://picsum.photos/seed/blockster-mp-long-2/700/400" alt="" class="w-full h-full object-cover" /></div>
+          <div class="p-7">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Compliance · 16 min read</span>
+            </div>
+            <h3 class="article-title text-[26px] mb-3 leading-tight">The new rules of crypto custody: what the OCC just changed</h3>
+            <p class="text-[13px] text-neutral-600 font-haas leading-relaxed mb-4">A long read on the regulatory shift that quietly reshaped how every US-licensed exchange holds customer funds — and why most haven't caught up yet.</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-[12px] text-neutral-600 font-haas">
+                <div class="author-avatar w-7 h-7 rounded-full grid place-items-center text-[10px]">SK</div>
+                <span>Sara K.</span>
+              </div>
+              <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[11px] font-haas-bold"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />+85</div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Shop tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Shop the Moonpay community</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Hub merch</h2>
+        </div>
+        <a href="#" class="text-[13px] font-haas text-neutral-600 hover:text-neutral-900 transition-colors">View all 14 →</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-shop-1/500/500" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+              <div class="w-6 h-6 rounded-full bg-[#7D00FF]"></div>
+            </div>
+          </div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">Moonpay × Blockster denim jacket</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="text-[10px] text-neutral-400 line-through font-mono">$85.00</span>
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$42.50</span>
+              <span class="text-[9px] text-neutral-500 font-haas">with BUX tokens</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-shop-2/500/500" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+              <div class="w-6 h-6 rounded-full bg-[#7D00FF]"></div>
+            </div>
+          </div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">Moonpay logo tee · charcoal</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="text-[10px] text-neutral-400 line-through font-mono">$25.00</span>
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$12.50</span>
+              <span class="text-[9px] text-neutral-500 font-haas">with BUX tokens</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-shop-3/500/500" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+              <div class="w-6 h-6 rounded-full bg-[#7D00FF]"></div>
+            </div>
+          </div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">Moonpay sticker pack · 8 designs</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$10.00</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+        <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+          <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-shop-4/500/500" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+              <div class="w-6 h-6 rounded-full bg-[#7D00FF]"></div>
+            </div>
+          </div>
+          <div class="p-4 text-center">
+            <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">Moonpay 5-panel cap</h3>
+            <div class="flex flex-col items-center mb-3">
+              <span class="text-[10px] text-neutral-400 line-through font-mono">$32.00</span>
+              <span class="font-mono font-bold text-[18px] text-[#141414]">$19.20</span>
+              <span class="text-[9px] text-neutral-500 font-haas">with BUX tokens</span>
+            </div>
+            <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-haas-bold rounded-full">Buy Now</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Events tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Hosted by Moonpay</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Upcoming events</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">2 events · 1 sold out</div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div class="post-card bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-event-1/700/400" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-1 rounded-full text-[10px] font-haas-bold uppercase tracking-wider">Tickets live</div>
+          </div>
+          <div class="p-6">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">Apr 22 · 6:00 PM</div>
+            <h3 class="font-haas-bold text-[20px] text-[#141414] tracking-tight mb-2">Moonpay × Solana NYC happy hour</h3>
+            <div class="flex items-center gap-2 text-[11px] text-neutral-500 font-haas mb-4">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>Soho House Meatpacking · New York City</span>
+            </div>
+            <p class="text-[12px] text-neutral-600 font-haas leading-relaxed mb-4">Drinks, talks, and demos with the Moonpay product team and Solana Foundation. 200 spots, RSVP required.</p>
+            <div class="flex items-center justify-between">
+              <div class="text-[12px]">
+                <div class="font-mono font-bold text-[#141414]">$25</div>
+                <div class="text-[10px] text-neutral-500">142 / 200 going</div>
+              </div>
+              <button class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-4 py-2 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">RSVP</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="post-card bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+          <div class="aspect-[16/9] bg-neutral-100 overflow-hidden relative">
+            <img src="https://picsum.photos/seed/blockster-mp-event-2/700/400" alt="" class="w-full h-full object-cover" />
+            <div class="absolute top-3 left-3 inline-flex items-center gap-1 bg-neutral-900 text-white px-2 py-1 rounded-full text-[10px] font-haas-bold uppercase tracking-wider">Sold out</div>
+          </div>
+          <div class="p-6">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-1">May 8 · 9:00 AM</div>
+            <h3 class="font-haas-bold text-[20px] text-[#141414] tracking-tight mb-2">Token2049 Singapore: Moonpay summit</h3>
+            <div class="flex items-center gap-2 text-[11px] text-neutral-500 font-haas mb-4">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>Marina Bay Sands · Singapore</span>
+            </div>
+            <p class="text-[12px] text-neutral-600 font-haas leading-relaxed mb-4">An invite-only morning of conversations with the Moonpay leadership and partner ecosystems. Day pass to Token2049 included.</p>
+            <div class="flex items-center justify-between">
+              <div class="text-[12px]">
+                <div class="font-mono font-bold text-[#141414]">$0 · invite only</div>
+                <div class="text-[10px] text-neutral-500">340 / 340 confirmed</div>
+              </div>
+              <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-500 px-4 py-2 rounded-full text-[12px] font-haas cursor-not-allowed">Waitlist</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Authors tab ↓</span></div>
+
+    <section class="py-2">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">12 writers · 142 stories</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">All Moonpay authors</h2>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">SK</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Sara K.</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Compliance lead · 28 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">LP</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Lena Park</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Product reporter · 22 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">DK</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Daniyar K.</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Markets writer · 19 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">MV</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Marcus Verren</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Editor at large · 17 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">JC</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Jamie Chen</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Solana coverage · 14 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">IC</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Iris Chen</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Ethereum coverage · 12 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">RH</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Rachel Harlow</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Investigations · 11 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">AM</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Amir Malik</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Engineering · 9 stories</div>
+            </div>
+          </div>
+        </a>
+        <a href="#" class="author-card block bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-4">
+            <div class="author-avatar w-14 h-14 rounded-2xl grid place-items-center text-[14px]">EZ</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[14px] font-haas-bold text-[#141414] leading-tight">Elena Zhou</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Design · 7 stories</div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>About tab ↓</span></div>
+
+    <section class="py-2 pb-12">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-8">
+          <div class="eyebrow mb-3">About Moonpay</div>
+          <h2 class="article-title text-[36px] mb-6">The simplest way to buy and sell crypto</h2>
+          <div class="space-y-5 text-[15px] text-neutral-700 font-haas leading-[1.7] max-w-[640px]">
+            <p>Moonpay is the on-ramp the world plugged into. Founded in 2019, the company now serves more than 30 million people in 160 countries, with a single product mission: make it as easy to buy crypto as it is to buy a song.</p>
+            <p>Today Moonpay processes more dollar volume than most card networks in emerging markets. The Moonpay Hub on Blockster is where the team writes about the work — compliance, product, market structure, and the people moving global capital on chain.</p>
+            <p>If you read everything in this hub, you understand crypto on-ramps better than 99% of the people working in the space. We mean that.</p>
+          </div>
+          <div class="mt-8 pt-8 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Mission</div>
+            <p class="text-[14px] text-neutral-700 font-haas italic leading-relaxed max-w-[560px]">"Bring the next billion users on chain — without making them think about it."</p>
+          </div>
+
+          <div class="mt-8 pt-8 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">History</div>
+            <div class="space-y-4">
+              <div class="flex gap-5">
+                <div class="font-mono font-bold text-[12px] text-[#141414] w-16">2019</div>
+                <div class="text-[13px] text-neutral-600 font-haas">Founded in London. First card-to-crypto purchase processed.</div>
+              </div>
+              <div class="flex gap-5">
+                <div class="font-mono font-bold text-[12px] text-[#141414] w-16">2021</div>
+                <div class="text-[13px] text-neutral-600 font-haas">Raised $555M from Tiger Global, Coatue, and Blossom Capital at a $3.4B valuation.</div>
+              </div>
+              <div class="flex gap-5">
+                <div class="font-mono font-bold text-[12px] text-[#141414] w-16">2023</div>
+                <div class="text-[13px] text-neutral-600 font-haas">Moonpay Hub launches on Blockster. First sponsored hub on the platform.</div>
+              </div>
+              <div class="flex gap-5">
+                <div class="font-mono font-bold text-[12px] text-[#141414] w-16">2025</div>
+                <div class="text-[13px] text-neutral-600 font-haas">30 million users, 160 countries. Card volume crosses $14B annualized.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 pt-8 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Links</div>
+            <div class="flex flex-wrap gap-2">
+              <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors text-[12px] font-haas text-[#141414]">moonpay.com</a>
+              <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors text-[12px] font-haas text-[#141414]">@moonpay</a>
+              <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors text-[12px] font-haas text-[#141414]">discord.gg/moonpay</a>
+              <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors text-[12px] font-haas text-[#141414]">github.com/moonpay</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-span-12 md:col-span-4">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-4">At a glance</div>
+            <div class="space-y-3 text-[13px]">
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">Posts</span><span class="font-mono font-bold text-[#141414]">142</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">Authors</span><span class="font-mono font-bold text-[#141414]">12</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">Followers</span><span class="font-mono font-bold text-[#141414]">8.2k</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">Total reads</span><span class="font-mono font-bold text-[#141414]">412k</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">BUX paid out</span><span class="font-mono font-bold text-[#141414]">340k</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">Avg read time</span><span class="font-mono font-bold text-[#141414]">7.2 min</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500 font-haas">First post</span><span class="font-mono font-bold text-[#141414]">Mar 2024</span></div>
             </div>
             <div class="mt-5 pt-4 border-t border-neutral-100">
               <button class="w-full bg-[#7D00FF] hover:bg-[#5A00B8] text-white text-[13px] font-haas-bold py-2.5 rounded-full transition-colors">+ Follow Hub</button>

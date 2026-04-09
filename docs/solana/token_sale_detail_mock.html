@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Phoenix Protocol Sale — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+      --sale-primary: #FF6B35;
+      --sale-secondary: #C73E1D;
+    }
+
+    html, body { background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-primary); letter-spacing: -0.022em; line-height: 1.04; }
+    .header-bg { background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); }
+    .profile-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; }
+    .author-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 700; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; color: var(--text-primary); }
+    .eyebrow { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+
+    /* Sale brand banner */
+    .sale-banner {
+      background: linear-gradient(135deg, var(--sale-primary) 0%, var(--sale-secondary) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .sale-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10) 1.5px, transparent 1.5px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+    .sale-banner::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);
+      pointer-events: none;
+    }
+
+    .tab-button {
+      position: relative;
+      padding: 16px 4px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      color: #6B7280;
+      transition: color 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tab-button:hover { color: #141414; }
+    .tab-button.active { color: #141414; font-weight: 700; }
+    .tab-button.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--sale-primary);
+    }
+
+    .sale-tabs {
+      position: sticky;
+      top: 84px;
+      z-index: 15;
+      background: rgba(250, 250, 249, 0.95);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .sticky-allocation {
+      position: sticky;
+      top: 160px;
+      align-self: flex-start;
+    }
+
+    .progress-track { background: #f3f4f6; border-radius: 999px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; }
+
+    /* Tokenomics pie placeholder */
+    .pie {
+      width: 200px;
+      height: 200px;
+      border-radius: 999px;
+      background: conic-gradient(
+        #FF6B35 0% 35%,
+        #C73E1D 35% 50%,
+        #FFD23F 50% 68%,
+        #2D2D2D 68% 80%,
+        #6B7280 80% 92%,
+        #d4d4d2 92% 100%
+      );
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 20px;
+      padding: 16px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .product-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px -12px rgba(0,0,0,0.12);
+      border-color: rgba(0,0,0,0.12);
+    }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Sales</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]"><div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div></div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       SALE BRAND BANNER
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="sale-banner text-white">
+    <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
+
+      <div class="mb-7 flex items-center gap-2 text-[11px] text-white/60 font-haas">
+        <a href="#" class="hover:text-white transition-colors">Sales</a>
+        <span>/</span>
+        <span class="text-white/85">Phoenix Protocol</span>
+      </div>
+
+      <div class="grid grid-cols-12 gap-8 items-start">
+        <div class="col-span-12 md:col-span-7">
+
+          <div class="flex items-center gap-5 mb-6">
+            <div class="w-20 h-20 rounded-2xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl">
+              <span class="text-white font-haas-bold text-[28px]">P</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] uppercase tracking-[0.16em] text-white/65 font-haas-bold">Token sale · Round 1</span>
+                <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[10px] font-haas-bold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-black pulse-dot"></span>
+                  Live now
+                </span>
+              </div>
+              <h1 class="font-haas-bold text-[56px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">Phoenix Protocol</h1>
+            </div>
+          </div>
+
+          <p class="text-white/85 text-[18px] leading-[1.5] font-haas max-w-[640px] mb-8">
+            The rebirth of high-frequency markets on Solana. Phoenix is a fully on-chain limit-orderbook DEX with sub-millisecond matching, no front-running, and zero MEV extraction. $PHX is the protocol token that pays MMs and governs upgrades.
+          </p>
+
+          <!-- Stats row -->
+          <div class="flex items-center flex-wrap gap-x-8 gap-y-3 mb-7">
+            <div>
+              <div class="font-mono font-bold text-[28px] text-white leading-none">$3.1M</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Raised · 62% of $5M</div>
+            </div>
+            <div class="w-px h-10 bg-white/15"></div>
+            <div>
+              <div class="font-mono font-bold text-[28px] text-white leading-none">$0.085</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Token price</div>
+            </div>
+            <div class="w-px h-10 bg-white/15"></div>
+            <div>
+              <div class="font-mono font-bold text-[28px] text-white leading-none">100M</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Total supply</div>
+            </div>
+            <div class="w-px h-10 bg-white/15"></div>
+            <div>
+              <div class="font-mono font-bold text-[28px] text-[#CAFC00] leading-none">5%</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5 font-haas">Round size</div>
+            </div>
+          </div>
+
+          <!-- Countdown -->
+          <div class="flex items-center gap-3 mb-2">
+            <div class="text-[10px] uppercase tracking-[0.14em] text-white/65 font-haas-bold">Round closes in</div>
+            <div class="flex items-center gap-2">
+              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
+                <div class="font-mono font-bold text-[22px] text-white leading-none">04</div>
+                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">DAYS</div>
+              </div>
+              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
+                <div class="font-mono font-bold text-[22px] text-white leading-none">12</div>
+                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">HRS</div>
+              </div>
+              <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2 min-w-[60px] text-center">
+                <div class="font-mono font-bold text-[22px] text-white leading-none">38</div>
+                <div class="text-[9px] text-white/55 mt-1 font-haas-bold">MIN</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: live activity -->
+        <div class="col-span-12 md:col-span-5 mt-2">
+          <div class="bg-white/[0.07] backdrop-blur rounded-2xl p-5 ring-1 ring-white/15 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+                <span class="text-[9px] font-haas-bold uppercase tracking-[0.14em] text-white/85">Recent commitments</span>
+              </div>
+              <span class="text-[9px] font-mono text-white/45">live</span>
+            </div>
+            <div class="space-y-3.5">
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">SK</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-white/85 font-haas truncate">Sara K. committed <span class="font-mono">$2,500</span></div>
+                  <div class="text-[9px] text-white/45 font-mono">1 minute ago</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">DK</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-white/85 font-haas truncate">Daniyar K. committed <span class="font-mono">$10,000</span></div>
+                  <div class="text-[9px] text-white/45 font-mono">3 minutes ago</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-haas-bold text-white">JC</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-white/85 font-haas truncate">Jamie Chen committed <span class="font-mono">$1,000</span></div>
+                  <div class="text-[9px] text-white/45 font-mono">8 minutes ago</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-full bg-[#CAFC00] grid place-items-center text-[10px] font-haas-bold text-black">$</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-white/85 font-haas truncate">$3.1M raised by 482 wallets</div>
+                  <div class="text-[9px] text-white/45 font-mono">total</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       STICKY TAB NAV
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <div class="sale-tabs border-b border-neutral-200/70">
+    <div class="max-w-[1280px] mx-auto px-6 flex items-center gap-8 overflow-x-auto">
+      <button class="tab-button active">Overview</button>
+      <button class="tab-button">Tokenomics</button>
+      <button class="tab-button">Schedule</button>
+      <button class="tab-button">Team</button>
+      <button class="tab-button">FAQ</button>
+    </div>
+  </div>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <section class="py-10">
+      <div class="grid grid-cols-12 gap-8">
+
+        <!-- LEFT — Tab content -->
+        <div class="col-span-12 md:col-span-7">
+
+          <!-- Overview -->
+          <div class="mb-12">
+            <div class="eyebrow mb-3">Overview</div>
+            <h2 class="article-title text-[36px] mb-7">A market structure built for traders</h2>
+            <div class="space-y-4 text-[15px] text-neutral-700 leading-[1.7] font-haas max-w-[640px]">
+              <p>Solana's first generation of DEXes were built for AMM-style swaps. They worked, but they leaked value to MEV bots and made institutional market making impossible. Phoenix is a different machine: an on-chain limit orderbook with the latency profile of a centralized venue.</p>
+              <p>Every order is a discrete on-chain account. There's no impermanent loss, no toxic flow leak, and no MEV-induced price impact for takers. Market makers post quotes, takers fill them, and the entire matching engine runs at Solana's native block time.</p>
+              <p>$PHX is the protocol token. Holders earn a share of taker fees, vote on parameter upgrades, and bootstrap liquidity for new markets. The Round 1 sale opens 5% of supply to BUX-tier holders before the public sale at TGE.</p>
+            </div>
+          </div>
+
+          <!-- Tokenomics preview -->
+          <div class="mb-12 pt-10 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Tokenomics · 100M total supply</div>
+            <h2 class="article-title text-[28px] mb-6">Where the tokens go</h2>
+            <div class="grid grid-cols-12 gap-6 items-center">
+              <div class="col-span-12 md:col-span-5 grid place-items-center">
+                <div class="pie"></div>
+              </div>
+              <div class="col-span-12 md:col-span-7">
+                <div class="space-y-3 text-[13px]">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #FF6B35;"></div>
+                      <span class="text-neutral-700 font-haas">Liquidity & MM rewards</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">35%</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #C73E1D;"></div>
+                      <span class="text-neutral-700 font-haas">Round 1 + public sale</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">15%</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #FFD23F;"></div>
+                      <span class="text-neutral-700 font-haas">Treasury / DAO</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">18%</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #2D2D2D;"></div>
+                      <span class="text-neutral-700 font-haas">Team · 4yr vesting</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">12%</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #6B7280;"></div>
+                      <span class="text-neutral-700 font-haas">Strategic partners</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">12%</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-3 h-3 rounded-sm" style="background: #d4d4d2;"></div>
+                      <span class="text-neutral-700 font-haas">Foundation reserve</span>
+                    </div>
+                    <span class="font-mono font-bold text-[#141414]">8%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule -->
+          <div class="mb-12 pt-10 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Schedule</div>
+            <h2 class="article-title text-[28px] mb-6">From now to TGE</h2>
+            <div>
+              <div class="timeline-row">
+                <div>
+                  <div class="font-mono font-bold text-[12px] text-[#141414]">Apr 5</div>
+                  <div class="text-[10px] text-neutral-500 font-haas">2026</div>
+                </div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Round 1 opens · BUX-tier holders</div>
+                  <div class="text-[12px] text-neutral-500 font-haas mt-1">Allocations open to readers with at least 1,000 BUX. Tier-based caps apply.</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div>
+                  <div class="font-mono font-bold text-[12px] text-[#a16207]">Apr 13</div>
+                  <div class="text-[10px] text-neutral-500 font-haas">2026</div>
+                </div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Round 1 closes</div>
+                  <div class="text-[12px] text-neutral-500 font-haas mt-1">Final commitments locked. Excess allocations refunded automatically.</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div>
+                  <div class="font-mono font-bold text-[12px] text-[#141414]">Apr 20</div>
+                  <div class="text-[10px] text-neutral-500 font-haas">2026</div>
+                </div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Public sale</div>
+                  <div class="text-[12px] text-neutral-500 font-haas mt-1">Open to anyone with a Solana wallet. Same price.</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div>
+                  <div class="font-mono font-bold text-[12px] text-[#141414]">Apr 27</div>
+                  <div class="text-[10px] text-neutral-500 font-haas">2026</div>
+                </div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">TGE · token generation event</div>
+                  <div class="text-[12px] text-neutral-500 font-haas mt-1">$PHX claimable. Cliff begins. Trading enabled on Phoenix and Jupiter.</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div>
+                  <div class="font-mono font-bold text-[12px] text-[#141414]">Oct 27</div>
+                  <div class="text-[10px] text-neutral-500 font-haas">2026</div>
+                </div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Cliff ends · linear vesting begins</div>
+                  <div class="text-[12px] text-neutral-500 font-haas mt-1">6-month cliff complete. 18-month linear unlock starts.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Team -->
+          <div class="mb-12 pt-10 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">Team</div>
+            <h2 class="article-title text-[28px] mb-6">Built by market structure veterans</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                <div class="author-avatar w-14 h-14 rounded-full grid place-items-center text-[14px]">EM</div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Eliza Mokhtari</div>
+                  <div class="text-[11px] text-neutral-500 font-haas">Co-founder · CEO</div>
+                  <div class="text-[10px] text-neutral-400 font-haas">ex-Jane Street</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                <div class="author-avatar w-14 h-14 rounded-full grid place-items-center text-[14px]">RC</div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Rohan Chandra</div>
+                  <div class="text-[11px] text-neutral-500 font-haas">Co-founder · CTO</div>
+                  <div class="text-[10px] text-neutral-400 font-haas">ex-Jump Crypto</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                <div class="author-avatar w-14 h-14 rounded-full grid place-items-center text-[14px]">YT</div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Yuki Tanaka</div>
+                  <div class="text-[11px] text-neutral-500 font-haas">Head of research</div>
+                  <div class="text-[10px] text-neutral-400 font-haas">ex-Citadel Securities</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                <div class="author-avatar w-14 h-14 rounded-full grid place-items-center text-[14px]">AB</div>
+                <div>
+                  <div class="text-[14px] font-haas-bold text-[#141414]">Adriana Bauer</div>
+                  <div class="text-[11px] text-neutral-500 font-haas">Head of growth</div>
+                  <div class="text-[10px] text-neutral-400 font-haas">ex-Wormhole</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ -->
+          <div class="mb-2 pt-10 border-t border-neutral-200/70">
+            <div class="eyebrow mb-3">FAQ</div>
+            <h2 class="article-title text-[28px] mb-6">Common questions</h2>
+            <div class="space-y-3">
+              <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
+                <summary class="cursor-pointer flex items-center justify-between">
+                  <span class="text-[14px] font-haas-bold text-[#141414]">Who can participate in Round 1?</span>
+                  <svg class="w-4 h-4 text-neutral-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-[13px] text-neutral-600 font-haas leading-relaxed">Any reader on Blockster who holds at least 1,000 BUX in their wallet at the time of registration. Higher BUX balances unlock larger allocation tiers.</p>
+              </details>
+              <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
+                <summary class="cursor-pointer flex items-center justify-between">
+                  <span class="text-[14px] font-haas-bold text-[#141414]">What happens if the round is oversubscribed?</span>
+                  <svg class="w-4 h-4 text-neutral-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-[13px] text-neutral-600 font-haas leading-relaxed">Allocations are pro-rated within each tier. Excess SOL is refunded automatically when the round closes.</p>
+              </details>
+              <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
+                <summary class="cursor-pointer flex items-center justify-between">
+                  <span class="text-[14px] font-haas-bold text-[#141414]">What's the lockup?</span>
+                  <svg class="w-4 h-4 text-neutral-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-[13px] text-neutral-600 font-haas leading-relaxed">6-month cliff from TGE, then 18 months of linear daily unlocks. No tokens trade before TGE.</p>
+              </details>
+              <details class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group">
+                <summary class="cursor-pointer flex items-center justify-between">
+                  <span class="text-[14px] font-haas-bold text-[#141414]">Is this audited?</span>
+                  <svg class="w-4 h-4 text-neutral-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-[13px] text-neutral-600 font-haas leading-relaxed">Phoenix has been audited by OtterSec and Neodyme. Sale contracts audited by Sec3. Reports available in the data room.</p>
+              </details>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT — Sticky allocation card -->
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-allocation">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+
+              <!-- Tier banner -->
+              <div class="px-6 py-4 border-b border-neutral-100" style="background: linear-gradient(135deg, rgba(255,107,53,0.08), rgba(199,62,29,0.08));">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-[10px] uppercase tracking-[0.14em] font-haas-bold" style="color: #C73E1D;">Your tier</div>
+                    <div class="text-[18px] font-haas-bold text-[#141414]">Tier 3 · Aurora</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[10px] text-neutral-500 font-haas">10K BUX held</div>
+                    <div class="text-[10px] text-[#22C55E] font-haas-bold">Eligible ✓</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-6">
+                <!-- Allocation -->
+                <div class="mb-5">
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">Your max allocation</div>
+                  <div class="font-mono font-bold text-[40px] text-[#141414] leading-none">$2,500</div>
+                  <div class="text-[11px] text-neutral-500 font-haas mt-1">≈ <span class="font-mono">29,411</span> $PHX</div>
+                </div>
+
+                <!-- Commit input -->
+                <div class="mb-5">
+                  <div class="flex items-center justify-between mb-2">
+                    <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Commit amount</label>
+                    <span class="text-[10px] font-mono text-neutral-400">SOL · USDC</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input type="text" value="2,500.00" class="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[18px] font-mono font-bold text-[#141414] focus:outline-none focus:border-[#141414]" />
+                    <button class="bg-[#0a0a0a] text-white px-4 py-2.5 rounded-xl text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">Max</button>
+                  </div>
+                </div>
+
+                <!-- Quick steps -->
+                <div class="grid grid-cols-4 gap-2 mb-5">
+                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">25%</button>
+                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">50%</button>
+                  <button class="px-2 py-2 bg-white border border-neutral-200 rounded-full text-[11px] font-mono text-neutral-600 hover:border-[#141414] hover:text-[#141414] transition-colors">75%</button>
+                  <button class="px-2 py-2 bg-white border border-[#141414] rounded-full text-[11px] font-mono font-bold text-[#141414]">MAX</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 mb-5 space-y-2 text-[11px]">
+                  <div class="flex justify-between">
+                    <span class="text-neutral-500 font-haas">Token price</span>
+                    <span class="font-mono font-bold text-[#141414]">$0.085</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-neutral-500 font-haas">Your $PHX</span>
+                    <span class="font-mono font-bold text-[#141414]">29,411</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-neutral-500 font-haas">Vesting</span>
+                    <span class="font-mono text-neutral-700">6mo cliff + 18mo linear</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-neutral-500 font-haas">Claim starts</span>
+                    <span class="font-mono text-neutral-700">Apr 27, 2026</span>
+                  </div>
+                </div>
+
+                <!-- Submit -->
+                <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                  Commit $2,500
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="mt-3 text-center text-[10px] text-neutral-400 font-haas">Commitments are non-refundable after round close.</div>
+              </div>
+            </div>
+
+            <!-- Round progress -->
+            <div class="mt-4 bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="flex items-baseline justify-between mb-2">
+                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Round progress</span>
+                <span class="font-mono text-[10px] text-neutral-500">62%</span>
+              </div>
+              <div class="progress-track mb-3">
+                <div class="progress-fill" style="width: 62%; background: linear-gradient(90deg, #FF6B35, #C73E1D);"></div>
+              </div>
+              <div class="flex items-baseline justify-between">
+                <div>
+                  <div class="font-mono font-bold text-[16px] text-[#141414] leading-none">$3.1M</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-1">raised so far</div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[16px] text-[#141414] leading-none">482</div>
+                  <div class="text-[10px] text-neutral-500 font-haas mt-1">wallets</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         OTHER SALES STRIP
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Coming up</div>
+          <h2 class="section-title text-[28px] md:text-[34px]">Other upcoming sales</h2>
+        </div>
+        <a href="#" class="text-[13px] font-haas text-neutral-600 hover:text-neutral-900 transition-colors">All sales →</a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <a href="#" class="product-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="h-1" style="background: linear-gradient(90deg, #E42575, #7B0B33);"></div>
+          <div class="p-5">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl grid place-items-center" style="background: linear-gradient(135deg, #E42575, #7B0B33);"><span class="font-haas-bold text-white text-[14px]">V</span></div>
+              <div>
+                <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight">Vault Capital</h3>
+                <div class="text-[10px] font-mono text-neutral-500">$VLT · opens Apr 14</div>
+              </div>
+            </div>
+            <p class="text-[11px] text-neutral-500 font-haas leading-relaxed mb-3">Yield optimizer for institutional capital.</p>
+            <div class="font-mono text-[11px] text-neutral-700">Target <span class="font-bold">$8M</span> · Tier 4</div>
+          </div>
+        </a>
+        <a href="#" class="product-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="h-1" style="background: linear-gradient(90deg, #14F195, #0B7548);"></div>
+          <div class="p-5">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl grid place-items-center" style="background: linear-gradient(135deg, #14F195, #0B7548);"><span class="font-haas-bold text-white text-[14px]">A</span></div>
+              <div>
+                <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight">Aurora Stake</h3>
+                <div class="text-[10px] font-mono text-neutral-500">$AUR · opens Apr 16</div>
+              </div>
+            </div>
+            <p class="text-[11px] text-neutral-500 font-haas leading-relaxed mb-3">Liquid staking with built-in MEV redistribution.</p>
+            <div class="font-mono text-[11px] text-neutral-700">Target <span class="font-bold">$1.5M</span> · Tier 1</div>
+          </div>
+        </a>
+        <a href="#" class="product-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="h-1" style="background: linear-gradient(90deg, #06B6D4, #0E7490);"></div>
+          <div class="p-5">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl grid place-items-center" style="background: linear-gradient(135deg, #06B6D4, #0E7490);"><span class="font-haas-bold text-white text-[14px]">M</span></div>
+              <div>
+                <h3 class="font-haas-bold text-[14px] text-[#141414] leading-tight">Meridian Markets</h3>
+                <div class="text-[10px] font-mono text-neutral-500">$MRD · live now</div>
+              </div>
+            </div>
+            <p class="text-[11px] text-neutral-500 font-haas leading-relaxed mb-3">Permissionless perps for the long tail.</p>
+            <div class="font-mono text-[11px] text-neutral-700">Target <span class="font-bold">$3.5M</span> · Tier 3</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

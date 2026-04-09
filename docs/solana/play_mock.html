@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Play (Coin Flip) — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .profile-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+    }
+
+    .author-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .section-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .eyebrow {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       COIN — heads vs tails
+       Stylized as black/gold and dark/silver for trading-app feel
+    ───────────────────────────────────────────────────────── */
+    .coin {
+      position: relative;
+      border-radius: 9999px;
+      display: grid;
+      place-items: center;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      font-style: italic;
+      box-shadow:
+        inset 0 -8px 16px -4px rgba(0, 0, 0, 0.4),
+        inset 0 8px 16px -4px rgba(255, 255, 255, 0.18),
+        0 24px 48px -16px rgba(0, 0, 0, 0.45),
+        0 0 0 2px rgba(255, 255, 255, 0.06);
+    }
+    .coin-heads {
+      background: radial-gradient(circle at 35% 30%, #fef9c3 0%, #facc15 35%, #a16207 100%);
+      color: #422006;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.3);
+    }
+    .coin-tails {
+      background: radial-gradient(circle at 35% 30%, #f3f4f6 0%, #9ca3af 40%, #1f2937 100%);
+      color: #e5e7eb;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .coin-pending {
+      background: radial-gradient(circle at 35% 30%, #1f2937 0%, #0a0a0a 80%);
+      color: #4b5563;
+    }
+
+    /* Coin spinning animation (mock) */
+    @keyframes coin-spin {
+      0%   { transform: rotateY(0deg); }
+      100% { transform: rotateY(360deg); }
+    }
+    .coin-spinning {
+      animation: coin-spin 0.8s linear infinite;
+      transform-style: preserve-3d;
+    }
+
+    /* Difficulty pill */
+    .difficulty-pill {
+      padding: 10px 8px;
+      border-radius: 12px;
+      border: 1px solid #e5e5e2;
+      background: white;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6B7280;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      text-align: center;
+      position: relative;
+    }
+    .difficulty-pill:hover {
+      border-color: #141414;
+      color: #141414;
+    }
+    .difficulty-pill.active {
+      background: #0a0a0a;
+      color: white;
+      border-color: #0a0a0a;
+    }
+    .difficulty-pill.active .pill-flips {
+      color: #CAFC00;
+    }
+    .difficulty-pill .pill-mode {
+      display: block;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.55;
+      margin-bottom: 2px;
+    }
+    .difficulty-pill .pill-mult {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .difficulty-pill .pill-flips {
+      display: block;
+      font-size: 9px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* Bet input */
+    .bet-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      background: transparent;
+      border: 0;
+      width: 100%;
+      color: #141414;
+      letter-spacing: -0.02em;
+    }
+    .bet-input:focus { outline: none; }
+    .bet-input::placeholder { color: #d4d4d2; }
+
+    /* Prediction button (small coin selectors) */
+    .prediction-coin {
+      width: 64px;
+      height: 64px;
+      border-radius: 9999px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      font-style: italic;
+      font-size: 22px;
+      box-shadow:
+        inset 0 -4px 8px -2px rgba(0, 0, 0, 0.3),
+        inset 0 4px 8px -2px rgba(255, 255, 255, 0.15),
+        0 8px 16px -4px rgba(0, 0, 0, 0.3);
+    }
+    .prediction-coin:hover { transform: translateY(-2px); }
+    .prediction-coin.empty {
+      background: white;
+      border: 2px dashed #d4d4d2;
+      color: #9CA3AF;
+      box-shadow: none;
+      font-style: normal;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .prediction-coin.empty:hover { border-color: #141414; color: #141414; }
+    .prediction-coin.heads {
+      background: radial-gradient(circle at 35% 30%, #fef9c3 0%, #facc15 35%, #a16207 100%);
+      color: #422006;
+    }
+    .prediction-coin.tails {
+      background: radial-gradient(circle at 35% 30%, #f3f4f6 0%, #9ca3af 40%, #1f2937 100%);
+      color: #e5e7eb;
+    }
+
+    /* Quick bet button */
+    .quick-bet {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      border: 1px solid #e5e5e2;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      color: #6B7280;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .quick-bet:hover {
+      border-color: #141414;
+      color: #141414;
+      background: white;
+    }
+    .quick-bet.max {
+      background: #0a0a0a;
+      color: #CAFC00;
+      border-color: #0a0a0a;
+    }
+
+    /* State divider for stacked states */
+    .state-divider {
+      position: relative;
+      margin: 100px 0 60px;
+      text-align: center;
+    }
+    .state-divider::before {
+      content: '';
+      position: absolute;
+      inset: 50% 0 0 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #d4d4d2, transparent);
+    }
+    .state-divider span {
+      position: relative;
+      background: var(--bg-page);
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+    }
+
+    .activity-row {
+      transition: background-color 0.15s ease;
+    }
+    .activity-row:hover { background-color: rgba(0, 0, 0, 0.02); }
+
+    /* Win celebration glow */
+    @keyframes win-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3), 0 30px 60px -20px rgba(34, 197, 94, 0.4); }
+      50%      { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0), 0 30px 60px -20px rgba(34, 197, 94, 0.6); }
+    }
+    .win-glow { animation: win-glow 2s ease-in-out infinite; }
+
+    /* Confetti dot (decorative) */
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      pointer-events: none;
+    }
+    .c1 { background: #CAFC00; transform: rotate(15deg); }
+    .c2 { background: #facc15; border-radius: 50%; }
+    .c3 { background: #22C55E; transform: rotate(-25deg); }
+    .c4 { background: #7D00FF; border-radius: 2px; }
+    .c5 { background: #EF4444; border-radius: 50%; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center">
+          <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" />
+        </a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]">
+          <div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         PAGE HEADER + LIVE STATS BAR
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-12 pb-8">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-7">
+          <div class="eyebrow mb-3">Provably-fair · On-chain · Sub-1% house edge</div>
+          <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">Coin Flip</h1>
+          <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px] font-haas">
+            Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-5">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">SOL Pool</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">486.34</div>
+              <a href="#" class="text-[10px] text-[#22C55E] font-mono hover:underline">+ 1.4% 24h</a>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">BUX Pool</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">2.4M</div>
+              <a href="#" class="text-[10px] text-[#22C55E] font-mono hover:underline">+ 0.8% 24h</a>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">House Edge</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">0.92<span class="text-[12px] text-neutral-500">%</span></div>
+              <span class="text-[10px] text-neutral-500 font-mono">verified</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         STATE 1 — PLACE BET (idle)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-8">
+      <div class="grid grid-cols-12 gap-6 items-start">
+
+        <!-- Game card (col-span-8) -->
+        <div class="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+
+          <!-- Token selector + balance -->
+          <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-2">
+              <button class="flex items-center gap-2 bg-[#0a0a0a] text-white px-3 py-2 rounded-full text-[12px] font-haas-bold">
+                <div class="w-4 h-4 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);"><span class="text-black font-haas-bold text-[6px]">SOL</span></div>
+                SOL
+                <svg class="w-3 h-3 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="flex items-center gap-2 bg-white border border-neutral-200 text-neutral-500 px-3 py-2 rounded-full text-[12px] font-haas hover:border-[#141414] hover:text-[#141414] transition-colors">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full" />
+                BUX
+              </button>
+            </div>
+            <div class="flex items-center gap-4 text-[11px] font-haas">
+              <div>
+                <span class="text-neutral-500">Your balance: </span>
+                <span class="font-mono font-bold text-[#141414]">0.847 SOL</span>
+              </div>
+              <div>
+                <span class="text-neutral-500">House: </span>
+                <a href="#" class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors">486.34 SOL ↗</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Difficulty selector -->
+          <div class="px-6 pt-5 pb-2">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Difficulty</div>
+              <div class="text-[10px] text-neutral-500 font-haas">Higher difficulty = bigger payout · lower odds</div>
+            </div>
+            <div class="grid grid-cols-9 gap-1.5">
+              <button class="difficulty-pill"><span class="pill-mode">Win one</span><span class="pill-mult">1.02×</span><span class="pill-flips">5 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win one</span><span class="pill-mult">1.05×</span><span class="pill-flips">4 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win one</span><span class="pill-mult">1.13×</span><span class="pill-flips">3 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win one</span><span class="pill-mult">1.32×</span><span class="pill-flips">2 flips</span></button>
+              <button class="difficulty-pill active"><span class="pill-mode">Win all</span><span class="pill-mult">1.98×</span><span class="pill-flips">1 flip</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win all</span><span class="pill-mult">3.96×</span><span class="pill-flips">2 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win all</span><span class="pill-mult">7.92×</span><span class="pill-flips">3 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win all</span><span class="pill-mult">15.84×</span><span class="pill-flips">4 flips</span></button>
+              <button class="difficulty-pill"><span class="pill-mode">Win all</span><span class="pill-mult">31.68×</span><span class="pill-flips">5 flips</span></button>
+            </div>
+          </div>
+
+          <!-- Bet amount -->
+          <div class="px-6 pt-6 pb-2">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Bet amount</div>
+              <div class="flex items-center gap-1.5">
+                <button class="quick-bet">½</button>
+                <button class="quick-bet">2×</button>
+                <button class="quick-bet max">MAX 4.86</button>
+              </div>
+            </div>
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+              <input type="text" value="0.50" class="bet-input flex-1" />
+              <div class="text-[14px] font-haas text-neutral-500">SOL</div>
+              <div class="text-[10px] font-mono text-neutral-400 ml-2">≈ $80.20</div>
+            </div>
+            <!-- Quick presets -->
+            <div class="flex items-center gap-2 mt-3">
+              <button class="quick-bet">0.01</button>
+              <button class="quick-bet">0.05</button>
+              <button class="quick-bet">0.10</button>
+              <button class="quick-bet">0.25</button>
+              <button class="quick-bet">0.50</button>
+              <button class="quick-bet">1.00</button>
+            </div>
+          </div>
+
+          <!-- Potential payout -->
+          <div class="px-6 pt-5">
+            <div class="bg-[#22C55E]/8 border border-[#22C55E]/25 rounded-2xl p-5 flex items-center justify-between">
+              <div>
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#15803d] mb-1">Potential profit</div>
+                <div class="font-mono font-bold text-[28px] text-[#15803d] leading-none">+ 0.49 SOL</div>
+                <div class="text-[11px] text-[#15803d]/70 font-haas mt-1">Total payout: 0.99 SOL · ≈ $159</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#15803d]/70 mb-1">Multiplier</div>
+                <div class="font-mono font-bold text-[36px] text-[#15803d] leading-none">1.98×</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prediction -->
+          <div class="px-6 pt-6">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Pick your side · 1 of 1 flips</div>
+            <div class="flex items-center gap-4">
+              <button class="prediction-coin heads">H</button>
+              <div class="text-[12px] font-haas text-neutral-500">or</div>
+              <button class="prediction-coin tails">T</button>
+              <div class="ml-auto text-[11px] text-neutral-500 font-haas max-w-[180px] text-right">
+                Click a coin to lock your prediction. The flip is determined by SHA256(server_seed:client_seed:nonce).
+              </div>
+            </div>
+          </div>
+
+          <!-- Provably fair commitment -->
+          <div class="px-6 pt-5 pb-2">
+            <details class="bg-neutral-50 border border-neutral-200 rounded-xl">
+              <summary class="cursor-pointer px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></div>
+                  <span class="text-[11px] font-haas-bold text-[#141414]">Provably fair · Server seed locked</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 font-haas">View commitment hash</span>
+              </summary>
+              <div class="px-4 pb-4 border-t border-neutral-200 mt-2 pt-3 space-y-2">
+                <div class="flex items-center justify-between text-[10px] font-mono">
+                  <span class="text-neutral-500">Server commitment</span>
+                  <span class="text-[#141414] truncate ml-3">a8f3…9c2b</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px] font-mono">
+                  <span class="text-neutral-500">Game nonce</span>
+                  <span class="text-[#141414]">#12,486</span>
+                </div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-2">After settlement, the server seed will be revealed. You can independently verify the result.</div>
+              </div>
+            </details>
+          </div>
+
+          <!-- Place bet button -->
+          <div class="p-6">
+            <button class="w-full bg-[#0a0a0a] text-white py-4 rounded-2xl text-[15px] font-haas-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-2">
+              Place Bet · 0.50 SOL
+              <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sidebar (col-span-4) -->
+        <div class="col-span-12 lg:col-span-4 space-y-4">
+
+          <!-- Your stats -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">Your stats · 7 days</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">42</div>
+                <div class="text-[10px] text-neutral-500 mt-1 font-haas uppercase tracking-wider">Bets placed</div>
+              </div>
+              <div>
+                <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">21<span class="text-[12px] text-neutral-400">/42</span></div>
+                <div class="text-[10px] text-neutral-500 mt-1 font-haas uppercase tracking-wider">Win rate · 50%</div>
+              </div>
+              <div>
+                <div class="font-mono font-bold text-[20px] text-[#22C55E] leading-none">+ 0.34</div>
+                <div class="text-[10px] text-neutral-500 mt-1 font-haas uppercase tracking-wider">Net SOL</div>
+              </div>
+              <div>
+                <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">3.96×</div>
+                <div class="text-[10px] text-neutral-500 mt-1 font-haas uppercase tracking-wider">Best win</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live activity feed -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                <span class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Live · All players</span>
+              </div>
+              <span class="text-[9px] font-mono text-neutral-400">last 5m</span>
+            </div>
+            <div class="divide-y divide-neutral-100">
+              <div class="px-5 py-3 flex items-center justify-between activity-row">
+                <div class="flex items-center gap-2">
+                  <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">7x</div>
+                  <span class="text-[11px] font-mono text-neutral-500">7xQk…3mPa</span>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[12px] text-[#22C55E]">+ 0.99 SOL</div>
+                  <div class="text-[9px] font-mono text-neutral-400">1.98×</div>
+                </div>
+              </div>
+              <div class="px-5 py-3 flex items-center justify-between activity-row">
+                <div class="flex items-center gap-2">
+                  <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">9a</div>
+                  <span class="text-[11px] font-mono text-neutral-500">9aBc…2vNm</span>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[12px] text-[#EF4444]">− 1.20 SOL</div>
+                  <div class="text-[9px] font-mono text-neutral-400">3.96×</div>
+                </div>
+              </div>
+              <div class="px-5 py-3 flex items-center justify-between activity-row">
+                <div class="flex items-center gap-2">
+                  <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">3F</div>
+                  <span class="text-[11px] font-mono text-neutral-500">3FpQ…8RtY</span>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[12px] text-[#22C55E]">+ 0.45 BUX</div>
+                  <div class="text-[9px] font-mono text-neutral-400">1.50×</div>
+                </div>
+              </div>
+              <div class="px-5 py-3 flex items-center justify-between activity-row">
+                <div class="flex items-center gap-2">
+                  <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">hQ</div>
+                  <span class="text-[11px] font-mono text-neutral-500">hQ4n…6mLk</span>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[12px] text-[#22C55E]">+ 6.34 SOL</div>
+                  <div class="text-[9px] font-mono text-neutral-400">7.92×</div>
+                </div>
+              </div>
+              <div class="px-5 py-3 flex items-center justify-between activity-row">
+                <div class="flex items-center gap-2">
+                  <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">5g</div>
+                  <span class="text-[11px] font-mono text-neutral-500">5gWp…1nVx</span>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[12px] text-[#EF4444]">− 0.80 SOL</div>
+                  <div class="text-[9px] font-mono text-neutral-400">1.32×</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Difficulty mode legend -->
+          <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Two modes</div>
+            <div class="space-y-3 text-[11px] text-neutral-600 font-haas leading-snug">
+              <div>
+                <div class="text-[#141414] font-haas-bold text-[12px] mb-0.5">Win One</div>
+                <div>Win if <strong class="text-[#141414]">any one</strong> of N flips matches your prediction. Lower payout, much higher odds.</div>
+              </div>
+              <div>
+                <div class="text-[#141414] font-haas-bold text-[12px] mb-0.5">Win All</div>
+                <div>Win only if <strong class="text-[#141414]">all N flips</strong> match. Higher payout, lower odds. The 31.68× is a 5-in-a-row streak.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         STATE 2 — BET IN PROGRESS (flipping)
+    ═════════════════════════════════════════════════════════ -->
+    <div class="state-divider"><span>Bet in progress · State 2 ↓</span></div>
+
+    <section class="pb-8">
+      <div class="grid grid-cols-12 gap-6 items-start">
+        <div class="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+
+          <!-- Locked bet header -->
+          <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);">
+                <span class="text-black font-haas-bold text-[10px]">SOL</span>
+              </div>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas">Bet placed</div>
+                <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">0.50 SOL</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] font-haas">
+              <div class="text-neutral-500">Multiplier <span class="font-mono font-bold text-[#141414]">3.96×</span></div>
+              <div class="text-neutral-500">Potential <span class="font-mono font-bold text-[#22C55E]">+ 1.48 SOL</span></div>
+            </div>
+          </div>
+
+          <!-- Spinning coin area -->
+          <div class="px-6 pt-12 pb-8 grid place-items-center relative">
+            <div class="absolute inset-0 pointer-events-none">
+              <div class="absolute top-8 left-12 w-32 h-32 bg-[#facc15]/15 rounded-full blur-3xl"></div>
+              <div class="absolute bottom-8 right-12 w-40 h-40 bg-[#7D00FF]/10 rounded-full blur-3xl"></div>
+            </div>
+            <div class="relative">
+              <div class="coin coin-pending coin-spinning w-44 h-44 text-[64px]">?</div>
+              <div class="absolute -inset-4 rounded-full border-2 border-dashed border-neutral-200 animate-spin" style="animation-duration: 8s;"></div>
+            </div>
+            <div class="mt-8 text-center">
+              <div class="text-[10px] font-haas-bold uppercase tracking-[0.16em] text-[#141414] flex items-center justify-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                Flipping coin · 1 of 2
+              </div>
+              <div class="text-[12px] text-neutral-500 font-haas mt-1.5">Confirming on Solana · ~0.4s</div>
+            </div>
+          </div>
+
+          <!-- Prediction vs result grid -->
+          <div class="px-6 pt-2 pb-6">
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5">
+              <div class="grid grid-cols-2 gap-6">
+                <div>
+                  <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                  <div class="flex items-center justify-center gap-3">
+                    <div class="prediction-coin heads w-12 h-12 text-[18px]">H</div>
+                    <div class="prediction-coin tails w-12 h-12 text-[18px]">T</div>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Results</div>
+                  <div class="flex items-center justify-center gap-3">
+                    <div class="prediction-coin heads w-12 h-12 text-[18px] ring-2 ring-[#22C55E] ring-offset-2 ring-offset-neutral-50">H</div>
+                    <div class="prediction-coin empty w-12 h-12 text-[16px]">?</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 text-center text-[11px] font-haas text-[#15803d]">
+                ✓ Flip 1 matched. Waiting on flip 2…
+              </div>
+            </div>
+          </div>
+
+          <!-- Status / progress strip -->
+          <div class="border-t border-neutral-100 bg-neutral-50/70 px-6 py-3">
+            <div class="flex items-center justify-between text-[10px] font-mono">
+              <div class="flex items-center gap-2">
+                <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
+                <span class="text-neutral-500">Tx submitted · </span>
+                <a href="#" class="text-[#141414] hover:underline">5gWp…3mPa ↗</a>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-1 h-1 rounded-full bg-[#22C55E]"></div>
+                <div class="w-1 h-1 rounded-full bg-[#22C55E]"></div>
+                <div class="w-1 h-1 rounded-full bg-neutral-300 pulse-dot"></div>
+                <span class="text-neutral-500 ml-1">Settling…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar — current bet info -->
+        <div class="col-span-12 lg:col-span-4 space-y-4">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">This bet</div>
+            <div class="space-y-3 text-[12px] font-haas">
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Token</span>
+                <span class="text-[#141414] font-haas-bold">SOL</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Stake</span>
+                <span class="font-mono font-bold text-[#141414]">0.50</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Difficulty</span>
+                <span class="text-[#141414] font-haas-bold">Win all · 2 flips</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Multiplier</span>
+                <span class="font-mono font-bold text-[#141414]">3.96×</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Predictions</span>
+                <div class="flex items-center gap-1">
+                  <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+                  <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-neutral-100">
+                <span class="text-neutral-500">Potential payout</span>
+                <span class="font-mono font-bold text-[#22C55E]">1.98 SOL</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Provably fair box -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+            <div class="flex items-center gap-1.5 mb-3">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+              <span class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500">Provably fair · Live</span>
+            </div>
+            <div class="space-y-2 text-[10px] font-mono">
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Commit hash</span>
+                <span class="text-[#141414]">a8f3…9c2b</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Game nonce</span>
+                <span class="text-[#141414]">#12,486</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Server seed</span>
+                <span class="text-neutral-400 italic">revealed at settlement</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         STATE 3a — BET RESULT (WIN)
+    ═════════════════════════════════════════════════════════ -->
+    <div class="state-divider"><span>Result · WIN ↓</span></div>
+
+    <section class="pb-8">
+      <div class="grid grid-cols-12 gap-6 items-start">
+        <div class="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-[#22C55E]/30 shadow-[0_30px_60px_-20px_rgba(34,197,94,0.20)] overflow-hidden relative">
+
+          <!-- Decorative confetti -->
+          <div class="confetti c1" style="top: 12%; left: 18%;"></div>
+          <div class="confetti c2" style="top: 25%; left: 80%;"></div>
+          <div class="confetti c3" style="top: 60%; left: 12%;"></div>
+          <div class="confetti c4" style="top: 75%; left: 86%;"></div>
+          <div class="confetti c5" style="top: 40%; left: 90%;"></div>
+          <div class="confetti c1" style="top: 85%; left: 50%; transform: rotate(45deg);"></div>
+          <div class="confetti c2" style="top: 8%; left: 50%;"></div>
+
+          <!-- Win banner -->
+          <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-6 py-5 text-center relative">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.18em] text-[#15803d] mb-2">You Won</div>
+            <div class="font-mono font-bold text-[64px] text-[#15803d] leading-none tracking-tight">+ 1.48 SOL</div>
+            <div class="text-[12px] text-[#15803d]/70 font-haas mt-2">≈ $237.62 · Total payout 1.98 SOL · 3.96× multiplier</div>
+          </div>
+
+          <!-- Coin display + result grid -->
+          <div class="px-6 pt-8 pb-6">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                <div class="flex items-center justify-center gap-3">
+                  <div class="prediction-coin heads w-16 h-16 text-[22px]">H</div>
+                  <div class="prediction-coin tails w-16 h-16 text-[22px]">T</div>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#15803d] mb-3 text-center">Results · 2/2 ✓</div>
+                <div class="flex items-center justify-center gap-3">
+                  <div class="prediction-coin heads w-16 h-16 text-[22px] ring-2 ring-[#22C55E] ring-offset-2 ring-offset-white">H</div>
+                  <div class="prediction-coin tails w-16 h-16 text-[22px] ring-2 ring-[#22C55E] ring-offset-2 ring-offset-white">T</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settlement status + actions -->
+          <div class="px-6 pb-6">
+            <div class="bg-[#22C55E]/8 border border-[#22C55E]/25 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-[#22C55E] grid place-items-center">
+                  <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#15803d] mb-0.5">Settled on chain</div>
+                  <a href="#" class="text-[12px] font-mono text-[#15803d] hover:underline">5gWp…3mPa · 0.84s ago ↗</a>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="bg-white border border-[#22C55E]/30 text-[#15803d] px-4 py-2.5 rounded-full text-[12px] font-haas-bold hover:border-[#15803d] transition-colors">Verify fairness</button>
+                <button class="bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors flex items-center gap-2">
+                  Play again
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Server seed reveal -->
+          <div class="px-6 pb-6">
+            <details class="bg-neutral-50 border border-neutral-200 rounded-xl">
+              <summary class="cursor-pointer px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="w-3.5 h-3.5 text-[#22C55E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+                  <span class="text-[11px] font-haas-bold text-[#141414]">Server seed revealed · Verify yourself</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 font-haas">Open ▾</span>
+              </summary>
+              <div class="px-4 pb-4 border-t border-neutral-200 mt-2 pt-3 space-y-2.5">
+                <div class="grid grid-cols-[120px_1fr] gap-2 text-[10px] font-mono items-center">
+                  <span class="text-neutral-500">Server seed</span>
+                  <span class="text-[#141414] truncate">7f3a8c9b2e4d…6c1a8f9e</span>
+                </div>
+                <div class="grid grid-cols-[120px_1fr] gap-2 text-[10px] font-mono items-center">
+                  <span class="text-neutral-500">Server commit</span>
+                  <span class="text-[#141414] truncate">a8f3…9c2b</span>
+                </div>
+                <div class="grid grid-cols-[120px_1fr] gap-2 text-[10px] font-mono items-center">
+                  <span class="text-neutral-500">Client seed</span>
+                  <span class="text-[#141414] truncate">user_482:0.5:SOL:1:HT</span>
+                </div>
+                <div class="grid grid-cols-[120px_1fr] gap-2 text-[10px] font-mono items-center">
+                  <span class="text-neutral-500">Combined hash</span>
+                  <span class="text-[#141414] truncate">3e7c9d2a8f1b…4e6c</span>
+                </div>
+                <div class="grid grid-cols-[120px_1fr] gap-2 text-[10px] font-mono items-center">
+                  <span class="text-neutral-500">Game nonce</span>
+                  <span class="text-[#141414]">#12,486</span>
+                </div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-2 pt-2 border-t border-neutral-200">
+                  <span class="text-[#141414] font-haas-bold">How it worked: </span>SHA256(server:client:nonce) → first 2 bytes determined the flip results. Byte &lt; 128 = HEADS, ≥ 128 = TAILS. Both bytes matched your predictions. <a href="#" class="text-[#7D00FF] hover:underline">Open external verifier ↗</a>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Sidebar — celebration stats -->
+        <div class="col-span-12 lg:col-span-4 space-y-4">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">Your stats updated</div>
+            <div class="space-y-3 text-[12px] font-haas">
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Net 7d</span>
+                <span class="font-mono font-bold text-[#22C55E]">+ 1.82 SOL</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Win streak</span>
+                <span class="font-mono font-bold text-[#141414]">3 in a row</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Bets placed</span>
+                <span class="font-mono font-bold text-[#141414]">43</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-neutral-500">Win rate</span>
+                <span class="font-mono font-bold text-[#141414]">51.2%</span>
+              </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-2">House contributed</div>
+              <div class="font-mono font-bold text-[14px] text-[#141414]">+ 1.48 SOL <span class="text-[10px] text-neutral-500">to your balance</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         STATE 3b — BET RESULT (LOSS)
+    ═════════════════════════════════════════════════════════ -->
+    <div class="state-divider"><span>Result · LOSS ↓</span></div>
+
+    <section class="pb-8">
+      <div class="grid grid-cols-12 gap-6 items-start">
+        <div class="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-[#EF4444]/25 shadow-[0_30px_60px_-20px_rgba(239,68,68,0.15)] overflow-hidden">
+
+          <!-- Loss banner -->
+          <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-6 py-5 text-center">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-2">No win this time</div>
+            <div class="font-mono font-bold text-[48px] text-[#7f1d1d] leading-none tracking-tight">− 0.50 SOL</div>
+            <div class="text-[12px] text-[#7f1d1d]/70 font-haas mt-2">≈ $80.20 · Stake returned to bankroll · 2 of 2 missed</div>
+          </div>
+
+          <!-- Result grid -->
+          <div class="px-6 pt-8 pb-6">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                <div class="flex items-center justify-center gap-3">
+                  <div class="prediction-coin heads w-16 h-16 text-[22px]">H</div>
+                  <div class="prediction-coin tails w-16 h-16 text-[22px]">T</div>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#7f1d1d] mb-3 text-center">Results · 0/2</div>
+                <div class="flex items-center justify-center gap-3">
+                  <div class="prediction-coin tails w-16 h-16 text-[22px] ring-2 ring-[#EF4444] ring-offset-2 ring-offset-white">T</div>
+                  <div class="prediction-coin heads w-16 h-16 text-[22px] ring-2 ring-[#EF4444] ring-offset-2 ring-offset-white">H</div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 text-center text-[11px] font-haas text-neutral-500">
+              Both flips landed opposite to your predictions. Server seed verified.
+            </div>
+          </div>
+
+          <!-- Settlement status + actions -->
+          <div class="px-6 pb-6">
+            <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-[#22C55E] grid place-items-center">
+                  <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Settled on chain</div>
+                  <a href="#" class="text-[12px] font-mono text-[#141414] hover:underline">9aBc…2vNm · 0.62s ago ↗</a>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="bg-white border border-neutral-300 text-neutral-700 px-4 py-2.5 rounded-full text-[12px] font-haas-bold hover:border-[#141414] transition-colors">Verify fairness</button>
+                <button class="bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors flex items-center gap-2">
+                  Try again
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar — recap -->
+        <div class="col-span-12 lg:col-span-4 space-y-4">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">Recap</div>
+            <p class="text-[12px] text-neutral-600 font-haas leading-[1.55]">
+              Your stake of <strong class="text-[#141414]">0.50 SOL</strong> was added to the bankroll. The bankroll's LP holders earn from your loss, just as you would earn from theirs if you held bSOL.
+            </p>
+            <a href="#" class="inline-flex items-center gap-2 text-[11px] font-haas-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3">
+              Become an LP →
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         RECENT GAMES TABLE
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-12 pb-12 border-t border-neutral-200/70 mt-8">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Your last 10 bets</div>
+          <h2 class="section-title text-[28px]">Recent games</h2>
+        </div>
+        <a href="#" class="text-[12px] font-haas text-neutral-600 hover:text-neutral-900 transition-colors group">View all bets <span class="inline-block group-hover:translate-x-0.5 transition-transform">→</span></a>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">
+          <div>#</div>
+          <div>Bet</div>
+          <div>Predictions</div>
+          <div>Results</div>
+          <div>Mult</div>
+          <div class="text-center">W/L</div>
+          <div class="text-right">P/L</div>
+          <div class="text-right">Verify</div>
+        </div>
+
+        <div class="divide-y divide-neutral-100">
+          <!-- Win row -->
+          <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 items-center activity-row bg-[#22C55E]/[0.03]">
+            <div class="font-mono text-[11px] text-neutral-500">#12486</div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="font-mono text-[12px] text-[#141414]">0.50</span>
+              <span class="text-[10px] text-neutral-500">SOL</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">T</div>
+            </div>
+            <div class="font-mono text-[11px] text-[#141414]">3.96×</div>
+            <div class="text-center"><span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-haas-bold uppercase px-1.5 py-0.5 rounded-full">W</span></div>
+            <div class="text-right font-mono font-bold text-[12px] text-[#22C55E]">+ 1.48 SOL</div>
+            <div class="text-right"><a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">5gWp…</a></div>
+          </div>
+          <!-- Loss row -->
+          <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 items-center activity-row bg-[#EF4444]/[0.03]">
+            <div class="font-mono text-[11px] text-neutral-500">#12485</div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="font-mono text-[12px] text-[#141414]">0.50</span>
+              <span class="text-[10px] text-neutral-500">SOL</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin tails w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">T</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">H</div>
+            </div>
+            <div class="font-mono text-[11px] text-[#141414]">3.96×</div>
+            <div class="text-center"><span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[10px] font-haas-bold uppercase px-1.5 py-0.5 rounded-full">L</span></div>
+            <div class="text-right font-mono font-bold text-[12px] text-[#EF4444]">− 0.50 SOL</div>
+            <div class="text-right"><a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">9aBc…</a></div>
+          </div>
+          <!-- Win row -->
+          <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 items-center activity-row bg-[#22C55E]/[0.03]">
+            <div class="font-mono text-[11px] text-neutral-500">#12484</div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="font-mono text-[12px] text-[#141414]">1.00</span>
+              <span class="text-[10px] text-neutral-500">SOL</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">H</div>
+            </div>
+            <div class="font-mono text-[11px] text-[#141414]">1.98×</div>
+            <div class="text-center"><span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-haas-bold uppercase px-1.5 py-0.5 rounded-full">W</span></div>
+            <div class="text-right font-mono font-bold text-[12px] text-[#22C55E]">+ 0.98 SOL</div>
+            <div class="text-right"><a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">3FpQ…</a></div>
+          </div>
+          <!-- BUX win row -->
+          <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 items-center activity-row bg-[#22C55E]/[0.03]">
+            <div class="font-mono text-[11px] text-neutral-500">#12483</div>
+            <div class="flex items-center gap-1.5">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3.5 h-3.5 rounded-full" />
+              <span class="font-mono text-[12px] text-[#141414]">25</span>
+              <span class="text-[10px] text-neutral-500">BUX</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">H</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px] ring-1 ring-[#22C55E]">T</div>
+            </div>
+            <div class="font-mono text-[11px] text-[#141414]">7.92×</div>
+            <div class="text-center"><span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-haas-bold uppercase px-1.5 py-0.5 rounded-full">W</span></div>
+            <div class="text-right font-mono font-bold text-[12px] text-[#22C55E]">+ 173 BUX</div>
+            <div class="text-right"><a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">hQ4n…</a></div>
+          </div>
+          <!-- Loss row -->
+          <div class="grid grid-cols-[60px_120px_140px_140px_80px_60px_140px_60px] px-5 py-3 items-center activity-row bg-[#EF4444]/[0.03]">
+            <div class="font-mono text-[11px] text-neutral-500">#12482</div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="font-mono text-[12px] text-[#141414]">0.25</span>
+              <span class="text-[10px] text-neutral-500">SOL</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px]">T</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px]">H</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="prediction-coin tails w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">T</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">H</div>
+              <div class="prediction-coin heads w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">H</div>
+              <div class="prediction-coin tails w-5 h-5 text-[10px] ring-1 ring-[#EF4444]">T</div>
+            </div>
+            <div class="font-mono text-[11px] text-[#141414]">15.84×</div>
+            <div class="text-center"><span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[10px] font-haas-bold uppercase px-1.5 py-0.5 rounded-full">L</span></div>
+            <div class="text-right font-mono font-bold text-[12px] text-[#EF4444]">− 0.25 SOL</div>
+            <div class="text-right"><a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">5gWp…</a></div>
+          </div>
+        </div>
+
+        <div class="px-5 py-3 border-t border-neutral-100 flex items-center justify-between">
+          <div class="text-[11px] text-neutral-500 font-haas">Showing 5 of 487 bets</div>
+          <button class="text-[12px] font-haas-bold text-[#141414] hover:text-[#7D00FF] transition-colors">Load more →</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

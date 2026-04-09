@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Airdrop — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Mock structure aligned to lib/blockster_v2_web/live/airdrop_live.ex:
+       single ongoing round, 33 winners, 1 BUX = 1 entry, prize structure
+       1st=$250 / 2nd=$150 / 3rd=$100 / 4th-33rd=$50 each, ~$2K total pool.
+       Two states stacked: OPEN (entry phase) → DRAWN (celebration). -->
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .profile-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .section-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .eyebrow {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    .activity-row {
+      transition: background-color 0.15s ease;
+    }
+    .activity-row:hover { background-color: rgba(0, 0, 0, 0.02); }
+
+    /* State divider */
+    .state-divider {
+      position: relative;
+      margin: 100px 0 60px;
+      text-align: center;
+    }
+    .state-divider::before {
+      content: '';
+      position: absolute;
+      inset: 50% 0 0 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #d4d4d2, transparent);
+    }
+    .state-divider span {
+      position: relative;
+      background: var(--bg-page);
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+    }
+
+    /* Sticky entry form */
+    .sticky-entry {
+      position: sticky;
+      top: 100px;
+      align-self: flex-start;
+    }
+
+    /* Receipt card */
+    .receipt-card {
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .receipt-card.win {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border-color: #facc15;
+    }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]"><div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div></div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         PAGE HERO — editorial
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-12 pb-10">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-7">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="eyebrow">Round 14 · Open for entries</span>
+            <span class="inline-flex items-center gap-1 bg-[#22C55E]/12 text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[10px] font-haas-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+              Live
+            </span>
+          </div>
+          <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">$2,000<br>up for grabs</h1>
+          <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[560px] font-haas">
+            Redeem the BUX you earned reading. 1 BUX = 1 entry. 33 winners drawn on chain when the countdown hits zero. Provably fair, settled on Solana.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-5">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-2">Total pool</div>
+              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none">$2,000</div>
+              <div class="text-[10px] text-neutral-500 font-haas mt-1.5">USDC + SOL</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-2">Winners</div>
+              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none">33</div>
+              <div class="text-[10px] text-neutral-500 font-haas mt-1.5">drawn at close</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="eyebrow mb-2">Rate</div>
+              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none">1:1</div>
+              <div class="text-[10px] text-neutral-500 font-haas mt-1.5">BUX → entry</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         OPEN STATE — Entry phase
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="grid grid-cols-12 gap-8">
+
+        <!-- LEFT: Prize distribution + activity -->
+        <div class="col-span-12 md:col-span-7">
+
+          <!-- Countdown card -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
+            <div class="flex items-baseline justify-between mb-5">
+              <div>
+                <div class="eyebrow mb-1">Drawing on</div>
+                <h2 class="font-haas-bold text-[18px] text-[#141414] tracking-tight">May 1 · 17:00 UTC</h2>
+              </div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">
+                <svg class="w-3 h-3 inline-block mr-1 -mt-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Round 14
+              </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-3">
+              <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-center">
+                <div class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">21</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mt-2">Days</div>
+              </div>
+              <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-center">
+                <div class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">14</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mt-2">Hours</div>
+              </div>
+              <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-center">
+                <div class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">38</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mt-2">Min</div>
+              </div>
+              <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-center">
+                <div class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">22</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mt-2">Sec</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prize distribution -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
+            <div class="eyebrow mb-1">Prize distribution</div>
+            <h2 class="section-title text-[20px] mb-5">33 winners · $2,000 total</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="bg-gradient-to-br from-[#fffbeb] to-[#fef3c7] border border-[#facc15]/40 rounded-2xl p-5 text-center">
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#a16207] mb-2">1st place</div>
+                <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$250</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">1 winner</div>
+              </div>
+              <div class="bg-gradient-to-br from-neutral-50 to-neutral-100 border border-neutral-200 rounded-2xl p-5 text-center">
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-2">2nd place</div>
+                <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$150</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">1 winner</div>
+              </div>
+              <div class="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-5 text-center">
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-orange-700 mb-2">3rd place</div>
+                <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$100</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">1 winner</div>
+              </div>
+              <div class="bg-[#CAFC00]/12 border border-[#CAFC00]/40 rounded-2xl p-5 text-center">
+                <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#141414] mb-2">4th–33rd</div>
+                <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$50</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">×30 winners</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pool stats -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
+            <div class="grid grid-cols-3 gap-6">
+              <div>
+                <div class="eyebrow mb-2">Total deposited</div>
+                <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">2,400,000</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">BUX entries in pool</div>
+              </div>
+              <div>
+                <div class="eyebrow mb-2">Participants</div>
+                <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">2,142</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">readers entered</div>
+              </div>
+              <div>
+                <div class="eyebrow mb-2">Avg entry</div>
+                <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">1,120</div>
+                <div class="text-[10px] text-neutral-500 font-haas mt-1.5">BUX per player</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Provably fair commitment -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-9 h-9 rounded-xl bg-[#CAFC00]/15 border border-[#CAFC00]/40 grid place-items-center">
+                <svg class="w-5 h-5 text-[#141414]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Provably fair commitment</div>
+                <div class="text-[13px] font-haas-bold text-[#141414]">SHA-256 published before round opened</div>
+              </div>
+            </div>
+            <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+              <div class="text-[9px] text-neutral-500 font-haas-bold uppercase tracking-[0.14em] mb-1">Commitment hash</div>
+              <div class="font-mono text-[11px] text-[#141414] break-all">a7b3c4d5e6f7890123456789abcdef0123456789abcdef0123456789abcdef01</div>
+            </div>
+            <div class="mt-3 text-[11px] text-neutral-500 font-haas leading-relaxed">
+              The server seed is locked in <a href="#" class="text-[#141414] underline hover:text-[#22C55E]">on chain</a>. Slot at close + revealed seed determines all 33 winners. Anyone can re-run the algorithm.
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Sticky entry form -->
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky-entry">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+
+              <!-- Header strip -->
+              <div class="bg-[#0a0a0a] text-white px-6 py-4 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-haas-bold">Enter the airdrop</div>
+                  <div class="text-[15px] font-haas-bold mt-0.5">Redeem BUX → get entries</div>
+                </div>
+                <div class="w-9 h-9 rounded-xl bg-[#CAFC00] grid place-items-center">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-5 h-5 rounded-full" />
+                </div>
+              </div>
+
+              <div class="p-6">
+
+                <!-- Balance display -->
+                <div class="flex items-center justify-between mb-5 p-3 bg-neutral-50 border border-neutral-200 rounded-xl">
+                  <span class="text-[12px] text-neutral-600 font-haas">Your BUX balance</span>
+                  <span class="font-mono font-bold text-[14px] text-[#141414]">12,450 BUX</span>
+                </div>
+
+                <!-- Input -->
+                <div class="mb-2">
+                  <label class="text-[11px] font-haas-bold uppercase tracking-[0.14em] text-neutral-500 mb-2 block">BUX to redeem</label>
+                  <div class="relative">
+                    <input type="text" value="2,500" class="w-full bg-white border border-neutral-200 rounded-xl pl-4 pr-16 py-3 text-[20px] font-mono font-bold text-[#141414] focus:outline-none focus:border-[#141414]" />
+                    <button class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-neutral-900 text-[#CAFC00] rounded-full text-[10px] font-mono font-bold hover:bg-neutral-800 transition-colors">MAX</button>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">= <span class="font-mono font-bold text-[#141414]">2,500</span> entries</span>
+                    <span class="text-neutral-500 font-haas">Position <span class="font-mono">#2,400,001</span> – <span class="font-mono">#2,402,500</span></span>
+                  </div>
+                </div>
+
+                <!-- Quick amounts -->
+                <div class="grid grid-cols-4 gap-2 mt-4 mb-6">
+                  <button class="px-2 py-2 bg-white border border-neutral-200 hover:border-[#141414] rounded-full text-[11px] font-mono text-neutral-600 hover:text-[#141414] transition-colors">100</button>
+                  <button class="px-2 py-2 bg-white border border-neutral-200 hover:border-[#141414] rounded-full text-[11px] font-mono text-neutral-600 hover:text-[#141414] transition-colors">1,000</button>
+                  <button class="px-2 py-2 bg-white border border-[#141414] rounded-full text-[11px] font-mono font-bold text-[#141414]">2,500</button>
+                  <button class="px-2 py-2 bg-white border border-neutral-200 hover:border-[#141414] rounded-full text-[11px] font-mono text-neutral-600 hover:text-[#141414] transition-colors">10,000</button>
+                </div>
+
+                <!-- Odds preview -->
+                <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 mb-5 space-y-2">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">Your share of pool</span>
+                    <span class="font-mono font-bold text-[#141414]">0.10%</span>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">Odds (any prize)</span>
+                    <span class="font-mono font-bold text-[#141414]">~1 in 73</span>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">Expected value</span>
+                    <span class="font-mono font-bold text-[#15803d]">~$2.08</span>
+                  </div>
+                </div>
+
+                <!-- Submit -->
+                <button class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                  Redeem 2,500 BUX
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+
+                <div class="mt-4 flex items-center justify-center gap-2 text-[10px] text-neutral-400 font-haas">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  Phone verified · Solana wallet connected
+                </div>
+              </div>
+            </div>
+
+            <!-- Your entries list -->
+            <div class="mt-5 space-y-3">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold px-2">Your entries · 4 redemptions</div>
+
+              <div class="bg-white rounded-2xl border border-neutral-200/70 receipt-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg class="w-4 h-4 text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                  <span class="text-[13px] font-haas-bold text-[#141414]">Redeemed 2,000 BUX</span>
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-neutral-500 font-haas">
+                  <span>Block <span class="font-mono">#2,398,001 – #2,400,000</span></span>
+                  <span>·</span>
+                  <span>Apr 8, 14:22 UTC</span>
+                </div>
+                <a href="#" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono">5gWp…1nVx ↗</a>
+              </div>
+
+              <div class="bg-white rounded-2xl border border-neutral-200/70 receipt-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg class="w-4 h-4 text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                  <span class="text-[13px] font-haas-bold text-[#141414]">Redeemed 500 BUX</span>
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-neutral-500 font-haas">
+                  <span>Block <span class="font-mono">#2,389,501 – #2,390,000</span></span>
+                  <span>·</span>
+                  <span>Apr 6, 11:08 UTC</span>
+                </div>
+                <a href="#" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono">2xMq…7vPk ↗</a>
+              </div>
+
+              <div class="bg-white rounded-2xl border border-neutral-200/70 receipt-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg class="w-4 h-4 text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                  <span class="text-[13px] font-haas-bold text-[#141414]">Redeemed 1,500 BUX</span>
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-neutral-500 font-haas">
+                  <span>Block <span class="font-mono">#2,360,001 – #2,361,500</span></span>
+                  <span>·</span>
+                  <span>Apr 3, 21:34 UTC</span>
+                </div>
+                <a href="#" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono">8mLp…4vQa ↗</a>
+              </div>
+
+              <div class="bg-white rounded-2xl border border-neutral-200/70 receipt-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg class="w-4 h-4 text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                  <span class="text-[13px] font-haas-bold text-[#141414]">Redeemed 1,000 BUX</span>
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-neutral-500 font-haas">
+                  <span>Block <span class="font-mono">#2,310,001 – #2,311,000</span></span>
+                  <span>·</span>
+                  <span>Mar 30, 09:12 UTC</span>
+                </div>
+                <a href="#" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono">3FpQ…8RtY ↗</a>
+              </div>
+
+              <div class="text-center pt-1">
+                <div class="text-[11px] text-neutral-500 font-haas">Total: <span class="font-mono font-bold text-[#141414]">5,000 entries</span> · estimated win value <span class="font-mono font-bold text-[#15803d]">~$4.16</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         HOW IT WORKS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="text-center mb-10">
+        <div class="eyebrow mb-2">Provably fair · settled on chain</div>
+        <h2 class="article-title text-[36px] md:text-[44px]">How it works</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center mb-5">
+            <span class="font-mono font-bold text-[16px] text-black">1</span>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2 tracking-tight">Earn BUX reading</h3>
+          <p class="text-[13px] text-neutral-600 font-haas leading-relaxed">Read articles to earn BUX tokens. The more you engage, the more entries you can buy.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center mb-5">
+            <span class="font-mono font-bold text-[16px] text-black">2</span>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2 tracking-tight">Redeem · 1 BUX = 1 entry</h3>
+          <p class="text-[13px] text-neutral-600 font-haas leading-relaxed">Each BUX you redeem gets a sequential position in the entry pool. Redeem any amount, any time before the draw.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center mb-5">
+            <span class="font-mono font-bold text-[16px] text-black">3</span>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2 tracking-tight">33 winners drawn on chain</h3>
+          <p class="text-[13px] text-neutral-600 font-haas leading-relaxed">When the timer hits zero, the on-chain commit-reveal uses the next Solana slot to draw 33 winners. Prizes are claimed by signing a tx.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="state-divider"><span>Drawn state · winners revealed ↓</span></div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         DRAWN STATE — Celebration
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-10">
+      <!-- Dark celebration banner -->
+      <div class="rounded-2xl overflow-hidden bg-[#0a0a0a] text-white relative mb-6">
+        <div class="absolute inset-0">
+          <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.12] to-transparent"></div>
+          <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.04)_1.5px,transparent_1.5px)]" style="background-size: 32px 32px;"></div>
+        </div>
+        <div class="relative px-10 py-12 text-center">
+          <div class="eyebrow text-[#CAFC00] mb-3" style="color: #CAFC00;">Round 14 · drawn</div>
+          <h2 class="article-title text-white text-[44px] md:text-[56px] mb-3 leading-[0.96]">The airdrop has been drawn</h2>
+          <p class="text-white/60 text-[14px] font-haas max-w-[460px] mx-auto">Congratulations to all 33 winners. The provably-fair algorithm is publicly verifiable.</p>
+          <div class="mt-6 flex items-center justify-center gap-3 flex-wrap">
+            <a href="#" class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-4 py-2.5 rounded-full text-[12px] font-haas-bold hover:bg-white transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Verify fairness
+            </a>
+            <a href="#" class="inline-flex items-center gap-2 bg-white/10 ring-1 ring-white/20 backdrop-blur text-white px-4 py-2.5 rounded-full text-[12px] font-haas hover:bg-white/20 transition-colors">
+              View on Solscan ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 3 podium -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-[#fffbeb] to-[#fef3c7] border border-[#facc15] rounded-2xl p-6 text-center relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#facc15] to-[#f59e0b]"></div>
+          <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#a16207] mb-2 mt-2">1st place</div>
+          <div class="font-mono font-bold text-[44px] text-[#141414] leading-none mb-1">$250</div>
+          <div class="text-[11px] text-neutral-500 font-mono">7xQk8…3mPa</div>
+          <div class="mt-3 pt-3 border-t border-[#facc15]/30 text-[10px] text-neutral-500 font-haas">
+            Position <span class="font-mono">#1,847,239</span>
+          </div>
+        </div>
+        <div class="bg-gradient-to-br from-neutral-50 to-neutral-100 border border-neutral-300 rounded-2xl p-6 text-center relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neutral-400 to-neutral-500"></div>
+          <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-neutral-600 mb-2 mt-2">2nd place</div>
+          <div class="font-mono font-bold text-[44px] text-[#141414] leading-none mb-1">$150</div>
+          <div class="text-[11px] text-neutral-500 font-mono">9aBc…2vNm</div>
+          <div class="mt-3 pt-3 border-t border-neutral-300/50 text-[10px] text-neutral-500 font-haas">
+            Position <span class="font-mono">#492,113</span>
+          </div>
+        </div>
+        <div class="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-300 rounded-2xl p-6 text-center relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-amber-500"></div>
+          <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-orange-700 mb-2 mt-2">3rd place</div>
+          <div class="font-mono font-bold text-[44px] text-[#141414] leading-none mb-1">$100</div>
+          <div class="text-[11px] text-neutral-500 font-mono">3FpQ…8RtY</div>
+          <div class="mt-3 pt-3 border-t border-orange-300/30 text-[10px] text-neutral-500 font-haas">
+            Position <span class="font-mono">#2,103,884</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verification metadata -->
+      <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">Slot at close</div>
+            <div class="font-mono text-[14px] text-[#141414]">298,341,029</div>
+            <a href="#" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono">close tx ↗</a>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">Server seed (revealed)</div>
+            <div class="font-mono text-[12px] text-[#141414] break-all leading-relaxed">9f8e7d6c5b4a3928…</div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold mb-2">SHA-256 verification</div>
+            <div class="inline-flex items-center gap-1.5 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-1 rounded-full text-[10px] font-haas-bold">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Matches commitment
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full winners table -->
+      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
+          <div>
+            <div class="eyebrow mb-1">All 33 winners</div>
+            <h3 class="section-title text-[18px]">Round 14 results</h3>
+          </div>
+          <span class="text-[10px] font-mono text-neutral-400">2,400,000 BUX · 2,142 players</span>
+        </div>
+        <div class="grid grid-cols-[60px_1fr_140px_140px_120px] px-6 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">
+          <div>#</div>
+          <div>Wallet</div>
+          <div>Position</div>
+          <div>Prize</div>
+          <div class="text-right">Status</div>
+        </div>
+        <div class="divide-y divide-neutral-100">
+
+          <div class="px-6 py-3 activity-row bg-[#fffbeb]/40">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-[#a16207]">1</div>
+              <div class="font-mono text-[12px] text-[#141414]">7xQk8…3mPa</div>
+              <div class="font-mono text-[11px] text-neutral-500">#1,847,239</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$250</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Claimed
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row bg-neutral-50/40">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-neutral-500">2</div>
+              <div class="font-mono text-[12px] text-[#141414]">9aBc…2vNm</div>
+              <div class="font-mono text-[11px] text-neutral-500">#492,113</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$150</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">Claimed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row bg-orange-50/30">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-orange-700">3</div>
+              <div class="font-mono text-[12px] text-[#141414]">3FpQ…8RtY</div>
+              <div class="font-mono text-[11px] text-neutral-500">#2,103,884</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$100</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-neutral-100 text-neutral-600 border border-neutral-200 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">Pending</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-neutral-500">4</div>
+              <div class="font-mono text-[12px] text-[#141414]">hQ4n…6mLk</div>
+              <div class="font-mono text-[11px] text-neutral-500">#88,207</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$50</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">Claimed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-neutral-500">5</div>
+              <div class="font-mono text-[12px] text-[#141414]">5gWp…1nVx</div>
+              <div class="font-mono text-[11px] text-neutral-500">#1,394,012</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$50</div>
+              <div class="text-right">
+                <button class="inline-flex items-center gap-1 bg-[#0a0a0a] text-white px-3 py-1 rounded-full text-[10px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+                  Claim $50
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-neutral-500">6</div>
+              <div class="font-mono text-[12px] text-[#141414]">2xMq…7vPk</div>
+              <div class="font-mono text-[11px] text-neutral-500">#776,521</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$50</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">Claimed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 activity-row">
+            <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+              <div class="font-mono font-bold text-[13px] text-neutral-500">7</div>
+              <div class="font-mono text-[12px] text-[#141414]">8mLp…4vQa</div>
+              <div class="font-mono text-[11px] text-neutral-500">#1,012,389</div>
+              <div class="font-mono font-bold text-[13px] text-[#141414]">$50</div>
+              <div class="text-right">
+                <span class="inline-flex items-center gap-1 bg-neutral-100 text-neutral-600 border border-neutral-200 px-2 py-0.5 rounded-full text-[9px] font-haas-bold uppercase tracking-wider">Pending</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-4 text-center">
+            <button class="text-[12px] text-neutral-500 hover:text-[#141414] font-haas underline">Show all 33 winners</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Your receipt - winner -->
+      <div class="bg-gradient-to-br from-[#fffbeb] to-[#fef3c7] border border-[#facc15] rounded-2xl p-6 shadow-[0_1px_3px_rgba(250,204,21,0.15)] mb-3">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-[#facc15] grid place-items-center shrink-0">
+            <svg class="w-6 h-6 text-[#a16207]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg>
+          </div>
+          <div class="flex-1">
+            <div class="text-[10px] font-haas-bold uppercase tracking-[0.14em] text-[#a16207] mb-1">Your receipt · #2,398,001 – #2,400,000</div>
+            <h3 class="font-haas-bold text-[20px] text-[#141414] tracking-tight mb-2">Winner — 4th place · $50</h3>
+            <p class="text-[12px] text-neutral-700 font-haas mb-4">Position <span class="font-mono font-bold">#2,399,847</span> from your 2,000 BUX redemption fell into a winning slot.</p>
+            <button class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              Claim $50
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-neutral-200/70 rounded-2xl p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-[12px] text-neutral-600 font-haas">Your other entries · 3 redemptions</div>
+            <div class="text-[10px] text-neutral-500 font-haas mt-0.5">3,000 BUX redeemed · no other wins this round</div>
+          </div>
+          <a href="#" class="text-[11px] text-neutral-500 hover:text-[#141414] font-haas underline">See receipts</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

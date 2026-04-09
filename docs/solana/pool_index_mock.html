@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · Pool Index — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --text-primary: #141414;
+      --text-body: #343434;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --blockster-lime: #CAFC00;
+    }
+
+    html, body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .font-haas       { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 500; }
+    .font-haas-bold  { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    .font-mono       { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body             { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+    .article-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.022em;
+      line-height: 1.04;
+    }
+
+    .header-bg {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .profile-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+    }
+
+    .author-avatar {
+      background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);
+      color: #E8E4DD;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .section-title {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+      color: var(--text-primary);
+    }
+
+    .eyebrow {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    /* Vault feature card */
+    .vault-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .vault-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.35);
+    }
+    .vault-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.18), transparent 60%);
+      pointer-events: none;
+    }
+
+    .activity-row {
+      transition: background-color 0.15s ease;
+    }
+    .activity-row:hover { background-color: rgba(0, 0, 0, 0.02); }
+
+    /* Mini sparkline for vault cards */
+    .mini-spark path {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center">
+          <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" />
+        </a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="text-neutral-900 font-haas-bold border-b-2 border-[#CAFC00] -mb-[15px] pb-[15px]">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]">
+          <div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         PAGE HEADER + STATS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-12 pb-10">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-7">
+          <div class="eyebrow mb-3">Earn from every bet · On-chain settlement</div>
+          <h1 class="article-title text-[60px] md:text-[80px] mb-3 leading-[0.96]">Liquidity Pools</h1>
+          <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[560px] font-haas">
+            Deposit SOL or BUX into the bankroll. Earn from every losing bet, get paid in real time, withdraw anytime. The bankroll is the bank — and the depositors are the house.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-5">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">Total TVL</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">$208k</div>
+              <div class="text-[10px] text-[#22C55E] font-mono">+ 4.2% 24h</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">Bets settled</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">12,486</div>
+              <div class="text-[10px] text-neutral-500 font-mono">last 24h</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-haas mb-1">House profit</div>
+              <div class="font-mono font-bold text-[18px] text-[#141414]">+1,840</div>
+              <div class="text-[10px] text-[#22C55E] font-mono">SOL · 24h</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         TWO BIG VAULT CARDS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pb-12">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- SOL POOL -->
+        <a href="#" class="vault-card rounded-3xl p-8 text-white relative" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 50%, #064e3b 130%); min-height: 420px;">
+          <div class="absolute inset-0 opacity-12 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
+          <div class="absolute -top-32 -right-32 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div class="relative h-full flex flex-col">
+            <!-- Top: identity + live indicator -->
+            <div class="flex items-start justify-between mb-10">
+              <div class="flex items-center gap-3">
+                <div class="w-14 h-14 rounded-2xl bg-black/25 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl">
+                  <span class="text-white font-haas-bold text-[14px]">SOL</span>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-[0.16em] text-white/70 font-haas-bold mb-0.5">Vault</div>
+                  <div class="font-haas-bold text-[28px] tracking-tight leading-none">SOL Pool</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-full px-2.5 py-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] pulse-dot"></span>
+                <span class="text-[10px] font-haas-bold uppercase tracking-[0.12em] text-white">Live</span>
+              </div>
+            </div>
+
+            <!-- Big LP price -->
+            <div class="mb-1">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-haas-bold mb-1">LP Price</div>
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono font-bold text-[48px] text-white leading-none tracking-tight">1.0234</span>
+                <span class="text-[14px] font-haas text-white/70">SOL</span>
+                <span class="text-[12px] font-mono text-[#CAFC00] ml-2">+ 2.34%</span>
+                <span class="text-[10px] text-white/45 font-mono">24h</span>
+              </div>
+            </div>
+
+            <!-- Mini sparkline -->
+            <div class="mt-3 mb-6 h-12">
+              <svg viewBox="0 0 280 48" class="w-full h-full mini-spark" preserveAspectRatio="none">
+                <path d="M0,38 L20,32 L40,35 L60,28 L80,30 L100,22 L120,25 L140,18 L160,20 L180,12 L200,15 L220,8 L240,10 L260,5 L280,2"
+                      stroke="#CAFC00" />
+                <path d="M0,38 L20,32 L40,35 L60,28 L80,30 L100,22 L120,25 L140,18 L160,20 L180,12 L200,15 L220,8 L240,10 L260,5 L280,2 L280,48 L0,48 Z"
+                      fill="rgba(202, 252, 0, 0.18)" stroke="none" />
+              </svg>
+            </div>
+
+            <!-- Stats grid (2x2) -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+              <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 font-haas mb-1">TVL</div>
+                <div class="font-mono font-bold text-[16px] text-white">486.34 SOL</div>
+                <div class="text-[10px] text-white/50 font-mono">≈ $77,814</div>
+              </div>
+              <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 font-haas mb-1">Supply</div>
+                <div class="font-mono font-bold text-[16px] text-white">475.21</div>
+                <div class="text-[10px] text-white/50 font-mono">SOL-LP</div>
+              </div>
+              <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 font-haas mb-1">Volume 24h</div>
+                <div class="font-mono font-bold text-[16px] text-white">82.4 SOL</div>
+                <div class="text-[10px] text-white/50 font-mono">312 bets</div>
+              </div>
+              <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 font-haas mb-1">Profit 24h</div>
+                <div class="font-mono font-bold text-[16px] text-[#CAFC00]">+ 11.2 SOL</div>
+                <div class="text-[10px] text-white/50 font-mono">house edge 2.1%</div>
+              </div>
+            </div>
+
+            <!-- Your position -->
+            <div class="bg-white/10 backdrop-blur rounded-xl p-4 ring-1 ring-white/15 mb-5">
+              <div class="flex items-center justify-between mb-1">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-white/65 font-haas-bold">Your position</div>
+                <div class="text-[9px] font-mono text-white/55">0.84% pool share</div>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono font-bold text-[22px] text-white leading-none">4.10</span>
+                <span class="text-[11px] font-haas text-white/70">SOL-LP</span>
+                <span class="text-[11px] font-mono text-[#CAFC00] ml-auto">+ 0.18 SOL profit</span>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="mt-auto flex items-center gap-2">
+              <div class="flex-1 bg-white text-[#064e3b] px-5 py-3.5 rounded-full text-[13px] font-haas-bold text-center hover:bg-[#CAFC00] hover:text-black transition-colors">
+                Enter SOL Pool →
+              </div>
+              <div class="text-[10px] font-mono text-white/65">est. APY <span class="font-haas-bold text-white">14.2%</span></div>
+            </div>
+          </div>
+        </a>
+
+        <!-- BUX POOL -->
+        <a href="#" class="vault-card rounded-3xl p-8 text-black relative" style="background: linear-gradient(135deg, #CAFC00 0%, #9ED600 50%, #4d6800 130%); min-height: 420px;">
+          <div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, black 1px, transparent 1px); background-size: 28px 28px;"></div>
+          <div class="absolute -top-32 -right-32 w-96 h-96 bg-black/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div class="relative h-full flex flex-col">
+            <div class="flex items-start justify-between mb-10">
+              <div class="flex items-center gap-3">
+                <div class="w-14 h-14 rounded-2xl bg-black grid place-items-center ring-1 ring-black/30 shadow-2xl overflow-hidden">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-9 h-9 rounded-full" />
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase tracking-[0.16em] text-black/65 font-haas-bold mb-0.5">Vault</div>
+                  <div class="font-haas-bold text-[28px] tracking-tight leading-none">BUX Pool</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 bg-black/15 backdrop-blur ring-1 ring-black/15 rounded-full px-2.5 py-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0a0a0a] pulse-dot"></span>
+                <span class="text-[10px] font-haas-bold uppercase tracking-[0.12em] text-black">Live</span>
+              </div>
+            </div>
+
+            <!-- Big LP price -->
+            <div class="mb-1">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-black/60 font-haas-bold mb-1">LP Price</div>
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono font-bold text-[48px] text-black leading-none tracking-tight">1.0481</span>
+                <span class="text-[14px] font-haas text-black/65">BUX</span>
+                <span class="text-[12px] font-mono text-[#0a0a0a] ml-2 font-haas-bold">+ 4.81%</span>
+                <span class="text-[10px] text-black/40 font-mono">24h</span>
+              </div>
+            </div>
+
+            <!-- Mini sparkline -->
+            <div class="mt-3 mb-6 h-12">
+              <svg viewBox="0 0 280 48" class="w-full h-full mini-spark" preserveAspectRatio="none">
+                <path d="M0,40 L20,38 L40,32 L60,34 L80,28 L100,30 L120,22 L140,24 L160,16 L180,18 L200,12 L220,14 L240,8 L260,10 L280,4"
+                      stroke="#0a0a0a" />
+                <path d="M0,40 L20,38 L40,32 L60,34 L80,28 L100,30 L120,22 L140,24 L160,16 L180,18 L200,12 L220,14 L240,8 L260,10 L280,4 L280,48 L0,48 Z"
+                      fill="rgba(10, 10, 10, 0.12)" stroke="none" />
+              </svg>
+            </div>
+
+            <!-- Stats grid (2x2) -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+              <div class="bg-black/12 backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 font-haas mb-1">TVL</div>
+                <div class="font-mono font-bold text-[16px] text-black">2.4M BUX</div>
+                <div class="text-[10px] text-black/55 font-mono">≈ $24,000</div>
+              </div>
+              <div class="bg-black/12 backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 font-haas mb-1">Supply</div>
+                <div class="font-mono font-bold text-[16px] text-black">2.29M</div>
+                <div class="text-[10px] text-black/55 font-mono">BUX-LP</div>
+              </div>
+              <div class="bg-black/12 backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 font-haas mb-1">Volume 24h</div>
+                <div class="font-mono font-bold text-[16px] text-black">412k BUX</div>
+                <div class="text-[10px] text-black/55 font-mono">1,840 bets</div>
+              </div>
+              <div class="bg-black/12 backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 font-haas mb-1">Profit 24h</div>
+                <div class="font-mono font-bold text-[16px] text-[#0a0a0a]">+ 8.6k BUX</div>
+                <div class="text-[10px] text-black/55 font-mono">house edge 2.1%</div>
+              </div>
+            </div>
+
+            <!-- Your position -->
+            <div class="bg-black/15 backdrop-blur rounded-xl p-4 ring-1 ring-black/15 mb-5">
+              <div class="flex items-center justify-between mb-1">
+                <div class="text-[9px] uppercase tracking-[0.12em] text-black/70 font-haas-bold">Your position</div>
+                <div class="text-[9px] font-mono text-black/55">— pool share</div>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono font-bold text-[22px] text-black leading-none">0</span>
+                <span class="text-[11px] font-haas text-black/60">BUX-LP</span>
+                <span class="text-[11px] font-mono text-black/55 ml-auto italic">no deposits yet</span>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="mt-auto flex items-center gap-2">
+              <div class="flex-1 bg-[#0a0a0a] text-[#CAFC00] px-5 py-3.5 rounded-full text-[13px] font-haas-bold text-center hover:bg-white hover:text-black transition-colors">
+                Enter BUX Pool →
+              </div>
+              <div class="text-[10px] font-mono text-black/65">est. APY <span class="font-haas-bold text-black">18.7%</span></div>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         HOW IT WORKS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="text-center mb-8">
+        <div class="eyebrow mb-2">3 steps · No lockup</div>
+        <h2 class="article-title text-[36px] md:text-[44px]">Become the house</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-full bg-[#0a0a0a] grid place-items-center text-[#CAFC00] font-haas-bold text-[14px]">1</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Deposit</div>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2">Add liquidity to a vault</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed font-haas">Deposit SOL or BUX into the bankroll and receive LP tokens (SOL-LP or BUX-LP) representing your share of the pool. No lockup, no minimums.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-full bg-[#0a0a0a] grid place-items-center text-[#CAFC00] font-haas-bold text-[14px]">2</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Earn</div>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2">Collect from every losing bet</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed font-haas">Players bet against the bankroll. When they lose, the LP price increases. When they win, it decreases by their payout. Over time, the sub-1% house edge accrues to LPs.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-full bg-[#0a0a0a] grid place-items-center text-[#CAFC00] font-haas-bold text-[14px]">3</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">Withdraw</div>
+          </div>
+          <h3 class="font-haas-bold text-[18px] text-[#141414] mb-2">Cash out anytime</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed font-haas">Burn your LP tokens to redeem your share of the vault at the current price. Withdrawals settle in one Solana transaction. No queues, no waiting.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         RECENT POOL ACTIVITY
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-1">Real-time</div>
+          <h2 class="section-title text-[28px]">Pool activity</h2>
+        </div>
+        <div class="flex items-center gap-1.5 bg-white border border-neutral-200/70 rounded-full px-2.5 py-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+          <span class="text-[10px] uppercase tracking-[0.12em] text-neutral-500 font-haas-bold">Live across both pools</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-haas-bold">
+          <div>Type</div>
+          <div>Pool</div>
+          <div>Wallet</div>
+          <div class="text-right">Amount</div>
+          <div class="text-right">Time</div>
+          <div class="text-right">TX</div>
+        </div>
+
+        <div class="divide-y divide-neutral-100">
+          <!-- Big win -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#22C55E]/15 text-[#15803d] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Win 7.92×</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">SOL Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">hQ</div>
+              <span class="text-[11px] font-mono text-neutral-500">hQ4n…6mLk</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#EF4444]">− 6.34 SOL</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">just now</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">5gWp…</a></div>
+          </div>
+          <!-- Loss -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Loss 1.98×</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">SOL Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">9a</div>
+              <span class="text-[11px] font-mono text-neutral-500">9aBc…2vNm</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#22C55E]">+ 0.50 SOL</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">12s ago</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">8mLp…</a></div>
+          </div>
+          <!-- Deposit -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#7D00FF]/15 text-[#7D00FF] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Deposit</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-[#CAFC00]"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">BUX Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">3F</div>
+              <span class="text-[11px] font-mono text-neutral-500">3FpQ…8RtY</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#7D00FF]">+ 50,000 BUX</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">38s ago</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">3FpQ…</a></div>
+          </div>
+          <!-- BUX win -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#22C55E]/15 text-[#15803d] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Win 3.96×</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-[#CAFC00]"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">BUX Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">7x</div>
+              <span class="text-[11px] font-mono text-neutral-500">7xQk…3mPa</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#EF4444]">− 396 BUX</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">1m ago</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">2xMq…</a></div>
+          </div>
+          <!-- Withdraw -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#facc15]/20 text-[#a16207] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Withdraw</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full" style="background: linear-gradient(135deg, #00FFA3, #00DC82);"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">SOL Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">5g</div>
+              <span class="text-[11px] font-mono text-neutral-500">5gWp…1nVx</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#a16207]">− 12.4 SOL</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">2m ago</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">7xQk…</a></div>
+          </div>
+          <!-- BUX loss -->
+          <div class="grid grid-cols-[100px_140px_1fr_140px_120px_60px] px-5 py-3 items-center activity-row">
+            <div><span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[9px] font-haas-bold uppercase tracking-wider px-2 py-1 rounded-full">Loss 1.32×</span></div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-[#CAFC00]"></div>
+              <span class="text-[12px] font-haas-bold text-[#141414]">BUX Pool</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="author-avatar w-6 h-6 rounded-full grid place-items-center text-[8px]">2x</div>
+              <span class="text-[11px] font-mono text-neutral-500">2xMq…7vPk</span>
+            </div>
+            <div class="text-right font-mono font-bold text-[13px] text-[#22C55E]">+ 250 BUX</div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">3m ago</div>
+            <div class="text-right"><a href="#" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414]">5gWp…</a></div>
+          </div>
+        </div>
+
+        <div class="px-5 py-4 border-t border-neutral-100 flex items-center justify-between">
+          <div class="text-[11px] text-neutral-500 font-haas">Showing 6 of 12,486 events from the last 24h</div>
+          <a href="#" class="text-[12px] font-haas-bold text-[#141414] hover:text-[#7D00FF] transition-colors">Open SOL pool details →</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

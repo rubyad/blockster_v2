@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockster · @jamie — Design Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Mock note: this is the PUBLIC view of /member/:slug — the view someone other
+       than the owner sees. No settings, no email banner, no multiplier breakdown,
+       no referral link. Stripped to: identity hero, public stats, articles, hubs. -->
+  <style>
+    :root { --bg-page: #fafaf9; --text-primary: #141414; --text-body: #343434; --text-muted: #6B7280; --text-faint: #9CA3AF; --blockster-lime: #CAFC00; }
+    html, body { background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    .font-haas { font-family: 'Inter', sans-serif; font-weight: 500; }
+    .font-haas-bold { font-family: 'Inter', sans-serif; font-weight: 700; }
+    .font-mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
+    body { font-family: 'Inter', sans-serif; }
+    .article-title { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-primary); letter-spacing: -0.022em; line-height: 1.04; }
+    .header-bg { background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); }
+    .profile-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 50%, #0a0a0a 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 800; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06); }
+    .author-avatar { background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); color: #E8E4DD; font-family: 'Inter', sans-serif; font-weight: 700; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.15); } }
+    .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .post-card { transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+    .post-card:hover { transform: translateY(-2px); box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.12); border-color: rgba(0, 0, 0, 0.12); }
+    .hub-card { transition: transform 0.25s ease, box-shadow 0.25s ease; position: relative; overflow: hidden; }
+    .hub-card::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.18), transparent 60%); pointer-events: none; }
+    .hub-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.35); }
+    .section-title { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.018em; color: var(--text-primary); }
+    .eyebrow { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+    .tab-button { position: relative; padding: 16px 4px; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 14px; color: #6B7280; transition: color 0.15s ease; cursor: pointer; }
+    .tab-button:hover { color: #141414; }
+    .tab-button.active { color: #141414; font-weight: 700; }
+    .tab-button.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--blockster-lime); }
+    .tab-count { margin-left: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.5; }
+    .activity-row { transition: background-color 0.15s ease; }
+    .activity-row:hover { background-color: rgba(0, 0, 0, 0.02); }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- HEADER -->
+  <header class="header-bg border-b border-neutral-200/70 sticky top-0 z-20">
+    <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center"><img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-[22px] w-auto" /></a>
+        <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span>Solana mainnet</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700 font-haas">
+        <a href="#" class="hover:text-neutral-900 transition-colors">Home</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Hubs</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Shop</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Play</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Pool</a>
+        <a href="#" class="hover:text-neutral-900 transition-colors">Airdrop</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200/60 rounded-full">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+          <span class="text-[12px] font-haas-bold text-neutral-800">12,450</span>
+          <span class="text-[10px] font-haas text-neutral-500">BUX</span>
+        </div>
+        <div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#CAFC00]"><div class="profile-avatar w-full h-full grid place-items-center text-[11px]">MV</div></div>
+      </div>
+    </div>
+    <div class="bg-[#CAFC00] border-t border-black/10">
+      <div class="max-w-[1280px] mx-auto px-6">
+        <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black font-haas">
+          <span><strong class="font-haas-bold">Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         IDENTITY HERO — Public view
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="pt-12 pb-10">
+      <div class="grid grid-cols-12 gap-8 items-start">
+
+        <div class="col-span-12 md:col-span-8">
+          <div class="flex items-start gap-6">
+            <div class="profile-avatar w-28 h-28 rounded-3xl grid place-items-center text-[36px] shrink-0">JC</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="eyebrow">Author profile</span>
+                <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-2 py-0.5 rounded-full text-[10px] font-haas-bold uppercase tracking-wider">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                  Verified writer
+                </span>
+              </div>
+              <h1 class="article-title text-[44px] md:text-[52px] mb-2 leading-[0.96]">Jamie Chen</h1>
+              <div class="flex items-center gap-2 text-[13px] text-neutral-500 font-haas mb-4">
+                <span>@jamie</span>
+                <span class="text-neutral-300">·</span>
+                <span>blockster.com/member/jamie</span>
+                <span class="text-neutral-300">·</span>
+                <span>Member since Jan 2023</span>
+              </div>
+
+              <p class="text-[15px] text-neutral-700 font-haas leading-relaxed max-w-[560px] mb-5">
+                Markets writer focused on Solana DEXes and the rise of programmable liquidity. I write about how on-chain markets actually work — the mechanics, the math, the people. Previously at Coinbase and Galaxy Digital.
+              </p>
+
+              <!-- Social row -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors">
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <span class="text-[12px] font-haas text-[#141414]">@jamiechenreads</span>
+                </a>
+                <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors">
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                  <span class="text-[12px] font-haas text-[#141414]">jamiechen.xyz</span>
+                </a>
+                <a href="#" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors">
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                  <span class="text-[12px] font-haas text-[#141414]">RSS</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Follow + meta -->
+        <div class="col-span-12 md:col-span-4 flex flex-col gap-3 md:items-end">
+          <div class="flex flex-wrap gap-2 md:justify-end">
+            <button class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-haas-bold hover:bg-[#1a1a22] transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Follow
+            </button>
+            <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-4 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/></svg>
+              Notify me
+            </button>
+            <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 text-[#141414] px-3 py-2.5 rounded-full text-[12px] font-haas hover:border-[#141414] transition-colors" title="Share">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats row (public — author's totals, not viewer's) -->
+      <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-2">Posts published</div>
+          <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">87</div>
+          <div class="text-[10px] text-neutral-500 font-haas mt-1.5">since Jan 2023</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-2">Total reads</div>
+          <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">412k</div>
+          <div class="text-[10px] text-neutral-500 font-haas mt-1.5">all-time</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-2">BUX paid out</div>
+          <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">684k</div>
+          <div class="text-[10px] text-neutral-500 font-haas mt-1.5">to readers</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="eyebrow mb-2">Followers</div>
+          <div class="font-mono font-bold text-[32px] text-[#141414] leading-none">3,842</div>
+          <div class="text-[10px] text-neutral-500 font-haas mt-1.5">+128 this week</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         TABS
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="border-y border-neutral-200/70" style="position: sticky; top: 84px; z-index: 15; background: rgba(250, 250, 249, 0.95); backdrop-filter: saturate(180%) blur(12px);">
+      <div class="max-w-[1280px] mx-auto flex items-center gap-8 overflow-x-auto">
+        <button class="tab-button active">Articles <span class="tab-count">87</span></button>
+        <button class="tab-button">Videos <span class="tab-count">12</span></button>
+        <button class="tab-button">Hubs <span class="tab-count">4</span></button>
+        <button class="tab-button">About</button>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         ARTICLES TAB (default)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <section class="py-10">
+      <div class="grid grid-cols-12 gap-8">
+
+        <!-- Posts grid -->
+        <div class="col-span-12 md:col-span-8">
+          <div class="flex items-baseline justify-between mb-6">
+            <div>
+              <div class="eyebrow mb-1">All published stories</div>
+              <h2 class="section-title text-[24px]">Latest from Jamie</h2>
+            </div>
+          </div>
+
+          <div class="space-y-5">
+
+            <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+              <div class="grid grid-cols-[180px_1fr]">
+                <div class="bg-neutral-100"><img src="https://picsum.photos/seed/blockster-mem-1/400/400" alt="" class="w-full h-full object-cover" /></div>
+                <div class="p-5">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <div class="w-3.5 h-3.5 rounded bg-gradient-to-br from-[#00FFA3] to-[#00DC82]"></div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas">Solana</span>
+                  </div>
+                  <h3 class="font-haas-bold text-[18px] text-[#141414] tracking-tight mb-2 leading-tight">Drift is the perp DEX nobody saw coming</h3>
+                  <p class="text-[12px] text-neutral-500 font-haas leading-relaxed mb-3 line-clamp-2">How a previously-unknown Solana perps protocol overtook GMX in volume by being faster, cheaper, and listing the long tail.</p>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">8 min · 12k reads · 2 days ago</span>
+                    <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-haas-bold">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                      +40
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+              <div class="grid grid-cols-[180px_1fr]">
+                <div class="bg-neutral-100"><img src="https://picsum.photos/seed/blockster-mem-2/400/400" alt="" class="w-full h-full object-cover" /></div>
+                <div class="p-5">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <div class="w-3.5 h-3.5 rounded bg-gradient-to-br from-[#C7F284] to-[#4F7D2B]"></div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas">Jupiter</span>
+                  </div>
+                  <h3 class="font-haas-bold text-[18px] text-[#141414] tracking-tight mb-2 leading-tight">Jupiter is quietly building the most-used app in DeFi</h3>
+                  <p class="text-[12px] text-neutral-500 font-haas leading-relaxed mb-3 line-clamp-2">Why the swap aggregator now routes more DEX volume than any single venue — and what it means for liquidity providers.</p>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">11 min · 9.4k reads · 5 days ago</span>
+                    <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-haas-bold">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                      +60
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+              <div class="grid grid-cols-[180px_1fr]">
+                <div class="bg-neutral-100"><img src="https://picsum.photos/seed/blockster-mem-3/400/400" alt="" class="w-full h-full object-cover" /></div>
+                <div class="p-5">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <div class="w-3.5 h-3.5 rounded bg-gradient-to-br from-[#14F195] to-[#0B7548]"></div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas">Jito</span>
+                  </div>
+                  <h3 class="font-haas-bold text-[18px] text-[#141414] tracking-tight mb-2 leading-tight">Inside Jito's quiet war on toxic MEV</h3>
+                  <p class="text-[12px] text-neutral-500 font-haas leading-relaxed mb-3 line-clamp-2">A long read on how Jito built a validator client that splits MEV revenue with stakers — and turned that into a $2B network.</p>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">14 min · 18k reads · 1 week ago</span>
+                    <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-haas-bold">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                      +75
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+              <div class="grid grid-cols-[180px_1fr]">
+                <div class="bg-neutral-100"><img src="https://picsum.photos/seed/blockster-mem-4/400/400" alt="" class="w-full h-full object-cover" /></div>
+                <div class="p-5">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <div class="w-3.5 h-3.5 rounded bg-gradient-to-br from-[#06B6D4] to-[#0E7490]"></div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas">Helius</span>
+                  </div>
+                  <h3 class="font-haas-bold text-[18px] text-[#141414] tracking-tight mb-2 leading-tight">RPC infrastructure is the silent backbone of Solana DeFi</h3>
+                  <p class="text-[12px] text-neutral-500 font-haas leading-relaxed mb-3 line-clamp-2">Why every DEX, wallet, and indexer is paying Helius — and what happens when that infrastructure layer becomes a chokepoint.</p>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">7 min · 6.2k reads · 2 weeks ago</span>
+                    <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-haas-bold">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                      +32
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <a href="#" class="post-card block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+              <div class="grid grid-cols-[180px_1fr]">
+                <div class="bg-neutral-100"><img src="https://picsum.photos/seed/blockster-mem-5/400/400" alt="" class="w-full h-full object-cover" /></div>
+                <div class="p-5">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <div class="w-3.5 h-3.5 rounded bg-gradient-to-br from-[#00FFA3] to-[#00DC82]"></div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-haas">Solana</span>
+                  </div>
+                  <h3 class="font-haas-bold text-[18px] text-[#141414] tracking-tight mb-2 leading-tight">Token-2022 extensions are quietly eating the SPL standard</h3>
+                  <p class="text-[12px] text-neutral-500 font-haas leading-relaxed mb-3 line-clamp-2">A technical look at how the new token program is enabling on-chain royalties, transfer fees, and confidential transactions.</p>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-haas">9 min · 5.4k reads · 3 weeks ago</span>
+                    <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-haas-bold">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                      +30
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
+          </div>
+
+          <div class="mt-8 text-center">
+            <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 px-5 py-3 rounded-full text-[13px] font-haas-bold text-[#141414] hover:border-[#141414] transition-colors">
+              Load 82 more posts
+            </button>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="col-span-12 md:col-span-4 space-y-5">
+
+          <!-- Featured in -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="eyebrow mb-4">Published in</div>
+            <div class="space-y-3">
+              <a href="#" class="hub-card flex items-center gap-3 p-3 rounded-xl text-white" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 50%, #064e3b 130%);">
+                <div class="w-9 h-9 rounded-md bg-black/25 grid place-items-center"><span class="font-haas-bold text-[11px]">SOL</span></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[12px] font-haas-bold leading-tight">Solana hub</div>
+                  <div class="text-[10px] text-white/70 font-mono mt-0.5">42 stories</div>
+                </div>
+              </a>
+              <a href="#" class="hub-card flex items-center gap-3 p-3 rounded-xl text-white" style="background: linear-gradient(135deg, #C7F284 0%, #4F7D2B 100%);">
+                <div class="w-9 h-9 rounded-md bg-black/15 grid place-items-center"><span class="font-haas-bold text-[11px]">JUP</span></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[12px] font-haas-bold leading-tight">Jupiter hub</div>
+                  <div class="text-[10px] text-white/80 font-mono mt-0.5">21 stories</div>
+                </div>
+              </a>
+              <a href="#" class="hub-card flex items-center gap-3 p-3 rounded-xl text-white" style="background: linear-gradient(135deg, #14F195 0%, #0B7548 100%);">
+                <div class="w-9 h-9 rounded-md bg-black/15 grid place-items-center"><span class="font-haas-bold text-[11px]">JITO</span></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[12px] font-haas-bold leading-tight">Jito hub</div>
+                  <div class="text-[10px] text-white/80 font-mono mt-0.5">14 stories</div>
+                </div>
+              </a>
+              <a href="#" class="hub-card flex items-center gap-3 p-3 rounded-xl text-white" style="background: linear-gradient(135deg, #06B6D4 0%, #0E7490 100%);">
+                <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center"><span class="font-haas-bold text-[11px]">HEL</span></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[12px] font-haas-bold leading-tight">Helius hub</div>
+                  <div class="text-[10px] text-white/70 font-mono mt-0.5">10 stories</div>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <!-- Recent activity -->
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div class="px-5 py-4 border-b border-neutral-100">
+              <div class="eyebrow">Recent activity</div>
+            </div>
+            <div class="divide-y divide-neutral-100">
+              <div class="px-5 py-3 activity-row">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-[#CAFC00]/15 border border-[#CAFC00]/30 grid place-items-center shrink-0">
+                    <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[12px] text-[#141414] font-haas">Published <span class="font-haas-bold">Drift is the perp DEX…</span></div>
+                    <div class="text-[10px] text-neutral-500 font-mono">2 days ago</div>
+                  </div>
+                </div>
+              </div>
+              <div class="px-5 py-3 activity-row">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-neutral-100 border border-neutral-200 grid place-items-center shrink-0">
+                    <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[12px] text-[#141414] font-haas"><span class="font-haas-bold">+128</span> followers this week</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">1 day ago</div>
+                  </div>
+                </div>
+              </div>
+              <div class="px-5 py-3 activity-row">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-neutral-100 border border-neutral-200 grid place-items-center shrink-0">
+                    <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[12px] text-[#141414] font-haas">Crossed <span class="font-haas-bold">400k</span> total reads</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">3 days ago</div>
+                  </div>
+                </div>
+              </div>
+              <div class="px-5 py-3 activity-row">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-neutral-100 border border-neutral-200 grid place-items-center shrink-0">
+                    <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[12px] text-[#141414] font-haas">Published <span class="font-haas-bold">Jupiter is quietly…</span></div>
+                    <div class="text-[10px] text-neutral-500 font-mono">5 days ago</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-20 bg-[#0a0a0a] text-white relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
+    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+    <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-5">
+          <div class="flex items-center gap-2.5 mb-5">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-9 h-9 rounded-md" />
+            <img src="https://ik.imagekit.io/blockster/blockster-logo.png" alt="Blockster" class="h-6 w-auto invert" />
+          </div>
+          <h3 class="font-haas-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">Where the chain meets the model.</h3>
+          <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px] font-haas">Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.</p>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Read</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Hubs</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Latest</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+          </ul>
+        </div>
+        <div class="col-span-6 md:col-span-2">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Earn</div>
+          <ul class="space-y-2.5 text-[13px] font-haas">
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pool</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Play</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Airdrops</a></li>
+            <li><a href="#" class="text-white/70 hover:text-white transition-colors">Shop</a></li>
+          </ul>
+        </div>
+        <div class="col-span-12 md:col-span-3">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-haas-bold mb-4">Stay in the loop</div>
+          <p class="text-[13px] text-white/60 leading-relaxed mb-3 font-haas">The best of crypto × AI, every Friday. No spam, no shilling.</p>
+          <form class="flex items-center gap-2">
+            <input type="email" placeholder="you@somewhere.com" class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50 font-haas" />
+            <button type="button" class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-haas-bold hover:bg-white transition-colors">Subscribe</button>
+          </form>
+          <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+            <span>SOLANA · MAINNET LIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
+        <div class="text-[11px] text-white/40 font-haas">© 2026 Blockster Inc. · All rights reserved.</div>
+        <div class="flex items-center gap-5 text-[11px] text-white/40 font-haas">
+          <a href="#" class="hover:text-white transition-colors">Privacy</a>
+          <a href="#" class="hover:text-white transition-colors">Terms</a>
+          <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+          <a href="#" class="hover:text-white transition-colors">Press Kit</a>
+          <a href="#" class="hover:text-white transition-colors">Status</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
