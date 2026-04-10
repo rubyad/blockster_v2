@@ -272,6 +272,49 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
+  Returns published posts for a hub filtered by the `kind` field.
+  Used by the hub show News tab (kind: "news").
+  """
+  def list_posts_by_hub_and_kind(hub_id, kind, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    tag_name = Keyword.get(opts, :tag_name)
+
+    query =
+      if tag_name do
+        post_ids_query =
+          from(p in Post,
+            left_join: pt in "post_tags", on: pt.post_id == p.id,
+            left_join: t in Tag, on: t.id == pt.tag_id,
+            where: not is_nil(p.published_at),
+            where: p.kind == ^kind,
+            where: p.hub_id == ^hub_id or t.name == ^tag_name,
+            select: p.id,
+            distinct: true
+          )
+
+        from(p in Post,
+          where: p.id in subquery(post_ids_query),
+          order_by: [desc: p.published_at],
+          limit: ^limit,
+          preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+        )
+      else
+        from(p in Post,
+          where: not is_nil(p.published_at),
+          where: p.kind == ^kind,
+          where: p.hub_id == ^hub_id,
+          order_by: [desc: p.published_at],
+          limit: ^limit,
+          preload: [:author, :category, :hub, tags: ^from(t in Tag, order_by: t.name)]
+        )
+      end
+
+    query
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
   Returns random published posts, optionally excluding a specific post.
   Used for sidebar recommendations.
   """

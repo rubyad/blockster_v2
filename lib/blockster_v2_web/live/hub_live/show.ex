@@ -1,17 +1,16 @@
 defmodule BlocksterV2Web.HubLive.Show do
   use BlocksterV2Web, :live_view
+  use BlocksterV2Web.DesignSystem
 
   import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1, token_badge: 1, video_play_icon: 1]
 
   alias BlocksterV2.ImageKit
-
   alias BlocksterV2.Blog
   alias BlocksterV2.Shop
   alias BlocksterV2.UserEvents
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    # Get hub from database by slug with associations preloaded
     case Blog.get_hub_by_slug_with_associations(slug) do
       nil ->
         {:ok,
@@ -20,19 +19,22 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> redirect(to: "/")}
 
       hub ->
-        # Get posts for this hub by hub_id
-        # PostsThreeComponent needs 5 posts, PostsFourComponent needs 3 posts
         tag = hub.tag_name
-        posts_three = Blog.list_published_posts_by_hub(hub.id, limit: 5, tag_name: tag) |> Blog.with_bux_earned()
-        posts_four = Blog.list_published_posts_by_hub(hub.id, limit: 3, tag_name: tag, exclude_ids: Enum.map(posts_three, & &1.id)) |> Blog.with_bux_earned()
 
-        # VideosComponent needs 3 video posts for the All tab (posts with video_id)
-        videos_posts = Blog.list_video_posts_by_hub(hub.id, limit: 3, tag_name: tag) |> Blog.with_bux_earned()
+        # All posts for this hub (used for All tab + stats)
+        all_posts =
+          Blog.list_published_posts_by_hub(hub.id, tag_name: tag)
+          |> Blog.with_bux_earned()
 
-        # Hub-specific products for Shop section
+        # Video posts (used for Videos tab)
+        videos_posts =
+          Blog.list_video_posts_by_hub(hub.id, limit: 10, tag_name: tag)
+          |> Blog.with_bux_earned()
+
+        # Hub products for Shop tab
         hub_products = Shop.list_products_by_hub(hub.id)
 
-        # Check if current user follows this hub
+        # Follow state
         user_follows_hub =
           case socket.assigns[:current_user] do
             nil -> false
@@ -41,28 +43,26 @@ defmodule BlocksterV2Web.HubLive.Show do
 
         follower_count = Blog.get_hub_follower_count(hub.id)
 
+        # Split all_posts for the All tab sections
+        {pinned_post, mosaic_posts} =
+          case all_posts do
+            [first | rest] -> {first, Enum.take(rest, 7)}
+            [] -> {nil, []}
+          end
+
         {:ok,
          socket
-         |> assign(:posts_three, posts_three)
-         |> assign(:posts_four, posts_four)
          |> assign(:hub, hub)
+         |> assign(:all_posts, all_posts)
+         |> assign(:pinned_post, pinned_post)
+         |> assign(:mosaic_posts, mosaic_posts)
+         |> assign(:videos_posts, videos_posts)
+         |> assign(:hub_products, hub_products)
          |> assign(:user_follows_hub, user_follows_hub)
          |> assign(:follower_count, follower_count)
          |> assign(:page_title, "#{hub.name} Hub")
-         |> assign(:show_all, true)
-         |> assign(:show_news, false)
-         |> assign(:show_videos, false)
-         |> assign(:show_shop, false)
-         |> assign(:show_events, false)
-         |> assign(:show_mobile_menu, false)
-         |> assign(:news_loaded, false)
-         |> assign(:videos_loaded, true)
-         |> assign(:shop_loaded, true)
-         |> assign(:videos_posts, videos_posts)
-         |> assign(:hub_products, hub_products)
-         |> assign(:displayed_post_ids, [])
-         |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
-         |> stream(:news_components, [])}
+         |> assign(:active_tab, "all")
+         |> assign(:show_mobile_menu, false)}
     end
   end
 
@@ -83,47 +83,10 @@ defmodule BlocksterV2Web.HubLive.Show do
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    socket =
-      socket
-      |> assign(:show_all, tab == "all")
-      |> assign(:show_news, tab == "news")
-      |> assign(:show_videos, tab == "videos")
-      |> assign(:show_shop, tab == "shop")
-      |> assign(:show_events, tab == "events")
-      |> assign(:show_mobile_menu, false)
-
-    # Load/reload news components when switching to news tab
-    # Always reset the stream to ensure consistent display
-    socket =
-      if tab == "news" do
-        {news_components, displayed_post_ids} = build_initial_news_components(socket.assigns.hub.id, socket.assigns.hub.tag_name)
-
-        socket
-        |> assign(:news_loaded, true)
-        |> assign(:displayed_post_ids, displayed_post_ids)
-        |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
-        |> stream(:news_components, news_components, reset: true)
-      else
-        socket
-      end
-
-    # Load videos when switching to videos tab for the first time
-    socket =
-      if tab == "videos" && !socket.assigns.videos_loaded do
-        # Use list_video_posts_by_hub to get only posts with video_id
-        videos_posts = Blog.list_video_posts_by_hub(socket.assigns.hub.id, limit: 3, tag_name: socket.assigns.hub.tag_name) |> Blog.with_bux_earned()
-
-        socket
-        |> assign(:videos_loaded, true)
-        |> assign(:videos_posts, videos_posts)
-      else
-        socket
-      end
-
-    # Shop is now loaded in mount, no lazy loading needed
-    # (hub_products are loaded eagerly since they're shown in the All tab)
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> assign(:active_tab, tab)
+     |> assign(:show_mobile_menu, false)}
   end
 
   @impl true
@@ -157,6 +120,7 @@ defmodule BlocksterV2Web.HubLive.Show do
               target_type: "hub",
               target_id: hub.id
             })
+
             {:noreply,
              socket
              |> assign(:user_follows_hub, true)
@@ -167,6 +131,7 @@ defmodule BlocksterV2Web.HubLive.Show do
               target_type: "hub",
               target_id: hub.id
             })
+
             {:noreply,
              socket
              |> assign(:user_follows_hub, false)
@@ -178,96 +143,81 @@ defmodule BlocksterV2Web.HubLive.Show do
     end
   end
 
-  @impl true
-  def handle_event("load-more-news", _, socket) do
-    hub_id = socket.assigns.hub.id
-    displayed_post_ids = socket.assigns.displayed_post_ids
-    last_module = socket.assigns.last_component_module
+  # ── Helpers ──────────────────────────────────────────────────────────────────
 
-    # Build next batch of 4 components (Three, Four, Five, Six)
-    {new_components, new_displayed_post_ids} =
-      build_news_components_batch(hub_id, displayed_post_ids, last_module, socket.assigns.hub.tag_name)
+  defp post_count(hub) do
+    if Ecto.assoc_loaded?(hub.posts), do: length(hub.posts), else: 0
+  end
 
-    if new_components == [] do
-      {:reply, %{end_reached: true}, socket}
-    else
-      # Insert new components into stream
-      socket =
-        Enum.reduce(new_components, socket, fn component, acc_socket ->
-          stream_insert(acc_socket, :news_components, component, at: -1)
-        end)
+  defp compact_number(n) when is_integer(n) and n >= 1_000_000,
+    do: "#{Float.round(n / 1_000_000, 1)}M"
 
-      # Track the last component module for next load
-      last_module = if new_components != [], do: List.last(new_components).module, else: last_module
+  defp compact_number(n) when is_integer(n) and n >= 1_000,
+    do: "#{Float.round(n / 1_000, 1)}k"
 
-      {:reply, %{},
-       socket
-       |> assign(:displayed_post_ids, new_displayed_post_ids)
-       |> assign(:last_component_module, last_module)}
+  defp compact_number(n) when is_integer(n), do: "#{n}"
+  defp compact_number(_), do: "0"
+
+  defp read_time(post) do
+    word_count =
+      case post.content do
+        %{"content" => content} when is_list(content) ->
+          content
+          |> Enum.map(&extract_text/1)
+          |> Enum.join(" ")
+          |> String.split(~r/\s+/, trim: true)
+          |> length()
+
+        _ ->
+          0
+      end
+
+    max(div(word_count, 200), 1)
+  end
+
+  defp extract_text(%{"text" => text}), do: text
+  defp extract_text(%{"content" => content}) when is_list(content),
+    do: Enum.map(content, &extract_text/1) |> Enum.join(" ")
+  defp extract_text(_), do: ""
+
+  defp author_initials(post) do
+    name = post.author_name || (post.author && post.author.username) || "?"
+    name
+    |> String.split(~r/[\s_-]+/)
+    |> Enum.take(2)
+    |> Enum.map(&String.first/1)
+    |> Enum.join()
+    |> String.upcase()
+  end
+
+  defp author_display_name(post) do
+    post.author_name || (post.author && post.author.username) || "Unknown"
+  end
+
+  defp format_date(nil), do: ""
+  defp format_date(dt) do
+    now = DateTime.utc_now()
+    diff = DateTime.diff(now, dt, :second)
+
+    cond do
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86400 -> "#{div(diff, 3600)}h ago"
+      diff < 604_800 -> "#{div(diff, 86400)}d ago"
+      true -> Calendar.strftime(dt, "%b %d, %Y")
     end
   end
 
-  # Component modules for cycling through layouts
-  @component_modules [
-    BlocksterV2Web.PostLive.PostsThreeComponent,
-    BlocksterV2Web.PostLive.PostsFourComponent,
-    BlocksterV2Web.PostLive.PostsFiveComponent,
-    BlocksterV2Web.PostLive.PostsSixComponent
-  ]
+  defp tab_label("all"), do: "All"
+  defp tab_label("news"), do: "News"
+  defp tab_label("videos"), do: "Videos"
+  defp tab_label("shop"), do: "Shop"
+  defp tab_label("events"), do: "Events"
 
-  # Posts per component
-  @posts_per_component %{
-    BlocksterV2Web.PostLive.PostsThreeComponent => 5,
-    BlocksterV2Web.PostLive.PostsFourComponent => 3,
-    BlocksterV2Web.PostLive.PostsFiveComponent => 6,
-    BlocksterV2Web.PostLive.PostsSixComponent => 5
-  }
-
-  # Build initial batch of 4 components (Three, Four, Five, Six)
-  defp build_initial_news_components(hub_id, tag_name) do
-    build_news_components_batch(hub_id, [], BlocksterV2Web.PostLive.PostsSixComponent, tag_name)
+  defp tab_count("all", assigns) do
+    length(assigns.all_posts) + length(assigns.videos_posts) + length(assigns.hub_products)
   end
-
-  # Build a batch of 4 components cycling through the component modules
-  defp build_news_components_batch(hub_id, displayed_post_ids, last_module, tag_name) do
-    # Start from the component after last_module
-    start_index = Enum.find_index(@component_modules, &(&1 == last_module))
-    start_index = if start_index, do: rem(start_index + 1, 4), else: 0
-
-    # Build 4 components in order
-    {components, final_displayed_ids} =
-      Enum.reduce(0..3, {[], displayed_post_ids}, fn idx, {acc_components, acc_ids} ->
-        module_index = rem(start_index + idx, 4)
-        module = Enum.at(@component_modules, module_index)
-        posts_needed = Map.get(@posts_per_component, module)
-
-        # Fetch posts for this component (with bux_balances from Mnesia)
-        posts = Blog.list_published_posts_by_hub(
-          hub_id,
-          limit: posts_needed,
-          exclude_ids: acc_ids,
-          tag_name: tag_name
-        ) |> Blog.with_bux_earned()
-
-        if posts == [] do
-          # No more posts available
-          {acc_components, acc_ids}
-        else
-          post_ids = Enum.map(posts, & &1.id)
-          # Use unique integer to avoid ID conflicts across batches
-          unique_id = System.unique_integer([:positive])
-          component = %{
-            id: "hub-news-#{hub_id}-#{module}-#{unique_id}",
-            module: module,
-            posts: posts,
-            content: "News",
-            type: "hub-news"
-          }
-
-          {acc_components ++ [component], acc_ids ++ post_ids}
-        end
-      end)
-
-    {components, final_displayed_ids}
-  end
+  defp tab_count("news", assigns), do: length(assigns.all_posts)
+  defp tab_count("videos", assigns), do: length(assigns.videos_posts)
+  defp tab_count("shop", assigns), do: length(assigns.hub_products)
+  defp tab_count("events", _assigns), do: 0
 end

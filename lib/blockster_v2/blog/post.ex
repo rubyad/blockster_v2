@@ -24,6 +24,9 @@ defmodule BlocksterV2.Blog.Post do
     # Virtual field - computed from author association
     field :author_name, :string, virtual: true
 
+    # Content kind (for tab filtering on hub show)
+    field :kind, :string, default: "other"
+
     # Video fields
     field :video_url, :string
     field :video_id, :string
@@ -68,8 +71,10 @@ defmodule BlocksterV2.Blog.Post do
       :video_id,
       :video_duration,
       :video_bux_per_minute,
-      :video_max_reward
+      :video_max_reward,
+      :kind
     ])
+    |> validate_inclusion(:kind, ~w(news video other))
     |> extract_video_id()
     |> validate_required([:title])
     |> generate_slug()

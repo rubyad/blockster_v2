@@ -1,565 +1,565 @@
-<div class="bg-[#F5F6FB]">
-  <!-- Hub Content -->
-  <section class="pt-6 md:pt-16 pb-2 md:pb-6">
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-      <!-- Back to Hubs link - desktop only -->
-      <.link navigate={~p"/hubs"} class="hidden md:inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-4 cursor-pointer font-haas_roman_55 text-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        Back to Hubs
-      </.link>
-      <div class="hero-admin bg-white rounded-2xl md:p-6 p-3">
-    <div class="w-full flex flex-wrap md:flex-nowrap items-start justify-between gap-4 relative">
-      <!-- Profile Left -->
-      <div class="flex items-center gap-4 flex-wrap">
-        <div class="img-rounded md:h-[120px] md:min-w-[120px] h-[64px] w-[64px] rounded-full bg-[#AFB5FF] cursor-pointer relative overflow-hidden">
-          <%= if assigns[:current_user] && @current_user.is_admin do %>
-            <input type="file" id="uploadImage" accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer z-10" phx-hook="HubLogoUpload">
-          <% end %>
-          <%= if @hub.logo_url do %>
-            <img src={@hub.logo_url} id="imagePreview" alt={@hub.name} class="h-full w-full min-w-auto object-cover">
-          <% else %>
-            <img src="/images/moonpay.png" id="imagePreview" alt={@hub.name} class="h-full w-full min-w-auto object-cover">
-          <% end %>
-        </div>
+<.header
+  current_user={@current_user}
+  active="hubs"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+/>
 
-        <!-- Info -->
-        <div class="max-md:w-full">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3 class="text-lg font-semibold font-haas_medium_65 text-[20px]">{@hub.name}</h3>
-          </div>
-        </div>
-      </div>
+<%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     HUB BANNER — full-bleed brand identity (Variant C)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+<.hub_banner
+  hub={@hub}
+  post_count={post_count(@hub)}
+  follower_count={@follower_count}
+  user_follows_hub={@user_follows_hub}
+  current_user={@current_user}
+/>
 
-      <!-- Subscribe Button + Follower Count -->
-      <div class="flex items-center gap-3 max-sm:absolute max-sm:right-3 max-sm:top-3">
-        <%= if @follower_count > 0 do %>
-          <span class="text-xs text-gray-500 font-haas_roman_55 hidden sm:inline">
-            <%= @follower_count %> <%= if @follower_count == 1, do: "subscriber", else: "subscribers" %>
-          </span>
+<%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     STICKY TAB NAV
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+<div class="ds-hub-tabs sticky top-[84px] z-[15] border-b border-neutral-200/70" style="background: rgba(250, 250, 249, 0.95); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px);">
+  <div class="max-w-[1280px] mx-auto px-6 flex items-center gap-8 overflow-x-auto">
+    <%= for tab <- ~w(all news videos shop events) do %>
+      <button
+        phx-click="switch_tab"
+        phx-value-tab={tab}
+        class={"relative py-4 px-1 text-[14px] transition-colors cursor-pointer #{if @active_tab == tab, do: "text-[#141414] font-bold", else: "text-[#6B7280] font-medium hover:text-[#141414]"}"}
+      >
+        {tab_label(tab)}
+        <span class="ml-1.5 font-mono text-[11px] opacity-50">{tab_count(tab, assigns)}</span>
+        <%= if @active_tab == tab do %>
+          <span class="absolute bottom-0 left-0 right-0 h-0.5" style={"background: #{@hub.color_primary || "#141414"}"}></span>
         <% end %>
-        <%= if @current_user do %>
-          <%= if @user_follows_hub do %>
-            <button phx-click="toggle_follow" class="px-5 py-2 bg-gray-900 text-white text-xs font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-                <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
-              </svg>
-              Subscribed
-            </button>
-          <% else %>
-            <button phx-click="toggle_follow" class="px-5 py-2 bg-black text-white text-xs font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-                <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
-              </svg>
-              Subscribe
-            </button>
-          <% end %>
-        <% else %>
-          <button phx-click="toggle_follow" class="px-5 py-2 bg-black text-white text-xs font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
-            </svg>
-            Subscribe
-          </button>
-        <% end %>
-      </div>
-    </div>
-
-    <%= if @hub.description do %>
-      <p class="!text-[14px] w-3/4 flex gap-2 items-center font-haas_medium_55 text-[#343434] leading-[1.4] mt-4 border-[#141414] disabled:opacity-[0.6]"><%= @hub.description %></p>
+      </button>
     <% end %>
+  </div>
+</div>
 
+<main class="max-w-[1280px] mx-auto px-6">
 
-    <div class="flex flex-wrap gap-4 items-center justify-end mt-4">
-      <!-- Social Media Icons -->
-      <div class="flex items-center gap-3">
-        <%= if @hub.website_url do %>
-          <a href={@hub.website_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Website">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.twitter_url do %>
-          <a href={@hub.twitter_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="X (Twitter)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.telegram_url do %>
-          <a href={@hub.telegram_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Telegram">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.504-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.instagram_url do %>
-          <a href={@hub.instagram_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Instagram">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.linkedin_url do %>
-          <a href={@hub.linkedin_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="LinkedIn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.tiktok_url do %>
-          <a href={@hub.tiktok_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="TikTok">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.discord_url do %>
-          <a href={@hub.discord_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Discord">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.reddit_url do %>
-          <a href={@hub.reddit_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="Reddit">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
-            </svg>
-          </a>
-        <% end %>
-        <%= if @hub.youtube_url do %>
-          <a href={@hub.youtube_url} target="_blank" class="text-gray-400 hover:text-gray-900 transition-colors" title="YouTube">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-            </svg>
-          </a>
-        <% end %>
-      </div>
-    </div>
-      </div>
+  <%!-- ═════════════════════════════════════════════
+       ALL TAB
+  ═════════════════════════════════════════════ --%>
+  <%= if @active_tab == "all" do %>
 
-      <!-- Desktop Tabs -->
-      <div id="hub-page-menu" class="p-2 bg-[#E7E8F1] rounded-full max-md:hidden mt-6 relative z-20">
-        <div class="inline-flex w-full gap-1">
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="all"
-            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_all, do: "bg-white", else: ""}"}
-          >
-            All
-          </button>
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="news"
-            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_news, do: "bg-white", else: ""}"}
-          >
-            News
-          </button>
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="videos"
-            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_videos, do: "bg-white", else: ""}"}
-          >
-            Videos
-          </button>
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="shop"
-            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_shop, do: "bg-white", else: ""}"}
-          >
-            Shop
-          </button>
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="events"
-            class={"w-1/5 px-3 py-2.5 font-haas_roman_55 text-sm text-[#141414] leading-[1.4] cursor-pointer rounded-full transition-colors relative z-10 #{if @show_events, do: "bg-white", else: ""}"}
-          >
-            Events
-          </button>
+    <%!-- Pinned / Featured post --%>
+    <%= if @pinned_post do %>
+      <section class="pt-10 pb-10">
+        <div class="flex items-center gap-3 mb-5">
+          <.eyebrow>Pinned by {@hub.name}</.eyebrow>
+          <span class="w-8 h-px bg-neutral-300"></span>
+          <span class="text-[10px] tracking-[0.16em] uppercase text-neutral-400">Editor's pick</span>
         </div>
-      </div>
-
-      <!-- Mobile Dropdown Tabs -->
-      <div class="md:hidden mt-5 relative z-20" phx-click-away="close_mobile_menu">
-        <button
-          phx-click="toggle_mobile_menu"
-          class="w-full p-3 bg-[#E7E8F1] rounded-full flex items-center justify-between cursor-pointer"
-        >
-          <span class="font-haas_roman_55 text-sm text-[#141414] pl-2">
-            <%= cond do %>
-              <% @show_all -> %>All
-              <% @show_news -> %>News
-              <% @show_videos -> %>Videos
-              <% @show_shop -> %>Shop
-              <% @show_events -> %>Events
-              <% true -> %>All
-            <% end %>
-          </span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={"transition-transform #{if @show_mobile_menu, do: "rotate-180", else: ""}"}>
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-        <%= if @show_mobile_menu do %>
-          <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <button
-              phx-click="switch_tab"
-              phx-value-tab="all"
-              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_all, do: "bg-gray-100", else: ""}"}
-            >
-              All
-            </button>
-            <button
-              phx-click="switch_tab"
-              phx-value-tab="news"
-              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_news, do: "bg-gray-100", else: ""}"}
-            >
-              News
-            </button>
-            <button
-              phx-click="switch_tab"
-              phx-value-tab="videos"
-              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_videos, do: "bg-gray-100", else: ""}"}
-            >
-              Videos
-            </button>
-            <button
-              phx-click="switch_tab"
-              phx-value-tab="shop"
-              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_shop, do: "bg-gray-100", else: ""}"}
-            >
-              Shop
-            </button>
-            <button
-              phx-click="switch_tab"
-              phx-value-tab="events"
-              class={"w-full px-4 py-3 text-left font-haas_roman_55 text-sm text-[#141414] cursor-pointer hover:bg-gray-50 #{if @show_events, do: "bg-gray-100", else: ""}"}
-            >
-              Events
-            </button>
-          </div>
-        <% end %>
-      </div>
-    </div>
-  </section>
-
-  <!-- All Tab Content -->
-  <%= if @show_all do %>
-    <!-- Hub Posts -->
-    <div>
-      <%= if length(@posts_three) >= 5 do %>
-        <.live_component
-          module={BlocksterV2Web.PostLive.PostsThreeComponent}
-          id="hub-posts-three"
-          posts={@posts_three}
-          content={@hub.name}
-          type="hub-posts"
-          show_read_more={false}
-          hide_title={true}
-        />
-      <% else %>
-        <%!-- Simple grid for 1-4 posts --%>
-        <section class="py-3 md:py-6">
-          <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-            <%= if @posts_three == [] do %>
-              <div class="text-center py-20">
-                <p class="text-[#515B70] font-haas_roman_55">No posts available yet.</p>
+        <.link navigate={~p"/#{@pinned_post.slug}"} class="block group">
+          <div class="grid grid-cols-12 gap-8 items-center">
+            <div class="col-span-12 md:col-span-7">
+              <div class="aspect-[16/11] rounded-2xl overflow-hidden ring-1 ring-black/5 bg-neutral-100 relative">
+                <%= if @pinned_post.featured_image do %>
+                  <img src={ImageKit.w800(@pinned_post.featured_image)} alt={@pinned_post.title} class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700" />
+                <% else %>
+                  <div class="w-full h-full bg-gradient-to-br from-neutral-200 to-neutral-300"></div>
+                <% end %>
+                <div class={"absolute top-4 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 text-white rounded-full text-[10px] font-bold uppercase tracking-wider"} style={"background: #{@hub.color_primary || "#141414"}"}>
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L3 7v6c0 5 3.5 9 9 11 5.5-2 9-6 9-11V7l-9-5z"/></svg>
+                  Pinned
+                </div>
               </div>
-            <% else %>
-              <div class={[
-                "grid gap-6",
-                case length(@posts_three) do
-                  1 -> "grid-cols-1 max-w-lg mx-auto"
-                  2 -> "grid-cols-2"
-                  _ -> "grid-cols-2 md:grid-cols-3"
-                end
-              ]}>
-                <%= for post <- @posts_three do %>
-                  <.link navigate={~p"/#{post.slug}"} class="rounded-xl shadow-lg hover:shadow-xl bg-white transition-all flex flex-col cursor-pointer">
-                    <div class="w-full overflow-hidden rounded-t-xl aspect-square relative">
-                      <%= if post.featured_image do %>
-                        <img alt={post.title} src={ImageKit.w500_h500(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
-                      <% else %>
-                        <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F]"></div>
-                      <% end %>
-                      <%= if post.video_id do %>
-                        <.video_play_icon size={:medium} />
-                      <% end %>
-                    </div>
-                    <div class="px-3 py-3 md:px-4 md:py-4 flex flex-col text-center flex-1">
-                      <%= if post.category do %>
-                        <span class="uppercase text-xs font-extralight text-black tracking-[0.2em] mb-1"><%= post.category.name %></span>
-                      <% end %>
-                      <h4 class="text-sm md:text-lg font-medium text-black leading-5 md:leading-6 tracking-wide flex-1"><%= post.title %></h4>
-                      <p class="text-xs font-light text-gray-500 mt-2"><%= if post.published_at, do: Calendar.strftime(post.published_at, "%B %d, %Y"), else: "Draft" %></p>
-                      <div class="flex justify-center mt-auto pt-2">
-                        <.token_badge post={post} balance={Map.get(post, :bux_balance, 0)} id={"hub-simple-#{post.id}"} />
-                      </div>
-                    </div>
-                  </.link>
+            </div>
+            <div class="col-span-12 md:col-span-5">
+              <div class="flex items-center gap-2 mb-4">
+                <div class="w-5 h-5 rounded grid place-items-center" style={"background: #{@hub.color_primary || "#6B7280"}"}>
+                  <%= if @hub.logo_url do %>
+                    <img src={@hub.logo_url} alt="" class="w-3 h-3 object-contain" />
+                  <% else %>
+                    <span class="text-[8px] font-bold text-white">{String.first(@hub.token || @hub.name)}</span>
+                  <% end %>
+                </div>
+                <span class="text-[12px] font-bold text-[#141414]">{@hub.name}</span>
+                <%= if @pinned_post.category do %>
+                  <span class="text-neutral-300">&middot;</span>
+                  <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{@pinned_post.category.name}</span>
                 <% end %>
               </div>
-            <% end %>
+              <h2 class="font-bold text-[44px] md:text-[52px] tracking-[-0.022em] leading-[1.04] mb-5 group-hover:opacity-80 transition-opacity">
+                {@pinned_post.title}
+              </h2>
+              <%= if @pinned_post.excerpt do %>
+                <p class="text-[16px] leading-[1.55] text-neutral-600 mb-6 max-w-[480px]">
+                  {@pinned_post.excerpt}
+                </p>
+              <% end %>
+              <div class="flex items-center gap-3 mb-6">
+                <.author_avatar initials={author_initials(@pinned_post)} size="sm" />
+                <div>
+                  <div class="text-[13px] font-bold text-[#141414]">{author_display_name(@pinned_post)}</div>
+                  <div class="text-[11px] text-neutral-500 mt-[1px]">{read_time(@pinned_post)} min read &middot; {format_date(@pinned_post.published_at)}</div>
+                </div>
+                <div class="ml-auto flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                  Earn {Map.get(@pinned_post, :bux_balance, 0)} BUX
+                </div>
+              </div>
+              <div class={"inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold transition-colors"} style={"hover:background: #{@hub.color_primary}"}>
+                Read article
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
           </div>
-        </section>
-      <% end %>
-    </div>
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] flex justify-end relative z-10 mb-8">
-      <button phx-click="switch_tab" phx-value-tab="news" class="text-sm font-haas_medium_65 text-gray-500 hover:underline cursor-pointer">
-        Read more stories from <%= @hub.name %> &gt;
-      </button>
-    </div>
+        </.link>
+      </section>
+    <% end %>
 
-    <!-- Hub Videos Section - Only shown if videos exist -->
+    <%!-- Latest stories mosaic --%>
+    <%= if @mosaic_posts != [] do %>
+      <section class="py-10 border-t border-neutral-200/70">
+        <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <.eyebrow class="mb-1">Latest stories</.eyebrow>
+            <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">From {@hub.name}</h2>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-4" style="grid-auto-rows: 180px;">
+          <%= for {post, idx} <- Enum.with_index(@mosaic_posts) do %>
+            <%= cond do %>
+              <% idx == 0 -> %>
+                <%!-- Big feature card (7-col, 2-row) --%>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-7 row-span-2 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
+                  <%= if post.featured_image do %>
+                    <img src={ImageKit.w800(post.featured_image)} alt="" class="absolute inset-0 w-full h-full object-cover" />
+                  <% end %>
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+                  <div class="absolute inset-x-0 bottom-0 p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                      <div class="w-5 h-5 rounded grid place-items-center" style={"background: #{@hub.color_primary || "#6B7280"}"}>
+                        <%= if @hub.logo_url do %>
+                          <img src={@hub.logo_url} alt="" class="w-2.5 h-2.5 object-contain" />
+                        <% else %>
+                          <span class="text-[8px] font-bold text-white">{String.first(@hub.token || @hub.name)}</span>
+                        <% end %>
+                      </div>
+                      <%= if post.category do %>
+                        <span class="text-white text-[11px] uppercase tracking-[0.14em] font-bold">{post.category.name}</span>
+                        <span class="text-white/40">&middot;</span>
+                      <% end %>
+                    </div>
+                    <h3 class="font-bold text-white text-[28px] md:text-[32px] tracking-[-0.022em] leading-[1.04] mb-3 max-w-[480px]">{post.title}</h3>
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                      <div class="flex items-center gap-2 text-white/80 text-[12px]">
+                        <.author_avatar initials={author_initials(post)} size="xs" />
+                        <span>{author_display_name(post)} &middot; {read_time(post)} min</span>
+                      </div>
+                      <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
+                        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                        Earn {Map.get(post, :bux_balance, 0)} BUX
+                      </div>
+                    </div>
+                  </div>
+                </.link>
+
+              <% idx in [1, 2] -> %>
+                <%!-- Medium horizontal card (5-col, 1-row) --%>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden group">
+                  <div class="flex h-full">
+                    <div class="w-2/5 bg-neutral-100 overflow-hidden">
+                      <%= if post.featured_image do %>
+                        <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
+                      <% end %>
+                    </div>
+                    <div class="flex-1 p-4 flex flex-col">
+                      <%= if post.category do %>
+                        <div class="flex items-center gap-1.5 mb-2">
+                          <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">{post.category.name}</span>
+                        </div>
+                      <% end %>
+                      <h3 class="font-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
+                      <div class="flex items-center justify-between text-[10px] mt-2">
+                        <span class="text-neutral-500">{author_display_name(post)} &middot; {read_time(post)}m</span>
+                        <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                          +{Map.get(post, :bux_balance, 0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </.link>
+
+              <% true -> %>
+                <%!-- Small card (3-col, 1-row) --%>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col group">
+                  <div class="aspect-[16/9] bg-neutral-100 overflow-hidden">
+                    <%= if post.featured_image do %>
+                      <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" loading="lazy" />
+                    <% end %>
+                  </div>
+                  <div class="p-3 flex flex-col flex-1">
+                    <%= if post.category do %>
+                      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">{post.category.name}</div>
+                    <% end %>
+                    <h3 class="font-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
+                    <div class="flex items-center justify-between text-[9px] mt-2">
+                      <span class="text-neutral-500">{read_time(post)} min</span>
+                      <span class="text-[#141414] font-bold">+{Map.get(post, :bux_balance, 0)} BUX</span>
+                    </div>
+                  </div>
+                </.link>
+            <% end %>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
+
+    <%!-- No posts empty state --%>
+    <%= if @all_posts == [] do %>
+      <section class="py-20">
+        <div class="text-center">
+          <p class="text-neutral-500 text-[14px]">No posts available yet from {@hub.name}.</p>
+        </div>
+      </section>
+    <% end %>
+
+    <%!-- Videos section in All tab (if videos exist) --%>
     <%= if @videos_posts != [] do %>
-      <div class="md:pt-16 pt-8 md:pb-4 pb-2">
-        <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-          <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Videos</h2>
-          <.live_component
-            module={BlocksterV2Web.PostLive.VideosComponent}
-            id="hub-videos-all"
-            posts={@videos_posts}
-            content={@hub.name}
-            type="hub-videos"
-            show_header={false}
-          />
+      <section class="py-10 border-t border-neutral-200/70">
+        <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <.eyebrow class="mb-1">Watch from {@hub.name}</.eyebrow>
+            <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">Videos</h2>
+          </div>
+          <button phx-click="switch_tab" phx-value-tab="videos" class="text-[13px] text-neutral-600 hover:text-neutral-900 transition-colors group cursor-pointer">
+            All videos <span class="inline-block group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+          </button>
         </div>
-      </div>
-    <% end %>
-
-    <!-- Hub Shop Section - Only shown if products exist -->
-    <%= if @hub_products != [] do %>
-      <div class="md:pt-16 pt-8 md:pb-16 pb-8">
-        <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-          <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6">Shop</h2>
-          <!-- Hub Products Grid (same styling as /shop page) -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 items-stretch">
-            <%= for product <- @hub_products do %>
-              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
-                <!-- Image container with 3D flip animation -->
-                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-                  <!-- 3D Flip animation container -->
-                  <div class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]" style="transform-style: preserve-3d;">
-                    <!-- Front face -->
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
-                      <img alt={product.name} src={product.image} class="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                    <!-- Back face -->
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                      <img alt={product.name} src={Enum.at(product.images, 1) || product.image} class="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                  </div>
+        <div class="grid grid-cols-12 gap-4">
+          <%= if (first_video = List.first(@videos_posts)) do %>
+            <.link navigate={~p"/#{first_video.slug}"} class="col-span-12 md:col-span-7 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
+              <div class="aspect-[16/9] overflow-hidden">
+                <%= if first_video.featured_image do %>
+                  <img src={ImageKit.w800(first_video.featured_image)} alt="" class="w-full h-full object-cover" />
+                <% end %>
+              </div>
+              <div class="absolute inset-0 grid place-items-center pointer-events-none">
+                <div class="w-20 h-20 rounded-full bg-white/95 backdrop-blur grid place-items-center shadow-2xl group-hover:scale-110 transition-transform">
+                  <svg class="w-8 h-8 text-[#0a0a0a] ml-1" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 </div>
-
-                <!-- Product info -->
-                <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
-                  <!-- Title - Centered -->
-                  <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
-                    <%= product.name %>
-                  </h4>
-
-                  <!-- Price Display - Centered -->
-                  <div class="flex flex-col items-center mb-2 md:mb-4">
-                    <%= if product.total_max_discount > 0 do %>
-                      <!-- Original Price - Crossed out -->
-                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
-                      <!-- Discounted Price -->
-                      <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
-                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
-                      </span>
-                      <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
-                        with BUX tokens
-                      </span>
-                    <% else %>
-                      <!-- Regular Price -->
-                      <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
+              </div>
+              <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/85 to-transparent">
+                <h3 class="font-bold text-white text-[22px] tracking-tight max-w-[460px]">{first_video.title}</h3>
+                <div class="text-[11px] text-white/70 mt-2">{author_display_name(first_video)}</div>
+              </div>
+            </.link>
+          <% end %>
+          <div class="col-span-12 md:col-span-5 grid grid-cols-1 gap-4">
+            <%= for video <- Enum.drop(@videos_posts, 1) |> Enum.take(3) do %>
+              <.link navigate={~p"/#{video.slug}"} class="block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden group">
+                <div class="grid grid-cols-[140px_1fr]">
+                  <div class="bg-neutral-100 relative">
+                    <%= if video.featured_image do %>
+                      <img src={ImageKit.w500_h500(video.featured_image)} alt="" class="w-full h-full object-cover" />
                     <% end %>
                   </div>
-
-                  <!-- Buy Now Button -->
-                  <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
-                    Buy Now
+                  <div class="p-3">
+                    <h3 class="font-bold text-[13px] text-[#141414] leading-tight tracking-tight line-clamp-2 mb-2">{video.title}</h3>
+                    <div class="text-[10px] text-neutral-500">{author_display_name(video)}</div>
                   </div>
                 </div>
               </.link>
             <% end %>
           </div>
         </div>
-      </div>
+      </section>
     <% end %>
 
-    <!-- Events Section removed from All tab - only show on Events tab -->
+    <%!-- Shop section in All tab (if products exist) --%>
+    <%= if @hub_products != [] do %>
+      <section class="py-10 border-t border-neutral-200/70">
+        <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <.eyebrow class="mb-1">Shop the {@hub.name} community</.eyebrow>
+            <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">Hub merch</h2>
+          </div>
+          <button phx-click="switch_tab" phx-value-tab="shop" class="text-[13px] text-neutral-600 hover:text-neutral-900 transition-colors group cursor-pointer">
+            View all <span class="inline-block group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+          <%= for product <- Enum.take(@hub_products, 4) do %>
+            <.link navigate={~p"/shop/#{product.slug}"} class="block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col hover:shadow-lg transition-shadow cursor-pointer">
+              <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+                <img src={product.image} alt={product.name} class="w-full h-full object-cover" loading="lazy" />
+                <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+                  <div class="w-6 h-6 rounded-full" style={"background: #{@hub.color_primary || "#6B7280"}"}></div>
+                </div>
+              </div>
+              <div class="p-4 text-center">
+                <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">{product.name}</h3>
+                <div class="flex flex-col items-center mb-3">
+                  <%= if product.total_max_discount > 0 do %>
+                    <span class="text-[10px] text-neutral-400 line-through font-mono">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
+                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.max_discounted_price, decimals: 2)}</span>
+                    <span class="text-[9px] text-neutral-500">with BUX tokens</span>
+                  <% else %>
+                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
+                  <% end %>
+                </div>
+                <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full">Buy Now</div>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
   <% end %>
 
-  <!-- News Tab Content -->
-  <%= if @show_news do %>
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] pt-4 pb-2">
-      <h2 class="text-3xl font-haas_medium_65 text-[#141414]">Latest stories from <%= @hub.name %></h2>
-    </div>
-    <div id="hub-news-stream" phx-update="stream" phx-hook="InfiniteScroll">
-      <%= for {id, component} <- @streams.news_components do %>
-        <div id={id}>
-          <.live_component
-            module={component.module}
-            id={component.id}
-            posts={component.posts}
-            content={component.content}
-            type={component.type}
-            show_read_more={false}
-            hide_title={true}
-          />
+  <%!-- ═════════════════════════════════════════════
+       NEWS TAB
+  ═════════════════════════════════════════════ --%>
+  <%= if @active_tab == "news" do %>
+    <section class="py-10">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <.eyebrow class="mb-1">All stories</.eyebrow>
+          <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">News from {@hub.name}</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">{length(@all_posts)} stories</div>
+      </div>
+
+      <%= if @all_posts == [] do %>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-12 text-center">
+          <div class="w-16 h-16 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6z"/></svg>
+          </div>
+          <h3 class="text-[16px] font-bold text-[#141414] mb-2">No stories yet</h3>
+          <p class="text-[13px] text-neutral-500 max-w-sm mx-auto">Stories from {@hub.name} will appear here.</p>
+        </div>
+      <% else %>
+        <div class="grid grid-cols-12 gap-4" style="grid-auto-rows: 180px;">
+          <%= for {post, idx} <- Enum.with_index(@all_posts) do %>
+            <%= cond do %>
+              <% idx == 0 -> %>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-7 row-span-2 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
+                  <%= if post.featured_image do %>
+                    <img src={ImageKit.w800(post.featured_image)} alt="" class="absolute inset-0 w-full h-full object-cover" />
+                  <% end %>
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+                  <div class="absolute inset-x-0 bottom-0 p-6">
+                    <h3 class="font-bold text-white text-[28px] md:text-[32px] tracking-[-0.022em] leading-[1.04] mb-3 max-w-[480px]">{post.title}</h3>
+                    <div class="flex items-center gap-2 text-white/80 text-[12px]">
+                      <.author_avatar initials={author_initials(post)} size="xs" />
+                      <span>{author_display_name(post)} &middot; {read_time(post)} min</span>
+                    </div>
+                  </div>
+                </.link>
+              <% idx in [1, 2] -> %>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
+                  <div class="flex h-full">
+                    <div class="w-2/5 bg-neutral-100 overflow-hidden">
+                      <%= if post.featured_image do %>
+                        <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
+                      <% end %>
+                    </div>
+                    <div class="flex-1 p-4 flex flex-col">
+                      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">News</div>
+                      <h3 class="font-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
+                      <div class="flex items-center justify-between text-[10px] mt-2">
+                        <span class="text-neutral-500">{author_display_name(post)} &middot; {read_time(post)}m</span>
+                        <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold">
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                          +{Map.get(post, :bux_balance, 0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </.link>
+              <% true -> %>
+                <.link navigate={~p"/#{post.slug}"} class="col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
+                  <div class="aspect-[16/9] bg-neutral-100 overflow-hidden">
+                    <%= if post.featured_image do %>
+                      <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" loading="lazy" />
+                    <% end %>
+                  </div>
+                  <div class="p-3 flex flex-col flex-1">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">News</div>
+                    <h3 class="font-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
+                    <div class="flex items-center justify-between text-[9px] mt-2">
+                      <span class="text-neutral-500">{read_time(post)} min</span>
+                      <span class="text-[#141414] font-bold">+{Map.get(post, :bux_balance, 0)} BUX</span>
+                    </div>
+                  </div>
+                </.link>
+            <% end %>
+          <% end %>
         </div>
       <% end %>
-    </div>
+    </section>
   <% end %>
 
-  <!-- Videos Tab Content -->
-  <%= if @show_videos do %>
-    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Videos</h2>
-        <%= if @videos_posts == [] do %>
-          <!-- Videos Empty State -->
-          <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
-            <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
-              <!-- Play icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No <%= @hub.name %> Videos</h3>
-            <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
-              Video content for this community is coming soon. Stay tuned!
-            </p>
-          </div>
-        <% else %>
-          <.live_component
-            module={BlocksterV2Web.PostLive.VideosComponent}
-            id="hub-videos"
-            posts={@videos_posts}
-            content={@hub.name}
-            type="hub-videos"
-            show_header={false}
-          />
-        <% end %>
+  <%!-- ═════════════════════════════════════════════
+       VIDEOS TAB
+  ═════════════════════════════════════════════ --%>
+  <%= if @active_tab == "videos" do %>
+    <section class="py-10">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <.eyebrow class="mb-1">Watch from {@hub.name}</.eyebrow>
+          <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">Videos</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500">{length(@videos_posts)} videos</div>
       </div>
-    </div>
-  <% end %>
 
-  <!-- Shop Tab Content -->
-  <%= if @show_shop do %>
-    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Shop</h2>
-        <%= if @hub_products == [] do %>
-          <!-- Shop Empty State -->
-          <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
-            <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
-              <!-- Shopping bag icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-            </div>
-            <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No <%= @hub.name %> Products</h3>
-            <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
-              This community doesn't have any products in the shop yet.
-            </p>
-            <.link navigate={~p"/shop"} class="mt-4 px-6 py-2 bg-black text-white rounded-full font-haas_medium_65 text-sm hover:bg-gray-800 transition-colors cursor-pointer">
-              Browse All Products
-            </.link>
+      <%= if @videos_posts == [] do %>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-12 text-center">
+          <div class="w-16 h-16 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           </div>
-        <% else %>
-          <!-- Hub Products Grid (same styling as /shop page) -->
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 items-stretch">
-            <%= for product <- @hub_products do %>
-              <.link navigate={~p"/shop/#{product.slug}"} class="rounded-lg border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full">
-                <!-- Image container with 3D flip animation -->
-                <div class="img-wrapper w-full overflow-hidden rounded-t-lg group/card" style="padding-bottom: 100%; position: relative; perspective: 1000px;">
-                  <!-- 3D Flip animation container -->
-                  <div class="absolute inset-0 transition-transform duration-700 ease-in-out group-hover/card:[transform:rotateY(180deg)]" style="transform-style: preserve-3d;">
-                    <!-- Front face -->
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden;">
-                      <img alt={product.name} src={product.image} class="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                    <!-- Back face -->
-                    <div class="absolute inset-0 backface-hidden" style="backface-visibility: hidden; transform: rotateY(180deg);">
-                      <img alt={product.name} src={Enum.at(product.images, 1) || product.image} class="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                  </div>
+          <h3 class="text-[16px] font-bold text-[#141414] mb-2">No videos yet</h3>
+          <p class="text-[13px] text-neutral-500 max-w-sm mx-auto">Video content from {@hub.name} will appear here.</p>
+        </div>
+      <% else %>
+        <div class="grid grid-cols-12 gap-4">
+          <%!-- Featured video (large, left) --%>
+          <%= if (first_video = List.first(@videos_posts)) do %>
+            <.link navigate={~p"/#{first_video.slug}"} class="col-span-12 md:col-span-7 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
+              <div class="aspect-[16/9] overflow-hidden">
+                <%= if first_video.featured_image do %>
+                  <img src={ImageKit.w800(first_video.featured_image)} alt="" class="w-full h-full object-cover" />
+                <% end %>
+              </div>
+              <div class="absolute inset-0 grid place-items-center pointer-events-none">
+                <div class="w-20 h-20 rounded-full bg-white/95 backdrop-blur grid place-items-center shadow-2xl group-hover:scale-110 transition-transform">
+                  <svg class="w-8 h-8 text-[#0a0a0a] ml-1" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 </div>
+              </div>
+              <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/85 to-transparent">
+                <h3 class="font-bold text-white text-[22px] tracking-tight max-w-[460px]">{first_video.title}</h3>
+                <div class="text-[11px] text-white/70 mt-2">{author_display_name(first_video)}</div>
+              </div>
+            </.link>
+          <% end %>
 
-                <!-- Product info -->
-                <div class="px-2 py-2 md:px-4 md:py-4 flex flex-col flex-1">
-                  <!-- Title - Centered -->
-                  <h4 class="text-sm md:text-lg font-haas_medium_65 text-gray-900 text-center mb-1 md:mb-2 flex-1 line-clamp-2">
-                    <%= product.name %>
-                  </h4>
-
-                  <!-- Price Display - Centered -->
-                  <div class="flex flex-col items-center mb-2 md:mb-4">
-                    <%= if product.total_max_discount > 0 do %>
-                      <!-- Original Price - Crossed out -->
-                      <span class="text-xs md:text-sm font-haas_roman_55 text-gray-400 line-through">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
-                      <!-- Discounted Price -->
-                      <span class="text-lg md:text-2xl font-haas_medium_65 text-black">
-                        $<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %>
-                      </span>
-                      <span class="text-[10px] md:text-xs font-haas_roman_55 text-gray-500 mt-0.5">
-                        with BUX tokens
-                      </span>
-                    <% else %>
-                      <!-- Regular Price -->
-                      <span class="text-lg md:text-2xl font-haas_medium_65 text-gray-900">
-                        $<%= :erlang.float_to_binary(product.price, decimals: 2) %>
-                      </span>
+          <%!-- Sidebar video stack (right) --%>
+          <div class="col-span-12 md:col-span-5 grid grid-cols-1 gap-4">
+            <%= for video <- Enum.drop(@videos_posts, 1) |> Enum.take(3) do %>
+              <.link navigate={~p"/#{video.slug}"} class="block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden group">
+                <div class="grid grid-cols-[140px_1fr]">
+                  <div class="bg-neutral-100 relative">
+                    <%= if video.featured_image do %>
+                      <img src={ImageKit.w500_h500(video.featured_image)} alt="" class="w-full h-full object-cover" />
+                    <% end %>
+                    <%= if video.video_duration do %>
+                      <div class="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-white text-[9px] font-mono">
+                        {div(video.video_duration, 60)}:{rem(video.video_duration, 60) |> Integer.to_string() |> String.pad_leading(2, "0")}
+                      </div>
                     <% end %>
                   </div>
-
-                  <!-- Buy Now Button -->
-                  <div class="w-full py-1.5 md:py-2.5 bg-black text-white font-haas_medium_65 rounded-full text-xs md:text-sm text-center">
-                    Buy Now
+                  <div class="p-3">
+                    <h3 class="font-bold text-[13px] text-[#141414] leading-tight tracking-tight line-clamp-2 mb-2">{video.title}</h3>
+                    <div class="text-[10px] text-neutral-500">{author_display_name(video)}</div>
                   </div>
                 </div>
               </.link>
             <% end %>
           </div>
-        <% end %>
-      </div>
-    </div>
+        </div>
+      <% end %>
+    </section>
   <% end %>
 
-  <!-- Events Tab Content -->
-  <%= if @show_events do %>
-    <div class="md:pt-8 pt-4 md:pb-16 pb-8">
-      <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-        <h2 class="text-3xl font-haas_medium_65 text-[#141414] mb-6"><%= @hub.name %> Events</h2>
-        <!-- Events Empty State (always shown per requirements) -->
-        <div class="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-[#E7E8F1]">
-          <div class="w-32 h-32 mb-6 rounded-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] flex items-center justify-center opacity-60">
-            <!-- Calendar icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+  <%!-- ═════════════════════════════════════════════
+       SHOP TAB
+  ═════════════════════════════════════════════ --%>
+  <%= if @active_tab == "shop" do %>
+    <section class="py-10">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <.eyebrow class="mb-1">Shop the {@hub.name} community</.eyebrow>
+          <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">Hub merch</h2>
+        </div>
+        <%= if length(@hub_products) > 4 do %>
+          <.link navigate={~p"/shop"} class="text-[13px] text-neutral-600 hover:text-neutral-900 transition-colors group">
+            View all {length(@hub_products)} <span class="inline-block group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+          </.link>
+        <% end %>
+      </div>
+
+      <%= if @hub_products == [] do %>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-12 text-center">
+          <div class="w-16 h-16 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
           </div>
-          <h3 class="text-xl font-haas_medium_65 text-gray-600 mb-2">No Events Listed</h3>
-          <p class="text-gray-400 text-center max-w-md font-haas_roman_55">
-            There are currently no events scheduled for this community. Check back later!
-          </p>
+          <h3 class="text-[16px] font-bold text-[#141414] mb-2">No products yet</h3>
+          <p class="text-[13px] text-neutral-500 max-w-sm mx-auto">This community doesn't have any products in the shop yet.</p>
+          <.link navigate={~p"/shop"} class="inline-flex items-center gap-2 mt-4 bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer">
+            Browse All Products
+          </.link>
+        </div>
+      <% else %>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+          <%= for product <- @hub_products do %>
+            <.link navigate={~p"/shop/#{product.slug}"} class="block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col hover:shadow-lg transition-shadow cursor-pointer">
+              <div class="aspect-square bg-neutral-100 overflow-hidden relative">
+                <img src={product.image} alt={product.name} class="w-full h-full object-cover" loading="lazy" />
+                <div class="absolute top-3 left-3 w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12)] grid place-items-center">
+                  <div class="w-6 h-6 rounded-full" style={"background: #{@hub.color_primary || "#6B7280"}"}></div>
+                </div>
+              </div>
+              <div class="p-4 text-center">
+                <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">{product.name}</h3>
+                <div class="flex flex-col items-center mb-3">
+                  <%= if product.total_max_discount > 0 do %>
+                    <span class="text-[10px] text-neutral-400 line-through font-mono">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
+                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.max_discounted_price, decimals: 2)}</span>
+                    <span class="text-[9px] text-neutral-500">with BUX tokens</span>
+                  <% else %>
+                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
+                  <% end %>
+                </div>
+                <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full">Buy Now</div>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+
+  <%!-- ═════════════════════════════════════════════
+       EVENTS TAB (empty state per D15)
+  ═════════════════════════════════════════════ --%>
+  <%= if @active_tab == "events" do %>
+    <section class="py-10">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <.eyebrow class="mb-1">Hosted by {@hub.name}</.eyebrow>
+          <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">Upcoming events</h2>
         </div>
       </div>
-    </div>
+
+      <div class="ds-events-empty bg-white rounded-2xl border border-neutral-200/70 p-12 text-center">
+        <div class="w-16 h-16 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <h3 class="text-[16px] font-bold text-[#141414] mb-2">No events yet from this hub</h3>
+        <p class="text-[13px] text-neutral-500 max-w-sm mx-auto mb-4">When {@hub.name} schedules events, they'll appear here.</p>
+        <button class="inline-flex items-center gap-2 bg-neutral-100 text-neutral-500 px-4 py-2 rounded-full text-[12px] font-bold cursor-not-allowed" disabled>
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          Notify me
+        </button>
+      </div>
+    </section>
   <% end %>
-</div>
+
+</main>
+
+<.footer />
