@@ -1,138 +1,186 @@
-<div class="unregistered-page bg-[#F5F6FB]">
-  <!-- Hero Section -->
-  <section class="section pt-6 md:pt-24 pb-2 md:pb-6">
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-      <div class="text-center max-w-3xl mx-auto">
-        <h1 class="text-4xl md:text-5xl font-haas_bold_75 text-[#141414] mb-4">Hubs</h1>
-        <p class="text-base md:text-lg font-haas_roman_55 text-[#515B70] leading-relaxed">
-          Explore dedicated pages for leading blockchain businesses, exchanges, DeFi platforms and more. Each hub features curated content, events and branded merch.
+<%!--
+  Hubs index template — redesigned per docs/solana/hubs_index_redesign_plan.md.
+
+  Order top to bottom:
+    1.  Design system <.header /> (sticky, lime banner)
+    2.  Page hero: "Browse" eyebrow + "Hubs" title + description + 3 stat tiles
+    3.  Featured hubs: 3 large gradient cards (5+4+3 col on lg)
+    4.  Sticky search + category filter bar
+    5.  Hub grid: 4-col gradient cards + "more hubs" dashed card
+    6.  "Showing X of Y" stat
+    7.  Design system <.footer />
+--%>
+
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active="hubs"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+/>
+
+<main class="max-w-[1280px] mx-auto px-6">
+
+  <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       PAGE HERO
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+  <section class="pt-16 pb-12">
+    <div class="grid grid-cols-12 gap-8 items-end">
+      <div class="col-span-12 md:col-span-8">
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">Browse</BlocksterV2Web.DesignSystem.eyebrow>
+        <h1 class="font-bold text-[64px] md:text-[80px] mb-5 leading-[0.96] tracking-[-0.022em] text-[#141414]">Hubs</h1>
+        <p class="text-[18px] leading-[1.5] text-neutral-600 max-w-[520px]">
+          {@total_hub_count} publications at the intersection of crypto and AI. Follow the ones you care about, earn BUX from every story you read, and shape your own daily edition.
         </p>
-        <!-- Desktop Search -->
-        <div class="mt-8 max-w-md mx-auto max-md:hidden">
-          <input
-            type="text"
-            placeholder="Search hubs..."
-            phx-keyup="search"
-            phx-debounce="300"
-            value={@search_query}
-            class="w-full px-6 py-3 rounded-full border border-[#E7E8F1] bg-white text-[#141414] font-haas_roman_55 placeholder-[#515B70] focus:outline-none focus:ring-2 focus:ring-[#141414] focus:border-transparent"
-          />
+      </div>
+      <div class="col-span-12 md:col-span-4">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="text-right">
+            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+              {compact_number(@total_hub_count)}
+            </div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Hubs</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+              {compact_number(@total_post_count)}
+            </div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Articles</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">—</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">BUX Paid</div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Mobile Sticky Search -->
-  <div class="md:hidden sticky top-16 z-30 bg-[#F5F6FB] px-4 pt-2 pb-4">
-    <input
-      type="text"
-      placeholder="Search hubs..."
-      phx-keyup="search"
-      phx-debounce="300"
-      value={@search_query}
-      class="w-full px-6 py-3 rounded-full border border-[#E7E8F1] bg-white text-[#141414] font-haas_roman_55 placeholder-[#515B70] focus:outline-none focus:ring-2 focus:ring-[#141414] focus:border-transparent shadow-sm"
-    />
-  </div>
+  <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       FEATURED HUBS — 3 large cards
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+  <%= if @featured_hubs != [] do %>
+    <section class="pb-10">
+      <div class="flex items-baseline justify-between mb-5">
+        <BlocksterV2Web.DesignSystem.eyebrow>Featured this week</BlocksterV2Web.DesignSystem.eyebrow>
+      </div>
+      <div class="grid grid-cols-12 gap-5">
+        <%= for {hub, idx} <- Enum.with_index(@featured_hubs) do %>
+          <% col_class = case idx do
+            0 -> "col-span-12 md:col-span-6 lg:col-span-5"
+            1 -> "col-span-12 md:col-span-6 lg:col-span-4"
+            _ -> "col-span-12 md:col-span-12 lg:col-span-3"
+          end %>
+          <div class={col_class}>
+            <BlocksterV2Web.DesignSystem.hub_feature_card
+              href={~p"/hub/#{hub.slug}"}
+              name={hub.name}
+              ticker={hub.token || String.slice(hub.name, 0, 1)}
+              logo_url={hub.logo_url}
+              primary={hub.color_primary || "#6366F1"}
+              secondary={hub.color_secondary || "#4F46E5"}
+              description={hub.description}
+              post_count={compact_number(hub_post_count(hub))}
+              follower_count={compact_number(hub_follower_count(hub))}
+              layout={if idx >= 2, do: :vertical, else: :horizontal}
+              class="h-full"
+            />
+          </div>
+        <% end %>
+      </div>
+    </section>
+  <% end %>
 
-  <!-- Hubs Grid Section -->
-  <section class="section pb-20">
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-      <%= if @hubs == [] do %>
-        <div class="text-center py-20">
-          <p class="text-[#515B70] font-haas_roman_55">No hubs available yet.</p>
+  <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       SEARCH + FILTERS
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+  <section class="pb-8 sticky top-[88px] bg-[#fafaf9]/95 backdrop-blur z-10 -mx-6 px-6 pt-2">
+    <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+      <%!-- Search input --%>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="relative flex-1">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder={"Search #{@total_hub_count} hubs by name, topic, or asset..."}
+            phx-keyup="search"
+            phx-debounce="300"
+            value={@search_query}
+            class="w-full pl-11 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-full text-[14px] placeholder-neutral-400 transition-all focus:outline-none focus:border-[#141414] focus:shadow-[0_0_0_4px_rgba(20,20,20,0.06)]"
+          />
         </div>
-      <% else %>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <%= for hub <- @hubs do %>
-            <.link
-              navigate={~p"/hub/#{hub.slug}"}
-              class="group bg-white rounded-2xl border border-[#E7E8F1] hover:shadow-xl transition-all duration-300 overflow-hidden p-5 flex flex-col"
-            >
-              <!-- Hub Header with Logo and Name Centered -->
-              <div class="flex flex-col items-center mb-3">
-                <!-- Logo -->
-                <div
-                  class="h-16 w-16 rounded-full flex items-center justify-center overflow-hidden"
-                  style={"background: linear-gradient(135deg, #{hub.color_primary || "#6366F1"} 0%, #{hub.color_secondary || "#4F46E5"} 100%)"}
-                >
-                  <%= if hub.logo_url do %>
-                    <img
-                      src={hub.logo_url}
-                      alt={hub.name}
-                      class="h-full w-full object-cover"
-                    />
-                  <% else %>
-                    <div class="text-white text-2xl font-haas_bold_75">
-                      {String.first(hub.name)}
-                    </div>
-                  <% end %>
-                </div>
-
-                <!-- Name -->
-                <h3 class="font-haas_bold_75 text-lg text-[#141414] group-hover:text-[#6366F1] transition-colors text-center mt-2">
-                  {hub.name}
-                </h3>
-              </div>
-
-              <!-- Description -->
-              <p class="text-sm font-haas_roman_55 text-[#515B70] leading-relaxed text-center mb-auto">
-                {hub.description || "Discover the latest news, updates, and insights from #{hub.name}. Join our community to stay informed about developments, events, and opportunities in the blockchain ecosystem."}
-              </p>
-
-              <!-- View Hub Badge Centered -->
-              <div class="flex justify-center mt-4">
-                <div class="px-4 py-2.5 rounded-full bg-[#141414] flex items-center justify-center">
-                  <span class="text-xs font-haas_medium_65 text-white leading-none">View Hub</span>
-                </div>
-              </div>
-
-              <!-- Stats Footer -->
-              <div class="flex items-center justify-between pt-4 border-t border-[#E7E8F1] mt-4">
-                <!-- Followers -->
-                <div class="flex items-center gap-1.5 text-[#515B70]" title="Followers">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                  </svg>
-                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.followers), do: length(hub.followers), else: 0}</span>
-                </div>
-
-                <!-- Posts -->
-                <div class="flex items-center gap-1.5 text-[#515B70]" title="Posts">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <line x1="10" y1="9" x2="8" y2="9"></line>
-                  </svg>
-                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.posts), do: length(hub.posts), else: 0}</span>
-                </div>
-
-                <!-- Events -->
-                <div class="flex items-center gap-1.5 text-[#515B70]" title="Events">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                  </svg>
-                  <span class="text-xs font-haas_medium_65">{if Ecto.assoc_loaded?(hub.events), do: length(hub.events), else: 0}</span>
-                </div>
-              </div>
-            </.link>
-          <% end %>
+        <div class="hidden md:flex items-center gap-1.5 text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+          <span>Sort by:</span>
+          <span class="text-[#141414] font-bold">Most followed</span>
+          <span class="text-neutral-300">▾</span>
         </div>
-
-        <!-- Stats Section -->
-        <div class="mt-12 text-center">
-          <p class="text-[#515B70] font-haas_roman_55">
-            Showing <span class="font-haas_medium_65 text-[#141414]">{length(@hubs)}</span> business hubs
-          </p>
-        </div>
-      <% end %>
+      </div>
+      <%!-- Category chips --%>
+      <div class="flex items-center gap-2 flex-wrap">
+        <%= for category <- @categories do %>
+          <BlocksterV2Web.DesignSystem.chip
+            variant={if(@active_category == String.downcase(category) || (@active_category == "all" && category == "All"), do: "active", else: "default")}
+            phx-click="filter_category"
+            phx-value-category={String.downcase(category)}
+          >
+            {category}
+          </BlocksterV2Web.DesignSystem.chip>
+        <% end %>
+      </div>
     </div>
   </section>
-</div>
+
+  <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       ALL HUBS GRID — 4 columns
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
+  <section class="pb-12">
+    <%= if @hubs == [] && @search_query != "" do %>
+      <div class="text-center py-20">
+        <p class="text-neutral-500">No hubs match "<span class="font-bold text-neutral-700">{@search_query}</span>"</p>
+      </div>
+    <% else %>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <%= for hub <- @hubs do %>
+          <BlocksterV2Web.DesignSystem.hub_card
+            href={~p"/hub/#{hub.slug}"}
+            name={hub.name}
+            ticker={hub.token || String.slice(hub.name, 0, 1)}
+            logo_url={hub.logo_url}
+            primary={hub.color_primary || "#6366F1"}
+            secondary={hub.color_secondary || "#4F46E5"}
+            description={hub.description}
+            post_count={compact_number(hub_post_count(hub))}
+            reader_count={compact_number(hub_follower_count(hub))}
+          />
+        <% end %>
+
+        <%!-- "+N more hubs" dashed card (only when not searching) --%>
+        <%= if @search_query == "" && length(@all_hubs) > length(@featured_hubs) + length(@hubs) do %>
+          <BlocksterV2Web.DesignSystem.hub_card_more
+            href="/hubs"
+            more_count={@total_hub_count - length(@featured_hubs) - length(@hubs)}
+          />
+        <% end %>
+      </div>
+
+      <%!-- Showing X stat --%>
+      <div class="mt-8 text-center text-[11px] text-neutral-500">
+        Showing <span class="font-bold text-neutral-700">{length(@hubs)} of {@total_hub_count} hubs</span> · Sorted by most followed
+      </div>
+    <% end %>
+  </section>
+
+</main>
+
+<BlocksterV2Web.DesignSystem.footer />

@@ -1159,3 +1159,80 @@ Restyled `PostLive.Show` template to match `article_page_mock.html` exactly:
 **Test article:** `/the-quiet-revolution-of-onchain-liquidity-pools` — rich content with all typography elements. Seed: `mix run priv/repo/seeds_test_article.exs`
 
 **Tests:** 13 show tests + 13 component tests = 26 new. 88+ total redesign tests passing, 0 new failures vs baseline.
+
+### Wave 1 · Page #3 Hubs Index (2026-04-10 — built, not yet committed)
+
+Restyled `HubLive.Index` template to match `hubs_index_mock.html` exactly:
+
+**Page structure (top to bottom):**
+- **Page hero**: "Browse" eyebrow, "Hubs" title (64px/80px), description with dynamic hub count, 3 stat tiles (Hubs / Articles / BUX Paid)
+- **Featured hubs**: "Featured this week" eyebrow, 3 large gradient cards (5+4+3 col on lg) using new `hub_feature_card` component
+- **Sticky search + filter bar**: white card with search input (debounced phx-keyup), sort-by label (stub), category chips using `<.chip>` component
+- **Hub grid**: 4-col gradient hub cards using updated `<.hub_card>` component + dashed "more hubs" tile
+- **Showing X of Y**: centered stat below grid
+
+**New component: `<.hub_feature_card />`**
+Large featured hub card with brand-color gradient, dot pattern overlay, blur glow, 56px logo square, 36px title, badge (Sponsor/Trending/etc), stats, Follow + Visit buttons. Two layouts:
+- `:horizontal` — wide card (5-col or 4-col), stats in a row, follow + visit buttons side by side
+- `:vertical` — narrow card (3-col), stats stacked vertically, full-width follow button
+
+**Updated component: `<.hub_card />`**
+Added optional `:category` attr for the top-right category badge (9px uppercase, glass bg, rounded-full). Added `min-height: 240px` to style. Description now uses `mt-auto` for better vertical alignment.
+
+**Updated component: `<.hub_card_more />`**
+Larger icon circle (w-12 h-12, rounded-full), bigger title (16px), subtitle changed to "Browse all categories" — matching mock exactly.
+
+**LiveView changes:**
+- `mount/3`: Splits hubs into `@featured_hubs` (first 3 by post count) and `@hubs` (grid), computes `@total_hub_count`, `@total_post_count`, `@categories`
+- `handle_event("search")`: Filters grid hubs only (featured always shown)
+- `compact_number/1`: Formats numbers as "1.2k", "3.4M" etc.
+- `hub_post_count/1`, `hub_follower_count/1`: Safe association count helpers
+
+**Router:** `/hubs` moved from `:default` to `:redesign` live_session (uses redesign layout)
+
+**Old template preserved at** `lib/blockster_v2_web/live/hub_live/legacy/index_pre_redesign.{ex,html.heex}`
+
+**Stubs:** Sort-by dropdown (visual only, no handler). Category filter chips fire `filter_category` event but no server-side category filtering (hubs don't have a category field).
+
+**Test baseline updated:** Added `test/blockster_v2_web/live/post_live/show_test.exs` (pre-existing from article page redesign, not caused by hubs index work). Baseline now 38 files.
+
+**Tests:** 8 hub_feature_card component tests + 16 hubs index LiveView tests = 24 new. 99+ total redesign tests passing, 0 new failures vs baseline.
+
+### Wave 1 · Page #4 Hub Show (2026-04-10 — built, not yet committed)
+
+Restyled `HubLive.Show` template to match `hub_show_mock.html` exactly:
+
+**Page structure (top to bottom):**
+- **Hub banner** (Variant C hero): full-bleed brand-color gradient (`linear-gradient(135deg, color_primary, color_secondary)`), dot pattern overlay, blur glow, breadcrumb (Hubs / name), identity block (80px glass logo square + 56-68px hub name), description, stats row (Posts / Followers), Follow Hub / Following CTA, social icon circles, frosted-glass live activity widget placeholder
+- **Sticky tab nav**: 5 tabs (All / News / Videos / Shop / Events) with mono count badges and brand-color underline on active tab
+- **All tab**: pinned post (12-col grid, 7-col image + 5-col text with hub badge, article-title, author avatar, BUX earn badge, "Read article" CTA), latest stories mosaic (big 7-col feature + 2 medium + 4 small cards), empty state when no posts
+- **News tab**: mosaic of posts filtered by `kind = "news"`, empty state with newspaper icon
+- **Videos tab**: featured video (large, left) + sidebar stack of 3 smaller video thumbnails, duration badges, empty state
+- **Shop tab**: 4-col product grid with hub color dot badges, price display (original strikethrough + discounted), "Buy Now" button, "View all" link, empty state
+- **Events tab**: empty state per D15 — white card "No events yet from this hub" + inert "Notify me" button
+
+**New component: `<.hub_banner />`**
+Variant C brand-color full-bleed hero. Accepts hub struct, post_count, follower_count, user_follows_hub, current_user. Renders identity block, stats row, follow/following button, social icons (website/X/telegram/discord), and live activity widget placeholder. Brand color gradient applied via inline style. Dot pattern + blur glow overlays.
+
+**Schema migration: `20260410200001_add_kind_to_posts`**
+Added `posts.kind` string field with default `"other"`, NOT NULL. Backfilled all existing posts. Added indexes on `[:kind]` and `[:hub_id, :kind]`.
+
+**Post schema updated:** Added `field :kind, :string, default: "other"` + `validate_inclusion(:kind, ~w(news video other))` in changeset.
+
+**New context function: `Blog.list_posts_by_hub_and_kind/3`**
+Filters published posts by hub and kind field. Supports tag_name cross-matching (same pattern as `list_published_posts_by_hub`).
+
+**LiveView changes:**
+- `mount/3`: Loads all_posts, pinned_post (first), mosaic_posts (next 7), news_posts (kind="news"), videos_posts, hub_products. Assigns `active_tab` (replaces separate show_all/show_news booleans)
+- `switch_tab` handler: sets `active_tab` string (simplified from old boolean pattern)
+- Removed `load-more-news` infinite scroll — news tab now uses simple mosaic grid
+- Preserved: `toggle_follow`, `update_hub_logo`, `toggle_mobile_menu`, `close_mobile_menu`
+- Added helpers: `compact_number/1`, `read_time/1`, `author_initials/1`, `author_display_name/1`, `format_date/1`, `tab_label/1`, `tab_count/2`
+
+**Router:** `/hub/:slug` moved from `:default` to `:redesign` live_session (uses redesign layout). Hub admin routes stay in `:default`.
+
+**Old template preserved at** `lib/blockster_v2_web/live/hub_live/legacy/show_pre_redesign.{ex,html.heex}`
+
+**Stubs:** Live activity widget (static placeholder), Sponsor/Verified badges (hardcoded), category filter chips on mosaic (visual only), "Notify me" button (inert), events tab (always empty state per D15).
+
+**Tests:** 13 hub_banner component tests + 17 hub show LiveView tests = 30 new. 129+ total redesign tests passing, 0 new failures vs baseline.

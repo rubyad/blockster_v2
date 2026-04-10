@@ -1,4 +1,4 @@
-defmodule BlocksterV2Web.PostLive.Index do
+defmodule BlocksterV2Web.PostLive.Legacy.IndexPreRedesign do
   @moduledoc """
   Homepage LiveView - displays posts with Latest/Popular tabs.
 

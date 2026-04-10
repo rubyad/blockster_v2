@@ -147,6 +147,8 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/", PostLive.Index, :index
+      live "/hubs", HubLive.Index, :index
+      live "/hub/:slug", HubLive.Show, :show
     end
 
     live_session :default,
@@ -162,11 +164,9 @@ defmodule BlocksterV2Web.Router do
       live "/cookies", LegalLive.Cookies, :index
       live "/events", EventLive.Index, :index
       live "/event/:slug", EventLive.Show, :show
-      live "/hubs", HubLive.Index, :index
       live "/hubs/admin", HubLive.Admin, :index
       live "/hubs/admin/new", HubLive.Admin, :new
       live "/hubs/admin/:id/edit", HubLive.Admin, :edit
-      live "/hub/:slug", HubLive.Show, :show
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show
       live "/shop-landing", ShopLive.Landing, :index
