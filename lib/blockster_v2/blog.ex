@@ -344,6 +344,19 @@ defmodule BlocksterV2.Blog do
     end
   end
 
+  @doc """
+  Gets the count of published posts in a hub.
+  """
+  def count_published_posts_by_hub(%Hub{id: hub_id}), do: count_published_posts_by_hub(hub_id)
+
+  def count_published_posts_by_hub(hub_id) when is_integer(hub_id) do
+    from(p in Post,
+      where: not is_nil(p.published_at),
+      where: p.hub_id == ^hub_id
+    )
+    |> Repo.aggregate(:count)
+  end
+
   # =============================================================================
   # Date-sorted queries (direct Ecto, no cache)
   # =============================================================================
@@ -355,10 +368,80 @@ defmodule BlocksterV2.Blog do
   def list_published_posts_by_date(opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
     offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
 
-    published_posts_query()
-    |> limit(^limit)
-    |> offset(^offset)
+    query =
+      published_posts_query()
+      |> limit(^limit)
+      |> offset(^offset)
+
+    query =
+      if exclude_ids == [] do
+        query
+      else
+        from p in query, where: p.id not in ^exclude_ids
+      end
+
+    query
+    |> Repo.all()
+    |> populate_author_names()
+    |> with_bux_earned()
+  end
+
+  @doc """
+  Lists published video posts (where `video_id` is set) sorted by published_at DESC.
+  Used by the redesigned homepage's Watch layout cycle.
+
+  ## Options
+    * `:limit` - max number of videos to return (default 7)
+    * `:offset` - number of videos to skip
+    * `:exclude_ids` - post ids to filter out (already-displayed)
+  """
+  def list_published_videos(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 7)
+    offset = Keyword.get(opts, :offset, 0)
+    exclude_ids = Keyword.get(opts, :exclude_ids, [])
+
+    query =
+      from p in published_posts_query(),
+        where: not is_nil(p.video_id),
+        limit: ^limit,
+        offset: ^offset
+
+    query =
+      if exclude_ids == [] do
+        query
+      else
+        from p in query, where: p.id not in ^exclude_ids
+      end
+
+    query
+    |> Repo.all()
+    |> populate_author_names()
+    |> with_bux_earned()
+  end
+
+  @doc """
+  Lists posts from hubs the given user follows, sorted by published_at DESC.
+  Used by the redesigned homepage's "From hubs you follow" section.
+
+  Returns `[]` for users with no followed hubs.
+  """
+  def list_posts_from_followed_hubs(user, opts \\ [])
+  def list_posts_from_followed_hubs(nil, _opts), do: []
+
+  def list_posts_from_followed_hubs(user, opts) do
+    user_id = user.id
+    limit = Keyword.get(opts, :limit, 8)
+
+    query =
+      from p in published_posts_query(),
+        join: hf in "hub_followers",
+        on: hf.hub_id == p.hub_id,
+        where: hf.user_id == ^user_id,
+        limit: ^limit
+
+    query
     |> Repo.all()
     |> populate_author_names()
     |> with_bux_earned()

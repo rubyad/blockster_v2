@@ -1024,3 +1024,78 @@ Before landing on the "put it inside `site_header`" approach, I burned a few ite
 - `rejects merging an active Solana wallet user (not a legacy holder)`
 
 49 email/legacy_merge tests, 0 failures. Full reclaim test set: 110 tests, 0 failures.
+
+---
+
+## Existing-Pages Redesign Release (2026-04-09 — ongoing)
+
+### Wave 0 · Foundation Components (2026-04-09)
+
+Created `lib/blockster_v2_web/components/design_system.ex` — a single module containing all reusable design system components, consumed via `use BlocksterV2Web.DesignSystem`.
+
+**11 components built:**
+- `<.logo size="22px" variant="light|dark" />` — Inter 800 wordmark with lime circle icon as the O (0.78em, +0.06em tracking)
+- `<.eyebrow />` — tracked uppercase label
+- `<.chip variant="default|active" />` — filter pill
+- `<.author_avatar initials size />` — dark gradient initials circle (5 sizes)
+- `<.profile_avatar initials size ring />` — heavier gradient, optional lime ring
+- `<.why_earn_bux_banner />` — locked copy per D3
+- `<.header />` — full production header with search input + results dropdown, notification bell + dropdown panel, cart icon, user dropdown (My Profile / BUX detail / Disconnect / Admin links), Connect Wallet button (anonymous), Solana mainnet pulse, lime Why Earn BUX banner
+- `<.footer />` — dark footer with mission line, Miami Beach address, media kit link, newsletter form
+- `<.page_hero variant="A" />` — editorial title hero with optional 3-stat band
+- `<.stat_card />` — big-number white card with icon + footer slots
+- `<.post_card />` — standard suggested-reading article card
+
+**Additional components added during Wave 1:**
+- `<.section_header />` — eyebrow + section title + see-all link
+- `<.hero_feature_card />` — magazine-cover featured article (Variant B)
+- `<.hub_card />` — full-bleed brand-color hub card
+- `<.hub_card_more />` — dashed "+ N more hubs" tile
+- `<.coming_soon_card variant="token_sale|recommended" />` — stub placeholder cards
+- `<.welcome_hero />` — dark gradient anonymous CTA section
+- `<.what_you_unlock_grid />` — anonymous 3-feature cards
+
+**Infrastructure:**
+- `lib/blockster_v2_web/components/layouts/redesign.html.heex` — minimal layout for redesigned pages (no old site_header/footer/mobile nav; includes wallet selector modal + toast notifications + flash)
+- Router: new `:redesign` live_session with redesign layout
+- `/dev/design-preview` route (dev-only) renders every component on one page
+- `docs/solana/test_baseline_redesign.md` — inherited 37-file pre-existing failure baseline
+- `docs/solana/redesign_release_plan.md` — master plan with locked decisions, stub register, build progress
+
+**Commits:** `af15f58` (foundation components), `294b51d` (design preview)
+
+### Wave 1 · Page #1 Homepage (2026-04-09 — built, not yet committed)
+
+Rewrote `PostLive.Index` from a 4-component cycling infinite-scroll feed to a new structure:
+
+**New cycling layouts** (replace PostsThree/Four/Five/Six):
+- `ThreeColumn` — 3 posts in 3-col grid (consumes 3 posts)
+- `Mosaic` — 14 posts in mixed-size 12-col mosaic (1 big + 2 medium + 4 small + repeat)
+- `VideoLayout` — 7 video posts (skipped when fewer than 7 videos remain)
+- `Editorial` — 4 posts in 2x2 large editorial cards
+
+**One-shot sections** (rendered once on initial mount):
+- Hero featured article (most recent post)
+- Hub showcase (top 8 hubs by post count)
+- Token sales stub (3 Coming Soon cards)
+- Hubs you follow (logged-in only, posts from followed hubs)
+- Recommended for you stub (logged-in only)
+- Welcome hero + What you unlock (anonymous only)
+
+**All existing functionality preserved:**
+- Infinite scroll via `load-more` event cycling ThreeColumn → Mosaic → Video → Editorial
+- Real-time BUX updates via `:bux_update` PubSub → `send_update` to correct layout component
+- Search, notifications, cart, admin BUX deposit modal — all handlers preserved
+- Post cards show category + earned/pool BUX badges (using existing `SharedComponents.token_badge/1` and `earned_badges/1`)
+- Images use `ImageKit.w500_h500` for optimized loading
+- Video play icon overlay on video posts
+
+**Blog API additions:**
+- `Blog.list_published_videos/1` — filters by `video_id != nil`
+- `Blog.list_posts_from_followed_hubs/2` — joins hub_followers
+- `Blog.count_published_posts_by_hub/1` — for hub showcase ordering
+- `Blog.list_published_posts_by_date/1` — added `:exclude_ids` option for dedup
+
+**Old homepage preserved at** `lib/blockster_v2_web/live/post_live/legacy/index_pre_redesign.{ex,html.heex}`
+
+**Tests:** 8 new homepage tests + 65 total redesign tests passing, 0 new failures vs baseline.

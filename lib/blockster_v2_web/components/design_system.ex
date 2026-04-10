@@ -72,7 +72,7 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <span
       class={[
-        "ds-logo inline-flex items-center whitespace-nowrap leading-none uppercase",
+        "ds-logo inline-flex items-center whitespace-nowrap leading-none uppercase font-extrabold tracking-[0.06em]",
         @variant == "dark" && "ds-logo--dark",
         @class
       ]}
@@ -83,6 +83,7 @@ defmodule BlocksterV2Web.DesignSystem do
         src="https://ik.imagekit.io/blockster/blockster-icon.png"
         alt="o"
         class="ds-logo__o"
+        style="display:inline-block;width:0.78em;height:0.78em;object-fit:contain;margin:0 0.04em;vertical-align:middle;flex-shrink:0;"
         loading="eager"
       /><span class="ds-logo__c">CKSTER</span>
     </span>
@@ -267,44 +268,48 @@ defmodule BlocksterV2Web.DesignSystem do
 
   # ── <.header /> ─────────────────────────────────────────────────────────────
   #
-  # The new sticky site header. Hybrid of the mock visual (logo + Solana mainnet
-  # pulse + center nav + lime banner) and the production functional features that
-  # need to keep working (search trigger, notification bell + dropdown, cart icon
-  # with count, user dropdown with admin links, mobile responsive layout).
-  #
-  # Two variants:
-  #   logged_in  → BUX pill, cart, notifications, search, user dropdown
-  #   anonymous  → Connect Wallet button only
-  #
-  # The center nav highlights the active route via `active` attr.
+  # The redesigned site header with ALL production features:
+  #   - Logo (PNG from ImageKit), Solana mainnet pulse, center nav
+  #   - Search input with live results dropdown (search_posts handler)
+  #   - Notification bell with full dropdown panel (toggle/close/click/mark-all)
+  #   - Cart icon with count badge
+  #   - BUX balance pill (2 decimal places)
+  #   - User dropdown (My Profile, BUX detail, Disconnect, Admin links)
+  #   - Connect Wallet button (anonymous)
+  #   - Lime "Why Earn BUX?" banner
 
   @doc """
-  Renders the redesigned site header. Pass `current_user: nil` for the anonymous
-  variant, otherwise the logged-in variant is rendered.
-
-      <.header current_user={@current_user} active="home" bux_balance={@bux_balance} />
+  Renders the redesigned site header with all production features.
   """
   attr :current_user, :any, default: nil
   attr :active, :string, default: nil, doc: "active nav slug: home|hubs|shop|play|pool|airdrop"
   attr :bux_balance, :any, default: 0
+  attr :token_balances, :map, default: %{}
   attr :cart_item_count, :integer, default: 0
   attr :unread_notification_count, :integer, default: 0
+  attr :notification_dropdown_open, :boolean, default: false
+  attr :recent_notifications, :list, default: []
+  attr :search_query, :string, default: ""
+  attr :search_results, :list, default: []
+  attr :show_search_results, :boolean, default: false
   attr :show_why_earn_bux, :boolean, default: true
+  attr :connecting, :boolean, default: false
 
   def header(assigns) do
     assigns =
       assigns
       |> assign(:formatted_bux, format_bux(assigns.bux_balance))
       |> assign(:initials, user_initials(assigns.current_user))
+      |> assign(:user_slug, user_slug(assigns.current_user))
 
     ~H"""
     <header
       id="ds-site-header"
       class="ds-header bg-white/[0.92] backdrop-blur-md border-b border-neutral-200/70 sticky top-0 z-30"
     >
-      <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between gap-6">
+      <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
         <%!-- Left: logo + Solana mainnet pulse --%>
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-3 min-w-0 shrink-0">
           <.link navigate={~p"/"} class="flex items-center" aria-label="Blockster home">
             <.logo size="22px" />
           </.link>
@@ -314,48 +319,139 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
         </div>
 
-        <%!-- Center: nav --%>
-        <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700">
-          <.header_nav_link href={~p"/"} active={@active == "home"}>Home</.header_nav_link>
-          <.header_nav_link href={~p"/hubs"} active={@active == "hubs"}>Hubs</.header_nav_link>
-          <.header_nav_link href={~p"/shop"} active={@active == "shop"}>Shop</.header_nav_link>
-          <.header_nav_link href={~p"/play"} active={@active == "play"}>Play</.header_nav_link>
-          <.header_nav_link href={~p"/pool"} active={@active == "pool"}>Pool</.header_nav_link>
-          <.header_nav_link href={~p"/airdrop"} active={@active == "airdrop"}>Airdrop</.header_nav_link>
-        </nav>
+        <%!-- Center: search + nav --%>
+        <div class="flex items-center gap-4 flex-1 justify-center">
+          <%!-- Search input --%>
+          <div class="relative hidden md:block" id="ds-search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2">
+                <svg class="w-3.5 h-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <path d="m21 21-4.3-4.3"></path>
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search"
+                value={@search_query}
+                phx-keyup="search_posts"
+                phx-debounce="300"
+                class="h-9 pl-9 pr-3 bg-neutral-100 text-sm w-[180px] rounded-full border border-neutral-200/60 focus:outline-none focus:border-neutral-400 text-[#141414]"
+              />
+            </div>
+            <%!-- Search results dropdown --%>
+            <%= if @show_search_results && length(@search_results) > 0 do %>
+              <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-neutral-200 shadow-xl z-50 max-h-[500px] overflow-y-auto">
+                <div class="py-2">
+                  <%= for post <- @search_results do %>
+                    <.link
+                      navigate={~p"/#{post.slug}"}
+                      class="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer"
+                    >
+                      <div class="rounded-lg overflow-hidden shrink-0 w-[60px] h-[60px]">
+                        <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-bold text-[#141414] line-clamp-2">{post.title}</h4>
+                        <%= if post.category do %>
+                          <span class="inline-block mt-1 px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-xs">
+                            {post.category.name}
+                          </span>
+                        <% end %>
+                      </div>
+                    </.link>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+
+          <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700">
+            <.header_nav_link href={~p"/"} active={@active == "home"}>Home</.header_nav_link>
+            <.header_nav_link href={~p"/hubs"} active={@active == "hubs"}>Hubs</.header_nav_link>
+            <.header_nav_link href={~p"/shop"} active={@active == "shop"}>Shop</.header_nav_link>
+            <.header_nav_link href={~p"/play"} active={@active == "play"}>Play</.header_nav_link>
+            <.header_nav_link href={~p"/pool"} active={@active == "pool"}>Pool</.header_nav_link>
+            <.header_nav_link href={~p"/airdrop"} active={@active == "airdrop"}>Airdrop</.header_nav_link>
+          </nav>
+        </div>
 
         <%!-- Right --%>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <%= if @current_user do %>
-            <%!-- Search icon (opens overlay; preserves search_posts handler) --%>
-            <button
-              type="button"
-              phx-click={JS.dispatch("ds:open-search")}
-              class="hidden sm:flex w-9 h-9 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
-              aria-label="Search"
-            >
-              <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="7"></circle>
-                <path d="m21 21-4.3-4.3"></path>
-              </svg>
-            </button>
+            <%!-- Notifications bell with dropdown --%>
+            <div class="relative" id="ds-notification-bell">
+              <button
+                type="button"
+                phx-click="toggle_notification_dropdown"
+                class="relative w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+                aria-label="Notifications"
+              >
+                <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                </svg>
+                <%= if @unread_notification_count > 0 do %>
+                  <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {if @unread_notification_count > 99, do: "99+", else: @unread_notification_count}
+                  </span>
+                <% end %>
+              </button>
 
-            <%!-- Notifications bell --%>
-            <button
-              type="button"
-              phx-click="toggle_notification_dropdown"
-              class="relative w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
-              aria-label="Notifications"
-            >
-              <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
-              </svg>
-              <%= if @unread_notification_count > 0 do %>
-                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                  {if @unread_notification_count > 99, do: "99+", else: @unread_notification_count}
-                </span>
+              <%!-- Notification dropdown panel --%>
+              <%= if @notification_dropdown_open do %>
+                <div id="ds-notification-dropdown" class="absolute right-0 top-12 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden" phx-click-away="close_notification_dropdown">
+                  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <h3 class="font-bold text-[#141414] text-sm">Notifications</h3>
+                    <%= if @unread_notification_count > 0 do %>
+                      <button phx-click="mark_all_notifications_read" class="text-xs text-gray-500 hover:text-[#141414] cursor-pointer">Mark all read</button>
+                    <% end %>
+                  </div>
+                  <div class="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
+                    <%= if @recent_notifications == [] do %>
+                      <div class="py-12 text-center text-gray-400 text-sm">No notifications yet</div>
+                    <% else %>
+                      <%= for notification <- @recent_notifications do %>
+                        <div
+                          phx-click="click_notification"
+                          phx-value-id={notification.id}
+                          phx-value-url={notification.action_url}
+                          class={"flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors #{if is_nil(notification.read_at), do: "bg-blue-50/30", else: ""}"}
+                        >
+                          <%= if notification.image_url do %>
+                            <img src={notification.image_url} class="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                          <% else %>
+                            <div class="w-10 h-10 rounded-lg bg-[#CAFC00] flex items-center justify-center flex-shrink-0">
+                              <svg class="w-5 h-5 text-black" viewBox="0 0 24 24" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                              </svg>
+                            </div>
+                          <% end %>
+                          <div class="flex-1 min-w-0">
+                            <p class={"text-sm truncate #{if is_nil(notification.read_at), do: "font-bold text-[#141414]", else: "text-gray-600"}"}>
+                              {notification.title}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{notification.body}</p>
+                            <p class="text-[10px] text-gray-400 mt-1">{format_notification_time(notification.inserted_at)}</p>
+                          </div>
+                          <%= if is_nil(notification.read_at) do %>
+                            <div class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2"></div>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
+                    <.link navigate={~p"/notifications"} class="text-xs font-bold text-[#141414] hover:underline">View all</.link>
+                    <.link navigate={~p"/notifications/settings"} class="text-xs text-gray-500 hover:text-[#141414] flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
+                      </svg>
+                      Settings
+                    </.link>
+                  </div>
+                </div>
               <% end %>
-            </button>
+            </div>
 
             <%!-- Cart icon --%>
             <.link
@@ -373,39 +469,96 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
             </.link>
 
-            <%!-- BUX pill --%>
-            <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-100 border border-neutral-200/60 rounded-full">
-              <img
-                src="https://ik.imagekit.io/blockster/blockster-icon.png"
-                alt="BUX"
-                class="w-4 h-4 rounded-full object-cover"
-              />
-              <span class="text-[12px] font-bold text-neutral-800 font-mono tabular-nums">{@formatted_bux}</span>
-              <span class="text-[10px] text-neutral-500">BUX</span>
+            <%!-- User dropdown (BUX pill + avatar) --%>
+            <div class="relative" id="ds-user-dropdown" phx-click-away={JS.hide(to: "#ds-header-user-menu")}>
+              <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-10 rounded-full bg-neutral-100 pl-2 pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
+                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_bux}</span>
+                <span class="text-[11px] text-neutral-500">BUX</span>
+                <svg class="w-4 h-4 ml-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
+                </svg>
+              </button>
+              <%!-- User dropdown menu --%>
+              <div id="ds-header-user-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
+                <div class="py-1">
+                  <.link
+                    navigate={~p"/member/#{@user_slug}"}
+                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
+                  >
+                    My Profile
+                  </.link>
+                  <%!-- Token balance detail --%>
+                  <div class="border-t border-gray-100 py-1">
+                    <% bux_detail = Map.get(@token_balances, "BUX", 0) %>
+                    <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
+                      <div class="flex items-center gap-2">
+                        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
+                        <span class="font-medium">BUX</span>
+                      </div>
+                      <span class="font-mono tabular-nums">{Number.Delimit.number_to_delimited(bux_detail, precision: 2)}</span>
+                    </div>
+                  </div>
+                  <div class="border-t border-gray-100"></div>
+                  <button
+                    phx-click="disconnect_wallet"
+                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    Disconnect Wallet
+                  </button>
+                  <%!-- Admin section --%>
+                  <%= if @current_user.is_author || @current_user.is_admin do %>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
+                    <.link navigate={~p"/new"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Create Article</.link>
+                    <%= if @current_user.is_admin do %>
+                      <.link navigate={~p"/admin"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Dashboard</.link>
+                      <.link navigate={~p"/admin/posts"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Posts</.link>
+                      <.link navigate={~p"/admin/events"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Events</.link>
+                      <.link navigate={~p"/admin/campaigns"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Campaigns</.link>
+                      <.link navigate={~p"/admin/categories"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Categories</.link>
+                      <.link navigate={~p"/hubs/admin"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Hubs</.link>
+                      <.link navigate={~p"/admin/products"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Products</.link>
+                      <.link navigate={~p"/admin/orders"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Orders</.link>
+                      <.link navigate={~p"/admin/product-categories"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Product Categories</.link>
+                      <.link navigate={~p"/admin/product-tags"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Product Tags</.link>
+                      <.link navigate={~p"/admin/artists"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Artists</.link>
+                      <.link navigate={~p"/admin/waitlist"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Waitlist</.link>
+                      <.link navigate={~p"/admin/flagged-accounts"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Flagged Accounts</.link>
+                      <.link navigate={~p"/admin/stats"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Bet Stats</.link>
+                      <.link navigate={~p"/admin/content"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Content Generator</.link>
+                      <div class="border-t border-gray-100 my-1"></div>
+                      <.link navigate={~p"/admin/notifications/campaigns"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Notification Campaigns</.link>
+                      <.link navigate={~p"/admin/notifications/analytics"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Notification Analytics</.link>
+                      <.link navigate={~p"/admin/ai-manager"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">AI Manager</.link>
+                      <.link navigate={~p"/admin/banners"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Ad Banners</.link>
+                      <.link navigate={~p"/admin/promo"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Promo Dashboard</.link>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
             </div>
-
-            <%!-- User avatar (dropdown trigger) --%>
-            <button
-              type="button"
-              id="ds-header-user"
-              phx-click={JS.toggle(to: "#ds-header-user-menu")}
-              class="rounded-full"
-              aria-label="Your account"
-            >
-              <.profile_avatar initials={@initials} size="sm" ring />
-            </button>
           <% else %>
             <%!-- Anonymous: Connect Wallet --%>
             <button
               type="button"
               phx-click="show_wallet_selector"
-              class="hidden sm:inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-4 py-2 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors"
+              disabled={@connecting}
+              class={"hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-bold transition-colors #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22]"}"}
             >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="6" width="20" height="14" rx="2"/>
-                <path d="M22 10h-4a2 2 0 100 4h4"/>
-              </svg>
-              Connect Wallet
+              <%= if @connecting do %>
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                  <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Connecting...
+              <% else %>
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="6" width="20" height="14" rx="2" />
+                  <path d="M22 10h-4a2 2 0 100 4h4" />
+                </svg>
+                Connect Wallet
+              <% end %>
             </button>
           <% end %>
         </div>
@@ -435,21 +588,37 @@ defmodule BlocksterV2Web.DesignSystem do
     """
   end
 
-  defp format_bux(nil), do: "0"
-  defp format_bux(n) when is_integer(n), do: Number.Delimit.number_to_delimited(n, precision: 0)
+  defp format_bux(nil), do: "0.00"
 
-  defp format_bux(n) when is_float(n) or is_struct(n, Decimal),
-    do: Number.Delimit.number_to_delimited(n, precision: 0)
+  defp format_bux(n) when is_number(n) or is_struct(n, Decimal),
+    do: Number.Delimit.number_to_delimited(n, precision: 2)
 
-  defp format_bux(_), do: "0"
+  defp format_bux(_), do: "0.00"
+
+  defp format_notification_time(nil), do: ""
+
+  defp format_notification_time(dt) do
+    now = NaiveDateTime.utc_now()
+    diff = NaiveDateTime.diff(now, dt, :second)
+
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86_400 -> "#{div(diff, 3600)}h ago"
+      diff < 604_800 -> "#{div(diff, 86_400)}d ago"
+      true -> Calendar.strftime(dt, "%b %d")
+    end
+  end
+
+  defp user_slug(nil), do: ""
+  defp user_slug(%{slug: slug}) when is_binary(slug) and slug != "", do: slug
+  defp user_slug(%{wallet_address: addr}) when is_binary(addr), do: addr
+  defp user_slug(_), do: ""
 
   defp user_initials(nil), do: "??"
 
   defp user_initials(%{} = user) do
     cond do
-      is_binary(Map.get(user, :display_name)) and Map.get(user, :display_name) != "" ->
-        initials_from_string(user.display_name)
-
       is_binary(Map.get(user, :username)) and Map.get(user, :username) != "" ->
         initials_from_string(user.username)
 
@@ -838,4 +1007,555 @@ defmodule BlocksterV2Web.DesignSystem do
   defp format_reward(n) when is_integer(n) and n >= 0, do: "+#{n}"
   defp format_reward(s) when is_binary(s), do: s
   defp format_reward(_), do: ""
+
+  # ── <.section_header /> ─────────────────────────────────────────────────────
+  #
+  # The eyebrow + section title + "See all →" link pattern repeated across
+  # every named section on the homepage. Used by AI × Crypto, Trending,
+  # Hub showcase, Token sales, Watch, From the editors, Hubs you follow,
+  # Recommended for you. Tightly coupled to the editorial weight of the design.
+
+  @doc """
+  Renders a section header (eyebrow + section title + optional see-all link).
+
+      <.section_header eyebrow="Most read this week" title="Trending">
+        <:see_all href="/trending">See all</:see_all>
+      </.section_header>
+  """
+  attr :eyebrow, :string, default: nil
+  attr :title, :string, required: true
+  attr :title_size, :string, default: "lg", values: ~w(md lg)
+  attr :class, :string, default: nil
+
+  slot :see_all do
+    attr :href, :string
+  end
+
+  slot :inner_block, doc: "optional content rendered to the right of the title (e.g. filter chips)"
+
+  def section_header(assigns) do
+    ~H"""
+    <div class={["ds-section-header flex items-baseline justify-between mb-6 flex-wrap gap-3", @class]}>
+      <div>
+        <%= if @eyebrow do %>
+          <.eyebrow class="mb-1">{@eyebrow}</.eyebrow>
+        <% end %>
+        <h2 class={[
+          "font-bold tracking-[-0.018em] text-[#141414]",
+          @title_size == "lg" && "text-[28px] md:text-[34px]",
+          @title_size == "md" && "text-[22px] md:text-[26px]"
+        ]}>
+          {@title}
+        </h2>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        {render_slot(@inner_block)}
+        <%= for see_all <- @see_all do %>
+          <.link
+            navigate={Map.get(see_all, :href, "#")}
+            class="text-[13px] text-neutral-600 hover:text-neutral-900 transition-colors group"
+          >
+            {render_slot(see_all)}
+            <span class="inline-block group-hover:translate-x-0.5 transition-transform">→</span>
+          </.link>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  # ── <.hero_feature_card /> ──────────────────────────────────────────────────
+  #
+  # Variant B page hero — magazine cover featured article. Used at the top of
+  # the homepage. 7-col image left + 5-col title/byline/CTA right.
+
+  @doc """
+  Renders the magazine-cover featured article hero.
+
+      <.hero_feature_card
+        href="/the-quiet-revolution"
+        image="https://example.com/img.jpg"
+        eyebrow="Today's Story"
+        eyebrow_meta="Updated 12 minutes ago"
+        hub_name="Moonpay"
+        hub_color="#7D00FF"
+        category="DeFi"
+        title="The quiet revolution of on-chain liquidity pools"
+        excerpt="How dual-vault bankrolls are rewriting the rules of provably-fair gaming on Solana."
+        author="Marcus Verren"
+        author_initials="MV"
+        read_minutes={8}
+        time_ago="2h ago"
+        bux_reward={45}
+      />
+  """
+  attr :href, :string, required: true
+  attr :image, :string, required: true
+  attr :eyebrow, :string, default: "Today's Story"
+  attr :eyebrow_meta, :string, default: nil
+  attr :hub_name, :string, default: nil
+  attr :hub_color, :string, default: "#7D00FF"
+  attr :category, :string, default: nil
+  attr :title, :string, required: true
+  attr :excerpt, :string, default: nil
+  attr :author, :string, default: nil
+  attr :author_initials, :string, default: nil
+  attr :read_minutes, :integer, default: nil
+  attr :time_ago, :string, default: nil
+  attr :bux_reward, :any, default: nil
+
+  def hero_feature_card(assigns) do
+    ~H"""
+    <section class="ds-hero-feature pt-10 pb-14">
+      <div class="flex items-center gap-3 mb-5">
+        <span class="ds-eyebrow font-bold uppercase text-[10px] tracking-[0.16em] text-neutral-400">
+          {@eyebrow}
+        </span>
+        <%= if @eyebrow_meta do %>
+          <span class="w-8 h-px bg-neutral-300"></span>
+          <span class="text-[10px] tracking-[0.16em] uppercase text-neutral-400">
+            {@eyebrow_meta}
+          </span>
+        <% end %>
+      </div>
+      <.link navigate={@href} class="block group">
+        <div class="grid grid-cols-12 gap-8 items-center">
+          <%!-- Image --%>
+          <div class="col-span-12 md:col-span-7">
+            <div class="aspect-[16/11] rounded-2xl overflow-hidden ring-1 ring-black/5 bg-neutral-100">
+              <img
+                src={@image}
+                alt=""
+                class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+              />
+            </div>
+          </div>
+          <%!-- Text --%>
+          <div class="col-span-12 md:col-span-5">
+            <%= if @hub_name do %>
+              <div class="flex items-center gap-2 mb-4">
+                <div class="w-5 h-5 rounded" style={"background-color: #{@hub_color};"}></div>
+                <span class="text-[12px] font-bold text-[#141414]">{@hub_name}</span>
+                <%= if @category do %>
+                  <span class="text-neutral-300">·</span>
+                  <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                    {@category}
+                  </span>
+                <% end %>
+              </div>
+            <% end %>
+            <h1 class="font-bold tracking-[-0.022em] leading-[1.04] text-[#141414] text-[44px] md:text-[52px] mb-5 group-hover:opacity-80 transition-opacity">
+              {@title}
+            </h1>
+            <%= if @excerpt do %>
+              <p class="text-[16px] leading-[1.55] text-neutral-600 mb-6 max-w-[480px]">
+                {@excerpt}
+              </p>
+            <% end %>
+            <%= if @author do %>
+              <div class="flex items-center gap-3 mb-6">
+                <%= if @author_initials do %>
+                  <.author_avatar initials={@author_initials} size="md" />
+                <% end %>
+                <div>
+                  <div class="text-[13px] font-bold text-[#141414]">{@author}</div>
+                  <%= if @read_minutes do %>
+                    <div class="text-[11px] text-neutral-500 mt-[1px]">
+                      {@read_minutes} min read{if @time_ago, do: " · #{@time_ago}", else: ""}
+                    </div>
+                  <% end %>
+                </div>
+                <%= if @bux_reward do %>
+                  <div class="ml-auto flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                    Earn {@bux_reward} BUX
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+            <div class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold group-hover:bg-[#1a1a22] transition-colors">
+              Read article
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </.link>
+    </section>
+    """
+  end
+
+  # ── <.hub_card /> ───────────────────────────────────────────────────────────
+  #
+  # Full-bleed brand-color hub card with logo + name + description + post/reader
+  # counts + Follow button. Used in the homepage hub showcase + future hubs index.
+
+  @doc """
+  Renders a hub showcase card with the hub's brand-color gradient background.
+
+      <.hub_card
+        href="/hub/moonpay"
+        name="Moonpay"
+        ticker="M"
+        primary="#7D00FF"
+        secondary="#4A00B8"
+        description="The simplest way to buy and sell crypto."
+        post_count="142"
+        reader_count="8.2k"
+      />
+  """
+  attr :href, :string, required: true
+  attr :name, :string, required: true
+  attr :ticker, :string, default: nil, doc: "1-3 char ticker shown in the logo square"
+  attr :logo_url, :string, default: nil, doc: "optional logo URL to render instead of the ticker"
+  attr :primary, :string, required: true
+  attr :secondary, :string, required: true
+  attr :description, :string, default: nil
+  attr :post_count, :string, default: nil
+  attr :reader_count, :string, default: nil
+  attr :class, :string, default: nil
+
+  def hub_card(assigns) do
+    ~H"""
+    <.link
+      navigate={@href}
+      class={[
+        "ds-hub-card group block rounded-2xl p-5 text-white relative overflow-hidden",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl",
+        @class
+      ]}
+      style={"background: linear-gradient(135deg, #{@primary} 0%, #{@secondary} 100%);"}
+    >
+      <%!-- Top-right radial highlight --%>
+      <div
+        class="absolute inset-0 pointer-events-none"
+        style="background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.18), transparent 60%);"
+      ></div>
+      <div class="relative z-10 h-full flex flex-col" style="min-height: 200px;">
+        <div class="flex items-center justify-between mb-8">
+          <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20">
+            <%= cond do %>
+              <% @logo_url -> %>
+                <img src={@logo_url} alt={@name} class="w-5 h-5 rounded" />
+              <% @ticker -> %>
+                <span class="text-white font-bold text-[14px]">{@ticker}</span>
+              <% true -> %>
+                <span class="text-white font-bold text-[14px]">{String.first(@name)}</span>
+            <% end %>
+          </div>
+        </div>
+        <h3 class="font-bold text-[20px] tracking-tight mb-1">{@name}</h3>
+        <%= if @description do %>
+          <p class="text-white/75 text-[11px] line-clamp-2 mb-4">{@description}</p>
+        <% end %>
+        <div class="flex items-center justify-between mt-auto">
+          <div class="flex items-center gap-3">
+            <%= if @post_count do %>
+              <div>
+                <span class="text-[14px] font-bold tabular-nums">{@post_count}</span>
+                <span class="text-[10px] text-white/65">posts</span>
+              </div>
+            <% end %>
+            <%= if @reader_count do %>
+              <div>
+                <span class="text-[14px] font-bold tabular-nums">{@reader_count}</span>
+                <span class="text-[10px] text-white/65">readers</span>
+              </div>
+            <% end %>
+          </div>
+          <span class="bg-black/25 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 group-hover:bg-black/40 transition-colors">
+            Visit hub
+          </span>
+        </div>
+      </div>
+    </.link>
+    """
+  end
+
+  # ── <.hub_card_more /> ──────────────────────────────────────────────────────
+  #
+  # The dashed "+ N more hubs · Browse all" tile that goes at the end of the
+  # hub showcase grid. Same dimensions as a regular hub card.
+
+  @doc """
+  Renders the "browse all hubs" tile that fills the last slot of the hub showcase grid.
+  """
+  attr :href, :string, default: "/hubs"
+  attr :more_count, :integer, required: true
+
+  def hub_card_more(assigns) do
+    ~H"""
+    <.link
+      navigate={@href}
+      class="ds-hub-card-more group block rounded-2xl p-5 bg-white border-2 border-dashed border-neutral-300 hover:border-[#141414] grid place-items-center text-center"
+      style="min-height: 240px;"
+    >
+      <div>
+        <div class="w-9 h-9 rounded-md bg-neutral-100 grid place-items-center mx-auto mb-3 group-hover:bg-[#CAFC00] transition-colors">
+          <svg class="w-4 h-4 text-neutral-600 group-hover:text-black transition-colors" viewBox="0 0 20 20" fill="none">
+            <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <h3 class="font-bold text-[14px] text-[#141414]">+{@more_count} more hubs</h3>
+        <p class="text-[11px] text-neutral-500 mt-0.5">Browse all</p>
+      </div>
+    </.link>
+    """
+  end
+
+  # ── <.coming_soon_card /> ───────────────────────────────────────────────────
+  #
+  # Stub placeholder card for sections whose backend ships in a later release.
+  # Per the redesign release plan stub policy: "prefer visible Coming soon
+  # placeholders over hidden sections; honest about what's missing; card-shaped,
+  # inert button, clear copy."
+  #
+  # Variants drive the visual treatment:
+  #   token_sale  → matches the token sale card outer frame (gradient stripe + brand block)
+  #   recommended → simpler horizontal card matching the recommendation card layout
+
+  @doc """
+  Renders a "Coming soon" placeholder card. The shape matches the future real
+  component so the swap is a 1-line template change when the backend lights up.
+
+      <.coming_soon_card variant="token_sale" title="First sale launches soon" />
+      <.coming_soon_card variant="recommended" />
+  """
+  attr :variant, :string, required: true, values: ~w(token_sale recommended)
+  attr :title, :string, default: nil
+  attr :body, :string, default: nil
+
+  def coming_soon_card(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:default_title, fn ->
+        case assigns.variant do
+          "token_sale" -> "First sale launches soon"
+          "recommended" -> "Personalized recommendations are on the way"
+        end
+      end)
+      |> assign_new(:default_body, fn ->
+        case assigns.variant do
+          "token_sale" -> "We're launching token sales for BUX-tier holders soon. Check back here when allocations open."
+          "recommended" -> "We're building a recommendation system that surfaces posts based on what you've already read. Until then, your followed hubs and the trending feed below have you covered."
+        end
+      end)
+
+    ~H"""
+    <div class={[
+      "ds-coming-soon-card block bg-white rounded-2xl border border-dashed border-neutral-300",
+      @variant == "token_sale" && "overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
+      @variant == "recommended" && "p-5"
+    ]}>
+      <%= if @variant == "token_sale" do %>
+        <div class="h-1 bg-neutral-200"></div>
+        <div class="p-5">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl grid place-items-center bg-neutral-100">
+                <svg class="w-5 h-5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-[15px] text-[#141414] tracking-tight leading-tight">
+                  {@title || @default_title}
+                </h3>
+                <div class="text-[10px] font-mono text-neutral-400">Coming soon</div>
+              </div>
+            </div>
+            <span class="inline-flex items-center gap-1 bg-neutral-100 text-neutral-500 border border-neutral-200 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+              Soon
+            </span>
+          </div>
+          <p class="text-[11px] text-neutral-500 leading-relaxed">
+            {@body || @default_body}
+          </p>
+          <div class="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
+            <div class="text-[10px] text-neutral-400">Notify me when it launches</div>
+            <span class="inline-flex items-center gap-1 bg-neutral-100 border border-neutral-200 text-neutral-400 px-3 py-1.5 rounded-full text-[10px] font-bold cursor-not-allowed">
+              Notify me
+            </span>
+          </div>
+        </div>
+      <% end %>
+      <%= if @variant == "recommended" do %>
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
+            <svg class="w-5 h-5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-[14px] text-[#141414] mb-1">
+              {@title || @default_title}
+            </h3>
+            <p class="text-[12px] text-neutral-500 leading-relaxed">
+              {@body || @default_body}
+            </p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  # ── <.welcome_hero /> ───────────────────────────────────────────────────────
+  #
+  # The dark gradient anonymous-only CTA section. Welcome eyebrow in lime,
+  # huge dual-tone title, Connect Wallet button, stats row, tilted preview card.
+  # Only ever rendered on the homepage when @current_user == nil.
+
+  @doc """
+  Renders the dark anonymous Welcome / Connect Wallet hero.
+  """
+  attr :article_count, :string, default: "12,450"
+  attr :bux_paid, :string, default: "4.2M"
+  attr :hub_count, :string, default: "66"
+  attr :preview_image, :string, default: nil
+  attr :preview_title, :string, default: nil
+  attr :preview_hub_name, :string, default: nil
+  attr :preview_hub_color, :string, default: "#7D00FF"
+  attr :preview_category, :string, default: nil
+  attr :preview_author, :string, default: nil
+  attr :preview_read_minutes, :integer, default: nil
+  attr :preview_bux_reward, :any, default: nil
+
+  def welcome_hero(assigns) do
+    ~H"""
+    <section class="ds-welcome-hero pt-12 pb-6 mt-8">
+      <div class="grid grid-cols-12 gap-8 items-center bg-gradient-to-br from-[#0a0a0a] via-[#1a1a22] to-[#0a0a0a] rounded-3xl overflow-hidden p-12 ring-1 ring-white/10 relative">
+        <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.06] to-transparent pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 w-[40%] h-[60%] bg-gradient-to-tr from-[#7D00FF]/15 to-transparent blur-3xl pointer-events-none"></div>
+        <div class="col-span-12 md:col-span-7 relative">
+          <div class="font-bold uppercase text-[10px] tracking-[0.16em] mb-4 text-[#CAFC00]">
+            Welcome to Blockster
+          </div>
+          <h2 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[44px] md:text-[58px] mb-5 max-w-[640px]">
+            The chain meets the model. <span class="text-white/45">Read it daily.</span>
+          </h2>
+          <p class="text-white/65 text-[16px] leading-[1.55] max-w-[520px] mb-7">
+            Blockster is a publication about the intersection of crypto and AI. We pay readers BUX for engaging with the best writing in the space — and every dollar of attention is settled on chain.
+          </p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              phx-click="show_wallet_selector"
+              class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white transition-colors"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="14" rx="2" />
+                <path d="M22 10h-4a2 2 0 100 4h4" />
+              </svg>
+              Connect Wallet to start earning
+            </button>
+            <a
+              href="#"
+              class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors text-[13px]"
+            >
+              Or browse without an account
+            </a>
+          </div>
+          <div class="mt-7 flex items-center gap-6 text-white/40 text-[11px] font-mono">
+            <div><span class="text-white font-bold tabular-nums">{@article_count}</span> articles</div>
+            <div><span class="text-white font-bold tabular-nums">{@bux_paid}</span> BUX paid out</div>
+            <div><span class="text-white font-bold tabular-nums">{@hub_count}</span> hubs</div>
+          </div>
+        </div>
+        <%= if @preview_title do %>
+          <div class="col-span-12 md:col-span-5 relative">
+            <div class="bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform">
+              <%= if @preview_image do %>
+                <div class="aspect-[16/9] rounded-xl bg-neutral-100 overflow-hidden mb-4">
+                  <img src={@preview_image} alt="" class="w-full h-full object-cover" />
+                </div>
+              <% end %>
+              <%= if @preview_hub_name do %>
+                <div class="flex items-center gap-1.5 mb-2">
+                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}></div>
+                  <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
+                    {@preview_hub_name}{if @preview_category, do: " · #{@preview_category}", else: ""}
+                  </span>
+                </div>
+              <% end %>
+              <h3 class="font-bold text-[16px] text-[#141414] leading-[1.2] mb-3 tracking-tight">
+                {@preview_title}
+              </h3>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-neutral-500">
+                  {@preview_author}{if @preview_read_minutes, do: " · #{@preview_read_minutes} min", else: ""}
+                </span>
+                <%= if @preview_bux_reward do %>
+                  <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-bold">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                    Earn {@preview_bux_reward} BUX
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </section>
+    """
+  end
+
+  # ── <.what_you_unlock_grid /> ───────────────────────────────────────────────
+  #
+  # Anonymous-only 3-feature card grid: "Earn BUX as you read" / "Follow 66 hubs"
+  # / "Spend BUX on rewards". Static copy. Renders below the welcome hero.
+
+  @doc """
+  Renders the 3-feature anonymous CTA grid below the welcome hero.
+  """
+  attr :hub_count, :integer, default: 66
+
+  def what_you_unlock_grid(assigns) do
+    ~H"""
+    <section class="ds-what-you-unlock py-12 border-t border-neutral-200/70 mt-8">
+      <div class="text-center mb-8">
+        <.eyebrow class="mb-2">What you unlock</.eyebrow>
+        <h2 class="font-bold tracking-[-0.018em] text-[#141414] text-[28px] md:text-[36px] max-w-[640px] mx-auto">
+          Reading is free. Earning is unlocked when you connect a wallet.
+        </h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl p-6 border border-neutral-200/70">
+          <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center mb-4">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+          </div>
+          <h3 class="font-bold text-[16px] text-[#141414] mb-2">Earn BUX as you read</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed">
+            Every article you finish pays out BUX based on how engaged you were. Real tokens, settled on chain.
+          </p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 border border-neutral-200/70">
+          <div class="w-10 h-10 rounded-xl bg-[#7D00FF] grid place-items-center mb-4">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="5" fill="white" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-[16px] text-[#141414] mb-2">Follow {@hub_count} hubs</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed">
+            Curate your own feed by following the hubs you care about. Solana, Bitcoin, Ethereum, Moonpay and more.
+          </p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 border border-neutral-200/70">
+          <div class="w-10 h-10 rounded-xl bg-[#0a0a0a] grid place-items-center mb-4">
+            <svg class="w-5 h-5 text-[#CAFC00]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-[16px] text-[#141414] mb-2">Spend BUX on rewards</h3>
+          <p class="text-[13px] text-neutral-600 leading-relaxed">
+            Redeem for sponsored airdrops, exclusive merch, and access to events from partners across the ecosystem.
+          </p>
+        </div>
+      </div>
+    </section>
+    """
+  end
 end

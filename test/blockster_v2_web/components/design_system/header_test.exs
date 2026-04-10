@@ -16,10 +16,9 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ "ds-header"
       assert html =~ "Connect Wallet"
       assert html =~ ~s(phx-click="show_wallet_selector")
-      refute html =~ "ds-profile-avatar"
     end
 
-    test "renders the Blockster wordmark in the brand block" do
+    test "renders the Blockster wordmark with lime icon" do
       assigns = %{}
 
       html =
@@ -27,13 +26,13 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={nil} />
         """)
 
-      # Logo wordmark pieces from the <.logo /> component
       assert html =~ "ds-logo"
+      assert html =~ "blockster-icon.png"
       assert html =~ ">BL</span>"
       assert html =~ ">CKSTER</span>"
     end
 
-    test "renders the lime Why Earn BUX banner under the nav" do
+    test "renders the lime Why Earn BUX banner" do
       assigns = %{}
 
       html =
@@ -64,15 +63,24 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={nil} active="hubs" />
         """)
 
-      # The active link gets a lime underline + bold weight
       assert html =~ "border-[#CAFC00]"
+    end
+
+    test "renders the search input with phx-keyup handler" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.header current_user={nil} />
+        """)
+
+      assert html =~ ~s(phx-keyup="search_posts")
     end
   end
 
   describe "header/1 · logged-in variant" do
-    test "shows BUX pill, cart icon, notifications bell, and avatar" do
-      user = %{display_name: "Marcus Verren", wallet_address: "7xQk8mPa3"}
-
+    test "shows BUX balance with 2 decimal places, cart, notifications, and user dropdown" do
+      user = %{username: "marcus", wallet_address: "7xQk8mPa3", slug: "marcus", is_author: false, is_admin: false}
       assigns = %{user: user}
 
       html =
@@ -87,20 +95,33 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         """)
 
       assert html =~ "ds-header"
-      # BUX pill with formatted balance
-      assert html =~ "12,450"
-      # Cart count badge (whitespace from HEEx pretty-printing)
+      # BUX balance with 2 decimal places
+      assert html =~ "12,450.00"
+      # Cart badge
       assert html =~ ~r/>\s*3\s*</
-      # Notification count badge
+      # Notification badge
       assert html =~ ~r/>\s*5\s*</
-      # User avatar (initials from display_name)
-      assert html =~ "ds-profile-avatar"
-      assert html =~ ~r/>\s*MV\s*</
+      # User dropdown trigger with BUX icon
+      assert html =~ "ds-user-dropdown"
       refute html =~ "Connect Wallet"
     end
 
+    test "renders the user dropdown with My Profile and Disconnect" do
+      user = %{username: "marcus", wallet_address: "7xQk8", slug: "marcus", is_author: false, is_admin: false}
+      assigns = %{user: user}
+
+      html =
+        rendered_to_string(~H"""
+        <.header current_user={@user} />
+        """)
+
+      assert html =~ "My Profile"
+      assert html =~ ~s(phx-click="disconnect_wallet")
+      assert html =~ "/member/marcus"
+    end
+
     test "preserves toggle_notification_dropdown handler on the bell" do
-      user = %{display_name: "Marcus", wallet_address: "abc"}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
       assigns = %{user: user}
 
       html =
@@ -111,8 +132,21 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ ~s(phx-click="toggle_notification_dropdown")
     end
 
+    test "shows the notification dropdown panel when notification_dropdown_open is true" do
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      assigns = %{user: user}
+
+      html =
+        rendered_to_string(~H"""
+        <.header current_user={@user} notification_dropdown_open={true} recent_notifications={[]} />
+        """)
+
+      assert html =~ "ds-notification-dropdown"
+      assert html =~ "No notifications yet"
+    end
+
     test "notification badge caps at 99+" do
-      user = %{display_name: "Marcus", wallet_address: "abc"}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
       assigns = %{user: user}
 
       html =
@@ -123,23 +157,8 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ "99+"
     end
 
-    test "no cart badge when cart is empty" do
-      user = %{display_name: "Marcus", wallet_address: "abc"}
-      assigns = %{user: user}
-
-      html =
-        rendered_to_string(~H"""
-        <.header current_user={@user} cart_item_count={0} />
-        """)
-
-      # The badge span is conditionally rendered
-      # We can't easily assert "no badge" but we can assert no count text in
-      # a badge wrapper. Smoke test: the cart link is still present.
-      assert html =~ ~s(aria-label="Cart")
-    end
-
-    test "falls back to wallet address initials if no display_name" do
-      user = %{display_name: nil, username: nil, wallet_address: "7xQk8mPa3"}
+    test "shows admin links when user is_admin" do
+      user = %{username: "admin", wallet_address: "abc", slug: "admin", is_author: true, is_admin: true}
       assigns = %{user: user}
 
       html =
@@ -147,8 +166,23 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={@user} />
         """)
 
-      # First two chars of wallet address uppercased
-      assert html =~ ~r/>\s*7X\s*</
+      assert html =~ "Create Article"
+      assert html =~ "Dashboard"
+      assert html =~ "Posts"
+    end
+
+    test "renders search results dropdown when show_search_results is true" do
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      post = %{slug: "test-post", title: "Test Post", featured_image: "https://example.com/img.jpg", category: %{name: "DeFi"}}
+      assigns = %{user: user, post: post}
+
+      html =
+        rendered_to_string(~H"""
+        <.header current_user={@user} show_search_results={true} search_results={[@post]} />
+        """)
+
+      assert html =~ "Test Post"
+      assert html =~ "DeFi"
     end
   end
 end

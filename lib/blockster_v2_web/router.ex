@@ -137,10 +137,21 @@ defmodule BlocksterV2Web.Router do
       live "/onboarding/:step", OnboardingLive.Index, :step
     end
 
+    # Pages rebuilt against the new design system live in the :redesign live_session.
+    # The :redesign layout (lib/blockster_v2_web/components/layouts/redesign.html.heex)
+    # is intentionally minimal — no old site_header / site_footer / mobile bottom nav.
+    # Each page in this session renders its own <BlocksterV2Web.DesignSystem.header />
+    # and <BlocksterV2Web.DesignSystem.footer /> directly. As later waves migrate more
+    # pages, they move from :default to :redesign one at a time.
+    live_session :redesign,
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      layout: {BlocksterV2Web.Layouts, :redesign} do
+      live "/", PostLive.Index, :index
+    end
+
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
-      live "/", PostLive.Index, :index
       live "/play", CoinFlipLive, :index
       live "/pool", PoolIndexLive, :index
       live "/pool/:vault_type", PoolDetailLive, :show

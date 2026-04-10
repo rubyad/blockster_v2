@@ -15,9 +15,11 @@ defmodule BlocksterV2Web.DesignPreviewLive do
   def mount(_params, _session, socket) do
     # Two fake users so we can render both header variants on the same page.
     fake_user = %{
-      display_name: "Marcus Verren",
       username: "marcus",
-      wallet_address: "7xQk8mPa3vNb9aBcD2eFgH6jKlMn4qRsTuVwXyZ"
+      wallet_address: "7xQk8mPa3vNb9aBcD2eFgH6jKlMn4qRsTuVwXyZ",
+      slug: "marcus",
+      is_author: true,
+      is_admin: true
     }
 
     {:ok,

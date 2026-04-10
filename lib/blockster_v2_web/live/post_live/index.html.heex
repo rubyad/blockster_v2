@@ -1,20 +1,54 @@
-<!-- Homepage Top Banner — Desktop (managed via /admin/banners) -->
+<%!--
+  Homepage template — redesigned per docs/solana/homepage_redesign_plan.md.
+
+  Order top to bottom:
+    1.  Design system <.header /> (sticky, lime banner)
+    2.  Existing top desktop / top mobile ad banners (preserved)
+    3.  <.hero_feature_card /> (one-shot, 1 post)
+    4.  Cycling layout components stream (ThreeColumn → Mosaic → VideoLayout → Editorial → repeat)
+    5.  <.hub_card /> showcase grid (one-shot)
+    6.  <.coming_soon_card variant="token_sale" /> stub strip (one-shot)
+    7.  [logged-in only]  Hubs you follow (one-shot)
+    8.  [logged-in only]  Recommended for you stub (one-shot)
+    9.  [anonymous only]  <.welcome_hero /> (one-shot)
+   10.  [anonymous only]  <.what_you_unlock_grid /> (one-shot)
+   11.  Infinite scroll loading indicator
+   12.  Design system <.footer />
+   13.  Admin BUX deposit modal (preserved verbatim)
+--%>
+
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active="home"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+/>
+
+<%!-- Existing homepage top banners (preserved verbatim from the previous template) --%>
 <%= if @homepage_top_desktop_banners != [] do %>
   <% banner = Enum.random(@homepage_top_desktop_banners) %>
-  <div class="hidden md:block bg-[#F5F6FB] pt-32">
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+  <div class="hidden md:block bg-[#fafaf9] pt-8">
+    <div class="max-w-[1280px] mx-auto px-6">
       <%= if banner.link_url do %>
-        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
+        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-2xl overflow-hidden">
           <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
         </a>
       <% else %>
-        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-xl" />
+        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-2xl" />
       <% end %>
     </div>
   </div>
 <% end %>
 
-<!-- Homepage Top Banner — Mobile (managed via /admin/banners) — edge-to-edge, flush under header -->
 <%= if @homepage_top_mobile_banners != [] do %>
   <% banner = Enum.random(@homepage_top_mobile_banners) %>
   <div class="md:hidden">
@@ -28,129 +62,229 @@
   </div>
 <% end %>
 
-<div class={[
-  "bg-[#F5F6FB]",
-  if(@homepage_top_desktop_banners == [], do: "md:pt-32", else: "md:pt-6"),
-  if(@homepage_top_mobile_banners != [], do: "pt-0", else: "")
-]} id="homepage">
+<main class="max-w-[1280px] mx-auto px-6">
+  <%!-- ── Hero featured article ──────────────────────────────────────────── --%>
+  <%= if @hero_post do %>
+    <BlocksterV2Web.DesignSystem.hero_feature_card
+      href={~p"/#{@hero_post.slug}"}
+      image={BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
+      eyebrow="Today's Story"
+      eyebrow_meta={
+        if @hero_post.published_at,
+          do: "Published " <> Calendar.strftime(@hero_post.published_at, "%B %d"),
+          else: nil
+      }
+      hub_name={BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
+      hub_color={BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
+      category={BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
+      title={@hero_post.title}
+      excerpt={BlocksterV2Web.PostLive.Redesign.Shared.short_excerpt(@hero_post.excerpt, 200)}
+      author={BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
+      author_initials={BlocksterV2Web.PostLive.Redesign.Shared.author_initials(@hero_post)}
+      read_minutes={BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
+      bux_reward={Map.get(@bux_balances, @hero_post.id, 0)}
+    />
+  <% end %>
+
+  <%!-- ── Cycling layout stream (ThreeColumn → Mosaic → Video → Editorial) ─ --%>
   <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
     <%= for {dom_id, comp} <- @streams.components do %>
       <div id={dom_id}>
         <.live_component
           module={comp.module}
           id={comp.id}
-          posts={Map.get(comp, :posts)}
+          posts={comp.posts}
           current_user={@current_user}
-          content={Map.get(comp, :content)}
-          type={Map.get(comp, :type)}
-          show_read_more={true}
           bux_balances={@bux_balances}
           user_post_rewards={@user_post_rewards}
         />
-
-        <!-- Inline ad banner after each component (managed via /admin/banners) -->
-        <%= if @inline_desktop_banners != [] do %>
-          <% d_banner = Enum.at(@inline_desktop_banners, rem(comp.inline_banner_index, length(@inline_desktop_banners))) %>
-          <div class="hidden md:block py-4">
-            <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-              <div class="w-3/4 mx-auto">
-                <%= if d_banner.link_url do %>
-                  <a href={d_banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
-                    <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block" loading="lazy" />
-                  </a>
-                <% else %>
-                  <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block rounded-xl" loading="lazy" />
-                <% end %>
-              </div>
-            </div>
-          </div>
-        <% end %>
-        <%= if @inline_mobile_banners != [] do %>
-          <% m_banner = Enum.at(@inline_mobile_banners, rem(comp.inline_banner_index, length(@inline_mobile_banners))) %>
-          <div class="md:hidden py-3">
-            <%= if m_banner.link_url do %>
-              <a href={m_banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
-                <img src={m_banner.image_url} alt={m_banner.name} class="w-full h-auto block" loading="lazy" />
-              </a>
-            <% else %>
-              <img src={m_banner.image_url} alt={m_banner.name} class="w-full h-auto block" loading="lazy" />
-            <% end %>
-          </div>
-        <% end %>
       </div>
     <% end %>
   </div>
 
-  <!-- BUX Deposit Modal (Admin Only) -->
-  <%= if @show_bux_deposit_modal && @deposit_modal_post do %>
-    <div id="bux-deposit-modal" class="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4" phx-click-away="close_bux_deposit_modal">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-haas_medium_65 text-[#141414]">Quick BUX Deposit</h3>
-          <button phx-click="close_bux_deposit_modal" class="text-[#515B70] hover:text-[#141414] cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+  <%!-- ── Hub showcase (one-shot) ─────────────────────────────────────────── --%>
+  <%= if @hub_showcase != [] do %>
+    <section class="py-10 border-t border-neutral-200/70">
+      <BlocksterV2Web.DesignSystem.section_header
+        eyebrow="Browse"
+        title={"Explore #{length(BlocksterV2.Blog.list_hubs())} hubs"}
+      >
+        <:see_all href={~p"/hubs"}>View all hubs</:see_all>
+      </BlocksterV2Web.DesignSystem.section_header>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <%= for hub <- @hub_showcase do %>
+          <BlocksterV2Web.DesignSystem.hub_card
+            href={~p"/hub/#{hub.slug}"}
+            name={hub.name}
+            ticker={hub.token || String.first(hub.name)}
+            primary={hub.color_primary || "#7D00FF"}
+            secondary={hub.color_secondary || "#4A00B8"}
+            description={hub.description}
+            post_count={Integer.to_string(Map.get(hub, :post_count, 0))}
+          />
+        <% end %>
+        <% remaining = max(length(BlocksterV2.Blog.list_hubs()) - length(@hub_showcase), 0) %>
+        <%= if remaining > 0 do %>
+          <BlocksterV2Web.DesignSystem.hub_card_more more_count={remaining} />
+        <% end %>
+      </div>
+    </section>
+  <% end %>
+
+  <%!-- ── Token sales · STUB (one-shot) ───────────────────────────────────── --%>
+  <section class="py-10 border-t border-neutral-200/70">
+    <BlocksterV2Web.DesignSystem.section_header
+      eyebrow="Allocations open to BUX-tier holders"
+      title="Upcoming token sales"
+    />
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <BlocksterV2Web.DesignSystem.coming_soon_card variant="token_sale" />
+      <BlocksterV2Web.DesignSystem.coming_soon_card
+        variant="token_sale"
+        title="Pre-launch tier opens for early readers"
+      />
+      <BlocksterV2Web.DesignSystem.coming_soon_card
+        variant="token_sale"
+        title="Allocation flow lands in the next release"
+      />
+    </div>
+  </section>
+
+  <%!-- ── Hubs you follow (logged-in only) ────────────────────────────────── --%>
+  <%= if @current_user && @followed_hub_posts != [] do %>
+    <section class="py-10 border-t border-neutral-200/70">
+      <BlocksterV2Web.DesignSystem.section_header
+        eyebrow="Personalized"
+        title="From hubs you follow"
+      >
+        <BlocksterV2Web.DesignSystem.chip variant="active">All</BlocksterV2Web.DesignSystem.chip>
+      </BlocksterV2Web.DesignSystem.section_header>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <%= for post <- @followed_hub_posts do %>
+          <BlocksterV2Web.DesignSystem.post_card
+            href={~p"/#{post.slug}"}
+            image={BlocksterV2Web.PostLive.Redesign.Shared.post_image(post)}
+            hub_name={BlocksterV2Web.PostLive.Redesign.Shared.hub_name(post)}
+            hub_color={BlocksterV2Web.PostLive.Redesign.Shared.hub_color(post)}
+            title={post.title}
+            author={BlocksterV2Web.PostLive.Redesign.Shared.author_name(post)}
+            read_minutes={BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(post)}
+            bux_reward={Map.get(@bux_balances, post.id, 0)}
+          />
+        <% end %>
+      </div>
+    </section>
+  <% end %>
+
+  <%!-- ── Recommended for you · STUB (logged-in only) ─────────────────────── --%>
+  <%= if @current_user do %>
+    <section class="py-10 border-t border-neutral-200/70">
+      <BlocksterV2Web.DesignSystem.section_header
+        eyebrow="Based on what you've read"
+        title="Recommended for you"
+      />
+
+      <BlocksterV2Web.DesignSystem.coming_soon_card variant="recommended" />
+    </section>
+  <% end %>
+
+  <%!-- ── Anonymous-only marketing sections ───────────────────────────────── --%>
+  <%= if is_nil(@current_user) do %>
+    <BlocksterV2Web.DesignSystem.welcome_hero
+      preview_image={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
+      preview_title={if @hero_post, do: @hero_post.title}
+      preview_hub_name={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
+      preview_hub_color={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
+      preview_category={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
+      preview_author={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
+      preview_read_minutes={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
+      preview_bux_reward={if @hero_post, do: Map.get(@bux_balances, @hero_post.id, 0)}
+      hub_count={length(@hub_showcase)}
+    />
+
+    <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={length(BlocksterV2.Blog.list_hubs())} />
+  <% end %>
+
+  <%!-- ── Infinite scroll loading indicator ───────────────────────────────── --%>
+  <div class="py-12 flex items-center justify-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-100 border border-neutral-200/70 rounded-full text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">
+      <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
+      Loading more · Infinite scroll
+    </div>
+  </div>
+</main>
+
+<BlocksterV2Web.DesignSystem.footer />
+
+<%!-- ── BUX Deposit Modal (Admin Only) — preserved verbatim from previous template ─ --%>
+<%= if @show_bux_deposit_modal && @deposit_modal_post do %>
+  <div id="bux-deposit-modal" class="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4" phx-click-away="close_bux_deposit_modal">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-[#141414]">Quick BUX Deposit</h3>
+        <button phx-click="close_bux_deposit_modal" class="text-[#515B70] hover:text-[#141414] cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-sm text-[#515B70] mb-4 truncate"><%= @deposit_modal_post.title %></p>
+
+      <div class="grid grid-cols-3 gap-3 mb-6">
+        <div class="bg-green-50 p-3 rounded-lg text-center">
+          <div class="text-xs text-[#515B70]">Pool Balance</div>
+          <div class="text-lg font-bold text-green-600">
+            <%= Number.Delimit.number_to_delimited(@deposit_modal_post.pool_balance, precision: 0) %>
+          </div>
+        </div>
+        <div class="bg-blue-50 p-3 rounded-lg text-center">
+          <div class="text-xs text-[#515B70]">Deposited</div>
+          <div class="text-lg font-bold text-blue-600">
+            <%= Number.Delimit.number_to_delimited(@deposit_modal_post.total_deposited, precision: 0) %>
+          </div>
+        </div>
+        <div class="bg-purple-50 p-3 rounded-lg text-center">
+          <div class="text-xs text-[#515B70]">Distributed</div>
+          <div class="text-lg font-bold text-purple-600">
+            <%= Number.Delimit.number_to_delimited(@deposit_modal_post.total_distributed, precision: 0) %>
+          </div>
+        </div>
+      </div>
+
+      <form phx-submit="deposit_bux">
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-[#141414] mb-2">Deposit Amount</label>
+          <input
+            type="number"
+            name="amount"
+            min="1"
+            step="1"
+            placeholder="Enter BUX amount"
+            class="w-full px-4 py-3 border border-[#E7E8F1] rounded-lg focus:outline-none focus:border-[#CAFC00]"
+            autofocus
+          />
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            type="button"
+            phx-click="close_bux_deposit_modal"
+            class="flex-1 px-4 py-3 border border-[#E7E8F1] rounded-lg font-bold text-[#515B70] hover:bg-gray-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="flex-1 px-4 py-3 bg-[#CAFC00] rounded-lg font-bold text-[#141414] hover:bg-[#b8e500] cursor-pointer"
+          >
+            Deposit BUX
           </button>
         </div>
-
-        <!-- Post Title -->
-        <p class="text-sm text-[#515B70] font-haas_roman_55 mb-4 truncate"><%= @deposit_modal_post.title %></p>
-
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-3 gap-3 mb-6">
-          <div class="bg-green-50 p-3 rounded-lg text-center">
-            <div class="text-xs text-[#515B70] font-haas_roman_55">Pool Balance</div>
-            <div class="text-lg font-haas_medium_65 text-green-600">
-              <%= Number.Delimit.number_to_delimited(@deposit_modal_post.pool_balance, precision: 0) %>
-            </div>
-          </div>
-          <div class="bg-blue-50 p-3 rounded-lg text-center">
-            <div class="text-xs text-[#515B70] font-haas_roman_55">Deposited</div>
-            <div class="text-lg font-haas_medium_65 text-blue-600">
-              <%= Number.Delimit.number_to_delimited(@deposit_modal_post.total_deposited, precision: 0) %>
-            </div>
-          </div>
-          <div class="bg-purple-50 p-3 rounded-lg text-center">
-            <div class="text-xs text-[#515B70] font-haas_roman_55">Distributed</div>
-            <div class="text-lg font-haas_medium_65 text-purple-600">
-              <%= Number.Delimit.number_to_delimited(@deposit_modal_post.total_distributed, precision: 0) %>
-            </div>
-          </div>
-        </div>
-
-        <!-- Deposit Form -->
-        <form phx-submit="deposit_bux">
-          <div class="mb-4">
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-2">Deposit Amount</label>
-            <input
-              type="number"
-              name="amount"
-              min="1"
-              step="1"
-              placeholder="Enter BUX amount"
-              class="w-full px-4 py-3 border border-[#E7E8F1] rounded-lg font-haas_roman_55 focus:outline-none focus:border-[#8AE388]"
-              autofocus
-            />
-          </div>
-
-          <div class="flex gap-3">
-            <button
-              type="button"
-              phx-click="close_bux_deposit_modal"
-              class="flex-1 px-4 py-3 border border-[#E7E8F1] rounded-lg font-haas_medium_65 text-[#515B70] hover:bg-gray-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="flex-1 px-4 py-3 bg-gradient-to-r from-[#8AE388] to-[#BAF55F] rounded-lg font-haas_medium_65 text-[#141414] hover:shadow-lg cursor-pointer"
-            >
-              Deposit BUX
-            </button>
-          </div>
-        </form>
-      </div>
+      </form>
     </div>
-  <% end %>
-</div>
+  </div>
+<% end %>

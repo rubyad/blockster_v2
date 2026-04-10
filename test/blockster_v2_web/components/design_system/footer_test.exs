@@ -41,7 +41,7 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
       assert html =~ "Media kit"
     end
 
-    test "renders the dark wordmark in the brand block" do
+    test "renders the dark wordmark with lime icon in the brand block" do
       assigns = %{}
 
       html =
@@ -50,6 +50,7 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
         """)
 
       assert html =~ "ds-logo--dark"
+      assert html =~ "blockster-icon.png"
       assert html =~ ">BL</span>"
       assert html =~ ">CKSTER</span>"
     end

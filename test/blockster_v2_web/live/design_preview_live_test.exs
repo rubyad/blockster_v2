@@ -35,9 +35,8 @@ defmodule BlocksterV2Web.DesignPreviewLiveTest do
     test "renders both header variants on the same page (logged-in + anonymous)", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/dev/design-preview")
 
-      # Logged-in variant: BUX pill, profile avatar, fake user MV
-      assert html =~ "12,450"
-      assert html =~ ~r/>\s*MV\s*</
+      # Logged-in variant: BUX pill with 2 decimals, user dropdown trigger
+      assert html =~ "12,450.00"
 
       # Anonymous variant: Connect Wallet button (rendered in section 10)
       assert html =~ "Connect Wallet"

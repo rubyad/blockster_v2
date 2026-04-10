@@ -377,11 +377,31 @@ Each per-page doc is a few hundred lines max. Skim-able. The template is the con
 
 ## Stub register
 
-Empty until pages are built. Every stub introduced during the build gets added here so the next release knows what's pending.
+Every stub introduced during the build gets added here so the next release knows what's pending.
 
 | Page | Stub | What it shows now | What replaces it | Resolved by release |
 |---|---|---|---|---|
-| _(populated as work happens)_ | | | | |
+| Homepage | Token sales section | 3 `<.coming_soon_card variant="token_sale" />` placeholder cards | Real `<.token_sale_card />` with live data | Events / sales release |
+| Homepage | Recommended for you | Single `<.coming_soon_card variant="recommended" />` placeholder (logged-in only) | Real recommendation system | Recommendation engine release |
+| Homepage | Trending filter chips | Chips render but click is a no-op; "All" permanently active | `phx-click="filter_trending"` handler filtering mosaic by category | Follow-up commit in Wave 1 |
+| Homepage | Hubs you follow filter chips | Hub-color chips render but click is a no-op; "All" permanently active | `phx-click` handler filtering by specific hub | Follow-up commit in Wave 1 |
+
+---
+
+## Build progress
+
+| Wave | Page | Status | Commit | Notes |
+|---|---|---|---|---|
+| 0 | Foundation components (11) | ✅ Done | `af15f58` | `design_system.ex` with logo, eyebrow, chip, author_avatar, profile_avatar, why_earn_bux_banner, header, footer, page_hero, stat_card, post_card. 51 component tests. |
+| 0 | Design preview | ✅ Done | `294b51d` | `/dev/design-preview` route (dev-only). 3 smoke tests. |
+| 1 | Homepage | 🔧 Built, awaiting commit | — | Full rewrite of `PostLive.Index`. New cycling layouts (ThreeColumn, Mosaic, VideoLayout, Editorial). One-shot sections (hero, hub showcase, token sales stub, hubs you follow, recommended stub, welcome hero, what you unlock). Old homepage preserved at `lib/blockster_v2_web/live/post_live/legacy/`. 65 tests passing. |
+| 1 | Article page | ⬜ Not started | — | |
+| 1 | Hubs index | ⬜ Not started | — | |
+| 1 | Hub show | ⬜ Not started | — | Needs `posts.kind` migration |
+| 2 | Profile | ⬜ Not started | — | |
+| 2 | Public member page | ⬜ Not started | — | May need `users.x_handle` / `users.bio` migrations |
+| 3–6 | Play, Pool, Airdrop, Shop, Cart, Checkout, Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | |
+| 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
 ---
 
