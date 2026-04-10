@@ -54,3 +54,8 @@ config :blockster_v2, :x_api_client, BlocksterV2.Social.XApiClientMock
 # Use a stubbed BuxMinter so LegacyMerge / EmailVerification merge paths can be
 # unit-tested without hitting the real settler service.
 config :blockster_v2, :bux_minter, BlocksterV2.BuxMinterStub
+
+# Enable dev_routes in tests so the dev-only LiveViews (like
+# `/dev/design-preview`) compile in and can be smoke-tested. The other dev
+# routes (LiveDashboard, Swoosh mailbox preview) are harmless in tests.
+config :blockster_v2, dev_routes: true

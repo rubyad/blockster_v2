@@ -223,5 +223,14 @@ defmodule BlocksterV2Web.Router do
       live_dashboard "/dashboard", metrics: BlocksterV2Web.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+
+    # Wave 0 design system preview — every component on one page so the user
+    # can eyeball them through real Tailwind before any pages get rebuilt.
+    # Dev-only because it bypasses authentication and uses fake user data.
+    scope "/dev", BlocksterV2Web do
+      pipe_through :browser
+
+      live "/design-preview", DesignPreviewLive, :index
+    end
   end
 end

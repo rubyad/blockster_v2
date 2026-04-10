@@ -21,6 +21,13 @@ defmodule BlocksterV2Web.DesignSystem do
 
   defmacro __using__(_) do
     quote do
+      # `BlocksterV2Web.CoreComponents` defines a generic `header/1` that
+      # ships with Phoenix's scaffolding (used for admin tables). It collides
+      # with our site `header/1`. Re-importing CoreComponents with `:except`
+      # drops the collision so consumers can write `<.header />` and get the
+      # design-system header. CoreComponents is automatically imported by
+      # `use BlocksterV2Web, :live_view` / `:html` before this macro runs.
+      import BlocksterV2Web.CoreComponents, except: [header: 1]
       import BlocksterV2Web.DesignSystem
     end
   end
