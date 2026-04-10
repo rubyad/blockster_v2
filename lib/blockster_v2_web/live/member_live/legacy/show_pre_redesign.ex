@@ -1,10 +1,9 @@
-defmodule BlocksterV2Web.MemberLive.Show do
+defmodule BlocksterV2Web.MemberLive.Legacy.ShowPreRedesign do
   use BlocksterV2Web, :live_view
 
   require Logger
 
-  # lightning_icon no longer used in redesigned template (kept import-free)
-  # import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
+  import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
 
   alias BlocksterV2.Accounts
   alias BlocksterV2.BuxMinter
@@ -31,7 +30,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   def handle_params(%{"slug" => slug_or_address} = params, _url, socket) do
     # Allow tab to be set via URL query parameter (e.g., /member/xxx?tab=settings)
     tab_from_url = params["tab"]
-    valid_tabs = ["activity", "refer", "settings", "following", "rewards", "event", "airdrop"]
+    valid_tabs = ["activity", "refer", "settings", "following", "event", "airdrop"]
     initial_tab = if tab_from_url in valid_tabs, do: tab_from_url, else: socket.assigns[:active_tab] || "activity"
 
     case Accounts.get_user_by_slug_or_address(slug_or_address) do
@@ -1133,8 +1132,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
     DateTime.diff(now, datetime, :second) < 300  # 5 minutes
   end
 
-  # Kept for potential future use (was used in old template's referral display)
-  def format_amount(amount) do
+  defp format_amount(amount) do
     float =
       cond do
         is_struct(amount, Decimal) -> Decimal.to_float(amount)
@@ -1153,72 +1151,5 @@ defmodule BlocksterV2Web.MemberLive.Show do
       |> String.reverse()
 
     "#{formatted}.#{frac}"
-  end
-
-  # Format a number with commas (no decimals for integers, 2 decimals for floats)
-  def format_number(num) when is_integer(num) do
-    num
-    |> Integer.to_string()
-    |> String.graphemes()
-    |> Enum.reverse()
-    |> Enum.chunk_every(3)
-    |> Enum.map_join(",", &Enum.join/1)
-    |> String.reverse()
-  end
-
-  def format_number(num) when is_float(num) do
-    format_number(trunc(num))
-  end
-
-  def format_number(%Decimal{} = num) do
-    format_number(Decimal.to_float(num) |> trunc())
-  end
-
-  def format_number(_), do: "0"
-
-  # Format multiplier value (show 1 decimal if needed)
-  def format_multiplier(val) when is_float(val) do
-    if val == trunc(val) do
-      Integer.to_string(trunc(val))
-    else
-      :erlang.float_to_binary(val, decimals: 1)
-    end
-  end
-
-  def format_multiplier(val) when is_integer(val), do: Integer.to_string(val)
-  def format_multiplier(%Decimal{} = val), do: format_multiplier(Decimal.to_float(val))
-  def format_multiplier(_), do: "0"
-
-  # Generate user initials from a user struct
-  def user_initials(%{username: username}) when is_binary(username) and username != "" do
-    username
-    |> String.split(~r/\s+/, trim: true)
-    |> Enum.take(2)
-    |> Enum.map_join("", &String.first/1)
-    |> String.upcase()
-    |> case do
-      "" -> "??"
-      i -> i
-    end
-  end
-
-  def user_initials(%{wallet_address: addr}) when is_binary(addr) and addr != "" do
-    addr |> String.slice(0, 2) |> String.upcase()
-  end
-
-  def user_initials(_), do: "??"
-
-  # Generate initials from a name string (for referral earnings)
-  def user_initials_from_name(nil), do: "??"
-  def user_initials_from_name(name) when is_binary(name) do
-    name
-    |> String.split(~r/\s+/, trim: true)
-    |> Enum.take(2)
-    |> Enum.map_join("", &String.first/1)
-    |> String.upcase()
-    |> case do
-      "" -> "??"
-      i -> i
-    end
   end
 end

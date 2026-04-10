@@ -392,6 +392,11 @@ Every stub introduced during the build gets added here so the next release knows
 | Hub show | Events tab content | Empty state: "No events yet" | Real events from Events context | Events release |
 | Hub show | Category filter chips (All tab mosaic) | Render but click is no-op | Working category filter | Follow-up commit |
 | Hub show | "Notify me" button | Inert, no handler | Real notification subscription | Notification subscription release |
+| Profile | Rewards tab sparkline | Hidden (no monthly aggregation) | Real 12-month BUX bar chart | Analytics release |
+| Profile | Rewards tab Coin Flip wins | Shows 0 (no Mnesia aggregation) | Real aggregation from coin_flip_games | Analytics release |
+| Profile | Rewards tab pending claims | Hidden (no settlement tracking) | Real settlement status tracking | Settlement tracking release |
+| Profile | Settings — Export account data | Inert button | Real data export | Account management release |
+| Profile | Settings — Deactivate account | Inert button | Real deactivation flow | Account management release |
 
 ---
 
@@ -405,7 +410,7 @@ Every stub introduced during the build gets added here so the next release knows
 | 1 | Article page | 🔧 Built, awaiting commit | — | White article card, template-based inline ads at 1/3 + 2/3 + end, Follow Hub bar at 1/2, sidebar placeholders (discover cards left, RogueTrader right), floating BUX panel (white, matches mock), article-body CSS (drop caps, blockquotes, lists), 26 new tests. |
 | 1 | Hubs index | 🔧 Built, awaiting commit | — | Featured cards (hub_feature_card), hub_card category badge, sticky search+filter bar, 4-col hub grid. 24 new tests (8 component + 16 LiveView). |
 | 1 | Hub show | 🔧 Built, awaiting commit | — | `posts.kind` migration done, hub_banner component, 5-tab nav, 30 new tests |
-| 2 | Profile | ⬜ Not started | — | |
+| 2 | Profile | 🔧 Built, awaiting commit | — | Identity hero, 3 stat cards, multiplier breakdown, 5-tab nav (Activity/Following/Refer/Rewards/Settings), new Rewards tab, verification banners. 28 new LiveView tests. |
 | 2 | Public member page | ⬜ Not started | — | May need `users.x_handle` / `users.bio` migrations |
 | 3–6 | Play, Pool, Airdrop, Shop, Cart, Checkout, Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |

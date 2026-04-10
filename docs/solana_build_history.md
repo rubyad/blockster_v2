@@ -1236,3 +1236,51 @@ Filters published posts by hub and kind field. Supports tag_name cross-matching 
 **Stubs:** Live activity widget (static placeholder), Sponsor/Verified badges (hardcoded), category filter chips on mosaic (visual only), "Notify me" button (inert), events tab (always empty state per D15).
 
 **Tests:** 13 hub_banner component tests + 17 hub show LiveView tests = 30 new. 129+ total redesign tests passing, 0 new failures vs baseline.
+
+### Wave 2 Page #5: Profile (2026-04-10)
+
+**Commit:** `redesign(profile)` (see below)
+
+**Mock:** `docs/solana/profile_mock.html`
+
+**What changed:**
+- Full template rewrite of `MemberLive.Show` (the `/member/:slug` page used when `is_own_profile = true`)
+- **Profile hero**: 12-col grid with 96px profile_avatar, "Your profile" eyebrow, active badge, 44-52px username, @slug, wallet address with copy + Solscan link, member-since date. Right column: logout icon button, verification status mini pills (X/Phone/SOL/Email — green check or amber warning; X/Phone/Email pills are clickable when inactive, linking to their respective connect/verify actions).
+- **Three stat cards**: BUX Balance (footer: "Use BUX to enter airdrops & play games"), BUX Multiplier (with "of 200× max" and next-action hint), SOL Balance (with proper Solana logo from ImageKit, SOL multiplier footer). Uses existing `<.stat_card>` component.
+- **Email/Phone verification banners**: Conditional amber gradient cards shown when unverified. Clear CTA to open verification modal.
+- **Multiplier breakdown**: Always-visible white card (replaced old dropdown). 4-col grid showing X / Phone / SOL / Email multipliers with progress bars, connection status, and verify CTAs. **All inactive/unverified boxes** get the same amber background + greyed-out number + muted progress bar treatment. Base values: X=1×, Phone=0.5×, Email=0.5×. Footer formula greys out incomplete terms. When overall multiplier is 0 (no SOL), shows "Deposit at least 0.1 SOL into your connected wallet to start earning BUX" instead of generic copy.
+- **Sticky 5-tab nav**: Activity / Following / Refer / Rewards / Settings. Frosted glass at `top:84px`, lime active underline, mono count badges. Mobile dropdown select fallback.
+- **Activity tab**: Time period filter chips (24H/7D/30D/ALL) with total earned headline. Activity table with icon-per-type (read=book, video=play, X share=X logo, notification=check), post links, BUX reward + tx link.
+- **Following tab**: Hub cards grid using hub brand gradients with unfollow X buttons, post count. "Discover more" dashed card at end linking to /hubs. Empty state with "Browse hubs" CTA.
+- **Refer tab**: Referral link card with copy button, earn description ("Plus earn 0.2% of every losing bet they place — forever."), 2×2 stats grid (Total/Verified/BUX/SOL earned). Referral earnings table with type badges, author avatars, amounts, timestamps, tx links. InfiniteScroll hook preserved.
+- **Rewards tab** (NEW): Lifetime BUX earned total card (64px mono value), source breakdown card with progress bars (Reading articles / X shares / Referrals / Other bonuses). Data computed from existing activity + referral_stats assigns. No dollar-value redeemable text.
+- **Settings tab**: 12-col layout. Left 7-col: Account details card (Username with edit form, Profile URL with copy, Wallet with Solscan + copy, Email with verify status, Auth method, Member since). Right 5-col: Connected accounts (X/Telegram/Email/Phone with connect/disconnect/verify CTAs) + Danger zone (Export/Disconnect/Deactivate — Export and Deactivate are stubs).
+- **Modals preserved**: Phone and email verification modals (live_component) render conditionally.
+
+**New helpers added to show.ex:**
+- `format_number/1` — commas for integers/floats
+- `format_multiplier/1` — clean multiplier display (no trailing .0)
+- `user_initials/1` — initials from user struct
+- `user_initials_from_name/1` — initials from name string
+
+**Router:** `/member/:slug` moved from `:default` to `:redesign` live_session.
+
+**Old template preserved at** `lib/blockster_v2_web/live/member_live/legacy/show_pre_redesign.{ex,html.heex}`
+
+**Stubs:** Rewards tab sparkline (static), Coin Flip wins in rewards (shows 0), pending settlement (hidden), Export account data (flash "Coming soon"), Deactivate account (flash "Coming soon").
+
+**Tests:** 28 new LiveView tests in `show_test.exs`. Tests cover: profile hero rendering, stat cards, multiplier breakdown, 5-tab nav + switching, activity table + time period filter, following tab, refer tab, rewards tab, settings tab content, verification banners (shown/hidden by state), security (anonymous redirect, not-found redirect). 0 new failures vs baseline.
+
+**User feedback applied (same session):**
+- Inactive multiplier boxes: all get amber bg + greyed number + muted bar (not just email)
+- BUX Multiplier stat card: literal × instead of `&times;` HTML entity
+- Base values corrected: X=1×, Phone=0.5×, Email=0.5×
+- BUX Balance: removed "redeemable" dollar value, replaced with utility text
+- SOL Balance icon: proper `solana-sol-logo.png` from ImageKit on black bg
+- Removed Edit Profile and Settings pills from hero quick actions
+- X/Phone/Email hero pills: clickable when inactive (link to connect/verify)
+- Email added to Connected Accounts panel in Settings tab
+- Removed dollar redeemable text from Rewards tab
+- Refer tab: simplified to "0.2% of every losing bet — forever"
+- Formula footer: all four terms grey out independently when inactive
+- Zero-multiplier message: "Deposit at least 0.1 SOL…" when overall is 0

@@ -149,6 +149,7 @@ defmodule BlocksterV2Web.Router do
       live "/", PostLive.Index, :index
       live "/hubs", HubLive.Index, :index
       live "/hub/:slug", HubLive.Show, :show
+      live "/member/:slug", MemberLive.Show, :show
     end
 
     live_session :default,
@@ -175,7 +176,6 @@ defmodule BlocksterV2Web.Router do
       live "/notifications", NotificationLive.Index, :index
       live "/notifications/settings", NotificationSettingsLive.Index, :index
       live "/notifications/referrals", NotificationLive.Referrals, :index
-      live "/member/:slug", MemberLive.Show, :show
     end
 
     # Article page in redesign layout — must come AFTER :default because
