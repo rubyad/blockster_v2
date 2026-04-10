@@ -1,0 +1,1185 @@
+<!-- Fixed Bottom-Right BUX Panel - Hidden when video modal is open -->
+<!-- Now shows for both logged-in and anonymous users -->
+<%= if !@video_modal_open do %>
+  <div id="bux-panel" class="fixed bottom-20 md:bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
+    <!-- LOGGED-IN USER PANELS -->
+    <%= if @current_user do %>
+      <!-- Video Earned Badge (shows after watching video) -->
+      <%= if @post.video_id && @video_total_bux_earned > 0 do %>
+      <div class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs opacity-90">Video Earned</div>
+            <div class="text-xl font-bold">+<%= Float.round(@video_total_bux_earned, 1) %> BUX</div>
+          </div>
+          <%= if @video_fully_watched do %>
+            <svg class="w-5 h-5 ml-auto text-green-300" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          <% end %>
+        </div>
+        <!-- Show all video transactions -->
+        <%= if @video_tx_ids && length(@video_tx_ids) > 0 do %>
+          <div class="mt-2 pt-2 border-t border-white/20 space-y-1.5 max-h-32 overflow-y-auto">
+            <%= for tx <- @video_tx_ids do %>
+              <a href={"https://solscan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center justify-between gap-2 cursor-pointer group">
+                <span class="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-75 group-hover:opacity-100"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  <span class="font-mono"><%= String.slice(tx.tx_hash, 0..9) %>...</span>
+                </span>
+                <span class="font-bold text-white/90">+<%= Float.round(tx.bux_amount, 1) %></span>
+              </a>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <!-- Read Reward Panel -->
+    <%= if @already_rewarded do %>
+      <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">Already Earned</div>
+            <div class="text-xl font-bold">{@bux_earned || 0} BUX</div>
+          </div>
+        </div>
+        <%= if @read_tx_id do %>
+          <div class="mt-2 pt-2 border-t border-white/20">
+            <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              <span>View Transaction</span>
+            </a>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <%= cond do %>
+        <% @current_user && !@user_eligible_to_earn -> %>
+          <!-- Logged-in user can't earn — needs SOL to activate the multiplier -->
+          <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+            <div class="flex items-center gap-3">
+              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-10 h-10 rounded-full object-cover bg-white p-1" />
+              <div>
+                <div class="text-xs opacity-90">Not Earning BUX</div>
+                <div class="text-lg font-bold">Add SOL to Start</div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+              <p>Hold at least <span class="font-bold">0.01 SOL</span> in your wallet to earn BUX for reading, sharing and watching.</p>
+            </div>
+          </div>
+
+        <% @article_completed && @current_bux > 0 -> %>
+          <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px] animate-pulse-once">
+            <div class="flex items-center gap-3">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+              <div>
+                <div class="text-xs opacity-90">Earned!</div>
+                <div class="text-xl font-bold">+{@current_bux} BUX</div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
+              <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
+              <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} BUX</span></div>
+              <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
+            </div>
+            <%= if @read_tx_id do %>
+              <div class="mt-2 pt-2 border-t border-white/20">
+                <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1 cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  <span>View Transaction</span>
+                </a>
+              </div>
+            <% end %>
+          </div>
+
+        <% @article_completed -> %>
+          <!-- Article completed but no BUX earned (pool genuinely empty) -->
+          <div class="bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+            <div class="flex items-center gap-3">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+              <div>
+                <div class="text-xs opacity-90">Article Complete</div>
+                <div class="text-lg font-bold">No BUX Earned</div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+              <p>This article's BUX pool is empty. Great reading though!</p>
+            </div>
+          </div>
+
+        <% @pool_available -> %>
+          <!-- Pool has BUX available - show earning progress -->
+          <div class="hidden md:block bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+            <div class="flex items-center gap-3">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+              <div>
+                <div class="text-xs opacity-90">Earning BUX</div>
+                <div class="text-xl font-bold">+{@current_bux} BUX</div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
+              <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
+              <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} BUX</span></div>
+              <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
+            </div>
+          </div>
+
+        <% true -> %>
+          <!-- Pool is empty - show "no rewards available" state -->
+          <div class="bg-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+            <div class="flex items-center gap-3">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+              <div>
+                <div class="text-xs opacity-90">No BUX Available</div>
+                <div class="text-lg font-bold">Pool Empty</div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+              <p>This article's BUX pool has been depleted.</p>
+            </div>
+          </div>
+      <% end %>
+    <% end %>
+    <% end %>
+
+    <!-- ANONYMOUS USER - EARNING IN PROGRESS (Desktop only - inside bux-panel) -->
+    <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
+      <div class="hidden md:block bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <!-- Current Earnings -->
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">Earning Now</div>
+            <div class="text-xl font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</div>
+          </div>
+        </div>
+
+
+        <!-- Call to Action -->
+        <div class="mt-3 text-center text-xs opacity-90">
+          Keep reading to earn more!
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<!-- ANONYMOUS USER - Signup Prompts (centered on mobile, outside bux-panel) -->
+<%= if !@video_modal_open && @is_anonymous do %>
+  <!-- VIDEO SIGNUP PROMPT (when video completed) -->
+  <%= if @show_video_signup_prompt && @pool_available do %>
+    <div class="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-auto z-50 flex justify-center md:justify-end">
+      <div class="bg-gradient-to-r from-[#818CF8] to-[#6366F1] rounded-2xl shadow-2xl animate-bounce-shake w-full max-w-sm md:max-w-none md:min-w-[200px]" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 relative">
+          <!-- Close Button -->
+          <button phx-click="close_video_signup_prompt" class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+
+          <!-- Earned Amount with BUX logo -->
+          <div class="flex items-center justify-between mb-4 gap-4 pr-6">
+            <span class="text-gray-700 font-haas_medium_65">You Earned from Video</span>
+            <div class="flex items-center gap-1.5">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
+              <span class="text-2xl font-haas_medium_65 text-indigo-600">
+                <%= :erlang.float_to_binary(@anonymous_video_earned * 1.0, decimals: 2) %> BUX
+              </span>
+            </div>
+          </div>
+
+          <!-- Login Button -->
+          <div>
+            <.link
+              navigate={~p"/login"}
+              style="background: linear-gradient(to right, #818CF8, #6366F1, #4F46E5);"
+              class="block w-full text-center text-white font-haas_bold_75 py-3 px-4 rounded-lg transition-all cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-105 hover:bg-gradient-to-r hover:from-[#A5B4FC] hover:via-[#818CF8] hover:to-[#6366F1]"
+            >
+              Sign Up to Claim
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- READING SIGNUP PROMPT (when article completed) -->
+  <%= if @show_signup_prompt && @pool_available do %>
+    <div class="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-auto z-50 flex justify-center md:justify-end">
+      <div class="bg-gradient-to-r from-[#8AE388] to-[#6BCB69] rounded-2xl shadow-2xl animate-bounce-shake w-full max-w-sm md:max-w-none md:min-w-[200px]" style="padding: 1.5px;">
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 relative">
+          <!-- Close Button -->
+          <button phx-click="close_signup_prompt" class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+
+          <!-- Earned Amount with BUX logo -->
+          <div class="flex items-center justify-between mb-4 gap-4 pr-6">
+            <span class="text-gray-700 font-haas_medium_65">You Earned from Reading</span>
+            <div class="flex items-center gap-1.5">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-8 h-8 rounded-full object-cover" />
+              <span class="text-2xl font-haas_medium_65 text-green-600">
+                <%= :erlang.float_to_binary(@anonymous_earned * 1.0, decimals: 2) %> BUX
+              </span>
+            </div>
+          </div>
+
+          <!-- Engagement Score Breakdown (for reading) -->
+          <%= if @engagement_score do %>
+            <div class="text-sm text-gray-600 mb-4 space-y-1">
+              <div class="flex justify-between">
+                <span>Engagement Score:</span>
+                <span class="font-haas_medium_65"><%= trunc(@engagement_score) %>/10</span>
+              </div>
+            </div>
+          <% end %>
+
+          <!-- Login Button -->
+          <div>
+            <.link
+              navigate={~p"/login"}
+              style="background: linear-gradient(to right, #34D399, #10B981, #059669);"
+              class="block w-full text-center text-white font-haas_bold_75 py-3 px-4 rounded-lg transition-all cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-105 hover:bg-gradient-to-r hover:from-[#6EE7B7] hover:via-[#34D399] hover:to-[#10B981]"
+            >
+              Sign Up to Claim
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+
+<!-- Mobile Earning Bars - Outside bux-panel to prevent horizontal scroll -->
+<%= if !@video_modal_open do %>
+  <!-- Logged-in user mobile earning bar - HIDDEN: moved to sticky top bar -->
+  <%= if @current_user && !@already_rewarded && !@article_completed && @pool_available do %>
+    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center gap-2">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <span class="text-sm font-bold">+{@current_bux} BUX</span>
+          <span class="text-xs opacity-75">({@user_multiplier}x)</span>
+        </div>
+        <span class="text-xs">Keep reading to earn more BUX</span>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Anonymous user mobile earning bar - HIDDEN: moved to sticky top bar -->
+  <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
+    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <span class="text-sm font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</span>
+        </div>
+        <span class="text-xs">Keep reading to earn more BUX</span>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+
+<!-- Onboarding Popup Hook Wrapper - triggers popup on 20% scroll for eligible users -->
+<div
+  class="article-page bg-white min-h-screen"
+  id="post-engagement-tracker"
+  phx-hook="EngagementTracker"
+  data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
+  data-post-id={@post.id}
+  data-word-count={@word_count}
+  data-base-bux-reward={@post.base_bux_reward || 1}
+  data-user-multiplier={@user_multiplier || 1}
+  data-already-rewarded={to_string(@already_rewarded)}
+  data-pool-available={to_string(@pool_available)}
+  data-video-modal-open={to_string(@video_modal_open)}
+>
+  <!-- Mobile Top Banner (managed via /admin/banners) — edge-to-edge, flush under header -->
+  <%= if @mobile_top_banners != [] do %>
+    <% banner = Enum.random(@mobile_top_banners) %>
+    <div class="lg:hidden">
+      <%= if banner.link_url do %>
+        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" loading="lazy" />
+        </a>
+      <% else %>
+        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" loading="lazy" />
+      <% end %>
+    </div>
+  <% end %>
+
+  <!-- 3-Column Layout Container -->
+  <div class={[
+    "max-w-7xl mx-auto px-4 md:pt-32 pb-16",
+    if(@mobile_top_banners != [], do: "pt-0", else: "pt-[62px]")
+  ]}>
+    <div class="flex gap-8 justify-center">
+
+      <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
+      <aside class="hidden lg:block w-[200px] shrink-0">
+        <div class="sticky top-36 space-y-4">
+          <%= for banner <- @left_sidebar_banners do %>
+            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
+              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+            </a>
+          <% end %>
+          <%= if @left_sidebar_banners == [] do %>
+            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
+            </div>
+          <% end %>
+        </div>
+      </aside>
+
+      <!-- CENTER COLUMN - Main Article Content -->
+      <main class="w-full max-w-[680px]">
+
+        <%= if @is_draft_preview do %>
+          <div class="mb-6 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+              </svg>
+              <span class="font-haas_medium_65 text-amber-800">DRAFT PREVIEW</span>
+            </div>
+            <p class="text-sm text-amber-700 mt-1">This post is not published. Only admins can see this page.</p>
+          </div>
+        <% end %>
+
+        <%= if @offer_data do %>
+          <%= if @offer_data.expired do %>
+            <div class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-haas_medium_65 text-gray-600">This offer has expired</span>
+              </div>
+              <%= if @offer_data.expires_at do %>
+                <p class="text-sm text-gray-500 mt-1">Expired on <%= Calendar.strftime(@offer_data.expires_at, "%b %d, %Y") %></p>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-haas_medium_65 text-emerald-800">Opportunity</span>
+                <%= if @offer_data.offer_type do %>
+                  <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs"><%= @offer_data.offer_type |> String.replace("_", " ") |> String.capitalize() %></span>
+                <% end %>
+              </div>
+              <%= if @offer_data.expires_at do %>
+                <p class="text-sm text-emerald-700 mt-1">Available until <%= Calendar.strftime(@offer_data.expires_at, "%b %d, %Y") %></p>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+
+        <!-- Category -->
+        <%= if @post.category do %>
+          <div class="mb-4">
+            <span class="text-sm font-haas_medium_65 text-[#141414] uppercase tracking-wider">{@post.category.name}</span>
+          </div>
+        <% end %>
+
+        <!-- Title -->
+        <h1 class="text-4xl md:text-5xl font-bold leading-tight text-[#141414] mb-6">
+          {@post.title}
+        </h1>
+
+        <!-- Author & Date Row -->
+        <div class="flex items-center gap-3 mb-6 text-sm">
+          <%= if @author_persona do %>
+            <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
+            <div class="relative group/author flex items-center gap-2">
+              <span class={"flex items-center justify-center w-6 h-6 rounded-full text-xs font-haas_medium_65 #{bg} #{text}"}>
+                {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+              </span>
+              <span class="font-haas_medium_65 text-[#141414] cursor-default">{@post.author_name}</span>
+              <!-- Hover popover -->
+              <div class="absolute left-0 top-full mt-2 z-20 w-72 p-4 bg-white rounded-xl shadow-lg ring-1 ring-[#E7E8F1] opacity-0 invisible group-hover/author:opacity-100 group-hover/author:visible transition-all duration-150 pointer-events-none">
+                <div class="flex items-center gap-2.5 mb-2">
+                  <span class={"flex items-center justify-center w-9 h-9 rounded-full text-sm font-haas_medium_65 #{bg} #{text}"}>
+                    {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+                  </span>
+                  <div class="flex flex-col leading-tight">
+                    <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+                    <span class="text-xs text-[#141414A3]">Blockster contributor</span>
+                  </div>
+                </div>
+                <p class="text-xs text-[#141414A3] leading-relaxed">{@author_persona.bio}</p>
+              </div>
+            </div>
+          <% else %>
+            <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+          <% end %>
+          <span class="text-[#141414A3]">·</span>
+          <span class="text-[#141414A3]">{if @post.published_at, do: Calendar.strftime(@post.published_at, "%b %d, %Y"), else: "Draft"}</span>
+          <%= if @post.hub do %>
+            <span class="text-[#141414A3]">·</span>
+            <.link navigate={~p"/hub/#{@post.hub.slug}"} class="flex items-center gap-1.5 hover:opacity-80">
+              <%= if @hub_logo do %>
+                <img src={@hub_logo} alt={@post.hub.name} class="h-4 w-4 rounded-full object-cover" />
+              <% end %>
+              <span class="font-haas_medium_65 text-[#141414]">{@post.hub.name}</span>
+            </.link>
+          <% end %>
+        </div>
+
+        <!-- Social Share Row (Sticky) -->
+        <%!-- Completed state: @already_rewarded or @article_completed (logged-in) or @show_signup_prompt (anonymous) --%>
+        <% mobile_is_completed = @pool_available and (@already_rewarded or (!@is_anonymous and @article_completed) or (@is_anonymous and @show_signup_prompt)) %>
+        <div class="sticky top-[58px] md:top-24 z-10 mb-4 border-b bg-white border-[#E7E8F1]">
+          <!-- Content Row -->
+          <div class="flex items-center gap-2 pt-3.5 pb-2.5 md:py-4 px-0">
+          <!-- X/Twitter Share with BUX Reward -->
+          <%= if @share_campaign && @share_campaign.is_active do %>
+            <%= if @share_reward do %>
+              <%!-- User has already shared - show success state --%>
+              <%!-- Desktop: Full badge with text --%>
+              <div class="hidden md:flex items-center gap-1">
+                <div class="flex items-center gap-2 h-10 px-4 bg-black text-white rounded-full text-sm font-haas_medium_65 ring-2 ring-[#8AE388] ring-offset-2">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <span class="text-[#8AE388] font-bold">Shared & Liked!</span>
+                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full object-cover" /><%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> BUX</span>
+                </div>
+                <%= if @share_reward[:tx_hash] do %>
+                  <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on Solscan">
+                    <svg class="w-4 h-4 text-[#141414]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                  </a>
+                <% end %>
+              </div>
+              <%!-- Mobile: Black share reward badge (same as post cards) - clickable to tx --%>
+              <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
+                <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                  </svg>
+                  <span class="text-xs font-haas_medium_65 text-white">
+                    <%= Float.round((@share_reward[:bux_rewarded] || 0) + 0.0, 2) %>
+                  </span>
+                </div>
+              </a>
+            <% else %>
+              <%= if @current_user do %>
+                <%!-- Desktop: Full button with tooltip --%>
+                <div class="hidden md:block relative group">
+                  <button
+                    phx-click="open_share_modal"
+                    class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <%= if @pool_available do %>
+                      <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
+                    <% else %>
+                      <span class="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">Pool empty</span>
+                    <% end %>
+                  </button>
+                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <%= if @pool_available do %>
+                      Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
+                    <% else %>
+                      Share this post on X (pool empty - no BUX reward)
+                    <% end %>
+                  </div>
+                </div>
+                <%!-- Mobile: Compact button --%>
+                <button
+                  phx-click="open_share_modal"
+                  class="md:hidden flex items-center gap-1.5 h-8 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 cursor-pointer shrink-0"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <%= if @pool_available do %>
+                    <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+<%= @x_share_reward %></span>
+                  <% else %>
+                    <span class="text-gray-400 text-xs">Empty</span>
+                  <% end %>
+                </button>
+              <% else %>
+                <%!-- Not logged in - Desktop --%>
+                <div class="hidden md:block relative group">
+                  <.link href={~p"/login"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <%= if @pool_available do %>
+                      <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
+                    <% else %>
+                      <span class="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">Pool empty</span>
+                    <% end %>
+                  </.link>
+                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <%= if @pool_available do %>
+                      Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
+                    <% else %>
+                      Share this post on X (pool empty - no BUX reward)
+                    <% end %>
+                  </div>
+                </div>
+                <%!-- Not logged in - Mobile: No X share button shown --%>
+              <% end %>
+            <% end %>
+          <% else %>
+            <%!-- No active campaign - simple X share link (hidden on mobile for anonymous users) --%>
+            <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class={["flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer shrink-0", @is_anonymous && "hidden md:flex"]}>
+              <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+          <% end %>
+
+          <!-- Encouragement Text (hidden when X share button visible for logged-in users, or when completed) -->
+          <%= if @pool_available and not mobile_is_completed do %>
+            <span class={[
+              "text-sm text-gray-500 flex-1 min-w-0 truncate",
+              !@is_anonymous && @share_campaign && @share_campaign.is_active && "hidden"
+            ]}>
+              Keep reading to earn more!
+            </span>
+          <% end %>
+
+          <!-- Earnings Display (Both Mobile and Desktop) -->
+          <div class="ml-auto flex items-center gap-2 shrink-0">
+            <%= if @pool_available and not mobile_is_completed do %>
+              <%!-- In progress: show current earnings --%>
+              <% earned = if @is_anonymous, do: (@anonymous_earned || 0) / 1, else: (@current_bux || 0) / 1 %>
+              <div class="flex items-center gap-2">
+                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
+                <div class="flex flex-col items-end">
+                  <span class="text-[11px] text-gray-400 leading-none">Your Earnings</span>
+                  <span class="font-haas_medium_65 text-base leading-tight font-bold">
+                    +<%= Float.round(earned + 0.0, 2) %> BUX
+                  </span>
+                </div>
+              </div>
+            <% else %>
+              <%= if mobile_is_completed do %>
+                <%!-- Completed: show "You earned X BUX!" text + badges --%>
+                <% read_earned = if @is_anonymous, do: (@anonymous_earned || 0) + 0.0, else: (@bux_earned || 0) + 0.0 %>
+                <% share_earned = if @share_reward, do: (@share_reward[:bux_rewarded] || 0) + 0.0, else: 0.0 %>
+                <% video_earned = (@video_total_bux_earned || 0) + 0.0 %>
+                <% total_earned = read_earned + share_earned + video_earned %>
+                <span class="text-sm text-gray-600 font-haas_medium_65">You earned <%= Float.round(total_earned, 2) %> BUX!</span>
+                <%!-- Read reward badge (amber with white text) --%>
+                <div class="rounded-full inline-block bg-gradient-to-r from-amber-400 to-amber-500">
+                  <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                    </svg>
+                    <span class="text-xs font-haas_medium_65 text-white">
+                      <%= Float.round(read_earned, 2) %>
+                    </span>
+                  </div>
+                </div>
+                <%!-- Video reward badge (purple) - only if video earned > 0 --%>
+                <%= if video_earned > 0 do %>
+                  <div class="rounded-full inline-block bg-gradient-to-r from-violet-400 to-violet-500">
+                    <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                      <span class="text-xs font-haas_medium_65 text-white">
+                        <%= Float.round(video_earned, 2) %>
+                      </span>
+                    </div>
+                  </div>
+                <% end %>
+              <% else %>
+                <%!-- No pool available --%>
+                <span class="font-haas_medium_65 text-base text-gray-400">No rewards</span>
+              <% end %>
+            <% end %>
+          </div>
+          </div><!-- End Content Row -->
+
+        </div><!-- End Sticky Container -->
+
+        <!-- Featured Image (Square) with Video Play Button Overlay -->
+        <%= if @post.featured_image do %>
+          <div class="mb-10 rounded-2xl overflow-hidden aspect-square relative group">
+            <img
+              src={ImageKit.w800(@post.featured_image)}
+              alt={@post.title}
+              class="w-full h-full object-cover"
+            />
+
+            <%= if @post.video_id do %>
+              <!-- Play Button Overlay - Always visible with darker bg on hover -->
+              <button
+                phx-click="open_video_modal"
+                class="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
+              >
+                <div class="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform">
+                  <svg class="w-10 h-10 text-[#141414] ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </button>
+
+              <!-- Always-visible play indicator -->
+              <div class="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-haas_medium_65 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Watch & Earn BUX
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Blockster of the Week Banner -->
+        <%= if @post_category_slug == "blockster-of-the-week" do %>
+          <div class="bg-gray-900 text-white px-6 py-3 rounded-lg mb-6 flex items-center gap-3">
+            <svg class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span class="font-haas_medium_65 text-lg">Blockster of the Week</span>
+          </div>
+        <% end %>
+
+        <!-- Article Body -->
+        <article class="prose prose-lg max-w-none">
+          <%= if @post.content && @post.content != %{} do %>
+            <div
+              id="post-content"
+              class="text-[#343434] leading-[1.8] space-y-6 font-segoe_regular text-lg"
+              phx-hook="TwitterWidgets"
+              phx-update="ignore"
+              phx-no-format
+            >
+              <%= raw(render_content(@post.content)) %>
+            </div>
+            <div id="article-end-marker" class="h-px"></div>
+
+            <%= if @offer_data && !@offer_data.expired do %>
+              <%!-- CTA Button --%>
+              <%= if @offer_data.cta_url do %>
+                <div class="mt-8 text-center">
+                  <a href={@offer_data.cta_url} target="_blank" rel="noopener noreferrer"
+                     class="inline-block px-8 py-4 bg-emerald-600 text-white rounded-xl text-lg font-haas_medium_65 hover:bg-emerald-700 cursor-pointer transition-colors">
+                    <%= @offer_data.cta_text %>
+                    <svg class="inline-block w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                </div>
+              <% end %>
+              <%!-- Risk Disclaimer --%>
+              <div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p class="text-xs text-gray-500 text-center">This is not financial advice. Always do your own research before participating in any DeFi protocol or exchange promotion.</p>
+              </div>
+            <% end %>
+
+            <%= if @offer_data && @offer_data.expired && @offer_data.cta_url do %>
+              <div class="mt-8 text-center">
+                <span class="inline-block px-8 py-4 bg-gray-300 text-gray-500 rounded-xl text-lg font-haas_medium_65 line-through">
+                  <%= @offer_data.cta_text %>
+                </span>
+                <p class="text-sm text-gray-500 mt-2">This offer has expired</p>
+              </div>
+            <% end %>
+          <% else %>
+            <p class="text-gray-400 italic">No content available</p>
+          <% end %>
+        </article>
+
+        <!-- About the Author Card -->
+        <%= if @author_persona do %>
+          <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
+          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+            <div class="flex items-start gap-4">
+              <span class={"shrink-0 flex items-center justify-center w-14 h-14 rounded-full text-xl font-haas_medium_65 #{bg} #{text}"}>
+                {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline justify-between gap-3 mb-1">
+                  <h3 class="font-haas_medium_65 text-lg text-[#141414]">{@post.author_name}</h3>
+                  <span class="text-xs uppercase tracking-wider text-[#141414A3]">About the author</span>
+                </div>
+                <p class="text-sm text-[#141414] leading-relaxed mb-2">{@author_persona.bio}</p>
+                <p class="text-xs text-[#141414A3] italic">{@author_persona.style}</p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Mobile Mid Banner (managed via /admin/banners) -->
+        <%= if @mobile_mid_banners != [] do %>
+          <% banner = Enum.random(@mobile_mid_banners) %>
+          <div class="lg:hidden mt-8">
+            <%= if banner.link_url do %>
+              <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+                <img src={banner.image_url} alt={banner.name} class="w-full h-auto rounded-2xl" loading="lazy" />
+              </a>
+            <% else %>
+              <img src={banner.image_url} alt={banner.name} class="w-full h-auto rounded-2xl" loading="lazy" />
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Article-bottom Ad Banner (managed via /admin/banners) — desktop only -->
+        <%= if @article_bottom_banners != [] do %>
+          <% banner = Enum.random(@article_bottom_banners) %>
+          <div class="mt-10 hidden lg:block">
+            <%= if banner.link_url do %>
+              <a
+                href={banner.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block group cursor-pointer"
+              >
+                <img
+                  src={banner.image_url}
+                  alt={banner.name}
+                  class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
+                />
+              </a>
+            <% else %>
+              <img
+                src={banner.image_url}
+                alt={banner.name}
+                class="w-full h-auto rounded-2xl"
+              />
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Tags -->
+        <%= if @post.tags && length(@post.tags) > 0 do %>
+          <div class="flex flex-wrap gap-2 mt-10 pt-8 border-t border-[#E7E8F1]">
+            <%= for tag <- @post.tags do %>
+              <.link navigate={~p"/tag/#{tag.slug}"} class="px-4 py-2 bg-[#F7F8FA] text-[#141414] rounded-full text-sm font-haas_medium_65 hover:bg-[#E7E8F1] transition-colors">
+                {tag.name}
+              </.link>
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Mobile Bottom Banner (managed via /admin/banners) -->
+        <%= if @mobile_bottom_banners != [] do %>
+          <% banner = Enum.random(@mobile_bottom_banners) %>
+          <div class="lg:hidden mt-8">
+            <%= if banner.link_url do %>
+              <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+                <img src={banner.image_url} alt={banner.name} class="w-full h-auto rounded-2xl" loading="lazy" />
+              </a>
+            <% else %>
+              <img src={banner.image_url} alt={banner.name} class="w-full h-auto rounded-2xl" loading="lazy" />
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Admin Actions -->
+        <%= if @current_user && (@current_user.is_admin || @current_user.id == @post.author_id) do %>
+          <div class="flex items-center gap-3 mt-8 flex-wrap">
+            <.link navigate={~p"/#{@post.slug}/edit"} class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Edit Post</.link>
+            <%= if @post.published_at do %>
+              <button phx-click="unpublish" class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Unpublish</button>
+            <% else %>
+              <button phx-click="publish" class="px-5 py-2.5 bg-[#8AE388] text-[#141414] rounded-full font-haas_medium_65 hover:opacity-90 transition-all text-sm">Publish</button>
+            <% end %>
+            <button phx-click="delete" data-confirm="Are you sure you want to delete this post?" class="px-5 py-2.5 bg-red-50 text-red-600 rounded-full font-haas_medium_65 hover:bg-red-100 transition-all text-sm">Delete</button>
+          </div>
+        <% end %>
+
+        <!-- Engagement Metrics -->
+        <%= if @current_user && @engagement do %>
+          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+            <h3 class="text-base font-haas_medium_65 mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+              Your Reading Engagement
+            </h3>
+            <div class="flex items-center gap-4 mb-4">
+              <div class={"w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold #{engagement_score_color(@engagement.engagement_score)}"}>{@engagement.engagement_score}</div>
+              <div>
+                <div class="text-sm text-[#141414A3]">Engagement Score</div>
+                <div class="font-haas_medium_65">{engagement_score_label(@engagement.engagement_score)}</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Time Spent</div><div class="font-haas_medium_65">{format_time(@engagement.time_spent)}</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Min Read Time</div><div class="font-haas_medium_65">{format_time(@engagement.min_read_time)}</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Scroll Depth</div><div class="font-haas_medium_65">{@engagement.scroll_depth}%</div></div>
+              <div class="bg-white rounded-lg p-3"><div class="text-[#141414A3]">Reached End</div><div class="font-haas_medium_65">{if @engagement.reached_end, do: "Yes", else: "No"}</div></div>
+            </div>
+            <%= if @engagement.is_read do %>
+              <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-haas_medium_65 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Article marked as read!
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <!-- Suggested Posts -->
+        <%= if @suggested_posts && length(@suggested_posts) > 0 do %>
+          <div class="mt-16 pt-10 border-t border-[#E7E8F1]">
+            <h2 class="text-2xl font-haas_bold_75 mb-8 text-[#141414]">Suggested For You</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <%= for post <- @suggested_posts do %>
+                <SharedComponents.post_card post={post} balance={post.bux_balance || 0} />
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+      </main>
+
+      <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
+      <aside class="hidden lg:block w-[200px] shrink-0">
+        <div class="sticky top-36 space-y-4">
+          <%= for banner <- @right_sidebar_banners do %>
+            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
+              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+            </a>
+          <% end %>
+          <%= if @right_sidebar_banners == [] do %>
+            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
+            </div>
+          <% end %>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</div>
+
+<!-- Video Watch Modal -->
+<%= if @video_modal_open && @post.video_id do %>
+  <div
+    id="video-modal"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    phx-window-keydown="close_video_modal"
+    phx-key="Escape"
+  >
+    <!-- Close Button -->
+    <button
+      phx-click="close_video_modal"
+      class="absolute top-4 right-4 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+    >
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+
+    <!-- Video + Banner Wrapper -->
+    <div class="w-full max-w-5xl mx-4 flex flex-col gap-4">
+      <!-- Video Player Top Banner (managed via /admin/banners) — full width of player -->
+      <%= if @video_player_top_banners != [] do %>
+        <% banner = Enum.random(@video_player_top_banners) %>
+        <div class="w-full">
+          <%= if banner.link_url do %>
+            <a
+              href={banner.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block group cursor-pointer"
+              phx-click="track_ad_click"
+              phx-value-id={banner.id}
+            >
+              <img
+                src={banner.image_url}
+                alt={banner.name}
+                class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
+                loading="lazy"
+              />
+            </a>
+          <% else %>
+            <img
+              src={banner.image_url}
+              alt={banner.name}
+              class="w-full h-auto rounded-2xl"
+              loading="lazy"
+            />
+          <% end %>
+        </div>
+      <% end %>
+
+      <!-- Video Container -->
+      <div
+        id="video-watch-container"
+        class="w-full aspect-video"
+        phx-hook="VideoWatchTracker"
+        data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
+        data-post-id={@post.id}
+        data-video-id={@post.video_id}
+        data-video-duration={@post.video_duration || 0}
+        data-bux-per-minute={Decimal.to_float(@post.video_bux_per_minute || Decimal.new("1.0"))}
+        data-max-reward={if @post.video_max_reward, do: Decimal.to_float(@post.video_max_reward), else: ""}
+        data-high-water-mark={@video_high_water_mark || 0}
+        data-total-bux-earned={@video_total_bux_earned || 0}
+        data-pool-available={to_string(@pool_available)}
+        data-user-multiplier={@user_multiplier || 1.0}
+      >
+        <!-- YouTube player will be injected here -->
+        <div data-video-player class="w-full h-full bg-black"></div>
+      </div>
+    </div>
+
+    <!-- BUX Earnings Panel - HIGH WATER MARK AWARE -->
+    <%= if @current_user && @pool_available && !@video_fully_watched do %>
+      <div id="video-earnings-panel" class="absolute bottom-8 right-8 text-white rounded-2xl shadow-2xl p-4 min-w-[220px] transition-all duration-300" style="background: linear-gradient(to right, #8AE388, #6BCB69);">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">This Session <span class="bg-white/20 rounded px-1.5 py-0.5 ml-1"><%= :erlang.float_to_binary(@user_multiplier / 1, decimals: 1) %>x</span></div>
+            <div class="text-2xl font-bold">
+              +<span id="video-bux-earned">0.0</span> BUX
+            </div>
+          </div>
+        </div>
+
+        <!-- New Content Indicator (hidden by default, JS shows when watching new) -->
+        <div id="video-new-content" class="hidden mt-2 text-xs bg-white/20 rounded-full px-2 py-1 text-center">
+          ✨ Watching new content - earning BUX!
+        </div>
+
+        <!-- Rewatching Indicator (hidden by default, JS shows when rewatching) -->
+        <button id="video-rewatching" onclick="document.getElementById('video-watch-container').dispatchEvent(new CustomEvent('seek-to-hwm'))" class="hidden mt-2 text-xs bg-white/20 hover:bg-white/30 rounded-full px-3 py-1.5 text-center cursor-pointer transition-colors w-full">
+          Rewatching - skip ahead to resume earning
+        </button>
+
+        <!-- Muted Warning (hidden by default, JS shows when muted) -->
+        <div id="video-muted-warning" class="hidden mt-2 text-xs bg-red-500/80 rounded-full px-2 py-1 text-center font-semibold">
+          🔇 Video muted - unmute to earn BUX
+        </div>
+
+        <!-- Watch Progress Bar (overall video completion) -->
+        <div class="mt-3">
+          <div class="flex justify-between text-xs opacity-75 mb-1">
+            <span>Video Progress</span>
+            <span id="video-progress-time">0:00 / {@video_duration_formatted}</span>
+          </div>
+          <div class="h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div
+              id="video-watch-progress"
+              class="h-full bg-white rounded-full transition-all duration-500"
+              style={"width: #{@video_completion_percentage}%"}
+            ></div>
+          </div>
+        </div>
+
+        <!-- Previously Earned (if any) -->
+        <%= if @video_total_bux_earned > 0 do %>
+          <div class="mt-2 pt-2 border-t border-white/20 text-xs">
+            <div class="flex justify-between opacity-75">
+              <span>Previously earned:</span>
+              <span class="font-bold">{Float.round(@video_total_bux_earned, 1)} BUX</span>
+            </div>
+            <div class="flex justify-between opacity-75 mt-1">
+              <span>Total:</span>
+              <span class="font-bold"><span id="video-bux-total">{Float.round(@video_total_bux_earned, 1)}</span> BUX</span>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <!-- Video Fully Watched State -->
+    <%= if @video_fully_watched do %>
+      <div class="absolute bottom-8 right-8 bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">Video Complete!</div>
+            <div class="text-2xl font-bold">{Float.round(@video_total_bux_earned, 1)} BUX</div>
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+          <div class="flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            You've watched the full video
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Logged-in user can't earn — needs SOL to activate the multiplier -->
+    <%= if @current_user && !@user_eligible_to_earn do %>
+      <div class="absolute bottom-8 right-8 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-2xl p-4 min-w-[220px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-10 h-10 rounded-full object-cover bg-white p-1" />
+          <div>
+            <div class="text-xs opacity-90">Not Earning BUX</div>
+            <div class="text-lg font-bold">Add SOL to Start</div>
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+          <p>Hold at least <span class="font-bold">0.01 SOL</span> in your wallet to earn BUX for watching.</p>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Pool Empty State -->
+    <%= if !@pool_available && @current_user && @user_eligible_to_earn do %>
+      <div class="absolute bottom-8 right-8 bg-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
+          <div>
+            <div class="text-xs opacity-90">Pool Empty</div>
+            <div class="text-lg font-bold">No BUX Available</div>
+          </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
+          <p>This post's BUX pool is empty. Enjoy the video!</p>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Anonymous User - Earnings Panel -->
+    <%= if @is_anonymous && @pool_available do %>
+      <div id="anonymous-video-earnings" class="absolute bottom-8 right-8 text-white rounded-2xl shadow-2xl p-4 min-w-[220px] transition-all duration-300" style="background: linear-gradient(to right, #8AE388, #6BCB69);">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <div class="text-xs opacity-90">This Session</div>
+            <div class="text-2xl font-bold">
+              +<span id="anonymous-video-bux">0.0</span> BUX
+            </div>
+          </div>
+        </div>
+
+        <!-- New Content Indicator (shown by JS) -->
+        <div id="anonymous-video-new-content" class="hidden mt-2 text-xs bg-white/20 rounded-full px-2 py-1 text-center">
+          ✨ Keep watching to earn more!
+        </div>
+
+        <!-- Watch Progress Bar -->
+        <div class="mt-3">
+          <div class="flex justify-between text-xs opacity-75 mb-1">
+            <span>Video Progress</span>
+            <span id="anonymous-video-progress-time">0:00 / {@video_duration_formatted}</span>
+          </div>
+          <div class="h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div
+              id="anonymous-video-watch-progress"
+              class="h-full bg-white rounded-full transition-all duration-500"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<!-- Share Modal -->
+<%= if @show_share_modal do %>
+  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" phx-click="close_share_modal">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden max-h-[90vh] flex flex-col" phx-click-away="close_share_modal">
+      <div class={"flex-shrink-0 " <> if(@pool_available, do: "bg-gradient-to-r from-[#8AE388] to-[#BAF55F] p-6", else: "bg-gradient-to-r from-gray-400 to-gray-500 p-6")}>
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-haas_bold_75 text-black flex items-center gap-2">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+            <%= if @pool_available do %>
+              Share to Earn BUX
+            <% else %>
+              Share on X
+            <% end %>
+          </h3>
+          <button phx-click="close_share_modal" class="text-black/70 hover:text-black">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <%= if @share_campaign do %>
+          <%= if @pool_available do %>
+            <p class="text-black/70 text-sm mt-2">Share this article on X and earn <span class="font-bold">{@x_share_reward} BUX</span>!</p>
+          <% else %>
+            <p class="text-white/80 text-sm mt-2">Pool is empty - share anyway to support this article!</p>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <%= if @share_status do %>
+          <%= case @share_status do %>
+            <% {:success, message} -> %>
+              <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg"><div class="flex items-center gap-2 text-green-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div></div>
+            <% {:error, message} -> %>
+              <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg"><div class="flex items-center gap-2 text-red-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div>
+                <%= if @needs_x_reconnect do %><div class="mt-3"><.link href={~p"/auth/x?redirect=#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg><span class="font-haas_medium_65">Reconnect X Account</span></.link></div><% end %>
+              </div>
+            <% {:info, message} -> %>
+              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"><div class="flex items-center gap-2 text-blue-700"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">{message}</span></div></div>
+          <% end %>
+        <% end %>
+
+        <%= if @x_connection do %>
+          <div class="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg">
+            <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></div>
+            <div><div class="text-sm font-haas_medium_65 text-gray-900">@{@x_connection.x_username}</div><div class="text-xs text-gray-500">Connected</div></div>
+            <svg class="w-5 h-5 text-green-500 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          </div>
+        <% else %>
+          <%= if @needs_x_reconnect do %>
+            <div class="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div class="flex items-center gap-2 text-orange-700 mb-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">X Session Expired</span></div>
+              <p class="text-sm text-orange-600 mb-3">Your X connection has expired. Please reconnect to continue earning BUX rewards.</p>
+              <.link href={~p"/auth/x?redirect=/#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>Reconnect X Account</.link>
+            </div>
+          <% else %>
+            <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div class="flex items-center gap-2 text-yellow-700 mb-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg><span class="font-haas_medium_65">X Account Not Connected</span></div>
+              <p class="text-sm text-yellow-600 mb-3">Connect your X account to share and earn BUX rewards.</p>
+              <.link href={~p"/auth/x?redirect=/#{@post.slug}"} class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>Connect X Account</.link>
+            </div>
+          <% end %>
+        <% end %>
+
+        <div class="mb-6">
+          <div class="text-xs text-gray-500 mb-2">Will retweet & like:</div>
+          <%= if @share_campaign && @share_campaign.tweet_id do %>
+            <div id="share-modal-tweet-embed" phx-hook="TwitterWidgets" phx-update="ignore" class="tweet-embed-container max-h-[400px] overflow-y-auto">
+              <blockquote class="twitter-tweet" data-theme="light" data-dnt="true"><p lang="en" dir="ltr">Loading tweet...</p><a href={"https://twitter.com/i/status/#{@share_campaign.tweet_id}"}>View Tweet</a></blockquote>
+            </div>
+          <% else %>
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200"><p class="text-sm font-haas_medium_65 text-gray-900">{@post.title}</p><p class="text-xs text-gray-500 mt-1">{BlocksterV2Web.Endpoint.url()}/{@post.slug}</p></div>
+          <% end %>
+        </div>
+
+        <%= if @x_connection && !@share_reward do %>
+          <button phx-click="share_to_x" class="w-full py-3 bg-black text-white font-haas_medium_65 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Retweet & Like
+            <%= if @share_campaign && @pool_available do %><span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2 py-0.5 rounded-full text-xs font-bold ml-2 flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" />+{@x_share_reward} BUX</span><% end %>
+          </button>
+        <% end %>
+
+        <%= if @share_reward do %>
+          <div class="text-center py-4">
+            <div class="text-green-600 font-haas_medium_65 mb-2"><svg class="w-12 h-12 mx-auto text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+            <p class="text-gray-600">You've already shared this article!</p>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<script>
+  (function() {
+    function loadTwitterWidgets() {
+      if (typeof twttr !== "undefined" && twttr.widgets) {
+        twttr.widgets.load();
+      } else {
+        setTimeout(loadTwitterWidgets, 100);
+      }
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadTwitterWidgets);
+    } else {
+      loadTwitterWidgets();
+    }
+  })();
+</script>

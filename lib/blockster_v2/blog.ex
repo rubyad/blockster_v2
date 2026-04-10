@@ -721,7 +721,7 @@ defmodule BlocksterV2.Blog do
       where: p.id not in ^exclude_ids,
       order_by: [desc: p.published_at],
       limit: ^pool_size,
-      preload: [:category]
+      preload: [:category, :hub]
     )
 
     query

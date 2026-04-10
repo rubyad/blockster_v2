@@ -16,6 +16,51 @@ defmodule BlocksterV2Web.PostLive.TipTapRenderer do
 
   def render_content(_), do: Phoenix.HTML.raw("")
 
+  @doc """
+  Splits a TipTap doc's top-level nodes into chunks and renders each chunk
+  as a separate HTML string. Returns a list of `Phoenix.HTML.raw` values.
+
+  Used by the article page to interleave ad banners at fractional positions
+  within the article body.
+
+  `positions` is a sorted list of floats between 0.0 and 1.0 indicating
+  where to split. E.g. `[0.33, 0.5, 0.66]` produces 4 chunks.
+  """
+  def render_content_split(%{"type" => "doc", "content" => content}, positions)
+      when is_list(content) and is_list(positions) do
+    total = length(content)
+
+    if total == 0 do
+      [Phoenix.HTML.raw("")]
+    else
+      # Convert fractional positions to node indices
+      indices =
+        positions
+        |> Enum.map(fn frac -> max(1, round(frac * total)) end)
+        |> Enum.uniq()
+        |> Enum.sort()
+        |> Enum.filter(&(&1 < total))
+
+      # Split the node list at those indices
+      {chunks, remaining} =
+        Enum.reduce(indices, {[], content}, fn idx, {acc, rest} ->
+          already_taken = total - length(rest)
+          take = idx - already_taken
+          {chunk, leftover} = Enum.split(rest, take)
+          {acc ++ [chunk], leftover}
+        end)
+
+      all_chunks = chunks ++ [remaining]
+
+      Enum.map(all_chunks, fn nodes ->
+        html = nodes |> Enum.map(&render_node/1) |> Enum.join("\n")
+        Phoenix.HTML.raw(html)
+      end)
+    end
+  end
+
+  def render_content_split(_, _), do: [Phoenix.HTML.raw("")]
+
   # Paragraph
   defp render_node(%{"type" => "paragraph", "content" => content}) when is_list(content) do
     inner = Enum.map(content, &render_inline/1) |> Enum.join()

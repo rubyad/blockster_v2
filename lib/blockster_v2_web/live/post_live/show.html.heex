@@ -1,38 +1,54 @@
-<!-- Fixed Bottom-Right BUX Panel - Hidden when video modal is open -->
-<!-- Now shows for both logged-in and anonymous users -->
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active="article"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+/>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FLOATING BUX PANEL — matches article_page_mock.html
+     Clean white panel, bottom-right, green pulse "Earning Live"
+     Switches to "Earned" state when article completes
+═══════════════════════════════════════════════════════════ -->
 <%= if !@video_modal_open do %>
   <div id="bux-panel" class="fixed bottom-20 md:bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
-    <!-- LOGGED-IN USER PANELS -->
-    <%= if @current_user do %>
-      <!-- Video Earned Badge (shows after watching video) -->
-      <%= if @post.video_id && @video_total_bux_earned > 0 do %>
-      <div class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-          </div>
-          <div>
-            <div class="text-xs opacity-90">Video Earned</div>
-            <div class="text-xl font-bold">+<%= Float.round(@video_total_bux_earned, 1) %> BUX</div>
+
+    <%!-- Video earned badge (shown after watching video) --%>
+    <%= if @current_user && @post.video_id && @video_total_bux_earned > 0 do %>
+      <div class="bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-[#7D00FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <span class="text-[9px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Video earned</span>
           </div>
           <%= if @video_fully_watched do %>
-            <svg class="w-5 h-5 ml-auto text-green-300" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
+            <svg class="w-4 h-4 text-[#22C55E]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
           <% end %>
         </div>
-        <!-- Show all video transactions -->
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover" />
+          <div>
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-[26px] font-bold leading-none text-[#141414]">+<%= Float.round(@video_total_bux_earned, 1) %></span>
+              <span class="text-[11px] text-neutral-500">BUX</span>
+            </div>
+            <div class="text-[10px] mt-1 text-neutral-400 uppercase tracking-[0.1em]">Video</div>
+          </div>
+        </div>
         <%= if @video_tx_ids && length(@video_tx_ids) > 0 do %>
-          <div class="mt-2 pt-2 border-t border-white/20 space-y-1.5 max-h-32 overflow-y-auto">
+          <div class="mt-3 pt-3 border-t border-neutral-200 space-y-1.5 max-h-24 overflow-y-auto">
             <%= for tx <- @video_tx_ids do %>
-              <a href={"https://solscan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center justify-between gap-2 cursor-pointer group">
-                <span class="flex items-center gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-75 group-hover:opacity-100"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                  <span class="font-mono"><%= String.slice(tx.tx_hash, 0..9) %>...</span>
-                </span>
-                <span class="font-bold text-white/90">+<%= Float.round(tx.bux_amount, 1) %></span>
+              <a href={"https://solscan.io/tx/#{tx.tx_hash}"} target="_blank" rel="noopener noreferrer" class="text-[10px] text-neutral-400 hover:text-neutral-700 flex items-center justify-between gap-2 cursor-pointer">
+                <span class="font-mono"><%= String.slice(tx.tx_hash, 0..9) %>...</span>
+                <span class="font-mono font-semibold text-[#141414]">+<%= Float.round(tx.bux_amount, 1) %></span>
               </a>
             <% end %>
           </div>
@@ -40,134 +56,132 @@
       </div>
     <% end %>
 
-    <!-- Read Reward Panel -->
-    <%= if @already_rewarded do %>
-      <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-        <div class="flex items-center gap-3">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
-          <div>
-            <div class="text-xs opacity-90">Already Earned</div>
-            <div class="text-xl font-bold">{@bux_earned || 0} BUX</div>
+    <%!-- Main earning panel — exact match to mock's floating BUX panel --%>
+    <%= cond do %>
+      <% @current_user && !@user_eligible_to_earn -> %>
+        <%!-- Not eligible: needs SOL --%>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-11 h-11 rounded-full object-cover bg-neutral-100 p-1" />
+            <div>
+              <div class="text-[11px] font-semibold text-neutral-500">Not Earning</div>
+              <div class="text-[15px] font-bold text-[#141414]">Add SOL to Start</div>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-neutral-200 text-[11px] text-neutral-400">
+            Hold at least <span class="font-semibold text-[#141414]">0.01 SOL</span> to earn BUX.
           </div>
         </div>
-        <%= if @read_tx_id do %>
-          <div class="mt-2 pt-2 border-t border-white/20">
-            <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-              <span>View Transaction</span>
-            </a>
-          </div>
-        <% end %>
-      </div>
-    <% else %>
-      <%= cond do %>
-        <% @current_user && !@user_eligible_to_earn -> %>
-          <!-- Logged-in user can't earn — needs SOL to activate the multiplier -->
-          <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-            <div class="flex items-center gap-3">
-              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-10 h-10 rounded-full object-cover bg-white p-1" />
-              <div>
-                <div class="text-xs opacity-90">Not Earning BUX</div>
-                <div class="text-lg font-bold">Add SOL to Start</div>
-              </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
-              <p>Hold at least <span class="font-bold">0.01 SOL</span> in your wallet to earn BUX for reading, sharing and watching.</p>
-            </div>
-          </div>
 
-        <% @article_completed && @current_bux > 0 -> %>
-          <div class="bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px] animate-pulse-once">
-            <div class="flex items-center gap-3">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
-              <div>
-                <div class="text-xs opacity-90">Earned!</div>
-                <div class="text-xl font-bold">+{@current_bux} BUX</div>
-              </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
-              <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
-              <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} BUX</span></div>
-              <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
+      <% (@already_rewarded || (@article_completed && @current_bux && @current_bux > 0)) && @current_user -> %>
+        <%!-- Earned state — same white panel, no pulse, "Earned" label --%>
+        <% earned_amount = @bux_earned || @current_bux || 0 %>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-[#22C55E]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span class="text-[9px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Earned</span>
             </div>
             <%= if @read_tx_id do %>
-              <div class="mt-2 pt-2 border-t border-white/20">
-                <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-xs opacity-90 hover:opacity-100 flex items-center gap-1 cursor-pointer">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                  <span>View Transaction</span>
-                </a>
-              </div>
+              <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="text-[9px] font-mono text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer">
+                View tx
+              </a>
             <% end %>
           </div>
-
-        <% @article_completed -> %>
-          <!-- Article completed but no BUX earned (pool genuinely empty) -->
-          <div class="bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-            <div class="flex items-center gap-3">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
-              <div>
-                <div class="text-xs opacity-90">Article Complete</div>
-                <div class="text-lg font-bold">No BUX Earned</div>
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover" />
+            <div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[26px] font-bold leading-none text-[#141414]">+<%= trunc(earned_amount) %></span>
+                <span class="text-[11px] text-neutral-500">BUX</span>
               </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
-              <p>This article's BUX pool is empty. Great reading though!</p>
+              <div class="text-[10px] mt-1 text-neutral-400 uppercase tracking-[0.1em]">This Article</div>
             </div>
           </div>
-
-        <% @pool_available -> %>
-          <!-- Pool has BUX available - show earning progress -->
-          <div class="hidden md:block bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-            <div class="flex items-center gap-3">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
-              <div>
-                <div class="text-xs opacity-90">Earning BUX</div>
-                <div class="text-xl font-bold">+{@current_bux} BUX</div>
-              </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90 space-y-1">
-              <div class="flex justify-between"><span>Score:</span><span class="font-semibold">{@current_score}/10</span></div>
-              <div class="flex justify-between"><span>Base Reward:</span><span class="font-semibold">{@base_bux_reward} BUX</span></div>
-              <div class="flex justify-between"><span>Multiplier:</span><span class="font-semibold">{@user_multiplier}x</span></div>
-            </div>
-          </div>
-
-        <% true -> %>
-          <!-- Pool is empty - show "no rewards available" state -->
-          <div class="bg-gray-500 text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-            <div class="flex items-center gap-3">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover opacity-50" />
-              <div>
-                <div class="text-xs opacity-90">No BUX Available</div>
-                <div class="text-lg font-bold">Pool Empty</div>
-              </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-white/20 text-xs opacity-90">
-              <p>This article's BUX pool has been depleted.</p>
-            </div>
-          </div>
-      <% end %>
-    <% end %>
-    <% end %>
-
-    <!-- ANONYMOUS USER - EARNING IN PROGRESS (Desktop only - inside bux-panel) -->
-    <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
-      <div class="hidden md:block bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-2xl shadow-2xl p-4 min-w-[200px]">
-        <!-- Current Earnings -->
-        <div class="flex items-center gap-3">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-10 h-10 rounded-full object-cover" />
-          <div>
-            <div class="text-xs opacity-90">Earning Now</div>
-            <div class="text-xl font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</div>
+          <div class="mt-3.5 pt-3 border-t border-neutral-200 text-[11px] space-y-1.5">
+            <div class="flex justify-between"><span class="text-neutral-500">Engagement</span><span class="font-mono font-semibold text-[#141414]">{@current_score} / 10</span></div>
+            <div class="flex justify-between"><span class="text-neutral-500">Base Reward</span><span class="font-mono font-semibold text-[#141414]">{@base_bux_reward} BUX</span></div>
+            <div class="flex justify-between"><span class="text-neutral-500">Multiplier</span><span class="font-mono font-semibold text-[#141414]">{@user_multiplier}x</span></div>
           </div>
         </div>
 
-
-        <!-- Call to Action -->
-        <div class="mt-3 text-center text-xs opacity-90">
-          Keep reading to earn more!
+      <% @article_completed && @current_user -> %>
+        <%!-- Completed but pool was empty --%>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover opacity-40" />
+            <div>
+              <div class="text-[11px] font-semibold text-neutral-400">Article Complete</div>
+              <div class="text-[15px] font-bold text-neutral-400">Pool Empty</div>
+            </div>
+          </div>
         </div>
-      </div>
+
+      <% @current_user && @pool_available -> %>
+        <%!-- Earning live — exact match to mock (lines 1609-1637) --%>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-1.5">
+              <div class="relative w-1.5 h-1.5">
+                <div class="absolute inset-0 bg-[#22C55E] rounded-full animate-pulse"></div>
+              </div>
+              <span class="text-[9px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Earning Live</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover" />
+            <div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[26px] font-bold leading-none text-[#141414]">+{@current_bux}</span>
+                <span class="text-[11px] text-neutral-500">BUX</span>
+              </div>
+              <div class="text-[10px] mt-1 text-neutral-400 uppercase tracking-[0.1em]">This Article</div>
+            </div>
+          </div>
+          <div class="mt-3.5 pt-3 border-t border-neutral-200 text-[11px] space-y-1.5">
+            <div class="flex justify-between"><span class="text-neutral-500">Engagement</span><span class="font-mono font-semibold text-[#141414]">{@current_score} / 10</span></div>
+            <div class="flex justify-between"><span class="text-neutral-500">Base Reward</span><span class="font-mono font-semibold text-[#141414]">{@base_bux_reward} BUX</span></div>
+            <div class="flex justify-between"><span class="text-neutral-500">Multiplier</span><span class="font-mono font-semibold text-[#141414]">{@user_multiplier}x</span></div>
+          </div>
+        </div>
+
+      <% @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available -> %>
+        <%!-- Anonymous earning live --%>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-1.5">
+              <div class="relative w-1.5 h-1.5">
+                <div class="absolute inset-0 bg-[#22C55E] rounded-full animate-pulse"></div>
+              </div>
+              <span class="text-[9px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Earning Live</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover" />
+            <div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[26px] font-bold leading-none text-[#141414]">+<%= Float.round(@anonymous_earned, 0) |> trunc() %></span>
+                <span class="text-[11px] text-neutral-500">BUX</span>
+              </div>
+              <div class="text-[10px] mt-1 text-neutral-400 uppercase tracking-[0.1em]">This Article</div>
+            </div>
+          </div>
+        </div>
+
+      <% @current_user && !@pool_available -> %>
+        <%!-- Pool empty --%>
+        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+          <div class="flex items-center gap-3">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover opacity-40" />
+            <div>
+              <div class="text-[11px] font-semibold text-neutral-400">No BUX Available</div>
+              <div class="text-[15px] font-bold text-neutral-400">Pool Empty</div>
+            </div>
+          </div>
+        </div>
+
+      <% true -> %>
+        <%!-- Nothing to show --%>
     <% end %>
   </div>
 <% end %>
@@ -293,7 +307,7 @@
 
 <!-- Onboarding Popup Hook Wrapper - triggers popup on 20% scroll for eligible users -->
 <div
-  class="article-page bg-white min-h-screen"
+  class="article-page bg-[#fafaf9] min-h-screen"
   id="post-engagement-tracker"
   phx-hook="EngagementTracker"
   data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}
@@ -321,29 +335,140 @@
 
   <!-- 3-Column Layout Container -->
   <div class={[
-    "max-w-7xl mx-auto px-4 md:pt-32 pb-16",
-    if(@mobile_top_banners != [], do: "pt-0", else: "pt-[62px]")
+    "max-w-[1280px] mx-auto px-6 py-10",
+    if(@mobile_top_banners != [], do: "pt-0 md:pt-10", else: "pt-6 md:pt-10")
   ]}>
-    <div class="flex gap-8 justify-center">
+    <div class="flex gap-6">
 
-      <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
+      <!-- LEFT SIDEBAR — Discover Cards (exact match to article_page_mock.html) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
-        <div class="sticky top-36 space-y-4">
-          <%= for banner <- @left_sidebar_banners do %>
-            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
-              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+        <div class="sticky top-[120px]">
+          <div class="flex items-center justify-between mb-2 pl-1">
+            <span class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 font-bold">More on Blockster</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
+          </div>
+          <div class="space-y-3">
+
+            <%!-- Card 1 · EVENT --%>
+            <a href="#" class="discover-card">
+              <div class="discover-eyebrow">
+                <span class="dot bg-[#7D00FF]"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Event
+                <span class="meta">in 13 days</span>
+              </div>
+              <div class="aspect-[16/10] bg-neutral-100 relative">
+                <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=85&auto=format&fit=crop" alt="" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="absolute top-2 left-2">
+                  <div class="date-tile-mini">
+                    <div class="month">APR</div>
+                    <div class="day">22</div>
+                  </div>
+                </div>
+                <div class="absolute top-2 right-2">
+                  <span class="inline-block bg-[#CAFC00] text-black text-[8px] font-mono font-bold px-1.5 py-[3px] rounded-full uppercase tracking-wider">Free</span>
+                </div>
+              </div>
+              <div class="p-3">
+                <div class="flex items-center gap-1 mb-1">
+                  <div class="w-2.5 h-2.5 rounded bg-[#7D00FF] grid place-items-center">
+                    <svg class="w-1.5 h-1.5 text-white" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="2.5" fill="none"/><circle cx="12" cy="12" r="5" fill="white"/></svg>
+                  </div>
+                  <span class="text-[8px] uppercase tracking-[0.1em] text-neutral-500">Moonpay</span>
+                </div>
+                <h4 class="text-[12px] font-bold text-[#141414] leading-[1.25] tracking-tight line-clamp-2 mb-2">Moonpay &times; Solana NYC happy hour</h4>
+                <div class="flex items-center gap-1 text-[9px] text-neutral-500 mb-2.5">
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Soho House &middot; NYC
+                </div>
+                <div class="discover-cta">
+                  RSVP free
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
             </a>
-          <% end %>
-          <%= if @left_sidebar_banners == [] do %>
-            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
-            </div>
-          <% end %>
+
+            <%!-- Card 2 · TOKEN SALE --%>
+            <a href="#" class="discover-card">
+              <div class="brand-stripe" style="background: linear-gradient(90deg, #FF6B35, #C73E1D);"></div>
+              <div class="discover-eyebrow">
+                <span class="dot bg-[#FF6B35]"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Token sale
+                <span class="meta">live</span>
+              </div>
+              <div class="p-3">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-9 h-9 rounded-lg grid place-items-center shrink-0" style="background: linear-gradient(135deg, #FF6B35, #C73E1D);">
+                    <span class="font-bold text-white text-[14px]">P</span>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="font-mono font-bold text-[10px]" style="color: #FF6B35;">$PHX</div>
+                    <h4 class="text-[12px] font-bold text-[#141414] leading-tight tracking-tight truncate">Phoenix Protocol</h4>
+                  </div>
+                </div>
+                <p class="text-[10px] text-neutral-500 leading-[1.4] mb-3 line-clamp-2">High-frequency on-chain limit-orderbook DEX. Round 1 &middot; BUX-tier holders.</p>
+                <div class="space-y-1.5 mb-3">
+                  <div class="flex items-baseline justify-between text-[9px]">
+                    <span class="text-neutral-500">Raise &middot; 62%</span>
+                    <span class="font-mono font-bold text-[#141414]">$3.1M / $5M</span>
+                  </div>
+                  <div class="mini-bar">
+                    <div class="mini-fill" style="width: 62%; background: linear-gradient(90deg, #FF6B35, #C73E1D);"></div>
+                  </div>
+                  <div class="flex items-center justify-between text-[9px] font-mono text-neutral-500">
+                    <span>Closes <span class="text-[#141414] font-bold">4d 12h</span></span>
+                    <span>Tier 3</span>
+                  </div>
+                </div>
+                <div class="discover-cta">
+                  Register allocation
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+            </a>
+
+            <%!-- Card 3 · AIRDROP --%>
+            <.link navigate="/airdrop" class="discover-card">
+              <div class="discover-eyebrow">
+                <span class="dot bg-[#CAFC00]"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                Airdrop
+                <span class="meta">round 14</span>
+              </div>
+              <div class="p-3">
+                <div class="flex items-baseline gap-1 mb-1">
+                  <span class="font-mono font-bold text-[28px] text-[#141414] leading-none tracking-tight">$2,000</span>
+                </div>
+                <div class="text-[9px] text-neutral-500 mb-3">Total prize pool &middot; 33 winners</div>
+                <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-2 mb-3">
+                  <div class="flex items-center justify-between text-[9px] mb-1.5">
+                    <span class="text-neutral-500">Drawing in</span>
+                    <span class="font-mono font-bold text-[#141414]">21d 14h</span>
+                  </div>
+                  <div class="flex items-center justify-between text-[9px]">
+                    <span class="text-neutral-500">Pool</span>
+                    <span class="font-mono font-bold text-[#141414]">2.4M BUX</span>
+                  </div>
+                  <div class="flex items-center justify-between text-[9px]">
+                    <span class="text-neutral-500">Players</span>
+                    <span class="font-mono font-bold text-[#141414]">2,142</span>
+                  </div>
+                </div>
+                <div class="discover-cta">
+                  Redeem BUX to enter
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+            </.link>
+
+          </div>
         </div>
       </aside>
 
       <!-- CENTER COLUMN - Main Article Content -->
-      <main class="w-full max-w-[680px]">
+      <main class="flex-1 min-w-0">
 
         <%= if @is_draft_preview do %>
           <div class="mb-6 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg">
@@ -388,224 +513,162 @@
           <% end %>
         <% end %>
 
-        <!-- Category -->
-        <%= if @post.category do %>
-          <div class="mb-4">
-            <span class="text-sm font-haas_medium_65 text-[#141414] uppercase tracking-wider">{@post.category.name}</span>
-          </div>
-        <% end %>
+        <%!-- Article header — matches article_page_mock.html exactly --%>
+        <div class="bg-white border border-neutral-200/70 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden mb-0">
+        <div class="px-6 md:px-12 pt-8 md:pt-12 pb-6 md:pb-8">
 
-        <!-- Title -->
-        <h1 class="text-4xl md:text-5xl font-bold leading-tight text-[#141414] mb-6">
+        <%!-- Row 1: category + read time | BUX earned pill --%>
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div class="flex items-center gap-2.5">
+            <%= if @post.category do %>
+              <span class="text-[10px] font-bold tracking-[0.12em] text-[#0a0a0a] uppercase bg-[#CAFC00] px-2 py-[3px] rounded">{@post.category.name}</span>
+            <% end %>
+            <span class="text-[11px] text-neutral-500"><%= ceil((@word_count || 0) / 200) %> min read</span>
+            <span class="text-neutral-300">&middot;</span>
+            <span class="text-[11px] text-neutral-500">
+              {if @post.published_at, do: Calendar.strftime(@post.published_at, "%b %d, %Y"), else: "Draft"}
+            </span>
+          </div>
+          <%!-- BUX earned pill — clean white, always visible per mock --%>
+          <% pill_bux = cond do
+            @already_rewarded -> @bux_earned || 0
+            @article_completed -> @current_bux || 0
+            @is_anonymous -> @anonymous_earned || 0
+            true -> @current_bux || 0
+          end %>
+          <div class="flex items-center gap-2 bg-white border border-neutral-200 shadow-sm rounded-full pl-1 pr-3.5 py-1">
+            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-[22px] h-[22px] rounded-full" />
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-[9px] text-neutral-400 uppercase tracking-[0.12em]">
+                {if @already_rewarded || @article_completed, do: "Earned", else: "Earning"}
+              </span>
+              <span class="text-[13px] font-bold text-[#141414]">
+                +<%= Float.round(pill_bux + 0.0, 2) %> BUX
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Title --%>
+        <h1 class="text-4xl md:text-5xl font-bold leading-[1.06] text-[#141414] mb-5" style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; letter-spacing: -0.02em;">
           {@post.title}
         </h1>
 
-        <!-- Author & Date Row -->
-        <div class="flex items-center gap-3 mb-6 text-sm">
-          <%= if @author_persona do %>
-            <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
-            <div class="relative group/author flex items-center gap-2">
-              <span class={"flex items-center justify-center w-6 h-6 rounded-full text-xs font-haas_medium_65 #{bg} #{text}"}>
-                {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
-              </span>
-              <span class="font-haas_medium_65 text-[#141414] cursor-default">{@post.author_name}</span>
-              <!-- Hover popover -->
-              <div class="absolute left-0 top-full mt-2 z-20 w-72 p-4 bg-white rounded-xl shadow-lg ring-1 ring-[#E7E8F1] opacity-0 invisible group-hover/author:opacity-100 group-hover/author:visible transition-all duration-150 pointer-events-none">
-                <div class="flex items-center gap-2.5 mb-2">
-                  <span class={"flex items-center justify-center w-9 h-9 rounded-full text-sm font-haas_medium_65 #{bg} #{text}"}>
+        <%!-- Subtitle/excerpt --%>
+        <%= if @post.excerpt && @post.excerpt != "" do %>
+          <p class="text-[17px] leading-[1.55] text-neutral-600 max-w-[580px] mb-7">{@post.excerpt}</p>
+        <% end %>
+
+        <%!-- Author row + Share button — same flex row, per mock --%>
+        <div class="flex items-center justify-between gap-4 pb-7 border-b border-neutral-200/80 flex-wrap">
+          <div class="flex items-center gap-3">
+            <%= if @author_persona do %>
+              <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
+              <div class="relative group/author">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-10 h-10 rounded-full grid place-items-center text-[13px] text-white font-bold" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.12);">
                     {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
-                  </span>
-                  <div class="flex flex-col leading-tight">
-                    <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
-                    <span class="text-xs text-[#141414A3]">Blockster contributor</span>
                   </div>
-                </div>
-                <p class="text-xs text-[#141414A3] leading-relaxed">{@author_persona.bio}</p>
-              </div>
-            </div>
-          <% else %>
-            <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
-          <% end %>
-          <span class="text-[#141414A3]">·</span>
-          <span class="text-[#141414A3]">{if @post.published_at, do: Calendar.strftime(@post.published_at, "%b %d, %Y"), else: "Draft"}</span>
-          <%= if @post.hub do %>
-            <span class="text-[#141414A3]">·</span>
-            <.link navigate={~p"/hub/#{@post.hub.slug}"} class="flex items-center gap-1.5 hover:opacity-80">
-              <%= if @hub_logo do %>
-                <img src={@hub_logo} alt={@post.hub.name} class="h-4 w-4 rounded-full object-cover" />
-              <% end %>
-              <span class="font-haas_medium_65 text-[#141414]">{@post.hub.name}</span>
-            </.link>
-          <% end %>
-        </div>
-
-        <!-- Social Share Row (Sticky) -->
-        <%!-- Completed state: @already_rewarded or @article_completed (logged-in) or @show_signup_prompt (anonymous) --%>
-        <% mobile_is_completed = @pool_available and (@already_rewarded or (!@is_anonymous and @article_completed) or (@is_anonymous and @show_signup_prompt)) %>
-        <div class="sticky top-[58px] md:top-24 z-10 mb-4 border-b bg-white border-[#E7E8F1]">
-          <!-- Content Row -->
-          <div class="flex items-center gap-2 pt-3.5 pb-2.5 md:py-4 px-0">
-          <!-- X/Twitter Share with BUX Reward -->
-          <%= if @share_campaign && @share_campaign.is_active do %>
-            <%= if @share_reward do %>
-              <%!-- User has already shared - show success state --%>
-              <%!-- Desktop: Full badge with text --%>
-              <div class="hidden md:flex items-center gap-1">
-                <div class="flex items-center gap-2 h-10 px-4 bg-black text-white rounded-full text-sm font-haas_medium_65 ring-2 ring-[#8AE388] ring-offset-2">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <span class="text-[#8AE388] font-bold">Shared & Liked!</span>
-                  <span class="bg-gradient-to-r from-[#8AE388] to-[#BAF55F] text-black px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full object-cover" /><%= if @share_reward[:bux_rewarded], do: round(@share_reward[:bux_rewarded]), else: @x_share_reward %> BUX</span>
-                </div>
-                <%= if @share_reward[:tx_hash] do %>
-                  <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center w-10 h-10 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer" title="View transaction on Solscan">
-                    <svg class="w-4 h-4 text-[#141414]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                  </a>
-                <% end %>
-              </div>
-              <%!-- Mobile: Black share reward badge (same as post cards) - clickable to tx --%>
-              <a href={"https://solscan.io/tx/#{@share_reward[:tx_hash]}"} target="_blank" rel="noopener noreferrer" class="md:hidden rounded-full inline-block bg-gray-900 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors">
-                <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                  </svg>
-                  <span class="text-xs font-haas_medium_65 text-white">
-                    <%= Float.round((@share_reward[:bux_rewarded] || 0) + 0.0, 2) %>
-                  </span>
-                </div>
-              </a>
-            <% else %>
-              <%= if @current_user do %>
-                <%!-- Desktop: Full button with tooltip --%>
-                <div class="hidden md:block relative group">
-                  <button
-                    phx-click="open_share_modal"
-                    class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer"
-                  >
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                    <%= if @pool_available do %>
-                      <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
-                    <% else %>
-                      <span class="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">Pool empty</span>
-                    <% end %>
-                  </button>
-                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <%= if @pool_available do %>
-                      Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
-                    <% else %>
-                      Share this post on X (pool empty - no BUX reward)
-                    <% end %>
-                  </div>
-                </div>
-                <%!-- Mobile: Compact button --%>
-                <button
-                  phx-click="open_share_modal"
-                  class="md:hidden flex items-center gap-1.5 h-8 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 cursor-pointer shrink-0"
-                >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  <%= if @pool_available do %>
-                    <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold">+<%= @x_share_reward %></span>
-                  <% else %>
-                    <span class="text-gray-400 text-xs">Empty</span>
-                  <% end %>
-                </button>
-              <% else %>
-                <%!-- Not logged in - Desktop --%>
-                <div class="hidden md:block relative group">
-                  <.link href={~p"/login"} class="flex items-center gap-2 h-9 px-3 bg-black text-white rounded-full text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors cursor-pointer">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                    <%= if @pool_available do %>
-                      <span class="bg-[#8AE388] text-black px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1"><img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" /><%= @x_share_reward %> BUX</span>
-                    <% else %>
-                      <span class="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">Pool empty</span>
-                    <% end %>
-                  </.link>
-                  <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-3 py-2 bg-black text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <%= if @pool_available do %>
-                      Earn <%= @x_share_reward %> BUX for liking and retweeting this post on X
-                    <% else %>
-                      Share this post on X (pool empty - no BUX reward)
-                    <% end %>
-                  </div>
-                </div>
-                <%!-- Not logged in - Mobile: No X share button shown --%>
-              <% end %>
-            <% end %>
-          <% else %>
-            <%!-- No active campaign - simple X share link (hidden on mobile for anonymous users) --%>
-            <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class={["flex items-center justify-center w-9 h-9 bg-[#F7F8FA] rounded-full hover:bg-[#E7E8F1] transition-colors cursor-pointer shrink-0", @is_anonymous && "hidden md:flex"]}>
-              <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </a>
-          <% end %>
-
-          <!-- Encouragement Text (hidden when X share button visible for logged-in users, or when completed) -->
-          <%= if @pool_available and not mobile_is_completed do %>
-            <span class={[
-              "text-sm text-gray-500 flex-1 min-w-0 truncate",
-              !@is_anonymous && @share_campaign && @share_campaign.is_active && "hidden"
-            ]}>
-              Keep reading to earn more!
-            </span>
-          <% end %>
-
-          <!-- Earnings Display (Both Mobile and Desktop) -->
-          <div class="ml-auto flex items-center gap-2 shrink-0">
-            <%= if @pool_available and not mobile_is_completed do %>
-              <%!-- In progress: show current earnings --%>
-              <% earned = if @is_anonymous, do: (@anonymous_earned || 0) / 1, else: (@current_bux || 0) / 1 %>
-              <div class="flex items-center gap-2">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
-                <div class="flex flex-col items-end">
-                  <span class="text-[11px] text-gray-400 leading-none">Your Earnings</span>
-                  <span class="font-haas_medium_65 text-base leading-tight font-bold">
-                    +<%= Float.round(earned + 0.0, 2) %> BUX
-                  </span>
-                </div>
-              </div>
-            <% else %>
-              <%= if mobile_is_completed do %>
-                <%!-- Completed: show "You earned X BUX!" text + badges --%>
-                <% read_earned = if @is_anonymous, do: (@anonymous_earned || 0) + 0.0, else: (@bux_earned || 0) + 0.0 %>
-                <% share_earned = if @share_reward, do: (@share_reward[:bux_rewarded] || 0) + 0.0, else: 0.0 %>
-                <% video_earned = (@video_total_bux_earned || 0) + 0.0 %>
-                <% total_earned = read_earned + share_earned + video_earned %>
-                <span class="text-sm text-gray-600 font-haas_medium_65">You earned <%= Float.round(total_earned, 2) %> BUX!</span>
-                <%!-- Read reward badge (amber with white text) --%>
-                <div class="rounded-full inline-block bg-gradient-to-r from-amber-400 to-amber-500">
-                  <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                    </svg>
-                    <span class="text-xs font-haas_medium_65 text-white">
-                      <%= Float.round(read_earned, 2) %>
-                    </span>
-                  </div>
-                </div>
-                <%!-- Video reward badge (purple) - only if video earned > 0 --%>
-                <%= if video_earned > 0 do %>
-                  <div class="rounded-full inline-block bg-gradient-to-r from-violet-400 to-violet-500">
-                    <div class="flex items-center gap-1 rounded-full px-2.5 py-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                      </svg>
-                      <span class="text-xs font-haas_medium_65 text-white">
-                        <%= Float.round(video_earned, 2) %>
-                      </span>
+                  <div>
+                    <span class="text-[13px] font-bold text-[#141414]">{@post.author_name}</span>
+                    <div class="text-[11px] text-neutral-500 mt-[2px]">
+                      {if @author_persona, do: @author_persona.style, else: "Blockster contributor"}
                     </div>
                   </div>
+                </div>
+                <%!-- Hover popover --%>
+                <div class="absolute left-0 top-full mt-2 z-20 w-72 p-4 bg-white rounded-xl shadow-lg ring-1 ring-[#E7E8F1] opacity-0 invisible group-hover/author:opacity-100 group-hover/author:visible transition-all duration-150 pointer-events-none">
+                  <div class="flex items-center gap-2.5 mb-2">
+                    <span class={"flex items-center justify-center w-9 h-9 rounded-full text-sm font-haas_medium_65 #{bg} #{text}"}>
+                      {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
+                    </span>
+                    <div class="flex flex-col leading-tight">
+                      <span class="font-haas_medium_65 text-[#141414]">{@post.author_name}</span>
+                      <span class="text-xs text-[#141414A3]">Blockster contributor</span>
+                    </div>
+                  </div>
+                  <p class="text-xs text-[#141414A3] leading-relaxed">{@author_persona.bio}</p>
+                </div>
+              </div>
+            <% else %>
+              <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-full grid place-items-center text-[13px] text-white font-bold" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.12);">
+                  {BlocksterV2Web.PostLive.Show.author_initial(@post.author_name || "?")}
+                </div>
+                <div>
+                  <span class="text-[13px] font-bold text-[#141414]">{@post.author_name}</span>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Hub badge — same size as author avatar, separated with more gap --%>
+            <%= if @post.hub do %>
+              <span class="text-neutral-300 text-[10px] ml-2">&middot;</span>
+              <.link navigate={~p"/hub/#{@post.hub.slug}"} class="inline-flex items-center gap-2.5 ml-2 group/hub shrink-0">
+                <%= if @hub_logo do %>
+                  <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-1 ring-neutral-200/50">
+                    <img src={@hub_logo} alt={@post.hub.name} class="w-full h-full object-cover" />
+                  </div>
+                <% else %>
+                  <div class="w-10 h-10 rounded-full grid place-items-center shrink-0" style={"background: #{@post.hub.color_primary || "#7D00FF"}"}>
+                    <div class="w-4 h-4 rounded-full bg-white/80"></div>
+                  </div>
                 <% end %>
-              <% else %>
-                <%!-- No pool available --%>
-                <span class="font-haas_medium_65 text-base text-gray-400">No rewards</span>
-              <% end %>
+                <span class="text-[13px] font-bold text-[#141414] group-hover/hub:text-neutral-600 transition-colors">{@post.hub.name}</span>
+              </.link>
             <% end %>
           </div>
-          </div><!-- End Content Row -->
 
-        </div><!-- End Sticky Container -->
+          <%!-- Share to X button — right side of author row, per mock --%>
+          <%= if @share_campaign && @share_campaign.is_active && !@share_reward do %>
+            <%= if @current_user do %>
+              <button
+                phx-click="open_share_modal"
+                class="flex items-center gap-2 h-9 pl-3 pr-1.5 bg-black text-white rounded-full text-[13px] font-bold hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span>Share</span>
+                <%= if @pool_available do %>
+                  <span class="bg-[#CAFC00] text-black px-2 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 ml-1">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" />
+                    +{@x_share_reward}
+                  </span>
+                <% end %>
+              </button>
+            <% else %>
+              <.link href={~p"/login"} class="flex items-center gap-2 h-9 pl-3 pr-1.5 bg-black text-white rounded-full text-[13px] font-bold hover:bg-neutral-800 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span>Share</span>
+                <%= if @pool_available do %>
+                  <span class="bg-[#CAFC00] text-black px-2 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 ml-1">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3 h-3 rounded-full object-cover" />
+                    +{@x_share_reward}
+                  </span>
+                <% end %>
+              </.link>
+            <% end %>
+          <% else %>
+            <%= if @share_reward do %>
+              <%!-- Already shared — success state --%>
+              <div class="flex items-center gap-2 h-9 px-4 bg-black text-white rounded-full text-[13px] font-bold">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span class="text-[#CAFC00]">Shared!</span>
+              </div>
+            <% else %>
+              <%!-- No campaign — simple share link --%>
+              <a href={"https://twitter.com/intent/tweet?url=#{URI.encode_www_form(BlocksterV2Web.Endpoint.url() <> "/" <> @post.slug)}&text=#{URI.encode_www_form(@post.title)}"} target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 h-9 pl-3 pr-4 bg-black text-white rounded-full text-[13px] font-bold hover:bg-neutral-800 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <span>Share</span>
+              </a>
+            <% end %>
+          <% end %>
+        </div>
+        </div> <%!-- end article header padding --%>
 
-        <!-- Featured Image (Square) with Video Play Button Overlay -->
+        <!-- Featured Image with Video Play Button Overlay -->
         <%= if @post.featured_image do %>
-          <div class="mb-10 rounded-2xl overflow-hidden aspect-square relative group">
+          <div class="mb-8 px-6 md:px-12">
+          <div class="rounded-xl overflow-hidden aspect-[16/9] relative group border border-neutral-200/50 bg-neutral-100">
             <img
               src={ImageKit.w800(@post.featured_image)}
               alt={@post.title}
@@ -634,11 +697,12 @@
               </div>
             <% end %>
           </div>
+          </div> <%!-- end px wrapper --%>
         <% end %>
 
         <!-- Blockster of the Week Banner -->
         <%= if @post_category_slug == "blockster-of-the-week" do %>
-          <div class="bg-gray-900 text-white px-6 py-3 rounded-lg mb-6 flex items-center gap-3">
+          <div class="bg-gray-900 text-white px-6 py-3 rounded-lg mb-6 mx-6 md:mx-12 flex items-center gap-3">
             <svg class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
@@ -646,18 +710,109 @@
           </div>
         <% end %>
 
-        <!-- Article Body -->
-        <article class="prose prose-lg max-w-none">
+        <!-- Article Body — content split into chunks with inline ads at 1/3, 1/2, 2/3 marks -->
+        <article class="prose prose-lg max-w-none px-6 md:px-12 pt-8 md:pt-10 pb-8 md:pb-12">
           <%= if @post.content && @post.content != %{} do %>
-            <div
-              id="post-content"
-              class="text-[#343434] leading-[1.8] space-y-6 font-segoe_regular text-lg"
-              phx-hook="TwitterWidgets"
-              phx-update="ignore"
-              phx-no-format
-            >
-              <%= raw(render_content(@post.content)) %>
-            </div>
+            <%= if @has_hub do %>
+              <%!-- Hub article: 4 chunks — ad at 1/3, follow bar at 1/2, ad at 2/3, ad at end --%>
+              <% [chunk1, chunk2, chunk3, chunk4] = case @content_chunks do
+                [c1, c2, c3, c4] -> [c1, c2, c3, c4]
+                [c1, c2, c3] -> [c1, c2, c3, {:safe, ""}]
+                [c1, c2] -> [c1, c2, {:safe, ""}, {:safe, ""}]
+                [c1] -> [c1, {:safe, ""}, {:safe, ""}, {:safe, ""}]
+                _ -> [{:safe, ""}, {:safe, ""}, {:safe, ""}, {:safe, ""}]
+              end %>
+
+              <%!-- Chunk 1: first 1/3 --%>
+              <div id="post-content-1" class="article-body" phx-hook="TwitterWidgets" phx-update="ignore" phx-no-format><%= chunk1 %></div>
+
+              <%!-- Ad at 1/3 mark --%>
+              <%= if @article_inline_1 != [] do %>
+                <% banner = Enum.random(@article_inline_1) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+
+              <%!-- Chunk 2: 1/3 to 1/2 --%>
+              <div id="post-content-2" class="article-body" phx-update="ignore" phx-no-format><%= chunk2 %></div>
+
+              <%!-- Follow Hub bar at 1/2 mark — only for posts with a hub --%>
+              <a href={~p"/hub/#{@post.hub.slug}"} class="not-prose block my-9 group">
+                <div class="flex items-center justify-between gap-3 bg-[#0a0a0a] hover:bg-[#1a1a1a] transition-colors rounded-2xl pl-2 pr-3 py-2.5 ring-1 ring-black/10">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 bg-white grid place-items-center shrink-0 rounded-md">
+                      <%= if @hub_logo do %>
+                        <img src={@hub_logo} alt={@post.hub.name} class="w-6 h-6 rounded object-cover" />
+                      <% else %>
+                        <div class="w-6 h-6 rounded grid place-items-center" style={"background: #{@post.hub.color_primary || "#7D00FF"}"}>
+                          <div class="w-3 h-3 rounded-full bg-white"></div>
+                        </div>
+                      <% end %>
+                    </div>
+                    <span class="text-white font-bold text-[15px] truncate">Follow {@post.hub.name} in Hubs</span>
+                  </div>
+                  <div class="w-9 h-9 rounded-full bg-white grid place-items-center shrink-0 group-hover:scale-105 transition-transform">
+                    <svg class="w-4 h-4" style={"color: #{@post.hub.color_primary || "#7D00FF"}"} viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </a>
+
+              <%!-- Chunk 3: 1/2 to 2/3 --%>
+              <div id="post-content-3" class="article-body" phx-update="ignore" phx-no-format><%= chunk3 %></div>
+
+              <%!-- Ad at 2/3 mark --%>
+              <%= if @article_inline_2 != [] do %>
+                <% banner = Enum.random(@article_inline_2) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+
+              <%!-- Chunk 4: final 1/3 --%>
+              <div id="post-content-4" class="article-body" phx-update="ignore" phx-no-format><%= chunk4 %></div>
+
+              <%!-- Ad at end --%>
+              <%= if @article_inline_3 != [] do %>
+                <% banner = Enum.random(@article_inline_3) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+
+            <% else %>
+              <%!-- No hub: 3 chunks — ad at 1/3, ad at 2/3, ad at end --%>
+              <% [chunk1, chunk2, chunk3] = case @content_chunks do
+                [c1, c2, c3] -> [c1, c2, c3]
+                [c1, c2] -> [c1, c2, {:safe, ""}]
+                [c1] -> [c1, {:safe, ""}, {:safe, ""}]
+                _ -> [{:safe, ""}, {:safe, ""}, {:safe, ""}]
+              end %>
+
+              <%!-- Chunk 1: first 1/3 --%>
+              <div id="post-content-1" class="article-body" phx-hook="TwitterWidgets" phx-update="ignore" phx-no-format><%= chunk1 %></div>
+
+              <%!-- Ad at 1/3 mark --%>
+              <%= if @article_inline_1 != [] do %>
+                <% banner = Enum.random(@article_inline_1) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+
+              <%!-- Chunk 2: middle 1/3 --%>
+              <div id="post-content-2" class="article-body" phx-update="ignore" phx-no-format><%= chunk2 %></div>
+
+              <%!-- Ad at 2/3 mark --%>
+              <%= if @article_inline_2 != [] do %>
+                <% banner = Enum.random(@article_inline_2) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+
+              <%!-- Chunk 3: final 1/3 --%>
+              <div id="post-content-3" class="article-body" phx-update="ignore" phx-no-format><%= chunk3 %></div>
+
+              <%!-- Ad at end --%>
+              <%= if @article_inline_3 != [] do %>
+                <% banner = Enum.random(@article_inline_3) %>
+                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+              <% end %>
+            <% end %>
+
             <div id="article-end-marker" class="h-px"></div>
 
             <%= if @offer_data && !@offer_data.expired do %>
@@ -695,7 +850,7 @@
         <!-- About the Author Card -->
         <%= if @author_persona do %>
           <% {bg, text} = BlocksterV2Web.PostLive.Show.author_colors(@author_persona.username) %>
-          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+          <div class="mt-10 mx-6 md:mx-12 p-6 bg-[#F7F8FA] rounded-2xl">
             <div class="flex items-start gap-4">
               <span class={"shrink-0 flex items-center justify-center w-14 h-14 rounded-full text-xl font-haas_medium_65 #{bg} #{text}"}>
                 {BlocksterV2Web.PostLive.Show.author_initial(@author_persona.username)}
@@ -726,36 +881,17 @@
           </div>
         <% end %>
 
-        <!-- Article-bottom Ad Banner (managed via /admin/banners) — desktop only -->
+        <!-- Article-bottom Ad Banner — template-based -->
         <%= if @article_bottom_banners != [] do %>
           <% banner = Enum.random(@article_bottom_banners) %>
-          <div class="mt-10 hidden lg:block">
-            <%= if banner.link_url do %>
-              <a
-                href={banner.link_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="block group cursor-pointer"
-              >
-                <img
-                  src={banner.image_url}
-                  alt={banner.name}
-                  class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
-                />
-              </a>
-            <% else %>
-              <img
-                src={banner.image_url}
-                alt={banner.name}
-                class="w-full h-auto rounded-2xl"
-              />
-            <% end %>
+          <div class="hidden lg:block">
+            <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
           </div>
         <% end %>
 
         <!-- Tags -->
         <%= if @post.tags && length(@post.tags) > 0 do %>
-          <div class="flex flex-wrap gap-2 mt-10 pt-8 border-t border-[#E7E8F1]">
+          <div class="flex flex-wrap gap-2 mt-10 pt-8 border-t border-[#E7E8F1] mx-6 md:mx-12">
             <%= for tag <- @post.tags do %>
               <.link navigate={~p"/tag/#{tag.slug}"} class="px-4 py-2 bg-[#F7F8FA] text-[#141414] rounded-full text-sm font-haas_medium_65 hover:bg-[#E7E8F1] transition-colors">
                 {tag.name}
@@ -780,7 +916,7 @@
 
         <!-- Admin Actions -->
         <%= if @current_user && (@current_user.is_admin || @current_user.id == @post.author_id) do %>
-          <div class="flex items-center gap-3 mt-8 flex-wrap">
+          <div class="flex items-center gap-3 mt-8 flex-wrap px-6 md:px-12">
             <.link navigate={~p"/#{@post.slug}/edit"} class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Edit Post</.link>
             <%= if @post.published_at do %>
               <button phx-click="unpublish" class="px-5 py-2.5 bg-[#F7F8FA] text-[#141414] rounded-full font-haas_medium_65 hover:bg-[#E7E8F1] transition-all text-sm">Unpublish</button>
@@ -793,7 +929,7 @@
 
         <!-- Engagement Metrics -->
         <%= if @current_user && @engagement do %>
-          <div class="mt-10 p-6 bg-[#F7F8FA] rounded-2xl">
+          <div class="mt-10 mx-6 md:mx-12 mb-8 p-6 bg-[#F7F8FA] rounded-2xl">
             <h3 class="text-base font-haas_medium_65 mb-4 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
               Your Reading Engagement
@@ -820,7 +956,9 @@
           </div>
         <% end %>
 
-        <!-- Suggested Posts -->
+        </div> <%!-- end white article card --%>
+
+        <!-- Suggested Posts — uses the original card design from pre-redesign -->
         <%= if @suggested_posts && length(@suggested_posts) > 0 do %>
           <div class="mt-16 pt-10 border-t border-[#E7E8F1]">
             <h2 class="text-2xl font-haas_bold_75 mb-8 text-[#141414]">Suggested For You</h2>
@@ -834,19 +972,240 @@
 
       </main>
 
-      <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
+      <!-- RIGHT SIDEBAR — RogueTrader widget (static placeholder) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
-        <div class="sticky top-36 space-y-4">
-          <%= for banner <- @right_sidebar_banners do %>
-            <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" phx-click="track_ad_click" phx-value-id={banner.id}>
-              <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
-            </a>
-          <% end %>
-          <%= if @right_sidebar_banners == [] do %>
-            <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-              <p class="text-xs text-gray-400 font-haas_roman_55">Ad Space</p>
+        <div class="sticky top-[120px]">
+          <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-1.5 font-bold pl-1">Sponsored</div>
+          <div class="rt-widget rounded-2xl overflow-hidden">
+            <%!-- Header --%>
+            <div class="px-3 pt-3 pb-2.5 border-b border-white/[0.05] bg-gradient-to-b from-white/[0.025] to-transparent shrink-0">
+              <div class="flex items-center justify-between">
+                <div class="flex items-baseline gap-1">
+                  <span class="font-bold text-[12px] tracking-[0.04em] text-[#E8E4DD]">ROGUE</span>
+                  <span class="font-semibold text-[7px] tracking-[0.20em] text-[#FD4F00]">TRADER</span>
+                </div>
+                <div class="flex items-center gap-1 bg-[#FD4F00]/10 border border-[#FD4F00]/30 rounded px-1.5 py-[2px]">
+                  <div class="relative w-1.5 h-1.5">
+                    <div class="absolute inset-0 bg-[#FD4F00] rounded-full rt-pulse"></div>
+                  </div>
+                  <span class="text-[8px] font-semibold tracking-[0.1em] text-[#FD4F00]">LIVE</span>
+                </div>
+              </div>
+              <div class="mt-2 flex items-center justify-between">
+                <span class="text-[8px] font-semibold tracking-[0.14em] text-[#6B7280]">TOP ROGUEBOTS</span>
+                <span class="font-mono text-[8px] text-[#4B5563]">8s ago</span>
+              </div>
             </div>
-          <% end %>
+            <%!-- Bots scroll body --%>
+            <div class="rt-scroll flex-1 overflow-y-auto">
+              <div class="divide-y divide-white/[0.04]">
+                <%!-- Bot #1 HERMES --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#1</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Crypto</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">HERMES</span>
+                    <span class="rt-tag rt-tag-high shrink-0">HIGH RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.2331</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.2581</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">486.34</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +12.4%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
+                  </div>
+                </div>
+                <%!-- Bot #2 AURUM --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#2</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Commodities</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">AURUM</span>
+                    <span class="rt-tag rt-tag-low shrink-0">LOW RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.1714</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.1950</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">412.18</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +2.1%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
+                  </div>
+                </div>
+                <%!-- Bot #3 STERLING --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#3</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#F43F5E]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Forex</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">STERLING</span>
+                    <span class="rt-tag rt-tag-med shrink-0">MED RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.0832</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.1050</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">328.92</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;3.8%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
+                  </div>
+                </div>
+                <%!-- Bot #4 WOLF --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#4</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Equities</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">WOLF</span>
+                    <span class="rt-tag rt-tag-high shrink-0">HIGH RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.9775</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.9973</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">274.05</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +5.7%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#4B5563]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#4B5563]">Closed</span></div>
+                  </div>
+                </div>
+                <%!-- Bot #5 MACRO --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#5</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Indexes</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">MACRO</span>
+                    <span class="rt-tag rt-tag-low shrink-0">LOW RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.9426</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.9616</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">198.71</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;1.2%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
+                  </div>
+                </div>
+                <%!-- Bot #6 ZEUS --%>
+                <div class="rt-row px-2.5 py-2.5">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#6</span>
+                      <div class="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></div>
+                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Crypto</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between mb-1.5 gap-1">
+                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">ZEUS</span>
+                    <span class="rt-tag rt-tag-med shrink-0">MED RISK</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1 mb-1.5">
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.8677</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.8853</div>
+                    </div>
+                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
+                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
+                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">156.42</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;7.9%</span>
+                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <%!-- Footer --%>
+            <div class="border-t border-white/[0.05] shrink-0">
+              <p class="px-3 pt-2.5 pb-2 text-[10px] text-[#9CA3AF] leading-[1.45]">
+                30 user-funded AI agents trading against each other on crypto, stocks, forex and commodities.
+              </p>
+              <a href="https://roguetrader.io" target="_blank" rel="noopener" class="block px-3 pb-2.5 hover:bg-white/[0.03] transition-colors group">
+                <div class="flex items-center justify-between">
+                  <span class="text-[8px] font-semibold tracking-[0.14em] text-[#6B7280] group-hover:text-[#E8E4DD] uppercase transition-colors">Open RogueTrader</span>
+                  <span class="text-[#6B7280] group-hover:text-[#E8E4DD] text-[10px] transition-colors">&rarr;</span>
+                </div>
+              </a>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -1166,6 +1525,8 @@
     </div>
   </div>
 <% end %>
+
+<BlocksterV2Web.DesignSystem.footer />
 
 <script>
   (function() {

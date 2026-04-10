@@ -176,6 +176,13 @@ defmodule BlocksterV2Web.Router do
       live "/notifications/settings", NotificationSettingsLive.Index, :index
       live "/notifications/referrals", NotificationLive.Referrals, :index
       live "/member/:slug", MemberLive.Show, :show
+    end
+
+    # Article page in redesign layout — must come AFTER :default because
+    # /:slug is a catch-all that would swallow specific routes if placed earlier.
+    live_session :redesign_article,
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/:slug", PostLive.Show, :show
     end
   end

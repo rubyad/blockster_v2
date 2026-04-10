@@ -219,7 +219,7 @@ defmodule BlocksterV2Web.SharedComponents do
           <!-- Category Badge -->
           <%= if @post.category do %>
             <div class="flex justify-center">
-              <span class="px-3 py-1 bg-white border border-[#E7E8F1] text-[#141414] rounded-full text-xs font-haas_medium_65">
+              <span class="px-2 py-[3px] bg-[#CAFC00] text-[#0a0a0a] rounded text-[10px] font-bold uppercase tracking-[0.12em]">
                 {@post.category.name}
               </span>
             </div>

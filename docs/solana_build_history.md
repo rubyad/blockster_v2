@@ -1099,3 +1099,63 @@ Rewrote `PostLive.Index` from a 4-component cycling infinite-scroll feed to a ne
 **Old homepage preserved at** `lib/blockster_v2_web/live/post_live/legacy/index_pre_redesign.{ex,html.heex}`
 
 **Tests:** 8 new homepage tests + 65 total redesign tests passing, 0 new failures vs baseline.
+
+### Wave 1 · Page #2 Article Page (2026-04-10 — built, not yet committed)
+
+Restyled `PostLive.Show` template to match `article_page_mock.html` exactly:
+
+**3-column layout:**
+- **Left sidebar** (200px, sticky): 3 discover cards (Event, Token Sale, Airdrop) — static placeholders copied from mock, will be replaced by dynamic content system
+- **Center**: Article inside white rounded card (`bg-white border rounded-2xl shadow-sm`)
+- **Right sidebar** (200px, sticky): RogueTrader widget — static placeholder copied from mock (6 bots: HERMES, AURUM, STERLING, WOLF, MACRO, ZEUS), will be replaced by real-time widget
+
+**Article header (matches mock exactly):**
+- Category pill: lime `#CAFC00` bg, 10px bold, uppercase, rounded (not rounded-full)
+- BUX earned pill: clean white with border, always visible, shows "Earning" or "Earned" state
+- Title: Inter 700, -0.02em tracking, `article-title` class
+- Author row: 40px dark gradient avatar + name + role (left), hub badge 40px same size with spacing (center), Share to X button with lime BUX pill (right) — all in one flex row with border-b
+
+**Floating BUX panel (bottom-right, matches mock lines 1609-1637):**
+- Clean white panel with ring-1 border and shadow (replaces old gradient panels)
+- "Earning Live" state: green pulse dot, +N BUX 26px bold, engagement/base/multiplier breakdown
+- "Earned" state: green checkmark, same layout, "View tx" Solscan link
+- Video earned, not eligible, pool empty states — all white panel design
+
+**Article body CSS (in `assets/css/app.css`):**
+- Drop cap: `#post-content-1 > p:first-child::first-letter` — Inter 700, 58px (only first paragraph)
+- Blockquote: lime border-left, italic 22px, attribution as small-caps (last `<p>` in blockquote)
+- Bullet lists: left gray border, 5px black dot bullets, bold labels
+- Headings: Inter 700, 28px
+- Links: blue-500, underline on hover
+
+**Template-based ad banner system (replaces old image-upload system):**
+- Migration `20260410181441`: added `template` (string) and `params` (jsonb) to `ad_banners`
+- 4 ad template components in `design_system.ex`: `follow_bar`, `dark_gradient`, `portrait`, `split_card`
+- `<.ad_banner banner={banner} />` dispatcher picks correct template
+- Content splitting: `TipTapRenderer.render_content_split/2` splits article nodes at fractional positions
+- Inline ads placed at 1/3, 2/3, 3/3 marks within the article body
+- Follow Hub bar at 1/2 mark — rendered from `@post.hub` data (not ad system), only when post has hub
+- Seeded 3 template-based banners: Moonpay dark gradient (inline_1), Heliosphere portrait (inline_2), Moonpay split card (inline_3)
+- Old image-based banners deactivated (not deleted)
+
+**Suggested reading:**
+- Uses original `SharedComponents.post_card` design (2x2 grid, "Suggested For You" heading)
+- Category pill on cards updated to lime uppercase style (matching article header)
+
+**Other changes:**
+- `Blog.get_suggested_posts/3` — added `:hub` to preload
+- `SharedComponents.post_card` — category badge restyled to lime uppercase pill
+- Hub badge in author row: 40px circle (same size as author avatar), more left spacing
+- Both sidebars: `sticky top-[120px]` — content stays fixed as user scrolls
+- Eggshell `#fafaf9` page background
+- DesignSystem header with correct `@bux_balance` assign (matches homepage pattern)
+
+**All 25 handle_event + 4 handle_info + 6 handle_async handlers preserved.**
+
+**Router:** `/:slug` moved from `:default` to `:redesign_article` live_session (must be last — catch-all)
+
+**Old template preserved at** `lib/blockster_v2_web/live/post_live/legacy/show_pre_redesign.{ex,html.heex}`
+
+**Test article:** `/the-quiet-revolution-of-onchain-liquidity-pools` — rich content with all typography elements. Seed: `mix run priv/repo/seeds_test_article.exs`
+
+**Tests:** 13 show tests + 13 component tests = 26 new. 88+ total redesign tests passing, 0 new failures vs baseline.

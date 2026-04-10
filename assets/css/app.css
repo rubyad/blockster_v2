@@ -1178,3 +1178,184 @@ html, body {
 .animate-shrink-width {
   animation: shrink-width linear forwards;
 }
+
+/* ─────────────────────────────────────────────────────────
+   ARTICLE BODY — drop caps, real text styling
+   Matches article_page_mock.html exactly
+───────────────────────────────────────────────────────── */
+.article-body {
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  color: #343434;
+  font-size: 18px;
+  line-height: 1.78;
+}
+.article-body p { margin-bottom: 1.5rem; }
+.article-body p:last-child { margin-bottom: 0; }
+#post-content-1 > p:first-child::first-letter {
+  float: left;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 700;
+  font-size: 58px;
+  line-height: 0.88;
+  padding: 6px 8px 0 0;
+  color: #141414;
+  letter-spacing: -0.025em;
+}
+.article-body ul {
+  list-style: none;
+  padding: 0;
+  margin: 1.25rem 0 1.5rem;
+  border-left: 2px solid #e5e5e2;
+  padding-left: 1.25rem;
+}
+.article-body ul li {
+  position: relative;
+  padding-left: 1.1rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.55;
+  font-size: 17px;
+  color: #343434;
+}
+.article-body ul li:last-child { margin-bottom: 0; }
+.article-body ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #141414;
+}
+.article-body ul li strong {
+  color: #141414;
+  font-weight: 600;
+}
+.article-body a {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.article-body a:hover {
+  text-decoration: underline;
+}
+.article-body h2 {
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: #141414;
+  margin: 2.5rem 0 1.25rem;
+}
+.article-body blockquote {
+  margin: 2.5rem 0;
+  padding-left: 1.75rem;
+  border-left: 3px solid #CAFC00;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 500;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1.4;
+  color: #141414;
+  letter-spacing: -0.005em;
+}
+.article-body blockquote cite,
+.article-body blockquote p:last-child:not(:first-child) {
+  display: block;
+  margin-top: 0.6rem;
+  margin-bottom: 0;
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6B7280;
+  font-weight: 500;
+}
+.article-body blockquote p:first-child {
+  margin-bottom: 0;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ROGUETRADER WIDGET — dark trading terminal card (static placeholder)
+───────────────────────────────────────────────────────── */
+.rt-widget {
+  background: #0A0A0F;
+  color: #E8E4DD;
+  font-family: 'Inter', system-ui, sans-serif;
+  height: 760px;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 30px 60px -15px rgba(0, 0, 0, 0.35),
+    0 12px 25px -8px rgba(0, 0, 0, 0.20),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.rt-widget .rt-row {
+  background: #14141A;
+  transition: background-color 0.18s ease;
+  box-shadow: inset 2px 0 0 transparent;
+}
+.rt-widget .rt-row:hover { background: #1c1c25; box-shadow: inset 2px 0 0 rgba(255,255,255,0.10); }
+.rt-widget .rt-scroll::-webkit-scrollbar { width: 4px; }
+.rt-widget .rt-scroll::-webkit-scrollbar-track { background: transparent; }
+.rt-widget .rt-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 2px; }
+.rt-tag { font-size: 7.5px; letter-spacing: 0.08em; font-weight: 600; padding: 2px 5px; border-radius: 3px; text-transform: uppercase; line-height: 1; white-space: nowrap; }
+.rt-tag-low { background: rgba(34,197,94,0.13); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.rt-tag-med { background: rgba(234,179,8,0.13); color: #facc15; border: 1px solid rgba(234,179,8,0.25); }
+.rt-tag-high { background: rgba(239,68,68,0.13); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+@keyframes rt-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.55; transform:scale(1.15); } }
+.rt-pulse { animation: rt-pulse 1.6s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+/* ─────────────────────────────────────────────────────────
+   DISCOVER CARDS — left sidebar
+───────────────────────────────────────────────────────── */
+.discover-card {
+  display: block;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.discover-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px -12px rgba(0,0,0,0.14), 0 6px 12px -4px rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.16);
+}
+.discover-eyebrow {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px; border-bottom: 1px solid #f3f4f6;
+  font-weight: 700; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #6B7280;
+}
+.discover-eyebrow .dot { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
+.discover-eyebrow svg { width: 11px; height: 11px; color: #9CA3AF; flex-shrink: 0; }
+.discover-eyebrow .meta {
+  margin-left: auto; font-family: 'JetBrains Mono', monospace;
+  font-weight: 500; font-size: 8px; letter-spacing: 0.04em; text-transform: none; color: #9CA3AF;
+}
+.brand-stripe { height: 3px; width: 100%; }
+.date-tile-mini {
+  background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+  padding: 4px 6px 5px; box-shadow: 0 4px 10px -3px rgba(0,0,0,0.18);
+  text-align: center; min-width: 38px;
+}
+.date-tile-mini .month { font-size: 7px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #C73E1D; line-height: 1; margin-bottom: 1px; }
+.date-tile-mini .day { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #141414; line-height: 1.05; }
+.mini-bar { background: #f3f4f6; border-radius: 999px; height: 3px; overflow: hidden; }
+.mini-fill { height: 100%; border-radius: 999px; }
+.discover-cta {
+  display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 4px;
+  background: #0a0a0a; color: white; font-weight: 700; font-size: 10px;
+  padding: 7px 10px; border-radius: 999px; transition: background-color 0.15s ease;
+}
+.discover-cta:hover { background: #1a1a22; }
+
+/* Suggest card line clamp */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

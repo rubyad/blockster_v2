@@ -1,4 +1,4 @@
-defmodule BlocksterV2Web.PostLive.Show do
+defmodule BlocksterV2Web.PostLive.Legacy.ShowPreRedesign do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Blog
@@ -11,7 +11,6 @@ defmodule BlocksterV2Web.PostLive.Show do
   alias BlocksterV2.Shop
   alias BlocksterV2.ImageKit
   alias BlocksterV2.UserEvents
-  alias BlocksterV2.Airdrop
   alias BlocksterV2.ContentAutomation.AuthorRotator
   alias BlocksterV2Web.PostLive.TipTapRenderer
   alias BlocksterV2Web.SharedComponents
@@ -166,18 +165,6 @@ defmodule BlocksterV2Web.PostLive.Show do
     suggested_user_id = if socket.assigns[:current_user], do: socket.assigns.current_user.id, else: nil
     suggested_posts = Blog.get_suggested_posts(post.id, suggested_user_id, 4)
 
-    # Load current airdrop round for discover sidebar
-    airdrop_round = Airdrop.get_current_round()
-
-    # Split article content into chunks for inline ad placement.
-    # Positions: 1/3 (inline_1), 1/2 (hub follow bar), 2/3 (inline_2).
-    # The 3rd inline ad goes after the last chunk (end of article).
-    has_hub = post.hub != nil && !match?(%Ecto.Association.NotLoaded{}, post.hub)
-    # With hub: ad at 1/3, follow bar at 1/2, ad at 2/3 → 4 chunks
-    # Without hub: ad at 1/3, ad at 2/3 → 3 chunks
-    split_positions = if has_hub, do: [0.33, 0.5, 0.66], else: [0.33, 0.66]
-    content_chunks = TipTapRenderer.render_content_split(post.content, split_positions)
-
     # Load sidebar ad banners
     left_sidebar_banners =
       if connected?(socket),
@@ -212,22 +199,6 @@ defmodule BlocksterV2Web.PostLive.Show do
     video_player_top_banners =
       if connected?(socket),
         do: BlocksterV2.Ads.list_active_banners_by_placement("video_player_top"),
-        else: []
-
-    # Inline article ad placements (template-based)
-    article_inline_1 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_1"),
-        else: []
-
-    article_inline_2 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_2"),
-        else: []
-
-    article_inline_3 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_3"),
         else: []
 
     # Anonymous user tracking assigns
@@ -282,7 +253,6 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:hub_token, "BUX")  # Always BUX (hub tokens removed)
      |> assign(:hub_logo, hub_logo)
      |> assign(:suggested_posts, suggested_posts)
-     |> assign(:airdrop_round, airdrop_round)
      |> assign(:pool_available, pool_available)
      |> assign(:pool_balance, pool_balance)
      |> assign(:offer_data, offer_data)
@@ -293,11 +263,6 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:mobile_mid_banners, mobile_mid_banners)
      |> assign(:mobile_bottom_banners, mobile_bottom_banners)
      |> assign(:video_player_top_banners, video_player_top_banners)
-     |> assign(:article_inline_1, article_inline_1)
-     |> assign(:article_inline_2, article_inline_2)
-     |> assign(:article_inline_3, article_inline_3)
-     |> assign(:content_chunks, content_chunks)
-     |> assign(:has_hub, has_hub)
      |> assign(:video_modal_open, false)
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)

@@ -1558,4 +1558,363 @@ defmodule BlocksterV2Web.DesignSystem do
     </section>
     """
   end
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Ad Banner Templates — styled ads generated from admin params
+  # ──────────────────────────────────────────────────────────────────────
+
+  @doc """
+  Renders a template-based ad banner. Dispatches to the correct template
+  based on `banner.template`. Falls back to a simple image banner for
+  legacy `image` template or unknown types.
+  """
+  attr :banner, :map, required: true
+  attr :class, :string, default: nil
+
+  def ad_banner(%{banner: %{template: "follow_bar"}} = assigns) do
+    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    ~H"""
+    <a href={@banner.link_url || "#"} class={["not-prose block my-9 group", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
+      <div class="flex items-center justify-between gap-3 bg-[#0a0a0a] hover:bg-[#1a1a1a] transition-colors rounded-2xl pl-2 pr-3 py-2.5 ring-1 ring-black/10">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-11 h-11 bg-white grid place-items-center shrink-0 rounded-md">
+            <%= if @p["icon_url"] do %>
+              <img src={@p["icon_url"]} alt="" class="w-6 h-6 rounded object-cover" />
+            <% else %>
+              <div class="w-6 h-6 rounded grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+                <div class="w-3 h-3 rounded-full bg-white"></div>
+              </div>
+            <% end %>
+          </div>
+          <span class="text-white font-bold text-[15px] truncate">{@p["heading"] || "Follow in Hubs"}</span>
+        </div>
+        <div class="w-9 h-9 rounded-full bg-white grid place-items-center shrink-0 group-hover:scale-105 transition-transform">
+          <svg class="w-4 h-4" style={"color: #{@p["brand_color"] || "#7D00FF"}"} viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </a>
+    """
+  end
+
+  def ad_banner(%{banner: %{template: "dark_gradient"}} = assigns) do
+    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    ~H"""
+    <div class={["my-10 -mx-2 not-prose", @class]}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-2">Sponsored</div>
+      <a href={@banner.link_url || "#"} class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
+        <div class="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0A0A0F] via-[#14141A] to-[#1c1c25] p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.25)] ring-1 ring-white/[0.06]">
+          <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br to-transparent blur-3xl pointer-events-none" style={"background: #{@p["brand_color"] || "#7D00FF"}30"}></div>
+          <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[#CAFC00]/15 to-transparent blur-3xl pointer-events-none"></div>
+          <div class="relative flex items-center justify-between gap-6">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-3">
+                <%= if @p["icon_url"] do %>
+                  <img src={@p["icon_url"]} alt="" class="w-7 h-7 rounded-md object-cover" />
+                <% else %>
+                  <div class="w-7 h-7 rounded-md grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+                    <div class="w-3.5 h-3.5 rounded-full bg-white"></div>
+                  </div>
+                <% end %>
+                <span class="text-[11px] uppercase tracking-[0.14em] text-white/60">{@p["brand_name"] || "Sponsor"}</span>
+              </div>
+              <h3 class="text-white font-bold text-[22px] leading-[1.15] mb-2 max-w-[380px]">{@p["heading"]}</h3>
+              <p class="text-white/60 text-[13px] leading-snug max-w-[420px]">{@p["description"]}</p>
+            </div>
+            <div class="flex-shrink-0 hidden md:block">
+              <div class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-4 py-2.5 rounded-full font-bold text-[13px] group-hover:bg-white transition-colors">
+                {@p["cta_text"] || "Learn more"}
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    """
+  end
+
+  def ad_banner(%{banner: %{template: "portrait"}} = assigns) do
+    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="text-center">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold">Sponsored</div>
+        <a href={@banner.link_url || "#"} class="block group max-w-[440px] mx-auto" phx-click="track_ad_click" phx-value-id={@banner.id}>
+          <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18)] relative" style={"background: #{@p["bg_color"] || "#0a1838"}"}>
+            <%= if @p["image_url"] do %>
+              <div class="aspect-[4/3] bg-neutral-200 relative overflow-hidden">
+                <img src={@p["image_url"]} alt="" class="w-full h-full object-cover" />
+                <div class="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2" style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}></div>
+                <div class="absolute top-3 right-3 w-2 h-2" style={"background: #{@p["accent_color"] || "#FF6B35"}"}></div>
+                <div class="absolute top-3 left-3 px-1.5 py-0.5 bg-white/95 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+            <div class="px-7 pt-7 pb-6 relative" style={"background: linear-gradient(to bottom, #{@p["bg_color"] || "#0a1838"}, #{@p["bg_color_end"] || "#142a6b"})"}>
+              <div class="absolute bottom-4 left-4 w-7 h-7 border-l-2 border-b-2" style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}></div>
+              <h3 class="text-white font-bold text-[28px] leading-[1.08] mb-5 max-w-[300px]" style="letter-spacing: -0.02em;">
+                {@p["heading"]}
+              </h3>
+              <div class="text-white font-bold text-[15px] mb-5">{@p["subtitle"]}</div>
+              <div class="inline-flex items-center px-4 py-2 border border-white/80 text-white text-[12px] font-bold rounded group-hover:bg-white transition-colors" style={"group-hover:color: #{@p["bg_color"] || "#0a1838"}"}>
+                {@p["cta_text"] || "Find out more"}
+              </div>
+              <%= if @p["brand_name"] do %>
+                <div class="mt-5 pt-4 border-t border-white/15 text-right">
+                  <span class="text-white text-[20px] tracking-tight" style="font-family: 'Inter', serif; font-weight: 600;">{@p["brand_name"]}</span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  def ad_banner(%{banner: %{template: "split_card"}} = assigns) do
+    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    ~H"""
+    <div class={["mt-6", @class]}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold px-1">Sponsored</div>
+      <a href={@banner.link_url || "#"} class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
+        <div class="relative rounded-2xl overflow-hidden bg-white border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_18px_30px_-12px_rgba(0,0,0,0.10)] transition-shadow">
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] items-stretch">
+            <div class="p-7">
+              <div class="flex items-center gap-2 mb-4">
+                <%= if @p["icon_url"] do %>
+                  <img src={@p["icon_url"]} alt="" class="w-6 h-6 rounded-md object-cover" />
+                <% else %>
+                  <div class="w-6 h-6 rounded-md grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+                    <div class="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                <% end %>
+                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{@p["brand_name"] || "Sponsor"}</span>
+                <%= if @p["badge"] do %>
+                  <span class="text-neutral-300">&middot;</span>
+                  <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{@p["badge"]}</span>
+                <% end %>
+              </div>
+              <h3 class="font-bold text-[26px] text-[#141414] mb-2 leading-[1.1]" style="letter-spacing: -0.02em;">{@p["heading"]}</h3>
+              <p class="text-neutral-600 text-[14px] leading-snug mb-5 max-w-[520px]">{@p["description"]}</p>
+              <div class="inline-flex items-center gap-2 bg-[#0A0A0F] text-white px-4 py-2.5 rounded-full font-bold text-[13px] group-hover:bg-[#1a1a22] transition-colors">
+                {@p["cta_text"] || "Learn more"}
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <div class="hidden md:grid relative place-items-center" style={"background: linear-gradient(135deg, #{@p["panel_color"] || "#7D00FF"}, #{@p["panel_color_end"] || "#4A00B8"})"}>
+              <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 30% 30%, white 1px, transparent 1px); background-size: 16px 16px;"></div>
+              <div class="relative text-white text-center">
+                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mb-1">{@p["stat_label_top"] || ""}</div>
+                <div class="font-mono text-4xl font-bold">{@p["stat_value"] || ""}</div>
+                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mt-1">{@p["stat_label_bottom"] || ""}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    """
+  end
+
+  # Fallback: legacy image banner
+  def ad_banner(assigns) do
+    ~H"""
+    <%= if @banner.image_url do %>
+      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class={["block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
+        <img src={@banner.image_url} alt={@banner.name} class="w-full" loading="lazy" />
+      </a>
+    <% end %>
+    """
+  end
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Discover Card — article page sidebar · Event / Token Sale / Airdrop
+  # ──────────────────────────────────────────────────────────────────────
+
+  @doc """
+  A discovery sidebar card for the article page. Three variants share the
+  same outer frame (white, rounded-2xl, border) with a colored-dot eyebrow.
+
+  - `variant="event"` — stub: "Coming soon" placeholder (D12)
+  - `variant="sale"`  — stub: "Coming soon" placeholder (D12)
+  - `variant="airdrop"` — real data from `@round` assign
+  """
+  attr :variant, :string, required: true, values: ~w(event sale airdrop)
+  attr :round, :map, default: nil, doc: "Airdrop round (only used when variant=airdrop)"
+  attr :class, :string, default: nil
+
+  def discover_card(%{variant: "event"} = assigns) do
+    ~H"""
+    <div class={["block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden", @class]}>
+      <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#7D00FF] shrink-0"></span>
+        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Event
+      </div>
+      <div class="p-3">
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
+          <div class="w-8 h-8 rounded-lg bg-[#7D00FF]/10 grid place-items-center mx-auto mb-2">
+            <svg class="w-4 h-4 text-[#7D00FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="text-[11px] font-bold text-neutral-700 mb-1">Coming soon</div>
+          <div class="text-[9px] text-neutral-400 leading-snug">Events launch soon</div>
+        </div>
+        <span class="flex items-center justify-center gap-1 w-full bg-neutral-100 text-neutral-400 text-[10px] font-bold py-[7px] rounded-full cursor-default">
+          Stay tuned
+        </span>
+      </div>
+    </div>
+    """
+  end
+
+  def discover_card(%{variant: "sale"} = assigns) do
+    ~H"""
+    <div class={["block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden", @class]}>
+      <div class="h-[3px] w-full bg-gradient-to-r from-[#FF6B35] to-[#C73E1D]"></div>
+      <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#FF6B35] shrink-0"></span>
+        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Token sale
+      </div>
+      <div class="p-3">
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
+          <div class="w-8 h-8 rounded-lg bg-[#FF6B35]/10 grid place-items-center mx-auto mb-2">
+            <svg class="w-4 h-4 text-[#FF6B35]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="text-[11px] font-bold text-neutral-700 mb-1">Coming soon</div>
+          <div class="text-[9px] text-neutral-400 leading-snug">First sale launches soon</div>
+        </div>
+        <span class="flex items-center justify-center gap-1 w-full bg-neutral-100 text-neutral-400 text-[10px] font-bold py-[7px] rounded-full cursor-default">
+          Stay tuned
+        </span>
+      </div>
+    </div>
+    """
+  end
+
+  def discover_card(%{variant: "airdrop"} = assigns) do
+    ~H"""
+    <.link navigate="/airdrop" class={["block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden hover:shadow-md hover:border-neutral-300/70 transition-all", @class]}>
+      <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] shrink-0"></span>
+        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        Airdrop
+        <%= if @round do %>
+          <span class="ml-auto font-mono font-medium text-[8px] tracking-[0.04em] normal-case text-neutral-400">round {@round.round_id}</span>
+        <% end %>
+      </div>
+      <div class="p-3">
+        <%= if @round do %>
+          <div class="flex items-baseline gap-1 mb-1">
+            <span class="font-mono font-bold text-[18px] text-[#141414] leading-none tracking-tight">
+              Round {@round.round_id}
+            </span>
+          </div>
+          <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-2 mb-3 space-y-1">
+            <div class="flex items-center justify-between text-[9px]">
+              <span class="text-neutral-500">Status</span>
+              <span class="font-mono font-bold text-[#141414]">
+                {String.capitalize(@round.status || "open")}
+              </span>
+            </div>
+            <%= if @round.total_entries && @round.total_entries > 0 do %>
+              <div class="flex items-center justify-between text-[9px]">
+                <span class="text-neutral-500">Entries</span>
+                <span class="font-mono font-bold text-[#141414]">
+                  {Number.Delimit.number_to_delimited(@round.total_entries, precision: 0)}
+                </span>
+              </div>
+            <% end %>
+          </div>
+          <span class="flex items-center justify-center gap-1 w-full bg-[#0a0a0a] hover:bg-[#1a1a22] text-white text-[10px] font-bold py-[7px] rounded-full transition-colors">
+            Redeem BUX to enter
+            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        <% else %>
+          <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
+            <div class="text-[11px] font-bold text-neutral-700 mb-1">No active round</div>
+            <div class="text-[9px] text-neutral-400 leading-snug">Check back soon</div>
+          </div>
+          <span class="flex items-center justify-center gap-1 w-full bg-[#0a0a0a] hover:bg-[#1a1a22] text-white text-[10px] font-bold py-[7px] rounded-full transition-colors">
+            View airdrop
+            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        <% end %>
+      </div>
+    </.link>
+    """
+  end
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Suggest Card — article page suggested reading
+  # ──────────────────────────────────────────────────────────────────────
+
+  @doc """
+  A suggested-reading card for the article page. Similar to `post_card` but
+  with a compact layout: 16:10 image, hub badge, title (3-line clamp),
+  author + read time, BUX badge. Hover lift effect.
+  """
+  attr :href, :string, required: true
+  attr :image, :string, default: nil
+  attr :hub_name, :string, default: nil
+  attr :hub_color, :string, default: nil
+  attr :title, :string, required: true
+  attr :author, :string, default: nil
+  attr :read_minutes, :integer, default: nil
+  attr :bux_reward, :any, default: nil
+  attr :class, :string, default: nil
+
+  def suggest_card(assigns) do
+    ~H"""
+    <.link
+      navigate={@href}
+      class={[
+        "block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden",
+        "hover:-translate-y-0.5 hover:shadow-[0_18px_30px_-12px_rgba(0,0,0,0.12)] hover:border-neutral-300/80",
+        "transition-all duration-200 cursor-pointer",
+        @class
+      ]}
+    >
+      <%= if @image do %>
+        <div class="aspect-[16/10] bg-neutral-100 overflow-hidden">
+          <img src={@image} alt="" class="w-full h-full object-cover" loading="lazy" />
+        </div>
+      <% end %>
+      <div class="p-4">
+        <%= if @hub_name do %>
+          <div class="flex items-center gap-1.5 mb-2">
+            <div class="w-4 h-4 rounded grid place-items-center shrink-0" style={"background: #{@hub_color || "#0a0a0a"}"}>
+              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            </div>
+            <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">{@hub_name}</span>
+          </div>
+        <% end %>
+        <h3 class="font-bold text-[15px] text-[#141414] leading-[1.25] mb-3 tracking-tight line-clamp-3">
+          {@title}
+        </h3>
+        <div class="flex items-center justify-between text-[10px]">
+          <div class="flex items-center gap-1.5 text-neutral-500">
+            <%= if @author do %>
+              <span>{@author}</span>
+            <% end %>
+            <%= if @author && @read_minutes do %>
+              <span class="text-neutral-300">&middot;</span>
+            <% end %>
+            <%= if @read_minutes do %>
+              <span>{@read_minutes} min</span>
+            <% end %>
+          </div>
+          <%= if @bux_reward do %>
+            <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold tabular-nums">
+              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+              {format_reward(@bux_reward)}
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </.link>
+    """
+  end
 end
