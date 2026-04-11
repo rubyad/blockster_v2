@@ -399,6 +399,10 @@ Every stub introduced during the build gets added here so the next release knows
 | Profile | Settings — Deactivate account | Inert button | Real deactivation flow | Account management release |
 | Public member | "Notify me" button | Flash "subscriptions coming soon" (no persistence) | Real notification subscription with DB row | Notification subscription release |
 | Public member | Recent activity sidebar | Published-post events only | Full activity feed (followers, milestones) | Activity tracking release |
+| Play / Coin Flip | "Live · All players" sidebar feed | Last 5 of user's own recent games, labeled "Your recent games" | Real global PubSub feed aggregated across all players | Activity system release |
+| Play / Coin Flip | House Edge hero stat | Static "0.92%" | Real computation from settled game aggregates | Analytics release |
+| Play / Coin Flip | BUX Pool hero stat when SOL selected (and vice versa) | "—" placeholder | Parallel settler fetch for both vaults in mount | Follow-up commit |
+| Play / Coin Flip | Phantom "Transaction reverted during simulation" popup on every bet | Warning shows, user clicks approve, tx lands successfully | Client-side poll of `getAccountInfo(player_state)` via devnet connection after `submit_commitment` returns, only enable Place Bet once `pending_commitment` is visible AND `pending_nonce` matches. Pre-existing issue per back-to-back tx propagation rule in CLAUDE.md. **Parked** until mainnet verification — devnet public RPC (`api.devnet.solana.com`, used by Phantom) lags 5-15 slots behind QuickNode. On mainnet Phantom uses a paid RPC (Helius/Triton) with tight sync and the warning likely disappears. | Mainnet cutover (verify) or Coin Flip propagation fix release |
 
 ---
 
@@ -414,7 +418,8 @@ Every stub introduced during the build gets added here so the next release knows
 | 1 | Hub show | 🔧 Built, awaiting commit | — | `posts.kind` migration done, hub_banner component, 5-tab nav, 30 new tests |
 | 2 | Profile | 🔧 Built, awaiting commit | — | Identity hero, 3 stat cards, multiplier breakdown, 5-tab nav (Activity/Following/Refer/Rewards/Settings), new Rewards tab, verification banners. 28 new LiveView tests. |
 | 2 | Public member page | ✅ Done | `41fc827` | `users.bio` + `users.x_handle` migration, public view branch in MemberLive.Show, 3 stat cards, 4-tab nav (Articles/Videos/Hubs/About), sidebar hubs + activity. Also fixes disconnect-wallet on all redesigned pages (added `phx-hook="SolanaWallet"` to `ds-site-header`). 28 new tests (47 total). |
-| 3–6 | Play, Pool, Airdrop, Shop, Cart, Checkout, Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | |
+| 3 | Play / Coin Flip | ✅ Done | (this commit) | Full `render/1` rewrite in `CoinFlipLive`. DS header with new `display_token="SOL"` attr (shows SOL balance in pill on play page), editorial page hero, 3-state game card (idle / awaiting+flipping+showing_result / result) with state-specific sidebar, stacked predictions/results (not side-by-side), recent games table with Solscan links. 9-col difficulty grid (replaces horizontal scroll). Rocket/poop emojis preserved — NOT mock H/T. Every handler/assign/PubSub/JS hook preserved. Route moved to `:redesign` live_session. 21 new LiveView tests. 0 new failures vs baseline. Also fixes `wallet_authenticated` → `:bux_balance` not set (affected all pages using `DesignSystem.header`), adds `cursor-pointer` to Connect Wallet button, adds `revealHandled` race guard to `CoinFlip` JS hook. |
+| 3–6 | Pool, Airdrop, Shop, Cart, Checkout, Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
 ---

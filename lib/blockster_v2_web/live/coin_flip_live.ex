@@ -186,590 +186,952 @@ defmodule BlocksterV2Web.CoinFlipLive do
     ~H"""
     <div
       id="coin-flip-game"
-      class="min-h-screen bg-gray-50"
+      class="min-h-screen bg-[#fafaf9]"
       phx-hook="CoinFlipSolana"
       data-game-id={assigns[:onchain_game_id]}
       data-commitment-hash={assigns[:commitment_hash]}
     >
-      <div class="max-w-7xl mx-auto px-3 sm:px-4 pt-6 sm:pt-24 pb-8 flex gap-8 justify-center">
-        <!-- LEFT SIDEBAR - Ad Placement (Desktop only) -->
-        <aside class="hidden lg:block w-[200px] shrink-0">
-          <div class="sticky top-36 space-y-4">
-            <%= for banner <- @play_sidebar_left_banners do %>
-              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
-              </a>
-            <% end %>
-          </div>
-        </aside>
+      <BlocksterV2Web.DesignSystem.header
+        current_user={@current_user}
+        active="play"
+        bux_balance={Map.get(assigns, :bux_balance, 0)}
+        token_balances={Map.get(assigns, :token_balances, %{})}
+        cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+        unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+        notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+        recent_notifications={Map.get(assigns, :recent_notifications, [])}
+        search_query={Map.get(assigns, :search_query, "")}
+        search_results={Map.get(assigns, :search_results, [])}
+        show_search_results={Map.get(assigns, :show_search_results, false)}
+        connecting={Map.get(assigns, :connecting, false)}
+        show_why_earn_bux={true}
+        display_token="SOL"
+      />
 
-        <main class="w-full max-w-2xl">
-        <%!-- Expired bet reclaim banner — always visible regardless of game state --%>
+      <main class="max-w-[1280px] mx-auto px-6">
+        <%!-- ══════════════════════════════════════════════════════
+             PAGE HEADER + LIVE STATS BAR
+        ══════════════════════════════════════════════════════ --%>
+        <section id="ds-play-hero" class="pt-12 pb-8">
+          <div class="grid grid-cols-12 gap-8 items-end">
+            <div class="col-span-12 md:col-span-7">
+              <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
+                Provably-fair · On-chain · Sub-1% house edge
+              </BlocksterV2Web.DesignSystem.eyebrow>
+              <h1 class="text-[60px] md:text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
+              <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px]">
+                Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
+              </p>
+            </div>
+            <div class="col-span-12 md:col-span-5">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">SOL Pool</div>
+                  <div class="font-mono font-bold text-[18px] text-[#141414]">
+                    <%= if @selected_token == "SOL", do: format_balance(@house_balance), else: "—" %>
+                  </div>
+                  <.link navigate={~p"/pool/sol"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
+                </div>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">BUX Pool</div>
+                  <div class="font-mono font-bold text-[18px] text-[#141414]">
+                    <%= if @selected_token == "BUX", do: format_balance(@house_balance), else: "—" %>
+                  </div>
+                  <.link navigate={~p"/pool/bux"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
+                </div>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">House Edge</div>
+                  <div class="font-mono font-bold text-[18px] text-[#141414]">0.92<span class="text-[12px] text-neutral-500">%</span></div>
+                  <span class="text-[10px] text-neutral-500 font-mono">verified</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <%!-- Expired bet reclaim banner --%>
         <%= if @has_expired_bet do %>
-          <div class="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <div class="mb-6 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 text-sm text-amber-800">
               <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               <span>You have a stuck bet older than 5 minutes.</span>
             </div>
-            <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-all cursor-pointer">
+            <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-4 py-2 bg-[#0a0a0a] text-white text-xs font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer">
               Reclaim
             </button>
           </div>
         <% end %>
-        <!-- Main Game Area -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-[540px] sm:h-[580px] flex flex-col overflow-hidden">
-          <!-- Difficulty Tabs -->
-          <div id="difficulty-tabs" class="flex border-b border-gray-200 overflow-x-auto scrollbar-hide shrink-0" phx-hook="ScrollToCenter">
-            <%= for {opt, idx} <- Enum.with_index(@difficulty_options) do %>
-              <% is_first = idx == 0 %>
-              <% is_last = idx == length(@difficulty_options) - 1 %>
-              <button
-                type="button"
-                phx-click="select_difficulty"
-                phx-value-level={opt.level}
-                disabled={@game_state not in [:idle, :result]}
-                data-selected={if @selected_difficulty == opt.level, do: "true", else: "false"}
-                class={"flex-1 min-w-[60px] sm:min-w-0 py-2 sm:py-3 px-1 sm:px-2 text-center transition-all cursor-pointer disabled:cursor-not-allowed #{if is_first, do: "rounded-tl-2xl", else: ""} #{if is_last, do: "rounded-tr-2xl", else: ""} #{if @selected_difficulty == opt.level, do: "bg-black", else: "bg-gray-50 hover:bg-gray-100"}"}
-              >
-                <div class={"text-sm sm:text-lg font-bold #{if @selected_difficulty == opt.level, do: "text-white", else: "text-gray-900"}"}><%= opt.multiplier %>x</div>
-                <div class={"text-[10px] sm:text-xs #{if @selected_difficulty == opt.level, do: "text-gray-300", else: "text-gray-500"}"}><%= opt.predictions %> flip<%= if opt.predictions > 1, do: "s" %></div>
-              </button>
-            <% end %>
-          </div>
 
-          <!-- Game Content Area -->
-          <div class="flex-1 relative min-h-0">
-            <div class="absolute inset-0 p-3 sm:p-6 flex flex-col overflow-y-auto">
-            <%= if @game_state == :idle do %>
-              <!-- Bet Stake with Token Dropdown -->
-              <div class="mb-3 sm:mb-4">
-                <label class="block text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Bet Stake</label>
-                <div class="flex gap-1.5 sm:gap-2">
-                  <div class="flex-1 relative min-w-0">
+        <%!-- ══════════════════════════════════════════════════════
+             GAME CARD + SIDEBAR (3-state conditional)
+        ══════════════════════════════════════════════════════ --%>
+        <section id="ds-play-game" class="pb-8">
+          <div class="grid grid-cols-12 gap-6 items-start">
+
+            <%!-- ─── GAME CARD (col-span-8) ─── --%>
+            <div class={[
+              "col-span-12 lg:col-span-8 bg-white rounded-2xl overflow-hidden",
+              cond do
+                @game_state == :result and @won == true -> "border border-[#22C55E]/30 shadow-[0_30px_60px_-20px_rgba(34,197,94,0.20)] relative"
+                @game_state == :result and @won == false -> "border border-[#EF4444]/25 shadow-[0_30px_60px_-20px_rgba(239,68,68,0.15)]"
+                true -> "border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+              end
+            ]}>
+
+              <%= if @game_state == :idle do %>
+                <%!-- STATE 1: Place bet --%>
+
+                <%!-- Token selector + balance row --%>
+                <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+                  <div class="flex items-center gap-2">
+                    <%= for token <- @tokens do %>
+                      <button
+                        type="button"
+                        phx-click="select_token"
+                        phx-value-token={token}
+                        class={[
+                          "flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-bold transition-colors cursor-pointer",
+                          if(@selected_token == token, do: "bg-[#0a0a0a] text-white", else: "bg-white border border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
+                        ]}
+                      >
+                        <%= if token == "SOL" do %>
+                          <div class="w-4 h-4 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);">
+                            <span class="text-black font-bold text-[6px]">SOL</span>
+                          </div>
+                        <% else %>
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full" />
+                        <% end %>
+                        <%= token %>
+                      </button>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center gap-4 text-[11px]">
+                    <div>
+                      <span class="text-neutral-500">Your balance: </span>
+                      <span class="font-mono font-bold text-[#141414]">
+                        <%= format_balance(Map.get(@balances, @selected_token, 0)) %> <%= @selected_token %>
+                      </span>
+                    </div>
+                    <div>
+                      <span class="text-neutral-500">House: </span>
+                      <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors">
+                        <%= format_balance(@house_balance) %> <%= @selected_token %> ↗
+                      </.link>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Difficulty selector --%>
+                <div class="px-6 pt-5 pb-2">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Difficulty</div>
+                    <div class="text-[10px] text-neutral-500 hidden sm:block">Higher difficulty = bigger payout · lower odds</div>
+                  </div>
+                  <div id="difficulty-grid" class="grid grid-cols-5 md:grid-cols-9 gap-1.5">
+                    <%= for opt <- @difficulty_options do %>
+                      <% is_active = @selected_difficulty == opt.level %>
+                      <button
+                        type="button"
+                        phx-click="select_difficulty"
+                        phx-value-level={opt.level}
+                        class={[
+                          "py-2.5 px-1 rounded-xl border text-center transition-all cursor-pointer",
+                          if(is_active, do: "bg-[#0a0a0a] border-[#0a0a0a] text-white", else: "bg-white border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
+                        ]}
+                      >
+                        <span class={["block text-[8px] tracking-[0.1em] uppercase mb-0.5", if(is_active, do: "opacity-55", else: "opacity-55")]}>
+                          <%= if opt.mode == :win_one, do: "Win one", else: "Win all" %>
+                        </span>
+                        <span class="block font-mono text-[13px] font-bold">
+                          <%= opt.multiplier %>×
+                        </span>
+                        <span class={["block font-mono text-[9px] mt-0.5", if(is_active, do: "text-[#CAFC00]", else: "text-neutral-400")]}>
+                          <%= opt.predictions %> flip<%= if opt.predictions > 1, do: "s" %>
+                        </span>
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%!-- Bet amount --%>
+                <div class="px-6 pt-6 pb-2">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Bet amount</div>
+                    <div class="flex items-center gap-1.5">
+                      <button type="button" phx-click="halve_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">½</button>
+                      <button type="button" phx-click="double_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">2×</button>
+                      <button type="button" phx-click="set_max_bet" class="px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer">
+                        MAX <%= format_bet_amount(@max_bet) %>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
                     <input
                       type="text"
                       inputmode="decimal"
                       value={format_bet_amount(@bet_amount)}
                       phx-keyup="update_bet_amount"
-                      phx-debounce="100"
+                      phx-debounce="150"
                       autocomplete="off"
-                      class="w-full bg-white border border-gray-300 rounded-lg pl-3 sm:pl-4 py-2 sm:py-3 text-gray-900 text-base sm:text-lg font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 pr-20 sm:pr-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      class="flex-1 min-w-0 bg-transparent border-0 font-mono text-[28px] font-bold text-[#141414] tracking-[-0.02em] focus:outline-none"
                     />
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      <button type="button" phx-click="halve_bet" class="px-1.5 sm:px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs sm:text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer">½</button>
-                      <button type="button" phx-click="double_bet" class="px-1.5 sm:px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs sm:text-sm font-medium hover:bg-gray-300 transition-all cursor-pointer">2×</button>
+                    <div class="text-[14px] text-neutral-500"><%= @selected_token %></div>
+                  </div>
+                  <%!-- Quick presets --%>
+                  <div class="flex items-center gap-2 mt-3 flex-wrap">
+                    <%= for preset <- stake_presets(@selected_token) do %>
+                      <button
+                        type="button"
+                        phx-click="set_preset"
+                        phx-value-amount={preset}
+                        class={[
+                          "px-2.5 py-1 rounded-full border font-mono text-[10px] font-bold transition-all cursor-pointer",
+                          if(@bet_amount == preset, do: "bg-[#0a0a0a] border-[#0a0a0a] text-white", else: "bg-neutral-100 border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white")
+                        ]}
+                      >
+                        <%= format_bet_amount(preset) %>
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%!-- Potential profit --%>
+                <div class="px-6 pt-5">
+                  <div class="bg-[#22C55E]/[0.08] border border-[#22C55E]/25 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-1">Potential profit</div>
+                      <div class="font-mono font-bold text-[28px] text-[#15803d] leading-none">
+                        + <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %> <%= @selected_token %>
+                      </div>
+                      <div class="text-[11px] text-[#15803d]/70 mt-1">
+                        Total payout: <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty)) %> <%= @selected_token %>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d]/70 mb-1">Multiplier</div>
+                      <div class="font-mono font-bold text-[36px] text-[#15803d] leading-none"><%= get_multiplier(@selected_difficulty) %>×</div>
                     </div>
                   </div>
-                  <!-- Token Dropdown -->
-                  <div class="relative flex-shrink-0" id="token-dropdown-wrapper" phx-click-away="hide_token_dropdown">
-                    <button
-                      type="button"
-                      phx-click="toggle_token_dropdown"
-                      class="h-full px-2 sm:px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center gap-1 sm:gap-2 hover:bg-gray-200 transition-all cursor-pointer"
-                    >
-                      <span class="font-medium text-gray-900 text-sm sm:text-base"><%= @selected_token %></span>
-                      <svg class="w-3 sm:w-4 h-3 sm:h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    <%= if @show_token_dropdown do %>
-                      <div class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-max min-w-[160px]">
-                        <%= for token <- @tokens do %>
-                          <button
-                            type="button"
-                            phx-click="select_token"
-                            phx-value-token={token}
-                            class={"w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer first:rounded-t-lg last:rounded-b-lg #{if @selected_token == token, do: "bg-gray-100"}"}
-                          >
-                            <span class={"font-medium flex-1 text-left #{if @selected_token == token, do: "text-gray-900", else: "text-gray-900"}"}><%= token %></span>
-                            <span class="text-gray-500 text-sm"><%= format_balance(Map.get(@balances, token, 0)) %></span>
-                          </button>
-                        <% end %>
-                      </div>
-                    <% end %>
-                  </div>
-                  <!-- Max button -->
-                  <button
-                    type="button"
-                    phx-click="set_max_bet"
-                    class="hidden sm:flex px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all cursor-pointer flex-col items-center flex-shrink-0"
-                    title={"Max bet: #{format_bet_amount(@max_bet)} #{@selected_token}"}
-                  >
-                    <span class="text-xs text-gray-500 font-normal">Max</span>
-                    <span class="text-sm font-medium"><%= format_bet_amount(@max_bet) %></span>
-                  </button>
                 </div>
-                <!-- Preset stake buttons -->
-                <div class="flex flex-wrap gap-1 mt-1.5">
-                  <%= for preset <- stake_presets(@selected_token) do %>
-                    <button
-                      type="button"
-                      phx-click="set_preset"
-                      phx-value-amount={preset}
-                      class={"px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-medium transition-all cursor-pointer #{if @bet_amount == preset, do: "bg-gray-900 text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-200"}"}
-                    >
-                      <%= format_bet_amount(preset) %>
-                    </button>
-                  <% end %>
-                  <button
-                    type="button"
-                    phx-click="set_max_bet"
-                    class={"sm:hidden px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-medium transition-all cursor-pointer #{if @bet_amount == @max_bet, do: "bg-gray-900 text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-200"}"}
-                  >
-                    Max (<%= format_bet_amount(@max_bet) %>)
-                  </button>
-                </div>
-                <!-- Balance info -->
-                <div class="mt-1.5 sm:mt-2">
-                  <div class="flex items-center justify-between text-[10px] sm:text-sm">
-                    <div class="text-gray-500">
-                      <span class="flex items-center gap-0.5 sm:gap-1">
-                        <%= format_balance(Map.get(@balances, @selected_token, 0)) %> <%= @selected_token %>
-                      </span>
+
+                <%!-- Error message --%>
+                <%= if @error_message do %>
+                  <div class="px-6 pt-4">
+                    <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-xs">
+                      <%= @error_message %>
                     </div>
-                    <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="text-gray-400 text-[10px] sm:text-xs hover:text-gray-600 transition-colors cursor-pointer">
-                      House: <%= format_balance(@house_balance) %> <%= @selected_token %> ↗
-                    </.link>
                   </div>
-                </div>
-              </div>
+                <% end %>
 
-              <!-- Potential Profit -->
-              <div class="bg-green-50 rounded-xl p-2 sm:p-3 mb-2 sm:mb-3 border border-green-200">
-                <div class="flex items-center justify-between">
-                  <span class="text-gray-700 text-xs sm:text-sm">Potential Profit:</span>
-                  <span class="text-base sm:text-xl font-bold text-green-600">
-                    +<%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %> <%= @selected_token %>
-                  </span>
-                </div>
-              </div>
-
-              <!-- Error Message -->
-              <%= if @error_message do %>
-                <div class="bg-red-50 border border-red-300 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4 text-red-700 text-xs sm:text-sm">
-                  <%= @error_message %>
-                </div>
-              <% end %>
-
-              <!-- Prediction Selection -->
-              <div class="flex-1 flex flex-col">
-                <div class="flex items-start sm:items-center justify-between mb-2 gap-2">
-                  <label class="block text-xs sm:text-sm font-medium text-gray-700">
-                    <%= if get_mode(@selected_difficulty) == :win_one do %>
-                      <span class="hidden sm:inline">Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (win if any of <%= get_predictions_needed(@selected_difficulty) %> flips match)</span>
-                      <span class="sm:hidden">Predict (<%= get_predictions_needed(@selected_difficulty) %> flips, win any)</span>
-                    <% else %>
-                      <span class="hidden sm:inline">Make your prediction<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %> (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)</span>
-                      <span class="sm:hidden">Predict (<%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>)</span>
-                    <% end %>
-                  </label>
-                  <!-- Provably Fair -->
-                  <div class="relative">
-                    <button type="button" phx-click="toggle_provably_fair" class="text-xs text-gray-500 cursor-pointer hover:text-gray-700 flex items-center gap-1">
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                      Provably Fair
-                    </button>
-                    <%= if @show_provably_fair do %>
-                      <div phx-click-away="close_provably_fair" class="absolute right-0 top-full mt-1 z-50 w-[calc(100vw-24px)] sm:w-80 max-w-80 bg-white rounded-lg p-2 sm:p-3 border border-gray-200 shadow-lg text-left overflow-hidden">
-                        <p class="text-[10px] sm:text-xs text-gray-600 mb-2">
-                          This hash commits the server to a result BEFORE you place your bet.
-                        </p>
-                        <div class="flex items-start gap-2 overflow-hidden">
-                          <%= if @current_user do %>
-                            <%= if @commitment_sig do %>
-                              <a href={"https://solscan.io/tx/#{@commitment_sig}?cluster=devnet"} target="_blank" class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer overflow-wrap-anywhere block" style="word-break: break-all;">
-                                <%= @server_seed_hash %>
-                              </a>
-                            <% else %>
-                              <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-700 overflow-wrap-anywhere" style="word-break: break-all;">
-                                <%= @server_seed_hash %>
-                              </code>
-                            <% end %>
-                            <%= if @server_seed_hash do %>
-                              <button type="button" id="copy-server-hash" phx-hook="CopyToClipboard" data-copy-text={@server_seed_hash}
-                                class="shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition-colors" title="Copy hash">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                              </button>
-                            <% end %>
-                          <% else %>
-                            <code class="text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 text-gray-500">
-                              &lt;connect wallet to see commitment hash&gt;
-                            </code>
-                          <% end %>
-                        </div>
-                        <p class="text-xs text-gray-400 mt-2">Game #<%= @nonce %></p>
-                      </div>
-                    <% end %>
+                <%!-- Prediction selectors --%>
+                <div class="px-6 pt-6">
+                  <div class="flex items-center justify-between mb-3 gap-2">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      Pick your side · <%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>
+                      <%= if get_mode(@selected_difficulty) == :win_one, do: " · win one", else: " · win all" %>
+                    </div>
+                    <div class="text-[10px] text-neutral-500 max-w-[220px] text-right hidden sm:block">
+                      Click a coin to cycle through 🚀 / 💩. SHA256(server:client:nonce) determines every flip.
+                    </div>
                   </div>
-                </div>
-                <div class="flex-1 flex items-center justify-center">
                   <% num_flips = get_predictions_needed(@selected_difficulty) %>
                   <% sizes = get_prediction_size_classes(num_flips) %>
-                  <div class="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
+                  <div class="flex items-center justify-center gap-3 flex-wrap">
                     <%= for i <- 1..num_flips do %>
                       <button
                         type="button"
                         phx-click="toggle_prediction"
                         phx-value-index={i}
-                        class={"#{sizes.outer} rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md #{case Enum.at(@predictions, i - 1) do
-                          :heads -> "casino-chip-heads"
-                          :tails -> "casino-chip-tails"
-                          _ -> "bg-gray-200 text-gray-500 hover:bg-gray-300"
-                        end}"}
+                        class={[
+                          sizes.outer,
+                          "rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md",
+                          case Enum.at(@predictions, i - 1) do
+                            :heads -> "casino-chip-heads"
+                            :tails -> "casino-chip-tails"
+                            _ -> "bg-white border-2 border-dashed border-neutral-300 hover:border-[#141414]"
+                          end
+                        ]}
                       >
                         <%= case Enum.at(@predictions, i - 1) do %>
                           <% :heads -> %>
-                            <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <div class={[sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
                               <span class={sizes.emoji}>🚀</span>
                             </div>
                           <% :tails -> %>
-                            <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
+                            <div class={[sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
                               <span class={sizes.emoji}>💩</span>
                             </div>
-                          <% _ -> %><%= i %>
+                          <% _ -> %>
+                            <span class="text-neutral-400 text-sm font-bold"><%= i %></span>
                         <% end %>
                       </button>
                     <% end %>
                   </div>
                 </div>
-              </div>
 
-              <!-- Start Game Button -->
-              <div class="mt-2 sm:mt-3 pb-3 sm:pb-4">
-                <button
-                  type="button"
-                  phx-click="start_game"
-                  disabled={Enum.any?(@predictions, &is_nil/1)}
-                  class="w-full py-3 sm:py-4 bg-black text-white font-bold text-base sm:text-lg rounded-xl hover:bg-gray-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
-                    Place Bet
-                  <% else %>
-                    <%= if get_predictions_needed(@selected_difficulty) == 1 do %>
-                      Make your prediction
-                    <% else %>
-                      Select all <%= get_predictions_needed(@selected_difficulty) %> predictions
-                    <% end %>
-                  <% end %>
-                </button>
-              </div>
-
-            <% else %>
-              <!-- Game in Progress -->
-              <div class="text-center flex-1 flex flex-col relative">
-                <% num_flips = get_predictions_needed(@selected_difficulty) %>
-                <% sizes = get_coin_size_classes(num_flips) %>
-                <!-- Prediction vs Result Display -->
-                <div class="mb-3 sm:mb-4">
-                  <div class="flex justify-center gap-1 sm:gap-2 mb-2 flex-wrap">
-                    <%= for i <- 1..num_flips do %>
-                      <div class="text-center">
-                        <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center mb-1 #{if Enum.at(@predictions, i - 1) == :heads, do: "casino-chip-heads", else: "casino-chip-tails"}"}>
-                          <div class={"#{sizes.inner} rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if Enum.at(@predictions, i - 1) == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                            <span class={sizes.emoji}><%= if Enum.at(@predictions, i - 1) == :heads, do: "🚀", else: "💩" %></span>
-                          </div>
-                        </div>
-                        <%= cond do %>
-                          <% (@game_state == :result and i <= @current_flip and Enum.at(@results, i - 1) != nil) or
-                             (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) -> %>
-                            <% result = Enum.at(@results, i - 1) %>
-                            <% matched = result == Enum.at(@predictions, i - 1) %>
-                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center #{if result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"} #{if matched, do: "ring-[3px] ring-green-500", else: "ring-[3px] ring-red-500"}"}>
-                              <div class={"#{sizes.inner} rounded-full flex items-center justify-center border-2 border-white shadow-inner #{if result == :heads, do: "bg-coin-heads", else: "bg-gray-700"}"}>
-                                <span class={sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
-                              </div>
-                            </div>
-                          <% i == @current_flip and @game_state == :flipping -> %>
-                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-purple-500 animate-pulse"}>
-                              <span class={"text-white #{sizes.emoji} font-bold"}>?</span>
-                            </div>
-                          <% true -> %>
-                            <div class={"#{sizes.outer} mx-auto rounded-full flex items-center justify-center bg-gray-100"}>
-                              <span class="text-gray-400 text-lg sm:text-xl">-</span>
-                            </div>
+                <%!-- Provably fair details --%>
+                <div class="px-6 pt-5 pb-2">
+                  <details class="bg-neutral-50 border border-neutral-200 rounded-xl">
+                    <summary class="cursor-pointer px-4 py-3 flex items-center justify-between list-none">
+                      <div class="flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></div>
+                        <span class="text-[11px] font-bold text-[#141414]">Provably fair · Server seed locked</span>
+                      </div>
+                      <span class="text-[10px] text-neutral-500">View commitment hash</span>
+                    </summary>
+                    <div class="px-4 pb-4 border-t border-neutral-200 mt-2 pt-3 space-y-2">
+                      <div class="flex items-center justify-between text-[10px] font-mono gap-3">
+                        <span class="text-neutral-500 shrink-0">Server commitment</span>
+                        <%= if @server_seed_hash do %>
+                          <span class="text-[#141414] truncate" title={@server_seed_hash}>
+                            <%= String.slice(@server_seed_hash, 0, 8) %>…<%= String.slice(@server_seed_hash, -6, 6) %>
+                          </span>
+                          <button
+                            type="button"
+                            id="copy-server-hash"
+                            phx-hook="CopyToClipboard"
+                            data-copy-text={@server_seed_hash}
+                            class="shrink-0 p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded cursor-pointer transition-colors"
+                            title="Copy hash"
+                          >
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        <% else %>
+                          <span class="text-neutral-400 italic">locking...</span>
                         <% end %>
                       </div>
+                      <div class="flex items-center justify-between text-[10px] font-mono">
+                        <span class="text-neutral-500">Game nonce</span>
+                        <span class="text-[#141414]">#<%= @nonce %></span>
+                      </div>
+                      <div class="text-[10px] text-neutral-500 mt-2">After settlement the server seed is revealed so you can independently verify the result.</div>
+                    </div>
+                  </details>
+                </div>
+
+                <%!-- Place bet button --%>
+                <div class="p-6">
+                  <button
+                    type="button"
+                    phx-click="start_game"
+                    disabled={Enum.any?(@predictions, &is_nil/1)}
+                    class="w-full bg-[#0a0a0a] text-white py-4 rounded-2xl text-[15px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
+                      Place Bet · <%= format_bet_amount(@bet_amount) %> <%= @selected_token %>
+                      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <% else %>
+                      <%= if get_predictions_needed(@selected_difficulty) == 1 do %>
+                        Make your prediction
+                      <% else %>
+                        Select all <%= get_predictions_needed(@selected_difficulty) %> predictions
+                      <% end %>
                     <% end %>
+                  </button>
+                </div>
+
+              <% end %>
+
+              <%= if @game_state in [:awaiting_tx, :flipping, :showing_result] do %>
+                <%!-- STATE 2: Bet in progress --%>
+
+                <%!-- Locked bet header --%>
+                <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+                  <div class="flex items-center gap-3">
+                    <%= if @selected_token == "SOL" do %>
+                      <div class="w-9 h-9 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);">
+                        <span class="text-black font-bold text-[10px]">SOL</span>
+                      </div>
+                    <% else %>
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-9 h-9 rounded-full" />
+                    <% end %>
+                    <div>
+                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Bet placed</div>
+                      <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= format_balance(@current_bet) %> <%= @selected_token %></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3 text-[11px]">
+                    <div class="text-neutral-500">Multiplier <span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span></div>
+                    <div class="text-neutral-500">Potential <span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span></div>
                   </div>
                 </div>
 
-                <!-- Bet Amount Display -->
-                <%= if @game_state in [:flipping, :showing_result] do %>
-                  <div class="mb-4 sm:mb-6 text-center">
-                    <p class="text-gray-500 text-xs sm:text-sm">Bet</p>
-                    <p class="text-lg sm:text-xl font-bold text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
-                      <span><%= format_balance(@current_bet) %> <%= @selected_token %></span>
-                    </p>
+                <%!-- Spinning coin area --%>
+                <div class="px-6 pt-12 pb-8 grid place-items-center relative">
+                  <div class="absolute inset-0 pointer-events-none">
+                    <div class="absolute top-8 left-12 w-32 h-32 bg-[#facc15]/15 rounded-full blur-3xl"></div>
+                    <div class="absolute bottom-8 right-12 w-40 h-40 bg-[#7D00FF]/10 rounded-full blur-3xl"></div>
                   </div>
-                <% end %>
-
-                <%= if @game_state == :awaiting_tx do %>
-                  <div class="mb-4 sm:mb-6 text-center">
-                    <div class="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full flex items-center justify-center bg-purple-100 animate-pulse mb-3 sm:mb-4">
-                      <svg class="w-8 h-8 sm:w-12 sm:h-12 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    </div>
-                    <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2">Confirm Transaction</h3>
-                    <p class="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Please approve the transaction in your wallet</p>
-                  </div>
-                <% end %>
-
-                <%= if @game_state == :flipping do %>
-                  <div class="mb-4 sm:mb-6" id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-flip-index={@current_flip}>
-                    <div class={"coin-container mx-auto #{sizes.outer} relative perspective-1000"}>
-                      <div class="coin w-full h-full absolute animate-flip-continuous">
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
-                            <span class={sizes.emoji}>🚀</span>
+                  <% num_flips = get_predictions_needed(@selected_difficulty) %>
+                  <% big_sizes = get_coin_size_classes(1) %>
+                  <div class="relative">
+                    <%= if @game_state == :awaiting_tx do %>
+                      <div class="w-44 h-44 rounded-full grid place-items-center bg-purple-100 animate-pulse">
+                        <svg class="w-16 h-16 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    <% end %>
+                    <%= if @game_state == :flipping do %>
+                      <div class={["coin-container", big_sizes.outer, "relative perspective-1000"]} id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-flip-index={@current_flip}>
+                        <div class="coin w-full h-full absolute animate-flip-continuous" style="transform-style: preserve-3d;">
+                          <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
+                            <div class={[big_sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
+                              <span class={big_sizes.emoji}>🚀</span>
+                            </div>
                           </div>
-                        </div>
-                        <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
-                            <span class={sizes.emoji}>💩</span>
+                          <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
+                            <div class={[big_sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
+                              <span class={big_sizes.emoji}>💩</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                <% end %>
-
-                <%= if @game_state == :showing_result do %>
-                  <div class="mb-4 sm:mb-6">
-                    <div class={"coin-container mx-auto #{sizes.outer} relative perspective-1000"}>
-                      <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if Enum.at(@results, @current_flip - 1) == :heads, do: "0deg", else: "180deg"})"}>
-                        <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                          <div class={"#{sizes.inner} rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"}>
-                            <span class={sizes.emoji}>🚀</span>
+                    <% end %>
+                    <%= if @game_state == :showing_result do %>
+                      <% result = Enum.at(@results, @current_flip - 1) %>
+                      <div class={["coin-container", big_sizes.outer, "relative perspective-1000"]}>
+                        <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if result == :heads, do: "0deg", else: "180deg"});"}>
+                          <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
+                            <div class={[big_sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
+                              <span class={big_sizes.emoji}>🚀</span>
+                            </div>
                           </div>
-                        </div>
-                        <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                          <div class={"#{sizes.inner} rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"}>
-                            <span class={sizes.emoji}>💩</span>
+                          <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
+                            <div class={[big_sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
+                              <span class={big_sizes.emoji}>💩</span>
+                            </div>
                           </div>
                         </div>
                       </div>
+                    <% end %>
+                    <div class="absolute -inset-4 rounded-full border-2 border-dashed border-neutral-200 animate-spin" style="animation-duration: 8s;"></div>
+                  </div>
+                  <div class="mt-8 text-center">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#141414] flex items-center justify-center gap-2">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                      <%= cond do %>
+                        <% @game_state == :awaiting_tx -> %> Confirming transaction
+                        <% @game_state == :showing_result -> %> Flip <%= @current_flip %> of <%= num_flips %>
+                        <% true -> %> Flipping coin · <%= @current_flip %> of <%= num_flips %>
+                      <% end %>
                     </div>
-                    <p class="mt-2 sm:mt-3 text-xs sm:text-sm">
-                      <span class={if Enum.at(@results, @current_flip - 1) == Enum.at(@predictions, @current_flip - 1), do: "text-green-600 font-bold", else: "text-red-600 font-bold"}>
-                        <%= if Enum.at(@results, @current_flip - 1) == Enum.at(@predictions, @current_flip - 1), do: "✓ Correct!", else: "✗ Wrong!" %>
-                      </span>
-                    </p>
+                    <div class="text-[12px] text-neutral-500 mt-1.5">Confirming on Solana · ~0.4s</div>
+                  </div>
+                </div>
+
+                <%!-- Predictions / results stacked --%>
+                <div class="px-6 pt-2 pb-6">
+                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-5">
+                    <% mini_sizes = %{outer: "w-12 h-12", inner: "w-8 h-8", emoji: "text-lg"} %>
+                    <div>
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                      <div class="flex items-center justify-center gap-3 flex-wrap">
+                        <%= for i <- 1..num_flips do %>
+                          <% pred = Enum.at(@predictions, i - 1) %>
+                          <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center shadow-md", if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")]}>
+                            <div class={[mini_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
+                              <span class={mini_sizes.emoji}><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                            </div>
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Results</div>
+                      <div class="flex items-center justify-center gap-3 flex-wrap">
+                        <%= for i <- 1..num_flips do %>
+                          <% result = Enum.at(@results, i - 1) %>
+                          <% pred = Enum.at(@predictions, i - 1) %>
+                          <% revealed = (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) %>
+                          <%= if revealed and result != nil do %>
+                            <% matched = result == pred %>
+                            <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-neutral-50", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
+                              <div class={[mini_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
+                                <span class={mini_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                              </div>
+                            </div>
+                          <% else %>
+                            <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center bg-white border-2 border-dashed border-neutral-300"]}>
+                              <span class="text-neutral-400 text-sm">?</span>
+                            </div>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Tx status strip --%>
+                <div class="border-t border-neutral-100 bg-neutral-50/70 px-6 py-3">
+                  <div class="flex items-center justify-between text-[10px] font-mono">
+                    <div class="flex items-center gap-2">
+                      <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
+                      <span class="text-neutral-500">Tx submitted </span>
+                      <%= if @bet_sig do %>
+                        <a href={"https://solscan.io/tx/#{@bet_sig}?cluster=devnet"} target="_blank" class="text-[#141414] hover:underline">· <%= String.slice(@bet_sig, 0, 4) %>…<%= String.slice(@bet_sig, -4, 4) %> ↗</a>
+                      <% end %>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-1 h-1 rounded-full bg-[#22C55E]"></div>
+                      <div class="w-1 h-1 rounded-full bg-[#22C55E]"></div>
+                      <div class="w-1 h-1 rounded-full bg-neutral-300 pulse-dot"></div>
+                      <span class="text-neutral-500 ml-1">Settling…</span>
+                    </div>
+                  </div>
+                </div>
+
+              <% end %>
+
+              <%= if @game_state == :result do %>
+                <%!-- STATE 3: Result (win or loss) --%>
+
+                <%= if @won and length(@confetti_pieces) > 0 do %>
+                  <div class="confetti-fullpage fixed inset-0 pointer-events-none z-50 overflow-hidden">
+                    <%= for piece <- @confetti_pieces do %>
+                      <div class="confetti-emoji" style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --x-drift: #{piece.x_drift}vw; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}><%= piece.emoji %></div>
+                    <% end %>
                   </div>
                 <% end %>
 
-                <%= if @game_state == :result do %>
-                  <%= if @won and length(@confetti_pieces) > 0 do %>
-                    <div class="confetti-fullpage fixed inset-0 pointer-events-none z-50 overflow-hidden">
-                      <%= for piece <- @confetti_pieces do %>
-                        <div class="confetti-emoji" style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --x-drift: #{piece.x_drift}vw; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}><%= piece.emoji %></div>
+                <%!-- Win / Loss banner --%>
+                <%= if @won do %>
+                  <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-6 py-6 text-center">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-2">You Won</div>
+                    <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
+                      + <%= format_balance(@payout - @current_bet) %> <%= @selected_token %>
+                    </div>
+                    <div class="text-[12px] text-[#15803d]/70 mt-2">
+                      Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
+                    </div>
+                  </div>
+                <% else %>
+                  <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-6 py-6 text-center">
+                    <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-2">No win this time</div>
+                    <div class="font-mono font-bold text-[40px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
+                      − <%= format_balance(@current_bet) %> <%= @selected_token %>
+                    </div>
+                    <div class="text-[12px] text-[#7f1d1d]/70 mt-2">Stake returned to bankroll</div>
+                  </div>
+                <% end %>
+
+                <%!-- Predictions vs Results grid (large) --%>
+                <% num_flips = get_predictions_needed(@selected_difficulty) %>
+                <% big_sizes = %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"} %>
+                <div class="px-6 pt-8 pb-6 space-y-6">
+                  <div>
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                    <div class="flex items-center justify-center gap-3 flex-wrap">
+                      <%= for i <- 1..num_flips do %>
+                        <% pred = Enum.at(@predictions, i - 1) %>
+                        <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md", if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")]}>
+                          <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
+                            <span class={big_sizes.emoji}><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div>
+                    <div class={["text-[10px] font-bold uppercase tracking-[0.14em] mb-3 text-center", if(@won, do: "text-[#15803d]", else: "text-[#7f1d1d]")]}>
+                      Results
+                    </div>
+                    <div class="flex items-center justify-center gap-3 flex-wrap">
+                      <%= for i <- 1..num_flips do %>
+                        <% result = Enum.at(@results, i - 1) %>
+                        <% pred = Enum.at(@predictions, i - 1) %>
+                        <%= if result do %>
+                          <% matched = result == pred %>
+                          <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-white", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
+                            <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
+                              <span class={big_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                            </div>
+                          </div>
+                        <% else %>
+                          <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100"]}>
+                            <span class="text-neutral-400">-</span>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Settlement status + actions --%>
+                <div class="px-6 pb-6">
+                  <div class={[
+                    "rounded-2xl p-5 flex items-center justify-between flex-wrap gap-3",
+                    if(@won, do: "bg-[#22C55E]/[0.08] border border-[#22C55E]/25", else: "bg-neutral-50 border border-neutral-200")
+                  ]}>
+                    <div class="flex items-center gap-3">
+                      <%= case @settlement_status do %>
+                        <% :settled -> %>
+                          <div class="w-9 h-9 rounded-full bg-[#22C55E] grid place-items-center">
+                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          </div>
+                          <div>
+                            <div class={["text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5", if(@won, do: "text-[#15803d]", else: "text-neutral-500")]}>Settled on chain</div>
+                            <%= if @settlement_sig do %>
+                              <a href={"https://solscan.io/tx/#{@settlement_sig}?cluster=devnet"} target="_blank" class={["text-[12px] font-mono hover:underline", if(@won, do: "text-[#15803d]", else: "text-[#141414]")]}>
+                                <%= String.slice(@settlement_sig, 0, 4) %>…<%= String.slice(@settlement_sig, -4, 4) %> ↗
+                              </a>
+                            <% end %>
+                          </div>
+                        <% :pending -> %>
+                          <div class="w-9 h-9 rounded-full bg-neutral-200 grid place-items-center">
+                            <svg class="w-5 h-5 text-neutral-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                          </div>
+                          <div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Settling on chain</div>
+                            <div class="text-[11px] text-neutral-500">This usually takes under a second</div>
+                          </div>
+                        <% :failed -> %>
+                          <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
+                            <svg class="w-5 h-5 text-amber-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                          </div>
+                          <div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">Retrying settlement</div>
+                            <div class="text-[11px] text-amber-700/70">Auto-retry every 60s · reclaim available after 5 min</div>
+                          </div>
+                        <% _ -> %>
+                      <% end %>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <%= if @onchain_game_id do %>
+                        <button type="button" phx-click="show_fairness_modal" phx-value-game-id={@onchain_game_id} class={[
+                          "px-4 py-2.5 rounded-full text-[12px] font-bold transition-colors cursor-pointer border",
+                          if(@won, do: "bg-white border-[#22C55E]/30 text-[#15803d] hover:border-[#15803d]", else: "bg-white border-neutral-300 text-neutral-700 hover:border-[#141414]")
+                        ]}>
+                          Verify fairness
+                        </button>
+                      <% end %>
+                      <%= if @settlement_status == :settled do %>
+                        <button type="button" phx-click="reset_game" class="bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center gap-2 cursor-pointer">
+                          <%= if @won, do: "Play again", else: "Try again" %>
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+
+            </div>
+
+            <%!-- ─── SIDEBAR (col-span-4) ─── --%>
+            <div class="col-span-12 lg:col-span-4 space-y-4">
+
+              <%= if @game_state == :idle do %>
+                <%!-- Your stats card --%>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">Your stats</div>
+                  <%= if @user_stats do %>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= @user_stats.total_games %></div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Bets placed</div>
+                      </div>
+                      <div>
+                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">
+                          <%= @user_stats.total_wins %><span class="text-[12px] text-neutral-400">/<%= @user_stats.total_games %></span>
+                        </div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                          Win rate · <%= if @user_stats.total_games > 0, do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%", else: "—" %>
+                        </div>
+                      </div>
+                      <div>
+                        <% net = @user_stats.total_won - @user_stats.total_lost %>
+                        <div class={["font-mono font-bold text-[20px] leading-none", if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                          <%= if net >= 0, do: "+ ", else: "− " %><%= format_balance(abs(net)) %>
+                        </div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Net <%= @selected_token %></div>
+                      </div>
+                      <div>
+                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= format_balance(@user_stats.biggest_win) %></div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Best win</div>
+                      </div>
+                    </div>
+                  <% else %>
+                    <div class="text-[11px] text-neutral-500">No stats yet. Place your first bet to start tracking.</div>
+                  <% end %>
+                </div>
+
+                <%!-- Recent player activity (your own last 5) --%>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                  <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                      <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Your recent games</span>
+                    </div>
+                    <span class="text-[9px] font-mono text-neutral-400">last 5</span>
+                  </div>
+                  <%= if Enum.empty?(@recent_games) do %>
+                    <div class="px-5 py-8 text-[11px] text-neutral-400 text-center">No games yet</div>
+                  <% else %>
+                    <div class="divide-y divide-neutral-100">
+                      <%= for game <- Enum.take(@recent_games, 5) do %>
+                        <div class="px-5 py-3 flex items-center justify-between">
+                          <div class="flex items-center gap-2">
+                            <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-5 h-5 rounded-full" />
+                            <span class="text-[11px] font-mono text-neutral-500">
+                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                            </span>
+                          </div>
+                          <div class="text-right">
+                            <div class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                              <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %>
+                            </div>
+                            <div class="text-[9px] font-mono text-neutral-400"><%= game.multiplier %>×</div>
+                          </div>
+                        </div>
                       <% end %>
                     </div>
                   <% end %>
+                </div>
 
-                  <div class="mb-4 sm:mb-6 relative">
-                    <%= if @won do %>
-                      <div class="win-celebration win-shake flex items-center justify-center gap-2 sm:gap-4">
-                        <div class="animate-bounce text-3xl sm:text-[50px] leading-none">🎉</div>
-                        <div class="text-center">
-                          <h2 class="text-xl sm:text-3xl font-bold text-green-600 mb-1 animate-pulse">YOU WON!</h2>
-                          <p class="text-lg sm:text-2xl text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
-                            <span class="text-green-600 font-bold"><%= format_balance(@payout) %></span>
-                            <span><%= @selected_token %></span>
-                          </p>
-                        </div>
-                        <div class="animate-bounce text-3xl sm:text-[50px] leading-none">🎉</div>
-                      </div>
-                    <% else %>
-                      <div class="text-center">
-                        <p class="text-lg sm:text-xl text-gray-900 flex items-center justify-center gap-1 sm:gap-2">
-                          <span class="text-red-600 font-bold">-<%= format_balance(@bet_amount) %></span>
-                          <span><%= @selected_token %></span>
-                        </p>
-                      </div>
-                    <% end %>
+                <%!-- Two modes legend --%>
+                <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Two modes</div>
+                  <div class="space-y-3 text-[11px] text-neutral-600 leading-snug">
+                    <div>
+                      <div class="text-[#141414] font-bold text-[12px] mb-0.5">Win One</div>
+                      <div>Win if <strong class="text-[#141414]">any one</strong> of N flips matches your prediction. Lower payout, much higher odds.</div>
+                    </div>
+                    <div>
+                      <div class="text-[#141414] font-bold text-[12px] mb-0.5">Win All</div>
+                      <div>Win only if <strong class="text-[#141414]">all N flips</strong> match. Higher payout, lower odds. 31.68× is a 5-in-a-row streak.</div>
+                    </div>
                   </div>
+                </div>
 
-                  <%!-- Settlement status --%>
-                  <%= case @settlement_status do %>
-                    <% :pending -> %>
-                      <div class="text-center mb-3">
-                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-lg text-xs font-haas_medium_65 text-white shadow-sm">
-                          <svg class="w-3.5 h-3.5 text-[#CAFC00] animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                          Settling on-chain...
-                        </div>
-                      </div>
-                    <% :settled -> %>
-                      <div class="text-center mb-3">
-                        <a
-                          href={"https://solscan.io/tx/#{assigns[:settlement_sig]}?cluster=devnet"}
-                          target="_blank"
-                          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-lg text-xs font-haas_medium_65 text-white hover:bg-gray-800 transition-all cursor-pointer shadow-sm"
-                        >
-                          <svg class="w-3.5 h-3.5 text-[#CAFC00]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          Settled on-chain
-                          <svg class="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                        </a>
-                      </div>
-                    <% :failed -> %>
-                      <div class="text-center mb-3">
-                        <div class="inline-flex flex-col items-center gap-1.5 px-4 py-2.5 bg-gray-900 rounded-lg text-xs font-haas_medium_65 text-white shadow-sm">
-                          <div class="flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                            <span>Settlement failed — auto-retrying every 60s</span>
-                          </div>
-                          <span class="text-[10px] text-gray-400 font-haas_roman_55">Bet is reclaimable after 5 min if settlement keeps failing. Refresh to reclaim.</span>
-                        </div>
-                      </div>
-                    <% _ -> %><% # nil — before settlement starts %>
-                  <% end %>
-
-                  <div class="mt-auto flex flex-col items-center gap-2">
-                    <%= if @settlement_status == :settled do %>
-                      <button type="button" phx-click="reset_game" class="px-6 sm:px-8 py-2.5 sm:py-3 bg-black text-white font-bold text-sm sm:text-base rounded-xl hover:bg-gray-800 transition-all cursor-pointer animate-fade-in">
-                        Play Again
-                      </button>
-                    <% end %>
-                    <%= if @onchain_game_id do %>
-                      <button type="button" phx-click="show_fairness_modal" phx-value-game-id={@onchain_game_id} class="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer">
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
-                        Verify Fairness
-                      </button>
-                    <% end %>
-                  </div>
+                <%!-- Sidebar ad banners (left + right merged into sidebar for redesign) --%>
+                <%= for banner <- (@play_sidebar_left_banners ++ @play_sidebar_right_banners) do %>
+                  <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-2xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                    <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
+                  </a>
                 <% end %>
-              </div>
-            <% end %>
+              <% end %>
+
+              <%= if @game_state in [:awaiting_tx, :flipping, :showing_result] do %>
+                <%!-- This bet card --%>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">This bet</div>
+                  <div class="space-y-3 text-[12px]">
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Token</span>
+                      <span class="text-[#141414] font-bold"><%= @selected_token %></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Stake</span>
+                      <span class="font-mono font-bold text-[#141414]"><%= format_balance(@current_bet) %></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Difficulty</span>
+                      <span class="text-[#141414] font-bold">
+                        <%= if get_mode(@selected_difficulty) == :win_one, do: "Win one", else: "Win all" %>
+                        · <%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>
+                      </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Multiplier</span>
+                      <span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-2 border-t border-neutral-100">
+                      <span class="text-neutral-500">Potential payout</span>
+                      <span class="font-mono font-bold text-[#22C55E]"><%= format_balance(@current_bet * get_multiplier(@selected_difficulty)) %> <%= @selected_token %></span>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Provably fair live card --%>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+                  <div class="flex items-center gap-1.5 mb-3">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Provably fair · Live</span>
+                  </div>
+                  <div class="space-y-2 text-[10px] font-mono">
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="text-neutral-500 shrink-0">Commit hash</span>
+                      <%= if @server_seed_hash do %>
+                        <span class="text-[#141414] truncate" title={@server_seed_hash}>
+                          <%= String.slice(@server_seed_hash, 0, 6) %>…<%= String.slice(@server_seed_hash, -4, 4) %>
+                        </span>
+                      <% else %>
+                        <span class="text-neutral-400 italic">—</span>
+                      <% end %>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Game nonce</span>
+                      <span class="text-[#141414]">#<%= @nonce %></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-neutral-500">Server seed</span>
+                      <span class="text-neutral-400 italic">revealed at settlement</span>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+
+              <%= if @game_state == :result do %>
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">
+                    <%= if @won, do: "Your stats updated", else: "Recap" %>
+                  </div>
+                  <%= if @won do %>
+                    <%= if @user_stats do %>
+                      <div class="space-y-3 text-[12px]">
+                        <div class="flex items-center justify-between">
+                          <span class="text-neutral-500">Net <%= @selected_token %></span>
+                          <% net = @user_stats.total_won - @user_stats.total_lost %>
+                          <span class={["font-mono font-bold", if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                            <%= if net >= 0, do: "+ ", else: "− " %><%= format_balance(abs(net)) %>
+                          </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-neutral-500">Win streak</span>
+                          <span class="font-mono font-bold text-[#141414]"><%= @user_stats.current_streak %></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-neutral-500">Bets placed</span>
+                          <span class="font-mono font-bold text-[#141414]"><%= @user_stats.total_games %></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-neutral-500">Win rate</span>
+                          <span class="font-mono font-bold text-[#141414]">
+                            <%= if @user_stats.total_games > 0, do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%", else: "—" %>
+                          </span>
+                        </div>
+                      </div>
+                    <% end %>
+                    <div class="mt-4 pt-4 border-t border-neutral-100">
+                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">House contributed</div>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@payout - @current_bet) %> <%= @selected_token %> <span class="text-[10px] text-neutral-500">to your balance</span></div>
+                    </div>
+                  <% else %>
+                    <p class="text-[12px] text-neutral-600 leading-[1.55]">
+                      Your stake of <strong class="text-[#141414]"><%= format_balance(@current_bet) %> <%= @selected_token %></strong> was added to the bankroll. LP holders earn from your loss, just as you would earn from theirs if you held bSOL.
+                    </p>
+                    <.link navigate={~p"/pool"} class="inline-flex items-center gap-2 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3">
+                      Become an LP →
+                    </.link>
+                  <% end %>
+                </div>
+              <% end %>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Recent Games -->
-        <div class="mt-4 sm:mt-6">
-          <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">Coin Flip Games</h3>
+        <%!-- ══════════════════════════════════════════════════════
+             RECENT GAMES TABLE
+        ══════════════════════════════════════════════════════ --%>
+        <section id="ds-play-recent" class="pt-12 pb-12 border-t border-neutral-200/70 mt-8">
+          <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+            <div>
+              <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Your last bets</BlocksterV2Web.DesignSystem.eyebrow>
+              <h2 class="text-[28px] font-bold tracking-[-0.018em] text-[#141414]">Recent games</h2>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <%= if assigns[:games_loading] do %>
-              <div class="text-center py-4 text-gray-500 text-xs sm:text-sm">Loading games...</div>
+              <div class="px-5 py-8 text-center text-neutral-400 text-[12px]">Loading games...</div>
             <% end %>
-            <%= if length(@recent_games) > 0 do %>
-              <div id="recent-games-scroll" class="overflow-x-auto overflow-y-auto max-h-72 sm:max-h-96 relative" phx-hook="InfiniteScroll">
-                <table class="w-full text-[10px] sm:text-xs min-w-[600px]">
-                  <thead class="sticky top-0 z-20 bg-white">
-                    <tr class="border-b-2 border-gray-200 bg-white">
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">ID</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">Bet</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">Pred</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">Result</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">Odds</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">W/L</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">P/L</th>
-                      <th class="text-left py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-600 font-medium bg-white">Verify</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <%= for game <- @recent_games do %>
-                      <tr id={"game-#{game.game_id}"} class={"border-b border-gray-100 #{if game.won, do: "bg-green-50/30", else: "bg-red-50/30"}"}>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <%= if game.commitment_sig do %>
-                            <a href={"https://solscan.io/tx/#{game.commitment_sig}?cluster=devnet"} target="_blank" class="font-mono text-gray-500 hover:text-gray-700 hover:underline cursor-pointer" title="View commitment tx">#<%= game.nonce %></a>
-                          <% else %>
-                            <span class="font-mono text-gray-500">#<%= game.nonce %></span>
-                          <% end %>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <%= if game.bet_sig do %>
-                            <a href={"https://solscan.io/tx/#{game.bet_sig}?cluster=devnet"} target="_blank" class="inline-flex items-center gap-1 text-gray-900 hover:text-gray-600 hover:underline cursor-pointer" title="View bet tx">
-                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
-                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                            </a>
-                          <% else %>
-                            <span class="inline-flex items-center gap-1 text-gray-900">
-                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
-                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                            </span>
-                          <% end %>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <div class="flex gap-0">
-                            <%= for pred <- (game.predictions || []) do %>
-                              <span class="text-[10px] sm:text-xs"><%= if pred == :heads, do: "🚀", else: "💩" %></span>
-                            <% end %>
-                          </div>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <div class="flex gap-0">
-                            <%= for result <- (game.results || []) do %>
-                              <span class="text-[10px] sm:text-xs"><%= if result == :heads, do: "🚀", else: "💩" %></span>
-                            <% end %>
-                          </div>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2 text-gray-900 font-medium"><%= game.multiplier %>x</td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <%= if game.won do %>
-                            <span class="text-green-600 font-medium">W</span>
-                          <% else %>
-                            <span class="text-red-600 font-medium">L</span>
-                          <% end %>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <%= if game.settlement_sig do %>
-                            <a href={"https://solscan.io/tx/#{game.settlement_sig}?cluster=devnet"} target="_blank" class={"inline-flex items-center gap-1 font-medium hover:underline cursor-pointer #{if game.won, do: "text-green-600", else: "text-red-600"}"} title="View settlement tx">
-                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
-                              <%= if game.won, do: "+#{format_balance(game.payout - game.bet_amount)}", else: "-#{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
-                            </a>
-                          <% else %>
-                            <%= if game.won do %>
-                              <span class="inline-flex items-center gap-1 text-green-600 font-medium">
-                                <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
-                                +<%= format_balance(game.payout - game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                              </span>
-                            <% else %>
-                              <span class="inline-flex items-center gap-1 text-red-600 font-medium">
-                                <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full" />
-                                -<%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                              </span>
-                            <% end %>
-                          <% end %>
-                        </td>
-                        <td class="py-1.5 sm:py-2 px-1.5 sm:px-2">
-                          <%= if game.server_seed && game.commitment_hash && game.nonce do %>
-                            <button type="button" phx-click="show_fairness_modal" phx-value-game-id={game.game_id} class="text-blue-500 hover:underline cursor-pointer">✓</button>
-                          <% else %>
-                            <span class="text-gray-400">-</span>
-                          <% end %>
-                        </td>
+            <%= cond do %>
+              <% !assigns[:games_loading] and Enum.empty?(@recent_games) -> %>
+                <div class="px-5 py-8 text-center text-neutral-400 text-[12px]">No games played yet</div>
+              <% length(@recent_games) > 0 -> %>
+                <div id="recent-games-scroll" class="overflow-x-auto max-h-[520px] overflow-y-auto" phx-hook="InfiniteScroll">
+                  <table class="w-full min-w-[720px]">
+                    <thead class="sticky top-0 z-10 bg-neutral-50/70">
+                      <tr class="border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">
+                        <th class="text-left px-5 py-3">#</th>
+                        <th class="text-left px-5 py-3">Bet</th>
+                        <th class="text-left px-5 py-3">Predictions</th>
+                        <th class="text-left px-5 py-3">Results</th>
+                        <th class="text-left px-5 py-3">Mult</th>
+                        <th class="text-center px-5 py-3">W/L</th>
+                        <th class="text-right px-5 py-3">P/L</th>
+                        <th class="text-right px-5 py-3">Verify</th>
                       </tr>
-                    <% end %>
-                  </tbody>
-                </table>
-              </div>
-            <% else %>
-              <%= if !assigns[:games_loading] do %>
-                <p class="text-gray-500 text-[10px] sm:text-xs">No games played yet</p>
-              <% end %>
+                    </thead>
+                    <tbody class="divide-y divide-neutral-100">
+                      <%= for game <- @recent_games do %>
+                        <tr id={"game-#{game.game_id}"} class={["hover:bg-neutral-50 transition-colors", if(game.won, do: "bg-[#22C55E]/[0.03]", else: "bg-[#EF4444]/[0.03]")]}>
+                          <td class="px-5 py-3 font-mono text-[11px] text-neutral-500">
+                            <%= if game.commitment_sig do %>
+                              <a href={"https://solscan.io/tx/#{game.commitment_sig}?cluster=devnet"} target="_blank" class="hover:text-[#141414] hover:underline cursor-pointer">#<%= game.nonce %></a>
+                            <% else %>
+                              #<%= game.nonce %>
+                            <% end %>
+                          </td>
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-1.5">
+                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 rounded-full" />
+                              <span class="font-mono text-[12px] text-[#141414]"><%= format_balance(game.bet_amount) %></span>
+                              <span class="text-[10px] text-neutral-500"><%= String.upcase(to_string(game.vault_type)) %></span>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-0.5">
+                              <%= for pred <- (game.predictions || []) do %>
+                                <span class="text-[14px]"><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                              <% end %>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-0.5">
+                              <%= for result <- (game.results || []) do %>
+                                <span class="text-[14px]"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                              <% end %>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3 font-mono text-[11px] text-[#141414]"><%= game.multiplier %>×</td>
+                          <td class="px-5 py-3 text-center">
+                            <%= if game.won do %>
+                              <span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">W</span>
+                            <% else %>
+                              <span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">L</span>
+                            <% end %>
+                          </td>
+                          <td class="px-5 py-3 text-right">
+                            <%= if game.settlement_sig do %>
+                              <a href={"https://solscan.io/tx/#{game.settlement_sig}?cluster=devnet"} target="_blank" class={["font-mono font-bold text-[12px] hover:underline cursor-pointer", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                                <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
+                              </a>
+                            <% else %>
+                              <span class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                                <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
+                              </span>
+                            <% end %>
+                          </td>
+                          <td class="px-5 py-3 text-right">
+                            <%= if game.server_seed && game.commitment_hash && game.nonce do %>
+                              <button type="button" phx-click="show_fairness_modal" phx-value-game-id={game.game_id} class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">✓</button>
+                            <% else %>
+                              <span class="text-[10px] text-neutral-300">—</span>
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              <% true -> %>
             <% end %>
           </div>
-        </div>
-        </main>
+        </section>
+      </main>
 
-        <!-- RIGHT SIDEBAR - Ad Placement (Desktop only) -->
-        <aside class="hidden lg:block w-[200px] shrink-0">
-          <div class="sticky top-36 space-y-4">
-            <%= for banner <- @play_sidebar_right_banners do %>
-              <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
-              </a>
-            <% end %>
-          </div>
-        </aside>
-      </div>
+      <BlocksterV2Web.DesignSystem.footer />
     </div>
 
     <.coin_flip_fairness_modal show={@show_fairness_modal} fairness_game={@fairness_game} />
@@ -782,15 +1144,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
       @keyframes flip-tails { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(1980deg); } }
       .animate-flip-heads { animation: flip-heads 3s ease-out forwards; transform-style: preserve-3d; }
       .animate-flip-tails { animation: flip-tails 3s ease-out forwards; transform-style: preserve-3d; }
+      @keyframes flip-continuous { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(2520deg); } }
+      .animate-flip-continuous { animation: flip-continuous 3s linear infinite; transform-style: preserve-3d; }
+      @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.15); } }
+      .pulse-dot { animation: pulse-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       .confetti-fullpage { perspective: 1000px; }
       .confetti-emoji { position: absolute; font-size: 24px; left: var(--x-start); bottom: 40%; animation: confetti-burst var(--duration, 3s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
       @keyframes confetti-burst { 0% { opacity: 1; transform: translateY(0) translateX(0) rotate(0deg) scale(0.5); } 15% { opacity: 1; transform: translateY(-50vh) translateX(var(--x-drift)) rotate(calc(var(--rotation) * 0.4)) scale(1.2); } 100% { opacity: 1; transform: translateY(60vh) translateX(var(--x-drift)) rotate(var(--rotation)) scale(0.8); } }
-      .win-celebration { animation: scale-in 0.5s ease-out forwards; }
-      @keyframes scale-in { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
-      .win-shake { animation: shake 0.5s ease-out; }
-      @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }
-      .animate-fade-in { animation: fade-in 0.5s ease-out 0.3s both; }
-      @keyframes fade-in { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
     </style>
     """
   end

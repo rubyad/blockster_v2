@@ -46,6 +46,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                     |> Phoenix.Component.assign(:current_user, user)
                     |> Phoenix.Component.assign(:wallet_address, wallet_address)
                     |> Phoenix.Component.assign(:token_balances, token_balances)
+                    |> Phoenix.Component.assign(:bux_balance, Map.get(token_balances, "BUX", 0))
 
                   cond do
                     is_new ->

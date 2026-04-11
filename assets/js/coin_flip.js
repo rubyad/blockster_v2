@@ -6,10 +6,18 @@ export const CoinFlip = {
   mounted() {
     this.currentFlipId = this.el.id;
     this.flipCompleted = false;
+    // Guard against the reveal_result handler racing ahead of this mounted()
+    // callback on flips 2+. When the server fires :reveal_flip_result right
+    // after :next_flip patches in the new element, the push_event can arrive
+    // before our rAF runs — meaning the reveal handler sets the deceleration
+    // class, and then our rAF stomps on it with animate-flip-continuous.
+    this.revealHandled = false;
 
     requestAnimationFrame(() => {
       this.coinEl = this.el.querySelector('.coin');
       if (!this.coinEl) return;
+      // Bail: reveal already ran and applied the deceleration animation.
+      if (this.revealHandled) return;
 
       this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
       this.coinEl.classList.add('animate-flip-continuous');
@@ -17,6 +25,7 @@ export const CoinFlip = {
 
     // Listen for reveal_result event from backend
     this.handleEvent("reveal_result", ({ flip_index, result }) => {
+      this.revealHandled = true;
       if (!this.coinEl) {
         this.coinEl = this.el.querySelector('.coin');
       }
@@ -79,14 +88,18 @@ export const CoinFlip = {
     if (this.el.id !== this.currentFlipId) {
       this.currentFlipId = this.el.id;
       this.flipCompleted = false;
+      // New flip id means a new flip — reset the race guard so the next
+      // reveal_result can re-apply the deceleration class cleanly.
+      this.revealHandled = false;
 
       requestAnimationFrame(() => {
         this.coinEl = this.el.querySelector('.coin');
-        if (this.coinEl) {
-          this.coinEl.style.transform = '';
-          this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
-          this.coinEl.classList.add('animate-flip-continuous');
-        }
+        if (!this.coinEl) return;
+        if (this.revealHandled) return;
+
+        this.coinEl.style.transform = '';
+        this.coinEl.classList.remove('animate-flip-heads', 'animate-flip-tails');
+        this.coinEl.classList.add('animate-flip-continuous');
       });
     }
   }

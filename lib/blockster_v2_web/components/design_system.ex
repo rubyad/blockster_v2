@@ -294,11 +294,21 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :show_search_results, :boolean, default: false
   attr :show_why_earn_bux, :boolean, default: true
   attr :connecting, :boolean, default: false
+  attr :display_token, :string, default: "BUX", values: ~w(BUX SOL), doc: "which token balance to show in the header pill"
 
   def header(assigns) do
+    display_token = assigns.display_token
+    display_balance =
+      case display_token do
+        "SOL" -> Map.get(assigns.token_balances || %{}, "SOL", 0)
+        _ -> assigns.bux_balance
+      end
+
     assigns =
       assigns
       |> assign(:formatted_bux, format_bux(assigns.bux_balance))
+      |> assign(:formatted_display_balance, format_display_balance(display_token, display_balance))
+      |> assign(:display_token_icon, display_token_icon(display_token))
       |> assign(:initials, user_initials(assigns.current_user))
       |> assign(:user_slug, user_slug(assigns.current_user))
 
@@ -470,12 +480,12 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
             </.link>
 
-            <%!-- User dropdown (BUX pill + avatar) --%>
+            <%!-- User dropdown (token pill + avatar) --%>
             <div class="relative" id="ds-user-dropdown" phx-click-away={JS.hide(to: "#ds-header-user-menu")}>
               <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-10 rounded-full bg-neutral-100 pl-2 pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
-                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_bux}</span>
-                <span class="text-[11px] text-neutral-500">BUX</span>
+                <img src={@display_token_icon} alt={@display_token} class="w-6 h-6 rounded-full object-cover" />
+                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
+                <span class="text-[11px] text-neutral-500">{@display_token}</span>
                 <svg class="w-4 h-4 ml-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none">
                   <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
                 </svg>
@@ -545,7 +555,7 @@ defmodule BlocksterV2Web.DesignSystem do
               type="button"
               phx-click="show_wallet_selector"
               disabled={@connecting}
-              class={"hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-bold transition-colors #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22]"}"}
+              class={"hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-bold transition-colors cursor-pointer disabled:cursor-not-allowed #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22]"}"}
             >
               <%= if @connecting do %>
                 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -595,6 +605,15 @@ defmodule BlocksterV2Web.DesignSystem do
     do: Number.Delimit.number_to_delimited(n, precision: 2)
 
   defp format_bux(_), do: "0.00"
+
+  defp format_display_balance("SOL", n) when is_number(n) or is_struct(n, Decimal),
+    do: Number.Delimit.number_to_delimited(n, precision: 4)
+
+  defp format_display_balance("SOL", _), do: "0.0000"
+  defp format_display_balance(_, n), do: format_bux(n)
+
+  defp display_token_icon("SOL"), do: "https://ik.imagekit.io/blockster/solana-sol-logo.png"
+  defp display_token_icon(_), do: "https://ik.imagekit.io/blockster/blockster-icon.png"
 
   defp format_notification_time(nil), do: ""
 
