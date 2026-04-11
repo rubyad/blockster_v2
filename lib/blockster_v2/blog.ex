@@ -401,6 +401,112 @@ defmodule BlocksterV2.Blog do
   end
 
   # =============================================================================
+  # Author queries (for public member page)
+  # =============================================================================
+
+  @doc """
+  Lists published posts by a specific author, ordered by published_at DESC.
+
+  ## Options
+    * `:limit` - Maximum number of posts to return (default: 20)
+    * `:offset` - Number of posts to skip (default: 0)
+    * `:kind` - Filter by post kind ("news", "video", "other")
+  """
+  def list_published_posts_by_author(author_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    kind = Keyword.get(opts, :kind)
+
+    query =
+      from(p in Post,
+        where: not is_nil(p.published_at),
+        where: p.author_id == ^author_id,
+        order_by: [desc: p.published_at],
+        limit: ^limit,
+        offset: ^offset,
+        preload: [:author, :hub]
+      )
+
+    query =
+      if kind do
+        from(p in query, where: p.kind == ^kind)
+      else
+        query
+      end
+
+    query
+    |> Repo.all()
+    |> populate_author_names()
+  end
+
+  @doc """
+  Counts published posts by a specific author.
+  Accepts optional `:kind` to filter by post kind.
+  """
+  def count_published_posts_by_author(author_id, opts \\ []) do
+    kind = Keyword.get(opts, :kind)
+
+    query =
+      from(p in Post,
+        where: not is_nil(p.published_at),
+        where: p.author_id == ^author_id
+      )
+
+    query =
+      if kind do
+        from(p in query, where: p.kind == ^kind)
+      else
+        query
+      end
+
+    Repo.aggregate(query, :count)
+  end
+
+  @doc """
+  Returns the sum of view_count across all published posts by an author.
+  """
+  def sum_views_by_author(author_id) do
+    from(p in Post,
+      where: not is_nil(p.published_at),
+      where: p.author_id == ^author_id,
+      select: coalesce(sum(p.view_count), 0)
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Returns the sum of bux_total across all published posts by an author.
+  """
+  def sum_bux_by_author(author_id) do
+    result =
+      from(p in Post,
+        where: not is_nil(p.published_at),
+        where: p.author_id == ^author_id,
+        select: sum(p.bux_total)
+      )
+      |> Repo.one()
+
+    result || Decimal.new(0)
+  end
+
+  @doc """
+  Returns distinct hubs an author has published in, with post counts per hub.
+  Returns a list of `{hub, post_count}` tuples sorted by post count DESC.
+  """
+  def list_author_hubs(author_id) do
+    from(p in Post,
+      where: not is_nil(p.published_at),
+      where: p.author_id == ^author_id,
+      where: not is_nil(p.hub_id),
+      join: h in assoc(p, :hub),
+      group_by: h.id,
+      select: {h, count(p.id)},
+      order_by: [desc: count(p.id)]
+    )
+    |> Repo.all()
+  end
+
+  # =============================================================================
   # Date-sorted queries (direct Ecto, no cache)
   # =============================================================================
 

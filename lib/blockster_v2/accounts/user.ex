@@ -48,6 +48,10 @@ defmodule BlocksterV2.Accounts.User do
     field :legacy_email, :string
     field :pending_email, :string
 
+    # Profile fields
+    field :bio, :string
+    field :x_handle, :string
+
     # Legacy account deactivation fields (set when this user is merged into another)
     field :is_active, :boolean, default: true
     field :deactivated_at, :utc_datetime
@@ -85,7 +89,8 @@ defmodule BlocksterV2.Accounts.User do
                     :telegram_user_id, :telegram_username, :telegram_connect_token, :telegram_connected_at,
                     :telegram_group_joined_at, :is_bot,
                     :email_verified, :email_verification_code, :email_verification_sent_at, :legacy_email,
-                    :pending_email, :is_active, :deactivated_at, :merged_into_user_id])
+                    :pending_email, :is_active, :deactivated_at, :merged_into_user_id,
+                    :bio, :x_handle])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)

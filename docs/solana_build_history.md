@@ -1284,3 +1284,97 @@ Filters published posts by hub and kind field. Supports tag_name cross-matching 
 - Refer tab: simplified to "0.2% of every losing bet — forever"
 - Formula footer: all four terms grey out independently when inactive
 - Zero-multiplier message: "Deposit at least 0.1 SOL…" when overall is 0
+
+### Wave 2, Page #6: Public Member Page (2026-04-10)
+
+**Mock:** `docs/solana/member_public_mock.html`
+**Plan:** `docs/solana/member_public_redesign_plan.md`
+**Bucket:** B — visual refresh + schema additions
+
+**Schema migrations:**
+- `20260410200002_add_bio_and_x_handle_to_users.exs` — adds `bio` (text, nullable) and `x_handle` (string, nullable) to users table
+
+**Architecture change:** Modified `MemberLive.Show` to support both owner and public views instead of creating a separate module. The security redirect for non-owners was removed. The module now branches in `handle_params` based on `is_own_profile`:
+- Owner → `load_owner_profile/3` (full private view, unchanged from profile redesign)
+- Non-owner/anonymous → `load_public_profile/3` (read-only public view)
+
+**New Blog context functions** (for public profile data):
+- `list_published_posts_by_author/2` — with `:limit`, `:offset`, `:kind` filtering
+- `count_published_posts_by_author/2` — with optional `:kind` filter
+- `sum_views_by_author/1` — total view_count across author's posts
+- `sum_bux_by_author/1` — total bux_total across author's posts
+- `list_author_hubs/1` — distinct hubs with per-hub post counts
+
+**Public view sections (matching mock):**
+1. Identity hero: 112px profile avatar, "Author profile" eyebrow, "Verified writer" badge (conditional on `is_author`), name, @slug, profile URL, member since, bio paragraph, social row with X handle
+2. Stats row: 3 cards (Posts published, Total reads, BUX paid out) — Followers removed per D17
+3. Sticky 4-tab nav (Articles/Videos/Hubs/About) at top:84px
+4. Articles tab (default): horizontal post cards (180px image + content) with hub color dot, excerpt, reading time, BUX reward badge. "Published in" sidebar with gradient hub cards. "Recent activity" sidebar derived from published posts.
+5. Videos tab: same layout, filtered by `kind: "video"`
+6. Hubs tab: 3-col grid of gradient hub cards with post counts
+7. About tab: bio card, details table (username, member since, posts, reads), social links
+
+**Decisions applied:**
+- D17: Followers REMOVED — no Follow button, no follower stat card, no follower activity
+- D18: RSS REMOVED — no RSS link in social row
+- D19: "Published in" sidebar — LIVE, uses post→hub relation
+
+**Stubs:** "Notify me" button (inert), "Share" button (inert), Recent activity sidebar (published-post events only, no follower/milestone activities).
+
+**Tests:** 28 new tests added to `show_test.exs` (47 total). Tests cover: public hero rendering (username, slug, bio, Verified writer badge, member since), stat cards (Posts/Reads/BUX, no Followers), 4-tab nav, articles tab (empty state, post cards, Published in sidebar), tab switching (About/Hubs/Videos), non-owner sees public view, anonymous sees public view, owner still sees owner view, header/footer present. 0 new failures vs baseline.
+
+**User feedback applied (same session):**
+
+1. **Disconnect wallet broken on all redesigned pages (root cause found)** — User reported clicking "Disconnect Wallet" sent them to homepage but left them logged in. Investigation revealed the `SolanaWallet` JS hook was mounted ONLY on the old `<.site_header />` in `layouts.ex:96`. When the profile redesign (commit `ad936f6`) moved `/member/:slug` into the `:redesign` live_session, the page stopped using `app.html.heex` and started using `redesign.html.heex` — which does not include the old site_header. The new `<DesignSystem.header />` never had `phx-hook="SolanaWallet"`, so `clear_session` and `request_disconnect` events pushed from the LiveView had no listener. This bug was present on ALL already-redesigned pages (homepage, hubs index, hub show, profile, member). **Fix**: added `phx-hook="SolanaWallet"` to the `<header id="ds-site-header">` element in `design_system.ex`. Single-attribute fix — no JS or wallet_auth_events.ex changes.
+
+2. **Notify me and Share buttons wired up** — Initially left as inert stubs; user wanted them functional. Share button: uses existing `CopyToClipboard` JS hook with `data-copy-text={BlocksterV2Web.Endpoint.url() <> "/member/#{@member.slug}"}` — copies the full profile URL with checkmark feedback, no LiveView event needed. Notify me button: `phx-click="notify_me"` handler flashes `"We'll let you know when [name] publishes — subscriptions coming soon."` (still a stub for real persistence — documented in the stub register).
+
+3. **`push_event("copy_to_clipboard", ...)` is a no-op** — Discovered while wiring the Share button that the legacy `push_event("copy_to_clipboard", %{text: ...})` pattern used in referral copy and the pre-redesign legacy code has **no JS listener anywhere in the bundle**. The real `CopyToClipboard` hook reads from `data-copy-text` attribute on click. The owner-profile referral copy is therefore also broken — flagged for a future commit, out of scope for this page.
+
+---
+
+## Gotchas for the next session (read before starting a new page)
+
+These learnings from Wave 0 through Wave 2 Page #6 will save time on the next page:
+
+**Template / components:**
+- The mock HTML uses custom CSS classes (`.eyebrow`, `.article-title`, `.chip`, `.font-haas`, `.hub-card`, `.post-card`). These DO NOT exist in the app's CSS. Use the DesignSystem components or Tailwind utilities:
+  - `.eyebrow` → `<BlocksterV2Web.DesignSystem.eyebrow>` OR `class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF]"`
+  - `.article-title` → `class="font-bold tracking-[-0.022em] leading-[0.96]"`
+  - `.section-title` → `class="font-bold tracking-[-0.018em]"`
+  - `.font-haas` → remove (the actual classes are `font-haas_roman_55`, `font-haas_medium_65`, `font-haas_bold_75`, but for redesign pages just use `font-medium`/`font-bold`)
+  - `.chip` → `<BlocksterV2Web.DesignSystem.chip>`
+- The design system header MUST have `phx-hook="SolanaWallet"` already on `<header id="ds-site-header">` — verified as of 2026-04-10, don't remove it.
+
+**Data / schema gotchas:**
+- `Post.content` is `:map` type (TipTap JSON), NOT string. In tests, insert as `%{"type" => "doc", "content" => [...]}` not `"some text"`.
+- `Post.published_at` is `:utc_datetime` — must use `DateTime.truncate(DateTime.utc_now(), :second)` in tests (no microseconds allowed).
+- `Post.view_count` is the read counter field.
+- Hub has `color_primary` / `color_secondary` (not `primary_color`), `logo_url` (not `logo`), `token` (not `ticker`), `tag_name` (used in post filtering).
+- ImageKit helper: use `BlocksterV2Web.ImageKit.w500_h500(url)` or `w800_h800(url)` — `w500` alone does NOT exist.
+- User schema now has `bio` (text) and `x_handle` (string) fields added in migration `20260410200002` (2026-04-10).
+
+**LiveView gotchas:**
+- `push_event("copy_to_clipboard", ...)` has NO JS listener. Use the `CopyToClipboard` hook with `data-copy-text` attribute instead — the hook handles click + clipboard + feedback itself.
+- `MemberLive.Show` now supports BOTH owner and public views via `load_owner_profile/3` vs `load_public_profile/3` branching in `handle_params`. Do not re-add the security redirect.
+- When you move a route to the `:redesign` live_session, the `SolanaWallet` hook loses its mount point unless the page uses `<DesignSystem.header />` (which now has the hook). Pages using their own custom header MUST include the hook on a stable id element or wallet connect/disconnect will silently break.
+- `use BlocksterV2Web, :live_view` auto-injects `WalletAuthEvents` macro which handles `disconnect_wallet`, `wallet_connected`, etc. Don't redefine these in your LiveView.
+- Test helper: copy `ensure_mnesia_tables/0` from `test/blockster_v2_web/live/member_live/show_test.exs` — it has the correct field order for every Mnesia table and will fail with `{:aborted, {:bad_type}}` if you get even one field wrong.
+- LiveView redirects use `push_navigate` not `redirect` — test for `{:error, {:live_redirect, ...}}`.
+
+**Test discipline:**
+- Baseline check command:
+  ```bash
+  mix test 2>&1 \
+    | grep -oE 'test/[a-z_/0-9]+_test\.exs' \
+    | sort -u \
+    | comm -23 - <(sed -n '/^```$/,/^```$/p' docs/solana/test_baseline_redesign.md | grep '^test/' | sort)
+  ```
+  Empty output = pass. Any file listed = regression.
+- Compiler warnings in test files cause false positives in the baseline check (the grep picks up the filename in warning messages). Always prefix unused vars with `_`.
+- Run `mix test test/path/to/page_test.exs` alone first to confirm your tests pass, THEN run the full baseline check — this isolates whether failures are your regressions or pre-existing flakiness.
+
+**Documentation / commit discipline:**
+- Per-page commit message format: `redesign(page-name): <one-line description>`
+- Update BOTH `docs/solana/redesign_release_plan.md` (build progress table + stub register) AND `docs/solana_build_history.md` (narrative entry) after every page.
+- NEVER commit without EXPLICIT user instruction.

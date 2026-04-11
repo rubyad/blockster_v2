@@ -305,6 +305,7 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <header
       id="ds-site-header"
+      phx-hook="SolanaWallet"
       class="ds-header bg-white/[0.92] backdrop-blur-md border-b border-neutral-200/70 sticky top-0 z-30"
     >
       <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between gap-4">

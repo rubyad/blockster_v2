@@ -24,16 +24,12 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(show_phone_modal: false)
      |> assign(show_email_modal: false)
      |> assign(countdown: nil)
-     |> assign(show_why_earn_bux: true)}
+     |> assign(show_why_earn_bux: true)
+     |> assign(is_own_profile: false)}
   end
 
   @impl true
   def handle_params(%{"slug" => slug_or_address} = params, _url, socket) do
-    # Allow tab to be set via URL query parameter (e.g., /member/xxx?tab=settings)
-    tab_from_url = params["tab"]
-    valid_tabs = ["activity", "refer", "settings", "following", "rewards", "event", "airdrop"]
-    initial_tab = if tab_from_url in valid_tabs, do: tab_from_url, else: socket.assigns[:active_tab] || "activity"
-
     case Accounts.get_user_by_slug_or_address(slug_or_address) do
       nil ->
         {:noreply,
@@ -42,133 +38,190 @@ defmodule BlocksterV2Web.MemberLive.Show do
          |> push_navigate(to: ~p"/")}
 
       member ->
-        # SECURITY: Member page is private - only the owner can view it
-        # Redirect to home if trying to view someone else's member page
         is_own_profile = socket.assigns[:current_user] && socket.assigns.current_user.id == member.id
 
-        if !is_own_profile do
-          {:noreply,
-           socket
-           |> put_flash(:error, "You can only view your own member page")
-           |> push_navigate(to: ~p"/")}
+        if is_own_profile do
+          load_owner_profile(socket, member, params)
         else
-          # Preload phone_verification association
-          member = BlocksterV2.Repo.preload(member, :phone_verification)
-
-          # V2 Unified Multiplier System - refresh from source data to ensure accuracy
-          # This recalculates from x_connections, user table, and Mnesia tables (no external API calls)
-          unified_multipliers = UnifiedMultiplier.refresh_multipliers(member.id)
-
-          # Legacy multiplier details for backwards compatibility
-          multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
-
-          # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
-          maybe_refresh_bux_balance(member)
-
-          # Check if user just signed up
-          is_new_user = is_new_user?(member)
-
-          # Load connected wallet and balances (always own profile at this point)
-          connected_wallet = Wallets.get_connected_wallet(member.id)
-          wallet_balances = if connected_wallet, do: Wallets.get_user_balances(member.id), else: nil
-          recent_transfers = Wallets.list_user_transfers(member.id, limit: 10)
-
-          # Auto-reconnect to hardware wallet if user has one connected
-          socket = if connected?(socket) && connected_wallet do
-            push_event(socket, "auto_reconnect_wallet", %{
-              provider: connected_wallet.provider,
-              expected_address: connected_wallet.wallet_address
-            })
-          else
-            socket
-          end
-
-          # Process pending anonymous claims if connected
-          # This will load activities internally after processing claims
-          socket = if connected?(socket) do
-            process_pending_claims(socket, member)
-          else
-            socket
-            |> assign(:claimed_rewards, [])
-            |> assign(:total_claimed, 0)
-          end
-
-          # Load activities AFTER processing claims (or load fresh if no claims)
-          # If claims were processed, this ensures we get the updated data
-          all_activities = load_member_activities(member.id)
-          time_period = socket.assigns[:time_period] || "24h"
-          filtered_activities = filter_activities_by_period(all_activities, time_period)
-          total_bux = calculate_total_bux(filtered_activities)
-
-          # Load referral data
-          wallet_address = member.wallet_address
-          referral_link = generate_referral_link(wallet_address)
-          referral_stats = Referrals.get_referrer_stats(member.id)
-          referrals = Referrals.list_referrals(member.id, limit: 20)
-          referral_earnings = Referrals.list_referral_earnings(member.id, limit: 50)
-
-          # Subscribe to real-time referral updates
-          if connected?(socket) do
-            Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
-          end
-
-          # Following tab: load subscribed hubs
-          followed_hubs = Blog.get_user_followed_hubs_enriched(member.id)
-
-          # Settings tab: X connection for Connected Accounts section
-          x_connection = Social.get_x_connection_for_user(member.id)
-
-          {:noreply,
-           socket
-           |> assign(:page_title, member.username || "Member")
-           |> assign(:member, member)
-           |> assign(:active_tab, initial_tab)
-           |> assign(:all_activities, all_activities)
-           |> assign(:activities, filtered_activities)
-           |> assign(:total_bux, total_bux)
-           |> assign(:time_period, time_period)
-           # V2 Unified Multiplier System (Solana)
-           |> assign(:unified_multipliers, unified_multipliers)
-           |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
-           |> assign(:x_multiplier, unified_multipliers.x_multiplier)
-           |> assign(:x_score, unified_multipliers.x_score)
-           |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
-           |> assign(:sol_multiplier, unified_multipliers.sol_multiplier)
-           |> assign(:email_multiplier, unified_multipliers.email_multiplier)
-           # Legacy multiplier details for backwards compatibility
-           |> assign(:multiplier_details, multiplier_details)
-           # NOTE: Do NOT assign :token_balances here - it's set by BuxBalanceHook from current_user
-           # Assigning it here would overwrite the logged-in user's header balances
-           |> assign(:is_new_user, is_new_user)
-           |> assign(:is_own_profile, is_own_profile)
-           |> assign(:connected_wallet, connected_wallet)
-           |> assign(:wallet_balances, wallet_balances)
-           |> assign(:recent_transfers, recent_transfers)
-           |> assign(:pending_transfer, nil)
-           |> assign(:transfer_pending, false)
-           # Referral system
-           |> assign(:referral_link, referral_link)
-           |> assign(:referral_stats, referral_stats)
-           |> assign(:referrals, referrals)
-           |> assign(:referral_earnings, referral_earnings)
-           # Following tab
-           |> assign(:followed_hubs, followed_hubs)
-           # Settings tab
-           |> assign(:x_connection, x_connection)
-           |> assign(:telegram_connected, member.telegram_user_id != nil)
-           |> assign(:telegram_username, member.telegram_username)
-           |> assign(:editing_username, false)
-           |> assign(:username_form, %{"username" => member.username})}
+          load_public_profile(socket, member, params)
         end
     end
   end
 
-  @impl true
-  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+  # Owner profile — full private view with all tabs
+  defp load_owner_profile(socket, member, params) do
+    # Allow tab to be set via URL query parameter (e.g., /member/xxx?tab=settings)
+    tab_from_url = params["tab"]
+    valid_tabs = ["activity", "refer", "settings", "following", "rewards", "event", "airdrop"]
+    initial_tab = if tab_from_url in valid_tabs, do: tab_from_url, else: socket.assigns[:active_tab] || "activity"
+
+    # Preload phone_verification association
+    member = BlocksterV2.Repo.preload(member, :phone_verification)
+
+    # V2 Unified Multiplier System - refresh from source data to ensure accuracy
+    # This recalculates from x_connections, user table, and Mnesia tables (no external API calls)
+    unified_multipliers = UnifiedMultiplier.refresh_multipliers(member.id)
+
+    # Legacy multiplier details for backwards compatibility
+    multiplier_details = EngagementTracker.get_user_multiplier_details(member.id)
+
+    # Fetch on-chain BUX balance and update Mnesia (async to not block page load)
+    maybe_refresh_bux_balance(member)
+
+    # Check if user just signed up
+    is_new_user = is_new_user?(member)
+
+    # Load connected wallet and balances (always own profile at this point)
+    connected_wallet = Wallets.get_connected_wallet(member.id)
+    wallet_balances = if connected_wallet, do: Wallets.get_user_balances(member.id), else: nil
+    recent_transfers = Wallets.list_user_transfers(member.id, limit: 10)
+
+    # Auto-reconnect to hardware wallet if user has one connected
+    socket = if connected?(socket) && connected_wallet do
+      push_event(socket, "auto_reconnect_wallet", %{
+        provider: connected_wallet.provider,
+        expected_address: connected_wallet.wallet_address
+      })
+    else
+      socket
+    end
+
+    # Process pending anonymous claims if connected
+    # This will load activities internally after processing claims
+    socket = if connected?(socket) do
+      process_pending_claims(socket, member)
+    else
+      socket
+      |> assign(:claimed_rewards, [])
+      |> assign(:total_claimed, 0)
+    end
+
+    # Load activities AFTER processing claims (or load fresh if no claims)
+    # If claims were processed, this ensures we get the updated data
+    all_activities = load_member_activities(member.id)
+    time_period = socket.assigns[:time_period] || "24h"
+    filtered_activities = filter_activities_by_period(all_activities, time_period)
+    total_bux = calculate_total_bux(filtered_activities)
+
+    # Load referral data
+    wallet_address = member.wallet_address
+    referral_link = generate_referral_link(wallet_address)
+    referral_stats = Referrals.get_referrer_stats(member.id)
+    referrals = Referrals.list_referrals(member.id, limit: 20)
+    referral_earnings = Referrals.list_referral_earnings(member.id, limit: 50)
+
+    # Subscribe to real-time referral updates
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
+    end
+
+    # Following tab: load subscribed hubs
+    followed_hubs = Blog.get_user_followed_hubs_enriched(member.id)
+
+    # Settings tab: X connection for Connected Accounts section
+    x_connection = Social.get_x_connection_for_user(member.id)
+
     {:noreply,
      socket
-     |> assign(:active_tab, tab)
-     |> assign(:show_multiplier_dropdown, false)}
+     |> assign(:page_title, member.username || "Member")
+     |> assign(:member, member)
+     |> assign(:active_tab, initial_tab)
+     |> assign(:all_activities, all_activities)
+     |> assign(:activities, filtered_activities)
+     |> assign(:total_bux, total_bux)
+     |> assign(:time_period, time_period)
+     # V2 Unified Multiplier System (Solana)
+     |> assign(:unified_multipliers, unified_multipliers)
+     |> assign(:overall_multiplier, unified_multipliers.overall_multiplier)
+     |> assign(:x_multiplier, unified_multipliers.x_multiplier)
+     |> assign(:x_score, unified_multipliers.x_score)
+     |> assign(:phone_multiplier, unified_multipliers.phone_multiplier)
+     |> assign(:sol_multiplier, unified_multipliers.sol_multiplier)
+     |> assign(:email_multiplier, unified_multipliers.email_multiplier)
+     # Legacy multiplier details for backwards compatibility
+     |> assign(:multiplier_details, multiplier_details)
+     # NOTE: Do NOT assign :token_balances here - it's set by BuxBalanceHook from current_user
+     # Assigning it here would overwrite the logged-in user's header balances
+     |> assign(:is_new_user, is_new_user)
+     |> assign(:is_own_profile, true)
+     |> assign(:connected_wallet, connected_wallet)
+     |> assign(:wallet_balances, wallet_balances)
+     |> assign(:recent_transfers, recent_transfers)
+     |> assign(:pending_transfer, nil)
+     |> assign(:transfer_pending, false)
+     # Referral system
+     |> assign(:referral_link, referral_link)
+     |> assign(:referral_stats, referral_stats)
+     |> assign(:referrals, referrals)
+     |> assign(:referral_earnings, referral_earnings)
+     # Following tab
+     |> assign(:followed_hubs, followed_hubs)
+     # Settings tab
+     |> assign(:x_connection, x_connection)
+     |> assign(:telegram_connected, member.telegram_user_id != nil)
+     |> assign(:telegram_username, member.telegram_username)
+     |> assign(:editing_username, false)
+     |> assign(:username_form, %{"username" => member.username})}
+  end
+
+  # Public profile — read-only view for other users and anonymous visitors
+  defp load_public_profile(socket, member, params) do
+    tab_from_url = params["tab"]
+    valid_public_tabs = ["articles", "videos", "hubs", "about"]
+    initial_tab = if tab_from_url in valid_public_tabs, do: tab_from_url, else: "articles"
+
+    # Load author's published posts
+    posts = Blog.list_published_posts_by_author(member.id, limit: 5)
+    post_count = Blog.count_published_posts_by_author(member.id)
+    total_reads = Blog.sum_views_by_author(member.id)
+    total_bux_paid = Blog.sum_bux_by_author(member.id)
+
+    # Load distinct hubs this author publishes in
+    author_hubs = Blog.list_author_hubs(member.id)
+
+    # Load X connection for social row
+    x_connection = Social.get_x_connection_for_user(member.id)
+
+    # Video post count for tab
+    video_count = Blog.count_published_posts_by_author(member.id, kind: "video")
+
+    {:noreply,
+     socket
+     |> assign(:page_title, member.username || "Member")
+     |> assign(:member, member)
+     |> assign(:is_own_profile, false)
+     |> assign(:active_tab, initial_tab)
+     # Public profile data
+     |> assign(:posts, posts)
+     |> assign(:post_count, post_count)
+     |> assign(:posts_offset, 5)
+     |> assign(:total_reads, total_reads)
+     |> assign(:total_bux_paid, total_bux_paid)
+     |> assign(:author_hubs, author_hubs)
+     |> assign(:video_count, video_count)
+     |> assign(:x_connection, x_connection)}
+  end
+
+  @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    socket =
+      socket
+      |> assign(:active_tab, tab)
+      |> assign(:show_multiplier_dropdown, false)
+
+    # On public view, reload posts when switching between articles/videos
+    socket =
+      if !socket.assigns[:is_own_profile] && tab in ["articles", "videos"] do
+        kind = if tab == "videos", do: "video", else: nil
+        posts = Blog.list_published_posts_by_author(socket.assigns.member.id, limit: 5, kind: kind)
+        socket
+        |> assign(:posts, posts)
+        |> assign(:posts_offset, 5)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -177,6 +230,36 @@ defmodule BlocksterV2Web.MemberLive.Show do
      socket
      |> assign(:active_tab, tab)
      |> assign(:show_multiplier_dropdown, false)}
+  end
+
+  # Public view - Notify me (stub until notification subscription system is built)
+  @impl true
+  def handle_event("notify_me", _params, socket) do
+    name = socket.assigns.member.username || "this author"
+
+    {:noreply,
+     put_flash(socket, :info, "We'll let you know when #{name} publishes — subscriptions coming soon.")}
+  end
+
+  # Public view - Load more posts (pagination)
+  @impl true
+  def handle_event("load_more_posts", _params, socket) do
+    if socket.assigns[:is_own_profile] do
+      {:noreply, socket}
+    else
+      member = socket.assigns.member
+      offset = socket.assigns[:posts_offset] || 5
+      kind = case socket.assigns.active_tab do
+        "videos" -> "video"
+        _ -> nil
+      end
+      more_posts = Blog.list_published_posts_by_author(member.id, limit: 5, offset: offset, kind: kind)
+
+      {:noreply,
+       socket
+       |> assign(:posts, socket.assigns.posts ++ more_posts)
+       |> assign(:posts_offset, offset + 5)}
+    end
   end
 
   @impl true
@@ -1221,4 +1304,48 @@ defmodule BlocksterV2Web.MemberLive.Show do
       i -> i
     end
   end
+
+  # Compact number formatting for public view stats (412k, 1.2M, etc.)
+  defp compact_number(n) when is_integer(n) and n >= 1_000_000,
+    do: "#{Float.round(n / 1_000_000, 1)}M"
+  defp compact_number(n) when is_integer(n) and n >= 1_000,
+    do: "#{Float.round(n / 1_000, 1)}k"
+  defp compact_number(n) when is_integer(n), do: "#{n}"
+  defp compact_number(%Decimal{} = d) do
+    n = Decimal.to_integer(Decimal.round(d, 0))
+    compact_number(n)
+  end
+  defp compact_number(_), do: "0"
+
+  # Format member-since date for display
+  defp format_member_since(datetime) do
+    Calendar.strftime(datetime, "%b %Y")
+  end
+
+  # Format relative time for activity sidebar
+  defp format_post_time(datetime) do
+    now = DateTime.utc_now()
+    diff = DateTime.diff(now, datetime, :second)
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86400 -> "#{div(diff, 3600)}h ago"
+      diff < 604_800 -> "#{div(diff, 86400)} days ago"
+      diff < 2_592_000 -> "#{div(diff, 604_800)} weeks ago"
+      true -> Calendar.strftime(datetime, "%b %d, %Y")
+    end
+  end
+
+  # Reading time estimate from content length (content is TipTap JSON map)
+  defp reading_time(post) do
+    text = extract_text_from_content(post.content)
+    words = if text != "", do: text |> String.split(~r/\s+/, trim: true) |> length(), else: 0
+    max(1, div(words, 200))
+  end
+
+  defp extract_text_from_content(%{"content" => children}) when is_list(children) do
+    Enum.map_join(children, " ", &extract_text_from_content/1)
+  end
+  defp extract_text_from_content(%{"text" => text}) when is_binary(text), do: text
+  defp extract_text_from_content(_), do: ""
 end

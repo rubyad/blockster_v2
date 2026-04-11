@@ -383,13 +383,16 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
   end
 
   describe "security" do
-    test "anonymous user is redirected with error", %{conn: conn} do
-      insert_user(%{slug: "secure-anon"})
+    test "anonymous user sees public member view (no redirect)", %{conn: conn} do
+      insert_user(%{slug: "secure-anon", username: "AnonTarget"})
 
-      # Anonymous access should live_redirect to home (push_navigate)
-      assert {:error, {:live_redirect, redirect}} = live(conn, ~p"/member/secure-anon")
-      assert redirect.to == "/"
-      assert redirect.flash["error"] =~ "only view your own"
+      # Anonymous access now renders the public member view (not a redirect)
+      {:ok, _view, html} = live(conn, ~p"/member/secure-anon")
+
+      # Should show public view markers
+      assert html =~ "ds-public-member"
+      assert html =~ "AnonTarget"
+      assert html =~ "Author profile"
     end
 
     test "member not found redirects to home", %{conn: conn} do
@@ -399,6 +402,23 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert {:error, {:live_redirect, redirect}} = live(conn, ~p"/member/nonexistent-slug-here")
       assert redirect.to == "/"
       assert redirect.flash["error"] =~ "not found"
+    end
+
+    test "non-owner sees public view instead of redirect", %{conn: conn} do
+      _target = insert_user(%{slug: "public-target", username: "TargetUser"})
+      viewer = insert_user(%{slug: "viewer"})
+      conn = log_in_user(conn, viewer)
+
+      {:ok, _view, html} = live(conn, ~p"/member/public-target")
+
+      # Should show public view, not owner view
+      assert html =~ "ds-public-member"
+      assert html =~ "TargetUser"
+      assert html =~ "Author profile"
+      # Should NOT show owner-only elements
+      refute html =~ "ds-profile-hero"
+      refute html =~ "Your profile"
+      refute html =~ "ds-profile-tabs"
     end
   end
 
@@ -447,6 +467,240 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "Authentication method"
       assert html =~ "Solana wallet"
       assert html =~ "Wallet Standard"
+    end
+  end
+
+  # ═══════════════════════════════════════════════════════════════
+  # PUBLIC MEMBER VIEW TESTS
+  # ═══════════════════════════════════════════════════════════════
+
+  describe "public member view · identity hero" do
+    test "renders public profile hero with username and slug", %{conn: conn} do
+      insert_user(%{slug: "pub-hero", username: "PublicHero"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-hero")
+
+      assert html =~ "ds-public-member"
+      assert html =~ "PublicHero"
+      assert html =~ "@pub-hero"
+      assert html =~ "Author profile"
+    end
+
+    test "renders bio when present", %{conn: conn} do
+      insert_user(%{slug: "pub-bio", username: "BioUser", bio: "I write about Solana DeFi."})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-bio")
+
+      assert html =~ "I write about Solana DeFi."
+    end
+
+    test "hides bio when nil", %{conn: conn} do
+      insert_user(%{slug: "pub-nobio", username: "NoBioUser", bio: nil})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-nobio")
+
+      refute html =~ "text-neutral-700 font-medium leading-relaxed"
+    end
+
+    test "shows Verified writer badge for authors", %{conn: conn} do
+      insert_user(%{slug: "pub-author", username: "AuthorUser", is_author: true})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-author")
+
+      assert html =~ "Verified writer"
+    end
+
+    test "hides Verified writer badge for non-authors", %{conn: conn} do
+      insert_user(%{slug: "pub-noauthor", username: "RegularUser", is_author: false})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-noauthor")
+
+      refute html =~ "Verified writer"
+    end
+
+    test "shows member since date", %{conn: conn} do
+      insert_user(%{slug: "pub-since", username: "SinceUser"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-since")
+
+      assert html =~ "Member since"
+    end
+
+    test "renders Notify me and Share buttons (D17: no Follow)", %{conn: conn} do
+      insert_user(%{slug: "pub-btns", username: "BtnUser"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-btns")
+
+      assert html =~ "Notify me"
+      # Follow button should NOT be present (D17)
+      refute html =~ "Follow"
+    end
+  end
+
+  describe "public member view · stat cards" do
+    test "renders 3 stat cards (Posts, Reads, BUX paid)", %{conn: conn} do
+      insert_user(%{slug: "pub-stats", username: "StatUser"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-stats")
+
+      assert html =~ "Posts published"
+      assert html =~ "Total reads"
+      assert html =~ "BUX paid out"
+      # Followers card should NOT be present (D17)
+      refute html =~ "Followers"
+    end
+  end
+
+  describe "public member view · tabs" do
+    test "renders 4-tab navigation (Articles/Videos/Hubs/About)", %{conn: conn} do
+      insert_user(%{slug: "pub-tabs", username: "TabUser"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-tabs")
+
+      assert html =~ "ds-public-tabs"
+      assert html =~ "Articles"
+      assert html =~ "Videos"
+      assert html =~ "Hubs"
+      assert html =~ "About"
+    end
+
+    test "does not show owner tabs (Settings/Following/Refer/Rewards)", %{conn: conn} do
+      insert_user(%{slug: "pub-notabs", username: "NoOwnerTabs"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-notabs")
+
+      # Owner-only tabs should NOT appear in public view
+      refute html =~ "ds-profile-tabs"
+      refute html =~ "Rewards"
+    end
+  end
+
+  describe "public member view · articles tab" do
+    test "shows empty state when no posts", %{conn: conn} do
+      insert_user(%{slug: "pub-noposts", username: "NoPosts"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-noposts")
+
+      assert html =~ "No posts published yet"
+    end
+
+    test "shows post cards when author has posts", %{conn: conn} do
+      user = insert_user(%{slug: "pub-posts", username: "PostAuthor"})
+      hub = Repo.insert!(%BlocksterV2.Blog.Hub{
+        name: "TestHub",
+        slug: "testhub-pub-#{System.unique_integer([:positive])}",
+        color_primary: "#00FFA3",
+        color_secondary: "#00DC82",
+        token: "TST",
+        tag_name: "testhub-pub"
+      })
+      Repo.insert!(%BlocksterV2.Blog.Post{
+        title: "My Test Article",
+        slug: "my-test-article-pub-#{System.unique_integer([:positive])}",
+        content: %{"type" => "doc", "content" => [%{"type" => "paragraph", "content" => [%{"type" => "text", "text" => "Some test content for the article."}]}]},
+        excerpt: "A short excerpt.",
+        published_at: DateTime.truncate(DateTime.utc_now(), :second),
+        author_id: user.id,
+        hub_id: hub.id,
+        view_count: 1234,
+        kind: "news"
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-posts")
+
+      assert html =~ "ds-public-post-card"
+      assert html =~ "My Test Article"
+      assert html =~ "A short excerpt."
+      assert html =~ "TestHub"
+    end
+
+    test "shows Published in sidebar with hubs", %{conn: conn} do
+      user = insert_user(%{slug: "pub-sidebar", username: "SidebarAuthor"})
+      hub = Repo.insert!(%BlocksterV2.Blog.Hub{
+        name: "SidebarHub",
+        slug: "sidebarhub-#{System.unique_integer([:positive])}",
+        color_primary: "#7D00FF",
+        color_secondary: "#4A00B8",
+        token: "SBH",
+        tag_name: "sidebarhub"
+      })
+      Repo.insert!(%BlocksterV2.Blog.Post{
+        title: "Hub Post",
+        slug: "hub-post-sidebar-#{System.unique_integer([:positive])}",
+        content: %{"type" => "doc", "content" => []},
+        published_at: DateTime.truncate(DateTime.utc_now(), :second),
+        author_id: user.id,
+        hub_id: hub.id
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-sidebar")
+
+      assert html =~ "Published in"
+      assert html =~ "SidebarHub"
+      assert html =~ "1 stories"
+    end
+  end
+
+  describe "public member view · tab switching" do
+    test "switching to about tab renders about section", %{conn: conn} do
+      insert_user(%{slug: "pub-about", username: "AboutUser", bio: "My bio text here."})
+
+      {:ok, view, _html} = live(conn, ~p"/member/pub-about")
+
+      html = view |> element(~s|.ds-public-tabs button[phx-value-tab="about"]|) |> render_click()
+
+      assert html =~ "About"
+      assert html =~ "My bio text here."
+      assert html =~ "AboutUser"
+    end
+
+    test "switching to hubs tab renders hubs section", %{conn: conn} do
+      insert_user(%{slug: "pub-hubstab", username: "HubsUser"})
+
+      {:ok, view, _html} = live(conn, ~p"/member/pub-hubstab")
+
+      html = view |> element(~s|.ds-public-tabs button[phx-value-tab="hubs"]|) |> render_click()
+
+      assert html =~ "Communities"
+      assert html =~ "Not published in any hubs yet"
+    end
+
+    test "switching to videos tab shows video content", %{conn: conn} do
+      insert_user(%{slug: "pub-vidtab", username: "VidUser"})
+
+      {:ok, view, _html} = live(conn, ~p"/member/pub-vidtab")
+
+      html = view |> element(~s|.ds-public-tabs button[phx-value-tab="videos"]|) |> render_click()
+
+      assert html =~ "Video content"
+      assert html =~ "No videos published yet"
+    end
+  end
+
+  describe "public member view · owner still sees owner view" do
+    test "owner visiting own profile sees owner template", %{conn: conn} do
+      user = insert_user(%{slug: "own-check", username: "OwnerCheck"})
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/member/own-check")
+
+      # Should see owner view markers
+      assert html =~ "ds-profile-hero"
+      assert html =~ "Your profile"
+      # Should NOT see public view
+      refute html =~ "ds-public-member"
+    end
+  end
+
+  describe "public member view · header and footer" do
+    test "renders design system header and footer", %{conn: conn} do
+      insert_user(%{slug: "pub-hf", username: "HFUser"})
+
+      {:ok, _view, html} = live(conn, ~p"/member/pub-hf")
+
+      assert html =~ "ds-header"
+      assert html =~ "ds-footer"
+      assert html =~ "Where the chain meets the model."
     end
   end
 end
