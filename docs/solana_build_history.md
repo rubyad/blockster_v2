@@ -1402,9 +1402,39 @@ The mock shows yellow H coins and grey T coins. The production page uses 🚀 (h
 
 ---
 
+## 2026-04-11 — Wave 3 Page #8: Pool index (`/pool`) rebuilt
+
+Bucket A visual refresh of `BlocksterV2Web.PoolIndexLive`. The original module was ~100 lines with a minimal `@pool_stats` + two `<.pool_card />` callouts and a 3-step how-it-works. The mock (`docs/solana/pool_index_mock.html`) is a completely different scale: editorial hero + 3-stat band, TWO full-bleed gradient vault cards (~420px min-height) with LP price + sparkline + 2×2 stats grid + "Your position" card + CTA, how-it-works grid, and a cross-pool activity table.
+
+**What shipped:**
+
+- Route `/pool` moved from `:default` → `:redesign` live_session (`router.ex:153`).
+- Old module copied verbatim to `lib/blockster_v2_web/live/pool_index_live/legacy/pool_index_live_pre_redesign.ex` as `BlocksterV2Web.PoolIndexLive.Legacy.PreRedesign` (never routed, no imports — just the paper trail).
+- `pool_index_live.ex` rewritten end-to-end. `mount/3` now:
+  - Fetches pool stats via `BuxMinter.get_pool_stats/0` (same as before).
+  - Fetches cross-vault activity via `CoinFlipGame.get_recent_games_by_vault/2` × 2 vaults + `:mnesia.dirty_index_read(:pool_activities, vault, :vault_type)` × 2 vaults, merged and sorted by `_created_at` desc, capped at 50.
+  - Fetches the user's `bSOL` + `bBUX` LP balances in parallel via `BuxMinter.get_lp_balance/2` when a wallet is connected.
+  - Subscribes to `"pool_activity:sol"` + `"pool_activity:bux"` PubSub topics — same broadcast format used by `PoolDetailLive`, so live deposits/withdraws update the table in real time.
+- Template rebuilt inline in `render/1` to match the mock pixel-for-pixel: DS header with `active="pool"`, editorial hero + 3-stat right-column band, two vault cards (SOL emerald-gradient + BUX lime-gradient, each `min-h-[420px]`, each wrapped in a `<.link navigate=...>` so the whole card is clickable), a 3-step "Become the house" section, a 6-col activity table matching the mock (Type / Pool / Wallet / Amount / Time / TX), and `<DesignSystem.footer />`.
+- Tests rewritten. The old test file asserted against the previous markup ("Back to Play" link, `animate-ping` loading pulse, "Enter Pool" CTA, the `<.pool_card />` component). New assertions cover: hero copy, vault card CTAs (`"Enter SOL Pool"` / `"Enter BUX Pool"`), LP Price label, stat band labels, how-it-works headline, activity section + pulse, DS footer sentinel ("Where the chain meets the model"), anonymous empty-state prompt pointing at `/play`, navigation to `/pool/sol` and `/pool/bux`, DS header `ds-site-header` + `SolanaWallet` hook, Why Earn BUX banner. 9 tests, all pass.
+- `mix test`: 2499 tests, 109 failures, 0 new outside baseline. The +1 failure vs the 108 baseline is well within the 100-165 flaky range noted in `test_baseline_redesign.md`. Pool files are all already in the baseline; no pool_index regressions.
+
+**User feedback applied:** none yet — awaiting local validation before commit.
+
+**Surprises worth remembering:**
+
+- **Cross-vault activity data is cheap to wire.** `CoinFlipGame.get_recent_games_by_vault/2` and `:pool_activities` (Mnesia, indexed by `vault_type`) were already built for the detail page, and the broadcast topics `"pool_activity:sol"` + `"pool_activity:bux"` already fire on every deposit/withdraw/settlement. Subscribing to both and merging is ~30 LOC and doesn't count as "new context" work — pure read-side composition of data that's already flowing.
+- **The mock's activity table is a 6-col grid that doesn't fit the existing `<.activity_table />` component.** The detail-page component uses a different layout (icon + flex content + buttons). Rather than touch it (and force the detail page to redesign-match) I inlined the new table markup on this page only. That follows the "inline it until a second page needs it" rule from the design_system conventions.
+- **Pool index is the first redesigned page that subscribes to PubSub topics that OTHER pages publish to** — deposits on `/pool/sol` broadcast `{:pool_activity, activity}` on `"pool_activity:sol"`, which the index page now receives. The `handle_info({:pool_activity, _}, socket)` head is required; the catch-all `handle_info(_, socket)` alone would be caught but not update the activity list. Verified in the render — the fallthrough works correctly in the empty case.
+- **Mock uses "pulse-dot" CSS keyframes**; I used Tailwind `animate-pulse` everywhere instead (consistent with other redesigned pages, no CSS additions). Visual delta is mild; `animate-pulse` fades opacity rather than scaling.
+- **`Map.get(assigns, :current_user)` works fine in `mount/3` but you need `socket.assigns[:current_user]`** — `@current_user` isn't available inside `mount` until after it's assigned, but `UserAuth` on_mount has already run by then so `socket.assigns.current_user` is present (may be nil). Checking both `current_user` and `wallet_address` before triggering LP fetches avoids the "pending_nonce" case where a logged-in user with no wallet would fire a `/lp-balance/nil/sol` request.
+- **The 24h aggregate labels on the stat band are a visual lie.** The mock labels say "24h" but we use cumulative `totalBets` / `houseProfit` because there's no 24h rollup yet. Fixed by relabeling to "all time" in the sub-line so the page doesn't claim data it doesn't have. Stub-registered in the redesign plan.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
-These learnings from Wave 0 through Wave 3 Page #7 will save time on the next page:
+These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:
 
 **Template / components:**
 - The mock HTML uses custom CSS classes (`.eyebrow`, `.article-title`, `.chip`, `.font-haas`, `.hub-card`, `.post-card`). These DO NOT exist in the app's CSS. Use the DesignSystem components or Tailwind utilities:
@@ -1464,6 +1494,16 @@ These learnings from Wave 0 through Wave 3 Page #7 will save time on the next pa
 
 **Large-file render rewrites:**
 - When a `render/1` body is hundreds of lines and needs a wholesale rewrite, writing the new render content to `/tmp/new_render.ex` and using a small `python3` splice on the target file (`lines[:N] + new + lines[M:]`) is far more reliable than a single huge Edit with an old_string of comparable size. Verify line numbers with a sanity-check Python read before splicing.
+
+**Pool index specifics (Wave 3 Page #8):**
+- `BuxMinter.get_pool_stats/0` returns `{:ok, %{"sol" => %{…}, "bux" => %{…}}}` — top-level keys are **strings** (decoded from JSON), not atoms. Use `get_in(stats, ["sol", "lpPrice"])`, not `stats.sol.lp_price`.
+- Each vault sub-map has string keys: `"totalBalance"`, `"netBalance"`, `"lpSupply"`, `"lpPrice"`, `"houseProfit"`, `"totalBets"`, `"totalVolume"`, `"totalPayout"`.
+- Cross-vault activity merging: call `CoinFlipGame.get_recent_games_by_vault(:sol, N)` AND `get_recent_games_by_vault(:bux, N)` (atom vault type), PLUS `:mnesia.dirty_index_read(:pool_activities, "sol", :vault_type)` AND the same for `"bux"` (string vault type). The `:pool_activities` Mnesia table records use `:vault_type` as a string, NOT an atom — this mismatch with `coin_flip_games` is confusing but correct.
+- Broadcast topics `"pool_activity:sol"` and `"pool_activity:bux"` use message format `{:pool_activity, %{"type" => …, "pool" => …, "wallet" => …, "amount" => …, "time" => …, "_created_at" => …}}` — published by `PoolDetailLive` on every deposit/withdraw. Subscribe once in `mount/3` under `connected?(socket)`, add `handle_info({:pool_activity, activity}, socket)` to prepend + cap at 50.
+- `:pool_activities` Mnesia table fields (in order): `[:id, :type, :vault_type, :amount, :wallet, :created_at]` — match when adding to test `ensure_mnesia_tables/0`.
+- `coin_flip_games` Mnesia table fields (in order): `[:game_id, :user_id, :wallet_address, :commitment, :server_seed, :client_seed, :status, :vault_type, :bet_amount, :difficulty, :predictions, :results, :won, :payout, :commitment_sig, :bet_sig, :settlement_sig, :created_at, :settled_at]` — 19 fields. Gotcha: `CoinFlipGame.get_recent_games_by_vault/2`'s match pattern has 20 slots because Erlang match patterns include the record name at position 0. When adding to tests, the table definition has 19 attributes.
+- The `<.link navigate={~p"/pool/sol"} class="group relative …">` wraps the entire vault card. Inner hover states (button bg swap) must use `group-hover:` not `hover:`.
+- `format_display_balance`/BUX pill defaults to `"BUX"` — pool index doesn't need `display_token="SOL"`. Matches the coin-flip page's choice of SOL because that page is SOL-first.
 
 **Play / Coin Flip specifics:**
 - The `CoinFlipSolana` JS hook must stay mounted on the root `#coin-flip-game` element with `data-game-id={@onchain_game_id}` and `data-commitment-hash={@commitment_hash}` attrs — the hook listens for `sign_place_bet`, `sign_reclaim`, `bet_settled` events from the LiveView.

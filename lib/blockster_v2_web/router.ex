@@ -151,12 +151,12 @@ defmodule BlocksterV2Web.Router do
       live "/hub/:slug", HubLive.Show, :show
       live "/member/:slug", MemberLive.Show, :show
       live "/play", CoinFlipLive, :index
+      live "/pool", PoolIndexLive, :index
     end
 
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
-      live "/pool", PoolIndexLive, :index
       live "/pool/:vault_type", PoolDetailLive, :show
       live "/airdrop", AirdropLive, :index
       live "/how-it-works", PostLive.HowItWorks, :index
