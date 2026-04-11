@@ -147,39 +147,38 @@ defmodule BlocksterV2Web.PoolComponents do
 
   def lp_price_chart(assigns) do
     ~H"""
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
       <%!-- Chart Header --%>
-      <div class="px-6 py-5 border-b border-gray-100">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div class="min-w-0">
-            <div class="text-xs text-gray-400 font-haas_roman_55 uppercase tracking-wider mb-1"><%= @lp_token %> Price</div>
-            <div class="flex items-baseline gap-2 flex-wrap">
-              <span class="text-2xl font-haas_bold_75 text-gray-900 tabular-nums">
-                <%= if @loading, do: "...", else: format_price(@lp_price) %>
-              </span>
-              <span class="text-sm text-gray-400 font-haas_roman_55"><%= @token %></span>
-              <span
-                :if={@chart_price_stats && @chart_price_stats.change_pct}
-                class={"text-sm font-haas_medium_65 tabular-nums " <>
-                  if(@chart_price_stats.change_pct >= 0, do: "text-green-600", else: "text-red-500")}
-              >
-                <%= format_change_pct(@chart_price_stats.change_pct) %>
-              </span>
-            </div>
+      <div class="px-6 py-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+        <div class="min-w-0">
+          <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1"><%= @lp_token %> price</div>
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <span class="font-mono font-bold text-[28px] text-[#141414] leading-none tracking-tight tabular-nums">
+              <%= if @loading, do: "...", else: format_price(@lp_price) %>
+            </span>
+            <span class="text-[12px] text-neutral-500"><%= @token %></span>
+            <span
+              :if={@chart_price_stats && @chart_price_stats.change_pct}
+              class={"text-[12px] font-mono font-bold ml-2 tabular-nums " <>
+                if(@chart_price_stats.change_pct >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")}
+            >
+              <%= format_change_pct(@chart_price_stats.change_pct) %>
+            </span>
+            <span class="text-[10px] text-neutral-400 font-mono">24h</span>
           </div>
-          <%!-- Timeframe Selector --%>
-          <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 shrink-0">
-            <%= for tf <- ~w(1H 24H 7D 30D All) do %>
-              <button
-                type="button"
-                phx-click="set_chart_timeframe"
-                phx-value-timeframe={tf}
-                class={"px-2.5 py-1.5 sm:py-1 text-[11px] font-haas_medium_65 rounded-md transition-all cursor-pointer #{if @timeframe == tf, do: "bg-white text-gray-900 shadow-sm", else: "text-gray-500 hover:text-gray-700"}"}
-              >
-                <%= tf %>
-              </button>
-            <% end %>
-          </div>
+        </div>
+        <%!-- Timeframe Selector --%>
+        <div class="flex items-center gap-1 shrink-0">
+          <%= for tf <- ~w(1H 24H 7D 30D All) do %>
+            <button
+              type="button"
+              phx-click="set_chart_timeframe"
+              phx-value-timeframe={tf}
+              class={"px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-[0.04em] transition-colors cursor-pointer " <> if(@timeframe == tf, do: "bg-[#141414] text-white", else: "text-neutral-500 hover:text-[#141414]")}
+            >
+              <%= tf %>
+            </button>
+          <% end %>
         </div>
       </div>
       <%!-- Chart Container --%>
@@ -187,7 +186,7 @@ defmodule BlocksterV2Web.PoolComponents do
         id={"price-chart-#{@vault_type}"}
         phx-hook="PriceChart"
         phx-update="ignore"
-        class="h-64 sm:h-72 bg-gray-900"
+        class="h-64 sm:h-72 bg-white"
         data-vault-type={@vault_type}
       />
     </div>
@@ -246,65 +245,83 @@ defmodule BlocksterV2Web.PoolComponents do
     vault = assigns.vault_type
     tf = assigns.timeframe
 
+    lp_price_val = get_vault_stat(assigns.pool_stats, vault, "lpPrice")
+    lp_supply_val = get_vault_stat(assigns.pool_stats, vault, "lpSupply")
+    vol = assigns.period_stats.volume
+    total = assigns.period_stats.total
+    wins = assigns.period_stats.wins
+    profit = assigns.period_stats.profit
+    payout = assigns.period_stats.payout
+    house_edge_pct = if is_number(vol) and vol > 0 and is_number(profit), do: profit / vol * 100, else: 0.0
+
     assigns =
       assigns
       |> assign(token: token)
       |> assign(lp_token: lp_token)
       |> assign(vault: vault)
       |> assign(tf: tf)
+      |> assign(lp_price_val: lp_price_val)
+      |> assign(lp_supply_val: lp_supply_val)
+      |> assign(vol: vol)
+      |> assign(total: total)
+      |> assign(wins: wins)
+      |> assign(profit: profit)
+      |> assign(payout: payout)
+      |> assign(house_edge_pct: house_edge_pct)
 
     ~H"""
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div class="text-xs text-gray-400 font-haas_roman_55 uppercase tracking-wider mb-3">Pool Statistics</div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <.stat_card
-          label="LP Price"
-          value={if @loading, do: nil, else: format_price(get_vault_stat(@pool_stats, @vault, "lpPrice"))}
-          suffix={@token}
-          loading={@loading}
-        />
-        <.stat_card
-          label="LP Supply"
-          value={if @loading, do: nil, else: format_number(get_vault_stat(@pool_stats, @vault, "lpSupply"))}
-          suffix={@lp_token}
-          loading={@loading}
-        />
-        <.stat_card
-          label="Bankroll"
-          value={if @loading, do: nil, else: format_tvl(get_vault_stat(@pool_stats, @vault, "totalBalance"))}
-          suffix={@token}
-          loading={@loading}
-        />
-        <.stat_card
-          label={"Volume (" <> @tf <> ")"}
-          value={if @loading, do: nil, else: format_tvl(@period_stats.volume)}
-          suffix={@token}
-          loading={@loading}
-        />
-        <.stat_card
-          label={"Bets (" <> @tf <> ")"}
-          value={if @loading, do: nil, else: format_integer(@period_stats.total)}
-          loading={@loading}
-        />
-        <.stat_card
-          label={"Win Rate (" <> @tf <> ")"}
-          value={if @loading, do: nil, else: format_win_rate(@period_stats.total, @period_stats.wins)}
-          loading={@loading}
-        />
-        <.stat_card
-          label={"Profit (" <> @tf <> ")"}
-          value={if @loading, do: nil, else: format_profit_value(@period_stats.profit)}
-          suffix={@token}
-          color={profit_color(@period_stats.profit)}
-          loading={@loading}
-        />
-        <.stat_card
-          label={"Payout (" <> @tf <> ")"}
-          value={if @loading, do: nil, else: format_tvl(@period_stats.payout)}
-          suffix={@token}
-          loading={@loading}
-        />
-      </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <.stat_card
+        label="LP price"
+        value={if @loading, do: nil, else: format_price(@lp_price_val)}
+        sub_line={@token <> " per LP"}
+        loading={@loading}
+      />
+      <.stat_card
+        label="LP supply"
+        value={if @loading, do: nil, else: format_number(@lp_supply_val)}
+        sub_line={@lp_token <> " issued"}
+        loading={@loading}
+      />
+      <.stat_card
+        label={"Volume " <> String.downcase(@tf)}
+        value={if @loading, do: nil, else: format_tvl(@vol)}
+        sub_line={@token <> " wagered"}
+        loading={@loading}
+      />
+      <.stat_card
+        label={"Bets " <> String.downcase(@tf)}
+        value={if @loading, do: nil, else: format_integer(@total)}
+        sub_line={"#{format_integer(@total)} total"}
+        loading={@loading}
+      />
+      <.stat_card
+        label={"Win rate " <> String.downcase(@tf)}
+        value={if @loading, do: nil, else: format_win_rate_value(@total, @wins)}
+        value_suffix="%"
+        sub_line={format_integer(@wins) <> " of " <> format_integer(@total)}
+        loading={@loading}
+      />
+      <.stat_card
+        label={"Profit " <> String.downcase(@tf)}
+        value={if @loading, do: nil, else: format_profit_value(@profit)}
+        sub_line={@token <> " to LPs"}
+        color={profit_color(@profit)}
+        loading={@loading}
+      />
+      <.stat_card
+        label={"Payout " <> String.downcase(@tf)}
+        value={if @loading, do: nil, else: format_tvl(@payout)}
+        sub_line={@token <> " to winners"}
+        loading={@loading}
+      />
+      <.stat_card
+        label="House edge"
+        value={if @loading, do: nil, else: format_house_edge(@house_edge_pct)}
+        value_suffix="%"
+        sub_line={"realized " <> String.downcase(@tf)}
+        loading={@loading}
+      />
     </div>
     """
   end
@@ -313,29 +330,26 @@ defmodule BlocksterV2Web.PoolComponents do
 
   attr :label, :string, required: true
   attr :value, :string, default: nil
-  attr :suffix, :string, default: ""
+  attr :value_suffix, :string, default: ""
+  attr :sub_line, :string, default: ""
   attr :color, :string, default: nil
   attr :loading, :boolean, default: false
 
   def stat_card(assigns) do
     ~H"""
-    <div class="bg-gray-50/80 rounded-lg px-3 py-2.5 border border-gray-100/80">
-      <div class="text-[10px] text-gray-400 font-haas_roman_55 uppercase tracking-wider mb-1"><%= @label %></div>
+    <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-medium mb-1.5"><%= @label %></div>
       <%= if @loading do %>
         <div class="h-5 w-20 bg-gray-200/70 rounded animate-pulse" />
       <% else %>
-        <div class="flex items-baseline gap-1">
-          <span class={[
-            "text-sm font-haas_medium_65 tabular-nums tracking-tight",
-            @color || "text-gray-900"
-          ]}>
-            <%= @value %>
-          </span>
-          <%= if @suffix != "" do %>
-            <span class="text-[10px] text-gray-400 font-haas_roman_55"><%= @suffix %></span>
-          <% end %>
+        <div class={[
+          "font-mono font-bold text-[18px] leading-none tabular-nums",
+          @color || "text-[#141414]"
+        ]}>
+          <%= @value %><span :if={@value_suffix != ""} class="text-[12px]"><%= @value_suffix %></span>
         </div>
       <% end %>
+      <div :if={@sub_line != ""} class="text-[10px] text-neutral-500 font-mono mt-1"><%= @sub_line %></div>
     </div>
     """
   end
@@ -346,42 +360,59 @@ defmodule BlocksterV2Web.PoolComponents do
   attr :vault_type, :string, required: true
   attr :activities, :list, default: []
 
+  attr :total_count, :integer, default: nil
+
   def activity_table(assigns) do
+    shown = length(assigns.activities)
+    total = assigns[:total_count] || shown
+    assigns = assigns |> assign(shown: shown) |> assign(total: total)
+
     ~H"""
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-      <%!-- Tabs --%>
-      <div class="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-gray-100">
-        <div class="text-xs text-gray-400 font-haas_roman_55 uppercase tracking-wider mr-3">Activity</div>
-        <%= for {tab, label} <- [{:all, "All"}, {:wins, "Wins"}, {:losses, "Losses"}, {:liquidity, "Liquidity"}] do %>
-          <button
-            type="button"
-            phx-click="set_activity_tab"
-            phx-value-tab={Atom.to_string(tab)}
-            class={"px-2.5 py-1 text-[11px] font-haas_medium_65 rounded-md transition-all cursor-pointer #{if @activity_tab == tab, do: "bg-gray-900 text-white", else: "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}"}
-          >
-            <%= label %>
-          </button>
-        <% end %>
+    <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+      <%!-- Header row --%>
+      <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
+          <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">Activity · Live</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <%= for {tab, label} <- [{:all, "All"}, {:wins, "Wins"}, {:losses, "Losses"}, {:liquidity, "Liquidity"}] do %>
+            <button
+              type="button"
+              phx-click="set_activity_tab"
+              phx-value-tab={Atom.to_string(tab)}
+              class={"px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-[0.04em] transition-colors cursor-pointer " <> if(@activity_tab == tab, do: "bg-[#141414] text-white", else: "text-neutral-500 hover:text-[#141414]")}
+            >
+              <%= label %>
+            </button>
+          <% end %>
+        </div>
       </div>
 
-      <%!-- Table Content --%>
+      <%!-- Table content --%>
       <%= if @activities == [] do %>
         <div class="text-center py-10 px-5">
-          <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-neutral-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <div class="text-gray-400 text-sm font-haas_roman_55">No activity yet</div>
-          <div class="text-gray-400/60 text-xs mt-1 font-haas_roman_55">Bets and liquidity events will appear here</div>
+          <div class="text-neutral-500 text-sm">No activity yet</div>
+          <div class="text-neutral-400 text-xs mt-1">Bets and liquidity events will appear here</div>
         </div>
       <% else %>
-        <div class="divide-y divide-gray-100">
+        <div class="divide-y divide-neutral-100">
           <%= for activity <- @activities do %>
             <.activity_row activity={activity} vault_type={@vault_type} />
           <% end %>
         </div>
       <% end %>
+
+      <%!-- Footer --%>
+      <div class="px-5 py-3 border-t border-neutral-100 flex items-center justify-between">
+        <div class="text-[11px] text-neutral-500">Showing <%= @shown %> of <%= @total %> events</div>
+        <button type="button" class="text-[12px] font-bold text-[#141414] hover:text-[#7D00FF] transition-colors cursor-pointer">Load more →</button>
+      </div>
     </div>
     """
   end
@@ -391,116 +422,185 @@ defmodule BlocksterV2Web.PoolComponents do
 
   defp activity_row(assigns) do
     ~H"""
-    <div class="flex items-center gap-3 px-5 py-3">
-      <%!-- Icon --%>
-      <div class={[
-        "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-        activity_icon_bg(@activity["type"])
-      ]}>
-        <svg class={["w-4 h-4", activity_icon_color(@activity["type"])]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <%= activity_icon(@activity["type"]) %>
-        </svg>
-      </div>
-
-      <%!-- Game + Type --%>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <%!-- Game name → linked to commitment tx --%>
+    <div class="px-5 py-3 grid grid-cols-[180px_1fr_140px_60px] items-center gap-2 hover:bg-black/[0.02] transition-colors">
+      <%!-- Col 1: icon tile + label --%>
+      <div class="flex items-center gap-2.5">
+        <div class={[
+          "w-7 h-7 rounded-lg border grid place-items-center",
+          row_icon_wrapper_class(@activity["type"])
+        ]}>
+          <svg class={["w-3.5 h-3.5", row_icon_color(@activity["type"])]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <%= row_icon_path(@activity["type"]) %>
+          </svg>
+        </div>
+        <div class="min-w-0">
           <%= if @activity["game"] && valid_sig?(@activity["commitment_sig"]) do %>
-            <a href={"https://solscan.io/tx/#{@activity["commitment_sig"]}?cluster=devnet"} target="_blank" class="text-sm font-haas_medium_65 text-gray-900 hover:text-gray-600 hover:underline cursor-pointer" title="View commitment tx"><%= @activity["game"] %></a>
+            <a href={"https://solscan.io/tx/#{@activity["commitment_sig"]}?cluster=devnet"} target="_blank" class="text-[12px] font-bold text-[#141414] leading-tight hover:underline cursor-pointer block truncate" title="View commitment tx">
+              <%= row_primary_label(@activity) %>
+            </a>
           <% else %>
-            <span class="text-sm font-haas_medium_65 text-gray-900">
-              <%= @activity["game"] || activity_label(@activity["type"]) %>
-            </span>
-          <% end %>
-          <span class={[
-            "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-haas_medium_65 uppercase tracking-wider",
-            activity_badge_class(@activity["type"])
-          ]}>
-            <%= @activity["type"] %>
-          </span>
-          <%= if @activity["multiplier"] do %>
-            <span class="text-[10px] font-haas_medium_65 text-gray-400 tabular-nums"><%= @activity["multiplier"] %></span>
-          <% end %>
-          <%!-- Coin flip predictions vs results --%>
-          <%= if @activity["predictions"] && @activity["results"] do %>
-            <div class="hidden sm:flex items-center gap-1.5 ml-2 text-[10px] font-haas_roman_55 text-gray-400">
-              <span class="flex items-center gap-0.5">
-                <%= for p <- @activity["predictions"] do %><span><%= if p == :heads, do: "🚀", else: "💩" %></span><% end %>
-              </span>
-              <span>→</span>
-              <span class="flex items-center gap-0.5">
-                <%= for r <- @activity["results"] do %><span><%= if r == :heads, do: "🚀", else: "💩" %></span><% end %>
-              </span>
+            <div class="text-[12px] font-bold text-[#141414] leading-tight truncate">
+              <%= row_primary_label(@activity) %>
             </div>
           <% end %>
-        </div>
-        <div class="flex items-center gap-2 mt-0.5">
-          <%= if @activity["full_wallet"] do %>
-            <a href={"https://solscan.io/account/#{@activity["full_wallet"]}?cluster=devnet"} target="_blank" class="text-[11px] text-gray-400 hover:text-gray-600 hover:underline font-haas_roman_55 cursor-pointer"><%= @activity["wallet"] %></a>
-          <% else %>
-            <span class="text-[11px] text-gray-400 font-haas_roman_55"><%= @activity["wallet"] %></span>
-          <% end %>
-          <span class="text-gray-300">&middot;</span>
-          <span class="text-[11px] text-gray-400 font-haas_roman_55"><%= @activity["time"] %></span>
+          <div class="text-[10px] text-neutral-500 truncate">
+            <%= row_secondary_label(@activity) %>
+          </div>
         </div>
       </div>
 
-      <%!-- Amounts + Links --%>
-      <div class="flex-shrink-0 text-right">
-        <%!-- P/L → linked to settlement tx --%>
+      <%!-- Col 2: wallet avatar + short wallet --%>
+      <div class="flex items-center gap-2 min-w-0">
+        <%= if @activity["full_wallet"] do %>
+          <a href={"https://solscan.io/account/#{@activity["full_wallet"]}?cluster=devnet"} target="_blank" class="flex items-center gap-2 hover:opacity-80 cursor-pointer min-w-0">
+            <div class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);">
+              <%= row_avatar_initials(@activity["wallet"]) %>
+            </div>
+            <span class="text-[11px] font-mono text-neutral-500 truncate"><%= @activity["wallet"] %></span>
+          </a>
+        <% else %>
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);">
+              <%= row_avatar_initials(@activity["wallet"]) %>
+            </div>
+            <span class="text-[11px] font-mono text-neutral-500 truncate"><%= @activity["wallet"] %></span>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Col 3: profit + bet sub-line --%>
+      <div class="text-right">
         <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
           <a href={"https://solscan.io/tx/#{@activity["settlement_sig"]}?cluster=devnet"} target="_blank" title="View settlement tx" class={[
-            "text-sm font-haas_medium_65 tabular-nums hover:underline cursor-pointer",
+            "font-mono font-bold text-[13px] tabular-nums hover:underline cursor-pointer",
             profit_text_color(@activity["type"])
           ]}>
             <%= @activity["profit"] %>
           </a>
         <% else %>
           <div class={[
-            "text-sm font-haas_medium_65 tabular-nums",
+            "font-mono font-bold text-[13px] tabular-nums",
             profit_text_color(@activity["type"])
           ]}>
             <%= @activity["profit"] %>
           </div>
         <% end %>
-        <%!-- Bet → linked to bet placement tx --%>
-        <%= if @activity["bet"] do %>
-          <%= if valid_sig?(@activity["bet_sig"]) do %>
-            <a href={"https://solscan.io/tx/#{@activity["bet_sig"]}?cluster=devnet"} target="_blank" title="View bet tx" class="text-[11px] text-gray-400 hover:text-gray-600 hover:underline font-haas_roman_55 tabular-nums mt-0.5 inline-block cursor-pointer">
-              Bet <%= @activity["bet"] %>
+        <%= cond do %>
+          <% @activity["bet"] && valid_sig?(@activity["bet_sig"]) -> %>
+            <a href={"https://solscan.io/tx/#{@activity["bet_sig"]}?cluster=devnet"} target="_blank" title="View bet tx" class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5">
+              bet <%= @activity["bet"] %>
             </a>
-          <% else %>
-            <div class="text-[11px] text-gray-400 font-haas_roman_55 tabular-nums mt-0.5">
-              Bet <%= @activity["bet"] %>
-            </div>
-          <% end %>
+          <% @activity["bet"] -> %>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">bet <%= @activity["bet"] %></div>
+          <% @activity["type"] == "deposit" -> %>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">to vault</div>
+          <% @activity["type"] == "withdraw" -> %>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">to wallet</div>
+          <% true -> %>
+            <%= if @activity["time"] do %>
+              <div class="text-[10px] text-neutral-500 font-mono mt-0.5"><%= @activity["time"] %></div>
+            <% end %>
         <% end %>
-        <%!-- Deposit/Withdraw tx link --%>
+      </div>
+
+      <%!-- Col 4: tx short link + optional fairness verify --%>
+      <div class="text-right">
         <%= if @activity["tx_sig"] && !@activity["game_id"] do %>
-          <div class="mt-1">
-            <a href={"https://solscan.io/tx/#{@activity["tx_sig"]}?cluster=devnet"} target="_blank" class="text-[10px] text-gray-400 hover:text-gray-600 hover:underline cursor-pointer">View tx</a>
-          </div>
+          <a href={"https://solscan.io/tx/#{@activity["tx_sig"]}?cluster=devnet"} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer">
+            <%= row_short_sig(@activity["tx_sig"]) %>
+          </a>
         <% end %>
-        <%!-- Verify fairness --%>
+        <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
+          <a href={"https://solscan.io/tx/#{@activity["settlement_sig"]}?cluster=devnet"} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer block">
+            <%= row_short_sig(@activity["settlement_sig"]) %>
+          </a>
+        <% end %>
         <%= if @activity["game_id"] && @activity["settled"] do %>
-          <div class="flex items-center justify-end mt-1.5">
-            <button
-              type="button"
-              phx-click="show_fairness_modal"
-              phx-value-game-id={@activity["game_id"]}
-              class="text-[10px] text-gray-400 hover:text-green-600 cursor-pointer inline-flex items-center gap-0.5"
-              title="Verify fairness"
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              Verify
-            </button>
-          </div>
+          <button
+            type="button"
+            phx-click="show_fairness_modal"
+            phx-value-game-id={@activity["game_id"]}
+            class="text-[10px] text-neutral-400 hover:text-[#22C55E] cursor-pointer mt-1"
+            title="Verify fairness"
+          >
+            Verify
+          </button>
         <% end %>
       </div>
     </div>
+    """
+  end
+
+  defp row_primary_label(%{"type" => "win", "multiplier" => mult}) when is_binary(mult), do: "Win #{mult}"
+  defp row_primary_label(%{"type" => "loss", "multiplier" => mult}) when is_binary(mult), do: "Loss #{mult}"
+  defp row_primary_label(%{"type" => "deposit"}), do: "Deposit"
+  defp row_primary_label(%{"type" => "withdraw"}), do: "Withdraw"
+  defp row_primary_label(%{"game" => game}) when is_binary(game), do: game
+  defp row_primary_label(_), do: "Activity"
+
+  defp row_secondary_label(%{"type" => type, "predictions" => preds, "results" => results}) when type in ["win", "loss"] and is_list(preds) and is_list(results) do
+    wins = Enum.zip(preds, results) |> Enum.count(fn {p, r} -> p == r end)
+    "Coin flip · #{wins} of #{length(preds)}"
+  end
+  defp row_secondary_label(%{"type" => "deposit", "profit" => p}) when is_binary(p), do: "#{p} minted"
+  defp row_secondary_label(%{"type" => "withdraw", "profit" => p}) when is_binary(p), do: "#{p} burned"
+  defp row_secondary_label(%{"time" => time}) when is_binary(time), do: time
+  defp row_secondary_label(_), do: ""
+
+  defp row_avatar_initials(nil), do: "—"
+  defp row_avatar_initials(""), do: "—"
+  defp row_avatar_initials(wallet) when is_binary(wallet) do
+    wallet
+    |> String.replace(~r/[^a-zA-Z0-9]/, "")
+    |> String.slice(0, 2)
+  end
+
+  defp row_short_sig(nil), do: ""
+  defp row_short_sig(sig) when is_binary(sig) and byte_size(sig) >= 4, do: "#{String.slice(sig, 0, 4)}…"
+  defp row_short_sig(sig), do: sig
+
+  defp row_icon_wrapper_class("win"), do: "bg-[#22C55E]/12 border-[#22C55E]/25"
+  defp row_icon_wrapper_class("loss"), do: "bg-[#EF4444]/12 border-[#EF4444]/25"
+  defp row_icon_wrapper_class("deposit"), do: "bg-[#7D00FF]/15 border-[#7D00FF]/30"
+  defp row_icon_wrapper_class("withdraw"), do: "bg-[#facc15]/15 border-[#facc15]/30"
+  defp row_icon_wrapper_class(_), do: "bg-neutral-100 border-neutral-200"
+
+  defp row_icon_color("win"), do: "text-[#15803d]"
+  defp row_icon_color("loss"), do: "text-[#7f1d1d]"
+  defp row_icon_color("deposit"), do: "text-[#7D00FF]"
+  defp row_icon_color("withdraw"), do: "text-[#a16207]"
+  defp row_icon_color(_), do: "text-neutral-500"
+
+  defp row_icon_path("win") do
+    assigns = %{}
+    ~H"""
+    <polyline points="18 15 12 9 6 15" />
+    """
+  end
+  defp row_icon_path("loss") do
+    assigns = %{}
+    ~H"""
+    <polyline points="6 9 12 15 18 9" />
+    """
+  end
+  defp row_icon_path("deposit") do
+    assigns = %{}
+    ~H"""
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+    """
+  end
+  defp row_icon_path("withdraw") do
+    assigns = %{}
+    ~H"""
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <polyline points="19 12 12 19 5 12" />
+    """
+  end
+  defp row_icon_path(_) do
+    assigns = %{}
+    ~H"""
+    <circle cx="12" cy="12" r="9" />
     """
   end
 
@@ -510,64 +610,11 @@ defmodule BlocksterV2Web.PoolComponents do
   defp valid_sig?("already_settled_on_chain"), do: false
   defp valid_sig?(_), do: true
 
-  defp activity_badge_class("win"), do: "bg-emerald-50 text-emerald-600"
-  defp activity_badge_class("loss"), do: "bg-red-50 text-red-600"
-  defp activity_badge_class("deposit"), do: "bg-blue-50 text-blue-600"
-  defp activity_badge_class("withdraw"), do: "bg-amber-50 text-amber-600"
-  defp activity_badge_class(_), do: "bg-gray-100 text-gray-600"
-
-  defp activity_icon_bg("win"), do: "bg-emerald-50"
-  defp activity_icon_bg("loss"), do: "bg-red-50"
-  defp activity_icon_bg("deposit"), do: "bg-blue-50"
-  defp activity_icon_bg("withdraw"), do: "bg-amber-50"
-  defp activity_icon_bg(_), do: "bg-gray-100"
-
-  defp activity_icon_color("win"), do: "text-emerald-500"
-  defp activity_icon_color("loss"), do: "text-red-500"
-  defp activity_icon_color("deposit"), do: "text-blue-500"
-  defp activity_icon_color("withdraw"), do: "text-amber-500"
-  defp activity_icon_color(_), do: "text-gray-400"
-
-  defp profit_text_color("win"), do: "text-emerald-600"
-  defp profit_text_color("loss"), do: "text-red-600"
-  defp profit_text_color("deposit"), do: "text-blue-600"
-  defp profit_text_color("withdraw"), do: "text-amber-600"
-  defp profit_text_color(_), do: "text-gray-900"
-
-  defp activity_label("deposit"), do: "Deposit"
-  defp activity_label("withdraw"), do: "Withdrawal"
-  defp activity_label(_), do: ""
-
-  defp activity_icon("win") do
-    assigns = %{}
-    ~H"""
-    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-    """
-  end
-  defp activity_icon("loss") do
-    assigns = %{}
-    ~H"""
-    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-    """
-  end
-  defp activity_icon("deposit") do
-    assigns = %{}
-    ~H"""
-    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    """
-  end
-  defp activity_icon("withdraw") do
-    assigns = %{}
-    ~H"""
-    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
-    """
-  end
-  defp activity_icon(_) do
-    assigns = %{}
-    ~H"""
-    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    """
-  end
+  defp profit_text_color("win"), do: "text-[#22C55E]"
+  defp profit_text_color("loss"), do: "text-[#EF4444]"
+  defp profit_text_color("deposit"), do: "text-[#7D00FF]"
+  defp profit_text_color("withdraw"), do: "text-[#a16207]"
+  defp profit_text_color(_), do: "text-[#141414]"
 
   # ── Format Helpers ──────────────────────────────────────────────────────────
 
@@ -649,6 +696,21 @@ defmodule BlocksterV2Web.PoolComponents do
   end
 
   def format_win_rate(_, _), do: "0.0%"
+
+  @doc false
+  def format_win_rate_value(total_bets, total_wins) when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
+    pct = total_wins / total_bets * 100
+    :erlang.float_to_binary(pct, decimals: 1)
+  end
+
+  def format_win_rate_value(_, _), do: "0.0"
+
+  @doc false
+  def format_house_edge(pct) when is_number(pct) do
+    :erlang.float_to_binary(pct, decimals: 1)
+  end
+
+  def format_house_edge(_), do: "0.0"
 
   @doc false
   def profit_color(val) when is_number(val) and val > 0, do: "text-emerald-500"
@@ -928,10 +990,4 @@ defmodule BlocksterV2Web.PoolComponents do
   defp fairness_difficulty_label(1), do: "Classic (1 flip)"
   defp fairness_difficulty_label(d) when d > 1, do: "Win All (#{d} flips, all must match)"
   defp fairness_difficulty_label(_), do: "Unknown"
-
-  defp get_vault_stats(nil, _vault_type), do: %{}
-
-  defp get_vault_stats(stats, vault_type) do
-    stats[vault_type] || %{}
-  end
 end

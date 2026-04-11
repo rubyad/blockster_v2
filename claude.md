@@ -399,7 +399,10 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 - Header/footer: Removed ROGUE references, replaced Roguescan with Solscan links
 - Profile: ROGUE tab replaced with SOL balance, External Wallet tab removed, multiplier display updated (SOL + email)
 - Hub ordering: sorted by post count descending
-- Ad Banner system: migration, schema (`ads/banner.ex`), context (`ads.ex`), 19 tests. Placements: sidebar + mobile
+- Ad Banner system: migration, schema (`ads/banner.ex`), context (`ads.ex`), 19 tests. Placements: sidebar + mobile + inline
+  - **Template-based ads** (added in redesign): `template` field on `ad_banners` table — `follow_bar`, `dark_gradient`, `portrait`, `split_card`, `image` (legacy). Admin provides text params in `params` jsonb field, system renders styled HTML ads. Components in `design_system.ex` via `<.ad_banner banner={banner} />`.
+  - **Inline article placements**: `article_inline_1` (1/3 mark), `article_inline_2` (2/3 mark), `article_inline_3` (end). Content split by `TipTapRenderer.render_content_split/2`.
+  - **Follow Hub bar**: rendered from `@post.hub` data at 1/2 mark (not from ad system), only on hub-associated articles
 
 **EVM Cleanup & Deprecation** (Phase 11 — complete):
 - Deprecated JS hooks: ConnectWalletHook, WalletTransferHook, BalanceFetcherHook, BuxBoosterOnchain, RoguePaymentHook, AirdropDepositHook, AirdropApproveHook (all annotated with @deprecated)

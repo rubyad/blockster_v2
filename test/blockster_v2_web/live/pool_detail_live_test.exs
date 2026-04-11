@@ -47,7 +47,18 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       {:unified_multipliers_v2,
        [:user_id, :x_multiplier, :phone_multiplier, :sol_multiplier, :email_multiplier,
         :overall_multiplier, :updated_at],
-       [type: :set, index: [:overall_multiplier]]}
+       [type: :set, index: [:overall_multiplier]]},
+      {:pool_activities,
+       [:id, :type, :vault_type, :amount, :wallet, :created_at],
+       [type: :set, index: [:vault_type]]},
+      {:coin_flip_games,
+       [:game_id, :user_id, :wallet_address, :commitment, :server_seed, :client_seed,
+        :status, :vault_type, :bet_amount, :difficulty, :predictions, :results,
+        :won, :payout, :commitment_sig, :bet_sig, :settlement_sig, :created_at, :settled_at],
+       [type: :set, index: [:vault_type, :wallet_address, :status]]},
+      {:lp_price_history,
+       [:id, :vault_type, :timestamp, :lp_price],
+       [type: :ordered_set, index: [:vault_type]]}
     ]
 
     for {table, attrs, opts} <- tables do
@@ -93,14 +104,20 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       {:ok, _view, html} = live(conn, ~p"/pool/sol")
 
       assert html =~ "SOL Pool"
-      assert html =~ "Back to Pools"
+      # New: breadcrumb back to index
+      assert html =~ ~s(href="/pool")
+      # New: banner identity eyebrow
+      assert html =~ "Bankroll Vault"
+      # New: hero stats
+      assert html =~ "Current LP price"
     end
 
     test "BUX vault page renders", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       assert html =~ "BUX Pool"
-      assert html =~ "Back to Pools"
+      assert html =~ "Bankroll Vault"
+      assert html =~ "Current LP price"
     end
 
     test "invalid vault type redirects to pool index", %{conn: conn} do
@@ -116,9 +133,12 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
     test "renders deposit form for unauthenticated user", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool/sol")
 
+      # Deposit / Withdraw tabs
       assert html =~ "Deposit"
       assert html =~ "Withdraw"
+      # Anonymous users see Connect Wallet CTA
       assert html =~ "Connect Wallet"
+      # LP Price line in form
       assert html =~ "SOL-LP Price"
     end
 
@@ -127,7 +147,8 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
       assert html =~ "price-chart-sol"
       assert html =~ "PriceChart"
-      assert html =~ "SOL-LP Price"
+      # New chart card header uses lowercase `price`
+      assert html =~ "SOL-LP price"
     end
 
     test "renders timeframe selector buttons", %{conn: conn} do
@@ -140,28 +161,56 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       assert html =~ "All"
     end
 
-    test "renders stats grid", %{conn: conn} do
+    test "renders 8-stat pool statistics grid", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool/sol")
 
-      assert html =~ "Pool Statistics"
-      assert html =~ "LP Price"
-      assert html =~ "LP Supply"
-      assert html =~ "Bankroll"
-      assert html =~ "Total Bets"
-      assert html =~ "House Profit"
-      assert html =~ "Win Rate"
-      assert html =~ "Total Payout"
+      assert html =~ "LP price"
+      assert html =~ "LP supply"
+      assert html =~ "Volume"
+      assert html =~ "Bets"
+      assert html =~ "Win rate"
+      assert html =~ "Profit"
+      assert html =~ "Payout"
+      assert html =~ "House edge"
     end
 
     test "renders activity table with tabs", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool/sol")
 
-      assert html =~ "Activity"
+      # Live pulse label + tabs
+      assert html =~ "Activity · Live"
       assert html =~ "No activity yet"
       assert html =~ "All"
       assert html =~ "Wins"
       assert html =~ "Losses"
       assert html =~ "Liquidity"
+      assert html =~ "Load more"
+    end
+
+    test "renders full-bleed pool banner hero", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+
+      # Gradient style + identity + live pill
+      assert html =~ "linear-gradient"
+      assert html =~ "Bankroll Vault"
+      assert html =~ "TVL · SOL"
+      assert html =~ "Est. APY"
+      assert html =~ "Your position"
+    end
+
+    test "renders design system header + footer", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+
+      assert html =~ ~s(id="ds-site-header")
+      assert html =~ ~s(phx-hook="SolanaWallet")
+      assert html =~ "Why Earn BUX?"
+    end
+
+    test "renders How earnings work card", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+
+      assert html =~ "How earnings work"
+      assert html =~ "Read the bankroll docs"
     end
 
     test "renders pool page for authenticated user with balances", %{conn: conn} do
@@ -197,7 +246,10 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       assert html =~ "BUX Pool"
+      # LP price line in order form
       assert html =~ "BUX-LP Price"
+      # Chart header
+      assert html =~ "BUX-LP price"
       assert html =~ "BUX"
     end
 
@@ -226,7 +278,8 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> element("button[phx-click=switch_tab][phx-value-tab=withdraw]")
         |> render_click()
 
-      assert html =~ "Withdraw SOL-LP"
+      # Amount label flips to Withdraw amount
+      assert html =~ "Withdraw amount"
     end
 
     test "switches back to deposit tab", %{conn: conn} do
@@ -243,7 +296,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> element("button[phx-click=switch_tab][phx-value-tab=deposit]")
         |> render_click()
 
-      assert html =~ "Deposit SOL"
+      assert html =~ "Deposit amount"
     end
 
     test "BUX vault switches to withdraw tab", %{conn: conn} do
@@ -254,7 +307,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> element("button[phx-click=switch_tab][phx-value-tab=withdraw]")
         |> render_click()
 
-      assert html =~ "Withdraw BUX-LP"
+      assert html =~ "Withdraw amount"
     end
   end
 
@@ -309,7 +362,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> render_click()
 
       assert is_binary(html)
-      assert html =~ "Withdraw SOL-LP"
+      assert html =~ "Withdraw amount"
     end
 
     test "BUX max button sets BUX balance", %{conn: conn} do
@@ -341,8 +394,8 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> element("button[phx-click=set_chart_timeframe][phx-value-timeframe=\"7D\"]")
         |> render_click()
 
-      # The 7D button should now be active (has white bg)
-      assert html =~ "bg-white text-gray-900"
+      # Active timeframe pill uses bg-[#141414] text-white per the redesigned pill style
+      assert html =~ "bg-[#141414] text-white"
     end
 
     test "request_chart_data event does not crash", %{conn: conn} do
@@ -430,7 +483,9 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         |> element("button[phx-click=switch_tab][phx-value-tab=withdraw]")
         |> render_click()
 
-      assert html =~ "LP Balance"
+      # New copy: balance row + withdraw amount label
+      assert html =~ "Withdraw amount"
+      assert html =~ "Balance ·"
     end
   end
 
