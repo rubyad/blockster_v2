@@ -413,7 +413,7 @@ Every stub introduced during the build gets added here so the next release knows
 | 1 | Hubs index | 🔧 Built, awaiting commit | — | Featured cards (hub_feature_card), hub_card category badge, sticky search+filter bar, 4-col hub grid. 24 new tests (8 component + 16 LiveView). |
 | 1 | Hub show | 🔧 Built, awaiting commit | — | `posts.kind` migration done, hub_banner component, 5-tab nav, 30 new tests |
 | 2 | Profile | 🔧 Built, awaiting commit | — | Identity hero, 3 stat cards, multiplier breakdown, 5-tab nav (Activity/Following/Refer/Rewards/Settings), new Rewards tab, verification banners. 28 new LiveView tests. |
-| 2 | Public member page | 🔧 Built, awaiting commit | — | `users.bio` + `users.x_handle` migration, public view branch in MemberLive.Show, 3 stat cards, 4-tab nav (Articles/Videos/Hubs/About), sidebar hubs + activity. 28 new tests (47 total). |
+| 2 | Public member page | ✅ Done | `41fc827` | `users.bio` + `users.x_handle` migration, public view branch in MemberLive.Show, 3 stat cards, 4-tab nav (Articles/Videos/Hubs/About), sidebar hubs + activity. Also fixes disconnect-wallet on all redesigned pages (added `phx-hook="SolanaWallet"` to `ds-site-header`). 28 new tests (47 total). |
 | 3–6 | Play, Pool, Airdrop, Shop, Cart, Checkout, Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
