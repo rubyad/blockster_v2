@@ -103,10 +103,48 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "renders how it works section", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "How It Works"
-      assert html =~ "Earn BUX"
+      assert html =~ "How it works"
+      assert html =~ "Earn BUX reading"
       assert html =~ "Redeem"
-      assert html =~ "Win"
+      assert html =~ "33 winners drawn on chain"
+    end
+
+    test "renders design system header with airdrop active", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ ~s(id="ds-site-header")
+      assert html =~ ~s(phx-hook="SolanaWallet")
+      # Why Earn BUX banner is enabled on this page
+      assert html =~ "Why Earn BUX?"
+    end
+
+    test "renders editorial page hero with prize-pool headline", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ "$2,000"
+      assert html =~ "up for grabs"
+      assert html =~ "Total pool"
+      assert html =~ "Winners"
+      assert html =~ "Rate"
+      assert html =~ "BUX → entry"
+    end
+
+    test "renders prize distribution card with all four tiers", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ "Prize distribution"
+      assert html =~ "33 winners"
+      assert html =~ "1st place"
+      assert html =~ "2nd place"
+      assert html =~ "3rd place"
+      assert html =~ "4th–33rd"
+    end
+
+    test "renders airdrop solana hook mount point", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ ~s(id="airdrop-solana-hook")
+      assert html =~ ~s(phx-hook="AirdropSolanaHook")
     end
 
     test "shows Connect Wallet to Enter for unauthenticated user", %{conn: conn} do
@@ -293,7 +331,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
       assert html =~ "Redeemed 200 BUX"
-      assert html =~ "Your Entries"
+      assert html =~ "Your entries"
       assert html =~ "#1"
       assert html =~ "#200"
     end
@@ -379,7 +417,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
       assert html =~ "Redeemed 100 BUX"
-      assert html =~ "Your Entries"
+      assert html =~ "Your entries"
       assert html =~ "#1"
       assert html =~ "#100"
     end
@@ -422,7 +460,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
       # User has entries in a drawn round — should show receipt panels
-      assert html =~ "Your Entries"
+      assert html =~ "Your entries"
     end
 
     test "losing receipt shows no win message after draw", %{conn: conn} do
@@ -450,7 +488,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
       # User2 only has 1 position, very likely no win
       # Page renders with winners section (drawn state) and entry receipts
-      assert html =~ "Your Entries"
+      assert html =~ "Your entries"
     end
   end
 
@@ -472,14 +510,14 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "The Airdrop Has Been Drawn"
-      assert html =~ "Congratulations to our 33 winners"
+      assert html =~ "The airdrop has been drawn"
+      assert html =~ "Congratulations to all 33 winners"
     end
 
-    test "shows Drawing Complete instead of Drawing On", %{conn: conn} do
+    test "shows Drawing complete instead of Drawing on", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "Drawing Complete"
+      assert html =~ "Drawing complete"
     end
 
     test "renders top 3 winners with prizes", %{conn: conn, winners: winners} do
@@ -489,25 +527,39 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ "$250"
       assert html =~ "$150"
       assert html =~ "$100"
-      assert html =~ "1st Place"
-      assert html =~ "2nd Place"
-      assert html =~ "3rd Place"
+      assert html =~ "1st place"
+      assert html =~ "2nd place"
+      assert html =~ "3rd place"
 
       # Check addresses are truncated
       first_winner = Enum.at(winners, 0)
-      truncated = "#{String.slice(first_winner.wallet_address, 0, 6)}..."
+      truncated = "#{String.slice(first_winner.wallet_address, 0, 6)}…"
       assert html =~ truncated
     end
 
     test "renders all 33 winners in table", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/airdrop")
+      {:ok, view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "All 33 Winners"
+      assert html =~ "All 33 winners"
 
-      # Check table has 33 rows by verifying winner numbers
+      # With > 8 winners the table is collapsed by default. Expand to assert all 33.
+      html = view |> element("button", "Show all 33 winners") |> render_click()
+
       for i <- 1..33 do
         assert html =~ ">#{i}<"
       end
+    end
+
+    test "winners table collapses by default and toggles via Show all button", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ "Show all 33 winners"
+
+      html = view |> element("button", "Show all 33 winners") |> render_click()
+      assert html =~ "Show top 8 only"
+
+      html = view |> element("button", "Show top 8 only") |> render_click()
+      assert html =~ "Show all 33 winners"
     end
 
     test "winners table shows correct columns", %{conn: conn} do
@@ -577,7 +629,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
     test "verify fairness button visible after draw", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/airdrop")
 
-      assert html =~ "Verify Fairness"
+      assert html =~ "Verify fairness"
     end
   end
 
@@ -649,17 +701,17 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       %{user: user, round: drawn_round, conn: conn}
     end
 
-    test "opens on Verify Fairness click", %{conn: conn} do
+    test "opens on Verify fairness click", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
 
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "Provably Fair Verification"
     end
 
     test "shows 4 verification steps", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "Before Round Opened"
       assert html =~ "Airdrop Closed"
@@ -669,7 +721,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows commitment hash", %{conn: conn, round: round} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "Commitment Hash"
       assert html =~ round.commitment_hash
@@ -677,14 +729,14 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows slot at close", %{conn: conn, round: round} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ round.block_hash_at_close
     end
 
     test "shows server seed after draw", %{conn: conn, round: round} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "Server Seed"
       assert html =~ round.server_seed
@@ -692,14 +744,14 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows SHA256 verification checkmark", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "SHA-256(Server Seed) matches commitment hash"
     end
 
     test "shows winner derivation formula", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "SHA256"
       assert html =~ "Combine seeds"
@@ -707,7 +759,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows all 33 winners in derivation table", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       # Each winner row has the index number
       for i <- 1..33 do
@@ -717,7 +769,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "closes on X button click", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      view |> element("button", "Verify Fairness") |> render_click()
+      view |> element("button", "Verify fairness") |> render_click()
 
       # Close the modal using the footer Close button
       html = view |> element("button", "Close") |> render_click()
@@ -727,7 +779,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "closes on Escape key", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      view |> element("button", "Verify Fairness") |> render_click()
+      view |> element("button", "Verify fairness") |> render_click()
 
       # Press Escape via window keydown
       html = render_keydown(view, "close_fairness_modal", %{"key" => "Escape"})
@@ -737,7 +789,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
 
     test "shows Solscan link in footer", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/airdrop")
-      html = view |> element("button", "Verify Fairness") |> render_click()
+      html = view |> element("button", "Verify fairness") |> render_click()
 
       assert html =~ "solscan.io"
     end
@@ -783,8 +835,8 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       {:ok, view, html} = live(conn, ~p"/airdrop")
 
       # Page should show entry form initially
-      assert html =~ "Enter the Airdrop"
-      refute html =~ "The Airdrop Has Been Drawn"
+      assert html =~ "Enter the airdrop"
+      refute html =~ "The airdrop has been drawn"
 
       # Now close and draw
       block_hash = "0x" <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
@@ -802,8 +854,8 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       Process.sleep(50)
       html = render(view)
 
-      assert html =~ "The Airdrop Has Been Drawn"
-      assert html =~ "All 33 Winners"
+      assert html =~ "The airdrop has been drawn"
+      assert html =~ "All 33 winners"
     end
   end
 

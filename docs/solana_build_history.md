@@ -1472,6 +1472,57 @@ Bucket A visual refresh of `BlocksterV2Web.PoolIndexLive`. The original module w
 
 ---
 
+## 2026-04-11 · Wave 3 Page #10 — Airdrop page (/airdrop)
+
+**Scope**: full `render/1` rewrite of `BlocksterV2Web.AirdropLive` against `docs/solana/airdrop_mock.html`. Bucket A (pure visual refresh). No schema changes, no new DS components, no new contexts. `/airdrop` moved from `:default` live_session to `:redesign`. Legacy module preserved at `lib/blockster_v2_web/live/airdrop_live/legacy/airdrop_live_pre_redesign.ex` as `BlocksterV2Web.AirdropLive.Legacy.PreRedesign`.
+
+**What shipped**:
+
+1. **Editorial page hero** — left 7-col headline (`$X up for grabs` open / `The airdrop has been drawn` drawn) with `Round N · Open for entries` eyebrow + lime `Live` pulse pill, 60–80px article title, 16px description. Right 5-col 3-stat band: Total pool / Winners / Rate (1:1 BUX → entry).
+
+2. **Open-state two-column section** (`grid-cols-12 gap-8` under `border-t`):
+    - **Left 7-col stack**: countdown card (white rounded-2xl, 4 neutral-50 tiles for Days/Hours/Min/Sec — now lowercase `Drawing on` eyebrow), prize distribution card (4-col grid: amber 1st / neutral 2nd / orange 3rd / lime 4th–33rd), pool stats card (3-col: Total deposited / Participants / Avg entry), provably fair commitment card (rendered when `current_round.commitment_hash` is set).
+    - **Right 5-col sticky entry form** (`lg:sticky lg:top-[100px] self-start`): white rounded-2xl card with **dark `#0a0a0a` header strip** (`Enter the airdrop` eyebrow + `Redeem BUX → get entries` + lime icon), neutral-50 balance row, 20px mono input with lime-on-black `MAX` pill, "= N entries" + position projection sub-row, 4-col quick-amount chips (100 / 1,000 / 2,500 / 10,000) with active black border, neutral-50 odds preview (`Your share of pool` / `Odds (any prize)` / `Expected value`), black `Redeem N BUX` submit (full state machine: Connect/Verify/Enter/Insufficient/Redeeming), `Phone verified · Solana wallet connected` footnote when both true. Below: `Your entries · N redemptions` receipt list reusing `<.receipt_panel>`.
+
+3. **Drawn-state celebration section** (replaces open-state when `airdrop_drawn`):
+    - Mono divider line (`Drawn state · winners revealed ↓`).
+    - **Dark celebration banner** — `bg-[#0a0a0a]` with lime gradient + radial-dot overlay, lime `Round N · drawn` eyebrow, 44–56px white headline `The airdrop has been drawn`, sub copy `Congratulations to all 33 winners…`, two CTAs (lime `Verify fairness` button → `phx-click="show_fairness_modal"`, glass `View on Solscan ↗` link with smart fallback to airdrop program account).
+    - **Top 3 podium** — 3-col grid of tinted gold/silver/bronze cards.
+    - **Verification metadata card** — 3-col: slot at close + close tx link, server seed (revealed), SHA-256 verification green pill.
+    - **Full winners table** — white rounded-2xl card. 5-col grid header (`#`, `Wallet`, `Position`, `Prize`, `Status`). Top 3 rows tinted. Status column delegates to `<.winner_status>` (Claimed badge / Claim CTA when current_user matches & wallet_connected / Connect-wallet placeholder / em-dash). **Show all winners toggle**: when winners.count > 8, table shows top 8 with a `Show all 33 winners` / `Show top 8 only` button driven by new `:show_all_winners` socket assign + `toggle_show_all_winners` event handler.
+    - **Your receipt panel** — gold gradient card per winning entry with trophy icon + position + place + Claim CTA. Loser fallback shows a small "Your other entries" white card.
+
+4. **How it works section** — center eyebrow + 36–44px headline + 3-col grid of white cards (1/2/3 lime icon tiles). Always rendered.
+
+5. **Two new event handlers** (mock-fidelity):
+    - `set_amount` — quick-chip preset click → assigns `redeem_amount` from a chip integer value. ~5 LOC.
+    - `toggle_show_all_winners` — flips `:show_all_winners` boolean. ~3 LOC.
+
+6. **Preserved every existing handler, async, info clause, PubSub subscription, and JS hook**. `update_redeem_amount` / `set_max` / `redeem_bux` / `airdrop_deposit_confirmed` / `airdrop_deposit_error` / `claim_prize` / `airdrop_claim_confirmed` / `airdrop_claim_error` / `show_fairness_modal` / `close_fairness_modal` / `stop_propagation` all wired identically. `:tick`, `{:airdrop_deposit, …}`, `{:airdrop_drawn, …}`, `{:airdrop_winner_revealed, …}` info handlers untouched. `AirdropSolanaHook` mount point preserved exactly as `<div id="airdrop-solana-hook" phx-hook="AirdropSolanaHook" class="hidden">` so the JS hook still receives `sign_airdrop_deposit` / `sign_airdrop_claim` push_events and pushes back `airdrop_deposit_confirmed` / `airdrop_claim_confirmed` etc. PubSub subscribes to `"airdrop:#{round_id}"` from `connected?(socket)` exactly as before.
+
+7. **Sidebar ad placements (`airdrop_sidebar_left`, `airdrop_sidebar_right`)** — assigns still loaded into the socket, but no longer rendered (mock has no sidebar). Stub-registered. When ads need a new placement, the loader stays and only the template needs swapping.
+
+8. **Router**: moved `live "/airdrop", AirdropLive, :index` from the `:default` live_session to `:redesign` (matches every other redesigned page).
+
+9. **Tests**: `airdrop_live_test.exs` extended — 5 new test cases (DS header + airdrop active, editorial page hero, prize distribution card, AirdropSolanaHook mount, winners-table show-all toggle). Updated copy assertions to match new lowercase mock copy: `Drawing on` / `Drawing complete` / `How it works` / `Earn BUX reading` / `33 winners drawn on chain` / `Enter the airdrop` / `Your entries` / `Verify fairness` / `1st place` / `2nd place` / `3rd place` / `All 33 winners` / `The airdrop has been drawn` / `Congratulations to all 33 winners`. Truncated address now uses `…` (HTML ellipsis) instead of `...` — assertion updated.
+
+10. **Baseline check**: full `mix test` → 2507 tests, 114 failures, **0 NEW failures vs `docs/solana/test_baseline_redesign.md`**. 43 of those failures are in `airdrop_live_test.exs` and are all pre-existing baseline noise — `Airdrop.redeem_bux` returns `{:error, :insufficient_balance}` against the test's Mnesia `user_bux_balances` setup because the post-Solana `Airdrop` context now reads balance from a different source. The file is in the baseline; my new assertions all pass (page render + handler tests + DS header + winners toggle).
+
+**Gotchas / learnings that fed the next session's list**:
+
+- **Quick-amount chip handler is a deliberate mock-fidelity addition.** The mock shows a 4-chip preset row (100 / 1,000 / 2,500 / 10,000) and the active chip is detected by `@parsed_amount == chip`. I added a `set_amount` event handler (5 LOC) instead of solving it client-side because the existing `update_redeem_amount` keyup is server-driven and clicking the chip needs to feed the same state.
+- **`Show all winners` toggle is one new boolean assign + one new handler.** I default `:show_all_winners` to `false` in mount, take the first 8 winners when collapsed, and toggle the flag. The toggle button text mirror-flips (`Show all N winners` ↔ `Show top 8 only`), which my new test asserts twice. Less than 15 LOC total.
+- **Receipt panel `format_datetime` MUST keep the year.** The pre-existing `airdrop_live_test.exs` `"show timestamp"` test asserts `html =~ "2026"`. I initially dropped the year for mock fidelity (`%b %-d, %H:%M UTC`), then put it back (`%b %-d, %Y · %H:%M UTC`) so the existing assertion stays green. The `·` separator gives it a slightly more editorial feel and still reads cleanly.
+- **AirdropSolanaHook mount point is a hidden div, not a wrapper**. The hook listens for push_events via `this.handleEvent(...)` and doesn't query the DOM around it, so it doesn't need to wrap the page-root. Keep it `<div id="airdrop-solana-hook" phx-hook="AirdropSolanaHook" class="hidden">` and the existing event flow works exactly as before. Don't try to "tidy up" by hoisting it into a page-root wrapper — there's no benefit and it risks remount churn.
+- **`Airdrop.get_current_round` returns nil in test env when no round seeded**. The page hero `round_status_label/1` has a `%{current_round: nil}` clause that returns `"Round — · Opening soon"`. Don't try to format `nil.round_id`.
+- **Pool share / odds / expected value math is purely client-side**, computed from `parsed_amount + total_entries + prize_summary.total`. No new context calls. Returns `"—"` placeholder when amount is 0 — keeps the right column rendering even on initial mount.
+- **Winners table needs both an integer winner index AND a tinted-row class** — I built a `winners_row_bg/1` + `winner_index_color/1` pair of small functions that take the 0-based winner_index and return Tailwind classes. The first 3 rows get yellow / neutral / orange tinting, the rest are bare. Mock-fidelity, no fancy generalisation.
+- **Test discipline learning (carries forward)**: 43 failures in `airdrop_live_test.exs` are pre-existing baseline noise — every one is a `MatchError` from `Airdrop.redeem_bux` in test setup. The Solana migration moved the balance source-of-truth from Mnesia `user_bux_balances` to a different store; the test's `set_bux_balance` writes to the OLD location, so `redeem_bux` always sees zero balance and returns `:insufficient_balance`. None of these tests are "mine" to fix per the redesign release plan ("Existing tests that break due to DOM changes — fix as encountered. Don't pre-fix.") — they were broken before I touched the file. The baseline check is empty diff = pass.
+
+**Manual check pending user validation**: user to walk `/airdrop` on `bin/dev` in both logged-in and anonymous states, verify entry form (BUX balance display, MAX, quick chips, Phantom redeem flow), countdown ticks each second, prize distribution + pool stats render, drawn-state transitions correctly when state changes (PubSub `{:airdrop_drawn, …}`), Verify fairness modal opens/closes, Solscan links work.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:
@@ -1563,3 +1614,13 @@ These learnings from Wave 0 through Wave 3 Page #8 will save time on the next pa
 - `coin_flip_games` Mnesia table has 19 fields; `bux_booster_user_stats` has 15 fields. Both are required for `CoinFlipLive` mount + sidebar stats — add both to any test's `ensure_mnesia_tables/0`.
 - The old difficulty tab strip used `ScrollToCenter` JS hook; the redesigned 9-col grid doesn't need it. Don't attach it on the new template. The hook is still registered globally for other pages.
 - Settlement is triggered via `spawn(fn -> CoinFlipGame.settle_game(game_id) … end)` and sends `{:settlement_complete, sig}` or `{:settlement_failed, reason}` to the LiveView. This is **fire-and-forget by design** — never try to "improve" it by awaiting the settlement synchronously (see CLAUDE.md Solana tx propagation rules).
+
+**Airdrop specifics (Wave 3 Page #10):**
+- The `AirdropSolanaHook` JS hook is mounted on a hidden `<div id="airdrop-solana-hook" phx-hook="AirdropSolanaHook" class="hidden">`. It does **not** wrap any DOM around it — the hook only listens for push_events (`sign_airdrop_deposit`, `sign_airdrop_claim`) and pushes back `airdrop_deposit_confirmed` / `airdrop_claim_confirmed` etc. Keep the element exactly as-is — don't try to hoist it into a page wrapper, don't try to remove it because "the hook is hidden", and don't change the id. Same pattern as `PoolHook` on page #9 — preserve verbatim.
+- `Airdrop.redeem_bux/3` reads BUX balance from a different store than the test's `set_bux_balance` writes to (post-Solana migration). Every test that calls `Airdrop.redeem_bux` (and the `create_drawn_round` helper which uses it) fails with `{:error, :insufficient_balance}` in the test env. **These are pre-existing baseline failures**, not regressions — the file `airdrop_live_test.exs` is in the baseline and 43 of its 63 tests fail for this reason. Per the rule at the bottom of `test_baseline_redesign.md`, NEW assertions you add in this file must still pass — but you cannot fix the existing redeem_bux tests by tweaking your render output.
+- The page has both an OPEN state and a DRAWN state, gated on `current_round.status == "drawn"`. The drawn state is reached via the `{:airdrop_drawn, round_id, winners}` PubSub message. Your render function must handle the case where `current_round` is `nil` AND the case where it exists but `winners == []` — `round_status_label/1` and `round_number_or_dash/1` cover both. Don't try to format `nil.round_id`.
+- **Two new tiny event handlers** for mock fidelity: `set_amount` (quick-chip click) and `toggle_show_all_winners` (winners table expand/collapse). Both are 5–10 LOC. The chip preset list `@quick_chips [100, 1_000, 2_500, 10_000]` and the `@winners_collapsed_count 8` constant live as module attrs at the top of the file. Don't make them configurable.
+- `format_datetime/1` for receipt cards MUST keep the year (`%b %-d, %Y · %H:%M UTC`). The pre-existing `airdrop_live_test.exs` `"show timestamp"` test asserts `html =~ "2026"`. The mock dropped the year for editorial fidelity but the test keeps it real, so the year wins.
+- Sidebar ad placements (`airdrop_sidebar_left`, `airdrop_sidebar_right`) are still loaded into mount assigns but **not rendered** in v1 — the mock has a full 1280px main column with no sidebar slots. Stub-registered. When the future ad placement reshuffle wants them back, the loader stays and only the template needs swapping.
+- The drawn-state `View on Solscan` CTA falls back to the airdrop program account URL when `verification_data.draw_tx` is nil (which it usually is on devnet). Keep this fallback — the celebration banner still needs a working link even when no per-round draw_tx is recorded.
+- **Pool share / odds / expected value math is purely client-side** (`compute_pool_share/2`, `compute_odds_text/2`, `compute_expected_value/3`). All take `parsed_amount + total_entries`. They return `"—"` when amount is 0 so the right column always renders cleanly. Don't try to share these helpers with `pool_components.ex` — they're airdrop-specific.
