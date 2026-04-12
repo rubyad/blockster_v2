@@ -1,817 +1,862 @@
-<div class="container mx-auto px-4 pt-4 md:pt-24 pb-8 max-w-3xl">
-  <%!-- Step Indicator --%>
-  <div class="flex items-center justify-center gap-2 mb-8">
-    <%= for {step, idx} <- [{:shipping, 1}, {:review, 2}, {:payment, 3}, {:confirmation, 4}] do %>
-      <div class="flex items-center gap-2">
-        <div class={[
-          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-haas_medium_65 transition-colors",
-          cond do
-            step_number(@step) > idx -> "bg-[#141414] text-white"
-            step_number(@step) == idx -> "bg-gray-900 text-white"
-            true -> "bg-gray-200 text-gray-500"
-          end
-        ]}>
-          <%= if step_number(@step) > idx do %>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
-            </svg>
-          <% else %>
-            <%= idx %>
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active="shop"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+/>
+
+<main class="max-w-[1280px] mx-auto px-6 pb-16">
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <%!-- Step Indicator Bar --%>
+  <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
+  <section class="pt-8 pb-6">
+    <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div class="flex items-center gap-3">
+        <%= for {step_atom, idx, label} <- [{:shipping, 1, "Shipping"}, {:review, 2, "Review"}, {:payment, 3, "Payment"}, {:confirmation, 4, "Done"}] do %>
+          <div class="flex flex-col items-center">
+            <%
+              current_num = step_number(@step)
+              dot_class = cond do
+                current_num > idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#141414] text-white"
+                current_num == idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#CAFC00] text-[#141414] shadow-[0_0_0_4px_rgba(202,252,0,0.2)]"
+                true -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-gray-100 text-[#9CA3AF] border border-neutral-200"
+              end
+              label_class = if(current_num >= idx, do: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-[#141414]", else: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-neutral-400")
+            %>
+            <div class={dot_class}>
+              <%= if current_num > idx do %>
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <% else %>
+                <%= idx %>
+              <% end %>
+            </div>
+            <div class={label_class}><%= label %></div>
+          </div>
+          <%= if idx < 4 do %>
+            <div class={[
+              "flex-1 h-0.5",
+              if(step_number(@step) > idx, do: "bg-[#141414]", else: "bg-neutral-200")
+            ]}></div>
           <% end %>
-        </div>
-        <span class={[
-          "text-sm font-haas_roman_55 hidden sm:inline",
-          if(step_number(@step) >= idx, do: "text-[#141414]", else: "text-gray-400")
-        ]}>
-          <%= step_label(step) %>
-        </span>
+        <% end %>
       </div>
-      <%= if idx < 4 do %>
-        <div class="w-8 h-0.5 bg-gray-300"></div>
-      <% end %>
-    <% end %>
-  </div>
+    </div>
+  </section>
 
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%!-- Step 1: Shipping --%>
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :shipping do %>
-    <%= if @shipping_phase == :address do %>
-      <%!-- Phase 1: Address Form --%>
-      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 md:p-8">
-        <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-6">Shipping Information</h2>
+    <section class="pb-12">
+      <div class="grid grid-cols-12 gap-8">
+        <%!-- Left Column — Shipping Form / Rate Selection --%>
+        <div class="col-span-12 md:col-span-7">
+          <%= if @shipping_phase == :address do %>
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Step 1 of 4</div>
+              <h2 class="font-bold tracking-[-0.022em] text-[28px] text-[#141414] mb-1">Where should we ship it?</h2>
+              <p class="text-[13px] text-neutral-500 font-medium mb-7">We deliver everywhere on the planet. Customs and duties handled in checkout.</p>
 
-        <.form
-          for={@shipping_changeset |> to_form()}
-          as={:shipping}
-          phx-change="validate_shipping"
-          phx-submit="save_shipping"
-          class="space-y-4"
-        >
-          <%!-- Name --%>
-          <div>
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Full Name <span class="text-red-500">*</span></label>
-            <input
-              type="text"
-              name="shipping[shipping_name]"
-              value={@shipping_changeset.changes[:shipping_name] || @shipping_changeset.data.shipping_name}
-              placeholder="John Doe"
-              required
-              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-            />
-            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_name) do %>
-              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-            <% end %>
-          </div>
-
-          <%!-- Email --%>
-          <div>
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Email <span class="text-red-500">*</span></label>
-            <input
-              type="email"
-              name="shipping[shipping_email]"
-              value={@shipping_changeset.changes[:shipping_email] || @shipping_changeset.data.shipping_email}
-              placeholder="john@example.com"
-              required
-              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-            />
-            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_email) do %>
-              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-            <% end %>
-          </div>
-
-          <%!-- Address Line 1 --%>
-          <div>
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Address <span class="text-red-500">*</span></label>
-            <input
-              type="text"
-              name="shipping[shipping_address_line1]"
-              value={@shipping_changeset.changes[:shipping_address_line1] || @shipping_changeset.data.shipping_address_line1}
-              placeholder="123 Main Street"
-              required
-              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-            />
-            <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_address_line1) do %>
-              <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-            <% end %>
-          </div>
-
-          <%!-- Address Line 2 --%>
-          <div>
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Apt / Suite</label>
-            <input
-              type="text"
-              name="shipping[shipping_address_line2]"
-              value={@shipping_changeset.changes[:shipping_address_line2] || @shipping_changeset.data.shipping_address_line2}
-              placeholder="Apt 4B"
-              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-            />
-          </div>
-
-          <%!-- City + State --%>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">City <span class="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="shipping[shipping_city]"
-                value={@shipping_changeset.changes[:shipping_city] || @shipping_changeset.data.shipping_city}
-                placeholder="New York"
-                required
-                class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-              />
-              <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_city) do %>
-                <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-              <% end %>
-            </div>
-            <div>
-              <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">State / Province</label>
-              <input
-                type="text"
-                name="shipping[shipping_state]"
-                value={@shipping_changeset.changes[:shipping_state] || @shipping_changeset.data.shipping_state}
-                placeholder="NY"
-                class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-              />
-            </div>
-          </div>
-
-          <%!-- Postal Code + Country --%>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Postal Code <span class="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="shipping[shipping_postal_code]"
-                value={@shipping_changeset.changes[:shipping_postal_code] || @shipping_changeset.data.shipping_postal_code}
-                placeholder="10001"
-                required
-                class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-              />
-              <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_postal_code) do %>
-                <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-              <% end %>
-            </div>
-            <div>
-              <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Country <span class="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="shipping[shipping_country]"
-                value={@shipping_changeset.changes[:shipping_country] || @shipping_changeset.data.shipping_country}
-                placeholder="United States"
-                required
-                class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-              />
-              <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_country) do %>
-                <p class="text-xs text-red-500 mt-1"><%= msg %></p>
-              <% end %>
-            </div>
-          </div>
-
-          <%!-- Phone --%>
-          <div>
-            <label class="block text-sm font-haas_medium_65 text-[#141414] mb-1">Phone</label>
-            <input
-              type="tel"
-              name="shipping[shipping_phone]"
-              value={@shipping_changeset.changes[:shipping_phone] || @shipping_changeset.data.shipping_phone}
-              placeholder="+1 (555) 123-4567"
-              class="w-full px-4 py-3 rounded-xl border border-[#E7E8F1] bg-white text-sm font-haas_roman_55 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-[#8AE388] placeholder:text-gray-400"
-            />
-          </div>
-
-          <%!-- Submit --%>
-          <div class="pt-4">
-            <button
-              type="submit"
-              class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              Continue to Shipping Options
-            </button>
-          </div>
-        </.form>
-
-        <div class="text-center mt-4">
-          <.link navigate={~p"/cart"} class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer">
-            &larr; Back to Cart
-          </.link>
-        </div>
-      </div>
-    <% else %>
-      <%!-- Phase 2: Shipping Rate Selection --%>
-      <div class="space-y-6">
-        <%!-- Address Summary --%>
-        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-haas_medium_65 text-[#141414]">Shipping to</h3>
-            <button
-              phx-click="edit_shipping_address"
-              class="text-xs text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
-            >
-              Edit
-            </button>
-          </div>
-          <div class="text-sm text-[#515B70] font-haas_roman_55 space-y-0.5">
-            <p><%= @order.shipping_name %></p>
-            <p><%= @order.shipping_address_line1 %></p>
-            <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
-              <p><%= @order.shipping_address_line2 %></p>
-            <% end %>
-            <p><%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %></p>
-            <p><%= @order.shipping_country %></p>
-          </div>
-        </div>
-
-        <%!-- Shipping Rate Options --%>
-        <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-          <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-2">Choose Shipping Method</h2>
-          <p class="text-sm text-[#515B70] font-haas_roman_55 mb-6">
-            <%= if @shipping_zone == :us, do: "Shipping within the United States", else: "International shipping" %>
-          </p>
-
-          <div class="space-y-3">
-            <%= for rate <- @shipping_rates do %>
-              <button
-                phx-click="select_shipping_rate"
-                phx-value-rate={rate.key}
-                class={[
-                  "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
-                  if(@selected_shipping_rate == rate.key,
-                    do: "border-[#141414] bg-gray-50",
-                    else: "border-[#E7E8F1] hover:border-gray-400")
-                ]}
+              <.form
+                for={@shipping_changeset |> to_form()}
+                as={:shipping}
+                phx-change="validate_shipping"
+                phx-submit="save_shipping"
               >
-                <div class="flex items-center gap-3">
-                  <div class={[
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
-                    if(@selected_shipping_rate == rate.key,
-                      do: "border-[#141414]",
-                      else: "border-gray-300")
-                  ]}>
-                    <%= if @selected_shipping_rate == rate.key do %>
-                      <div class="w-2.5 h-2.5 rounded-full bg-[#141414]"></div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Full name</label>
+                    <input
+                      type="text"
+                      name="shipping[shipping_name]"
+                      value={@shipping_changeset.changes[:shipping_name] || @shipping_changeset.data.shipping_name}
+                      placeholder="Marcus Verren"
+                      required
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_name) do %>
+                      <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
-                  <div class="text-left">
-                    <p class="text-sm font-haas_medium_65 text-[#141414]"><%= rate.label %></p>
-                    <p class="text-xs text-[#515B70] font-haas_roman_55"><%= rate.description %></p>
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Email &middot; receipt</label>
+                    <input
+                      type="email"
+                      name="shipping[shipping_email]"
+                      value={@shipping_changeset.changes[:shipping_email] || @shipping_changeset.data.shipping_email}
+                      placeholder="marcus@blockster.com"
+                      required
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_email) do %>
+                      <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
+                    <% end %>
                   </div>
                 </div>
-                <span class="text-sm font-haas_medium_65 text-[#141414]">$<%= Decimal.round(rate.cost, 2) %></span>
-              </button>
-            <% end %>
-          </div>
+
+                <div class="mb-4">
+                  <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Address</label>
+                  <input
+                    type="text"
+                    name="shipping[shipping_address_line1]"
+                    value={@shipping_changeset.changes[:shipping_address_line1] || @shipping_changeset.data.shipping_address_line1}
+                    placeholder="142 Cherry Lane"
+                    required
+                    class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                  />
+                  <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_address_line1) do %>
+                    <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
+                  <% end %>
+                </div>
+
+                <div class="mb-4">
+                  <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">
+                    Apt / suite <span class="text-neutral-400 normal-case font-medium">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="shipping[shipping_address_line2]"
+                    value={@shipping_changeset.changes[:shipping_address_line2] || @shipping_changeset.data.shipping_address_line2}
+                    class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                  />
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">City</label>
+                    <input
+                      type="text"
+                      name="shipping[shipping_city]"
+                      value={@shipping_changeset.changes[:shipping_city] || @shipping_changeset.data.shipping_city}
+                      placeholder="Brooklyn"
+                      required
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_city) do %>
+                      <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
+                    <% end %>
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">State</label>
+                    <input
+                      type="text"
+                      name="shipping[shipping_state]"
+                      value={@shipping_changeset.changes[:shipping_state] || @shipping_changeset.data.shipping_state}
+                      placeholder="NY"
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Postal</label>
+                    <input
+                      type="text"
+                      name="shipping[shipping_postal_code]"
+                      value={@shipping_changeset.changes[:shipping_postal_code] || @shipping_changeset.data.shipping_postal_code}
+                      placeholder="11217"
+                      required
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_postal_code) do %>
+                      <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
+                    <% end %>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-7">
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Country</label>
+                    <input
+                      type="text"
+                      name="shipping[shipping_country]"
+                      value={@shipping_changeset.changes[:shipping_country] || @shipping_changeset.data.shipping_country}
+                      placeholder="United States"
+                      required
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_country) do %>
+                      <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
+                    <% end %>
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-bold tracking-[0.04em] text-[#6B7280] uppercase mb-1.5 block">Phone</label>
+                    <input
+                      type="tel"
+                      name="shipping[shipping_phone]"
+                      value={@shipping_changeset.changes[:shipping_phone] || @shipping_changeset.data.shipping_phone}
+                      placeholder="+1 555 1234"
+                      class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                >
+                  Continue to shipping options
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </.form>
+
+              <div class="text-center mt-5">
+                <.link navigate={~p"/cart"} class="text-[13px] text-neutral-500 hover:text-[#141414] font-medium cursor-pointer">
+                  &larr; Back to Cart
+                </.link>
+              </div>
+            </div>
+          <% else %>
+            <%!-- Phase 2: Shipping Rate Selection --%>
+            <div class="space-y-5">
+              <%!-- Address Summary --%>
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">Shipping to</div>
+                  <button
+                    phx-click="edit_shipping_address"
+                    class="text-[11px] text-neutral-500 hover:text-[#141414] font-medium underline cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div class="text-[13px] text-[#141414] font-medium leading-relaxed">
+                  <%= @order.shipping_name %><br>
+                  <%= @order.shipping_address_line1 %><br>
+                  <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
+                    <%= @order.shipping_address_line2 %><br>
+                  <% end %>
+                  <%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %><br>
+                  <%= @order.shipping_country %><%= if @order.shipping_phone && @order.shipping_phone != "", do: " · #{@order.shipping_phone}" %>
+                </div>
+              </div>
+
+              <%!-- Rate Options --%>
+              <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Choose shipping method</div>
+                <h2 class="font-bold tracking-[-0.022em] text-[22px] text-[#141414] mb-1">
+                  <%= if @shipping_zone == :us, do: "Shipping within the United States", else: "International shipping" %>
+                </h2>
+                <p class="text-[13px] text-neutral-500 font-medium mb-5">Select a delivery speed below.</p>
+
+                <div class="space-y-3">
+                  <%= for rate <- @shipping_rates do %>
+                    <button
+                      phx-click="select_shipping_rate"
+                      phx-value-rate={rate.key}
+                      class={[
+                        "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
+                        if(@selected_shipping_rate == rate.key,
+                          do: "border-[#141414] bg-gray-50",
+                          else: "border-neutral-200 hover:border-neutral-400")
+                      ]}
+                    >
+                      <div class="flex items-center gap-3">
+                        <div class={[
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                          if(@selected_shipping_rate == rate.key, do: "border-[#141414]", else: "border-neutral-300")
+                        ]}>
+                          <%= if @selected_shipping_rate == rate.key do %>
+                            <div class="w-2.5 h-2.5 rounded-full bg-[#141414]"></div>
+                          <% end %>
+                        </div>
+                        <div class="text-left">
+                          <p class="text-[13px] font-bold text-[#141414]"><%= rate.label %></p>
+                          <p class="text-[11px] text-neutral-500 font-medium"><%= rate.description %></p>
+                        </div>
+                      </div>
+                      <span class="font-mono font-bold text-[14px] text-[#141414]">$<%= Decimal.round(rate.cost, 2) %></span>
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+
+              <div class="text-center">
+                <.link navigate={~p"/cart"} class="text-[13px] text-neutral-500 hover:text-[#141414] font-medium cursor-pointer">
+                  &larr; Back to Cart
+                </.link>
+              </div>
+            </div>
+          <% end %>
         </div>
 
-        <div class="text-center">
-          <.link navigate={~p"/cart"} class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer">
-            &larr; Back to Cart
-          </.link>
+        <%!-- Right Column — Order Summary (sticky) --%>
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky top-[100px] self-start">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-4">
+                Order summary &middot; <%= length(@order.order_items) %> <%= if(length(@order.order_items) == 1, do: "item", else: "items") %>
+              </div>
+              <div class="space-y-3 mb-4">
+                <%= for item <- @order.order_items do %>
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-neutral-100 rounded-lg overflow-hidden shrink-0">
+                      <%= if item.product_image do %>
+                        <img src={BlocksterV2.ImageKit.w128_h128(item.product_image)} alt={item.product_title} class="w-full h-full object-cover" loading="lazy" />
+                      <% end %>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[12px] font-bold text-[#141414] truncate"><%= item.product_title %></div>
+                      <div class="text-[10px] text-neutral-500 font-mono">
+                        <%= if item.variant_title && item.variant_title != "Default", do: "#{item.variant_title} · " %>&times;<%= item.quantity %>
+                      </div>
+                    </div>
+                    <div class="font-mono font-bold text-[12px] text-[#141414]">$<%= format_usd(item.subtotal) %></div>
+                  </div>
+                <% end %>
+              </div>
+              <div class="space-y-2 pt-4 border-t border-neutral-100 text-[12px]">
+                <div class="flex justify-between">
+                  <span class="text-neutral-500">Subtotal</span>
+                  <span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
+                </div>
+                <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
+                  <div class="flex justify-between">
+                    <span class="text-neutral-500">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
+                    <span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span>
+                  </div>
+                <% end %>
+                <div class="flex justify-between">
+                  <span class="text-neutral-500">Shipping</span>
+                  <span class="font-mono text-neutral-400 italic">Next step</span>
+                </div>
+              </div>
+              <div class="pt-4 mt-2 border-t border-neutral-100 flex items-baseline justify-between">
+                <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">$<%= format_usd(Decimal.sub(@order.subtotal, @order.bux_discount_amount)) %></div>
+                  <%= if @order.bux_tokens_burned > 0 do %>
+                    <div class="text-[10px] text-neutral-500 font-mono mt-1">+ <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX burned</div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    <% end %>
+    </section>
   <% end %>
 
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%!-- Step 2: Review --%>
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :review do %>
-    <div class="space-y-6">
-      <%!-- Order Items --%>
-      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-        <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-4">Order Summary</h2>
+    <section class="pb-12">
+      <div class="grid grid-cols-12 gap-8">
+        <%!-- Left Column — Review Details --%>
+        <div class="col-span-12 md:col-span-7">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Step 2 of 4</div>
+            <h2 class="font-bold tracking-[-0.022em] text-[28px] text-[#141414] mb-7">Review your order</h2>
 
-        <div class="divide-y divide-gray-100">
-          <%= for item <- @order.order_items do %>
-            <div class="flex gap-4 py-3 first:pt-0 last:pb-0">
-              <%= if item.product_image do %>
-                <img
-                  src={BlocksterV2.ImageKit.w128_h128(item.product_image)}
-                  alt={item.product_title}
-                  class="w-16 h-16 rounded-lg object-cover shrink-0"
-                  loading="lazy"
-                />
+            <%!-- Items --%>
+            <div class="mb-7">
+              <div class="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Items</div>
+              <div class="space-y-3">
+                <%= for item <- @order.order_items do %>
+                  <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-neutral-100 rounded-lg overflow-hidden shrink-0">
+                      <%= if item.product_image do %>
+                        <img src={BlocksterV2.ImageKit.w128_h128(item.product_image)} alt={item.product_title} class="w-full h-full object-cover" loading="lazy" />
+                      <% end %>
+                    </div>
+                    <div class="flex-1">
+                      <div class="text-[13px] font-bold text-[#141414]"><%= item.product_title %></div>
+                      <div class="text-[10px] text-neutral-500 font-medium">
+                        <%= if item.variant_title && item.variant_title != "Default", do: "#{item.variant_title} · " %>&times;<%= item.quantity %><%= if item.bux_tokens_redeemed > 0, do: " · #{Number.Delimit.number_to_delimited(item.bux_tokens_redeemed, precision: 0)} BUX applied" %>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <% after_bux = Decimal.sub(item.subtotal, item.bux_discount_amount) %>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">$<%= format_usd(after_bux) %></div>
+                      <%= if item.bux_tokens_redeemed > 0 do %>
+                        <div class="text-[10px] text-neutral-400 font-mono line-through">$<%= format_usd(item.subtotal) %></div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Address --%>
+            <div class="mb-7 pt-6 border-t border-neutral-100">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">Shipping to</div>
+                <button
+                  phx-click="go_to_step"
+                  phx-value-step="shipping"
+                  class="text-[11px] text-neutral-500 hover:text-[#141414] font-medium underline cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+              <div class="text-[13px] text-[#141414] font-medium leading-relaxed">
+                <%= @order.shipping_name %><br>
+                <%= @order.shipping_address_line1 %><br>
+                <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
+                  <%= @order.shipping_address_line2 %><br>
+                <% end %>
+                <%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %><br>
+                <%= @order.shipping_country %><%= if @order.shipping_phone && @order.shipping_phone != "", do: " · #{@order.shipping_phone}" %>
+              </div>
+            </div>
+
+            <%!-- Shipping Method --%>
+            <div class="mb-2 pt-6 border-t border-neutral-100">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">Shipping method</div>
+                <button
+                  phx-click="go_to_step"
+                  phx-value-step="shipping"
+                  class="text-[11px] text-neutral-500 hover:text-[#141414] font-medium underline cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+              <%= if @order.shipping_method do %>
+                <% rate = BlocksterV2.Shipping.get_rate(@order.shipping_method) %>
+                <%= if rate do %>
+                  <div class="text-[13px] text-[#141414] font-medium">
+                    <%= rate.label %> &middot; <%= rate.description %> &middot; <span class="font-mono font-bold">$<%= format_usd(@order.shipping_cost) %></span>
+                  </div>
+                <% end %>
               <% end %>
-              <div class="flex-1 min-w-0">
-                <p class="font-haas_medium_65 text-[#141414] text-sm"><%= item.product_title %></p>
-                <%= if item.variant_title && item.variant_title != "Default" do %>
-                  <p class="text-xs text-[#515B70] font-haas_roman_55"><%= item.variant_title %></p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mt-5">
+            <button
+              phx-click="go_to_step"
+              phx-value-step="shipping"
+              class="inline-flex items-center justify-center gap-2 bg-white border border-neutral-200 text-[#141414] px-5 py-3.5 rounded-full text-[13px] font-medium hover:border-[#141414] transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0l7-7m-7 7l7 7"/></svg>
+              Back to shipping
+            </button>
+            <button
+              phx-click="proceed_to_payment"
+              class="inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+            >
+              Continue to payment
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <%!-- Right Column — Order Summary (sticky) --%>
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky top-[100px] self-start">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-4">Order summary</div>
+              <% shipping_cost = @order.shipping_cost || Decimal.new("0") %>
+              <div class="space-y-2 text-[12px]">
+                <div class="flex justify-between"><span class="text-neutral-500">Subtotal</span><span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span></div>
+                <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
+                  <div class="flex justify-between"><span class="text-neutral-500">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span><span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span></div>
                 <% end %>
-                <p class="text-xs text-[#515B70] font-haas_roman_55">Qty: <%= item.quantity %></p>
+                <div class="flex justify-between"><span class="text-neutral-500">Shipping &middot; <%= if(@order.shipping_method, do: BlocksterV2.Shipping.get_rate(@order.shipping_method) && BlocksterV2.Shipping.get_rate(@order.shipping_method).label, else: "") %></span><span class="font-mono text-[#141414]">$<%= format_usd(shipping_cost) %></span></div>
+                <div class="flex justify-between"><span class="text-neutral-500">Sales tax</span><span class="font-mono text-[#141414]">$0.00</span></div>
               </div>
-              <div class="text-right shrink-0">
-                <p class="font-haas_medium_65 text-[#141414] text-sm">$<%= Decimal.round(item.subtotal, 2) %></p>
-                <%= if item.bux_tokens_redeemed > 0 do %>
-                  <p class="text-xs text-green-600 font-haas_medium_65">-$<%= Decimal.round(item.bux_discount_amount, 2) %> BUX</p>
-                <% end %>
+              <% review_total = @order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(@order.bux_discount_amount) %>
+              <div class="pt-4 mt-4 border-t border-neutral-100 flex items-baseline justify-between">
+                <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">$<%= format_usd(review_total) %></div>
+                  <%= if @order.bux_tokens_burned > 0 do %>
+                    <div class="text-[10px] text-neutral-500 font-mono mt-1">+ <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX burned</div>
+                  <% end %>
+                </div>
               </div>
             </div>
-          <% end %>
-        </div>
-      </div>
-
-      <%!-- Shipping Summary --%>
-      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-haas_medium_65 text-[#141414]">Shipping to</h3>
-          <button
-            phx-click="go_to_step"
-            phx-value-step="shipping"
-            class="text-xs text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
-          >
-            Edit
-          </button>
-        </div>
-        <div class="text-sm text-[#515B70] font-haas_roman_55 space-y-0.5">
-          <p><%= @order.shipping_name %></p>
-          <p><%= @order.shipping_address_line1 %></p>
-          <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
-            <p><%= @order.shipping_address_line2 %></p>
-          <% end %>
-          <p><%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %></p>
-          <p><%= @order.shipping_country %></p>
-        </div>
-        <%= if @order.shipping_method do %>
-          <% rate = BlocksterV2.Shipping.get_rate(@order.shipping_method) %>
-          <%= if rate do %>
-            <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-              <div>
-                <p class="text-sm font-haas_medium_65 text-[#141414]"><%= rate.label %></p>
-                <p class="text-xs text-[#515B70] font-haas_roman_55"><%= rate.description %></p>
-              </div>
-              <span class="text-sm font-haas_medium_65 text-[#141414]">$<%= Decimal.round(@order.shipping_cost, 2) %></span>
-            </div>
-          <% end %>
-        <% end %>
-      </div>
-
-      <%!-- Payment Breakdown --%>
-      <% shipping_cost = @order.shipping_cost || Decimal.new("0") %>
-      <% remaining = @order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(@order.bux_discount_amount) %>
-      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-        <h3 class="text-sm font-haas_medium_65 text-[#141414] mb-4">Payment Breakdown</h3>
-
-        <div class="space-y-2 mb-4">
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">Subtotal</span>
-            <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
           </div>
-
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">Shipping</span>
-            <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(shipping_cost) %></span>
-          </div>
-
-          <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
-            <div class="flex justify-between text-sm">
-              <span class="text-[#515B70] font-haas_roman_55">BUX Discount (<%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX)</span>
-              <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.bux_discount_amount) %></span>
-            </div>
-          <% end %>
-
-          <%= if Decimal.gt?(@helio_amount, 0) do %>
-            <div class="flex justify-between text-sm">
-              <span class="text-[#515B70] font-haas_roman_55">Remaining (card/crypto)</span>
-              <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@helio_amount) %></span>
-            </div>
-          <% end %>
         </div>
-
-        <% order_total = Decimal.add(@order.subtotal, shipping_cost) %>
-        <div class="border-t border-gray-200 pt-4 mb-6">
-          <div class="flex justify-between">
-            <span class="text-lg font-haas_medium_65 text-[#141414]">Total</span>
-            <span class="text-lg font-haas_medium_65 text-[#141414]">$<%= format_usd(order_total) %></span>
-          </div>
-          <% total_discount = @order.bux_discount_amount %>
-          <%= if Decimal.gt?(total_discount, 0) do %>
-            <p class="text-xs text-green-600 font-haas_medium_65 text-right mt-1">You save $<%= format_usd(total_discount) %></p>
-          <% end %>
-        </div>
-
-        <button
-          phx-click="proceed_to_payment"
-          class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-        >
-          Proceed to Payment
-        </button>
       </div>
-
-      <div class="text-center">
-        <button
-          phx-click="go_to_step"
-          phx-value-step="shipping"
-          class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
-        >
-          &larr; Back to Shipping
-        </button>
-      </div>
-    </div>
+    </section>
   <% end %>
 
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
-  <%!-- Step 3: Payment --%>
+  <%!-- Step 3: Payment (BUX burn + Helio) --%>
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :payment do %>
-    <div class="space-y-6">
-      <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6">
-        <h2 class="text-xl font-haas_medium_65 text-[#141414] mb-6">Payment</h2>
+    <section class="pb-12">
+      <div class="grid grid-cols-12 gap-8">
+        <%!-- Left Column — Payment Cards --%>
+        <div class="col-span-12 md:col-span-7 space-y-5">
+          <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Step 3 of 4</div>
+            <h2 class="font-bold tracking-[-0.022em] text-[28px] text-[#141414] mb-2">Pay your order</h2>
+            <p class="text-[13px] text-neutral-500 font-medium mb-7">First we burn the BUX you redeemed (one Solana tx), then Helio collects the remaining USD.</p>
 
-        <%!-- BUX Payment Card --%>
-        <%= if @order.bux_tokens_burned > 0 do %>
-          <div
-            id="bux-payment-hook"
-            phx-hook="BuxPaymentHook"
-            data-treasury-address={Application.get_env(:blockster_v2, :shop_treasury_address)}
-            class={[
-            "p-4 rounded-xl mb-4 border",
-            case @bux_payment_status do
-              :completed -> "bg-green-50 border-green-200"
-              :processing -> "bg-amber-50 border-amber-200"
-              :failed -> "bg-red-50 border-red-200"
-              _ -> "bg-gray-50 border-gray-200"
-            end
-          ]}>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 rounded-full" />
-                <div>
-                  <p class="text-sm font-haas_medium_65 text-[#141414]">BUX Payment</p>
-                  <p class="text-xs text-[#515B70] font-haas_roman_55"><%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX = $<%= format_usd(@order.bux_discount_amount) %></p>
+            <%!-- BUX Burn Card --%>
+            <%= if @order.bux_tokens_burned > 0 do %>
+              <%
+                bux_card_class = case @bux_payment_status do
+                  :completed -> "block bg-[#fafaf9] border border-[#22C55E] rounded-2xl p-[18px] mb-3"
+                  :failed -> "block bg-white border border-red-300 rounded-2xl p-[18px] mb-3"
+                  _ -> "block bg-white border border-neutral-200 rounded-2xl p-[18px] mb-3"
+                end
+              %>
+              <div
+                id="bux-payment-hook"
+                phx-hook="BuxPaymentHook"
+                data-treasury-address={Application.get_env(:blockster_v2, :shop_treasury_address)}
+                class={bux_card_class}
+              >
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-[#CAFC00] grid place-items-center shrink-0">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-bold text-[15px] text-[#141414]">Burn <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
+                      <%= case @bux_payment_status do %>
+                        <% :completed -> %>
+                          <span class="inline-flex items-center gap-1 bg-[#22C55E]/[0.12] text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Confirmed
+                          </span>
+                        <% :processing -> %>
+                          <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <svg class="animate-spin w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Processing
+                          </span>
+                        <% :failed -> %>
+                          <span class="inline-flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Failed</span>
+                        <% _ -> %>
+                          <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Pending</span>
+                      <% end %>
+                    </div>
+                    <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">
+                      <%= if @bux_payment_status == :completed do %>
+                        Your BUX has been burned on chain to apply the $<%= format_usd(@order.bux_discount_amount) %> discount.
+                      <% else %>
+                        <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX = $<%= format_usd(@order.bux_discount_amount) %> discount applied to your order.
+                      <% end %>
+                    </p>
+
+                    <%!-- TX link --%>
+                    <%= if @bux_payment_status == :completed && @order.bux_burn_tx_hash do %>
+                      <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="mt-2 inline-flex items-center gap-1 text-[10px] text-neutral-500 hover:text-[#141414] font-mono cursor-pointer">
+                        tx &middot; <%= String.slice(@order.bux_burn_tx_hash, 0, 4) %>&hellip;<%= String.slice(@order.bux_burn_tx_hash, -4..-1) %> &nearr;
+                      </a>
+                    <% end %>
+                  </div>
                 </div>
-              </div>
 
-              <%= case @bux_payment_status do %>
-                <% :completed -> %>
-                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-                    </svg>
-                    Paid
-                  </span>
-                <% :processing -> %>
-                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing
-                  </span>
-                <% :failed -> %>
-                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
-                <% _ -> %>
-                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
-              <% end %>
-            </div>
+                <%!-- Send BUX button --%>
+                <%= if @bux_payment_status == :pending do %>
+                  <div class="mt-4">
+                    <button
+                      phx-click="initiate_bux_payment"
+                      phx-disable-with="Processing payment..."
+                      class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                    >
+                      Send <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX
+                    </button>
+                  </div>
+                <% end %>
 
-            <%!-- BUX tx hash display --%>
-            <%= if @bux_payment_status == :completed && @order.bux_burn_tx_hash do %>
-              <div class="mt-2 pt-2 border-t border-green-200">
-                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
-                  TX: <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline cursor-pointer"><%= String.slice(@order.bux_burn_tx_hash, 0, 16) %>...</a>
-                </p>
-              </div>
-            <% end %>
-
-            <%!-- Send BUX action button --%>
-            <%= if @bux_payment_status == :pending do %>
-              <div class="mt-3">
-                <button
-                  phx-click="initiate_bux_payment"
-                  phx-disable-with="Processing payment..."
-                  class="w-full bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:brightness-105 active:brightness-95 cursor-pointer"
-                >
-                  Send <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX
-                </button>
+                <%!-- Retry on failure --%>
+                <%= if @bux_payment_status == :failed do %>
+                  <div class="mt-4 flex gap-2">
+                    <button
+                      phx-click="initiate_bux_payment"
+                      phx-disable-with="Retrying..."
+                      class="flex-1 inline-flex items-center justify-center bg-[#0a0a0a] text-white px-4 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                    <.link
+                      navigate={~p"/cart"}
+                      class="flex-1 inline-flex items-center justify-center bg-white border border-neutral-200 text-[#141414] px-4 py-3 rounded-full text-[13px] font-medium hover:border-[#141414] transition-colors cursor-pointer"
+                    >
+                      Back to Cart
+                    </.link>
+                  </div>
+                <% end %>
               </div>
             <% end %>
 
-            <%!-- Retry button on failure --%>
-            <%= if @bux_payment_status == :failed do %>
-              <div class="mt-3 flex gap-2">
-                <button
-                  phx-click="initiate_bux_payment"
-                  phx-disable-with="Retrying..."
-                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
-                >
-                  Retry
-                </button>
-                <.link
-                  navigate={~p"/cart"}
-                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
-                >
-                  Back to Cart
-                </.link>
+            <%!-- Helio Payment Card --%>
+            <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
+              <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+              <% token_payments_done = bux_done %>
+              <%
+                helio_card_class = case @helio_payment_status do
+                  :completed -> "block bg-[#fafaf9] border border-[#22C55E] rounded-2xl p-[18px]"
+                  s when s in [:processing, :widget_ready, :confirming] -> "block bg-white border border-[#141414] rounded-2xl p-[18px]"
+                  :failed -> "block bg-white border border-red-300 rounded-2xl p-[18px]"
+                  _ -> "block bg-white border border-neutral-200 rounded-2xl p-[18px]"
+                end
+              %>
+              <div
+                id="helio-checkout-hook"
+                phx-hook="HelioCheckoutHook"
+                data-order-id={@order.id}
+                data-order-number={@order.order_number}
+                class={helio_card_class}
+              >
+                <div class="flex items-start gap-4 mb-5">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0052FF] to-[#001E5C] grid place-items-center shrink-0">
+                    <span class="text-white font-bold text-[12px]">$</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-bold text-[15px] text-[#141414]">Pay $<%= format_usd(@order.helio_payment_amount) %> via Helio</span>
+                      <%= case @helio_payment_status do %>
+                        <% :completed -> %>
+                          <span class="inline-flex items-center gap-1 bg-[#22C55E]/[0.12] text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Paid
+                          </span>
+                        <% s when s in [:processing, :widget_ready, :confirming] -> %>
+                          <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <svg class="animate-spin w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Processing
+                          </span>
+                        <% :failed -> %>
+                          <span class="inline-flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Failed</span>
+                        <% _ -> %>
+                          <%= if token_payments_done do %>
+                            <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Pending</span>
+                          <% else %>
+                            <span class="inline-flex items-center gap-1 bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Waiting</span>
+                          <% end %>
+                      <% end %>
+                    </div>
+                    <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">USDC settled on chain through the Helio gateway. Cards, Apple Pay, Google Pay accepted.</p>
+                  </div>
+                </div>
+
+                <%!-- Helio TX display --%>
+                <%= if @helio_payment_status == :completed && @order.helio_transaction_id do %>
+                  <div class="pt-3 border-t border-[#22C55E]/30">
+                    <p class="text-[10px] text-[#15803d] font-mono truncate">
+                      TX: <%= @order.helio_transaction_id %>
+                    </p>
+                  </div>
+                <% end %>
+
+                <%!-- Helio embedded widget --%>
+                <%= if @helio_payment_status == :widget_ready do %>
+                  <div class="bg-neutral-50 border border-dashed border-neutral-300 rounded-xl p-5 mb-4">
+                    <div id="helio-widget-container" class="w-full min-h-[400px]"></div>
+                  </div>
+                  <p class="text-[10px] text-center text-neutral-500 font-medium mb-4">Complete your payment above. Your order will update automatically once confirmed.</p>
+                <% end %>
+
+                <%!-- Processing status --%>
+                <%= if @helio_payment_status == :processing do %>
+                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                    <p class="text-[11px] text-amber-700 font-medium mb-3">
+                      Waiting for payment confirmation. If you haven't completed payment yet, click below to re-open the checkout.
+                    </p>
+                    <button
+                      phx-click="initiate_helio_payment"
+                      phx-disable-with="Loading payment..."
+                      class="w-full inline-flex items-center justify-center bg-[#0a0a0a] text-white px-4 py-2.5 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                    >
+                      Re-open Payment
+                    </button>
+                  </div>
+                <% end %>
+
+                <%!-- Confirming status --%>
+                <%= if @helio_payment_status == :confirming do %>
+                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                    <p class="text-[11px] text-amber-700 font-medium">
+                      Payment submitted. Waiting for blockchain confirmation...
+                    </p>
+                  </div>
+                <% end %>
+
+                <%!-- Pay button --%>
+                <%= if @helio_payment_status == :pending and token_payments_done do %>
+                  <button
+                    phx-click="initiate_helio_payment"
+                    phx-disable-with="Creating payment..."
+                    class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                  >
+                    Pay $<%= format_usd(@order.helio_payment_amount) %>
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <div class="mt-3 text-center text-[10px] text-neutral-400 font-medium">
+                    Powered by <span class="font-bold">Helio</span> &middot; settles in USDC on Solana
+                  </div>
+                <% end %>
+
+                <%!-- Retry on failure --%>
+                <%= if @helio_payment_status == :failed do %>
+                  <div class="flex gap-2">
+                    <button
+                      phx-click="initiate_helio_payment"
+                      phx-disable-with="Retrying..."
+                      class="flex-1 inline-flex items-center justify-center bg-[#0a0a0a] text-white px-4 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                    <.link
+                      navigate={~p"/cart"}
+                      class="flex-1 inline-flex items-center justify-center bg-white border border-neutral-200 text-[#141414] px-4 py-3 rounded-full text-[13px] font-medium hover:border-[#141414] transition-colors cursor-pointer"
+                    >
+                      Back to Cart
+                    </.link>
+                  </div>
+                <% end %>
               </div>
+            <% end %>
+
+            <%!-- Action buttons based on state --%>
+            <% has_helio = Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) %>
+            <% bux_done_final = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+            <% helio_done = !has_helio or @helio_payment_status == :completed %>
+            <%= cond do %>
+              <% bux_done_final and helio_done and not has_helio -> %>
+                <button
+                  phx-click="advance_after_bux"
+                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer mt-5"
+                >
+                  Complete Order
+                </button>
+              <% @order.bux_tokens_burned <= 0 and not has_helio -> %>
+                <button
+                  phx-click="complete_order"
+                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer mt-5"
+                >
+                  Place Order
+                </button>
+              <% true -> %>
+                <div></div>
             <% end %>
           </div>
-        <% end %>
 
-        <%!-- Helio Payment Card --%>
-        <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
-          <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-          <% token_payments_done = bux_done %>
-          <div
-            id="helio-checkout-hook"
-            phx-hook="HelioCheckoutHook"
-            data-order-id={@order.id}
-            data-order-number={@order.order_number}
-            class={[
-              "p-4 rounded-xl mb-4 border",
-              case @helio_payment_status do
-                :completed -> "bg-green-50 border-green-200"
-                s when s in [:processing, :widget_ready, :confirming] -> "bg-amber-50 border-amber-200"
-                :failed -> "bg-red-50 border-red-200"
-                _ -> "bg-gray-50 border-gray-200"
-              end
-            ]}
-          >
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-600 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-white">
-                    <path fill-rule="evenodd" d="M2.5 4A1.5 1.5 0 0 0 1 5.5V6h18v-.5A1.5 1.5 0 0 0 17.5 4h-15ZM19 8.5H1v6A1.5 1.5 0 0 0 2.5 16h15a1.5 1.5 0 0 0 1.5-1.5v-6ZM3 13.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm4.75-.75a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <p class="text-sm font-haas_medium_65 text-[#141414]">Card / Crypto Payment</p>
-                  <p class="text-xs text-[#515B70] font-haas_roman_55">$<%= format_usd(@order.helio_payment_amount) %> via Helio</p>
-                </div>
-              </div>
-
-              <%= case @helio_payment_status do %>
-                <% :completed -> %>
-                  <span class="text-xs font-haas_medium_65 text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-                    </svg>
-                    Paid
-                  </span>
-                <% :confirming -> %>
-                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Confirming
-                  </span>
-                <% s when s in [:processing, :widget_ready] -> %>
-                  <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-100 px-2 py-1 rounded-full flex items-center gap-1">
-                    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing
-                  </span>
-                <% :failed -> %>
-                  <span class="text-xs font-haas_medium_65 text-red-600 bg-red-100 px-2 py-1 rounded-full">Failed</span>
-                <% _ -> %>
-                  <%= if token_payments_done do %>
-                    <span class="text-xs font-haas_medium_65 text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Pending</span>
-                  <% else %>
-                    <span class="text-xs font-haas_medium_65 text-gray-500 bg-gray-200 px-2 py-1 rounded-full">Waiting</span>
-                  <% end %>
-              <% end %>
-            </div>
-
-            <%!-- Helio transaction display --%>
-            <%= if @helio_payment_status == :completed && @order.helio_transaction_id do %>
-              <div class="mt-2 pt-2 border-t border-green-200">
-                <p class="text-xs text-green-700 font-haas_roman_55 truncate">
-                  TX: <%= @order.helio_transaction_id %>
-                </p>
-              </div>
-            <% end %>
-
-            <%!-- Helio embedded widget --%>
-            <%= if @helio_payment_status == :widget_ready do %>
-              <div class="mt-3">
-                <div id="helio-widget-container" class="w-full min-h-[400px] rounded-xl"></div>
-                <p class="text-xs text-center text-[#515B70] font-haas_roman_55 mt-2">Complete your payment above. Your order will update automatically once confirmed.</p>
-              </div>
-            <% end %>
-
-            <%!-- Processing status (e.g. after page refresh during helio_pending) --%>
-            <%= if @helio_payment_status == :processing do %>
-              <div class="mt-3 p-3 bg-amber-50 rounded-lg">
-                <p class="text-xs text-amber-700 font-haas_roman_55 mb-2">
-                  Waiting for payment confirmation. If you haven't completed payment yet, click below to re-open the checkout.
-                </p>
-                <button
-                  phx-click="initiate_helio_payment"
-                  phx-disable-with="Loading payment..."
-                  class="w-full bg-[#141414] text-white font-haas_medium_65 text-sm py-2.5 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
-                >
-                  Re-open Payment
-                </button>
-              </div>
-            <% end %>
-
-            <%!-- Confirming status --%>
-            <%= if @helio_payment_status == :confirming do %>
-              <div class="mt-3 p-3 bg-amber-50 rounded-lg">
-                <p class="text-xs text-amber-700 font-haas_roman_55">
-                  Payment submitted. Waiting for blockchain confirmation...
-                </p>
-              </div>
-            <% end %>
-
-            <%!-- Pay button (only when token payments done) --%>
-            <%= if @helio_payment_status == :pending and token_payments_done do %>
-              <div class="mt-3">
-                <button
-                  phx-click="initiate_helio_payment"
-                  phx-disable-with="Creating payment..."
-                  class="w-full bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                >
-                  Pay $<%= format_usd(@order.helio_payment_amount) %> with Card / Crypto
-                </button>
-              </div>
-            <% end %>
-
-            <%!-- Retry button on failure --%>
-            <%= if @helio_payment_status == :failed do %>
-              <div class="mt-3 flex gap-2">
-                <button
-                  phx-click="initiate_helio_payment"
-                  phx-disable-with="Retrying..."
-                  class="flex-1 bg-[#141414] text-white font-haas_medium_65 text-sm py-3 px-4 rounded-full transition-all hover:bg-gray-800 cursor-pointer"
-                >
-                  Retry
-                </button>
-                <.link
-                  navigate={~p"/cart"}
-                  class="flex-1 text-center border border-[#E7E8F1] text-[#515B70] font-haas_medium_65 text-sm py-3 px-4 rounded-full hover:bg-gray-50 cursor-pointer"
-                >
-                  Back to Cart
-                </.link>
-              </div>
-            <% end %>
+          <div class="text-center mt-4">
+            <button
+              phx-click="go_to_step"
+              phx-value-step="review"
+              class="text-[13px] text-neutral-500 hover:text-[#141414] font-medium cursor-pointer"
+            >
+              &larr; Back to Review
+            </button>
           </div>
-        <% end %>
+        </div>
 
-        <%!-- Action buttons based on state --%>
-        <% has_helio = Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) %>
-        <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-        <% helio_done = !has_helio or @helio_payment_status == :completed %>
-        <%= cond do %>
-          <%# All payments done (BUX + Helio all complete) %>
-          <% bux_done and helio_done and not has_helio -> %>
-            <button
-              phx-click="advance_after_bux"
-              class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              Complete Order
-            </button>
-
-          <%# No BUX to send and no Helio — show place order %>
-          <% @order.bux_tokens_burned <= 0 and not has_helio -> %>
-            <button
-              phx-click="complete_order"
-              class="w-full bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              Place Order
-            </button>
-
-          <%# Payments in progress or Helio widget active — handled by individual cards %>
-          <% true -> %>
-            <div></div>
-        <% end %>
+        <%!-- Right Column — Final Total (sticky) --%>
+        <div class="col-span-12 md:col-span-5">
+          <div class="sticky top-[100px] self-start">
+            <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-4">Final total</div>
+              <% pay_shipping = @order.shipping_cost || Decimal.new("0") %>
+              <div class="space-y-2 text-[12px]">
+                <div class="flex justify-between"><span class="text-neutral-500">Subtotal</span><span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span></div>
+                <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
+                  <div class="flex justify-between"><span class="text-neutral-500">BUX discount</span><span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span></div>
+                <% end %>
+                <div class="flex justify-between"><span class="text-neutral-500">Shipping</span><span class="font-mono text-[#141414]">$<%= format_usd(pay_shipping) %></span></div>
+              </div>
+              <% pay_total = @order.subtotal |> Decimal.add(pay_shipping) |> Decimal.sub(@order.bux_discount_amount) %>
+              <div class="pt-4 mt-4 border-t border-neutral-100">
+                <div class="flex items-baseline justify-between">
+                  <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
+                  <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$<%= format_usd(pay_total) %></div>
+                </div>
+                <%= if @bux_payment_status == :completed and @order.bux_tokens_burned > 0 do %>
+                  <div class="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between text-[11px]">
+                    <span class="text-neutral-500 font-medium">BUX burned on chain</span>
+                    <span class="font-mono font-bold text-[#15803d]"><%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX &#10003;</span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div class="text-center">
-        <button
-          phx-click="go_to_step"
-          phx-value-step="review"
-          class="text-sm text-[#515B70] hover:text-[#141414] font-haas_roman_55 cursor-pointer"
-        >
-          &larr; Back to Review
-        </button>
-      </div>
-    </div>
+    </section>
   <% end %>
 
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%!-- Step 4: Confirmation --%>
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :confirmation do %>
-    <div class="bg-white rounded-2xl border border-[#E7E8F1] p-6 md:p-8 text-center">
-      <%!-- Success Icon --%>
-      <div class="w-16 h-16 bg-[#141414] rounded-full flex items-center justify-center mx-auto mb-6">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-white">
-          <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
-        </svg>
-      </div>
+    <section class="pb-12">
+      <div class="bg-white rounded-3xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center max-w-[640px] mx-auto">
+        <%!-- Success Icon --%>
+        <div class="w-20 h-20 mx-auto mb-6 rounded-3xl bg-[#22C55E]/[0.12] border border-[#22C55E]/30 grid place-items-center">
+          <svg class="w-10 h-10 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
 
-      <h2 class="text-2xl font-haas_medium_65 text-[#141414] mb-2">Order Confirmed!</h2>
-      <p class="text-[#515B70] font-haas_roman_55 mb-6">
-        Your order <span class="font-haas_medium_65 text-[#141414]"><%= @order.order_number %></span> has been placed.
-      </p>
+        <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Order complete</div>
+        <h2 class="font-bold tracking-[-0.022em] text-[36px] text-[#141414] mb-3 leading-[1.0]">
+          Thanks, <%= if @order.shipping_name, do: String.split(@order.shipping_name) |> List.first(), else: "there" %>.
+        </h2>
+        <p class="text-[14px] text-neutral-600 font-medium max-w-[420px] mx-auto mb-7">
+          We sent a receipt to
+          <strong class="font-bold text-[#141414]"><%= @order.shipping_email %></strong>.
+          The hubs will fulfill and ship your order over the next few days.
+        </p>
 
-      <%!-- Order Details --%>
-      <div class="text-left bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
-        <div class="flex justify-between text-sm">
-          <span class="text-[#515B70] font-haas_roman_55">Order Number</span>
-          <span class="font-haas_medium_65 text-[#141414]"><%= @order.order_number %></span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-[#515B70] font-haas_roman_55">Items</span>
-          <span class="font-haas_medium_65 text-[#141414]"><%= length(@order.order_items) %></span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-[#515B70] font-haas_roman_55">Total</span>
-          <span class="font-haas_medium_65 text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
-        </div>
-        <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">BUX Discount</span>
-            <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.bux_discount_amount) %></span>
-          </div>
-        <% end %>
-        <%= if Decimal.gt?(@order.rogue_discount_amount || Decimal.new("0"), 0) do %>
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">ROGUE Payment</span>
-            <span class="font-haas_medium_65 text-[#141414]">
-              <%= format_rogue(@order.rogue_tokens_sent || Decimal.new("0")) %> ROGUE ($<%= format_usd(@order.rogue_payment_amount) %>)
-            </span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">ROGUE Discount (10%)</span>
-            <span class="font-haas_medium_65 text-green-600">-$<%= format_usd(@order.rogue_discount_amount) %></span>
-          </div>
-        <% end %>
-        <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
-          <div class="flex justify-between text-sm">
-            <span class="text-[#515B70] font-haas_roman_55">Card/Crypto Payment</span>
-            <span class="font-haas_medium_65 text-[#141414]">
-              $<%= format_usd(@order.helio_payment_amount) %> (<%= @order.helio_payment_currency || "Helio" %>)
-            </span>
-          </div>
-        <% end %>
-        <div class="flex justify-between text-sm">
-          <span class="text-[#515B70] font-haas_roman_55">Status</span>
-          <span class="font-haas_medium_65 text-[#141414] capitalize"><%= @order.status %></span>
-        </div>
-      </div>
-
-      <%!-- Transaction Links --%>
-      <%= if @order.bux_burn_tx_hash || @order.rogue_payment_tx_hash || @order.helio_transaction_id do %>
-        <div class="text-left bg-gray-50 rounded-xl p-4 mb-6">
-          <p class="text-xs font-haas_medium_65 text-[#515B70] uppercase tracking-wider mb-2">Transactions</p>
-          <div class="space-y-2">
+        <%!-- Order Details Grid --%>
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5 max-w-[480px] mx-auto mb-7">
+          <div class="grid grid-cols-2 gap-4 text-left">
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Order ID</div>
+              <div class="font-mono font-bold text-[14px] text-[#141414]"><%= @order.order_number %></div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Total paid</div>
+              <% conf_shipping = @order.shipping_cost || Decimal.new("0") %>
+              <% conf_total = @order.subtotal |> Decimal.add(conf_shipping) |> Decimal.sub(@order.bux_discount_amount) %>
+              <div class="font-mono font-bold text-[14px] text-[#141414]">$<%= format_usd(conf_total) %> USD</div>
+            </div>
             <%= if @order.bux_burn_tx_hash do %>
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-[#515B70] font-haas_roman_55">BUX Payment</span>
-                <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
-                  <%= String.slice(@order.bux_burn_tx_hash, 0, 10) %>...<%= String.slice(@order.bux_burn_tx_hash, -6..-1) %>
-                </a>
-              </div>
-            <% end %>
-            <%= if @order.rogue_payment_tx_hash do %>
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-[#515B70] font-haas_roman_55">ROGUE Payment</span>
-                <a href={"https://solscan.io/tx/#{@order.rogue_payment_tx_hash}"} target="_blank" class="text-blue-500 hover:underline font-haas_medium_65 text-xs cursor-pointer">
-                  <%= String.slice(@order.rogue_payment_tx_hash, 0, 10) %>...<%= String.slice(@order.rogue_payment_tx_hash, -6..-1) %>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">BUX burn tx</div>
+                <a href={"https://solscan.io/tx/#{@order.bux_burn_tx_hash}"} target="_blank" class="font-mono text-[12px] text-[#141414] hover:text-[#15803d] cursor-pointer">
+                  <%= String.slice(@order.bux_burn_tx_hash, 0, 4) %>&hellip;<%= String.slice(@order.bux_burn_tx_hash, -4..-1) %> &nearr;
                 </a>
               </div>
             <% end %>
             <%= if @order.helio_transaction_id do %>
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-[#515B70] font-haas_roman_55">Card/Crypto Payment</span>
-                <span class="font-haas_medium_65 text-[#141414] text-xs">
-                  <%= String.slice(@order.helio_transaction_id, 0, 16) %>...
-                </span>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Helio ref</div>
+                <div class="font-mono text-[12px] text-[#141414] truncate"><%= String.slice(@order.helio_transaction_id, 0, 16) %>&hellip;</div>
+              </div>
+            <% end %>
+            <%= if @order.bux_tokens_burned > 0 do %>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">BUX redeemed</div>
+                <div class="font-mono text-[12px] text-[#141414]"><%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</div>
+              </div>
+            <% end %>
+            <%= if @order.shipping_method do %>
+              <div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Shipping</div>
+                <% conf_rate = BlocksterV2.Shipping.get_rate(@order.shipping_method) %>
+                <div class="font-mono text-[12px] text-[#141414]"><%= if(conf_rate, do: conf_rate.label, else: @order.shipping_method) %></div>
               </div>
             <% end %>
           </div>
         </div>
-      <% end %>
 
-      <%!-- Shipping Address --%>
-      <%= if @order.shipping_name do %>
-        <div class="text-left bg-gray-50 rounded-xl p-4 mb-6">
-          <p class="text-xs font-haas_medium_65 text-[#515B70] uppercase tracking-wider mb-2">Ships to</p>
-          <div class="text-sm text-[#141414] font-haas_roman_55 space-y-0.5">
-            <p><%= @order.shipping_name %></p>
-            <p><%= @order.shipping_address_line1 %></p>
-            <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
-              <p><%= @order.shipping_address_line2 %></p>
-            <% end %>
-            <p><%= @order.shipping_city %>, <%= @order.shipping_state %> <%= @order.shipping_postal_code %></p>
-            <p><%= @order.shipping_country %></p>
-          </div>
+        <%!-- CTAs --%>
+        <div class="flex items-center justify-center gap-3 flex-wrap">
+          <.link
+            navigate={~p"/shop"}
+            class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+          >
+            Continue shopping
+          </.link>
         </div>
-      <% end %>
-
-      <.link
-        navigate={~p"/shop"}
-        class="inline-flex items-center gap-2 px-6 py-3 bg-[#141414] text-white font-haas_medium_65 rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-          <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd" />
-        </svg>
-        Continue Shopping
-      </.link>
-    </div>
+      </div>
+    </section>
   <% end %>
-</div>
+</main>
+
+<BlocksterV2Web.DesignSystem.footer />

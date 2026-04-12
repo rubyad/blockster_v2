@@ -1644,6 +1644,41 @@ Pure visual refresh (Bucket A). Per-item BUX redemption with sticky order summar
 - **Suggested products use `get_random_products/1`** which returns random active products with images. Uses `prepare_product_for_display/1` for consistent display maps. Wrapped in `rescue` for safety.
 - **`:authenticated` → `:redesign` route move is safe** — both live_sessions use the same `on_mount` hooks (SearchHook, UserAuth, BuxBalanceHook, NotificationHook). The only difference is the layout (`:app` → `:redesign`). Mount still handles unauthenticated users.
 
+### Wave 4 Page #14 — Checkout (`/checkout/:order_id` → `CheckoutLive.Index`) (2026-04-12)
+
+Pure visual refresh (Bucket A). 4-step checkout wizard (Shipping → Review → Payment → Confirmation) with two-column layout, sticky order summary, restyled pay cards (BUX burn + Helio), and confirmation celebration page.
+
+**Changes:**
+
+1. **Route**: moved `/checkout/:order_id` from `:authenticated` to `:redesign` live_session. Mount redirect changed from `/login?redirect=...` to `/` (matching cart page pattern).
+
+2. **Legacy preservation**: existing files copied to `lib/blockster_v2_web/live/checkout_live/legacy/index_pre_redesign.ex` + `.html.heex` with module renamed `BlocksterV2Web.CheckoutLive.Legacy.IndexPreRedesign`.
+
+3. **Template**: full rewrite of `index.html.heex`. DS header (`active="shop"`, Why Earn BUX banner) + DS footer. Biggest structural change is single-column → two-column layout (7/5 grid split) for steps 1-3 with sticky order summary.
+   - **Step 1 Shipping**: card-based step indicator (lime current dot with glow, black done dots with checkmark SVGs, gray future dots), form with editorial labels (11px uppercase bold tracking), input fields (rounded-xl, border-focus black), rate selection with radio-style buttons.
+   - **Step 2 Review**: order items with images + variant + BUX info + strikethrough prices, shipping address + method with Edit buttons, two-button row (back + continue).
+   - **Step 3 Payment**: pay cards with done/active/pending border states. BUX burn card (lime icon bg, status badges, Solscan TX link). Helio card (blue gradient icon, embedded widget container, "Powered by Helio" footer). Complete/Place Order buttons based on payment state.
+   - **Step 4 Confirmation**: centered celebration card (green success icon, "Order complete" eyebrow, "Thanks, [name]" heading, receipt email message, 2-col order details grid with Order ID / Total paid / BUX burn tx / Helio ref / BUX redeemed / Shipping).
+
+4. **Unused code cleanup**: removed deprecated private helpers from `index.ex` — `get_current_rogue_rate/0`, `get_user_rogue_balance/1`, `parse_decimal/1`, `rate_expired?/1`, `format_rogue/1`, `format_with_commas/1`, `add_commas/1`. All handlers (including ROGUE no-ops) preserved for backwards compat.
+
+5. **All handlers preserved**: `validate_shipping`, `save_shipping`, `select_shipping_rate`, `set_rogue_amount` (no-op), `proceed_to_payment`, `go_to_step`, `edit_shipping_address`, `initiate_bux_payment`, `bux_payment_complete`, `bux_payment_error`, `advance_after_bux`, `initiate_rogue_payment` (no-op), `rogue_payment_complete` (no-op), `rogue_payment_error` (no-op), `advance_after_rogue` (no-op), `initiate_helio_payment`, `helio_payment_success`, `helio_payment_error`, `helio_payment_cancelled`, `complete_order`. PubSub (`order:#{order.id}`), polling (`check_order_status`, `poll_helio_payment`), async (`poll_helio`).
+
+6. **JS hooks preserved**: `BuxPaymentHook` (deprecated, empty mounted), `HelioCheckoutHook` (Helio SDK embed), `SolanaWallet` (DS header).
+
+7. **Tests**: new `test/blockster_v2_web/live/checkout_live/index_test.exs` — 19 tests covering: anonymous redirect, wrong user redirect, non-existent order redirect, shipping step (DS header/footer, form fields, order summary, validate_shipping, save_shipping), rate selection (rate options, select_shipping_rate, edit_shipping_address), review step (order items, shipping address, go_to_step, proceed_to_payment), payment step (Helio card with hook attrs, order total sidebar, back to review), confirmation step (success icon, order details, Continue shopping CTA, DS footer).
+
+8. **Baseline check**: full `mix test` → 2591 tests, 117 failures, **0 NEW failures vs baseline**. Only `hub_live/index_test.exs` appears outside baseline (same pre-existing hardcoded hub count flakiness as all Wave 4 pages).
+
+**Gotchas / learnings**:
+
+- **Two `<form>` elements on page** — the checkout shipping form AND the DS footer newsletter form. Test selectors must use `[phx-submit='save_shipping']` not bare `form`.
+- **Order.id is `:binary_id` (UUID)** — test for non-existent orders must use `Ecto.UUID.generate()`, not integer `0` or `999999`.
+- **ROGUE references dropped from template** — the mock doesn't show ROGUE, so the new template doesn't render any ROGUE display elements. Handlers kept as no-ops for backwards compat with in-flight orders.
+- **Deprecated private helpers cause compile warnings** — `get_current_rogue_rate`, `parse_decimal`, `format_rogue`, etc. were never called after the template rewrite. Removed them to keep the file warning-clean.
+- **`:authenticated` → `:redesign` route move** — same safe pattern as cart (identical on_mount hooks, different layout only).
+- **Stale order bug fix (cart)**: `proceed_to_checkout` handler in `CartLive.Index` was reusing any pending order from the last hour via `get_recent_pending_order`, even when the cart had changed (items added/removed/quantities/BUX amounts changed). Fix: compare cart items fingerprint `{product_id, variant_id, quantity, bux_tokens}` against the existing order's items. If they don't match, expire the old order and create a fresh one. Extracted `cart_matches_order?/2` and `create_order_from_cart/3` helpers, eliminating code duplication in the handler.
+
 ---
 
 ## Gotchas for the next session (read before starting a new page)

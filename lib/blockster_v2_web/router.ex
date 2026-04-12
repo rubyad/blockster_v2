@@ -96,7 +96,6 @@ defmodule BlocksterV2Web.Router do
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/settings/devices", MemberLive.Devices, :index
-      live "/checkout/:order_id", CheckoutLive.Index, :index
     end
 
     live_session :author_new,
@@ -156,6 +155,7 @@ defmodule BlocksterV2Web.Router do
       live "/shop", ShopLive.Index, :index
       live "/shop/:slug", ShopLive.Show, :show
       live "/cart", CartLive.Index, :index
+      live "/checkout/:order_id", CheckoutLive.Index, :index
     end
 
     live_session :default,

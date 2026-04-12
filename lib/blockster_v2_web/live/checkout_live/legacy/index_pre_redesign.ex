@@ -1,4 +1,4 @@
-defmodule BlocksterV2Web.CheckoutLive.Index do
+defmodule BlocksterV2Web.CheckoutLive.Legacy.IndexPreRedesign do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Orders
@@ -17,8 +17,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
       nil ->
         {:ok,
          socket
-         |> put_flash(:error, "Please connect your wallet to continue checkout")
-         |> redirect(to: ~p"/")}
+         |> put_flash(:error, "Please log in to continue checkout")
+         |> redirect(to: ~p"/login?redirect=/checkout/#{order_id}")}
 
       user ->
         case Orders.get_order(order_id) do
@@ -688,11 +688,53 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> Decimal.sub(order.bux_discount_amount)
   end
 
+  # ROGUE rate and balance functions deprecated — Solana migration Phase 9
+  # Kept as stubs returning zero for any remaining references.
+  defp get_current_rogue_rate, do: Decimal.new("0")
+  defp get_user_rogue_balance(_user), do: Decimal.new("0")
+
+  defp parse_decimal(str) when is_binary(str) do
+    case Decimal.parse(str) do
+      {d, ""} -> d
+      {d, _} -> d
+      :error -> Decimal.new("0")
+    end
+  end
+
+  defp parse_decimal(_), do: Decimal.new("0")
+
+  # ROGUE rate lock check — deprecated, always returns true (no ROGUE payments)
+  def rate_expired?(_socket), do: true
+
   # Template helpers
   def format_usd(decimal) do
     decimal
     |> Decimal.round(2)
     |> Decimal.to_string()
+  end
+
+  def format_rogue(decimal) do
+    decimal
+    |> Decimal.round(2)
+    |> Decimal.to_string()
+    |> format_with_commas()
+  end
+
+  defp format_with_commas(str) do
+    case String.split(str, ".") do
+      [int_part, dec_part] ->
+        "#{add_commas(int_part)}.#{dec_part}"
+
+      [int_part] ->
+        add_commas(int_part)
+    end
+  end
+
+  defp add_commas(int_str) do
+    int_str
+    |> String.reverse()
+    |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
+    |> String.reverse()
   end
 
   def step_number(:shipping), do: 1

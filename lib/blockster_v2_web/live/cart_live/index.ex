@@ -99,35 +99,20 @@ defmodule BlocksterV2Web.CartLive.Index do
     cart = socket.assigns.cart
     user = socket.assigns.current_user
 
-    # If user already has a recent pending order, redirect to it instead of creating a duplicate
+    # If user already has a recent pending order that matches the current cart, reuse it.
+    # If the cart has changed (items added/removed/quantities changed), expire the old order.
     case BlocksterV2.Orders.get_recent_pending_order(user.id) do
-      %{id: order_id} ->
-        {:noreply, push_navigate(socket, to: ~p"/checkout/#{order_id}")}
+      %{id: order_id} = existing_order ->
+        if cart_matches_order?(cart, existing_order) do
+          {:noreply, push_navigate(socket, to: ~p"/checkout/#{order_id}")}
+        else
+          # Cart has changed — expire the stale order and create a fresh one
+          BlocksterV2.Orders.update_order(existing_order, %{status: "expired"})
+          create_order_from_cart(socket, cart, user)
+        end
 
       nil ->
-        case BlocksterV2.Orders.check_rate_limit(user.id) do
-          {:error, :rate_limited} ->
-            {:noreply, put_flash(socket, :error, "Too many orders. Please wait before placing another order.")}
-
-          :ok ->
-            case CartContext.validate_cart_items(cart) do
-              :ok ->
-                case BlocksterV2.Orders.create_order_from_cart(cart, user) do
-                  {:ok, order} ->
-                    # Don't clear the cart yet — it gets cleared after payment in process_paid_order
-                    {:noreply, push_navigate(socket, to: ~p"/checkout/#{order.id}")}
-
-                  {:error, _reason} ->
-                    {:noreply, put_flash(socket, :error, "Could not create order. Please try again.")}
-                end
-
-              {:error, errors} ->
-                {:noreply,
-                 socket
-                 |> assign(:warnings, errors)
-                 |> put_flash(:error, "Please fix cart issues before checkout")}
-            end
-        end
+        create_order_from_cart(socket, cart, user)
     end
   end
 
@@ -160,6 +145,45 @@ defmodule BlocksterV2Web.CartLive.Index do
     case CartContext.validate_cart_items(cart) do
       :ok -> []
       {:error, errors} -> errors
+    end
+  end
+
+  defp cart_matches_order?(cart, order) do
+    cart_fingerprint =
+      cart.cart_items
+      |> Enum.map(fn item -> {item.product_id, item.variant_id, item.quantity, item.bux_tokens_to_redeem} end)
+      |> Enum.sort()
+
+    order_fingerprint =
+      order.order_items
+      |> Enum.map(fn item -> {item.product_id, item.variant_id, item.quantity, item.bux_tokens_redeemed} end)
+      |> Enum.sort()
+
+    cart_fingerprint == order_fingerprint
+  end
+
+  defp create_order_from_cart(socket, cart, user) do
+    case BlocksterV2.Orders.check_rate_limit(user.id) do
+      {:error, :rate_limited} ->
+        {:noreply, put_flash(socket, :error, "Too many orders. Please wait before placing another order.")}
+
+      :ok ->
+        case CartContext.validate_cart_items(cart) do
+          :ok ->
+            case BlocksterV2.Orders.create_order_from_cart(cart, user) do
+              {:ok, order} ->
+                {:noreply, push_navigate(socket, to: ~p"/checkout/#{order.id}")}
+
+              {:error, _reason} ->
+                {:noreply, put_flash(socket, :error, "Could not create order. Please try again.")}
+            end
+
+          {:error, errors} ->
+            {:noreply,
+             socket
+             |> assign(:warnings, errors)
+             |> put_flash(:error, "Please fix cart issues before checkout")}
+        end
     end
   end
 
