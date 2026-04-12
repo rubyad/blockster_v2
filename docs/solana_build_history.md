@@ -1611,6 +1611,41 @@ Bucket A pure visual refresh of `ShopLive.Show`. Mock: `docs/solana/product_deta
 
 ---
 
+### Wave 4 Page #13 — Cart (`/cart` → `CartLive.Index`) (2026-04-12)
+
+Pure visual refresh (Bucket A). Per-item BUX redemption with sticky order summary, suggested products section, empty state card.
+
+**Changes:**
+
+1. **Route**: moved `/cart` from `:authenticated` to `:redesign` live_session. Mount still redirects unauthenticated users to `/` (login redirect was to `/login` which itself redirects to `/`; now goes directly to `/`).
+
+2. **Legacy preservation**: existing files copied to `lib/blockster_v2_web/live/cart_live/legacy/index_pre_redesign.ex` + `.html.heex` with module renamed `BlocksterV2Web.CartLive.Legacy.IndexPreRedesign`.
+
+3. **Cart context change**: added `:hub` to `Cart.preload_items/1` product preload chain (`product: [:images, :variants, :hub]`). Enables hub badge rendering on each cart item.
+
+4. **`max_bux_for_item` bug fix**: treated `bux_max_discount=0` as uncapped (100%), matching the product detail page fix from Page #12. Without this, the BUX redemption strip never rendered for any real product (all have `bux_max_discount=0`). New `max_bux_label/1` helper renders "max N" (uncapped) or "max N (X% off)" (capped).
+
+5. **Template**: full rewrite of `index.html.heex`. DS header (`active="shop"`, Why Earn BUX banner), two states:
+   - **Filled cart**: editorial hero (eyebrow + h1 + description), 12-col grid (7-col line items + 5-col sticky order summary). Each item card has hub badge (gradient square + name), product title link, variant info (option1 · option2), quantity stepper (pill-style), unit price (mono bold 18px), BUX redemption strip (when available) or italic "No BUX discount" message. Order summary: subtotal, BUX discount (green), balance, total (mono 28px), "Proceed to checkout" button, payment info footnote. "Continue shopping" link below items.
+   - **Empty cart**: editorial hero, centered white card with lime-tinted cart icon, two CTAs ("Browse the shop" + "Earn BUX reading").
+   - **Suggested products**: "You might also like" section with 4-col product card grid. Source: `Shop.get_random_products(8)` filtered to exclude cart items.
+   - **Warnings banner**: preserved amber banner for cart validation errors.
+
+6. **New assigns**: `@suggested_products` (random products excluding cart items, up to 4). New helpers: `hub_badge_style/1`, `hub_name/1`, `max_bux_label/1`, `format_cart_price/1`. `variant_label/1` separator changed from " / " to " · " to match mock style.
+
+7. **Tests**: new `test/blockster_v2_web/live/cart_live/index_test.exs` — 17 tests covering: anonymous redirect, empty cart state (DS header, Why Earn BUX, "Your cart is empty" h1, "Nothing in here yet", Browse/Earn CTAs, footer), filled cart render (DS header, product titles, images, variant info, hub badge, quantity stepper, order summary, checkout button, continue shopping link, payment footnote, BUX redemption), handler tests (increment_quantity, decrement_quantity, remove_item, update_bux_tokens).
+
+8. **Baseline check**: full `mix test` → 2572 tests, 116 failures, **0 NEW failures vs baseline**. `hub_live/index_test.exs` appears (same pre-existing hardcoded hub count issue as Pages #11-#12).
+
+**Gotchas / learnings**:
+
+- **`max_bux_for_item` alignment with product detail page** — the cart had the same bug as the product detail page (gating on `bux_max_discount > 0` which returns 0 for the real `bux_max_discount=0` = uncapped products). Fixed identically: treat 0 as 100%.
+- **Cart item variant_id is required for variant info display** — `add_to_cart` without a `variant_id` creates an item with `nil` variant, so `variant_label/1` returns nil. Tests must pass `variant_id` in the setup to verify variant info rendering.
+- **Suggested products use `get_random_products/1`** which returns random active products with images. Uses `prepare_product_for_display/1` for consistent display maps. Wrapped in `rescue` for safety.
+- **`:authenticated` → `:redesign` route move is safe** — both live_sessions use the same `on_mount` hooks (SearchHook, UserAuth, BuxBalanceHook, NotificationHook). The only difference is the layout (`:app` → `:redesign`). Mount still handles unauthenticated users.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:

@@ -1,8 +1,7 @@
-defmodule BlocksterV2Web.CartLive.Index do
+defmodule BlocksterV2Web.CartLive.Legacy.IndexPreRedesign do
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Cart, as: CartContext
-  alias BlocksterV2.Shop
 
   @token_value_usd 0.01
 
@@ -12,13 +11,12 @@ defmodule BlocksterV2Web.CartLive.Index do
       nil ->
         {:ok,
          socket
-         |> put_flash(:info, "Please connect your wallet to view your cart")
-         |> redirect(to: ~p"/")}
+         |> put_flash(:info, "Please log in to view your cart")
+         |> redirect(to: ~p"/login?redirect=/cart")}
 
       user ->
         cart = CartContext.get_or_create_cart(user.id) |> CartContext.preload_items()
         warnings = validate_cart(cart)
-        suggested = load_suggested_products(cart)
 
         {:ok,
          socket
@@ -26,7 +24,6 @@ defmodule BlocksterV2Web.CartLive.Index do
          |> assign(:cart, cart)
          |> assign(:warnings, warnings)
          |> assign(:token_value_usd, @token_value_usd)
-         |> assign(:suggested_products, suggested)
          |> assign_totals()}
     end
   end
@@ -145,7 +142,6 @@ defmodule BlocksterV2Web.CartLive.Index do
     socket
     |> assign(:cart, cart)
     |> assign(:warnings, validate_cart(cart))
-    |> assign(:suggested_products, load_suggested_products(cart))
     |> assign_totals()
   end
 
@@ -161,17 +157,6 @@ defmodule BlocksterV2Web.CartLive.Index do
       :ok -> []
       {:error, errors} -> errors
     end
-  end
-
-  defp load_suggested_products(cart) do
-    cart_product_ids = Enum.map(cart.cart_items, & &1.product_id) |> MapSet.new()
-
-    Shop.get_random_products(8)
-    |> Enum.map(&Shop.prepare_product_for_display/1)
-    |> Enum.reject(fn p -> MapSet.member?(cart_product_ids, p.id) end)
-    |> Enum.take(4)
-  rescue
-    _ -> []
   end
 
   # ── Template helpers used in HEEx ──────────────────────────────────────────
@@ -196,7 +181,7 @@ defmodule BlocksterV2Web.CartLive.Index do
       [item.variant && item.variant.option1, item.variant && item.variant.option2]
       |> Enum.reject(&is_nil/1)
 
-    if Enum.any?(parts), do: Enum.join(parts, " · "), else: nil
+    if Enum.any?(parts), do: Enum.join(parts, " / "), else: nil
   end
 
   def item_image(item) do
@@ -210,53 +195,16 @@ defmodule BlocksterV2Web.CartLive.Index do
     price = item_price(item)
     max_pct = item.product.bux_max_discount || 0
 
-    # bux_max_discount=0 means uncapped (100%), same as product detail page
-    effective_pct = if max_pct == 0, do: 100, else: max_pct
-
-    per_unit =
-      price
-      |> Decimal.mult(Decimal.new("#{effective_pct}"))
-      |> Decimal.round(0)
-      |> Decimal.to_integer()
-
-    per_unit * item.quantity
-  end
-
-  def max_bux_label(item) do
-    max_pct = item.product.bux_max_discount || 0
-    max_bux = max_bux_for_item(item)
-
     if max_pct > 0 do
-      "max #{Number.Delimit.number_to_delimited(max_bux, precision: 0)} (#{max_pct}% off)"
+      per_unit =
+        Decimal.mult(price, Decimal.new("#{max_pct}"))
+        |> Decimal.div(1)
+        |> Decimal.round(0)
+        |> Decimal.to_integer()
+
+      per_unit * item.quantity
     else
-      "max #{Number.Delimit.number_to_delimited(max_bux, precision: 0)}"
+      0
     end
-  end
-
-  def hub_badge_style(item) do
-    hub = item.product.hub
-
-    cond do
-      is_nil(hub) -> nil
-      hub.color_primary && hub.color_secondary ->
-        "background: linear-gradient(135deg, #{hub.color_primary}, #{hub.color_secondary})"
-      hub.color_primary ->
-        "background: #{hub.color_primary}"
-      true ->
-        nil
-    end
-  end
-
-  def hub_name(item) do
-    case item.product.hub do
-      nil -> nil
-      hub -> hub.name
-    end
-  end
-
-  def format_cart_price(decimal) do
-    decimal
-    |> Decimal.round(2)
-    |> Decimal.to_string()
   end
 end

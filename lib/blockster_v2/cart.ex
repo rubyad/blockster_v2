@@ -20,7 +20,7 @@ defmodule BlocksterV2.Cart do
   end
 
   def preload_items(%Cart{} = cart) do
-    Repo.preload(cart, cart_items: {from(ci in CartItem, order_by: ci.inserted_at), [product: [:images, :variants], variant: []]})
+    Repo.preload(cart, cart_items: {from(ci in CartItem, order_by: ci.inserted_at), [product: [:images, :variants, :hub], variant: []]})
   end
 
   def preload_items(nil), do: nil
