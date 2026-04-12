@@ -442,7 +442,7 @@ Every stub introduced during the build gets added here so the next release knows
 | 4 | Shop index | ✅ Done | `c2bdd4e` | Full template rewrite. Full-bleed hero banner, sidebar filter with per-filter counts, 3-col product grid, DS header (active="shop"), slot fallback for unassigned slots, 17 new tests. 0 new failures vs baseline. |
 | 4 | Product detail | ✅ Done | `63416ed` | Full template rewrite. Gallery + sticky buy panel + BUX redemption card + related products. 31 new tests. 0 new failures vs baseline. |
 | 4 | Cart | ✅ Done | `0b62a03` | Full template rewrite. Per-item BUX redemption + sticky order summary + suggested products + empty state. `max_bux_for_item` bug fix (0=uncapped). Hub preload added. 17 new tests. 0 new failures vs baseline. |
-| 4 | Checkout | 🔧 Built, awaiting commit | — | Full template rewrite. 4-step wizard with two-column layout + sticky summary + pay cards (BUX burn + Helio) + confirmation celebration. Unused ROGUE helpers removed. 19 new tests. 0 new failures vs baseline. |
+| 4 | Checkout | ✅ Done | `f33c3cc` | Full template rewrite. 4-step wizard with two-column layout + sticky summary + pay cards (BUX burn + Helio) + confirmation celebration. Stale-order bug fix in cart. Unused ROGUE helpers removed. 19 new tests. 0 new failures vs baseline. |
 | 5–6 | Wallet, Category, Tag, Notifications, Onboarding | ⬜ Not started | — | Wallet modal (#15) is next. |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
