@@ -1,4 +1,8 @@
-defmodule BlocksterV2Web.ShopLive.Show do
+defmodule BlocksterV2Web.ShopLive.Legacy.ShowPreRedesign do
+  @moduledoc """
+  @deprecated Legacy product detail page preserved before the redesign rewrite.
+  Kept for reference. Not routed.
+  """
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Shop
@@ -64,11 +68,14 @@ defmodule BlocksterV2Web.ShopLive.Show do
           0.0
         end
 
-        # Calculate max tokens based on BUX discount setting (0 = uncapped, treat as 100%)
+        # Calculate max tokens based on BUX discount setting only (hub tokens removed)
         bux_discount = (product.bux_max_discount || 0) |> to_float()
-        effective_discount = if bux_discount > 0, do: bux_discount, else: 100.0
         product_price = (product.price || 0) |> to_float()
-        max_bux_tokens = (product_price * effective_discount / 100) / @token_value_usd
+        max_bux_tokens = if bux_discount > 0 do
+          (product_price * bux_discount / 100) / @token_value_usd
+        else
+          0.0
+        end
 
         # Default tokens to redeem is the lesser of user balance and max allowed
         default_tokens = min(user_bux_balance, max_bux_tokens) |> to_float()
@@ -78,20 +85,6 @@ defmodule BlocksterV2Web.ShopLive.Show do
 
         # Compute display sizes based on config
         display_sizes = compute_display_sizes(product, product_config, shoe_gender)
-
-        # Hub colors for gradient dot in badges
-        hub = if Ecto.assoc_loaded?(db_product.hub) && db_product.hub, do: db_product.hub, else: nil
-        hub_color_primary = if hub, do: hub.color_primary, else: nil
-        hub_color_secondary = if hub, do: hub.color_secondary, else: nil
-
-        # Related products from same hub (up to 4, excluding current)
-        related_products = if hub do
-          Shop.list_products_by_hub(hub.id)
-          |> Enum.reject(fn p -> p.id == product.id end)
-          |> Enum.take(4)
-        else
-          []
-        end
 
         {:ok,
          socket
@@ -105,15 +98,12 @@ defmodule BlocksterV2Web.ShopLive.Show do
          |> assign(:user_bux_balance, user_bux_balance)
          |> assign(:max_bux_tokens, max_bux_tokens / 1)
          |> assign(:tokens_to_redeem, default_tokens)
-         |> assign(:show_discount_breakdown, true)
+         |> assign(:show_discount_breakdown, false)
          |> assign(:color_hex_map, @color_hex_map)
          |> assign(:token_value_usd, @token_value_usd)
          |> assign(:shoe_gender, shoe_gender)
          |> assign(:display_sizes, display_sizes)
-         |> assign(:added_to_cart, false)
-         |> assign(:related_products, related_products)
-         |> assign(:hub_color_primary, hub_color_primary)
-         |> assign(:hub_color_secondary, hub_color_secondary)}
+         |> assign(:added_to_cart, false)}
     end
   end
 
@@ -146,11 +136,14 @@ defmodule BlocksterV2Web.ShopLive.Show do
     # Get BUX discount percentage from product (hub token discounts removed)
     bux_max_discount = db_product.bux_max_discount || 0
 
-    # Calculate max BUX tokens needed for discount (0 = uncapped, treat as 100%)
+    # Calculate max BUX tokens needed for discount
     # Formula: (price * discount_percent / 100) / token_value
     # e.g., $220 * 50% = $110 discount = 11,000 BUX at $0.01 each
-    effective_discount = if bux_max_discount > 0, do: bux_max_discount, else: 100
-    max_bux_tokens = round((price * effective_discount / 100) / @token_value_usd)
+    max_bux_tokens = if bux_max_discount > 0 do
+      round((price * bux_max_discount / 100) / @token_value_usd)
+    else
+      0
+    end
 
     # Get hub info if available (for display purposes only, not for tokens)
     hub = if Ecto.assoc_loaded?(db_product.hub) && db_product.hub, do: db_product.hub, else: nil

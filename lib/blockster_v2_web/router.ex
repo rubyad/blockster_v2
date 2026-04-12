@@ -155,6 +155,7 @@ defmodule BlocksterV2Web.Router do
       live "/pool/:vault_type", PoolDetailLive, :show
       live "/airdrop", AirdropLive, :index
       live "/shop", ShopLive.Index, :index
+      live "/shop/:slug", ShopLive.Show, :show
     end
 
     live_session :default,
@@ -172,7 +173,6 @@ defmodule BlocksterV2Web.Router do
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show
       live "/shop-landing", ShopLive.Landing, :index
-      live "/shop/:slug", ShopLive.Show, :show
       live "/notifications", NotificationLive.Index, :index
       live "/notifications/settings", NotificationSettingsLive.Index, :index
       live "/notifications/referrals", NotificationLive.Referrals, :index

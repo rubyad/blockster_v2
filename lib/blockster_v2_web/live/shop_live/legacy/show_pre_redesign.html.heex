@@ -1,0 +1,569 @@
+<div class="shop-show overflow-x-hidden max-w-full">
+  <div class="container mx-auto px-4 pt-4 md:pt-24 pb-8 overflow-hidden">
+    <%!-- Breadcrumbs --%>
+    <nav class="mb-6" aria-label="Breadcrumb">
+      <ol class="flex items-center gap-2 text-sm text-[#515B70]">
+        <li>
+          <.link navigate={~p"/shop"} class="hover:text-[#141414] transition-colors">
+            Shop
+          </.link>
+        </li>
+        <%= if @product.artist_name do %>
+          <li class="flex items-center gap-2">
+            <span class="text-gray-400">/</span>
+            <%= if @product.artist_slug do %>
+              <.link navigate={~p"/shop?artist=#{@product.artist_slug}"} class="hover:text-[#141414] transition-colors cursor-pointer">
+                <%= @product.artist_name %>
+              </.link>
+            <% else %>
+              <span class="text-[#141414] font-haas_medium_65"><%= @product.artist_name %></span>
+            <% end %>
+          </li>
+        <% end %>
+        <%= if Enum.any?(@product.categories) do %>
+          <li class="flex items-center gap-2">
+            <span class="text-gray-400">/</span>
+            <.link navigate={~p"/shop?category=#{List.first(@product.categories).slug}"} class="hover:text-[#141414] transition-colors">
+              <%= List.first(@product.categories).name %>
+            </.link>
+          </li>
+        <% end %>
+      </ol>
+    </nav>
+
+    <%!-- Product Details --%>
+    <div class="grid md:grid-cols-2 gap-4 md:gap-8">
+      <%!-- Product Image Carousel --%>
+      <div class="flex flex-col gap-4 min-w-0">
+        <%!-- Main Image with Navigation Arrows --%>
+        <div class="relative rounded-2xl overflow-hidden w-full">
+          <%!-- Images Container with Sliding Animation --%>
+          <div class="relative w-full" style="padding-bottom: 100%;">
+            <%= for {image, idx} <- Enum.with_index(if(Enum.empty?(@product.images), do: [@product.image], else: @product.images)) do %>
+              <div
+                class={"absolute inset-0 transition-transform duration-500 ease-in-out"}
+                style={"transform: translateX(#{(idx - @current_image_index) * 100}%);"}
+              >
+                <img
+                  src={BlocksterV2.ImageKit.w800_h800(image)}
+                  alt={"#{@product.name} - Image #{idx + 1}"}
+                  class="w-full h-full object-cover"
+                  fetchpriority={if idx == 0, do: "high", else: "low"}
+                  loading={if idx == 0, do: "eager", else: "lazy"}
+                />
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Navigation Arrows (only show if more than 1 image) --%>
+          <%= if length(@product.images) > 1 do %>
+            <button
+              phx-click="prev_image"
+              class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M15 18L9 12L15 6" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+              phx-click="next_image"
+              class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18L15 12L9 6" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          <% end %>
+        </div>
+
+        <%!-- Image Indicators (only show if more than 1 image) --%>
+        <%= if length(@product.images) > 1 do %>
+          <div class="flex justify-center gap-3">
+            <%= for {_image, idx} <- Enum.with_index(@product.images) do %>
+              <button
+                phx-click="select_image"
+                phx-value-index={idx}
+                class={"w-16 h-16 rounded-xl overflow-hidden border-2 transition-all hover:scale-105 cursor-pointer #{if @current_image_index == idx, do: "border-[#8AE388] ring-2 ring-[#8AE388] ring-offset-2", else: "border-transparent opacity-60 hover:opacity-100"}"}
+              >
+                <img
+                  src={BlocksterV2.ImageKit.w128_h128(Enum.at(@product.images, idx))}
+                  alt={"Thumbnail #{idx + 1}"}
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </button>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Product Info --%>
+      <div class="flex flex-col min-w-0 overflow-hidden">
+        <%= if @product.collection_name do %>
+          <span class="text-sm text-[#515B70] font-haas_medium_65 uppercase tracking-wider mb-1">
+            <%= @product.collection_name %>
+          </span>
+        <% end %>
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+          <h1 class="text-2xl md:text-4xl font-haas_medium_65 text-[#141414] wrap-break-word">
+            <%= @product.name %>
+          </h1>
+          <%!-- Admin Edit Button --%>
+          <%= if @current_user && @current_user.is_admin do %>
+            <.link
+              navigate={~p"/admin/products/#{@product.id}/edit"}
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-haas_medium_65 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Edit
+            </.link>
+          <% end %>
+        </div>
+
+        <%!-- Product Metadata: Hub, Category, Tags --%>
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <%!-- Hub Badge --%>
+          <%= if @product.hub_name do %>
+            <.link
+              navigate={~p"/hubs/#{@product.hub_slug}"}
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#141414] text-white text-sm font-haas_medium_65 hover:bg-gray-800 transition-colors"
+            >
+              <%= if @product.hub_logo_url do %>
+                <img src={@product.hub_logo_url} alt={@product.hub_name} class="w-4 h-4 rounded-full object-cover" />
+              <% end %>
+              <%= @product.hub_name %>
+            </.link>
+          <% end %>
+
+          <%!-- Artist Badge --%>
+          <%= if @product.artist_name do %>
+            <%= if @product.artist_slug do %>
+              <.link
+                navigate={~p"/shop?artist=#{@product.artist_slug}"}
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-haas_medium_65 hover:bg-purple-200 transition-colors cursor-pointer"
+              >
+                <%= if @product.artist_image do %>
+                  <img src={@product.artist_image} alt={@product.artist_name} class="w-4 h-4 rounded-full object-cover" />
+                <% else %>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                <% end %>
+                <%= @product.artist_name %>
+              </.link>
+            <% else %>
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-haas_medium_65">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <%= @product.artist_name %>
+              </span>
+            <% end %>
+          <% end %>
+
+          <%!-- Category Badge --%>
+          <%= for category <- @product.categories do %>
+            <.link
+              navigate={~p"/shop?category=#{category.slug}"}
+              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#E7E8F1] text-[#515B70] text-sm font-haas_medium_65 hover:bg-[#D8DAE8] transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <%= category.name %>
+            </.link>
+          <% end %>
+
+          <%!-- Product Type (if no categories) --%>
+          <%= if Enum.empty?(@product.categories) && @product.product_type do %>
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#E7E8F1] text-[#515B70] text-sm font-haas_medium_65">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <%= @product.product_type %>
+            </span>
+          <% end %>
+        </div>
+
+        <%!-- Product Tags --%>
+        <%= if Enum.any?(@product.product_tags) || Enum.any?(@product.tags) do %>
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <%!-- Many-to-many product tags --%>
+            <%= for tag <- @product.product_tags do %>
+              <.link
+                navigate={~p"/shop?tag=#{tag.slug}"}
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#8AE388]/20 text-[#2D6A2B] text-xs font-haas_medium_65 hover:bg-[#8AE388]/30 transition-colors"
+              >
+                #<%= tag.name %>
+              </.link>
+            <% end %>
+
+            <%!-- Simple string tags --%>
+            <%= for tag <- @product.tags do %>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-haas_medium_65">
+                #<%= tag %>
+              </span>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Price --%>
+        <%
+          # Calculate discount for price display (total for all items)
+          total_price = @product.price * @quantity
+          discount_amount_top = @tokens_to_redeem * @token_value_usd
+          discounted_price_top = max(total_price - discount_amount_top, 0)
+          discount_percent_top = if total_price > 0, do: round(discount_amount_top / total_price * 100), else: 0
+          has_discount = @tokens_to_redeem > 0
+        %>
+        <div class="flex flex-wrap items-center gap-2 md:gap-3 mb-6">
+          <%= if has_discount do %>
+            <span class="text-2xl md:text-3xl font-haas_medium_65 text-[#141414]">
+              $<%= :erlang.float_to_binary(discounted_price_top, decimals: 2) %>
+            </span>
+            <span class="text-lg md:text-xl text-gray-400 line-through">
+              $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
+            </span>
+            <span class="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs md:text-sm font-haas_medium_65">
+              <%= discount_percent_top %>% OFF
+            </span>
+          <% else %>
+            <span class="text-2xl md:text-3xl font-haas_medium_65 text-[#141414]">
+              $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
+            </span>
+          <% end %>
+          <%= if @product.bux_max_discount > 0 do %>
+            <button
+              phx-click="toggle_discount_breakdown"
+              class="text-sm text-[#515B70] hover:text-[#141414] flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <%= if @show_discount_breakdown do %>
+                Hide discount breakdown
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" class="transition-transform">
+                  <path d="M3 7.5L6 4.5L9 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              <% else %>
+                Discount breakdown
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" class="transition-transform">
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              <% end %>
+            </button>
+          <% end %>
+        </div>
+
+        <%!-- Token Discount Section (collapsible) - BUX only (hub tokens removed) --%>
+        <%= if @product.bux_max_discount > 0 && @show_discount_breakdown do %>
+          <%
+            # Calculate discount and final price (BUX only, total for all items)
+            total_price_bd = @product.price * @quantity
+            discount_amount = @tokens_to_redeem * @token_value_usd
+            discounted_price = max(total_price_bd - discount_amount, 0)
+            discount_percent = if total_price_bd > 0, do: round(discount_amount / total_price_bd * 100), else: 0
+            effective_max = min(@max_bux_tokens, @user_bux_balance)
+          %>
+          <div class="mb-6">
+            <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Redeem BUX Tokens</h3>
+
+            <%!-- Token Redemption Card --%>
+            <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+              <div class="flex-1">
+                <%!-- BUX Balance (hub tokens removed) --%>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-2">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full" />
+                    <span class="text-sm text-gray-500">Your BUX Balance:</span>
+                  </div>
+                  <span class="font-haas_medium_65 text-[#141414]">
+                    <%= Number.Delimit.number_to_delimited(@user_bux_balance, precision: 2) %>
+                  </span>
+                </div>
+
+                <%!-- Token Input (simplified - BUX only) --%>
+                <div class="mb-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-sm text-gray-500">BUX to redeem:</label>
+                    <span class="text-xs text-gray-400">Max: <%= Number.Delimit.number_to_delimited(effective_max, precision: 2) %> (up to <%= @product.bux_max_discount %>% off)</span>
+                  </div>
+                  <form phx-change="update_tokens" class="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max={:erlang.float_to_binary(effective_max / 1, decimals: 2)}
+                      step="0.1"
+                      value={:erlang.float_to_binary(@tokens_to_redeem / 1, decimals: 2)}
+                      phx-debounce="300"
+                      name="tokens"
+                      id="token-input"
+                      phx-hook="TokenInput"
+                      data-max={:erlang.float_to_binary(effective_max / 1, decimals: 2)}
+                      class="flex-1 px-3 py-2 rounded-lg border border-gray-300 bg-white font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                    />
+                    <button
+                      type="button"
+                      phx-click="use_max_tokens"
+                      class="px-3 py-2 rounded-lg bg-[#141414] text-white text-sm font-haas_medium_65 hover:bg-gray-800 transition-all cursor-pointer"
+                    >
+                      Max
+                    </button>
+                  </form>
+                </div>
+
+                <%!-- Price Calculation --%>
+                <div class="pt-3 border-t border-gray-200">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm text-gray-500">Token Discount:</span>
+                    <span class="font-haas_medium_65 text-green-600">
+                      -$<%= :erlang.float_to_binary(discount_amount, decimals: 2) %> (<%= discount_percent %>% off)
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-500">You Pay:</span>
+                    <span class="font-haas_medium_65 text-[#141414] text-xl">
+                      $<%= :erlang.float_to_binary(discounted_price, decimals: 2) %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-xs text-gray-400 mt-2">
+              1 token = $<%= :erlang.float_to_binary(@token_value_usd, decimals: 2) %> discount
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Description --%>
+        <div class="mb-6">
+          <h3 class="text-xl font-haas_medium_65 text-[#141414] mb-2">Description</h3>
+          <div class="text-[#515B70] font-haas_roman_55 leading-relaxed prose prose-sm max-w-none [&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline">
+            <%= raw(@product.description) %>
+          </div>
+        </div>
+
+        <%!-- Size Selection (conditional on product_config) --%>
+        <%= if @product_config && @product_config.has_sizes && Enum.any?(@display_sizes) do %>
+          <div class="mb-6">
+            <%= case @product_config.size_type do %>
+              <% "clothing" -> %>
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+                <div class="flex flex-wrap gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "mens_shoes" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">Men's Shoe Size</div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "womens_shoes" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">Women's Shoe Size</div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "unisex_shoes" -> %>
+                <%!-- Men's / Women's toggle --%>
+                <div class="flex gap-2 mb-3">
+                  <button
+                    phx-click="set_shoe_gender"
+                    phx-value-gender="mens"
+                    class={"px-4 py-2 rounded-lg font-haas_medium_65 text-sm transition-all cursor-pointer #{if @shoe_gender == "mens", do: "bg-[#141414] text-white", else: "bg-[#F5F6FB] text-[#515B70] hover:bg-[#E7E8F1]"}"}
+                  >
+                    Men's
+                  </button>
+                  <button
+                    phx-click="set_shoe_gender"
+                    phx-value-gender="womens"
+                    class={"px-4 py-2 rounded-lg font-haas_medium_65 text-sm transition-all cursor-pointer #{if @shoe_gender == "womens", do: "bg-[#141414] text-white", else: "bg-[#F5F6FB] text-[#515B70] hover:bg-[#E7E8F1]"}"}
+                  >
+                    Women's
+                  </button>
+                </div>
+                <div class="text-sm font-haas_medium_65 text-[#515B70] mb-2">
+                  <%= if @shoe_gender == "womens", do: "Women's", else: "Men's" %> Shoe Size
+                </div>
+                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-2 py-2.5 rounded-lg border-2 font-haas_medium_65 text-sm text-center transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+
+              <% "one_size" -> %>
+                <div class="text-sm font-haas_medium_65 text-[#515B70]">One Size</div>
+
+              <% _ -> %>
+                <%!-- Fallback: standard size buttons --%>
+                <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+                <div class="flex flex-wrap gap-2">
+                  <%= for size <- @display_sizes do %>
+                    <button
+                      phx-click="select_size"
+                      phx-value-size={size}
+                      class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                    >
+                      <%= size %>
+                    </button>
+                  <% end %>
+                </div>
+            <% end %>
+          </div>
+        <% else %>
+          <%!-- Legacy fallback: show sizes if product has them but no config --%>
+          <%= if is_nil(@product_config) && Enum.any?(@product.sizes) do %>
+            <div class="mb-6">
+              <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Size</h3>
+              <div class="flex flex-wrap gap-2">
+                <%= for size <- @product.sizes do %>
+                  <button
+                    phx-click="select_size"
+                    phx-value-size={size}
+                    class={"px-4 py-2 rounded-lg border-2 font-haas_medium_65 transition-all cursor-pointer #{if @selected_size == size, do: "border-[#8AE388] bg-[#8AE388] text-[#141414]", else: "border-[#E7E8F1] hover:border-[#8AE388]"}"}
+                  >
+                    <%= size %>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+
+        <%!-- Color Selection (conditional on product_config) --%>
+        <%= if (@product_config && @product_config.has_colors && Enum.any?(@product.colors)) || (is_nil(@product_config) && Enum.any?(@product.colors)) do %>
+          <div class="mb-6">
+            <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Select Color</h3>
+            <div class="flex flex-wrap gap-3">
+              <%= for color <- @product.colors do %>
+                <% hex_code = Map.get(@color_hex_map, color, "#808080") %>
+                <button
+                  phx-click="select_color"
+                  phx-value-color={color}
+                  class={"flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all cursor-pointer #{if @selected_color == color, do: "ring-2 ring-[#8AE388] ring-offset-2", else: "hover:bg-gray-50"}"}
+                  title={color}
+                >
+                  <div
+                    class={"w-10 h-10 rounded-full #{if hex_code == "#FFFFFF", do: "border border-gray-300", else: ""}"}
+                    style={"background-color: #{hex_code};"}
+                  />
+                  <span class="text-xs font-haas_medium_65 text-[#515B70]"><%= color %></span>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Quantity Selector --%>
+        <div class="mb-6">
+          <h3 class="text-lg font-haas_medium_65 text-[#141414] mb-3">Quantity</h3>
+          <div class="flex items-center gap-3">
+            <button
+              phx-click="decrement_quantity"
+              class="w-12 h-12 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={@quantity <= 1}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M5 10H15"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <span class="text-2xl font-haas_medium_65 text-[#141414] min-w-[40px] text-center">
+              <%= @quantity %>
+            </span>
+
+            <button
+              phx-click="increment_quantity"
+              class="w-12 h-12 rounded-full bg-[#F5F6FB] hover:bg-[#E7E8F1] flex items-center justify-center transition-all cursor-pointer"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M10 5V15M5 10H15"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <%!-- Add to Cart Button --%>
+        <%= if @product_config && @product_config.checkout_enabled == false do %>
+          <button
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all opacity-50 cursor-not-allowed"
+            disabled
+          >
+            Coming Soon
+          </button>
+        <% else %>
+          <button
+            phx-click="add_to_cart"
+            class="w-full bg-gradient-to-b from-[#8AE388] to-[#BAF55F] text-[#141414] font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:shadow-lg hover:brightness-105 active:brightness-95 cursor-pointer"
+          >
+            Add to Cart
+          </button>
+          <%= if @added_to_cart do %>
+            <.link
+              navigate={~p"/cart"}
+              class="block w-full text-center bg-[#141414] text-white font-haas_medium_65 text-lg py-4 px-6 rounded-full transition-all hover:bg-gray-800 cursor-pointer mt-3"
+            >
+              Checkout
+            </.link>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
