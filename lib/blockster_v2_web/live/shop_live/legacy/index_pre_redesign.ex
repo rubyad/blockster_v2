@@ -1,4 +1,8 @@
-defmodule BlocksterV2Web.ShopLive.Index do
+defmodule BlocksterV2Web.ShopLive.Legacy.IndexPreRedesign do
+  @moduledoc """
+  @deprecated Legacy shop index page preserved before the redesign rewrite.
+  Kept for reference. Not routed.
+  """
   use BlocksterV2Web, :live_view
 
   alias BlocksterV2.Shop
@@ -57,14 +61,8 @@ defmodule BlocksterV2Web.ShopLive.Index do
     # Build products map for quick lookup by ID
     products_by_id = Map.new(all_products, fn p -> {to_string(p.id), p} end)
 
-    # Pre-transform all products for unslotted fallback display
-    all_transformed = Enum.map(all_products, &transform_product/1)
-
     # Get slot assignments and build display list
     display_slots = build_display_slots(total_slots, products_by_id)
-
-    # Check if any slots have products assigned (admin has curated the grid)
-    has_slot_assignments = Enum.any?(display_slots, fn {_slot, product} -> product != nil end)
 
     # Build slot assignments map for product picker (product_id => [slot_numbers])
     slot_assignments = build_slot_assignments(display_slots)
@@ -97,28 +95,18 @@ defmodule BlocksterV2Web.ShopLive.Index do
       |> Enum.uniq_by(&String.downcase/1)  # Dedupe by lowercase but keep original casing
       |> Enum.sort_by(&String.downcase/1)  # Sort case-insensitively
 
-    # Per-filter product counts for sidebar display
-    category_counts = build_category_counts(all_products)
-    hub_counts = build_hub_counts(all_products)
-    brand_counts = build_brand_counts(all_products)
-
     {:ok,
      socket
      |> assign(:page_title, "Shop - Browse Products")
      |> assign(:all_products, all_products)
-     |> assign(:all_transformed, all_transformed)
      |> assign(:products_by_id, products_by_id)
      |> assign(:total_slots, total_slots)
      |> assign(:display_slots, display_slots)
-     |> assign(:has_slot_assignments, has_slot_assignments)
      |> assign(:slot_assignments, slot_assignments)
      |> assign(:filtered_products, nil)
      |> assign(:categories_with_products, categories_with_products)
      |> assign(:hubs_with_products, hubs_with_products)
      |> assign(:brands_with_products, brands_with_products)
-     |> assign(:category_counts, category_counts)
-     |> assign(:hub_counts, hub_counts)
-     |> assign(:brand_counts, brand_counts)
      |> assign(:active_filter, nil)
      |> assign(:show_product_picker, false)
      |> assign(:picking_slot, nil)
@@ -143,28 +131,6 @@ defmodule BlocksterV2Web.ShopLive.Index do
       product_id = to_string(product.id)
       Map.update(acc, product_id, [slot_number], fn slots -> [slot_number | slots] end)
     end)
-  end
-
-  defp build_category_counts(products) do
-    products
-    |> Enum.flat_map(fn p -> Enum.map(p.categories || [], & &1.slug) end)
-    |> Enum.frequencies()
-  end
-
-  defp build_hub_counts(products) do
-    products
-    |> Enum.map(fn p -> if p.hub, do: p.hub.slug, else: nil end)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.frequencies()
-  end
-
-  defp build_brand_counts(products) do
-    products
-    |> Enum.map(& &1.vendor)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.frequencies()
   end
 
   defp transform_product(product) do
@@ -411,12 +377,9 @@ defmodule BlocksterV2Web.ShopLive.Index do
     # Rebuild slot assignments for product picker
     slot_assignments = build_slot_assignments(display_slots)
 
-    has_slot_assignments = Enum.any?(display_slots, fn {_slot, product} -> product != nil end)
-
     {:noreply,
      socket
      |> assign(:display_slots, display_slots)
-     |> assign(:has_slot_assignments, has_slot_assignments)
      |> assign(:slot_assignments, slot_assignments)
      |> assign(:show_product_picker, false)
      |> assign(:picking_slot, nil)}

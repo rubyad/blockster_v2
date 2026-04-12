@@ -1523,6 +1523,47 @@ Bucket A visual refresh of `BlocksterV2Web.PoolIndexLive`. The original module w
 
 ---
 
+### Wave 4 Page #11: Shop Index (2026-04-12)
+
+Full `render/1` rewrite of `ShopLive.Index` template at `/shop`.
+
+**What changed:**
+
+1. **DS header** (`active="shop"`, default `display_token="BUX"`) — matches all redesigned pages. Cart icon renders from `cart_item_count` (already in the DS header from Wave 0).
+
+2. **Full-bleed hero banner** — replaces the old `FullWidthBannerComponent` live_component with a direct `<section>` using the existing ImageKit banner URL (`Web%20Banner%203.png`). Dark left-to-transparent gradient overlay, lime eyebrow `Spend the BUX you earned`, 44–64px article-title `Crypto-inspired streetwear & gadgets`, description, two frosted pills (`N products in stock` + `1 BUX = $0.01 off`).
+
+3. **Sidebar filter** — restyled from the old full-height scrollable sidebar to a sticky white rounded-2xl card. Three sections: Products (categories), Communities (hubs), Brands (vendors). Each filter link has a color dot (hub gradient for communities, neutral for products/brands) + name + mono product count. Active filter gets `bg-[#141414] text-white font-bold`. New `build_category_counts/1`, `build_hub_counts/1`, `build_brand_counts/1` private helpers added to compute per-filter counts from `@all_products`.
+
+4. **Product grid** — 2-col (mobile) / 3-col (lg) grid of product cards. Each card: aspect-square image with optional hub logo badge (white circle with hub-color inner circle), text-center body, mono price block (strikethrough original + bold discounted when BUX discount > 0, plain when no discount), black rounded-full `Buy Now` button. Cards use existing `product-card` CSS class from `app.css` for hover lift. **3D flip animation removed** — mock uses a simple static image.
+
+5. **Toolbar** — `Showing N products` with active filter badge (when filtered), `Sort by · Most popular` dropdown (inert stub — no sort handler).
+
+6. **Mobile filter** — fixed bottom-right FAB with lime badge when filtered, right-slide drawer with same filter structure as desktop sidebar.
+
+7. **Admin product picker** — preserved exactly from the old template (cog icon, modal overlay, 3-col grid of all products with slot badges).
+
+8. **100% handler preservation** — all 9 existing event handlers (`filter_by_category`, `filter_by_hub`, `filter_by_brand`, `clear_all_filters`, `toggle_mobile_filters`, `open_product_picker`, `close_product_picker`, `ignore`, `select_product_for_slot`) wired identically. `handle_params` + `apply_url_filters` unchanged. No `handle_async`, `handle_info`, or PubSub — same as before.
+
+9. **Router**: moved `live "/shop", ShopLive.Index, :index` from the `:default` live_session to `:redesign` (matches pages #1–#10).
+
+10. **Tests**: new `test/blockster_v2_web/live/shop_live/index_test.exs` — 17 tests covering: DS header + shop active, hero banner copy, sidebar filter sections (Products / Communities / Brands), product grid with discount/no-discount price rendering, filter by hub / brand / clear handlers, mobile filter toggle, product links, empty filtered state, sort dropdown presence. Setup seeds `:shop_product_slots` Mnesia table with slot assignments (without them, empty slots render nothing for non-admin users).
+
+11. **Baseline check**: full `mix test` → 2524 tests, 202 failures, **0 NEW failures vs `docs/solana/test_baseline_redesign.md`**. 5 files outside baseline appeared but are all order-dependent flaky failures (pass when run alone, fail on certain random seeds) — `email_verification_test`, `bot_setup_test`, `legacy_merge_test`, `phone_verification_integration_test`, `member_live/show_test`. None reference shop or redesign code.
+
+**Gotchas / learnings that feed the next session's list**:
+
+- **ShopSlots "View all" renders nothing when no slots assigned**. The old template + new template both use `@display_slots` from `ShopSlots.build_display_list` which reads the `:shop_product_slots` Mnesia table. If the admin hasn't assigned any products to slots, every slot returns `{N, nil}` and non-admin users see **zero product cards** even though `@total_slots` correctly shows "91 products". Fixed by adding `@has_slot_assignments` boolean (true if any slot has a product) + `@all_transformed` (all products pre-transformed). Template branches: slotted mode (admin curated) vs unslotted mode (show all products directly). Tests MUST also create the Mnesia table. Fields: `[:slot_number, :product_id]`.
+- **Hub `tag_name` field is NOT NULL in the DB**. When creating test hubs via `Repo.insert!`, always include `tag_name: "some-tag"` or the insert fails with `not_null_violation`.
+- **Product card 3D flip was pre-redesign**. The mock uses simple static images. Dropped the `perspective: 1000px`, `transform-style: preserve-3d`, `rotateY(180deg)` flip to match the mock's simpler design language.
+- **Per-filter counts are display-only**. `build_category_counts/1`, `build_hub_counts/1`, `build_brand_counts/1` compute from `@all_products` with `Enum.frequencies/1`. No new data dependency.
+- **Sort dropdown is inert (stub)**. The mock shows it but there is no sort handler. Static "Most popular" label. Future feature.
+- **"Load N more products" button is inert (stub)**. All products load in mount, no pagination.
+
+**Validated by user on local**: sidebar filter works, all 91 products visible in "View all" mode, product cards link correctly, BUX discounted prices show strikethrough + discounted, mobile filter FAB + drawer work.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:
@@ -1624,3 +1665,11 @@ These learnings from Wave 0 through Wave 3 Page #8 will save time on the next pa
 - Sidebar ad placements (`airdrop_sidebar_left`, `airdrop_sidebar_right`) are still loaded into mount assigns but **not rendered** in v1 — the mock has a full 1280px main column with no sidebar slots. Stub-registered. When the future ad placement reshuffle wants them back, the loader stays and only the template needs swapping.
 - The drawn-state `View on Solscan` CTA falls back to the airdrop program account URL when `verification_data.draw_tx` is nil (which it usually is on devnet). Keep this fallback — the celebration banner still needs a working link even when no per-round draw_tx is recorded.
 - **Pool share / odds / expected value math is purely client-side** (`compute_pool_share/2`, `compute_odds_text/2`, `compute_expected_value/3`). All take `parsed_amount + total_entries`. They return `"—"` when amount is 0 so the right column always renders cleanly. Don't try to share these helpers with `pool_components.ex` — they're airdrop-specific.
+
+**Shop index specifics (Wave 4 Page #11):**
+- **`ShopSlots` controls "View all" display order via Mnesia `:shop_product_slots` table.** If no admin slot assignments exist, the slot-based display renders all-nil slots = zero visible cards for non-admin users. The fix: `@has_slot_assignments` boolean (set in mount + `select_product_for_slot` handler) branches the template — slotted mode uses `@display_slots`, unslotted mode falls back to `@all_transformed` (all products pre-transformed in mount). Tests seed slots with `ShopSlots.set_slot(0, to_string(product.id))`.
+- **Hub `tag_name` is NOT NULL.** Test hub inserts MUST include `tag_name: "some-tag"` or Postgres rejects.
+- **Product `status: "active"` required for `list_active_products`.** Draft/archived products are invisible.
+- **Product needs a variant with `:price` for the card to show a price.** `transform_product/1` reads `List.first(product.variants).price`. No variant = `0.0` price.
+- **Filter counts** are purely from `@all_products` via `Enum.frequencies/1` — `@category_counts`, `@hub_counts`, `@brand_counts` maps. No new DB query.
+- **Sort dropdown + "Load more" button are inert stubs.** No handlers exist. Static labels only.
