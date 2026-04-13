@@ -1679,6 +1679,48 @@ Pure visual refresh (Bucket A). 4-step checkout wizard (Shipping → Review → 
 - **`:authenticated` → `:redesign` route move** — same safe pattern as cart (identical on_mount hooks, different layout only).
 - **Stale order bug fix (cart)**: `proceed_to_checkout` handler in `CartLive.Index` was reusing any pending order from the last hour via `get_recent_pending_order`, even when the cart had changed (items added/removed/quantities/BUX amounts changed). Fix: compare cart items fingerprint `{product_id, variant_id, quantity, bux_tokens}` against the existing order's items. If they don't match, expire the old order and create a fresh one. Extracted `cart_matches_order?/2` and `create_order_from_cart/3` helpers, eliminating code duplication in the handler.
 
+### Wave 5 Page #15 — Wallet Connect Modal (`wallet_components.ex`) (2026-04-12)
+
+Pure visual refresh (Bucket A). Complete restyle of the `wallet_selector_modal/1` component from dark-themed minimal card to white-card editorial modal with brand-colored wallet badges, connecting shimmer animation, and status steps.
+
+**Changes:**
+
+1. **Legacy preservation**: existing `wallet_components.ex` copied to `lib/blockster_v2_web/components/legacy/wallet_components_pre_redesign.ex` with module renamed.
+
+2. **`wallet_selector_modal/1` rewrite**: two-state modal:
+   - **State 1 (Wallet Selection)**: dark gradient backdrop with lime dot-grid overlay. White `rounded-3xl` card with Blockster icon + "SIGN IN" eyebrow + close button. 3 wallet rows (each a `<div>` with a separate inner `<button phx-click="select_wallet">`) with brand gradient badges (48×48 rounded-xl), name + tagline, detected/install badges (green-tinted / neutral), and action buttons (Connect / Get). Footer with "What's a wallet?" info + Terms/Privacy links.
+   - **State 2 (Connecting)**: same backdrop. Close button only (no Back/Cancel — can't programmatically dismiss a wallet popup, so going "back" creates ghost popups). Big wallet badge (80×80) with spinning lime ring SVG (`animate-spin` at 0.9s). "Opening [WalletName]" title + approve instruction text. Progress shimmer strip (lime gradient, 1.2s animation). 3 status steps: wallet detected (green check), awaiting signature (lime pulse dot), verify and sign in (dashed circle).
+
+3. **`@wallet_registry` extended**: added `tagline`, `gradient`, `shadow`, `shadow_lg` per wallet for brand badge rendering. Phantom (purple), Solflare (orange), Backpack (red).
+
+4. **Inline SVG wallet icons**: replaced `<img src=...>` approach with `wallet_icon_small/1` and `wallet_icon_large/1` components using inline SVGs matching the mock. Fallback initial letter for unknown wallets.
+
+5. **New assign: `connecting_wallet_name`** (string | nil): tracks which wallet is being connected. Updated `wallet_auth_events.ex`:
+   - `select_wallet` handler: assigns `connecting_wallet_name: wallet_name`
+   - `hide_wallet_selector`, `wallet_error`: clears to nil
+   - `default_assigns/0`: includes `connecting_wallet_name: nil`
+   - `user_auth.ex`: `assign_new(:connecting_wallet_name, fn -> nil end)`
+   - Both layout files (`redesign.html.heex`, `app.html.heex`): pass `connecting_wallet_name={assigns[:connecting_wallet_name]}`
+
+6. **`show_wallet_selector` handler simplified**: removed the smart routing (1-wallet → skip modal, 0-wallet → discover_and_connect). Now always shows the wallet selection modal regardless of how many wallets are detected. Users always see the full selection UI with "Get" links for uninstalled wallets.
+
+7. **`connect_button/1` preserved**: not restyled — only used by old `app.html.heex` header. Redesigned pages use DS header's inline connect button.
+
+8. **CSS animations**: `walletFadeIn`, `walletSlideUp`, `walletPulseDot`, `walletShimmer` — namespaced with `wallet` prefix to avoid collisions with other inline animations.
+
+9. **No `phx-click` on modal backdrop**: per CLAUDE.md's modal backdrop pattern, the backdrop uses NO `phx-click`. Only `phx-click-away` on the inner card. This prevents click-bubbling from inner buttons firing `hide_wallet_selector` alongside `select_wallet`.
+
+10. **Tests**: new `test/blockster_v2_web/components/wallet_components_test.exs` — 22 tests covering: modal hidden when show=false, modal shown when show=true, SIGN IN eyebrow, close button event, all 3 wallets render, detected badge + select_wallet event, install badge + Get link, wallet taglines, What's a wallet link, Terms/Privacy links, subtitle security text, Blockster icon, connecting UI with wallet name, spinner + shimmer, status steps, approve text with wallet name, connecting state without wallet name (hidden), close button in connecting state, connect_button (disconnect/connecting/connected/SOL balance).
+
+11. **Baseline check**: full `mix test` → 2615 tests, 116 failures, **0 NEW failures vs baseline**. `hub_live/index_test.exs` appears outside baseline (same pre-existing hardcoded hub count flakiness — confirmed by testing without changes).
+
+**Gotchas / learnings:**
+
+- **No Cancel/Back in connecting state**: the mock shows Cancel/Back buttons, but they create an impossible UX — you can't programmatically close a Phantom popup, so clicking "Back" leaves a ghost popup behind the browser. The user then clicks Connect again, Phantom ignores the duplicate `connect()` call (or opens a second popup), and the flow breaks. Removed Cancel/Back; the connecting state only has a close (X) button. If the user rejects in Phantom, `wallet_error` fires and the modal closes automatically.
+- **No `phx-click` on modal backdrops**: per CLAUDE.md, `phx-click` on a backdrop div catches ALL clicks including those on child buttons inside the modal. Use `phx-click-away` on the inner card only. The `phx-click` on the backdrop was causing `hide_wallet_selector` to fire alongside `select_wallet`, clearing `connecting_wallet_name` and breaking the flow.
+- **Wallet rows must use `<div>` + inner `<button>`**: wrapping the entire wallet row in a `<button phx-click="select_wallet">` with `<a>` tags inside (for undetected wallets) creates invalid HTML nesting. Use the old template's pattern: `<div>` for the row, separate inner `<button phx-click="select_wallet">` for the Connect action.
+- **Always show the modal**: the old `show_wallet_selector` handler had smart routing (1 detected wallet → skip modal, connect directly). This prevents users from ever seeing the selection UI or discovering other wallets. Simplified to always show the modal.
+
 ---
 
 ## Gotchas for the next session (read before starting a new page)

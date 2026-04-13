@@ -81,6 +81,7 @@ defmodule BlocksterV2Web.UserAuth do
     |> assign_new(:detected_wallets, fn -> [] end)
     |> assign_new(:show_wallet_selector, fn -> false end)
     |> assign_new(:connecting, fn -> false end)
+    |> assign_new(:connecting_wallet_name, fn -> nil end)
     |> assign_new(:auth_challenge, fn -> nil end)
   end
 end

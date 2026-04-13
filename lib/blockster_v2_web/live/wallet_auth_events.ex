@@ -86,38 +86,15 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # ── Wallet Selector Modal ──
 
       def handle_event("show_wallet_selector", _, socket) do
-        detected = socket.assigns[:detected_wallets] || []
-
-        cond do
-          length(detected) == 1 ->
-            wallet_name = hd(detected)["name"] || hd(detected)[:name]
-
-            socket =
-              socket
-              |> assign(:connecting, true)
-              |> push_event("request_connect", %{wallet_name: wallet_name})
-
-            {:noreply, socket}
-
-          length(detected) == 0 ->
-            socket =
-              socket
-              |> assign(:connecting, true)
-              |> push_event("discover_and_connect", %{})
-
-            {:noreply, socket}
-
-          true ->
-            {:noreply, assign(socket, :show_wallet_selector, true)}
-        end
+        {:noreply, assign(socket, show_wallet_selector: true, connecting: false, connecting_wallet_name: nil)}
       end
 
       def handle_event("open_wallet_modal", _, socket) do
-        {:noreply, assign(socket, show_wallet_selector: true, connecting: false)}
+        {:noreply, assign(socket, show_wallet_selector: true, connecting: false, connecting_wallet_name: nil)}
       end
 
       def handle_event("hide_wallet_selector", _, socket) do
-        {:noreply, assign(socket, :show_wallet_selector, false)}
+        {:noreply, assign(socket, show_wallet_selector: false, connecting_wallet_name: nil)}
       end
 
       # ── Wallet Connection ──
@@ -127,6 +104,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
           socket
           |> assign(:show_wallet_selector, false)
           |> assign(:connecting, true)
+          |> assign(:connecting_wallet_name, wallet_name)
           |> push_event("request_connect", %{wallet_name: wallet_name})
 
         {:noreply, socket}
@@ -228,7 +206,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # ── Wallet Error ──
 
       def handle_event("wallet_error", %{"error" => error}, socket) do
-        {:noreply, socket |> assign(:connecting, false) |> put_flash(:error, error)}
+        {:noreply, socket |> assign(:connecting, false) |> assign(:connecting_wallet_name, nil) |> put_flash(:error, error)}
       end
 
       # ── Disconnect ──
@@ -298,6 +276,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       detected_wallets: [],
       show_wallet_selector: false,
       connecting: false,
+      connecting_wallet_name: nil,
       auth_challenge: nil,
       wallet_address: nil,
       sol_balance: nil,
