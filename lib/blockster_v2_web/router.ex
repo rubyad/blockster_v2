@@ -157,6 +157,7 @@ defmodule BlocksterV2Web.Router do
       live "/cart", CartLive.Index, :index
       live "/checkout/:order_id", CheckoutLive.Index, :index
       live "/category/:category", PostLive.Category, :show
+      live "/tag/:tag", PostLive.Tag, :show
     end
 
     live_session :default,
@@ -173,7 +174,8 @@ defmodule BlocksterV2Web.Router do
       live "/hubs/admin/:id/edit", HubLive.Admin, :edit
       # Moved to :redesign live_session (Wave 5 Page #16)
       # live "/category/:category", PostLive.Category, :show
-      live "/tag/:tag", PostLive.Tag, :show
+      # Moved to :redesign live_session (Wave 5 Page #17)
+      # live "/tag/:tag", PostLive.Tag, :show
       live "/shop-landing", ShopLive.Landing, :index
       live "/notifications", NotificationLive.Index, :index
       live "/notifications/settings", NotificationSettingsLive.Index, :index

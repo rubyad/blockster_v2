@@ -1762,6 +1762,31 @@ Full template rewrite of `PostLive.Category` (`/category/:slug`).
 
 ---
 
+### Wave 5 Page #17: Tag Browse (2026-04-12)
+
+Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + related tags chip cloud.
+
+**What changed:**
+- Full template rewrite of `PostLive.Tag`. Replaced cycling LiveComponents (`PostsThreeComponent` etc.) with flat page-based streaming (same approach as the category redesign in Page #16).
+- Compact hero: eyebrow "Tag" + inline stat line (post count + total reads), big `#tag_name` h1.
+- Filter row: 4 chip stubs (Latest active, Popular, Long reads, Most earned) — inert, no handler.
+- 3-col post grid: standard cards with 16:9 image, hub badge gradient, title, author + read time, BUX pill. InfiniteScroll hook preserved for load-more.
+- Related tags chip cloud: `Blog.list_tags/0` minus current, enriched with post counts, sorted by count desc, top 12. Flex-wrap pill layout with tag name + count.
+- Tag description omitted (Tag schema has no `description` field, Bucket A = no schema changes).
+- Inline ad banners (desktop + mobile) preserved after each page batch.
+- All existing handlers preserved: `load-more`, `bux_update` (4-element + 3-element), `posts_reordered`, catch-all. `send_update` removed (no more LiveComponents).
+- Route moved from `:default` to `:redesign` live_session.
+- Legacy files preserved at `lib/blockster_v2_web/live/post_live/legacy/tag_pre_redesign.ex` and `.html.heex`.
+- New helper: `get_tag_total_reads/1` — sums `view_count` across published posts joined through `post_tags`.
+- New helper: `get_related_tags/1` — lists all tags minus current, with post counts, filtered to count > 0.
+- `hub_live/index_test.exs` added to test baseline (2 pre-existing failures from DB-state-dependent hub count assertions, not caused by tag changes).
+
+**Files changed:** `tag.ex` (rewritten), `tag.html.heex` (rewritten), `router.ex` (route move).
+**Files created:** `tag_redesign_plan.md`, `legacy/tag_pre_redesign.ex`, `legacy/tag_pre_redesign.html.heex`, `tag_test.exs` (13 tests).
+**Tests:** 13 new tests, all pass. 0 new failures vs baseline (2640 total, 115 in baseline).
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:

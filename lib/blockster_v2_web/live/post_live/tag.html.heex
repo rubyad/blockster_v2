@@ -1,83 +1,131 @@
-<!-- Listings Top Banner — Desktop (managed via /admin/banners) -->
-<%= if @top_desktop_banners != [] do %>
-  <% banner = Enum.random(@top_desktop_banners) %>
-  <div class="hidden md:block bg-[#F5F6FB] pt-32">
-    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-      <%= if banner.link_url do %>
-        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
-          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
-        </a>
-      <% else %>
-        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-xl" />
-      <% end %>
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active="home"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+/>
+
+<main class="max-w-[1280px] mx-auto px-6">
+
+  <%!-- ━━━ COMPACT TAG HERO ━━━ --%>
+  <section class="pt-12 pb-8">
+    <div class="flex items-baseline gap-4 mb-3 flex-wrap">
+      <BlocksterV2Web.DesignSystem.eyebrow>Tag</BlocksterV2Web.DesignSystem.eyebrow>
+      <span class="text-[10px] tracking-[0.16em] uppercase text-neutral-400 font-mono tabular-nums">
+        {format_compact(@post_count)} posts · {format_compact(@total_reads)} reads
+      </span>
     </div>
-  </div>
-<% end %>
+    <h1 class="font-bold tracking-[-0.022em] leading-[0.96] text-[60px] md:text-[80px] text-[#141414] mb-3">
+      #{@tag_name}
+    </h1>
+  </section>
 
-<!-- Listings Top Banner — Mobile (managed via /admin/banners) — edge-to-edge, flush under header -->
-<%= if @top_mobile_banners != [] do %>
-  <% banner = Enum.random(@top_mobile_banners) %>
-  <div class="md:hidden">
-    <%= if banner.link_url do %>
-      <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
-        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
-      </a>
-    <% else %>
-      <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
-    <% end %>
-  </div>
-<% end %>
+  <%!-- ━━━ FILTER ROW ━━━ --%>
+  <section class="py-4 border-t border-neutral-200/70">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <BlocksterV2Web.DesignSystem.chip variant={if(@filter == "latest", do: "active", else: "default")}>
+          Latest
+        </BlocksterV2Web.DesignSystem.chip>
+        <BlocksterV2Web.DesignSystem.chip variant={if(@filter == "popular", do: "active", else: "default")}>
+          Popular
+        </BlocksterV2Web.DesignSystem.chip>
+        <BlocksterV2Web.DesignSystem.chip variant={if(@filter == "long_reads", do: "active", else: "default")}>
+          Long reads
+        </BlocksterV2Web.DesignSystem.chip>
+        <BlocksterV2Web.DesignSystem.chip variant={if(@filter == "most_earned", do: "active", else: "default")}>
+          Most earned
+        </BlocksterV2Web.DesignSystem.chip>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-neutral-500 font-medium">
+        <span>{format_compact(@post_count)} posts</span>
+      </div>
+    </div>
+  </section>
 
-<div id={"tag-page-#{@tag_slug}"} class={[
-  "tag-page bg-[#F5F6FB]",
-  if(@top_desktop_banners != [], do: "md:pt-6", else: ""),
-  if(@top_mobile_banners != [], do: "pt-0", else: "")
-]}>
-  <!-- Tag Header with Breadcrumb and Title -->
-  <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] pt-0 xl:pt-24">
-    <p class="text-xs font-haas_roman_55 text-[#515B70] mb-2">
-      <.link navigate={~p"/"} class="hover:text-[#141414] transition-colors">Tags</.link>
-      <span class="mx-2">›</span>
-      <span><%= @tag_name %></span>
-    </p>
-    <h1 class="text-3xl font-haas_medium_65 text-[#141414]"><%= @tag_name %></h1>
-
-  </div>
-
-  <div id="tag-components" phx-update="stream" phx-hook="InfiniteScroll">
-    <%= for {dom_id, comp} <- @streams.components do %>
-      <div id={dom_id}>
-        <.live_component
-          module={comp.module}
-          id={comp.id}
-          posts={comp.posts}
-          content={comp.content}
-          type={comp.type}
-          show_read_more={false}
-          bux_balances={@bux_balances}
-          user_post_rewards={@user_post_rewards}
-          current_user={@current_user}
-        />
-
-        <!-- Inline ad banner after each component (managed via /admin/banners) -->
-        <%= if @inline_desktop_banners != [] do %>
-          <% d_banner = Enum.at(@inline_desktop_banners, rem(comp.inline_banner_index, length(@inline_desktop_banners))) %>
-          <div class="hidden md:block py-4">
-            <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-              <div class="w-3/4 mx-auto">
-                <%= if d_banner.link_url do %>
-                  <a href={d_banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
-                    <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block" loading="lazy" />
-                  </a>
-                <% else %>
-                  <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block rounded-xl" loading="lazy" />
-                <% end %>
+  <%!-- ━━━ POST GRID — straight 3-col ━━━ --%>
+  <section class="pt-2 pb-10">
+    <div id="tag-posts" phx-update="stream" phx-hook="InfiniteScroll">
+      <div :for={{dom_id, page} <- @streams.post_pages} id={dom_id}>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+          <%= for post <- page.posts do %>
+            <.link
+              navigate={post_href(post)}
+              class="group block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-neutral-300"
+            >
+              <div class="aspect-[16/9] bg-neutral-100 overflow-hidden">
+                <img
+                  src={post_image(post)}
+                  alt=""
+                  class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                  loading="lazy"
+                />
               </div>
+              <div class="p-5">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <%= if post_hub_name(post) do %>
+                    <div
+                      class="w-4 h-4 rounded bg-gradient-to-br grid place-items-center"
+                      style={"background: linear-gradient(135deg, #{post_hub_color(post)}, #{post_hub_secondary_color(post)});"}
+                    >
+                      <span class="text-white font-bold text-[7px]">
+                        {String.first(post_hub_name(post))}
+                      </span>
+                    </div>
+                    <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-medium">
+                      {post_hub_name(post)}
+                    </span>
+                  <% end %>
+                </div>
+                <h3 class="font-bold text-[15px] text-[#141414] leading-[1.25] mb-3 line-clamp-2 tracking-tight">
+                  {post.title}
+                </h3>
+                <div class="flex items-center justify-between text-[10px]">
+                  <div class="flex items-center gap-1.5 text-neutral-500 font-medium">
+                    <span>{post_author_name(post)}</span>
+                    <span class="text-neutral-300">·</span>
+                    <span>{post_read_minutes(post)} min</span>
+                  </div>
+                  <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold tabular-nums text-[10px]">
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt=""
+                      class="w-2.5 h-2.5 rounded-full"
+                    />
+                    {post_bux_reward(post, @bux_balances)}
+                  </div>
+                </div>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+
+        <%!-- Inline ad banner after each page --%>
+        <%= if @inline_desktop_banners != [] do %>
+          <% d_banner = Enum.at(@inline_desktop_banners, rem(String.to_integer(String.trim_leading(page.id, "page-")), length(@inline_desktop_banners))) %>
+          <div class="hidden md:block py-4">
+            <div class="w-3/4 mx-auto">
+              <%= if d_banner.link_url do %>
+                <a href={d_banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-xl overflow-hidden">
+                  <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block" loading="lazy" />
+                </a>
+              <% else %>
+                <img src={d_banner.image_url} alt={d_banner.name} class="w-full h-auto block rounded-xl" loading="lazy" />
+              <% end %>
             </div>
           </div>
         <% end %>
         <%= if @inline_mobile_banners != [] do %>
-          <% m_banner = Enum.at(@inline_mobile_banners, rem(comp.inline_banner_index, length(@inline_mobile_banners))) %>
+          <% m_banner = Enum.at(@inline_mobile_banners, rem(String.to_integer(String.trim_leading(page.id, "page-")), length(@inline_mobile_banners))) %>
           <div class="md:hidden py-3">
             <%= if m_banner.link_url do %>
               <a href={m_banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
@@ -89,6 +137,45 @@
           </div>
         <% end %>
       </div>
+    </div>
+
+    <%!-- Load more button (shown when there are more posts) --%>
+    <%= if @post_count > length(@displayed_post_ids) do %>
+      <div class="mt-10 text-center">
+        <button class="inline-flex items-center gap-2 bg-white border border-neutral-200 px-5 py-3 rounded-full text-[13px] font-bold text-[#141414] hover:border-[#141414] transition-colors cursor-pointer">
+          Load {@post_count - length(@displayed_post_ids)} more posts
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        </button>
+      </div>
     <% end %>
-  </div>
-</div>
+  </section>
+
+  <%!-- ━━━ RELATED TAGS ━━━ --%>
+  <%= if @related_tags != [] do %>
+    <section class="py-12 border-t border-neutral-200/70">
+      <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
+        Related tags
+      </BlocksterV2Web.DesignSystem.eyebrow>
+      <h2 class="font-bold tracking-[-0.018em] text-[#141414] text-[24px] md:text-[28px] mb-6">
+        More like #{@tag_name}
+      </h2>
+
+      <div class="flex flex-wrap gap-2">
+        <%= for tag <- @related_tags do %>
+          <.link
+            navigate={~p"/tag/#{tag.slug}"}
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-neutral-200 hover:border-[#141414] transition-colors cursor-pointer"
+          >
+            <span class="text-[13px] font-bold text-[#141414]">#{tag.name}</span>
+            <span class="text-[10px] font-mono text-neutral-400 tabular-nums">
+              {format_compact(tag.post_count)}
+            </span>
+          </.link>
+        <% end %>
+      </div>
+    </section>
+  <% end %>
+
+</main>
+
+<BlocksterV2Web.DesignSystem.footer />

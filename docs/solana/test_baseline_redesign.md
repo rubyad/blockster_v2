@@ -78,11 +78,12 @@ test/blockster_v2_web/live/airdrop_live_test.exs
 test/blockster_v2_web/live/member_live/devices_test.exs
 test/blockster_v2_web/live/onboarding_live_test.exs
 test/blockster_v2_web/live/post_live/show_test.exs
+test/blockster_v2_web/live/hub_live/index_test.exs
 test/blockster_v2_web/live/pool_detail_live_test.exs
 test/blockster_v2_web/live/pool_live_test.exs
 ```
 
-38 files. The set may grow when later page rebuilds touch tests in already-
+39 files. The set may grow when later page rebuilds touch tests in already-
 listed files, but it should never grow with files OUTSIDE this list. New
 file failures = real regression.
 
