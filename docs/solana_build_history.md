@@ -1787,6 +1787,31 @@ Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + r
 
 ---
 
+### Wave 6 Page #18: Notifications (2026-04-12)
+
+**Scope:** Pure visual refresh (Bucket A) of all 3 notification routes: `/notifications`, `/notifications/referrals`, `/notifications/settings`. No mock — designed from DS spec per decision D11.
+
+**What was done:**
+- All 3 notification LiveView modules rewritten with DS header, footer, eyebrow, chip components
+- Routes moved from `:default` to `:redesign` live_session
+- Legacy files preserved at `notification_live/legacy/` and `notification_settings_live/legacy/`
+- NotificationLive.Index: Compact hero with eyebrow + filter chips (All/Unread/Read) + unread count label + notification list with category icons + mark-all-read + infinite scroll + empty state
+- NotificationLive.Referrals: Compact hero with back link + referral link card with CopyToClipboard + social share buttons + 4-col stats grid + how-it-works + earnings table with type badges + Solscan links + live updates via PubSub
+- NotificationSettingsLive.Index: Compact hero with back link + settings sections (Email/In-App/Telegram/Hub per-hub) + toggle switches + Telegram connect/disconnect flow + unsubscribe confirmation flow
+- All handlers, PubSub subscriptions, JS hooks, and features preserved exactly
+- Fixed anonymous referrals page crash: `@config` was `%{}` but template accessed config keys — now uses proper defaults
+- New `@unread_count` assign on notification index for filter row display
+
+**Visual changes from old design:**
+- Old: `bg-[#F5F6FB]` full-page background, no site header/footer (used old app layout), `font-haas_*` throughout
+- New: White background, DS header with SolanaWallet hook + lime "Why Earn BUX?" banner, DS footer with brand mission line, neutral-* color palette, rounded-2xl cards with `border-neutral-200/70` borders
+
+**Files changed:** `notification_live/index.ex` (rewritten), `notification_live/referrals.ex` (rewritten), `notification_settings_live/index.ex` (rewritten), `router.ex` (route move).
+**Files created:** `notifications_redesign_plan.md`, 3 legacy files, `index_test.exs` (33 tests).
+**Tests:** 33 new tests, all pass. 0 new failures vs baseline.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:

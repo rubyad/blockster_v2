@@ -158,6 +158,9 @@ defmodule BlocksterV2Web.Router do
       live "/checkout/:order_id", CheckoutLive.Index, :index
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show
+      live "/notifications", NotificationLive.Index, :index
+      live "/notifications/settings", NotificationSettingsLive.Index, :index
+      live "/notifications/referrals", NotificationLive.Referrals, :index
     end
 
     live_session :default,
@@ -177,9 +180,10 @@ defmodule BlocksterV2Web.Router do
       # Moved to :redesign live_session (Wave 5 Page #17)
       # live "/tag/:tag", PostLive.Tag, :show
       live "/shop-landing", ShopLive.Landing, :index
-      live "/notifications", NotificationLive.Index, :index
-      live "/notifications/settings", NotificationSettingsLive.Index, :index
-      live "/notifications/referrals", NotificationLive.Referrals, :index
+      # Moved to :redesign live_session (Wave 6 Page #18)
+      # live "/notifications", NotificationLive.Index, :index
+      # live "/notifications/settings", NotificationSettingsLive.Index, :index
+      # live "/notifications/referrals", NotificationLive.Referrals, :index
     end
 
     # Article page in redesign layout — must come AFTER :default because
