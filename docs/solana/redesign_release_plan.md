@@ -455,7 +455,7 @@ Every stub introduced during the build gets added here so the next release knows
 | 5 | Wallet connect modal | ✅ Done | `cd01d0c` | Redesigned `wallet_selector_modal/1` — white card + brand badges + connecting shimmer + status steps. New `connecting_wallet_name` assign. Always-show-modal (removed smart routing). No Cancel/Back in connecting state (can't dismiss wallet popups). 22 new tests. 0 new failures vs baseline. |
 | 5 | Category browse | ✅ Done | `4e1a776` | Full template rewrite. Editorial page hero + featured post (hero_feature_card) + filter chips (inert stubs) + mosaic grid + related categories + featured author card. Simplified data flow (flat post pages instead of cycling LiveComponents). 14 new tests. 0 new failures vs baseline. |
 | 5 | Tag browse | ✅ Done | `7f9475a` | Full template rewrite. Compact hero + 3-col post grid + related tags chip cloud. Flat page streaming (no cycling LiveComponents). 13 new tests. 0 new failures vs baseline. |
-| 6 | Notifications | 🔧 Built, awaiting commit | — | DS header/footer on all 3 notification routes (/notifications, /notifications/referrals, /notifications/settings). Compact hero + filter chips + notification list + referral dashboard + settings page. All handlers preserved. 33 new tests. 0 new failures vs baseline. |
+| 6 | Notifications | ✅ Done | `17670b6` | DS header/footer on all 3 notification routes (/notifications, /notifications/referrals, /notifications/settings). Compact hero + filter chips + notification list + referral dashboard + settings page. All handlers preserved. 33 new tests. 0 new failures vs baseline. |
 | 6 | Onboarding | ⬜ Not started | — | Onboarding (#19) is next. |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
