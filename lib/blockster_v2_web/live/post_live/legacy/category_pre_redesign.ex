@@ -1,0 +1,236 @@
+defmodule BlocksterV2Web.PostLive.Legacy.CategoryPreRedesign do
+  @moduledoc """
+  @deprecated Legacy category page preserved before Wave 5 Page #16 redesign.
+  """
+  use BlocksterV2Web, :live_view
+
+  # import BlocksterV2Web.SharedComponents, only: [lightning_icon: 1]
+
+  alias BlocksterV2.Blog
+  alias BlocksterV2.EngagementTracker
+
+  # Component modules for cycling through layouts
+  @component_modules [
+    BlocksterV2Web.PostLive.PostsThreeComponent,
+    BlocksterV2Web.PostLive.PostsFourComponent,
+    BlocksterV2Web.PostLive.PostsFiveComponent,
+    BlocksterV2Web.PostLive.PostsSixComponent
+  ]
+
+  # Posts per component
+  @posts_per_component %{
+    BlocksterV2Web.PostLive.PostsThreeComponent => 5,
+    BlocksterV2Web.PostLive.PostsFourComponent => 3,
+    BlocksterV2Web.PostLive.PostsFiveComponent => 6,
+    BlocksterV2Web.PostLive.PostsSixComponent => 5
+  }
+
+  @impl true
+  def mount(%{"category" => category_slug}, _session, socket) do
+    # Subscribe to BUX pool updates for real-time balance changes
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "post_bux:all")
+    end
+
+    # Look up category by slug from database
+    case Blog.get_category_by_slug(category_slug) do
+      nil ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Category not found")
+         |> redirect(to: "/")}
+
+      category ->
+        # Initialize with first batch of components - default to "latest" sort.
+        # Each component is tagged with an :inline_banner_index for rotating
+        # inline ad banners (see build_components_batch).
+        {components, displayed_post_ids, bux_balances} = build_initial_components(category.slug, "latest", 0)
+
+        # Build post_to_component map for targeted updates
+        post_to_component = build_post_to_component_map(components)
+
+        # Get user's earned rewards by post for displaying "earned" badges
+        user_post_rewards = if socket.assigns[:current_user] do
+          EngagementTracker.get_user_post_rewards_map(socket.assigns.current_user.id)
+        else
+          %{}
+        end
+
+        # Listing ad banners (shared across home/category/tag — see /admin/banners)
+        top_desktop_banners = load_listing_banners(socket, "homepage_top_desktop")
+        top_mobile_banners = load_listing_banners(socket, "homepage_top_mobile")
+        inline_desktop_banners = load_listing_banners(socket, "homepage_inline_desktop")
+        inline_mobile_banners = load_listing_banners(socket, "homepage_inline_mobile")
+
+        {:ok,
+         socket
+         |> assign(:category, category.name)
+         |> assign(:category_slug, category.slug)
+         |> assign(:page_title, "#{category.name} - Blockster")
+         |> assign(:sort_mode, "latest")
+         |> assign(:show_categories, true)
+         |> assign(:show_why_earn_bux, true)
+         |> assign(:displayed_post_ids, displayed_post_ids)
+         |> assign(:bux_balances, bux_balances)
+         |> assign(:user_post_rewards, user_post_rewards)
+         |> assign(:post_to_component_map, post_to_component)
+         |> assign(:last_component_module, BlocksterV2Web.PostLive.PostsSixComponent)
+         |> assign(:top_desktop_banners, top_desktop_banners)
+         |> assign(:top_mobile_banners, top_mobile_banners)
+         |> assign(:inline_desktop_banners, inline_desktop_banners)
+         |> assign(:inline_mobile_banners, inline_mobile_banners)
+         |> assign(:inline_banner_offset, length(components))
+         |> stream(:components, components)}
+    end
+  end
+
+  defp load_listing_banners(socket, placement) do
+    if connected?(socket),
+      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
+      else: []
+  end
+
+  @impl true
+  def handle_params(_params, _url, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("load-more", _, socket) do
+    category_slug = socket.assigns.category_slug
+    displayed_post_ids = socket.assigns.displayed_post_ids
+    last_module = socket.assigns.last_component_module
+    bux_balances = socket.assigns.bux_balances
+    sort_mode = socket.assigns.sort_mode
+    inline_banner_offset = socket.assigns.inline_banner_offset
+
+    # Build next batch of 4 components (Three, Four, Five, Six)
+    {new_components, new_displayed_post_ids, new_bux_balances} =
+      build_components_batch(category_slug, displayed_post_ids, last_module, sort_mode, inline_banner_offset)
+
+    if new_components == [] do
+      {:reply, %{end_reached: true}, socket}
+    else
+      # Insert new components into stream
+      socket =
+        Enum.reduce(new_components, socket, fn component, acc_socket ->
+          stream_insert(acc_socket, :components, component, at: -1)
+        end)
+
+      # Track the last component module for next load
+      last_module = if new_components != [], do: List.last(new_components).module, else: last_module
+
+      # Update post_to_component map
+      new_post_to_component = build_post_to_component_map(new_components)
+      updated_post_to_component = Map.merge(socket.assigns.post_to_component_map, new_post_to_component)
+
+      {:reply, %{},
+       socket
+       |> assign(:displayed_post_ids, new_displayed_post_ids)
+       |> assign(:bux_balances, Map.merge(bux_balances, new_bux_balances))
+       |> assign(:post_to_component_map, updated_post_to_component)
+       |> assign(:last_component_module, last_module)
+       |> assign(:inline_banner_offset, inline_banner_offset + length(new_components))}
+    end
+  end
+
+  # Handle BUX updates from PubSub - use total_distributed for display
+  @impl true
+  def handle_info({:bux_update, post_id, _pool_balance, total_distributed}, socket) do
+    if post_id in socket.assigns.displayed_post_ids do
+      bux_balances = Map.put(socket.assigns.bux_balances, post_id, total_distributed)
+
+      case Map.get(socket.assigns.post_to_component_map, post_id) do
+        {component_id, module} ->
+          send_update(self(), module, id: component_id, bux_balances: bux_balances)
+        nil -> :ok
+      end
+
+      {:noreply, assign(socket, :bux_balances, bux_balances)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Legacy 3-element broadcast (backward compat during rolling deploy)
+  def handle_info({:bux_update, _post_id, _new_balance}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:posts_reordered, _post_id, _new_balance}, socket) do
+    {:noreply, socket}
+  end
+
+  # Ignore other PubSub messages
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
+  end
+
+  # Build initial batch of 4 components (Three, Four, Five, Six)
+  defp build_initial_components(category_slug, sort_mode, inline_banner_offset) do
+    build_components_batch(category_slug, [], BlocksterV2Web.PostLive.PostsSixComponent, sort_mode, inline_banner_offset)
+  end
+
+  # Build a batch of 4 components cycling through the component modules.
+  # `inline_banner_offset` is the running count of components built so far across
+  # all batches — used to assign each component an `:inline_banner_index` so the
+  # inline ad banner that follows it rotates deterministically.
+  defp build_components_batch(category_slug, displayed_post_ids, last_module, _sort_mode, inline_banner_offset) do
+    # Start from the component after last_module
+    start_index = Enum.find_index(@component_modules, &(&1 == last_module))
+    start_index = if start_index, do: rem(start_index + 1, 4), else: 0
+
+    # Build 4 components in order
+    {components, final_displayed_ids, bux_balances} =
+      Enum.reduce(0..3, {[], displayed_post_ids, %{}}, fn idx, {acc_components, acc_ids, acc_balances} ->
+        module_index = rem(start_index + idx, 4)
+        module = Enum.at(@component_modules, module_index)
+        posts_needed = Map.get(@posts_per_component, module)
+
+        # Fetch posts sorted by date
+        posts = Blog.list_published_posts_by_date_category(
+          category_slug,
+          limit: posts_needed,
+          exclude_ids: acc_ids
+        )
+
+        if posts == [] do
+          {acc_components, acc_ids, acc_balances}
+        else
+          post_ids = Enum.map(posts, & &1.id)
+          new_balances = posts
+            |> Enum.map(fn p -> {p.id, Map.get(p, :bux_balance, 0)} end)
+            |> Map.new()
+
+          unique_id = System.unique_integer([:positive])
+          component = %{
+            id: "category-#{category_slug}-#{module}-#{unique_id}",
+            module: module,
+            posts: posts,
+            content: category_slug,
+            type: "category-posts"
+          }
+
+          {acc_components ++ [component], acc_ids ++ post_ids, Map.merge(acc_balances, new_balances)}
+        end
+      end)
+
+    components =
+      components
+      |> Enum.with_index(inline_banner_offset)
+      |> Enum.map(fn {comp, idx} -> Map.put(comp, :inline_banner_index, idx) end)
+
+    {components, final_displayed_ids, bux_balances}
+  end
+
+  # Build post_id => {component_id, module} map for targeted send_update
+  defp build_post_to_component_map(components) do
+    Enum.reduce(components, %{}, fn comp, acc ->
+      Enum.reduce(Map.get(comp, :posts, []), acc, fn post, inner_acc ->
+        Map.put(inner_acc, post.id, {comp.id, comp.module})
+      end)
+    end)
+  end
+end

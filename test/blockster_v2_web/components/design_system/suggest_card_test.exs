@@ -26,7 +26,7 @@ defmodule BlocksterV2Web.Components.DesignSystem.SuggestCardTest do
       assert html =~ "Why on-chain settlement won the argument"
       assert html =~ "Lena Park"
       assert html =~ "5 min"
-      assert html =~ "+35"
+      assert html =~ "35"
     end
 
     test "renders without optional fields" do
@@ -65,7 +65,7 @@ defmodule BlocksterV2Web.Components.DesignSystem.SuggestCardTest do
           bux_reward: 100
         })
 
-      assert html =~ "+100"
+      assert html =~ "100"
       assert html =~ "bg-[#CAFC00]"
     end
 

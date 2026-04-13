@@ -521,7 +521,7 @@
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div class="flex items-center gap-2.5">
             <%= if @post.category do %>
-              <span class="text-[10px] font-bold tracking-[0.12em] text-[#0a0a0a] uppercase bg-[#CAFC00] px-2 py-[3px] rounded">{@post.category.name}</span>
+              <.link navigate={~p"/category/#{@post.category.slug}"} class="text-[10px] font-bold tracking-[0.12em] text-[#0a0a0a] uppercase bg-[#CAFC00] px-2 py-[3px] rounded hover:bg-[#b8e600] transition-colors cursor-pointer">{@post.category.name}</.link>
             <% end %>
             <span class="text-[11px] text-neutral-500"><%= ceil((@word_count || 0) / 200) %> min read</span>
             <span class="text-neutral-300">&middot;</span>

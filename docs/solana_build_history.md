@@ -1723,6 +1723,45 @@ Pure visual refresh (Bucket A). Complete restyle of the `wallet_selector_modal/1
 
 ---
 
+### Wave 5 Page #16 — Category Browse (2026-04-12)
+
+Full template rewrite of `PostLive.Category` (`/category/:slug`).
+
+**What changed:**
+
+1. **Route moved** from `:default` to `:redesign` live_session (DS header + footer).
+
+2. **Data flow simplified**: replaced the 4-module cycling LiveComponent system (PostsThreeComponent, PostsFourComponent, PostsFiveComponent, PostsSixComponent) with flat post-page streaming. Each stream item is a `%{id: "page-N", posts: [...]}` map. `load-more` handler appends new pages to the stream. BUX PubSub handler updates `@bux_balances` assign (no more `send_update` to live_components).
+
+3. **New sections from mock**:
+   - **Page hero** via `<.page_hero>` — eyebrow "Category · [name]", big title, description, 3-stat band (Posts / Readers / BUX paid). Stats from aggregate Ecto query on posts table.
+   - **Featured post** via `<.hero_feature_card>` — latest post in category, separated from the grid.
+   - **Filter chips** — Trending / Latest / Most earned / Long reads. Inert stubs (no handler).
+   - **Mosaic grid** — CSS grid with varied card sizes: large dark-overlay (col-span-7, row-span-2), horizontal side cards (col-span-5), small vertical cards (col-span-3). Rendered directly from stream items.
+   - **Related categories** — 6-col grid of white category cards with post counts. From `Blog.list_categories()` minus current.
+   - **Featured author** — large showcase card with avatar, bio, stats. Uses first post's author with per-category aggregate stats.
+
+4. **Legacy preserved** at `lib/blockster_v2_web/live/post_live/legacy/category_pre_redesign.ex`.
+
+5. **Inline ad banners** preserved — `inline_desktop_banners` and `inline_mobile_banners` render after each post page, rotating by page index.
+
+6. **14 new tests** in `test/blockster_v2_web/live/post_live/category_test.exs`: DS header, DS footer, page hero with name + description + stats, featured post, filter chips, mosaic grid, related categories, featured author card + stats, section header story count, category-not-found redirect, logged-in render.
+
+7. **Baseline check**: full `mix test` → 2627 tests, 117 failures, **0 NEW failures vs baseline**. `hub_live/index_test.exs` appears outside baseline (same pre-existing hardcoded hub count flakiness).
+
+**Gotchas / learnings:**
+
+- **Category names in DB may collide with seeds**: test setup must use unique names/slugs (e.g. `TestCat#{unique}`) to avoid unique constraint violations from seeded categories.
+- **`redirect` not `live_redirect`**: when `mount/3` returns `redirect(to: "/")` (for category not found), the test assertion must match `{:error, {:redirect, ...}}` not `{:error, {:live_redirect, ...}}`.
+- **Featured post exclusion**: the featured post (first/latest) is fetched separately and its ID added to `exclude_ids` for the mosaic grid — prevents the same post appearing twice.
+- **Mosaic card sizing uses `cond` in template**: the first post in a 7+ post batch gets the large dark-overlay card, posts 2-3 get horizontal side cards, the rest get small vertical cards. Fewer than 7 posts = all small cards.
+- **No `send_update` needed**: removing live_component delegation means BUX balance updates don't re-render individual cards in real-time, but the `@bux_balances` assign stays current for new page loads. Acceptable trade-off for a listing page.
+- **BUX pill consistency**: `format_reward` in `design_system.ex` no longer prepends `+`. All BUX pills across the site (post_card, suggest_card, hero_feature_card) now show plain numbers (e.g. `45` not `+45`). The `hero_feature_card` no longer says "Earn N BUX" — just the number via `format_reward`. Updated 3 DS component tests.
+- **Article page category badge**: made clickable — `<.link navigate={~p"/category/#{@post.category.slug}"}>` with `hover:bg-[#b8e600]` transition.
+- **Post card images should be square**: `aspect-square` not `aspect-[16/9]` for small vertical mosaic cards. The `grid-auto-rows: 180px` constraint was also removed — it made all cards tiny.
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:

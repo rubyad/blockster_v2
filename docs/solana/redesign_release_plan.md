@@ -420,6 +420,10 @@ Every stub introduced during the build gets added here so the next release knows
 | Shop index | "Load N more products" button | Static button, no handler | Paginated load-more with server-side limit/offset | Follow-up commit |
 | Product detail | "Buy it now" link | Static underline text, no handler | Quick-checkout flow | Follow-up commit |
 | Product detail | Reassurance icons | Hardcoded 3 cards (shipping / sustainability / returns) | Data-driven from product config | Follow-up commit |
+| Category browse | Filter chips | Render but click is no-op; "Trending" permanently active | `phx-click="set_filter"` handler with sort_mode changes | Follow-up commit |
+| Category browse | Featured author "+ Follow" button | Inert, no handler | Real follow system | Follow-up release |
+| Category browse | Featured author selection | Uses first post's author | Real most-read-author aggregation query | Analytics release |
+| Category browse | Readers stat | Sum of view_count (all-time) | Proper 30-day rolling reader count | Analytics release |
 
 ---
 
@@ -444,7 +448,8 @@ Every stub introduced during the build gets added here so the next release knows
 | 4 | Cart | ✅ Done | `0b62a03` | Full template rewrite. Per-item BUX redemption + sticky order summary + suggested products + empty state. `max_bux_for_item` bug fix (0=uncapped). Hub preload added. 17 new tests. 0 new failures vs baseline. |
 | 4 | Checkout | ✅ Done | `f33c3cc` | Full template rewrite. 4-step wizard with two-column layout + sticky summary + pay cards (BUX burn + Helio) + confirmation celebration. Stale-order bug fix in cart. Unused ROGUE helpers removed. 19 new tests. 0 new failures vs baseline. |
 | 5 | Wallet connect modal | ✅ Done | `cd01d0c` | Redesigned `wallet_selector_modal/1` — white card + brand badges + connecting shimmer + status steps. New `connecting_wallet_name` assign. Always-show-modal (removed smart routing). No Cancel/Back in connecting state (can't dismiss wallet popups). 22 new tests. 0 new failures vs baseline. |
-| 5–6 | Category, Tag, Notifications, Onboarding | ⬜ Not started | — | Category browse (#16) is next. |
+| 5 | Category browse | 🔧 Built, awaiting commit | — | Full template rewrite. Editorial page hero + featured post (hero_feature_card) + filter chips (inert stubs) + mosaic grid + related categories + featured author card. Simplified data flow (flat post pages instead of cycling LiveComponents). 14 new tests. 0 new failures vs baseline. |
+| 5–6 | Tag, Notifications, Onboarding | ⬜ Not started | — | Tag browse (#17) is next. |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
 ---

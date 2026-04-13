@@ -30,7 +30,7 @@ defmodule BlocksterV2Web.DesignSystem.PostCardTest do
       assert html =~ "The quiet revolution of on-chain liquidity pools"
       assert html =~ "Marcus Verren"
       assert html =~ "8 min"
-      assert html =~ "+45"
+      assert html =~ "45"
     end
 
     test "renders without optional hub, author, read_minutes, and bux_reward" do

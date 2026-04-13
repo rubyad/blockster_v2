@@ -1024,7 +1024,7 @@ defmodule BlocksterV2Web.DesignSystem do
     """
   end
 
-  defp format_reward(n) when is_integer(n) and n >= 0, do: "+#{n}"
+  defp format_reward(n) when is_integer(n) and n >= 0, do: "#{n}"
   defp format_reward(s) when is_binary(s), do: s
   defp format_reward(_), do: ""
 
@@ -1188,7 +1188,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 <%= if @bux_reward do %>
                   <div class="ml-auto flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
                     <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
-                    Earn {@bux_reward} BUX
+                    {format_reward(@bux_reward)}
                   </div>
                 <% end %>
               </div>
