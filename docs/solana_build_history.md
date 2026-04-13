@@ -1810,6 +1810,33 @@ Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + r
 **Files created:** `notifications_redesign_plan.md`, 3 legacy files, `index_test.exs` (33 tests).
 **Tests:** 33 new tests, all pass. 0 new failures vs baseline.
 
+### Wave 6 Page #19: Onboarding Flow (2026-04-13)
+
+**Scope:** Visual refresh (Bucket B) of the 8-step onboarding wizard at `/onboarding` and `/onboarding/:step`. No mock — designed from DS spec per decision D11. This is the **last page** of the redesign release.
+
+**What was done:**
+- Full template rewrite: `render/1` and all 8 step components (`welcome_step`, `migrate_email_step`, `redeem_step`, `profile_step`, `phone_step`, `email_step`, `x_step`, `complete_step`) + `progress_bar` (replaces `progress_dots`)
+- Applied DS color tokens: `bg-[#fafaf9]` eggshell background, `#141414`/`#343434`/`#6B7280`/`#9CA3AF` text hierarchy, `#0a0a0a` dark buttons, `#CAFC00` lime accents
+- Applied DS typography: `tracking-[-0.022em]` display headings, eyebrow-pattern step indicators (`text-[10px] font-bold tracking-[0.16em] uppercase`), `font-mono` for multiplier values and countdown timers
+- Cards: white `rounded-2xl` with subtle shadow + `border-neutral-100` wrapping each step
+- Inputs: `rounded-xl` with `border-neutral-200`, `focus:ring-2 focus:ring-[#0a0a0a]`
+- Buttons: `bg-[#0a0a0a] rounded-xl` primary, `bg-[#f5f5f4] rounded-xl` secondary
+- Progress indicator: segmented horizontal bar (replaces dot indicators)
+- Success badges: `bg-emerald-50 border-emerald-200 rounded-full` with filled checkmark SVGs (replaces simple text checkmarks)
+- Complete step checklist: proper circular check indicators with emerald SVG icons (not ✓/○ text)
+- Route kept on `:onboarding` live_session (intentionally no DS header/footer)
+- Legacy file preserved at `onboarding_live/legacy/index_pre_redesign.ex`
+- All 14 `handle_event` callbacks, 4 `handle_info` callbacks, and all helper functions preserved exactly — zero behavior changes
+- PhoneNumberFormatter JS hook preserved on phone input
+
+**Visual changes from old design:**
+- Old: `bg-white` plain white background, dot progress indicators, `font-haas_medium_65`/`font-haas_roman_55` fonts, `rounded-full` buttons, `bg-gray-100` secondary buttons, green-50/red-50 alerts, `bg-gray-50` multiplier cards
+- New: `bg-[#fafaf9]` eggshell, segmented progress bar, DS typography tokens, `rounded-xl` buttons, `bg-[#f5f5f4]` secondary, emerald-50/red-50 alerts with `rounded-xl`, `bg-[#fafaf9]` multiplier cards, white card wrapper for step content
+
+**Files changed:** `onboarding_live/index.ex` (template rewritten, handlers untouched).
+**Files created:** `onboarding_redesign_plan.md`, `onboarding_live/legacy/index_pre_redesign.ex`.
+**Tests:** 9 new template assertions + 9 existing handler/logic tests = 18 total, all pass. 0 new failures vs baseline.
+
 ---
 
 ## Gotchas for the next session (read before starting a new page)

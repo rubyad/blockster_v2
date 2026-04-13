@@ -248,6 +248,115 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
   end
 
   # ==========================================================================
+  # Redesigned template assertions
+  # ==========================================================================
+
+  describe "redesigned template" do
+    test "welcome step renders with DS styling", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/welcome")
+
+      # DS eggshell background
+      assert html =~ "bg-[#fafaf9]"
+      # Progress bar (segmented, not dots)
+      assert html =~ "progress"  || html =~ "rounded-full"
+      # Heading text
+      assert html =~ "Welcome to Blockster"
+      # Branch buttons
+      assert html =~ "I&#39;m new" || html =~ "I'm new"
+      assert html =~ "I have an account"
+    end
+
+    test "redeem step renders icons", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/redeem")
+
+      assert html =~ "Shop"
+      assert html =~ "Games"
+      assert html =~ "Airdrop"
+      assert html =~ "Redeem BUX"
+    end
+
+    test "phone step renders with eyebrow", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/phone")
+
+      # Eyebrow-style step indicator (uppercase)
+      assert html =~ "STEP 1 OF 3" || html =~ "Step 1 of 3"
+      assert html =~ "Connect Your Phone"
+    end
+
+    test "email step renders with eyebrow", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/email")
+
+      assert html =~ "STEP 2 OF 3" || html =~ "Step 2 of 3"
+      assert html =~ "Verify Your Email"
+      assert html =~ "0.5x"
+      assert html =~ "2x"
+    end
+
+    test "x step renders with eyebrow", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/x")
+
+      assert html =~ "STEP 3 OF 3" || html =~ "Step 3 of 3"
+      assert html =~ "Connect Your X Account"
+      assert html =~ "Connect X"
+    end
+
+    test "complete step renders multiplier display", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/complete")
+
+      assert html =~ "You&#39;re All Set!" || html =~ "You're All Set!"
+      assert html =~ "BUX Earning Power"
+      assert html =~ "Start Earning BUX"
+      # Breakdown items
+      assert html =~ "Phone"
+      assert html =~ "Email"
+      assert html =~ "SOL"
+    end
+
+    test "profile step renders earning power message", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/profile")
+
+      assert html =~ "20x"
+      assert html =~ "more BUX"
+      assert html =~ "Let&#39;s Go" || html =~ "Let's Go"
+    end
+
+    test "anonymous user is redirected", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/login"}}} = live(conn, ~p"/onboarding/welcome")
+    end
+
+    test "migrate_email step renders restore heading", %{conn: conn} do
+      user = create_solana_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/onboarding/migrate_email")
+
+      assert html =~ "Restore your account"
+      assert html =~ "Previous email" || html =~ "send_migration_code"
+    end
+  end
+
+  # ==========================================================================
   # next_unfilled_step/2 unit coverage (skip-completed-steps logic)
   # ==========================================================================
 

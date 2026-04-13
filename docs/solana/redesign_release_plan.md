@@ -456,7 +456,7 @@ Every stub introduced during the build gets added here so the next release knows
 | 5 | Category browse | ✅ Done | `4e1a776` | Full template rewrite. Editorial page hero + featured post (hero_feature_card) + filter chips (inert stubs) + mosaic grid + related categories + featured author card. Simplified data flow (flat post pages instead of cycling LiveComponents). 14 new tests. 0 new failures vs baseline. |
 | 5 | Tag browse | ✅ Done | `7f9475a` | Full template rewrite. Compact hero + 3-col post grid + related tags chip cloud. Flat page streaming (no cycling LiveComponents). 13 new tests. 0 new failures vs baseline. |
 | 6 | Notifications | ✅ Done | `17670b6` | DS header/footer on all 3 notification routes (/notifications, /notifications/referrals, /notifications/settings). Compact hero + filter chips + notification list + referral dashboard + settings page. All handlers preserved. 33 new tests. 0 new failures vs baseline. |
-| 6 | Onboarding | ⬜ Not started | — | Onboarding (#19) is next. |
+| 6 | Onboarding | 🔧 Built, awaiting commit | — | Full template rewrite. DS color tokens + typography + card patterns + segmented progress bar. 8 step components restyled. All 14 handlers preserved. Route stays on `:onboarding` (intentionally no DS header/footer). 9 new tests (18 total). 0 new failures vs baseline. |
 | 7 | Cutover | ⬜ Blocked | — | Waiting for all pages to be done + user says "deploy" |
 
 ---
