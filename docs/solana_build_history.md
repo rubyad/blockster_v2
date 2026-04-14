@@ -9,6 +9,58 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 2b (2026-04-14) ✅
+
+Foundation glue that sits between the Phase 2a backend (pollers, selector, router, caches) and the Phase 3+ widget components. No runtime behaviour change — CSS loads only when a `.bw-widget` element is rendered, fonts are CDN-hosted, the macro is opt-in via `use`, the dispatcher raises for widget types that don't exist yet. `WIDGETS_ENABLED` stays `false` everywhere.
+
+**Design tokens + fonts**
+- `assets/css/widgets.css` — scoped under `.bw-widget`. Full color-token block (`--bw-bg`, `--bw-card`, `--bw-primary`, `--bw-green`, `--bw-rogue-orange`, `--bw-fate-orange`, 5 group accents, rainbow brand gradient), `--bw-font-display` / `--bw-font-mono` variables, `.bw-display` / `.bw-mono` classes, `.bw-card` / `.bw-card-hover` / `.bw-shell` / `.bw-shell-bg-grid` utilities, `bw-pulse-dot` / `bw-pulse-ring` / `bw-flash-new` / `bw-flash-up` / `bw-flash-down` keyframe animations, custom `.bw-scroll` scrollbar. Every selector is descendant-scoped (`.bw-widget .bw-card`, etc.) so RogueTrader/FateSwap's dark tokens never leak into Blockster's white design system — a widget root that forgets the `bw-widget` class just renders unstyled rather than breaking the host page.
+- `assets/css/app.css` — `@import "./widgets.css"` after the Tailwind `@source` directives.
+- `lib/blockster_v2_web/components/layouts/root.html.heex` — `<link rel="preconnect" href="https://api.fontshare.com">` added beside the existing `fonts.googleapis.com` / `fonts.gstatic.com` preconnects, plus Satoshi (400/500/700/900) and JetBrains Mono (400/500/600/700) stylesheets with `display=swap`. Accepts a brief reflow rather than blocking paint.
+
+**WidgetEvents macro** (`lib/blockster_v2_web/live/widget_events.ex`)
+- `use BlocksterV2Web.WidgetEvents` installs `mount_widgets/2`, four `handle_info` clauses (`:fs_trades`, `:rt_bots`, `:rt_chart`, `:selection_changed`), and `handle_event("widget_click", …)` on the host LiveView.
+- `mount_widgets/2` is gated on `Phoenix.LiveView.connected?/1` so the disconnected HTTP render never subscribes or increments. Connected mount subscribes to `widgets:fateswap:feed`, `widgets:roguetrader:bots`, and — for every banner whose `widget_type` is non-nil — `widgets:selection:#{banner.id}`. It also pre-subscribes to `widgets:roguetrader:chart:#{bot}_#{tf}` for any RogueTrader selection already cached in `widget_selections` so the first chart update doesn't miss.
+- Impressions are incremented exactly once per widget banner per connected mount via `Ads.increment_impressions/1` (integer arity — the Phase 2a dual-arity overload).
+- Initial assigns are seeded from local Mnesia (`FateSwapFeedTracker.get_trades/0`, `RogueTraderBotsTracker.get_bots/0`, `RogueTraderChartTracker.get_series/2`) so first paint is never empty. Non-leader nodes hit their own replica, no cross-node call.
+- `handle_info({:selection_changed, _, nil}, …)` is a deliberate no-op. `WidgetSelector` returns `nil` for unknown modes + no-candidate-yet cases; pushing an event with a nil subject would break downstream JS hooks.
+- `handle_event("widget_click", …)` normalises the subject before calling `ClickRouter.url_for/2`: the DOM sends `{bot_id, tf}` back as the JSON map `%{"bot_id" => _, "tf" => _}` (atom keys stringify on the wire), which the macro converts back to a tuple. Binary order_ids and `"rt"` / `"fs"` strings pass through unchanged. `banner_id` arrives as a string from `phx-value-banner_id` and is parsed to an integer — unparseable ids short-circuit without touching `Ads.increment_clicks`.
+
+**widget_or_ad dispatcher** (`lib/blockster_v2_web/components/widget_components.ex`)
+- Single function component. `widget_type: nil` renders `<BlocksterV2Web.DesignSystem.ad_banner banner={...} />` — existing image-ad path, untouched.
+- Known widget_type (any of the 14 in `Banner.valid_widget_types()`) raises `ArgumentError` with the message `"widget component not yet implemented (Phase 3+): #{type}"`. Explicit failure beats a silent blank slot while the component modules don't exist yet.
+- Unknown widget_type raises with `"unknown widget_type: ..."` so mis-typed admin configs surface loudly rather than silently falling through to `ad_banner` (which would need a non-existent `image_url`).
+
+**Tests** — 28 new (2775 total / 117 failures; Phase 2a baseline was 2747 / 117 — zero new failures, all pre-existing flakes).
+- `test/support/widget_events_test_host.ex` — minimal `use Phoenix.LiveView` + `use BlocksterV2Web.WidgetEvents` host that reads `Ads.list_widget_banners/0` at mount and calls `mount_widgets/2`. Exercised via `Phoenix.LiveViewTest.live_isolated/3`.
+- `test/blockster_v2_web/live/widget_events_test.exs` (12 tests) — PubSub subscription verification (broadcasts on each topic then checks `assert_push_event`), impression increment once per banner + zero for nil-widget-type banners, all four `handle_info` clauses (`:fs_trades`, `:rt_bots`, `:selection_changed` for `{bot_id, tf}` + order_id + nil), all four `handle_event("widget_click", …)` subject shapes (tuple-from-map, binary order_id, `"rt"`, `"fs"`) with click-counter increment and redirect URL assertion.
+- `test/blockster_v2_web/components/widget_components_test.exs` (16 tests) — nil widget_type renders the image ad fallback (HTML contains `image_url` + `target="_blank"`), every valid `widget_type` raises with the Phase-3+ message, unrecognised widget_type raises with the unknown-type message.
+
+**Test infra notes (carry forward to Phase 3)**
+- `live_isolated/3` gives the macro a real connected-mount lifecycle without needing a route. The host LV lives under `test/support/` so the macro can be re-exercised by future widget-component tests.
+- `assert_push_event(view, event, payload)` accepts a pinned variable for the event name (`^event_name`) — bind the interpolated string to a variable before calling. `refute_push_event` does NOT accept pinning (it parses `event` as a literal pattern inside a `receive do`), so for "no push" assertions with a dynamic banner_id, prefer verifying side effects (impressions counter, liveness via follow-up broadcast) instead of trying to refute a specific event name.
+- `render_hook(view, "widget_click", params)` returns `{:error, {:redirect, %{to: url, status: 302}}}` for `redirect(socket, external: url)` — the test boundary normalises `:external` to `:to`. The production code still uses `external:` semantics (the HTTP response carries the external URL).
+
+**Files created**
+- `assets/css/widgets.css`
+- `lib/blockster_v2_web/live/widget_events.ex`
+- `lib/blockster_v2_web/components/widget_components.ex`
+- `test/support/widget_events_test_host.ex`
+- `test/blockster_v2_web/live/widget_events_test.exs`
+- `test/blockster_v2_web/components/widget_components_test.exs`
+
+**Files modified**
+- `assets/css/app.css` — added `@import "./widgets.css"`
+- `lib/blockster_v2_web/components/layouts/root.html.heex` — Satoshi + JetBrains Mono `<link>` tags and `api.fontshare.com` preconnect
+
+**Plan deviations honored**
+- `refute_push_event` with an interpolated event name doesn't compile — the macro pastes the event AST into a `receive do` pattern, and `^banner_event` is not a legal top-level expression outside a match. The nil-widget and nil-subject tests verify the absence of the effect indirectly (impressions counter stays 0 in one case; a follow-up `{:fs_trades, []}` round-trips successfully in the other, proving the LV didn't crash).
+- LiveViewTest normalises `redirect(socket, external: url)` to `%{to: url}` in the test-harness return value. Tests match on `:to` but the production call still uses `external:`.
+
+**Next**: Phase 3 — skyscrapers. `rt_skyscraper` and `fs_skyscraper` components + JS hooks, wire `WidgetEvents` into `PostLive.Show`, remove the static rt-widget HTML in `show.html.heex` lines 979–1180, insert seed banner rows on `sidebar_right` (RT) and `sidebar_left` (FS). Plan: [solana/realtime_widgets_plan.md](solana/realtime_widgets_plan.md) §"Phase 3".
+
+---
+
 ## Real-Time Widgets — Phase 2a (2026-04-14) ✅
 
 Blockster-side backend foundation for the live sister-app widgets shipped. Feature-flagged behind `WIDGETS_ENABLED` so pollers stay off in dev/test/prod until Phase 2b + 3 are landed and a production deploy explicitly flips them on. Sister-app APIs from Phase 1 unchanged.

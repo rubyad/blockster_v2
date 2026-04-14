@@ -6,6 +6,9 @@
 @source "../js";
 @source "../../lib/blockster_v2_web";
 
+/* Real-time widgets — scoped under `.bw-widget` (see assets/css/widgets.css). */
+@import "./widgets.css";
+
 /* Tailwind Typography plugin for prose styling */
 @plugin "@tailwindcss/typography";
 
