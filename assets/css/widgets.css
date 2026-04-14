@@ -101,3 +101,45 @@
 .bw-widget .bw-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.20);
 }
+
+/* ────────────────────────────────────────────────────────────
+ * Marquee (shared by rt_ticker, fs_ticker)
+ * Each ticker duplicates its item list in the HTML so the
+ * translateX(-50%) animation produces a seamless loop.
+ * ──────────────────────────────────────────────────────────── */
+@keyframes bw-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.bw-widget .bw-marquee {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+}
+.bw-widget .bw-marquee-track {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: max-content;
+  animation: bw-marquee-scroll 60s linear infinite;
+}
+.bw-widget .bw-marquee-track--slow { animation-duration: 70s; }
+.bw-widget .bw-marquee:hover .bw-marquee-track,
+.bw-widget .bw-ticker:hover .bw-marquee-track { animation-play-state: paused; }
+
+/* ────────────────────────────────────────────────────────────
+ * Leaderboard rows — per-row hover, not whole widget
+ * ──────────────────────────────────────────────────────────── */
+.bw-widget .bw-lb-row { transition: background 140ms ease; cursor: pointer; }
+.bw-widget .bw-lb-row:hover { background: var(--bw-row-hover); }
+
+/* ────────────────────────────────────────────────────────────
+ * FsHero cross-fade — triggered by JS hook on selection change
+ * ──────────────────────────────────────────────────────────── */
+@keyframes bw-fs-hero-fade {
+  from { opacity: 0.0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.bw-widget .bw-fs-hero-fade { animation: bw-fs-hero-fade 250ms ease-out 1; }

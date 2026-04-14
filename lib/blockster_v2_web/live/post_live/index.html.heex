@@ -33,17 +33,30 @@
   show_why_earn_bux={true}
 />
 
-<%!-- Existing homepage top banners (preserved verbatim from the previous template) --%>
+<%!-- Homepage top banners: widget banners (rt_ticker / fs_ticker) render
+     via the widget_or_ad dispatcher. Legacy image banners (widget_type nil)
+     fall through to the pre-existing <img>/<a> template so we don't break
+     anything already running. --%>
 <%= if @homepage_top_desktop_banners != [] do %>
   <% banner = Enum.random(@homepage_top_desktop_banners) %>
   <div class="hidden md:block bg-[#fafaf9] pt-8">
     <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
-      <%= if banner.link_url do %>
-        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-2xl overflow-hidden">
-          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
-        </a>
+      <%= if banner.widget_type do %>
+        <BlocksterV2Web.WidgetComponents.widget_or_ad
+          banner={banner}
+          bots={@rt_bots}
+          trades={@fs_trades}
+          selections={@widget_selections}
+          chart_data={@widget_chart_data}
+        />
       <% else %>
-        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-2xl" />
+        <%= if banner.link_url do %>
+          <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-2xl overflow-hidden">
+            <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+          </a>
+        <% else %>
+          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block rounded-2xl" />
+        <% end %>
       <% end %>
     </div>
   </div>
@@ -52,12 +65,22 @@
 <%= if @homepage_top_mobile_banners != [] do %>
   <% banner = Enum.random(@homepage_top_mobile_banners) %>
   <div class="md:hidden">
-    <%= if banner.link_url do %>
-      <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
-        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
-      </a>
+    <%= if banner.widget_type do %>
+      <BlocksterV2Web.WidgetComponents.widget_or_ad
+        banner={banner}
+        bots={@rt_bots}
+        trades={@fs_trades}
+        selections={@widget_selections}
+        chart_data={@widget_chart_data}
+      />
     <% else %>
-      <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+      <%= if banner.link_url do %>
+        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block">
+          <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+        </a>
+      <% else %>
+        <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
+      <% end %>
     <% end %>
   </div>
 <% end %>

@@ -389,4 +389,65 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       assert html =~ "—"
     end
   end
+
+  describe "GET /:slug · Phase 5 widget wiring" do
+    setup do
+      BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia(%{})
+      :ok
+    end
+
+    test "fs_hero_portrait banner on article_inline_2 renders the selected order with third-person copy",
+         %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "fs-hero-portrait-seeded",
+          placement: "article_inline_2",
+          widget_type: "fs_hero_portrait",
+          widget_config: %{"selection" => "biggest_profit"}
+        })
+
+      trades = [
+        %{
+          "id" => "ord-picked",
+          "side" => "buy",
+          "filled" => true,
+          "status_text" => "ORDER FILLED",
+          "token_symbol" => "JUP",
+          "sol_amount_ui" => 0.05,
+          "payout_ui" => 633.12,
+          "payout_usd" => 4.75,
+          "sol_usd" => 4.30,
+          "multiplier" => 1.10,
+          "discount_pct" => 9.5,
+          "profit_ui" => 57.55,
+          "profit_usd" => 0.45,
+          "profit_pct" => 10.0,
+          "fill_chance_pct" => 40.0,
+          "tx_signature" => "tx5k3ZHxaaaaaaaaaaaaaaaaaaaaaaaaaaaaaav95Rz6",
+          "settled_at" => System.system_time(:second) - 60
+        }
+      ]
+
+      :mnesia.dirty_write({:widget_fs_feed_cache, :singleton, trades, System.system_time(:second)})
+
+      :mnesia.dirty_write(
+        {:widget_selections, banner.id, "fs_hero_portrait", "ord-picked",
+         System.system_time(:second)}
+      )
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(data-widget-type="fs_hero_portrait")
+      assert html =~ ~s(phx-hook="FsHeroWidget")
+      # Selected order's data present
+      assert html =~ "JUP"
+      assert html =~ "633.12"
+      # Third-person copy
+      assert html =~ "Trader Received"
+      assert html =~ "Trader Paid"
+      refute html =~ "You received"
+    end
+  end
 end

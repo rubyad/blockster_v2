@@ -1122,16 +1122,30 @@ Split into 2a (backend + schema) and 2b (foundation glue — CSS, fonts, macro, 
 6. **`switch_timeframe` event is a no-op on the server** — tf pills update visual state + push the event, but no LV handler consumes it yet. Phase 4 keeps `WidgetSelector` in charge of picks; a manual-override handler lands later.
 7. **No chart-header visual polish (flash-on-change price, "updated X ago")** — the server re-renders the header via morphdom on every `{:rt_bots, bots}` tick, so the text updates naturally. The skyscraper flash pattern (cached snapshot + compare in `updated/0`) can be ported in Phase 6 polish if the text feels stale.
 
-### Phase 5 — Tickers + leaderboard + FateSwap heroes
+### Phase 5 ✅ COMPLETE (2026-04-14)
 
-- [ ] `rt_ticker` component + `RtTickerWidget` hook (CSS marquee + live data swap)
-- [ ] `fs_ticker` component + `FsTickerWidget` hook
-- [ ] `rt_leaderboard_inline` component + `RtLeaderboardWidget` hook
-- [ ] `fs_hero_portrait` component + `FsHeroWidget` hook
-- [ ] `fs_hero_landscape` component (shares `FsHeroWidget` hook)
-- [ ] Add `homepage_top_desktop` / `homepage_top_mobile` ticker support to `PostLive.Index`
-- [ ] FateSwap selection wired end-to-end
-- [ ] Visual QA — confirm pixel-match against images #5, #6
+- [x] `rt_ticker` component + `RtTickerWidget` hook (CSS marquee + live data swap)
+- [x] `fs_ticker` component + `FsTickerWidget` hook
+- [x] `rt_leaderboard_inline` component + `RtLeaderboardWidget` hook (per-row click via JS-side `pushEvent` with `{bot_id, tf: "7d"}` to route through `/bot/:slug` without `ClickRouter` changes)
+- [x] `fs_hero_portrait` component + `FsHeroWidget` hook (third-person copy; Swap Complete badge for filled orders; Fill chance + TX hash footer, no Roll number)
+- [x] `fs_hero_landscape` component (shares `FsHeroWidget` hook) — 2×2 stat grid + conviction bar with rainbow gradient marker + FATESWAP footer
+- [x] `fs_hero_helpers.ex` — shared formatter/resolver module (sibling to `rt_chart_helpers.ex`)
+- [x] `homepage_top_desktop` / `homepage_top_mobile` ticker support added to `PostLive.Index` (branch on `banner.widget_type`; legacy image banners still fall through)
+- [x] FateSwap selection wired end-to-end — `WidgetEvents` already pushes `widget:<banner_id>:select` with `{order_id, order}`; `FsHeroWidget` replays the `bw-fs-hero-fade` CSS animation on receipt
+- [x] Seed script extended with 5 new Phase 5 rows (`priv/repo/seeds_widget_banners.exs`)
+- [x] Tests — 52 new (2878 total / 119 failures at seed 0 — zero new failures vs the 2826 / 119 Phase 4 baseline). 5 component test files + updated dispatcher test + `Phase 5 widget wiring` describes in `show_test.exs` + `index_test.exs`.
+- [ ] Visual QA (not attempted this session — no browser access). Run `WIDGETS_ENABLED=true bin/dev` + `mix run priv/repo/seeds_widget_banners.exs` and eyeball an article page + the homepage.
+
+**Phase 5 deviations (load-bearing for Phase 6+)**
+
+1. **Leaderboard rows use JS-side `pushEvent` with `{bot_id, tf: "7d"}`** rather than extending `ClickRouter`. Adding a binary-→-bot clause would collide with the existing binary-→-FateSwap-order-id clause. `ClickRouter` was NOT modified.
+2. **Leaderboard widget root has no `phx-click`.** The footer CTA is a separate region with `phx-click="widget_click" phx-value-subject="rt"`. Rows bind via the hook. Avoids bubbling ambiguity entirely — no `stopPropagation` needed.
+3. **`fs_ticker` PnL pill shows "NOT FILLED" literal** when `filled: false`, not a negative percent. The discount% of an unfilled order isn't profit information, and "−9.1%" would be misleading.
+4. **`fs_hero_landscape` footer falls back to "Open FateSwap →"** when `tx_signature` is absent. Avoids an empty right-side region.
+5. **`fs_hero` components accept an optional `order_override :map` assign** — reserved for future push-driven overrides from the hook when the tracker hasn't yet caught up to a freshly settled order. Dispatcher doesn't wire it today; server diff remains the primary render path.
+6. **Shared `bw-ticker` + `bw-marquee` hover selectors** — both `.bw-ticker:hover .bw-marquee-track` and `.bw-marquee:hover .bw-marquee-track` are declared so the hover-pause works regardless of whether the inner `.bw-marquee` contains the track (e.g. empty-state fallback).
+7. **Tickers' JS hooks don't mutate the DOM** — they only cache previous values in `updated/0` and apply `bw-flash-up` / `bw-flash-down` / `bw-flash-new` on deltas. The server re-renders the row list via the LiveView diff. Fighting the diff with JS writes was avoided.
+8. **`fs_hero` components use `FsHeroHelpers.conviction_marker_pct/1`** which INVERTS the fill chance (low fill chance → further right on the rainbow). Rainbow gradient is green (low risk) → yellow → red (high risk); a 90% fill chance is conservative so the marker sits near the green end.
 
 ### Phase 6 — Mobile, admin, tracking, polish
 

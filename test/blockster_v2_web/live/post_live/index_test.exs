@@ -198,4 +198,46 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
       assert html =~ "LIVE"
     end
   end
+
+  describe "GET / · Phase 5 widget wiring" do
+    setup do
+      BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia(%{})
+      :ok
+    end
+
+    test "rt_ticker banner on homepage_top_desktop renders the ticker hook + bot row", %{
+      conn: conn
+    } do
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "homepage-top-rt-ticker",
+          placement: "homepage_top_desktop",
+          widget_type: "rt_ticker",
+          widget_config: %{}
+        })
+
+      bots = [
+        %{
+          "bot_id" => "kronos",
+          "slug" => "kronos",
+          "name" => "KRONOS",
+          "group_name" => "equities",
+          "bid_price" => 0.1023,
+          "ask_price" => 0.1026,
+          "lp_price" => 0.1023,
+          "lp_price_change_24h_pct" => 3.24
+        }
+      ]
+
+      :mnesia.dirty_write({:widget_rt_bots_cache, :singleton, bots, System.system_time(:second)})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(phx-hook="RtTickerWidget")
+      assert html =~ ~s(data-widget-type="rt_ticker")
+      assert html =~ "KRONOS"
+      # CSS marquee duplicate set
+      assert html =~ "bw-marquee-track"
+    end
+  end
 end

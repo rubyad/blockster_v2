@@ -23,6 +23,11 @@ defmodule BlocksterV2Web.WidgetComponents do
   import BlocksterV2Web.Widgets.RtChartPortrait, only: [rt_chart_portrait: 1]
   import BlocksterV2Web.Widgets.RtFullCard, only: [rt_full_card: 1]
   import BlocksterV2Web.Widgets.RtSquareCompact, only: [rt_square_compact: 1]
+  import BlocksterV2Web.Widgets.RtTicker, only: [rt_ticker: 1]
+  import BlocksterV2Web.Widgets.FsTicker, only: [fs_ticker: 1]
+  import BlocksterV2Web.Widgets.RtLeaderboardInline, only: [rt_leaderboard_inline: 1]
+  import BlocksterV2Web.Widgets.FsHeroPortrait, only: [fs_hero_portrait: 1]
+  import BlocksterV2Web.Widgets.FsHeroLandscape, only: [fs_hero_landscape: 1]
 
   @known_widget_types Banner.valid_widget_types()
 
@@ -92,6 +97,44 @@ defmodule BlocksterV2Web.WidgetComponents do
       bots={@bots}
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_ticker"}} = assigns) do
+    ~H"""
+    <.rt_ticker banner={@banner} bots={@bots} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_ticker"}} = assigns) do
+    ~H"""
+    <.fs_ticker banner={@banner} trades={@trades} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_leaderboard_inline"}} = assigns) do
+    ~H"""
+    <.rt_leaderboard_inline banner={@banner} bots={@bots} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_hero_portrait"}} = assigns) do
+    ~H"""
+    <.fs_hero_portrait
+      banner={@banner}
+      trades={@trades}
+      selection={Map.get(@selections, @banner.id)}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_hero_landscape"}} = assigns) do
+    ~H"""
+    <.fs_hero_landscape
+      banner={@banner}
+      trades={@trades}
+      selection={Map.get(@selections, @banner.id)}
     />
     """
   end

@@ -67,6 +67,53 @@ banners = [
     link_url: "https://roguetrader.io",
     is_active: true,
     sort_order: 40
+  },
+
+  # ── Phase 5 (tickers, leaderboard, FateSwap heroes) ─────────────────────
+  %{
+    name: "RogueTrader · Ticker · homepage top desktop",
+    placement: "homepage_top_desktop",
+    widget_type: "rt_ticker",
+    widget_config: %{},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 50
+  },
+  %{
+    name: "FateSwap · Ticker · homepage top mobile",
+    placement: "homepage_top_mobile",
+    widget_type: "fs_ticker",
+    widget_config: %{},
+    link_url: "https://fateswap.io",
+    is_active: true,
+    sort_order: 60
+  },
+  %{
+    name: "RogueTrader · Leaderboard · homepage inline desktop",
+    placement: "homepage_inline_desktop",
+    widget_type: "rt_leaderboard_inline",
+    widget_config: %{},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 70
+  },
+  %{
+    name: "FateSwap · Hero portrait · biggest profit",
+    placement: "article_inline_2",
+    widget_type: "fs_hero_portrait",
+    widget_config: %{"selection" => "biggest_profit"},
+    link_url: "https://fateswap.io",
+    is_active: true,
+    sort_order: 80
+  },
+  %{
+    name: "FateSwap · Hero landscape · biggest discount",
+    placement: "homepage_inline",
+    widget_type: "fs_hero_landscape",
+    widget_config: %{"selection" => "biggest_discount"},
+    link_url: "https://fateswap.io",
+    is_active: true,
+    sort_order: 90
   }
 ]
 

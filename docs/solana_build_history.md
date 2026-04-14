@@ -9,6 +9,64 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 5 (2026-04-14) ✅
+
+Tickers + leaderboard + FateSwap hero cards shipped. The five new widgets (`rt_ticker`, `fs_ticker`, `rt_leaderboard_inline`, `fs_hero_portrait`, `fs_hero_landscape`) finish the "all-data" and "self-selected FateSwap" halves of the catalog; the three sidebar-tile variants (`rt_sidebar_tile`, `fs_square_compact`, `fs_sidebar_tile`) remain for Phase 6 polish.
+
+**Components** (`lib/blockster_v2_web/components/widgets/`)
+- `rt_ticker.ex` — full × 56 (mobile 48). Brand lock-up + LIVE pill on the left, CSS marquee in the middle (item list duplicated so `translateX(-50%)` loops seamlessly), "View all AI Bots →" CTA on the right. Each item: group dot + bot name + bid (green) / ask (red) + change% pill. `phx-click="widget_click"` + `phx-value-subject="rt"` on the root — whole-widget click routes to `roguetrader.io` via `ClickRouter`. Server sorts by `lp_price` desc, caps at 30, never trusts upstream order.
+- `fs_ticker.ex` — full × 56 (mobile 48). Same marquee shell as `rt_ticker`. Items: side arrow (↗ buy / ↘ sell), token logo + symbol, amount, profit/loss pill. PnL pill reads from `multiplier` or `discount_pct` (or literal "NOT FILLED" for unfilled orders). Caps at 20 trades. `subject="fs"` → `fateswap.io`.
+- `rt_leaderboard_inline.ex` — full × ~480 (mobile full × auto, 2-col card grid). Desktop table: rank · bot name + group tag + archetype · LP bid/ask · 1h · 24h · AUM. **Per-row clicks route to `/bot/:slug` (Decision #7 exception).** Footer "View all AI Bots →" is a separate `phx-click` region with `subject="rt"`. The widget root has no `phx-click` — the JS hook wires row-level listeners.
+- `fs_hero_helpers.ex` — sibling to `rt_chart_helpers.ex`. Centralises `resolve_order/3` (looks up the selected order in the trade list, or uses an `order_override` map pushed by the hook), `status/1` → `{label, class}` pairs for the pill variants, `action_verb/1` (Bought / Sold), `paid_label/1` (Trader Paid / Trader Sold), `discount_kind/1` (discount / premium), `format_token_qty/1` + `format_sol/1` + `format_usd/1` + `format_percent/1` + `format_profit_with_sign/1` + `format_profit_pct/1`, `profit_color/1`, `fill_chance/1`, `conviction_label/1`, `conviction_marker_pct/1` (inverts fill chance — low fill chance sits at the red end of the rainbow), `wallet_label/1`, `tx_label/1`, `relative_time/1`, `quote_text/1`, `tagline/0`.
+- `fs_hero_portrait.ex` — 440 × ~720 (mobile full × ~640). Gradient tagline, status pill, "Bought X TOKEN at Y% discount" headline (**third-person copy** per Phase 0 locked-in decision — Trader Received / Trader Paid, not You), stacked Received + Paid boxes, Profit row, Swap Complete badge (filled orders only), Fill chance + TX hash footer (no Roll number per Phase 0).
+- `fs_hero_landscape.ex` — full × ~480 (mobile full × auto). Wider variant: inline Solana DEX + gradient tagline header, big 42px headline, 2×2 stat grid (Trader Received / Trader Paid / Profit / Fill Chance), Swap Complete badge, conviction bar with rainbow gradient marker, italic quote, FATESWAP footer with "Memecoin trading on steroids." tagline + TX hash.
+
+**Dispatcher** (`lib/blockster_v2_web/components/widget_components.ex`)
+- 5 new dispatch clauses (`rt_ticker`, `fs_ticker`, `rt_leaderboard_inline`, `fs_hero_portrait`, `fs_hero_landscape`) → real component calls. Raises block shrunk to the 3 remaining Phase-6 widgets (`rt_sidebar_tile`, `fs_square_compact`, `fs_sidebar_tile`).
+- `fs_hero_*` clauses pass `selection={Map.get(@selections, @banner.id)}` — the component's `resolve_order/3` looks up the picked order id in `@trades`.
+
+**JS hooks** (`assets/js/hooks/widgets/`)
+- `rt_ticker.js` + `fs_ticker.js` — server re-renders via LiveView diff; hooks only cache prev values in `mounted/0` + `updated/0` and apply `bw-flash-up` / `bw-flash-down` (rt) or `bw-flash-new` (fs) on deltas. No client-side row mutation. The CSS marquee runs purely from `@keyframes bw-marquee-scroll` + `animation-play-state: paused` on hover.
+- `rt_leaderboard.js` — wires per-row click listeners that call `pushEvent("widget_click", { banner_id, subject: { bot_id, tf: "7d" }})`. This mirrors the Phase 4 chart-widget JS-click pattern, sidestepping the ClickRouter ambiguity where a flat binary subject would be treated as a FateSwap order id. Also captures row rectangles in `mounted/0` and runs a simple FLIP slide (translateY) in `updated/0` when a row's rank changes.
+- `fs_hero.js` — shared by portrait + landscape. Listens for `widget:<banner_id>:select`, updates `data-order-id` + the `phx-value-subject` attribute so the next whole-widget click goes to the fresh order's share page, then replays the `bw-fs-hero-fade` CSS animation on the `[data-role="fs-hero-body"]` subtree.
+- All 4 registered in `assets/js/app.js` alongside the Phase 3+4 hooks.
+
+**PostLive.Index integration**
+- `homepage_top_desktop` + `homepage_top_mobile` slots — previously rendered a raw `<img>`/`<a>` block. Now branch on `banner.widget_type`: widget banners dispatch through `widget_or_ad`, legacy image banners still fall through to the old template. Same guard pattern as the Phase 4 `video_player_top` swap in `show.html.heex`.
+- No `mount_widgets/2` signature change — Phase 4 already passed the homepage_top_* banner lists.
+
+**CSS** (`assets/css/widgets.css`)
+- Added `@keyframes bw-marquee-scroll` (shared by both tickers) with `.bw-marquee-track` + `.bw-marquee-track--slow` (70s variant for fs_ticker) and `animation-play-state: paused` on `.bw-marquee:hover` / `.bw-ticker:hover`.
+- Edge-fade masks via `mask-image: linear-gradient(to right, transparent 0, #000 32px, …)` on `.bw-marquee`.
+- `.bw-lb-row` per-row hover + cursor-pointer (whole widget isn't clickable on leaderboards).
+- `@keyframes bw-fs-hero-fade` + `.bw-fs-hero-fade` class — 250ms ease-out cross-fade replayed by the `FsHeroWidget` hook on selection change.
+
+**Seed banners** (`priv/repo/seeds_widget_banners.exs`)
+- 5 new Phase 5 rows — one per widget, each on a distinct placement/selection combo:
+  - `rt_ticker` on `homepage_top_desktop` (no selection — all-data)
+  - `fs_ticker` on `homepage_top_mobile` (no selection — all-data)
+  - `rt_leaderboard_inline` on `homepage_inline_desktop` (no selection — top-10)
+  - `fs_hero_portrait` on `article_inline_2` with `selection: "biggest_profit"`
+  - `fs_hero_landscape` on `homepage_inline` with `selection: "biggest_discount"`
+
+**Tests** — 52 new (2878 total / 119 failures at seed 0; Phase 4 baseline was 2826 / 119 — **zero new failures**).
+- 5 new component test files: `rt_ticker_test.exs` (11), `fs_ticker_test.exs` (11), `rt_leaderboard_inline_test.exs` (10), `fs_hero_portrait_test.exs` (11), `fs_hero_landscape_test.exs` (13). Coverage: root data attrs + hook name + click subject, brand header (logo / LIVE / Solana DEX label / gradient tagline), empty states, data rendering (bot rows / trade rows / leaderboard rows / hero order), caps enforcement (30 bots / 20 trades / 10 rows), server-side sort defensiveness, group-hex coloring, third-person copy assertions for fs_hero (`refute html =~ "You received"`), profit color for filled vs unfilled, Swap Complete badge present only for filled orders, TX/Fill-chance footer (no Roll number), conviction bar + rainbow gradient + marker position, NOT FILLED and sell variants.
+- `widget_components_test.exs` — added render clauses for all 5 widgets, trimmed the `@phase_5_plus` raises list to `@phase_6_plus` (only 3 widgets remain).
+- `show_test.exs` — `GET /:slug · Phase 5 widget wiring` describe: seeds a trade in `widget_fs_feed_cache`, creates an `fs_hero_portrait` banner on `article_inline_2`, seeds a `widget_selections` row pinning `ord-picked`, visits the post, asserts `data-widget-type="fs_hero_portrait"` + token data + third-person copy.
+- `index_test.exs` — `GET / · Phase 5 widget wiring` describe: creates an `rt_ticker` banner on `homepage_top_desktop`, seeds bots in `widget_rt_bots_cache`, visits `/`, asserts `phx-hook="RtTickerWidget"` + bot name + `bw-marquee-track` class (seamless loop duplicate).
+
+**Deviations from plan (load-bearing for Phase 6+)**:
+1. **Leaderboard rows use JS-side `pushEvent` with `{bot_id, tf: "7d"}`** rather than a `ClickRouter` extension. Adding a fallback binary-→-bot clause to `ClickRouter` would collide with the existing binary-→-FateSwap-order-id clause; pushing a structured `{bot_id, tf}` subject reuses the Phase 4 pattern cleanly. `ClickRouter` was NOT modified.
+2. **Outer widget has no `phx-click` on the leaderboard.** The footer CTA is a separate region with `phx-click="widget_click" phx-value-subject="rt"`. Rows are bound by the hook. This avoids any bubbling ambiguity — no need for `stopPropagation` gymnastics in the hook.
+3. **`fs_ticker` PnL pill shows "NOT FILLED" literal** instead of a negative percent when `filled: false`. The discount% of an unfilled order isn't profit information, and printing "−9.1%" would be misleading.
+4. **`fs_hero_landscape` footer falls back to "Open FateSwap →" when no `tx_signature` is present.** Avoids rendering an empty right-side region when the serializer doesn't populate the field.
+5. **`fs_hero` components accept an optional `order_override :map` assign** — unused by the dispatcher today but reserved for future push-driven overrides from the hook when the tracker hasn't yet caught up to a freshly settled order. The server still re-renders the body via the LiveView diff as the primary path.
+6. **Single shared `bw-ticker` class for the outer hover-pause selector** on both tickers, so the CSS selector `.bw-ticker:hover .bw-marquee-track` works consistently regardless of the inner marquee container state. Both `.bw-marquee:hover` and `.bw-ticker:hover` are declared for belt-and-braces.
+
+**Plan/docs updates**: `docs/solana/realtime_widgets_plan.md` Phase 5 checklist marked complete; this build-history entry added; `CLAUDE.md` untouched (no new stable patterns that rise to the level of critical rules).
+
+---
+
 ## Real-Time Widgets — Phase 4 (2026-04-14) ✅
 
 Four RogueTrader chart widgets shipped end-to-end with self-selection wired from tracker → selector → PubSub → `WidgetEvents` macro → `push_event` → `lightweight-charts` Area series. `WIDGETS_ENABLED` stays `false` in dev/test unless explicitly flipped.
