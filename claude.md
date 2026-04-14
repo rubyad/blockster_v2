@@ -107,6 +107,7 @@ Phoenix LiveView application with Elixir backend, serving a web3 content platfor
   - **Buttons/tabs**: Use `bg-gray-900 text-white` (dark) or `bg-gray-100 text-gray-900` (light) — NOT lime
 - **Logo**: `https://ik.imagekit.io/blockster/blockster-icon.png` - via `lightning_icon/1` component
 - **Icons**: Heroicons solid style, pattern: `w-16 h-16 bg-[#CAFC00] rounded-xl` + `w-8 h-8 text-black`
+- **Brand assets (wordmark + icon PNGs, all sizes + transparent/dark variants)**: see [docs/brand_assets.md](docs/brand_assets.md). Origin: `s3://blockster-images/brand/` → served at `https://ik.imagekit.io/blockster/brand/...`
 
 ## Tech Stack
 - **Backend**: Elixir/Phoenix 1.7+ with LiveView
@@ -173,6 +174,12 @@ PORT=4001 elixir --sname node2 -S mix phx.server
 - **Solana network**: Devnet (QuickNode RPC in settler config)
 - **Mnesia**: Stored at `priv/mnesia/{node_name}` — NEVER delete these directories
 - **libcluster**: Auto-discovers `node1`/`node2` in dev via Erlang distribution
+- **Real-time widgets**: `WIDGETS_ENABLED=false` by default. Pollers (FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker) stay dormant unless flipped on. To see live widget data locally:
+  ```bash
+  WIDGETS_ENABLED=true bin/dev             # full cluster — use this, never bin/dev single
+  mix run priv/repo/seeds_widget_banners.exs   # one-time: insert rt_skyscraper + fs_skyscraper banners
+  ```
+  Widgets render their skeleton/empty state with the flag off; live data streams in from `https://roguetrader-v2.fly.dev` + `https://fateswap.fly.dev` once enabled.
 
 ## Deployment
 ```bash

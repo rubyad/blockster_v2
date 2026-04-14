@@ -16,15 +16,32 @@ defmodule BlocksterV2Web.WidgetComponents do
 
   alias BlocksterV2.Ads.Banner
 
+  import BlocksterV2Web.Widgets.FsSkyscraper, only: [fs_skyscraper: 1]
+  import BlocksterV2Web.Widgets.RtSkyscraper, only: [rt_skyscraper: 1]
+
   @known_widget_types Banner.valid_widget_types()
 
   attr :banner, :map, required: true
+  attr :bots, :list, default: []
+  attr :trades, :list, default: []
   attr :class, :string, default: nil
   attr :rest, :global
 
   def widget_or_ad(%{banner: %{widget_type: nil}} = assigns) do
     ~H"""
     <BlocksterV2Web.DesignSystem.ad_banner banner={@banner} class={@class} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_skyscraper"}} = assigns) do
+    ~H"""
+    <.fs_skyscraper banner={@banner} trades={@trades} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_skyscraper"}} = assigns) do
+    ~H"""
+    <.rt_skyscraper banner={@banner} bots={@bots} />
     """
   end
 

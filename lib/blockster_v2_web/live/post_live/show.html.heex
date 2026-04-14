@@ -464,6 +464,19 @@
             </.link>
 
           </div>
+
+          <%= if @left_sidebar_banners != [] do %>
+            <div class="mt-6 space-y-4">
+              <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-1.5 font-bold pl-1">Sponsored</div>
+              <%= for banner <- @left_sidebar_banners do %>
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                />
+              <% end %>
+            </div>
+          <% end %>
         </div>
       </aside>
 
@@ -972,240 +985,21 @@
 
       </main>
 
-      <!-- RIGHT SIDEBAR — RogueTrader widget (static placeholder) -->
+      <!-- RIGHT SIDEBAR — widget banners (Phase 3) -->
       <aside class="hidden lg:block w-[200px] shrink-0">
         <div class="sticky top-[120px]">
-          <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-1.5 font-bold pl-1">Sponsored</div>
-          <div class="rt-widget rounded-2xl overflow-hidden">
-            <%!-- Header --%>
-            <div class="px-3 pt-3 pb-2.5 border-b border-white/[0.05] bg-gradient-to-b from-white/[0.025] to-transparent shrink-0">
-              <div class="flex items-center justify-between">
-                <div class="flex items-baseline gap-1">
-                  <span class="font-bold text-[12px] tracking-[0.04em] text-[#E8E4DD]">ROGUE</span>
-                  <span class="font-semibold text-[7px] tracking-[0.20em] text-[#FD4F00]">TRADER</span>
-                </div>
-                <div class="flex items-center gap-1 bg-[#FD4F00]/10 border border-[#FD4F00]/30 rounded px-1.5 py-[2px]">
-                  <div class="relative w-1.5 h-1.5">
-                    <div class="absolute inset-0 bg-[#FD4F00] rounded-full rt-pulse"></div>
-                  </div>
-                  <span class="text-[8px] font-semibold tracking-[0.1em] text-[#FD4F00]">LIVE</span>
-                </div>
-              </div>
-              <div class="mt-2 flex items-center justify-between">
-                <span class="text-[8px] font-semibold tracking-[0.14em] text-[#6B7280]">TOP ROGUEBOTS</span>
-                <span class="font-mono text-[8px] text-[#4B5563]">8s ago</span>
-              </div>
+          <%= if @right_sidebar_banners != [] do %>
+            <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-1.5 font-bold pl-1">Sponsored</div>
+            <div class="space-y-4">
+              <%= for banner <- @right_sidebar_banners do %>
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                />
+              <% end %>
             </div>
-            <%!-- Bots scroll body --%>
-            <div class="rt-scroll flex-1 overflow-y-auto">
-              <div class="divide-y divide-white/[0.04]">
-                <%!-- Bot #1 HERMES --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#1</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Crypto</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">HERMES</span>
-                    <span class="rt-tag rt-tag-high shrink-0">HIGH RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.2331</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.2581</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">486.34</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +12.4%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
-                  </div>
-                </div>
-                <%!-- Bot #2 AURUM --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#2</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Commodities</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">AURUM</span>
-                    <span class="rt-tag rt-tag-low shrink-0">LOW RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.1714</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.1950</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">412.18</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +2.1%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
-                  </div>
-                </div>
-                <%!-- Bot #3 STERLING --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#3</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#F43F5E]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Forex</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">STERLING</span>
-                    <span class="rt-tag rt-tag-med shrink-0">MED RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">1.0832</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">1.1050</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">328.92</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;3.8%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
-                  </div>
-                </div>
-                <%!-- Bot #4 WOLF --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#4</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Equities</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">WOLF</span>
-                    <span class="rt-tag rt-tag-high shrink-0">HIGH RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.9775</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.9973</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">274.05</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#4ade80]">&#9650; +5.7%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#4B5563]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#4B5563]">Closed</span></div>
-                  </div>
-                </div>
-                <%!-- Bot #5 MACRO --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#5</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Indexes</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">MACRO</span>
-                    <span class="rt-tag rt-tag-low shrink-0">LOW RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.9426</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.9616</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">198.71</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;1.2%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
-                  </div>
-                </div>
-                <%!-- Bot #6 ZEUS --%>
-                <div class="rt-row px-2.5 py-2.5">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[8.5px] text-[#6B7280] font-medium">#6</span>
-                      <div class="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></div>
-                      <span class="text-[8px] font-semibold tracking-[0.06em] text-[#6B7280] uppercase">Crypto</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between mb-1.5 gap-1">
-                    <span class="font-bold text-[12.5px] text-[#E8E4DD] truncate tracking-wide">ZEUS</span>
-                    <span class="rt-tag rt-tag-med shrink-0">MED RISK</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-1 mb-1.5">
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Bid</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#4ade80] leading-tight mt-0.5">0.8677</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">Ask</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#f87171] leading-tight mt-0.5">0.8853</div>
-                    </div>
-                    <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
-                      <div class="text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">AUM</div>
-                      <div class="font-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">156.42</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[9px] font-semibold text-[#f87171]">&#9660; &#8722;7.9%</span>
-                    <div class="flex items-center gap-1"><div class="w-[5px] h-[5px] rounded-full bg-[#22C55E]"></div><span class="text-[7.5px] uppercase tracking-[0.1em] text-[#6B7280]">Open</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <%!-- Footer --%>
-            <div class="border-t border-white/[0.05] shrink-0">
-              <p class="px-3 pt-2.5 pb-2 text-[10px] text-[#9CA3AF] leading-[1.45]">
-                30 user-funded AI agents trading against each other on crypto, stocks, forex and commodities.
-              </p>
-              <a href="https://roguetrader.io" target="_blank" rel="noopener" class="block px-3 pb-2.5 hover:bg-white/[0.03] transition-colors group">
-                <div class="flex items-center justify-between">
-                  <span class="text-[8px] font-semibold tracking-[0.14em] text-[#6B7280] group-hover:text-[#E8E4DD] uppercase transition-colors">Open RogueTrader</span>
-                  <span class="text-[#6B7280] group-hover:text-[#E8E4DD] text-[10px] transition-colors">&rarr;</span>
-                </div>
-              </a>
-            </div>
-          </div>
+          <% end %>
         </div>
       </aside>
 

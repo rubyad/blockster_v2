@@ -180,4 +180,136 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       assert html =~ "Solana"
     end
   end
+
+  describe "GET /:slug · Phase 3 widgets" do
+    setup do
+      BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia(%{})
+      :ok
+    end
+
+    test "static rt-widget mock HTML is gone after Phase 3 cleanup", %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      # These literal strings lived inside the deleted 979-1180 static block.
+      refute html =~ "rt-widget rounded-2xl"
+      refute html =~ "HERMES"
+      refute html =~ "HIGH RISK"
+    end
+
+    test "widget banner on sidebar_right renders the skeleton even with empty cache", %{
+      conn: conn
+    } do
+      post = insert_post(%{})
+
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "rt-sky-test",
+          placement: "sidebar_right",
+          widget_type: "rt_skyscraper",
+          widget_config: %{}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(phx-hook="RtSkyscraperWidget")
+      assert html =~ "TOP ROGUEBOTS"
+      # Empty-state copy from the component
+      assert html =~ "Loading roguebots"
+    end
+
+    test "widget banner on sidebar_left renders the fs_skyscraper skeleton", %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "fs-sky-test",
+          placement: "sidebar_left",
+          widget_type: "fs_skyscraper",
+          widget_config: %{}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(phx-hook="FsSkyscraperWidget")
+      assert html =~ "Gamble for a better price than market"
+      assert html =~ "Waiting for trades"
+    end
+
+    test "live Mnesia bots are rendered into rt_skyscraper rows", %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "rt-sky-seeded",
+          placement: "sidebar_right",
+          widget_type: "rt_skyscraper",
+          widget_config: %{}
+        })
+
+      bots = [
+        %{
+          "bot_id" => "kronos",
+          "slug" => "kronos",
+          "name" => "Kronos",
+          "group_name" => "crypto",
+          "lp_price" => 2.5,
+          "bid_price" => 2.4,
+          "ask_price" => 2.6,
+          "sol_balance_ui" => 100.0,
+          "lp_price_change_24h_pct" => 8.2,
+          "market_open" => true,
+          "rank" => 1
+        }
+      ]
+
+      :mnesia.dirty_write({:widget_rt_bots_cache, :singleton, bots, System.system_time(:second)})
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ "KRONOS"
+      assert html =~ "CRYPTO"
+      assert html =~ "+8.2%"
+      refute html =~ "Loading roguebots"
+    end
+
+    test "live Mnesia trades are rendered into fs_skyscraper rows", %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "fs-sky-seeded",
+          placement: "sidebar_left",
+          widget_type: "fs_skyscraper",
+          widget_config: %{}
+        })
+
+      trades = [
+        %{
+          "id" => "order-live-1",
+          "side" => "buy",
+          "status_text" => "ORDER FILLED",
+          "filled" => true,
+          "token_symbol" => "JUP",
+          "sol_amount_ui" => 0.1,
+          "payout_ui" => 0.12,
+          "multiplier" => 1.2,
+          "discount_pct" => 5.0,
+          "profit_ui" => 0.02,
+          "profit_usd" => 3.2,
+          "wallet_truncated" => "abcd…1234",
+          "settled_at" => System.system_time(:second) - 30
+        }
+      ]
+
+      :mnesia.dirty_write({:widget_fs_feed_cache, :singleton, trades, System.system_time(:second)})
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(data-trade-id="order-live-1")
+      assert html =~ "BUY JUP"
+      refute html =~ "Waiting for trades"
+    end
+  end
 end

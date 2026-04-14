@@ -1080,15 +1080,23 @@ Split into 2a (backend + schema) and 2b (foundation glue — CSS, fonts, macro, 
 
 ### Phase 2c onwards — see Phase 3+ below for skyscrapers, charts, tickers, heroes.
 
-### Phase 3 — Skyscrapers (replace existing rt-widget + add fs counterpart)
+### Phase 3 — Skyscrapers ✅ COMPLETE (2026-04-14)
 
-- [ ] `rt_skyscraper` component + `RtSkyscraperWidget` JS hook
-- [ ] `fs_skyscraper` component + `FsSkyscraperWidget` JS hook
-- [ ] Delete static rt-widget HTML from `show.html.heex` lines 979–1180
-- [ ] Wire `WidgetEvents` into `PostLive.Show`
-- [ ] Insert two `ad_banners` rows: `rt_skyscraper` on `sidebar_right`, `fs_skyscraper` on `sidebar_left`
-- [ ] Visual QA in dev — both widgets pixel-match `realtime_widgets_mock.html`
-- [ ] Tests: render component with sample data; hook integration test via Wallaby/Hound
+- [x] `rt_skyscraper` component + `RtSkyscraperWidget` JS hook
+- [x] `fs_skyscraper` component + `FsSkyscraperWidget` JS hook
+- [x] Delete static rt-widget HTML from `show.html.heex` (was lines 979–1180 of the pre-Phase-3 file — 230 lines removed in one cut via `sed -i.bak '990,1219d'` after `git diff` confirmed no pre-existing uncommitted work)
+- [x] Wire `WidgetEvents` into `PostLive.Show` via `use BlocksterV2Web.WidgetEvents` + `mount_widgets(socket, left_sidebar_banners ++ right_sidebar_banners)`
+- [x] Seed two `ad_banners` rows via idempotent `priv/repo/seeds_widget_banners.exs` — `rt_skyscraper` on `sidebar_right`, `fs_skyscraper` on `sidebar_left`
+- [x] Tests: 25 new (2800 / 119 at seed 0 — zero new failures vs the 2775 / 119 Phase 2b baseline at the same seed). Component tests for both widgets, LV tests for PostLive.Show, updated widget_components_test to expect renders for these two + raises for the other 12. No Wallaby/Hound (deliberate — codebase doesn't use them, spec said not to introduce).
+- [ ] Visual QA in dev (not attempted this session — no browser access). Run `WIDGETS_ENABLED=true bin/dev` + `mix run priv/repo/seeds_widget_banners.exs` and eyeball an article page.
+
+**Phase 3 deviations (now load-bearing for Phase 4+)**
+
+1. **Left sidebar preserves Discover Cards** — widget banners render *below* the existing Discover Cards in a `mt-6 space-y-4` block, not as replacements. Phase 4 inline widgets on `article_inline_*` should follow the same "additive, don't rip out" pattern unless the spec is explicit.
+2. **Whole-widget click uses `phx-click` on the outer `<div>`**, not `<a>`. The `WidgetEvents` macro + `ClickRouter` handle the external redirect. Chart widgets in Phase 4 that let users click timeframe pills need to stop propagation on the pill click so it doesn't bubble into the outer widget-click redirect.
+3. **Non-contiguous `def handle_info/2` / `def handle_event/3` warnings** are emitted after `use BlocksterV2Web.WidgetEvents` because the host LV has its own clauses of those functions. This is tolerated (pattern precedent: `show_pre_redesign.ex`); Phase 4 LVs (like `PostLive.Index` for homepage widgets) will have the same warnings.
+4. **Server-side `lp_price` desc sort in `rt_skyscraper`** — the component sorts defensively every render. Chart widgets in Phase 4 should similarly not trust the `/api/bots` ordering.
+5. **Client hook handles visual polish via `updated/0`, not `push_event` payloads** — server re-renders the full list on every PubSub tick; the hook compares DOM text to a cached snapshot and flashes. Apply the same pattern for chart widgets (the chart data IS sent via push_event because `phx-update="ignore"` prevents morphdom from touching the canvas, but any non-canvas polish — flash on change, "updated X ago" label — should be driven by `updated/0`).
 
 ### Phase 4 — Chart widgets (RogueTrader)
 

@@ -1,5 +1,6 @@
 defmodule BlocksterV2Web.PostLive.Show do
   use BlocksterV2Web, :live_view
+  use BlocksterV2Web.WidgetEvents
 
   alias BlocksterV2.Blog
   alias BlocksterV2.TimeTracker
@@ -307,7 +308,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:anonymous_earned, 0)
      |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
-     |> load_video_engagement()}
+     |> load_video_engagement()
+     |> mount_widgets(left_sidebar_banners ++ right_sidebar_banners)}
   end
 
   @impl true

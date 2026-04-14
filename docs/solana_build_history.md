@@ -9,6 +9,69 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 3 (2026-04-14) ✅
+
+Both skyscraper widgets (`rt_skyscraper`, `fs_skyscraper`) shipped end-to-end on the article page. The static rt-widget HTML in `show.html.heex` (lines 979–1180 of the pre-Phase-3 file) is gone; the right sidebar now iterates active `sidebar_right` banners through `widget_or_ad`, and `sidebar_left` widget banners render below the existing Discover Cards. `PostLive.Show` uses `BlocksterV2Web.WidgetEvents`, so live data pushed by the Phase 2a pollers reaches the DOM via `push_event` as soon as `WIDGETS_ENABLED=true` is set on the cluster.
+
+**Components** (`lib/blockster_v2_web/components/widgets/`)
+- `fs_skyscraper.ex` — 200 × 760 dark card. Header is FateSwap wordmark + `LIVE` pill + "SOLANA DEX" eyebrow + rainbow-gradient tagline ("Gamble for a better price than market"). Scroll body renders up to 20 trades; each row has status-pill variant (`DISCOUNT FILLED` / `ORDER FILLED` / `NOT FILLED`), buy/sell arrow, SOL→payout price line (4 decimals), discount/premium pct + multiplier, profit in SOL + USD, truncated wallet + relative timestamp. **Footer copy is explicitly third-person** ("Trader Received / Trader Paid per settled order") per Phase 0 locked-in decision — `fs_skyscraper_test.exs` asserts `refute html =~ "You received"`. The whole root `<div>` fires `phx-click="widget_click"` with `phx-value-subject="fs"`; the macro routes through `ClickRouter` to `https://fateswap.io`.
+- `rt_skyscraper.ex` — 200 × 760 dark card. Header is `ik.imagekit.io/blockster/rogue-logo-white.png` + absolute-positioned green "TRADER" mono overlay + `LIVE` pill + "TOP ROGUEBOTS" label. Scroll body renders up to 30 bots **sorted by `lp_price` desc on every render** so the order is correct even if the API doesn't pre-sort. Rows carry rank + group dot + group tag (`CRYPTO` / `EQUITIES` / `INDEXES` / `COMMODITIES` / `FOREX` — risk tags dropped per Phase 0), bid/ask/AUM grid (bid+ask 4 decimals, AUM 2 decimals), change-% with arrow + sign, market-open/closed dot. Whole root fires `phx-click="widget_click"` with `phx-value-subject="rt"` → `https://roguetrader.io`.
+- Empty-state copy for both widgets keeps the full shell/header/footer visible — "Loading roguebots" / "Waiting for trades" — so `WIDGETS_ENABLED=false` in dev renders a visually intact card rather than an empty div.
+
+**Dispatcher** (`lib/blockster_v2_web/components/widget_components.ex`)
+- Replaced the Phase 2b raise clauses for `rt_skyscraper` and `fs_skyscraper` with real component calls. The other 12 widget types still raise `ArgumentError "widget component not yet implemented (Phase 3+): ..."`. Unknown widget_type still raises.
+- Added `bots :list` and `trades :list` attrs passed through from the host LiveView. Component attrs default to `[]` so the host can call `<.widget_or_ad banner={b} bots={@rt_bots} trades={@fs_trades} />` uniformly regardless of which widget renders.
+
+**JS hooks** (`assets/js/hooks/widgets/`)
+- `rt_skyscraper.js` — listens for `widget:rt_bots:update`. Server re-renders the full sorted row list through LiveView diff; hook's job is purely visual polish — on `updated/0` it walks rows, compares current bid/ask text to a cached snapshot, and flashes `bw-flash-up` / `bw-flash-down` on changes. Forces a DOM reflow (`void el.offsetWidth`) before reapplying the class so the animation restarts even if the same class was already present. Auto-clears flash classes after 3 s.
+- `fs_skyscraper.js` — listens for `widget:fs_feed:update`. On `updated/0` it diffs incoming `[data-trade-id]` rows against a seen-id `Set`, adds `bw-flash-new` to any row it hasn't seen, and enforces a 20-row cap client-side (server also caps but morphdom timing can briefly leave stragglers during swap).
+- Both registered in `assets/js/app.js` alongside the existing hook list on the `liveSocket` config.
+
+**PostLive.Show integration**
+- `use BlocksterV2Web.WidgetEvents` installs the macro's `mount_widgets/2`, the four `handle_info` clauses, and the `widget_click` event handler. Elixir emits non-blocking "clauses with the same name and arity should be grouped together" warnings because `show.ex` already has its own `handle_event/3` and `handle_info/2` clauses; these are noise, not errors, and match the pattern already tolerated in `show_pre_redesign.ex`.
+- `handle_post_params/2` calls `mount_widgets(socket, left_sidebar_banners ++ right_sidebar_banners)` at the end of the assign pipeline. The existing banner-loading code (Phase 2a) already filters to connected-mount only, so we reuse it unchanged.
+- `show.html.heex` — the 230-line static rt-widget mock block was deleted in one cut (lines 979–1180 of the pre-Phase-3 file). The right sidebar now iterates `@right_sidebar_banners` through `<BlocksterV2Web.WidgetComponents.widget_or_ad banner={banner} bots={@rt_bots} trades={@fs_trades} />`. The left sidebar keeps Discover Cards; widget banners render in a `mt-6 space-y-4` block **below** the discover cards so both coexist.
+- Before the delete: ran `git diff lib/blockster_v2_web/live/post_live/show.html.heex` to verify no pre-existing uncommitted work would be destroyed (per the VIOLATED-ONCE rule in MEMORY.md). The file had no unstaged changes — `sed -i.bak '990,1219d'` was safe.
+
+**Seed banners** (`priv/repo/seeds_widget_banners.exs`)
+- Idempotent: inserts two `ad_banners` rows via `Ads.create_banner/1` — `rt_skyscraper` on `sidebar_right`, `fs_skyscraper` on `sidebar_left`. Both `widget_config: %{}` (skyscrapers are all-data widgets). Re-running the script reactivates existing rows rather than duplicating.
+
+**Tests** — 25 new (2800 total / 119 failures at seed 0; Phase 2b baseline at the same seed was 2775 / 119 — **zero new failures**).
+- `test/blockster_v2_web/components/widgets/fs_skyscraper_test.exs` (9 tests) — root data attrs (`data-banner-id`, `phx-hook`, `phx-value-subject="fs"`), header assets (FateSwap logo, SOLANA DEX label, LIVE pill, brand-gradient tagline), empty-state copy, footer CTA, buy/DISCOUNT FILLED + sell/NOT FILLED row variants, third-person copy enforcement (`refute html =~ "You received"`), 20-row cap, resilience against missing `token_logo_url` / `discount_pct` / `multiplier`.
+- `test/blockster_v2_web/components/widgets/rt_skyscraper_test.exs` (10 tests) — root data attrs + `phx-value-subject="rt"`, header (logo + TRADER overlay + LIVE + TOP ROGUEBOTS), footer CTA, empty-state, single-bot row with 4-decimal prices + 2-decimal AUM + change sign + market dot + Open label, closed-market variant, all 5 group tags, lp_price desc sort verified by `:binary.match/2` offsets, 30-row cap, resilience against nil change-% and nil group.
+- `test/blockster_v2_web/components/widget_components_test.exs` — rewrote the Phase-3+ raise block. Now has 2 render tests for `rt_skyscraper` + `fs_skyscraper` (asserting `phx-hook` + `phx-value-subject`) and a for-comprehension over `valid_widget_types() -- ["rt_skyscraper", "fs_skyscraper"]` that still raises for the remaining 12 widget types. Unknown-widget_type test preserved.
+- `test/blockster_v2_web/live/post_live/show_test.exs` — added a `Phase 3 widgets` describe block (5 tests). Asserts (a) the static `rt-widget rounded-2xl` / `HERMES` / `HIGH RISK` strings from the deleted block are **not** in the rendered HTML, (b) `sidebar_right` widget banner renders the rt_skyscraper skeleton with `phx-hook="RtSkyscraperWidget"` + "Loading roguebots" empty state, (c) `sidebar_left` fs_skyscraper banner renders "Gamble for a better price than market" + "Waiting for trades", (d) seeding `:widget_rt_bots_cache` via `:mnesia.dirty_write` makes the bot's name + group + change % appear in the HTML, (e) same path for `:widget_fs_feed_cache`. All use `BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia/1`.
+
+**Plan deviations (load-bearing for Phase 4+)**
+1. **Left sidebar preserves Discover Cards** — widget banners render *below* them in a `mt-6 space-y-4` block, not as replacements. Spec wasn't explicit; destructive deletion was the wrong bias.
+2. **Whole-widget click uses `phx-click` on the outer `<div>`**, not an `<a>` wrapper. The `WidgetEvents` macro handles the external redirect via `ClickRouter.url_for/2`; wrapping in `<a>` would race with LiveView's event dispatch.
+3. **No Wallaby/Hound visual regression tests** — codebase doesn't use them and the spec explicitly said not to introduce them. Visual QA is manual with `WIDGETS_ENABLED=true bin/dev`.
+4. **Elixir emits "non-contiguous clause" warnings** after `use BlocksterV2Web.WidgetEvents` in `show.ex`. These are noise — the macro injects clauses at the top of the module via `__using__/1`, and `show.ex` defines its own `handle_event` / `handle_info` clauses later. Pattern precedent: `show_pre_redesign.ex` already tolerates the same.
+5. **Server-side sort in `rt_skyscraper`** — the plan said "ranked by lp_price desc" but didn't say whether the component or the API orders them. The component sorts defensively in every render, so if `/api/bots` ever comes back unordered the widget still renders correctly.
+6. **Bid/ask flash is driven by the client hook's `updated/0` callback**, not a `push_event` payload. The server re-renders the full row list on every `{:rt_bots, bots}` PubSub tick; the hook compares the rendered text against a cached snapshot and flashes. Simpler than diffing on the server and sending per-cell events.
+
+**Files created**
+- `lib/blockster_v2_web/components/widgets/fs_skyscraper.ex`
+- `lib/blockster_v2_web/components/widgets/rt_skyscraper.ex`
+- `assets/js/hooks/widgets/fs_skyscraper.js`
+- `assets/js/hooks/widgets/rt_skyscraper.js`
+- `priv/repo/seeds_widget_banners.exs`
+- `test/blockster_v2_web/components/widgets/fs_skyscraper_test.exs`
+- `test/blockster_v2_web/components/widgets/rt_skyscraper_test.exs`
+
+**Files modified**
+- `lib/blockster_v2_web/components/widget_components.ex` — 2 raise clauses → real component calls; added `bots` + `trades` attrs
+- `lib/blockster_v2_web/live/post_live/show.ex` — `use BlocksterV2Web.WidgetEvents` + `mount_widgets/2` call
+- `lib/blockster_v2_web/live/post_live/show.html.heex` — deleted 230 lines of static rt-widget mock, added widget_or_ad iteration in both sidebars
+- `assets/js/app.js` — imported + registered `RtSkyscraperWidget` + `FsSkyscraperWidget`
+- `test/blockster_v2_web/components/widget_components_test.exs` — moved rt/fs_skyscraper out of the raises block into renders
+- `test/blockster_v2_web/live/post_live/show_test.exs` — added `Phase 3 widgets` describe (5 tests)
+- `claude.md` — added `WIDGETS_ENABLED=true bin/dev` dev-run instructions + seed command
+
+**Next**: Phase 4 — chart widgets (`rt_chart_landscape` / `rt_chart_portrait` / `rt_full_card` / `rt_square_compact`), sharing a `RtChartWidget` JS hook that wraps `lightweight-charts` Area series. This is where self-selection lands — `WidgetSelector` picks the best `{bot_id, tf}` per banner, the macro pushes chart points on `:selection_changed`, and the hook `setData`'s them without a full LV re-render. Plan: [solana/realtime_widgets_plan.md](solana/realtime_widgets_plan.md) §"Phase 4".
+
+---
+
 ## Real-Time Widgets — Phase 2b (2026-04-14) ✅
 
 Foundation glue that sits between the Phase 2a backend (pollers, selector, router, caches) and the Phase 3+ widget components. No runtime behaviour change — CSS loads only when a `.bw-widget` element is rendered, fonts are CDN-hosted, the macro is opt-in via `use`, the dispatcher raises for widget types that don't exist yet. `WIDGETS_ENABLED` stays `false` everywhere.

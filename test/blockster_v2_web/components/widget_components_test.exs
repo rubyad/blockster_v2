@@ -25,8 +25,42 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
     end
   end
 
-  describe "widget_or_ad/1 — raises for real widgets until Phase 3+" do
-    for widget_type <- Banner.valid_widget_types() do
+  describe "widget_or_ad/1 — Phase 3 widgets render" do
+    test "rt_skyscraper renders the component with data attributes" do
+      banner = %Banner{
+        id: 42,
+        name: "widget-rt-skyscraper",
+        placement: "sidebar_right",
+        widget_type: "rt_skyscraper"
+      }
+
+      html = render_component(&WidgetComponents.widget_or_ad/1, %{banner: banner, bots: []})
+
+      assert html =~ ~s(data-banner-id="42")
+      assert html =~ ~s(phx-hook="RtSkyscraperWidget")
+      assert html =~ ~s(phx-value-subject="rt")
+    end
+
+    test "fs_skyscraper renders the component with data attributes" do
+      banner = %Banner{
+        id: 43,
+        name: "widget-fs-skyscraper",
+        placement: "sidebar_left",
+        widget_type: "fs_skyscraper"
+      }
+
+      html = render_component(&WidgetComponents.widget_or_ad/1, %{banner: banner, trades: []})
+
+      assert html =~ ~s(data-banner-id="43")
+      assert html =~ ~s(phx-hook="FsSkyscraperWidget")
+      assert html =~ ~s(phx-value-subject="fs")
+    end
+  end
+
+  describe "widget_or_ad/1 — raises for widgets landing in Phase 4+" do
+    @phase_4_plus Banner.valid_widget_types() -- ["rt_skyscraper", "fs_skyscraper"]
+
+    for widget_type <- @phase_4_plus do
       @tag widget_type: widget_type
       test "raises for widget_type=#{widget_type}", %{widget_type: widget_type} do
         banner = %Banner{
