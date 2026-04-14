@@ -381,10 +381,10 @@ Every stub introduced during the build gets added here so the next release knows
 
 | Page | Stub | What it shows now | What replaces it | Resolved by release |
 |---|---|---|---|---|
-| Homepage | Token sales section | 3 `<.coming_soon_card variant="token_sale" />` placeholder cards | Real `<.token_sale_card />` with live data | Events / sales release |
-| Homepage | Recommended for you | Single `<.coming_soon_card variant="recommended" />` placeholder (logged-in only) | Real recommendation system | Recommendation engine release |
-| Homepage | Trending filter chips | Chips render but click is a no-op; "All" permanently active | `phx-click="filter_trending"` handler filtering mosaic by category | Follow-up commit in Wave 1 |
-| Homepage | Hubs you follow filter chips | Hub-color chips render but click is a no-op; "All" permanently active | `phx-click` handler filtering by specific hub | Follow-up commit in Wave 1 |
+| Homepage | Token sales section | **Hidden** — template code preserved but not rendered | Re-enable when token sales backend exists | Events / sales release |
+| Homepage | Recommended for you | **Hidden** — template code preserved but not rendered | Re-enable when recommendation engine exists | Recommendation engine release |
+| Homepage | Hubs you follow | **Hidden** — template code preserved but not rendered | Re-enable when ready | Follow-up |
+| Homepage | Hero feature card | **Hidden** — `fetch_hero_post` still runs, template block commented out | Re-enable or replace with different top-of-page treatment | Follow-up |
 | Article page | Left sidebar discover cards | Static mock content (Event/Token Sale/Airdrop cards) | Dynamic content system with real data | Sidebar content system release |
 | Article page | Right sidebar RogueTrader widget | Static placeholder (6 bots, LIVE pulse, bid/ask/AUM) | Real-time RogueTrader API widget | RogueTrader integration release |
 | Hub show | Live activity widget | Static placeholder (3 hardcoded items) | Real-time PubSub activity feed | Hub activity system release |
@@ -438,7 +438,7 @@ Every stub introduced during the build gets added here so the next release knows
 |---|---|---|---|---|
 | 0 | Foundation components (11) | ✅ Done | `af15f58` | `design_system.ex` with logo, eyebrow, chip, author_avatar, profile_avatar, why_earn_bux_banner, header, footer, page_hero, stat_card, post_card. 51 component tests. |
 | 0 | Design preview | ✅ Done | `294b51d` | `/dev/design-preview` route (dev-only). 3 smoke tests. |
-| 1 | Homepage | 🔧 Built, awaiting commit | — | Full rewrite of `PostLive.Index`. New cycling layouts (ThreeColumn, Mosaic, VideoLayout, Editorial). One-shot sections (hero, hub showcase, token sales stub, hubs you follow, recommended stub, welcome hero, what you unlock). Old homepage preserved at `lib/blockster_v2_web/live/post_live/legacy/`. 65 tests passing. |
+| 1 | Homepage | 🔧 Built, awaiting commit | — | Post feed reverted to old cycling layouts (Three/Four/Five/Six, 19 posts/cycle, offset pagination). Hero feature card hidden. Template-based ad system: Ad #1 at top → Component 1 → [Welcome hero anon] → Component 2 → Ad #2 → Hub showcase (once) → Ad #3 → posts continue with ad every 2nd component (recycling). New `homepage_inline` placement + `sort_order` field + admin template/params UI. Token sales, recommended, hubs-you-follow sections hidden. Admin layout switched to `:redesign`. 8 tests passing. |
 | 1 | Article page | 🔧 Built, awaiting commit | — | White article card, template-based inline ads at 1/3 + 2/3 + end, Follow Hub bar at 1/2, sidebar placeholders (discover cards left, RogueTrader right), floating BUX panel (white, matches mock), article-body CSS (drop caps, blockquotes, lists), 26 new tests. |
 | 1 | Hubs index | 🔧 Built, awaiting commit | — | Featured cards (hub_feature_card), hub_card category badge, sticky search+filter bar, 4-col hub grid. 24 new tests (8 component + 16 LiveView). |
 | 1 | Hub show | 🔧 Built, awaiting commit | — | `posts.kind` migration done, hub_banner component, 5-tab nav, 30 new tests |

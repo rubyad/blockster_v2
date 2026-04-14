@@ -59,10 +59,6 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
       assert html =~ "ds-what-you-unlock"
       assert html =~ "Reading is free."
 
-      # Token sales stub strip is always rendered
-      assert html =~ "ds-coming-soon-card"
-      assert html =~ "Upcoming token sales"
-
       # Footer
       assert html =~ "ds-footer"
       assert html =~ "Where the chain meets the model."
@@ -155,20 +151,20 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
 
     test "load-more appends a new cycle when more posts exist", %{conn: conn} do
       hub = insert_hub()
-      # Insert enough posts that the first cycle (Hero=1 + ThreeColumn=3 + Mosaic=14 + Editorial=4 = 22)
+      # Insert enough posts that the first cycle (Hero=1 + Three=5 + Four=3 + Five=6 + Six=5 = 20)
       # has more posts available afterward
       for i <- 1..30 do
         insert_post(%{title: "Post #{i}", hub_id: hub.id})
       end
 
       {:ok, view, html_before} = live(conn, ~p"/")
-      before_count = count_occurrences(html_before, "redesign-three-")
+      before_count = count_occurrences(html_before, "home-posts-three-")
 
       _ = render_hook(view, "load-more", %{})
       html_after = render(view)
-      after_count = count_occurrences(html_after, "redesign-three-")
+      after_count = count_occurrences(html_after, "home-posts-three-")
 
-      # After load-more, the stream should contain at least one more ThreeColumn cycle
+      # After load-more, the stream should contain at least one more Three cycle
       assert after_count > before_count
     end
   end

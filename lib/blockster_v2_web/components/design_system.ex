@@ -1126,7 +1126,7 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def hero_feature_card(assigns) do
     ~H"""
-    <section class="ds-hero-feature pt-10 pb-14">
+    <section class="ds-hero-feature pt-10 pb-4">
       <div class="flex items-center gap-3 mb-5">
         <span class="ds-eyebrow font-bold uppercase text-[10px] tracking-[0.16em] text-neutral-400">
           {@eyebrow}
@@ -1746,9 +1746,9 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :class, :string, default: nil
 
   def ad_banner(%{banner: %{template: "follow_bar"}} = assigns) do
-    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
     ~H"""
-    <a href={@banner.link_url || "#"} class={["not-prose block my-9 group", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
+    <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class={["not-prose block my-9 group", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
       <div class="flex items-center justify-between gap-3 bg-[#0a0a0a] hover:bg-[#1a1a1a] transition-colors rounded-2xl pl-2 pr-3 py-2.5 ring-1 ring-black/10">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-11 h-11 bg-white grid place-items-center shrink-0 rounded-md">
@@ -1772,13 +1772,21 @@ defmodule BlocksterV2Web.DesignSystem do
     """
   end
 
+  # Strips empty-string values to nil so `@p["key"] || "default"` falls through correctly.
+  # Without this, the admin form submits "" for unfilled fields and "" is truthy in Elixir.
+  defp sanitize_ad_params(params) do
+    (params || %{})
+    |> Enum.map(fn {k, ""} -> {k, nil}; kv -> kv end)
+    |> Map.new()
+  end
+
   def ad_banner(%{banner: %{template: "dark_gradient"}} = assigns) do
-    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
     ~H"""
     <div class={["my-10 -mx-2 not-prose", @class]}>
       <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-2">Sponsored</div>
-      <a href={@banner.link_url || "#"} class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
-        <div class="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0A0A0F] via-[#14141A] to-[#1c1c25] p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.25)] ring-1 ring-white/[0.06]">
+      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
+        <div class="relative rounded-2xl overflow-hidden p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.25)] ring-1 ring-white/[0.06]" style={"background: linear-gradient(135deg, #{@p["bg_color"] || "#0A0A0F"}, #{@p["bg_color_end"] || "#1c1c25"})"}>
           <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br to-transparent blur-3xl pointer-events-none" style={"background: #{@p["brand_color"] || "#7D00FF"}30"}></div>
           <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[#CAFC00]/15 to-transparent blur-3xl pointer-events-none"></div>
           <div class="relative flex items-center justify-between gap-6">
@@ -1810,12 +1818,12 @@ defmodule BlocksterV2Web.DesignSystem do
   end
 
   def ad_banner(%{banner: %{template: "portrait"}} = assigns) do
-    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="text-center">
         <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold">Sponsored</div>
-        <a href={@banner.link_url || "#"} class="block group max-w-[440px] mx-auto" phx-click="track_ad_click" phx-value-id={@banner.id}>
+        <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group max-w-[440px] mx-auto" phx-click="track_ad_click" phx-value-id={@banner.id}>
           <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18)] relative" style={"background: #{@p["bg_color"] || "#0a1838"}"}>
             <%= if @p["image_url"] do %>
               <div class="aspect-[4/3] bg-neutral-200 relative overflow-hidden">
@@ -1848,11 +1856,11 @@ defmodule BlocksterV2Web.DesignSystem do
   end
 
   def ad_banner(%{banner: %{template: "split_card"}} = assigns) do
-    assigns = assign(assigns, :p, assigns.banner.params || %{})
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
     ~H"""
     <div class={["mt-6", @class]}>
       <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold px-1">Sponsored</div>
-      <a href={@banner.link_url || "#"} class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
+      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
         <div class="relative rounded-2xl overflow-hidden bg-white border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_18px_30px_-12px_rgba(0,0,0,0.10)] transition-shadow">
           <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] items-stretch">
             <div class="p-7">

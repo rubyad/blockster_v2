@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rt_leaderboard_inline Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 40px;
+    }
+    .stage--mobile { padding: 40px 24px; display: flex; justify-content: center; }
+    .device-frame {
+      width: 375px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 28px;
+      padding: 16px;
+      background: #fafaf9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-row-hover:     #1c1c25;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-red:           #EF4444;
+      --bw-yellow:        #EAB308;
+      --bw-rogue-orange:  #FD4F00;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+
+      --bw-group-crypto:      #3B82F6;
+      --bw-group-equities:    #10B981;
+      --bw-group-indexes:     #8B5CF6;
+      --bw-group-commodities: #F59E0B;
+      --bw-group-forex:       #F43F5E;
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow:
+        0 30px 60px -15px rgba(0, 0, 0, 0.35),
+        0 12px 25px -8px rgba(0, 0, 0, 0.20);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       rt_leaderboard_inline
+       ============================================================ */
+    .rt-lb {
+      position: relative;
+      width: 100%;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .rt-lb::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.025) 1px, transparent 1.2px);
+      background-size: 14px 14px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* ---------- Header strip ---------- */
+    .rt-lb__head {
+      position: relative;
+      z-index: 1;
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .rt-lb__wordmark { position: relative; display: inline-flex; line-height: 1; flex-shrink: 0; }
+    .rt-lb__logo { height: 28px; width: auto; display: block; user-select: none; }
+    .rt-lb__trader {
+      position: absolute; bottom: -5px; right: 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-weight: 700; font-size: 10px; color: var(--bw-green);
+      letter-spacing: 0.3em; line-height: 1;
+    }
+    .rt-lb__head-divider { width: 1px; height: 10px; background: var(--bw-border-strong); }
+    .rt-lb__head-title {
+      font-size: 12px; font-weight: 600; color: var(--bw-primary);
+      letter-spacing: 0.02em;
+    }
+    .rt-lb__head-spacer { flex: 1; }
+    .rt-lb__head-live {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+      color: var(--bw-green);
+    }
+
+    /* ---------- Body ---------- */
+    .rt-lb__body { position: relative; z-index: 1; padding: 6px 14px 10px; }
+
+    /* Desktop: table */
+    .rt-lb__table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .rt-lb__table thead th {
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--bw-secondary);
+      font-weight: 600;
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--bw-border);
+      white-space: nowrap;
+    }
+    .rt-lb__table thead th.num { text-align: right; }
+    .rt-lb__table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 140ms ease;
+      cursor: pointer;
+    }
+    .rt-lb__table tbody tr:hover { background: var(--bw-row-hover); }
+    .rt-lb__table tbody tr:last-child { border-bottom: 0; }
+    .rt-lb__table td {
+      padding: 10px 10px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .rt-lb__table td.num { text-align: right; }
+
+    /* Cell specifics */
+    .rt-lb__rank {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--bw-secondary);
+      width: 40px;
+    }
+    .rt-lb__botcell { min-width: 180px; }
+    .rt-lb__botname {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: 0.01em;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .rt-lb__tags {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--bw-secondary);
+      line-height: 1.2;
+    }
+    .rt-lb__group {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 5px;
+      border-radius: 3px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+    .rt-lb__archetype { color: var(--bw-data); font-size: 11px; }
+    .rt-lb__dot-sep { color: var(--bw-faint); }
+    .rt-lb__risk--low  { color: #34d399; }
+    .rt-lb__risk--med  { color: var(--bw-yellow); }
+    .rt-lb__risk--high { color: #f87171; }
+
+    .rt-lb__price {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+    }
+    .rt-lb__price-bid { color: var(--bw-green); }
+    .rt-lb__price-sep { color: var(--bw-secondary); opacity: 0.5; margin: 0 2px; }
+    .rt-lb__price-ask { color: var(--bw-red); }
+
+    .rt-lb__change {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .rt-lb__change--up   { color: var(--bw-green); }
+    .rt-lb__change--down { color: var(--bw-red); }
+
+    .rt-lb__aum {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      color: var(--bw-data);
+    }
+    .rt-lb__aum-unit { color: var(--bw-secondary); font-size: 10px; margin-left: 3px; }
+
+    .rt-lb__spark {
+      width: 100px;
+      height: 28px;
+      margin-left: auto;
+      display: block;
+    }
+
+    /* ---------- Footer strip ---------- */
+    .rt-lb__foot {
+      position: relative;
+      z-index: 1;
+      padding: 14px 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-top: 1px solid var(--bw-border);
+      font-size: 13px;
+      color: var(--bw-data);
+    }
+    .rt-lb__foot-tagline { letter-spacing: -0.005em; font-weight: 500; line-height: 1.35; flex: 1; }
+    .rt-lb__foot-cta {
+      color: var(--bw-primary);
+      font-weight: 600; letter-spacing: 0.01em;
+      text-decoration: none;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: color 120ms ease;
+    }
+    .rt-lb__foot-cta:hover { text-decoration: underline; }
+
+    /* ---------- Hide columns at narrower sizes ---------- */
+    /* We'll use a wrapper width check via container queries; fall back to fixed classes */
+    .rt-lb__table th.hide-lg, .rt-lb__table td.hide-lg { display: table-cell; }
+
+    /* ---------- Mobile variant — card grid ---------- */
+    .rt-lb--mobile { width: 343px; }
+    .rt-lb--mobile .rt-lb__head { padding: 14px 14px 12px; }
+    .rt-lb--mobile .rt-lb__logo { height: 22px; }
+    .rt-lb--mobile .rt-lb__trader { font-size: 9px; bottom: -4px; letter-spacing: 0.28em; }
+    .rt-lb--mobile .rt-lb__head-title { font-size: 11px; }
+    .rt-lb--mobile .rt-lb__foot { padding: 12px 14px 14px; font-size: 12px; }
+    .rt-lb--mobile .rt-lb__foot-cta { font-size: 11px; }
+
+    .rt-lb--mobile .rt-lb__body { padding: 10px 10px 12px; }
+    .rt-lb--mobile .rt-lb__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .rt-lb__card {
+      background: var(--bw-card);
+      border: 1px solid var(--bw-border);
+      border-radius: 8px;
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .rt-lb__card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .rt-lb__card-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .rt-lb__card-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .rt-lb__card-rank {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9px;
+      color: var(--bw-faint);
+      letter-spacing: 0.04em;
+    }
+    .rt-lb__card-name {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--bw-primary);
+      letter-spacing: 0.01em;
+    }
+    .rt-lb__card-price {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--bw-data);
+      margin-top: 2px;
+    }
+    .rt-lb__card-change {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 5px;
+      border-radius: 3px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .rt-lb__card-change--up {
+      color: var(--bw-green);
+      background: rgba(34, 197, 94, 0.10);
+    }
+    .rt-lb__card-change--down {
+      color: var(--bw-red);
+      background: rgba(239, 68, 68, 0.10);
+    }
+    .rt-lb__card-arrow { font-size: 8px; transform: translateY(-0.5px); }
+  </style>
+</head>
+<body>
+  <!-- rt_leaderboard_inline widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">rt_leaderboard_inline &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Top 10 RogueBots table. Desktop matches the home_live.ex row layout (rank · bot+tags · bid/ask · 1h · 24h · AUM · sparkline). Mobile collapses to a 2-column compact card grid.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         DESKTOP variant (full × ~480)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(full × ~480)</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell rt-lb">
+          <!-- Header -->
+          <div class="rt-lb__head">
+            <span class="rt-lb__wordmark">
+              <img class="rt-lb__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+              <span class="rt-lb__trader">TRADER</span>
+            </span>
+            <span class="rt-lb__head-divider"></span>
+            <span class="rt-lb__head-title bw-display">Top RogueBots</span>
+            <span class="rt-lb__head-spacer"></span>
+            <span class="rt-lb__head-live bw-display">
+              <span class="bw-pulse-dot"></span>LIVE
+            </span>
+          </div>
+
+          <!-- Body: table -->
+          <div class="rt-lb__body">
+            <table class="rt-lb__table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Bot</th>
+                  <th class="num">LP Bid / Ask</th>
+                  <th class="num">1h</th>
+                  <th class="num">24h</th>
+                  <th class="num">AUM</th>
+                  <th class="num">24h Chart</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Row 1: KRONOS -->
+                <tr>
+                  <td class="rt-lb__rank">1</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">KRONOS</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(16,185,129,0.12); color: var(--bw-group-equities);">EQUITIES</span>
+                      <span class="rt-lb__archetype">Momentum</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--med">Med Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.1023</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.1045</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.42%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+3.24%</td>
+                  <td class="num"><span class="rt-lb__aum">248.36</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,24 L 10,22 L 18,23 L 26,19 L 34,21 L 42,17 L 50,18 L 58,14 L 66,15 L 74,11 L 82,13 L 90,9 L 98,10" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 2: ATLAS -->
+                <tr>
+                  <td class="rt-lb__rank">2</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">ATLAS</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(16,185,129,0.12); color: var(--bw-group-equities);">EQUITIES</span>
+                      <span class="rt-lb__archetype">Trend</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--med">Med Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.4523</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.4619</span></td>
+                  <td class="num rt-lb__change rt-lb__change--down">-0.18%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+6.21%</td>
+                  <td class="num"><span class="rt-lb__aum">512.12</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,25 L 10,23 L 18,20 L 26,22 L 34,18 L 42,19 L 50,15 L 58,16 L 66,12 L 74,13 L 82,9 L 90,11 L 98,8" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 3: BULL -->
+                <tr>
+                  <td class="rt-lb__rank">3</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">BULL</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(59,130,246,0.12); color: var(--bw-group-crypto);">CRYPTO</span>
+                      <span class="rt-lb__archetype">Breakout</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--high">High Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.2310</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.2360</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+1.12%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+5.67%</td>
+                  <td class="num"><span class="rt-lb__aum">340.78</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,26 L 10,24 L 18,25 L 26,21 L 34,23 L 42,18 L 50,20 L 58,14 L 66,16 L 74,10 L 82,12 L 90,7 L 98,9" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 4: MACRO -->
+                <tr>
+                  <td class="rt-lb__rank">4</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">MACRO</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(139,92,246,0.12); color: var(--bw-group-indexes);">INDEXES</span>
+                      <span class="rt-lb__archetype">Macro</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--low">Low Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.3421</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.3490</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.22%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.87%</td>
+                  <td class="num"><span class="rt-lb__aum">421.00</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,20 L 10,19 L 18,21 L 26,18 L 34,20 L 42,17 L 50,19 L 58,16 L 66,18 L 74,15 L 82,17 L 90,14 L 98,15" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 5: AURUM -->
+                <tr>
+                  <td class="rt-lb__rank">5</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">AURUM</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(245,158,11,0.12); color: var(--bw-group-commodities);">COMMODITIES</span>
+                      <span class="rt-lb__archetype">Defensive</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--low">Low Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.0512</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.0523</span></td>
+                  <td class="num rt-lb__change rt-lb__change--down">-0.11%</td>
+                  <td class="num rt-lb__change rt-lb__change--down">-0.34%</td>
+                  <td class="num"><span class="rt-lb__aum">289.50</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,12 L 10,13 L 18,14 L 26,13 L 34,15 L 42,14 L 50,16 L 58,15 L 66,17 L 74,16 L 82,18 L 90,17 L 98,19" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 6: PIVOT -->
+                <tr>
+                  <td class="rt-lb__rank">6</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">PIVOT</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(139,92,246,0.12); color: var(--bw-group-indexes);">INDEXES</span>
+                      <span class="rt-lb__archetype">Tactical</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--med">Med Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.1890</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.1930</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.64%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+2.44%</td>
+                  <td class="num"><span class="rt-lb__aum">210.88</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,22 L 10,21 L 18,22 L 26,19 L 34,20 L 42,17 L 50,18 L 58,15 L 66,16 L 74,13 L 82,15 L 90,12 L 98,13" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 7: ZEUS -->
+                <tr>
+                  <td class="rt-lb__rank">7</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">ZEUS</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(16,185,129,0.12); color: var(--bw-group-equities);">EQUITIES</span>
+                      <span class="rt-lb__archetype">Value</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--low">Low Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.0842</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.0862</span></td>
+                  <td class="num rt-lb__change rt-lb__change--down">-0.55%</td>
+                  <td class="num rt-lb__change rt-lb__change--down">-1.45%</td>
+                  <td class="num"><span class="rt-lb__aum">186.90</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,10 L 10,11 L 18,13 L 26,12 L 34,14 L 42,16 L 50,17 L 58,16 L 66,19 L 74,21 L 82,20 L 90,22 L 98,24" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 8: CRUDE -->
+                <tr>
+                  <td class="rt-lb__rank">8</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">CRUDE</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(245,158,11,0.12); color: var(--bw-group-commodities);">COMMODITIES</span>
+                      <span class="rt-lb__archetype">Trend</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--med">Med Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.0734</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.0749</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.91%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+4.12%</td>
+                  <td class="num"><span class="rt-lb__aum">98.65</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,26 L 10,25 L 18,23 L 26,24 L 34,20 L 42,22 L 50,18 L 58,19 L 66,14 L 74,16 L 82,11 L 90,13 L 98,8" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 9: FLUX -->
+                <tr>
+                  <td class="rt-lb__rank">9</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">FLUX</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(244,63,94,0.12); color: var(--bw-group-forex);">FOREX</span>
+                      <span class="rt-lb__archetype">Carry</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--high">High Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.2145</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.2190</span></td>
+                  <td class="num rt-lb__change rt-lb__change--up">+0.29%</td>
+                  <td class="num rt-lb__change rt-lb__change--up">+1.58%</td>
+                  <td class="num"><span class="rt-lb__aum">156.22</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,20 L 10,19 L 18,21 L 26,18 L 34,19 L 42,16 L 50,17 L 58,14 L 66,16 L 74,13 L 82,14 L 90,12 L 98,13" fill="none" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+
+                <!-- Row 10: BEAR -->
+                <tr>
+                  <td class="rt-lb__rank">10</td>
+                  <td class="rt-lb__botcell">
+                    <span class="rt-lb__botname bw-display">BEAR</span>
+                    <span class="rt-lb__tags">
+                      <span class="rt-lb__group bw-display" style="background: rgba(59,130,246,0.12); color: var(--bw-group-crypto);">CRYPTO</span>
+                      <span class="rt-lb__archetype">Reversal</span>
+                      <span class="rt-lb__dot-sep">·</span>
+                      <span class="rt-lb__risk--high">High Risk</span>
+                    </span>
+                  </td>
+                  <td class="num rt-lb__price bw-mono"><span class="rt-lb__price-bid">0.1567</span><span class="rt-lb__price-sep">/</span><span class="rt-lb__price-ask">0.1600</span></td>
+                  <td class="num rt-lb__change rt-lb__change--down">-0.88%</td>
+                  <td class="num rt-lb__change rt-lb__change--down">-2.13%</td>
+                  <td class="num"><span class="rt-lb__aum">145.40</span><span class="rt-lb__aum-unit">SOL</span></td>
+                  <td class="num">
+                    <svg class="rt-lb__spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                      <path d="M 2,8 L 10,10 L 18,11 L 26,13 L 34,12 L 42,15 L 50,16 L 58,18 L 66,17 L 74,20 L 82,22 L 90,21 L 98,23" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div class="rt-lb__foot">
+            <span class="rt-lb__foot-tagline">30 AI trading bots. Live on Solana.</span>
+            <a class="rt-lb__foot-cta bw-display" href="#">View all AI Bots →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOBILE variant (full × auto — 375px viewport)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Mobile &nbsp;(full × auto — 375px viewport)</h2>
+      <div class="stage stage--mobile">
+        <div class="device-frame">
+          <div class="bw-widget bw-shell rt-lb rt-lb--mobile">
+            <div class="rt-lb__head">
+              <span class="rt-lb__wordmark">
+                <img class="rt-lb__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+                <span class="rt-lb__trader">TRADER</span>
+              </span>
+              <span class="rt-lb__head-divider"></span>
+              <span class="rt-lb__head-title bw-display">Top RogueBots</span>
+              <span class="rt-lb__head-spacer"></span>
+              <span class="rt-lb__head-live bw-display">
+                <span class="bw-pulse-dot"></span>LIVE
+              </span>
+            </div>
+
+            <div class="rt-lb__body">
+              <div class="rt-lb__grid">
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-equities);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#1</span>
+                      <span class="rt-lb__card-name bw-display">KRONOS</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.1023 / 0.1045</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+3.24%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-equities);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#2</span>
+                      <span class="rt-lb__card-name bw-display">ATLAS</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.4523 / 0.4619</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+6.21%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-crypto);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#3</span>
+                      <span class="rt-lb__card-name bw-display">BULL</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.2310 / 0.2360</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+5.67%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-indexes);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#4</span>
+                      <span class="rt-lb__card-name bw-display">MACRO</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.3421 / 0.3490</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+0.87%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-commodities);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#5</span>
+                      <span class="rt-lb__card-name bw-display">AURUM</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.0512 / 0.0523</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--down"><span class="rt-lb__card-arrow">▼</span>-0.34%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-indexes);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#6</span>
+                      <span class="rt-lb__card-name bw-display">PIVOT</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.1890 / 0.1930</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+2.44%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-equities);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#7</span>
+                      <span class="rt-lb__card-name bw-display">ZEUS</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.0842 / 0.0862</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--down"><span class="rt-lb__card-arrow">▼</span>-1.45%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-commodities);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#8</span>
+                      <span class="rt-lb__card-name bw-display">CRUDE</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.0734 / 0.0749</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+4.12%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-forex);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#9</span>
+                      <span class="rt-lb__card-name bw-display">FLUX</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.2145 / 0.2190</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--up"><span class="rt-lb__card-arrow">▲</span>+1.58%</span>
+                </div>
+
+                <div class="rt-lb__card">
+                  <div class="rt-lb__card-top">
+                    <span class="rt-lb__card-left">
+                      <span class="rt-lb__card-dot" style="background: var(--bw-group-crypto);"></span>
+                      <span class="rt-lb__card-rank bw-mono">#10</span>
+                      <span class="rt-lb__card-name bw-display">BEAR</span>
+                    </span>
+                  </div>
+                  <span class="rt-lb__card-price bw-mono">0.1567 / 0.1600</span>
+                  <span class="rt-lb__card-change rt-lb__card-change--down"><span class="rt-lb__card-arrow">▼</span>-2.13%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rt-lb__foot">
+              <span class="rt-lb__foot-tagline">30 AI trading bots.</span>
+              <a class="rt-lb__foot-cta bw-display" href="#">View all →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

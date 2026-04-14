@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rt_chart_portrait Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       Page chrome — simulates Blockster's light article context.
+       Identical to rt_chart_landscape_mock.html.
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1080px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title {
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: -0.01em;
+      margin: 0 0 4px;
+    }
+    .page-sub {
+      font-size: 13px;
+      color: #6B7280;
+      margin: 0;
+      max-width: 640px;
+      line-height: 1.5;
+    }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #6B7280;
+      margin: 0 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .variant-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(0,0,0,0.06);
+    }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+    .stage--mobile { padding: 40px 24px; }
+    .device-frame {
+      width: 375px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 28px;
+      padding: 16px;
+      background: #fafaf9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    /* ============================================================
+       .bw-widget — scoped tokens (identical to landscape mock)
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-row-hover:     #1c1c25;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-green-bright:  #4ade80;
+      --bw-red:           #EF4444;
+      --bw-red-bright:    #f87171;
+      --bw-yellow:        #EAB308;
+      --bw-rogue-orange:  #FD4F00;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-feature-settings: 'ss01' on;
+    }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow:
+        0 30px 60px -15px rgba(0, 0, 0, 0.35),
+        0 12px 25px -8px rgba(0, 0, 0, 0.20);
+    }
+    .bw-card {
+      background: var(--bw-card);
+      border: 1px solid var(--bw-border);
+      border-radius: 0.75rem;
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       rt_chart_portrait — VERTICAL layout variant
+       (Same chrome/tokens as landscape, different inner stacking.)
+       ============================================================ */
+    .rt-widget {
+      position: relative;
+      width: 440px;
+      min-height: 640px;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .rt-widget--mobile { width: 343px; min-height: 720px; }
+
+    .rt-widget::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.025) 1px, transparent 1.2px);
+      background-size: 14px 14px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* ---------- Header strip ---------- */
+    .rt-head {
+      position: relative;
+      z-index: 1;
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .rt-wordmark {
+      position: relative;
+      display: inline-flex;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .rt-wordmark__logo {
+      height: 28px;
+      width: auto;
+      display: block;
+      user-select: none;
+    }
+    .rt-wordmark__trader {
+      position: absolute;
+      bottom: -5px;
+      right: 0;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      font-weight: 700;
+      font-size: 10px;
+      color: var(--bw-green);
+      letter-spacing: 0.3em;
+      line-height: 1;
+    }
+    .rt-head__divider {
+      width: 1px;
+      height: 10px;
+      background: var(--bw-border-strong);
+    }
+    .rt-head__subtitle {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--bw-faint);
+      font-weight: 500;
+    }
+    .rt-head__spacer { flex: 1; }
+    .rt-head__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--bw-green);
+    }
+    .rt-head__time {
+      font-size: 10px;
+      color: var(--bw-faint);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- Body + card ---------- */
+    .rt-body {
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .rt-card {
+      padding: 22px 20px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* ---------- Card header (stacked) ---------- */
+    .rt-card__meta {
+      margin-bottom: 14px;
+    }
+    .rt-meta__group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .rt-meta__group-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #10B981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14);
+    }
+    .rt-meta__group-tag {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #10B981;
+      line-height: 1;
+    }
+    .rt-meta__dot-sep {
+      color: var(--bw-faint);
+      font-size: 10px;
+      line-height: 1;
+      margin: 0 1px;
+    }
+    .rt-meta__label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--bw-secondary);
+      letter-spacing: 0.01em;
+    }
+
+    .rt-price {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .rt-price__value {
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--bw-primary);
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+    }
+    .rt-price__sep {
+      color: var(--bw-secondary);
+      opacity: 0.6;
+      margin: 0 2px;
+    }
+    .rt-price__unit {
+      font-size: 13px;
+      color: var(--bw-secondary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .rt-price__change {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--bw-green);
+      padding: 3px 9px;
+      border-radius: 5px;
+      background: rgba(34, 197, 94, 0.10);
+      letter-spacing: -0.01em;
+    }
+
+    .rt-hl {
+      font-size: 11px;
+      color: var(--bw-secondary);
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .rt-hl__label { color: var(--bw-faint); }
+    .rt-hl__slash { color: var(--bw-faint); margin: 0 6px; }
+    .rt-hl__high  { color: var(--bw-green); }
+    .rt-hl__low   { color: var(--bw-red); }
+
+    /* ---------- Timeframe pills (full-width row) ---------- */
+    .rt-tfs {
+      display: flex;
+      gap: 3px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--bw-border);
+      border-radius: 10px;
+      flex-shrink: 0;
+      margin-bottom: 14px;
+    }
+    .rt-tf {
+      flex: 1;
+      text-align: center;
+      padding: 7px 0;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--bw-secondary);
+      background: transparent;
+      letter-spacing: 0.03em;
+      line-height: 1.2;
+      transition: background 120ms ease, color 120ms ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .rt-tf:hover { color: var(--bw-primary); }
+    .rt-tf--active {
+      background: rgba(255, 255, 255, 0.10);
+      color: var(--bw-primary);
+      box-shadow: inset 0 0 0 1px var(--bw-border);
+    }
+
+    /* ---------- Chart frame (fills remaining vertical space) ---------- */
+    .rt-chart {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Chart body: everything but the right price scale + bottom time scale */
+    .rt-chart__plot {
+      position: absolute;
+      inset: 0 58px 22px 0;
+      overflow: hidden;
+    }
+    .rt-chart__plot svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* Right-side price scale */
+    .rt-chart__price-scale {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 22px;
+      width: 58px;
+      border-left: 1px solid var(--bw-border);
+      font-size: 10px;
+      color: var(--bw-secondary);
+    }
+    .rt-chart__price-scale span {
+      position: absolute;
+      left: 8px;
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
+    /* Bottom time scale */
+    .rt-chart__time-scale {
+      position: absolute;
+      left: 0;
+      right: 58px;
+      bottom: 0;
+      height: 22px;
+      border-top: 1px solid var(--bw-border);
+      font-size: 10px;
+      color: var(--bw-secondary);
+    }
+    .rt-chart__time-scale span {
+      position: absolute;
+      top: 5px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    /* Last-value badge — pinned at last point's y-position */
+    .rt-chart__last-value {
+      position: absolute;
+      right: 4px;
+      transform: translate(0, -50%);
+      background: var(--bw-green);
+      color: #0A0A0F;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: 11px;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 2px;
+      z-index: 3;
+      pointer-events: none;
+    }
+    /* Last point marker — sits on the plot's right edge at the last data point */
+    .rt-chart__last-dot {
+      position: absolute;
+      right: 58px;
+      width: 7px;
+      height: 7px;
+      background: var(--bw-green);
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+      transform: translate(50%, -50%);
+      z-index: 3;
+    }
+
+    /* ---------- Footer strip ---------- */
+    .rt-foot {
+      position: relative;
+      z-index: 1;
+      padding: 16px 20px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-top: 1px solid var(--bw-border);
+      font-size: 13px;
+      color: var(--bw-data);
+      flex-shrink: 0;
+    }
+    .rt-foot__tagline {
+      letter-spacing: -0.005em;
+      font-weight: 500;
+      line-height: 1.35;
+      flex: 1;
+    }
+    .rt-foot__cta {
+      color: var(--bw-primary);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: color 120ms ease;
+    }
+    .rt-foot__cta:hover { text-decoration: underline; }
+
+    /* ---------- Mobile overrides ---------- */
+    .rt-widget--mobile .rt-head { padding: 16px 14px 14px; }
+    .rt-widget--mobile .rt-wordmark__logo { height: 24px; }
+    .rt-widget--mobile .rt-wordmark__trader { font-size: 9px; bottom: -4px; letter-spacing: 0.28em; }
+    .rt-widget--mobile .rt-foot { padding: 14px 14px 18px; font-size: 12px; }
+    .rt-widget--mobile .rt-foot__cta { font-size: 11px; }
+    .rt-widget--mobile .rt-body { padding: 12px; }
+    .rt-widget--mobile .rt-card { padding: 18px 14px 12px; }
+    .rt-widget--mobile .rt-price { flex-wrap: nowrap; align-items: baseline; }
+    .rt-widget--mobile .rt-price__value { font-size: 20px; white-space: nowrap; }
+    .rt-widget--mobile .rt-price__unit { display: none; }
+    .rt-widget--mobile .rt-price__change { font-size: 15px; padding: 3px 7px; flex-shrink: 0; margin-left: auto; }
+    .rt-widget--mobile .rt-head__subtitle { font-size: 9px; letter-spacing: 0.14em; }
+    .rt-widget--mobile .rt-head__time { display: none; }
+    .rt-widget--mobile .rt-tfs { margin-bottom: 12px; }
+    .rt-widget--mobile .rt-tf { font-size: 11px; padding: 6px 0; }
+  </style>
+</head>
+<body>
+  <!-- rt_chart_portrait widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">rt_chart_portrait &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Vertical sibling of <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">rt_chart_landscape</code>.
+        Same tokens, same chrome, same chart — stacked card header and full-width timeframe pills, chart fills remaining height.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         DESKTOP variant (440 × 640)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(440 × 640)</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell rt-widget">
+          <!-- Header strip -->
+          <div class="rt-head">
+            <span class="rt-wordmark">
+              <img class="rt-wordmark__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+              <span class="rt-wordmark__trader">TRADER</span>
+            </span>
+            <span class="rt-head__divider"></span>
+            <span class="rt-head__subtitle bw-display">TRACKING KRONOS</span>
+            <span class="rt-head__spacer"></span>
+            <span class="rt-head__live bw-display">
+              <span class="bw-pulse-dot"></span>LIVE
+            </span>
+            <span class="rt-head__time bw-mono">Updated 2s ago</span>
+          </div>
+
+          <!-- Card body -->
+          <div class="rt-body">
+            <div class="bw-card rt-card">
+              <!-- Stacked meta / price / H-L -->
+              <div class="rt-card__meta">
+                <div class="rt-meta__group">
+                  <span class="rt-meta__group-dot"></span>
+                  <span class="rt-meta__label bw-display">KRONOS-LP&nbsp;Price</span>
+                  <span class="rt-meta__dot-sep">·</span>
+                  <span class="rt-meta__group-tag bw-display">EQUITIES</span>
+                </div>
+                <div class="rt-price">
+                  <span class="rt-price__value bw-mono">
+                    0.1023<span class="rt-price__sep">/</span>0.1026
+                  </span>
+                  <span class="rt-price__unit">SOL</span>
+                  <span class="rt-price__change bw-mono">+3.24%</span>
+                </div>
+                <div class="rt-hl bw-mono">
+                  <span class="rt-hl__label">H</span>
+                  <span class="rt-hl__high">0.1041</span>
+                  <span class="rt-hl__slash">/</span>
+                  <span class="rt-hl__label">L</span>
+                  <span class="rt-hl__low">0.0988</span>
+                </div>
+              </div>
+
+              <!-- Full-width timeframe pills -->
+              <div class="rt-tfs bw-display" role="tablist" aria-label="Timeframe">
+                <span class="rt-tf">1H</span>
+                <span class="rt-tf">6H</span>
+                <span class="rt-tf">24H</span>
+                <span class="rt-tf">48H</span>
+                <span class="rt-tf rt-tf--active">7D</span>
+              </div>
+
+              <!-- Chart fills remaining vertical space -->
+              <div class="rt-chart">
+                <div class="rt-chart__plot">
+                  <svg viewBox="0 0 920 220" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="rtAreaUpPortrait" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"  stop-color="#22C55E" stop-opacity="0.22"/>
+                        <stop offset="55%" stop-color="#22C55E" stop-opacity="0.08"/>
+                        <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+
+                    <g stroke="rgba(255,255,255,0.03)" stroke-width="1" vector-effect="non-scaling-stroke">
+                      <line x1="0" y1="20"  x2="920" y2="20" />
+                      <line x1="0" y1="66"  x2="920" y2="66" />
+                      <line x1="0" y1="112" x2="920" y2="112" />
+                      <line x1="0" y1="158" x2="920" y2="158" />
+                      <line x1="0" y1="204" x2="920" y2="204" />
+                    </g>
+
+                    <path
+                      d="M 24,196.6 L 38,192.3 L 52,195.4 L 66,185.5 L 80,181.5 L 94,188.3 L 108,175.4 L 122,167.7 L 136,171.4 L 150,160.0 L 164,153.9 L 178,157.9 L 192,146.2 L 206,141.5 L 220,149.2 L 234,136.9 L 248,129.2 L 262,124.6 L 276,132.3 L 290,120.0 L 304,115.4 L 318,123.1 L 332,109.2 L 346,103.1 L 360,110.8 L 374,98.5 L 388,89.2 L 402,93.9 L 416,80.0 L 430,73.9 L 444,81.5 L 458,69.2 L 472,60.0 L 486,66.2 L 500,52.3 L 514,44.6 L 528,49.2 L 542,40.0 L 556,33.9 L 570,31.7 L 584,36.9 L 598,47.7 L 612,55.4 L 626,63.1 L 640,53.9 L 654,64.6 L 668,72.3 L 682,67.7 L 696,76.9 L 710,84.6 L 724,70.8 L 738,78.5 L 752,87.7 L 766,76.9 L 780,83.0 L 794,90.8 L 808,80.0 L 822,84.6 L 836,78.5 L 850,83.0 L 920,83.0 L 920,220 L 24,220 Z"
+                      fill="url(#rtAreaUpPortrait)"
+                    />
+                    <path
+                      d="M 24,196.6 L 38,192.3 L 52,195.4 L 66,185.5 L 80,181.5 L 94,188.3 L 108,175.4 L 122,167.7 L 136,171.4 L 150,160.0 L 164,153.9 L 178,157.9 L 192,146.2 L 206,141.5 L 220,149.2 L 234,136.9 L 248,129.2 L 262,124.6 L 276,132.3 L 290,120.0 L 304,115.4 L 318,123.1 L 332,109.2 L 346,103.1 L 360,110.8 L 374,98.5 L 388,89.2 L 402,93.9 L 416,80.0 L 430,73.9 L 444,81.5 L 458,69.2 L 472,60.0 L 486,66.2 L 500,52.3 L 514,44.6 L 528,49.2 L 542,40.0 L 556,33.9 L 570,31.7 L 584,36.9 L 598,47.7 L 612,55.4 L 626,63.1 L 640,53.9 L 654,64.6 L 668,72.3 L 682,67.7 L 696,76.9 L 710,84.6 L 724,70.8 L 738,78.5 L 752,87.7 L 766,76.9 L 780,83.0 L 794,90.8 L 808,80.0 L 822,84.6 L 836,78.5 L 850,83.0 L 920,83.0"
+                      fill="none"
+                      stroke="#22C55E"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  </svg>
+                </div>
+
+                <!-- Right-side price scale -->
+                <div class="rt-chart__price-scale bw-mono">
+                  <span style="top: 9.1%;">0.1045</span>
+                  <span style="top: 30.0%;">0.1030</span>
+                  <span style="top: 50.9%;">0.1015</span>
+                  <span style="top: 71.8%;">0.1000</span>
+                  <span style="top: 92.7%;">0.0985</span>
+                </div>
+                <!-- Bottom time scale -->
+                <div class="rt-chart__time-scale bw-mono">
+                  <span style="left: 10%;">Apr 07</span>
+                  <span style="left: 35%;">Apr 09</span>
+                  <span style="left: 60%;">Apr 11</span>
+                  <span style="left: 85%;">Apr 13</span>
+                </div>
+                <!-- Last point marker + badge (positioned in chart container for correct alignment) -->
+                <div class="rt-chart__last-dot" style="top: calc(37.7% - 8.3px);"></div>
+                <div class="rt-chart__last-value" style="top: calc(37.7% - 8.3px);">0.1025</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer strip -->
+          <div class="rt-foot">
+            <span class="rt-foot__tagline">KRONOS is a Solana-powered AI trading bot.</span>
+            <a class="rt-foot__cta bw-display" href="#">Open on RogueTrader →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOBILE variant (full × 600 on 375px viewport)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Mobile &nbsp;(full × 600 — 375px viewport)</h2>
+      <div class="stage stage--mobile">
+        <div class="device-frame">
+          <div class="bw-widget bw-shell rt-widget rt-widget--mobile">
+            <div class="rt-head">
+              <span class="rt-wordmark">
+                <img class="rt-wordmark__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+                <span class="rt-wordmark__trader">TRADER</span>
+              </span>
+              <span class="rt-head__divider"></span>
+              <span class="rt-head__subtitle bw-display">TRACKING KRONOS</span>
+              <span class="rt-head__spacer"></span>
+              <span class="rt-head__live bw-display">
+                <span class="bw-pulse-dot"></span>LIVE
+              </span>
+            </div>
+
+            <div class="rt-body">
+              <div class="bw-card rt-card">
+                <div class="rt-card__meta">
+                  <div class="rt-meta__group">
+                    <span class="rt-meta__group-dot"></span>
+                    <span class="rt-meta__group-tag bw-display">EQUITIES</span>
+                    <span class="rt-meta__dot-sep">·</span>
+                    <span class="rt-meta__label bw-display">KRONOS-LP&nbsp;Price</span>
+                  </div>
+                  <div class="rt-price">
+                    <span class="rt-price__value bw-mono">
+                      0.1023<span class="rt-price__sep">/</span>0.1026
+                    </span>
+                    <span class="rt-price__unit">SOL</span>
+                    <span class="rt-price__change bw-mono">+3.24%</span>
+                  </div>
+                  <div class="rt-hl bw-mono">
+                    <span class="rt-hl__label">H</span>
+                    <span class="rt-hl__high">0.1041</span>
+                    <span class="rt-hl__slash">/</span>
+                    <span class="rt-hl__label">L</span>
+                    <span class="rt-hl__low">0.0988</span>
+                  </div>
+                </div>
+
+                <div class="rt-tfs bw-display" role="tablist" aria-label="Timeframe">
+                  <span class="rt-tf">1H</span>
+                  <span class="rt-tf">6H</span>
+                  <span class="rt-tf">24H</span>
+                  <span class="rt-tf">48H</span>
+                  <span class="rt-tf rt-tf--active">7D</span>
+                </div>
+
+                <div class="rt-chart">
+                  <div class="rt-chart__plot">
+                    <svg viewBox="0 0 920 220" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="rtAreaUpPortraitMobile" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%"  stop-color="#22C55E" stop-opacity="0.22"/>
+                          <stop offset="55%" stop-color="#22C55E" stop-opacity="0.08"/>
+                          <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
+                        </linearGradient>
+                      </defs>
+
+                      <g stroke="rgba(255,255,255,0.03)" stroke-width="1" vector-effect="non-scaling-stroke">
+                        <line x1="0" y1="20"  x2="920" y2="20" />
+                        <line x1="0" y1="66"  x2="920" y2="66" />
+                        <line x1="0" y1="112" x2="920" y2="112" />
+                        <line x1="0" y1="158" x2="920" y2="158" />
+                        <line x1="0" y1="204" x2="920" y2="204" />
+                      </g>
+
+                      <path
+                        d="M 24,196.6 L 38,192.3 L 52,195.4 L 66,185.5 L 80,181.5 L 94,188.3 L 108,175.4 L 122,167.7 L 136,171.4 L 150,160.0 L 164,153.9 L 178,157.9 L 192,146.2 L 206,141.5 L 220,149.2 L 234,136.9 L 248,129.2 L 262,124.6 L 276,132.3 L 290,120.0 L 304,115.4 L 318,123.1 L 332,109.2 L 346,103.1 L 360,110.8 L 374,98.5 L 388,89.2 L 402,93.9 L 416,80.0 L 430,73.9 L 444,81.5 L 458,69.2 L 472,60.0 L 486,66.2 L 500,52.3 L 514,44.6 L 528,49.2 L 542,40.0 L 556,33.9 L 570,31.7 L 584,36.9 L 598,47.7 L 612,55.4 L 626,63.1 L 640,53.9 L 654,64.6 L 668,72.3 L 682,67.7 L 696,76.9 L 710,84.6 L 724,70.8 L 738,78.5 L 752,87.7 L 766,76.9 L 780,83.0 L 794,90.8 L 808,80.0 L 822,84.6 L 836,78.5 L 850,83.0 L 920,83.0 L 920,220 L 24,220 Z"
+                        fill="url(#rtAreaUpPortraitMobile)"
+                      />
+                      <path
+                        d="M 24,196.6 L 38,192.3 L 52,195.4 L 66,185.5 L 80,181.5 L 94,188.3 L 108,175.4 L 122,167.7 L 136,171.4 L 150,160.0 L 164,153.9 L 178,157.9 L 192,146.2 L 206,141.5 L 220,149.2 L 234,136.9 L 248,129.2 L 262,124.6 L 276,132.3 L 290,120.0 L 304,115.4 L 318,123.1 L 332,109.2 L 346,103.1 L 360,110.8 L 374,98.5 L 388,89.2 L 402,93.9 L 416,80.0 L 430,73.9 L 444,81.5 L 458,69.2 L 472,60.0 L 486,66.2 L 500,52.3 L 514,44.6 L 528,49.2 L 542,40.0 L 556,33.9 L 570,31.7 L 584,36.9 L 598,47.7 L 612,55.4 L 626,63.1 L 640,53.9 L 654,64.6 L 668,72.3 L 682,67.7 L 696,76.9 L 710,84.6 L 724,70.8 L 738,78.5 L 752,87.7 L 766,76.9 L 780,83.0 L 794,90.8 L 808,80.0 L 822,84.6 L 836,78.5 L 850,83.0 L 920,83.0"
+                        fill="none"
+                        stroke="#22C55E"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        vector-effect="non-scaling-stroke"
+                      />
+                    </svg>
+                  </div>
+
+                  <div class="rt-chart__price-scale bw-mono">
+                    <span style="top: 9.1%;">0.1045</span>
+                    <span style="top: 30.0%;">0.1030</span>
+                    <span style="top: 50.9%;">0.1015</span>
+                    <span style="top: 71.8%;">0.1000</span>
+                    <span style="top: 92.7%;">0.0985</span>
+                  </div>
+                  <div class="rt-chart__time-scale bw-mono">
+                    <span style="left: 10%;">Apr 07</span>
+                    <span style="left: 35%;">Apr 09</span>
+                    <span style="left: 60%;">Apr 11</span>
+                    <span style="left: 85%;">Apr 13</span>
+                  </div>
+                  <div class="rt-chart__last-dot" style="top: calc(37.7% - 8.3px);"></div>
+                  <div class="rt-chart__last-value" style="top: calc(37.7% - 8.3px);">0.1025</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rt-foot">
+              <span class="rt-foot__tagline">KRONOS is a Solana-powered AI trading bot.</span>
+              <a class="rt-foot__cta bw-display" href="#">Open on RT →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

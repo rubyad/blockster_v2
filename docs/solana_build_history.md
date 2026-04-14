@@ -9,6 +9,37 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 1 (2026-04-14) ✅
+
+Sister-app public widget APIs are live in production. Blockster will consume these from Phase 2 pollers. No Blockster code changed in this phase.
+
+**RogueTrader (`roguetrader-v2.fly.dev`, branch `main`, merged from `feat/widgets-api`)**
+- New `:public_api` pipeline: inline ETS-backed `Plugs.CorsApi` + `Plugs.RateLimit` (300 req/min/IP), no new deps
+- `GET /api/bots` — 30 bots + bid/ask + 5-tf change % (1h/6h/24h/48h/7d), sorted by lp_price desc, ranked
+- `GET /api/bots/:id` — by integer id or case-insensitive name; 404 on miss
+- `GET /api/bots/:id/chart?tf=…` — ≤500-point series + high/low/change_pct, default `tf=24h`
+- `Stats.ChartHistory` does the change-% bulk aggregation (1 DISTINCT-ON SQL per tf, 5 total) — kept out of StatsTracker hot loop
+- 24 new tests, full mix test 272/0
+- Production verified: `/api/bots` 200 in 1.9s cold, `/api/bots/1/chart?tf=1h` 200 in 264ms, OPTIONS preflight 204
+
+**FateSwap (`fateswap.fly.dev`, branch `main`, merged from `feat/widgets-api`)**
+- New `:public_api` pipeline (CORS + 120 req/min/IP), no new deps
+- `GET /api/feed/recent?limit=N` (default 20, max 100)
+- `GET /api/feed/top_profit?window=1h|6h|24h|7d`
+- `GET /api/feed/top_discount?window=1h|6h|24h|7d`
+- `GET /api/orders/:id` (404 on bad/unknown UUID)
+- `Api.OrderSerializer`: canonical `status_text` ("DISCOUNT FILLED" / "ORDER FILLED" / "NOT FILLED"), `discount_pct`, `profit_lamports/ui/pct`, `fill_chance_pct` via `ProvablyFair`, `conviction_label` + `quote` via `Social.Quotes`. The on-site `trade_components.ex` is unchanged.
+- 27 new tests; pre-existing `PoolLiveTest "Trades (24H)"` failure is unrelated and present on `main` before this change
+- Production verified: `/api/feed/recent?limit=5` 200 in 278ms with real DISCOUNT FILLED PUMP buy, OPTIONS preflight 204
+
+**Plan deviations honored**:
+- Did NOT mutate `StatsTracker.get_all_stats/0` to add change-% fields (plan suggested this); kept on-demand in `ChartHistory` to avoid bloating the 10s sync loop.
+- No `cors_plug` or `hammer` deps — both are tiny inline plugs to keep the dep tree unchanged.
+
+**Next**: Phase 2 (Blockster foundation — pollers, schema, design tokens). Plan: [solana/realtime_widgets_plan.md](solana/realtime_widgets_plan.md).
+
+---
+
 ## Phase 1: Solana Programs (2026-04-02)
 
 ### 1A: BUX SPL Token
@@ -1836,6 +1867,52 @@ Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + r
 **Files changed:** `onboarding_live/index.ex` (template rewritten, handlers untouched).
 **Files created:** `onboarding_redesign_plan.md`, `onboarding_live/legacy/index_pre_redesign.ex`.
 **Tests:** 9 new template assertions + 9 existing handler/logic tests = 18 total, all pass. 0 new failures vs baseline.
+
+### Homepage Post Feed Revert + Ad System Overhaul (2026-04-13)
+
+**Scope:** Reverted homepage post cards from new cycling layouts (ThreeColumn/Mosaic/VideoLayout/Editorial) back to the old cycling pattern (PostsThree/Four/Five/SixComponent). Added template-based ad system to the homepage with positioning controls. Multiple admin improvements.
+
+**Post feed changes:**
+- Replaced new redesign cycling layouts with old Three(5)→Four(3)→Five(6)→Six(5) = 19 posts/cycle
+- Restored offset-based pagination (`current_offset` increments by 19)
+- Hero feature card hidden — ad #1 is now the first element below the header
+- Old component templates render at full width (their own `px-6 md:px-12 xl:px-48 2xl:px-64`)
+
+**Template-based ad system on homepage:**
+- New `homepage_inline` placement for homepage-specific ads (falls back to `article_inline_*` if none exist)
+- `sort_order` integer field on `ad_banners` table (migration `20260413210808`) — lower = shown first
+- Ad placement layout: Ad #1 at top → Component 1 → [Welcome hero for anon] → Component 2 → Ad #2 → Hub showcase (once) → Ad #3 → Components continue → Ad every 2nd component (recycling)
+- Ads render at `w-3/4 mx-auto` width (narrower than post components)
+- All `ad_banner` template variants (follow_bar, dark_gradient, portrait, split_card, image) now open in new tab (`target="_blank" rel="noopener"`)
+- `sanitize_ad_params` strips empty strings to nil so `@p["key"] || "default"` falls through correctly
+
+**Dark gradient template:**
+- Background colors now parameterized via `bg_color` and `bg_color_end` (previously hardcoded dark)
+- Admin can set any gradient colors, not just dark
+
+**Admin banner UI (`/admin/banners`):**
+- Template Style dropdown (image, dark_gradient, portrait, split_card, follow_bar)
+- Dynamic param fields appear per template (heading, description, brand_color, cta_text, etc.)
+- Icon/logo file upload for `icon_url` and `image_url` params (reuses BannerAdminUpload hook)
+- Sort Order field for controlling display sequence
+- Template column in banner table (purple badge for template-style)
+- `article_inline_1/2/3` and `homepage_inline` placements added to dropdown
+- Edit button scrolls to form (`ScrollIntoView` JS hook)
+- DS header + footer on banners admin page
+
+**Admin layout:**
+- Entire `:admin` live_session switched to `:redesign` layout
+- `BannersAdminLive` renders DS header + footer
+
+**Hidden sections:**
+- Hero feature card (top post) — hidden
+- Upcoming token sales — hidden
+- Recommended for you — hidden
+- Hubs you follow — hidden
+
+**Files changed:** `index.ex`, `index.html.heex`, `index_test.exs`, `design_system.ex`, `banners_admin_live.ex`, `banner.ex`, `ads.ex`, `router.ex`, `app.js`.
+**Files created:** Migration `20260413210808_add_sort_order_to_ad_banners.exs`.
+**Tests:** 8 homepage tests pass. 0 new failures vs baseline.
 
 ---
 

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fs_square_compact Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1080px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 56px 40px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 48px;
+    }
+    .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .tile-caption {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #9ca3af;
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-red:           #EF4444;
+      --bw-yellow:        #EAB308;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+      --bw-brand-gradient: linear-gradient(90deg, #22C55E 0%, #EAB308 50%, #EF4444 100%);
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 0.875rem;
+      overflow: hidden;
+      box-shadow:
+        0 24px 48px -14px rgba(0,0,0,0.35),
+        0 10px 20px -8px rgba(0,0,0,0.20);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       fs_square_compact — 200 × 200
+       ============================================================ */
+    .fs-sq {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .fs-sq::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.02) 0.5px, transparent 1px);
+      background-size: 10px 10px;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* Mini chrome strip */
+    .fs-sq__head {
+      position: relative;
+      z-index: 1;
+      height: 34px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .fs-sq__brand {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .fs-sq__logo { height: 18px; width: auto; display: block; user-select: none; }
+    .fs-sq__brand-sub {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--bw-primary);
+      margin-left: -20px;
+      line-height: 1;
+    }
+    .fs-sq__head-spacer { flex: 1; }
+    .fs-sq__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--bw-green);
+    }
+
+    /* Body */
+    .fs-sq__body {
+      position: relative;
+      z-index: 1;
+      padding: 10px 12px 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .fs-sq__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .fs-sq__row-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .fs-sq__side {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .fs-sq__side--buy  { background: rgba(34, 197, 94, 0.12); color: var(--bw-green); }
+    .fs-sq__side--sell { background: rgba(234, 179, 8, 0.14); color: var(--bw-yellow); }
+    .fs-sq__token-logo {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Satoshi', sans-serif;
+      font-weight: 800;
+      font-size: 10px;
+      color: #fff;
+      flex-shrink: 0;
+      line-height: 1;
+      background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);
+      box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .fs-sq__name {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--bw-primary);
+      letter-spacing: 0.02em;
+    }
+    .fs-sq__pnl {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 5px 2px 3px;
+      border-radius: 3px;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      color: var(--bw-green);
+      background: rgba(34, 197, 94, 0.10);
+    }
+    .fs-sq__pnl-arrow { font-size: 8px; transform: translateY(-0.5px); }
+
+    /* Received / Paid values */
+    .fs-sq__stat {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 9px;
+      padding: 6px 8px;
+      border-radius: 6px;
+    }
+    .fs-sq__stat--received {
+      background: rgba(34, 197, 94, 0.08);
+    }
+    .fs-sq__stat-label {
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--bw-secondary);
+    }
+    .fs-sq__stat--received .fs-sq__stat-label { color: var(--bw-green); }
+    .fs-sq__stat-value {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: -0.005em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .fs-sq__stat--received .fs-sq__stat-value { color: var(--bw-green); }
+    .fs-sq__sol-logo {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background:
+        url("https://ik.imagekit.io/blockster/solana-sol-logo.png") center/cover no-repeat,
+        #0A0A0F;
+      box-shadow: 0 0 0 1px rgba(153, 69, 255, 0.25);
+      flex-shrink: 0;
+    }
+    .fs-sq__bull-logo {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);
+      box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 7px;
+      font-weight: 800;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* Conviction bar */
+    .fs-sq__conviction {
+      margin-top: auto;
+      padding-top: 6px;
+    }
+    .fs-sq__conviction-bar {
+      position: relative;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--bw-brand-gradient);
+    }
+    .fs-sq__conviction-marker {
+      position: absolute;
+      top: -3px;
+      width: 3px;
+      height: 9px;
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12), 0 0 6px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Footer */
+    .fs-sq__foot {
+      position: relative;
+      z-index: 1;
+      height: 24px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--bw-border);
+    }
+    .fs-sq__tagline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--bw-data);
+    }
+    .fs-sq__tagline .bw-pulse-dot { width: 4px; height: 4px; }
+    .fs-sq__view {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--bw-primary);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .fs-sq__view:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <!-- fs_square_compact widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">fs_square_compact &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        FateSwap counterpart to <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">rt_square_compact</code> — 200 × 200 single-trade tile for 200px sidebar slots. Self-selects the biggest recent profit. Desktop only.
+      </p>
+    </header>
+
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(200 × 200 — sidebar tile)</h2>
+      <div class="stage">
+        <div class="tile-wrap">
+          <div class="bw-widget bw-shell fs-sq">
+            <!-- Mini chrome -->
+            <div class="fs-sq__head">
+              <span class="fs-sq__brand">
+                <img class="fs-sq__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" />
+                <span class="fs-sq__brand-sub bw-display">Solana DEX</span>
+              </span>
+              <span class="fs-sq__head-spacer"></span>
+              <span class="fs-sq__live bw-display">
+                <span class="bw-pulse-dot"></span>LIVE
+              </span>
+            </div>
+
+            <!-- Body -->
+            <div class="fs-sq__body">
+              <div class="fs-sq__row">
+                <span class="fs-sq__row-left">
+                  <span class="fs-sq__side fs-sq__side--buy">↗</span>
+                  <span class="fs-sq__token-logo">B</span>
+                  <span class="fs-sq__name bw-display">BULL</span>
+                </span>
+                <span class="fs-sq__pnl bw-mono">
+                  <span class="fs-sq__pnl-arrow">▲</span>+10.0%
+                </span>
+              </div>
+
+              <div class="fs-sq__stat fs-sq__stat--received">
+                <span class="fs-sq__stat-label bw-display">Received</span>
+                <span class="fs-sq__stat-value bw-mono">
+                  635.13
+                  <span class="fs-sq__bull-logo">B</span>
+                </span>
+              </div>
+
+              <div class="fs-sq__stat">
+                <span class="fs-sq__stat-label bw-display">Paid</span>
+                <span class="fs-sq__stat-value bw-mono">
+                  0.0500
+                  <span class="fs-sq__sol-logo"></span>
+                </span>
+              </div>
+
+              <!-- Conviction bar at bottom of body -->
+              <div class="fs-sq__conviction">
+                <div class="fs-sq__conviction-bar">
+                  <div class="fs-sq__conviction-marker" style="left: 18%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="fs-sq__foot">
+              <span class="fs-sq__tagline bw-display">
+                <span class="bw-pulse-dot"></span>Solana&nbsp;DEX
+              </span>
+              <a class="fs-sq__view bw-display" href="#">view →</a>
+            </div>
+          </div>
+          <span class="tile-caption">Sidebar slot preview</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

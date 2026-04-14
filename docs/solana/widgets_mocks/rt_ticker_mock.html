@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rt_ticker Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       Page chrome — identical to approved mocks
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 40px;
+      overflow: hidden;
+    }
+    .stage--mobile { padding: 40px 24px; display: flex; justify-content: center; }
+    .device-frame {
+      width: 375px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 28px;
+      padding: 16px;
+      background: #fafaf9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-row-hover:     #1c1c25;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-green-bright:  #4ade80;
+      --bw-red:           #EF4444;
+      --bw-red-bright:    #f87171;
+      --bw-yellow:        #EAB308;
+      --bw-rogue-orange:  #FD4F00;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+
+      --bw-group-crypto:      #3B82F6;
+      --bw-group-equities:    #10B981;
+      --bw-group-indexes:     #8B5CF6;
+      --bw-group-commodities: #F59E0B;
+      --bw-group-forex:       #F43F5E;
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 20px 40px -12px rgba(0,0,0,0.30),
+        0 8px 16px -6px rgba(0,0,0,0.18);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       rt_ticker — horizontal marquee
+       ============================================================ */
+    .rt-ticker {
+      position: relative;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: stretch;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    /* Brand section (sticky left) */
+    .rt-ticker__brand {
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px 0 18px;
+      border-right: 1px solid var(--bw-border);
+      background: var(--bw-bg);
+    }
+    .rt-ticker__wordmark {
+      position: relative;
+      display: inline-flex;
+      line-height: 1;
+    }
+    .rt-ticker__logo {
+      height: 26px;
+      width: auto;
+      display: block;
+      user-select: none;
+    }
+    .rt-ticker__trader {
+      position: absolute;
+      bottom: -5px; right: 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 9px;
+      color: var(--bw-green);
+      letter-spacing: 0.3em;
+      line-height: 1;
+    }
+    .rt-ticker__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px 4px 7px;
+      border: 1px solid var(--bw-border);
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--bw-green);
+      text-transform: uppercase;
+    }
+
+    /* Edge fade masks for marquee */
+    .rt-ticker__marquee {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+    }
+
+    @keyframes rt-ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+    .rt-ticker__track {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      width: max-content;
+      animation: rt-ticker-scroll 60s linear infinite;
+    }
+    .rt-ticker:hover .rt-ticker__track { animation-play-state: paused; }
+
+    /* Individual ticker item */
+    .rt-ticker__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-right: 1px solid var(--bw-border);
+      white-space: nowrap;
+      height: 100%;
+      transition: background 150ms ease;
+    }
+    .rt-ticker__item:hover { background: rgba(255, 255, 255, 0.02); }
+    .rt-ticker__dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .rt-ticker__name {
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--bw-primary);
+      letter-spacing: 0.03em;
+    }
+    .rt-ticker__price {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--bw-data);
+      letter-spacing: -0.005em;
+    }
+    .rt-ticker__bid  { color: var(--bw-green); }
+    .rt-ticker__sep  { color: var(--bw-secondary); opacity: 0.5; margin: 0 2px; }
+    .rt-ticker__ask  { color: var(--bw-red); }
+    .rt-ticker__change {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px 2px 4px;
+      border-radius: 3px;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .rt-ticker__change--up {
+      color: var(--bw-green);
+      background: rgba(34, 197, 94, 0.10);
+    }
+    .rt-ticker__change--down {
+      color: var(--bw-red);
+      background: rgba(239, 68, 68, 0.10);
+    }
+    .rt-ticker__arrow {
+      font-size: 9px;
+      line-height: 1;
+      transform: translateY(-0.5px);
+    }
+
+    /* Right CTA */
+    .rt-ticker__cta-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      border-left: 1px solid var(--bw-border);
+      background: var(--bw-bg);
+      position: relative;
+      z-index: 2;
+    }
+    .rt-ticker__cta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--bw-primary);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      transition: color 120ms ease;
+    }
+    .rt-ticker__cta:hover { text-decoration: underline; }
+
+    /* ---------- Mobile variant ---------- */
+    .rt-ticker--mobile {
+      height: 48px;
+      border-radius: 10px;
+    }
+    .rt-ticker--mobile .rt-ticker__brand { padding: 0 12px 0 14px; gap: 10px; }
+    .rt-ticker--mobile .rt-ticker__logo { height: 22px; }
+    .rt-ticker--mobile .rt-ticker__trader { font-size: 8px; bottom: -4px; letter-spacing: 0.28em; }
+    .rt-ticker--mobile .rt-ticker__live { display: none; }
+    .rt-ticker--mobile .rt-ticker__item { padding: 0 14px; gap: 8px; }
+    .rt-ticker--mobile .rt-ticker__name { font-size: 10px; }
+    .rt-ticker--mobile .rt-ticker__price { font-size: 10px; }
+    .rt-ticker--mobile .rt-ticker__change { font-size: 10px; padding: 2px 5px 2px 3px; }
+    .rt-ticker--mobile .rt-ticker__cta-wrap { display: none; }
+  </style>
+</head>
+<body>
+  <!-- rt_ticker widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">rt_ticker &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Full-width horizontal marquee of all 30 RogueBots. Each item: group dot + bot name + bid (green) / ask (red) + change% pill.
+        CSS-only scroll animation with hover-pause + edge fade masks. Placements: <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">homepage_top_desktop</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">homepage_top_mobile</code>.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         DESKTOP variant (full × 56)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(full × 56)</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell rt-ticker">
+          <!-- Brand lock-up -->
+          <div class="rt-ticker__brand">
+            <span class="rt-ticker__wordmark">
+              <img class="rt-ticker__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+              <span class="rt-ticker__trader">TRADER</span>
+            </span>
+            <span class="rt-ticker__live bw-display">
+              <span class="bw-pulse-dot"></span>Live
+            </span>
+          </div>
+
+          <!-- Marquee -->
+          <div class="rt-ticker__marquee">
+            <div class="rt-ticker__track">
+              <!-- Set 1 of 12 bots -->
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">KRONOS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1023</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1026</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>3.24%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">ZEUS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0842</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0845</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>1.45%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">BULL</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2310</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.2318</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>5.67%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">BEAR</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1567</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1572</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>2.13%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">MACRO</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.3421</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.3428</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.87%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">PIVOT</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1890</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1896</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>2.44%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                <span class="rt-ticker__name bw-display">AURUM</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0512</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0516</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>0.34%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                <span class="rt-ticker__name bw-display">CRUDE</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0734</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0738</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>4.12%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-forex);"></span>
+                <span class="rt-ticker__name bw-display">FLUX</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2145</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.2152</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>1.58%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">REGIME</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1234</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1240</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>3.78%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">ATLAS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.4523</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.4531</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>6.21%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">HAWK</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0876</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0880</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.92%</span>
+              </div>
+
+              <!-- Set 2 — duplicate for seamless loop -->
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">KRONOS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1023</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1026</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>3.24%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">ZEUS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0842</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0845</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>1.45%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">BULL</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2310</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.2318</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>5.67%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">BEAR</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1567</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1572</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>2.13%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">MACRO</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.3421</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.3428</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.87%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">PIVOT</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1890</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1896</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>2.44%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                <span class="rt-ticker__name bw-display">AURUM</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0512</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0516</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>0.34%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                <span class="rt-ticker__name bw-display">CRUDE</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0734</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0738</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>4.12%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-forex);"></span>
+                <span class="rt-ticker__name bw-display">FLUX</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2145</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.2152</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>1.58%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                <span class="rt-ticker__name bw-display">REGIME</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1234</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.1240</span></span>
+                <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>3.78%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                <span class="rt-ticker__name bw-display">ATLAS</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.4523</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.4531</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>6.21%</span>
+              </div>
+              <div class="rt-ticker__item">
+                <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                <span class="rt-ticker__name bw-display">HAWK</span>
+                <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0876</span><span class="rt-ticker__sep">/</span><span class="rt-ticker__ask">0.0880</span></span>
+                <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.92%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right CTA -->
+          <div class="rt-ticker__cta-wrap">
+            <a class="rt-ticker__cta bw-display" href="#">View all AI Bots →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOBILE variant (full × 48)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Mobile &nbsp;(full × 48 — 375px viewport)</h2>
+      <div class="stage stage--mobile">
+        <div class="device-frame">
+          <div class="bw-widget bw-shell rt-ticker rt-ticker--mobile">
+            <div class="rt-ticker__brand">
+              <span class="rt-ticker__wordmark">
+                <img class="rt-ticker__logo" src="https://ik.imagekit.io/blockster/rogue-logo-white.png" alt="Rogue Trader" />
+                <span class="rt-ticker__trader">TRADER</span>
+              </span>
+            </div>
+
+            <div class="rt-ticker__marquee">
+              <div class="rt-ticker__track">
+                <!-- Set 1 -->
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                  <span class="rt-ticker__name bw-display">KRONOS</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1023</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>3.24%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                  <span class="rt-ticker__name bw-display">ZEUS</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0842</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>1.45%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                  <span class="rt-ticker__name bw-display">BULL</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2310</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>5.67%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                  <span class="rt-ticker__name bw-display">BEAR</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1567</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>2.13%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                  <span class="rt-ticker__name bw-display">MACRO</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.3421</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.87%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                  <span class="rt-ticker__name bw-display">CRUDE</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0734</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>4.12%</span>
+                </div>
+
+                <!-- Set 2 — duplicate -->
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                  <span class="rt-ticker__name bw-display">KRONOS</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1023</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>3.24%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-equities);"></span>
+                  <span class="rt-ticker__name bw-display">ZEUS</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0842</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>1.45%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                  <span class="rt-ticker__name bw-display">BULL</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.2310</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>5.67%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-crypto);"></span>
+                  <span class="rt-ticker__name bw-display">BEAR</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.1567</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--down bw-mono"><span class="rt-ticker__arrow">▼</span>2.13%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-indexes);"></span>
+                  <span class="rt-ticker__name bw-display">MACRO</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.3421</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>0.87%</span>
+                </div>
+                <div class="rt-ticker__item">
+                  <span class="rt-ticker__dot" style="background: var(--bw-group-commodities);"></span>
+                  <span class="rt-ticker__name bw-display">CRUDE</span>
+                  <span class="rt-ticker__price bw-mono"><span class="rt-ticker__bid">0.0734</span></span>
+                  <span class="rt-ticker__change rt-ticker__change--up bw-mono"><span class="rt-ticker__arrow">▲</span>4.12%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

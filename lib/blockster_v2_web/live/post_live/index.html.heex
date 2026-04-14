@@ -37,7 +37,7 @@
 <%= if @homepage_top_desktop_banners != [] do %>
   <% banner = Enum.random(@homepage_top_desktop_banners) %>
   <div class="hidden md:block bg-[#fafaf9] pt-8">
-    <div class="max-w-[1280px] mx-auto px-6">
+    <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
       <%= if banner.link_url do %>
         <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="block rounded-2xl overflow-hidden">
           <img src={banner.image_url} alt={banner.name} class="w-full h-auto block" />
@@ -62,151 +62,135 @@
   </div>
 <% end %>
 
-<main class="max-w-[1280px] mx-auto px-6">
-  <%!-- ── Hero featured article ──────────────────────────────────────────── --%>
-  <%= if @hero_post do %>
-    <BlocksterV2Web.DesignSystem.hero_feature_card
-      href={~p"/#{@hero_post.slug}"}
-      image={BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
-      eyebrow="Today's Story"
-      eyebrow_meta={
-        if @hero_post.published_at,
-          do: "Published " <> Calendar.strftime(@hero_post.published_at, "%B %d"),
-          else: nil
-      }
-      hub_name={BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
-      hub_color={BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
-      category={BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
-      title={@hero_post.title}
-      excerpt={BlocksterV2Web.PostLive.Redesign.Shared.short_excerpt(@hero_post.excerpt, 200)}
-      author={BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
-      author_initials={BlocksterV2Web.PostLive.Redesign.Shared.author_initials(@hero_post)}
-      read_minutes={BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
-      bux_reward={Map.get(@bux_balances, @hero_post.id, 0)}
-    />
-  <% end %>
-
-  <%!-- ── Cycling layout stream (ThreeColumn → Mosaic → Video → Editorial) ─ --%>
-  <div id="components" phx-update="stream" phx-hook="InfiniteScroll">
-    <%= for {dom_id, comp} <- @streams.components do %>
-      <div id={dom_id}>
-        <.live_component
-          module={comp.module}
-          id={comp.id}
-          posts={comp.posts}
-          current_user={@current_user}
-          bux_balances={@bux_balances}
-          user_post_rewards={@user_post_rewards}
-        />
-      </div>
-    <% end %>
-  </div>
-
-  <%!-- ── Hub showcase (one-shot) ─────────────────────────────────────────── --%>
-  <%= if @hub_showcase != [] do %>
-    <section class="py-10 border-t border-neutral-200/70">
-      <BlocksterV2Web.DesignSystem.section_header
-        eyebrow="Browse"
-        title={"Explore #{length(BlocksterV2.Blog.list_hubs())} hubs"}
-      >
-        <:see_all href={~p"/hubs"}>View all hubs</:see_all>
-      </BlocksterV2Web.DesignSystem.section_header>
-
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <%= for hub <- @hub_showcase do %>
-          <BlocksterV2Web.DesignSystem.hub_card
-            href={~p"/hub/#{hub.slug}"}
-            name={hub.name}
-            ticker={hub.token || String.first(hub.name)}
-            primary={hub.color_primary || "#7D00FF"}
-            secondary={hub.color_secondary || "#4A00B8"}
-            description={hub.description}
-            post_count={Integer.to_string(Map.get(hub, :post_count, 0))}
-          />
-        <% end %>
-        <% remaining = max(length(BlocksterV2.Blog.list_hubs()) - length(@hub_showcase), 0) %>
-        <%= if remaining > 0 do %>
-          <BlocksterV2Web.DesignSystem.hub_card_more more_count={remaining} />
-        <% end %>
-      </div>
-    </section>
-  <% end %>
-
-  <%!-- ── Token sales · STUB (one-shot) ───────────────────────────────────── --%>
-  <section class="py-10 border-t border-neutral-200/70">
-    <BlocksterV2Web.DesignSystem.section_header
-      eyebrow="Allocations open to BUX-tier holders"
-      title="Upcoming token sales"
-    />
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <BlocksterV2Web.DesignSystem.coming_soon_card variant="token_sale" />
-      <BlocksterV2Web.DesignSystem.coming_soon_card
-        variant="token_sale"
-        title="Pre-launch tier opens for early readers"
-      />
-      <BlocksterV2Web.DesignSystem.coming_soon_card
-        variant="token_sale"
-        title="Allocation flow lands in the next release"
-      />
+<main class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+  <%!-- ── First inline ad: top of page ─────────────────────────────────── --%>
+  <%= if @inline_desktop_banners != [] do %>
+    <% first_ad = Enum.at(@inline_desktop_banners, 0) %>
+    <div class="pb-4 w-3/4 mx-auto">
+      <BlocksterV2Web.DesignSystem.ad_banner banner={first_ad} />
     </div>
-  </section>
-
-  <%!-- ── Hubs you follow (logged-in only) ────────────────────────────────── --%>
-  <%= if @current_user && @followed_hub_posts != [] do %>
-    <section class="py-10 border-t border-neutral-200/70">
-      <BlocksterV2Web.DesignSystem.section_header
-        eyebrow="Personalized"
-        title="From hubs you follow"
-      >
-        <BlocksterV2Web.DesignSystem.chip variant="active">All</BlocksterV2Web.DesignSystem.chip>
-      </BlocksterV2Web.DesignSystem.section_header>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <%= for post <- @followed_hub_posts do %>
-          <BlocksterV2Web.DesignSystem.post_card
-            href={~p"/#{post.slug}"}
-            image={BlocksterV2Web.PostLive.Redesign.Shared.post_image(post)}
-            hub_name={BlocksterV2Web.PostLive.Redesign.Shared.hub_name(post)}
-            hub_color={BlocksterV2Web.PostLive.Redesign.Shared.hub_color(post)}
-            title={post.title}
-            author={BlocksterV2Web.PostLive.Redesign.Shared.author_name(post)}
-            read_minutes={BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(post)}
-            bux_reward={Map.get(@bux_balances, post.id, 0)}
-          />
-        <% end %>
-      </div>
-    </section>
   <% end %>
+</main>
 
-  <%!-- ── Recommended for you · STUB (logged-in only) ─────────────────────── --%>
-  <%= if @current_user do %>
-    <section class="py-10 border-t border-neutral-200/70">
-      <BlocksterV2Web.DesignSystem.section_header
-        eyebrow="Based on what you've read"
-        title="Recommended for you"
+<%!-- ── Old-style cycling layout stream (Three → Four → Five → Six) ─
+     Rendered OUTSIDE the main container because the old components
+     have their own full-width containers (px-6 md:px-12 xl:px-48 etc.) --%>
+<div id="components" phx-update="stream" phx-hook="InfiniteScroll">
+  <%= for {dom_id, comp} <- @streams.components do %>
+    <div id={dom_id}>
+      <.live_component
+        module={comp.module}
+        id={comp.id}
+        posts={Map.get(comp, :posts)}
+        current_user={@current_user}
+        content={Map.get(comp, :content)}
+        type={Map.get(comp, :type)}
+        show_read_more={true}
+        bux_balances={@bux_balances}
+        user_post_rewards={@user_post_rewards}
       />
 
-      <BlocksterV2Web.DesignSystem.coming_soon_card variant="recommended" />
-    </section>
-  <% end %>
+      <%!-- Welcome hero: rendered once for anonymous users, after the 1st component --%>
+      <%= if comp.inline_banner_index == 0 && is_nil(@current_user) do %>
+        <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+          <BlocksterV2Web.DesignSystem.welcome_hero
+            preview_image={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
+            preview_title={if @hero_post, do: @hero_post.title}
+            preview_hub_name={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
+            preview_hub_color={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
+            preview_category={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
+            preview_author={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
+            preview_read_minutes={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
+            preview_bux_reward={if @hero_post, do: Map.get(@bux_balances, @hero_post.id, 0)}
+            hub_count={length(@hub_showcase)}
+          />
 
-  <%!-- ── Anonymous-only marketing sections ───────────────────────────────── --%>
-  <%= if is_nil(@current_user) do %>
-    <BlocksterV2Web.DesignSystem.welcome_hero
-      preview_image={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
-      preview_title={if @hero_post, do: @hero_post.title}
-      preview_hub_name={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
-      preview_hub_color={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
-      preview_category={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
-      preview_author={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
-      preview_read_minutes={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
-      preview_bux_reward={if @hero_post, do: Map.get(@bux_balances, @hero_post.id, 0)}
-      hub_count={length(@hub_showcase)}
-    />
+          <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={length(BlocksterV2.Blog.list_hubs())} />
+        </div>
+      <% end %>
 
-    <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={length(BlocksterV2.Blog.list_hubs())} />
+      <%!-- Inline ads between components. Layout:
+           index 0: (no ad)
+           index 1: ad #2 → then hubs → then ad #3
+           index 2: (no ad — ad #3 already shown after hubs above)
+           index 4,6,8...: ad every 2nd component (recycling)
+           Ad slot formula accounts for slot 0 (hero-bottom) being pre-rendered. --%>
+      <% show_ad = comp.inline_banner_index == 1 || (comp.inline_banner_index > 2 && rem(comp.inline_banner_index, 2) == 0) %>
+      <% ad_slot = cond do
+           comp.inline_banner_index == 1 -> 1
+           comp.inline_banner_index > 2 -> div(comp.inline_banner_index, 2) + 1
+           true -> 0
+         end %>
+      <%= if @inline_desktop_banners != [] && show_ad do %>
+        <% d_banner = Enum.at(@inline_desktop_banners, rem(ad_slot, length(@inline_desktop_banners))) %>
+        <div class="hidden md:block py-4">
+          <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+            <div class="w-3/4 mx-auto">
+              <BlocksterV2Web.DesignSystem.ad_banner banner={d_banner} />
+            </div>
+          </div>
+        </div>
+      <% end %>
+      <%= if @inline_mobile_banners != [] && show_ad do %>
+        <% m_banner = Enum.at(@inline_mobile_banners, rem(ad_slot, length(@inline_mobile_banners))) %>
+        <div class="md:hidden py-3 px-4">
+          <BlocksterV2Web.DesignSystem.ad_banner banner={m_banner} />
+        </div>
+      <% end %>
+
+      <%!-- Hub showcase: rendered once, after the 2nd ad (inline_banner_index == 1) --%>
+      <%= if comp.inline_banner_index == 1 && @hub_showcase != [] do %>
+        <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
+          <section class="py-10 border-t border-neutral-200/70">
+            <BlocksterV2Web.DesignSystem.section_header
+              eyebrow="Browse"
+              title={"Explore #{length(BlocksterV2.Blog.list_hubs())} hubs"}
+            >
+              <:see_all href={~p"/hubs"}>View all hubs</:see_all>
+            </BlocksterV2Web.DesignSystem.section_header>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <%= for hub <- @hub_showcase do %>
+                <BlocksterV2Web.DesignSystem.hub_card
+                  href={~p"/hub/#{hub.slug}"}
+                  name={hub.name}
+                  ticker={hub.token || String.first(hub.name)}
+                  primary={hub.color_primary || "#7D00FF"}
+                  secondary={hub.color_secondary || "#4A00B8"}
+                  description={hub.description}
+                  post_count={Integer.to_string(Map.get(hub, :post_count, 0))}
+                />
+              <% end %>
+              <% remaining = max(length(BlocksterV2.Blog.list_hubs()) - length(@hub_showcase), 0) %>
+              <%= if remaining > 0 do %>
+                <BlocksterV2Web.DesignSystem.hub_card_more more_count={remaining} />
+              <% end %>
+            </div>
+          </section>
+
+          <%!-- Ad #3: directly below hubs --%>
+          <%= if @inline_desktop_banners != [] do %>
+            <% hubs_ad = Enum.at(@inline_desktop_banners, rem(2, length(@inline_desktop_banners))) %>
+            <div class="hidden md:block py-4">
+              <div class="w-3/4 mx-auto">
+                <BlocksterV2Web.DesignSystem.ad_banner banner={hubs_ad} />
+              </div>
+            </div>
+          <% end %>
+          <%= if @inline_mobile_banners != [] do %>
+            <% hubs_ad_m = Enum.at(@inline_mobile_banners, rem(2, length(@inline_mobile_banners))) %>
+            <div class="md:hidden py-3 px-4">
+              <BlocksterV2Web.DesignSystem.ad_banner banner={hubs_ad_m} />
+            </div>
+          <% end %>
+          <div class="h-10"></div>
+        </div>
+      <% end %>
+    </div>
   <% end %>
+</div>
+
+<main class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
 
   <%!-- ── Infinite scroll loading indicator ───────────────────────────────── --%>
   <div class="py-12 flex items-center justify-center">

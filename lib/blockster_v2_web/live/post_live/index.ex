@@ -31,20 +31,9 @@ defmodule BlocksterV2Web.PostLive.Index do
   alias BlocksterV2.Blog.Post
   alias BlocksterV2.EngagementTracker
 
-  alias BlocksterV2Web.PostLive.Redesign.{
-    ThreeColumn,
-    Mosaic,
-    VideoLayout,
-    Editorial
-  }
-
-  # Posts consumed by each layout in one full cycle
-  @posts_per_three_column 3
-  @posts_per_mosaic 14
-  @posts_per_editorial 4
-  @videos_per_video_layout 7
-
-  @posts_per_cycle @posts_per_three_column + @posts_per_mosaic + @posts_per_editorial
+  # Old cycling component modules: Three (5) → Four (3) → Five (6) → Six (5) = 19 per cycle
+  # Total posts per component cycle
+  @posts_per_cycle 19
 
   @impl true
   def mount(_params, _session, socket) do
@@ -52,20 +41,18 @@ defmodule BlocksterV2Web.PostLive.Index do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
 
-    # Fetch the hero post (most recent) plus the first cycle of layout posts.
+    # Fetch the hero post (most recent) — displayed above the feed.
     hero_post = fetch_hero_post()
     hero_id = if hero_post, do: [hero_post.id], else: []
 
-    {cycle_components, displayed_post_ids} = build_next_cycle(hero_id, [])
+    # Build initial 4 old-style components (19 posts), offset by hero post
+    {cycle_components, displayed_post_ids} = build_components_batch(0, hero_id, 0)
 
     user = socket.assigns[:current_user]
 
     # Logged-in only one-shots
     followed_hub_posts = if user, do: Blog.list_posts_from_followed_hubs(user, limit: 8), else: []
 
-    # Build the post -> {component_id, module} map for targeted send_update on
-    # real-time BUX updates. Hero is rendered as a function component (not a
-    # LiveComponent), so it doesn't go in this map.
     post_to_component = build_post_to_component_map(cycle_components)
     component_module_map = build_component_module_map(cycle_components)
 
@@ -81,11 +68,13 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     hub_showcase = list_hub_showcase()
 
-    # Existing ad banner system stays exactly as today (top desktop, top mobile,
-    # inline desktop, inline mobile). The redesigned cycling layouts ignore
-    # `inline_banner_index` for now — banners render only at the page top.
     homepage_top_desktop_banners = load_homepage_banners(socket, "homepage_top_desktop")
     homepage_top_mobile_banners = load_homepage_banners(socket, "homepage_top_mobile")
+
+    # Load template-based inline ads. First try homepage-specific placements,
+    # then fall back to article_inline banners (same template ads shown on articles).
+    inline_desktop_banners = load_homepage_inline_banners(socket)
+    inline_mobile_banners = load_homepage_banners(socket, "homepage_inline_mobile")
 
     {:ok,
      socket
@@ -100,6 +89,8 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:user_post_rewards, user_post_rewards)
      |> assign(:component_module_map, component_module_map)
      |> assign(:post_to_component_map, post_to_component)
+     |> assign(:current_offset, @posts_per_cycle)
+     |> assign(:inline_banner_offset, length(cycle_components))
      |> assign(:search_query, "")
      |> assign(:search_results, [])
      |> assign(:show_search_results, false)
@@ -108,6 +99,8 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:deposit_modal_post, nil)
      |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
      |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
+     |> assign(:inline_desktop_banners, inline_desktop_banners)
+     |> assign(:inline_mobile_banners, inline_mobile_banners)
      |> stream(:components, cycle_components)}
   end
 
@@ -115,6 +108,30 @@ defmodule BlocksterV2Web.PostLive.Index do
     if connected?(socket),
       do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
       else: []
+  end
+
+  # Collects template-based inline ad banners for the homepage feed.
+  # Priority: homepage_inline > homepage_inline_desktop > article_inline_*.
+  # Sorted by sort_order (ascending) so admins control display order.
+  defp load_homepage_inline_banners(socket) do
+    if connected?(socket) do
+      homepage = BlocksterV2.Ads.list_active_banners_by_placement("homepage_inline")
+
+      if homepage != [] do
+        homepage
+      else
+        desktop = BlocksterV2.Ads.list_active_banners_by_placement("homepage_inline_desktop")
+
+        if desktop != [] do
+          desktop
+        else
+          ["article_inline_1", "article_inline_2", "article_inline_3"]
+          |> Enum.flat_map(&BlocksterV2.Ads.list_active_banners_by_placement/1)
+        end
+      end
+    else
+      []
+    end
   end
 
   @impl true
@@ -155,8 +172,12 @@ defmodule BlocksterV2Web.PostLive.Index do
 
   @impl true
   def handle_event("load-more", _, socket) do
+    offset = socket.assigns.current_offset
     displayed_post_ids = socket.assigns.displayed_post_ids
-    {new_components, updated_displayed} = build_next_cycle(displayed_post_ids, displayed_post_ids)
+    inline_banner_offset = socket.assigns.inline_banner_offset
+
+    {new_components, new_displayed_post_ids} =
+      build_components_batch(offset, displayed_post_ids, inline_banner_offset)
 
     if new_components == [] do
       {:reply, %{end_reached: true}, socket}
@@ -169,12 +190,14 @@ defmodule BlocksterV2Web.PostLive.Index do
       new_module_map = build_component_module_map(new_components)
       new_post_map = build_post_to_component_map(new_components)
 
-      new_posts = Enum.flat_map(new_components, & &1.posts)
+      new_posts = Enum.flat_map(new_components, fn c -> c.posts end)
       updated_balances = Map.merge(socket.assigns.bux_balances, build_bux_balances_map(new_posts))
 
       {:noreply,
        socket
-       |> assign(:displayed_post_ids, updated_displayed)
+       |> assign(:displayed_post_ids, new_displayed_post_ids)
+       |> assign(:current_offset, offset + @posts_per_cycle)
+       |> assign(:inline_banner_offset, inline_banner_offset + length(new_components))
        |> assign(:component_module_map, Map.merge(socket.assigns.component_module_map, new_module_map))
        |> assign(:post_to_component_map, Map.merge(socket.assigns.post_to_component_map, new_post_map))
        |> assign(:bux_balances, updated_balances)}
@@ -317,11 +340,9 @@ defmodule BlocksterV2Web.PostLive.Index do
   end
 
   # ============================================================================
-  # Cycle building
+  # Cycle building (old-style Three → Four → Five → Six, 19 posts per cycle)
   # ============================================================================
 
-  # Fetches the hero post (most recent published post). Returns nil when there
-  # are no published posts at all.
   defp fetch_hero_post do
     case Blog.list_published_posts_by_date(limit: 1) do
       [post | _] -> post
@@ -329,58 +350,62 @@ defmodule BlocksterV2Web.PostLive.Index do
     end
   end
 
-  # Builds one full layout cycle:
-  #   ThreeColumn (3) → Mosaic (14) → VideoLayout (7 if videos available) → Editorial (4)
-  #
-  # Returns a tuple `{components, updated_displayed_ids}`. The components list
-  # is empty when there are no more posts to display (load-more end-reached).
-  defp build_next_cycle(displayed_ids, exclude_for_dedup) do
-    posts = Blog.list_published_posts_by_date(limit: @posts_per_cycle, exclude_ids: exclude_for_dedup)
+  # Builds a batch of 4 components cycling Three(5) → Four(3) → Five(6) → Six(5).
+  # Uses offset-based pagination. `inline_banner_offset` tags each component with
+  # a global index for rotating inline ad banners.
+  defp build_components_batch(offset, displayed_post_ids, inline_banner_offset) do
+    posts =
+      Blog.list_published_posts_by_date(limit: @posts_per_cycle, offset: offset)
+      |> Enum.filter(fn p -> p.id not in displayed_post_ids end)
 
     if posts == [] do
-      {[], displayed_ids}
+      {[], displayed_post_ids}
     else
-      {three_posts, rest} = Enum.split(posts, @posts_per_three_column)
-      {mosaic_posts, rest} = Enum.split(rest, @posts_per_mosaic)
-      {editorial_posts, _} = Enum.split(rest, @posts_per_editorial)
-
-      regular_post_ids =
-        three_posts ++ mosaic_posts ++ editorial_posts
-        |> Enum.map(& &1.id)
-
-      videos_exclude = exclude_for_dedup ++ regular_post_ids
-      videos = Blog.list_published_videos(limit: @videos_per_video_layout, exclude_ids: videos_exclude)
-
-      include_video_layout? = length(videos) >= @videos_per_video_layout
+      {three_posts, rest} = Enum.split(posts, 5)
+      {four_posts, rest} = Enum.split(rest, 3)
+      {five_posts, rest} = Enum.split(rest, 6)
+      {six_posts, _} = Enum.split(rest, 5)
 
       uid = System.unique_integer([:positive])
 
-      raw_components = [
-        component_or_nil(three_posts, ThreeColumn, "redesign-three-#{uid}"),
-        component_or_nil(mosaic_posts, Mosaic, "redesign-mosaic-#{uid}"),
-        if(include_video_layout?,
-          do: component(videos, VideoLayout, "redesign-video-#{uid}"),
-          else: nil
-        ),
-        component_or_nil(editorial_posts, Editorial, "redesign-editorial-#{uid}")
-      ]
+      components =
+        [
+          %{
+            id: "home-posts-three-#{uid}",
+            module: BlocksterV2Web.PostLive.PostsThreeComponent,
+            posts: three_posts,
+            type: "home-posts",
+            content: "home"
+          },
+          %{
+            id: "home-posts-four-#{uid}",
+            module: BlocksterV2Web.PostLive.PostsFourComponent,
+            posts: four_posts,
+            type: "home-posts",
+            content: "home"
+          },
+          %{
+            id: "home-posts-five-#{uid}",
+            module: BlocksterV2Web.PostLive.PostsFiveComponent,
+            posts: five_posts,
+            type: "home-posts",
+            content: "home"
+          },
+          %{
+            id: "home-posts-six-#{uid}",
+            module: BlocksterV2Web.PostLive.PostsSixComponent,
+            posts: six_posts,
+            type: "home-posts",
+            content: "home"
+          }
+        ]
+        |> Enum.filter(fn c -> c.posts != [] end)
+        |> Enum.with_index(inline_banner_offset)
+        |> Enum.map(fn {comp, idx} -> Map.put(comp, :inline_banner_index, idx) end)
 
-      components = Enum.reject(raw_components, &is_nil/1)
-
-      added_ids =
-        components
-        |> Enum.flat_map(& &1.posts)
-        |> Enum.map(& &1.id)
-
-      {components, displayed_ids ++ added_ids}
+      new_post_ids = Enum.map(posts, & &1.id)
+      {components, displayed_post_ids ++ new_post_ids}
     end
-  end
-
-  defp component_or_nil([], _module, _id), do: nil
-  defp component_or_nil(posts, module, id), do: component(posts, module, id)
-
-  defp component(posts, module, id) do
-    %{id: id, module: module, posts: posts}
   end
 
   defp build_post_to_component_map(components) do

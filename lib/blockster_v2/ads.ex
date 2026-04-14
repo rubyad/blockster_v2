@@ -32,7 +32,7 @@ defmodule BlocksterV2.Ads do
   def list_active_banners_by_placement(placement) do
     Banner
     |> where([b], b.is_active == true and b.placement == ^placement)
-    |> order_by(:name)
+    |> order_by([b], [asc: b.sort_order, asc: b.name])
     |> Repo.all()
   end
 

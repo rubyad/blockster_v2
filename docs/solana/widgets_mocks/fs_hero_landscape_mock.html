@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fs_hero_landscape Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 40px;
+    }
+    .stage--mobile { padding: 40px 24px; display: flex; justify-content: center; }
+    .device-frame {
+      width: 375px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 28px;
+      padding: 16px;
+      background: #fafaf9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-row-hover:     #1c1c25;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-green-bright:  #4ade80;
+      --bw-red:           #EF4444;
+      --bw-yellow:        #EAB308;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+      --bw-brand-gradient: linear-gradient(90deg, #22C55E 0%, #EAB308 50%, #EF4444 100%);
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow:
+        0 30px 60px -15px rgba(0, 0, 0, 0.35),
+        0 12px 25px -8px rgba(0, 0, 0, 0.20);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       fs_hero_landscape
+       ============================================================ */
+    .fs-land {
+      position: relative;
+      width: 100%;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .fs-land--mobile { width: 343px; }
+
+    .fs-land::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.025) 1px, transparent 1.2px);
+      background-size: 14px 14px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* ---------- Header strip ---------- */
+    .fs-land__head {
+      position: relative;
+      z-index: 1;
+      padding: 16px 22px 14px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .fs-land__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      flex-shrink: 0;
+    }
+    .fs-land__logo { height: 22px; width: auto; display: block; flex-shrink: 0; user-select: none; }
+    .fs-land__head-subtitle {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--bw-primary);
+      font-weight: 800;
+      line-height: 1;
+      margin-left: -24px;
+    }
+    .fs-land__head-tagline {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: -0.005em;
+      line-height: 1.15;
+      background: var(--bw-brand-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      flex: 1;
+      text-align: center;
+    }
+    .fs-land__head-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--bw-green);
+      flex-shrink: 0;
+    }
+    .fs-land__head-time {
+      font-size: 10px;
+      color: var(--bw-faint);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* ---------- Body ---------- */
+    .fs-land__body {
+      position: relative;
+      z-index: 1;
+      padding: 22px 26px 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Status pill (small, top-left) */
+    .fs-land__status {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px 4px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      background: rgba(34, 197, 94, 0.14);
+      color: var(--bw-green);
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    /* Big headline */
+    .fs-land__headline {
+      font-weight: 800;
+      font-size: 42px;
+      color: var(--bw-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .fs-land__headline-qty {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
+    .fs-land__sub-heading {
+      font-size: 16px;
+      color: var(--bw-data);
+      margin: 8px 0 2px;
+      font-weight: 500;
+    }
+    .fs-land__pct {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      color: var(--bw-primary);
+      font-weight: 700;
+    }
+    .fs-land__timestamp {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--bw-secondary);
+      margin: 4px 0 0;
+      letter-spacing: 0.02em;
+    }
+
+    /* Token chip (shared w/ portrait) */
+    .fs-land__token {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      vertical-align: middle;
+    }
+    .fs-land__token-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);
+      box-shadow: 0 0 0 1.5px rgba(167, 139, 250, 0.25), 0 2px 4px rgba(0,0,0,0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Satoshi', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      color: #fff;
+      letter-spacing: 0;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .fs-land__token-icon--sm {
+      width: 20px;
+      height: 20px;
+      font-size: 10px;
+    }
+    .fs-land__token-icon--sol {
+      background:
+        url("https://ik.imagekit.io/blockster/solana-sol-logo.png") center/cover no-repeat,
+        #0A0A0F;
+      box-shadow: 0 0 0 1.5px rgba(153, 69, 255, 0.28), 0 2px 4px rgba(0,0,0,0.3);
+      color: transparent;
+      text-shadow: none;
+    }
+
+    /* 2x2 stat grid */
+    .fs-land__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .fs-land__cell {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 16px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--bw-border);
+      background: rgba(255, 255, 255, 0.03);
+      min-width: 0;
+    }
+    .fs-land__cell--received {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: rgba(34, 197, 94, 0.18);
+    }
+    .fs-land__cell-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--bw-secondary);
+    }
+    .fs-land__cell--received .fs-land__cell-label { color: var(--bw-green); }
+    .fs-land__cell-value {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .fs-land__cell--received .fs-land__cell-value { color: var(--bw-green); }
+    .fs-land__cell--profit .fs-land__cell-value { color: var(--bw-green); }
+    .fs-land__cell-ticker {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .fs-land__cell-pct {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--bw-green-bright);
+      margin-left: 2px;
+    }
+    .fs-land__cell-usd {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      color: var(--bw-secondary);
+    }
+
+    /* Swap Complete badge */
+    .fs-land__swap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 14px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      background: rgba(34, 197, 94, 0.06);
+      border: 1px solid rgba(34, 197, 94, 0.16);
+    }
+    .fs-land__swap-check {
+      width: 16px;
+      height: 16px;
+      color: var(--bw-green);
+      flex-shrink: 0;
+    }
+    .fs-land__swap-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--bw-green);
+      letter-spacing: 0.01em;
+    }
+
+    /* Conviction bar */
+    .fs-land__conviction {
+      margin-top: 16px;
+    }
+    .fs-land__conviction-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .fs-land__conviction-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--bw-secondary);
+    }
+    .fs-land__conviction-label strong {
+      color: var(--bw-primary);
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .fs-land__conviction-pct {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--bw-data);
+    }
+    .fs-land__conviction-bar {
+      position: relative;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--bw-brand-gradient);
+      overflow: hidden;
+    }
+    .fs-land__conviction-marker {
+      position: absolute;
+      top: -3px;
+      width: 3px;
+      height: 10px;
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12), 0 0 8px rgba(0, 0, 0, 0.6);
+    }
+
+    /* ---------- Footer strip ---------- */
+    .fs-land__foot {
+      position: relative;
+      z-index: 1;
+      padding: 14px 22px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-top: 1px solid var(--bw-border);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--bw-faint);
+    }
+    .fs-land__foot-tagline {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--bw-data);
+      letter-spacing: -0.005em;
+    }
+    .fs-land__meta-label { color: var(--bw-secondary); margin-right: 5px; letter-spacing: 0.02em; font-weight: 500; }
+    .fs-land__meta-value { color: var(--bw-primary); font-weight: 600; }
+
+    /* ---------- Mobile overrides ---------- */
+    .fs-land--mobile .fs-land__head {
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px 16px 12px;
+    }
+    .fs-land--mobile .fs-land__head-tagline {
+      flex-basis: 100%;
+      font-size: 13px;
+      text-align: left;
+    }
+    .fs-land--mobile .fs-land__head-time { display: none; }
+    .fs-land--mobile .fs-land__body { padding: 18px 18px 14px; }
+    .fs-land--mobile .fs-land__headline { font-size: 26px; }
+    .fs-land--mobile .fs-land__sub-heading { font-size: 14px; }
+    .fs-land--mobile .fs-land__token-icon { width: 26px; height: 26px; font-size: 12px; }
+    .fs-land--mobile .fs-land__grid { gap: 8px; margin-top: 14px; }
+    .fs-land--mobile .fs-land__cell { padding: 12px 12px 10px; }
+    .fs-land--mobile .fs-land__cell-value { font-size: 16px; }
+    .fs-land--mobile .fs-land__cell-ticker { font-size: 12px; }
+    .fs-land--mobile .fs-land__foot {
+      padding: 12px 16px 14px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .fs-land--mobile .fs-land__foot-tagline { font-size: 12px; flex: 1; min-width: 60%; }
+  </style>
+</head>
+<body>
+  <!-- fs_hero_landscape widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">fs_hero_landscape &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Wider (landscape) variant of the FateSwap hero. Self-selects the biggest recent profit. Same visual family as <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">fs_hero_portrait</code> — 2×2 stat grid, conviction bar, Swap Complete badge, Fill chance + TX footer.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         DESKTOP variant (full × ~520) — Buy
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(full × ~520) &nbsp;·&nbsp; Buy</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell fs-land">
+          <!-- Header strip -->
+          <div class="fs-land__head">
+            <span class="fs-land__brand">
+              <img class="fs-land__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" />
+              <span class="fs-land__head-subtitle bw-display">Solana DEX</span>
+            </span>
+            <span class="fs-land__head-tagline bw-display">Gamble for a better price than market</span>
+            <span class="fs-land__head-live bw-display">
+              <span class="bw-pulse-dot"></span>LIVE
+            </span>
+            <span class="fs-land__head-time bw-mono">2m ago</span>
+          </div>
+
+          <!-- Body -->
+          <div class="fs-land__body">
+            <span class="fs-land__status bw-display">ORDER&nbsp;FILLED</span>
+
+            <h2 class="fs-land__headline bw-display">
+              Bought <span class="fs-land__headline-qty">635.13</span>
+              <span class="fs-land__token">
+                <span class="fs-land__token-icon">B</span>
+                BULL
+              </span>
+            </h2>
+            <p class="fs-land__sub-heading">at <span class="fs-land__pct">9.10%</span> discount</p>
+            <p class="fs-land__timestamp">Apr 14, 2026 · 9:28 PM UTC</p>
+
+            <!-- 2×2 stat grid -->
+            <div class="fs-land__grid">
+              <div class="fs-land__cell fs-land__cell--received">
+                <span class="fs-land__cell-label bw-display">Trader Received</span>
+                <span class="fs-land__cell-value bw-mono">
+                  635.13
+                  <span class="fs-land__token-icon fs-land__token-icon--sm">B</span>
+                  <span class="fs-land__cell-ticker">BULL</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $4.73</span>
+              </div>
+
+              <div class="fs-land__cell">
+                <span class="fs-land__cell-label bw-display">Trader Paid</span>
+                <span class="fs-land__cell-value bw-mono">
+                  0.0500
+                  <span class="fs-land__token-icon fs-land__token-icon--sm fs-land__token-icon--sol">◎</span>
+                  <span class="fs-land__cell-ticker">SOL</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $4.30</span>
+              </div>
+
+              <div class="fs-land__cell fs-land__cell--profit">
+                <span class="fs-land__cell-label bw-display">Profit</span>
+                <span class="fs-land__cell-value bw-mono">
+                  +57.74
+                  <span class="fs-land__token-icon fs-land__token-icon--sm">B</span>
+                  <span class="fs-land__cell-ticker">BULL</span>
+                  <span class="fs-land__cell-pct">(+10.00%)</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $0.43</span>
+              </div>
+
+              <div class="fs-land__cell">
+                <span class="fs-land__cell-label bw-display">Fill Chance</span>
+                <span class="fs-land__cell-value bw-mono">39.52<span class="fs-land__cell-ticker">%</span></span>
+                <span class="fs-land__cell-usd">roll &lt; threshold</span>
+              </div>
+            </div>
+
+            <!-- Swap Complete badge -->
+            <div class="fs-land__swap">
+              <svg class="fs-land__swap-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="8.5 12 11 14.5 16 9.5"/>
+              </svg>
+              <span class="fs-land__swap-text bw-display">Swap complete</span>
+            </div>
+
+            <!-- Conviction bar -->
+            <div class="fs-land__conviction">
+              <div class="fs-land__conviction-row">
+                <span class="fs-land__conviction-label bw-display">Conviction:<strong>Conservative</strong></span>
+                <span class="fs-land__conviction-pct">9.1% discount · low-risk zone</span>
+              </div>
+              <div class="fs-land__conviction-bar">
+                <div class="fs-land__conviction-marker" style="left: 18%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer strip -->
+          <div class="fs-land__foot">
+            <span class="fs-land__foot-tagline">Memecoin trading on steroids.</span>
+            <span>
+              <span class="fs-land__meta-label">TX:</span><span class="fs-land__meta-value">5k3ZHx..v95Rz6</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DESKTOP variant — Sell
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(full × ~520) &nbsp;·&nbsp; Sell</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell fs-land">
+          <div class="fs-land__head">
+            <span class="fs-land__brand">
+              <img class="fs-land__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" />
+              <span class="fs-land__head-subtitle bw-display">Solana DEX</span>
+            </span>
+            <span class="fs-land__head-tagline bw-display">Gamble for a better price than market</span>
+            <span class="fs-land__head-live bw-display">
+              <span class="bw-pulse-dot"></span>LIVE
+            </span>
+            <span class="fs-land__head-time bw-mono">3m ago</span>
+          </div>
+
+          <div class="fs-land__body">
+            <span class="fs-land__status bw-display">ORDER&nbsp;FILLED</span>
+
+            <h2 class="fs-land__headline bw-display">
+              Sold <span class="fs-land__headline-qty">634.56</span>
+              <span class="fs-land__token">
+                <span class="fs-land__token-icon">B</span>
+                BULL
+              </span>
+            </h2>
+            <p class="fs-land__sub-heading">at <span class="fs-land__pct">10.00%</span> premium</p>
+            <p class="fs-land__timestamp">Apr 14, 2026 · 9:27 PM UTC</p>
+
+            <div class="fs-land__grid">
+              <div class="fs-land__cell fs-land__cell--received">
+                <span class="fs-land__cell-label bw-display">Trader Received</span>
+                <span class="fs-land__cell-value bw-mono">
+                  0.0593
+                  <span class="fs-land__token-icon fs-land__token-icon--sm fs-land__token-icon--sol">◎</span>
+                  <span class="fs-land__cell-ticker">SOL</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $5.09</span>
+              </div>
+
+              <div class="fs-land__cell">
+                <span class="fs-land__cell-label bw-display">Trader Sold</span>
+                <span class="fs-land__cell-value bw-mono">
+                  634.56
+                  <span class="fs-land__token-icon fs-land__token-icon--sm">B</span>
+                  <span class="fs-land__cell-ticker">BULL</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $4.73</span>
+              </div>
+
+              <div class="fs-land__cell fs-land__cell--profit">
+                <span class="fs-land__cell-label bw-display">Profit</span>
+                <span class="fs-land__cell-value bw-mono">
+                  +0.0054
+                  <span class="fs-land__token-icon fs-land__token-icon--sm fs-land__token-icon--sol">◎</span>
+                  <span class="fs-land__cell-ticker">SOL</span>
+                  <span class="fs-land__cell-pct">(+10.00%)</span>
+                </span>
+                <span class="fs-land__cell-usd">≈ $0.46</span>
+              </div>
+
+              <div class="fs-land__cell">
+                <span class="fs-land__cell-label bw-display">Fill Chance</span>
+                <span class="fs-land__cell-value bw-mono">19.34<span class="fs-land__cell-ticker">%</span></span>
+                <span class="fs-land__cell-usd">roll &lt; threshold</span>
+              </div>
+            </div>
+
+            <div class="fs-land__swap">
+              <svg class="fs-land__swap-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="8.5 12 11 14.5 16 9.5"/>
+              </svg>
+              <span class="fs-land__swap-text bw-display">Swap complete</span>
+            </div>
+
+            <div class="fs-land__conviction">
+              <div class="fs-land__conviction-row">
+                <span class="fs-land__conviction-label bw-display">Conviction:<strong>Aggressive</strong></span>
+                <span class="fs-land__conviction-pct">10.0% premium · high-risk zone</span>
+              </div>
+              <div class="fs-land__conviction-bar">
+                <div class="fs-land__conviction-marker" style="left: 82%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fs-land__foot">
+            <span class="fs-land__foot-tagline">Memecoin trading on steroids.</span>
+            <span>
+              <span class="fs-land__meta-label">TX:</span><span class="fs-land__meta-value">2uJB49..nA8Wwi</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOBILE variant — Buy (full × auto)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Mobile &nbsp;(full × auto — 375px viewport) &nbsp;·&nbsp; Buy</h2>
+      <div class="stage stage--mobile">
+        <div class="device-frame">
+          <div class="bw-widget bw-shell fs-land fs-land--mobile">
+            <div class="fs-land__head">
+              <span class="fs-land__brand">
+                <img class="fs-land__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" style="height:20px;" />
+                <span class="fs-land__head-subtitle bw-display">Solana DEX</span>
+              </span>
+              <span class="fs-land__head-live bw-display">
+                <span class="bw-pulse-dot"></span>LIVE
+              </span>
+              <span class="fs-land__head-tagline bw-display">Gamble for a better price than market</span>
+            </div>
+
+            <div class="fs-land__body">
+              <span class="fs-land__status bw-display">ORDER&nbsp;FILLED</span>
+
+              <h2 class="fs-land__headline bw-display">
+                Bought <span class="fs-land__headline-qty">635.13</span>
+                <span class="fs-land__token">
+                  <span class="fs-land__token-icon">B</span>
+                  BULL
+                </span>
+              </h2>
+              <p class="fs-land__sub-heading">at <span class="fs-land__pct">9.10%</span> discount</p>
+              <p class="fs-land__timestamp">Apr 14, 2026 · 9:28 PM UTC</p>
+
+              <div class="fs-land__grid">
+                <div class="fs-land__cell fs-land__cell--received">
+                  <span class="fs-land__cell-label bw-display">Trader Received</span>
+                  <span class="fs-land__cell-value bw-mono">
+                    635.13
+                    <span class="fs-land__cell-ticker">BULL</span>
+                  </span>
+                  <span class="fs-land__cell-usd">≈ $4.73</span>
+                </div>
+
+                <div class="fs-land__cell">
+                  <span class="fs-land__cell-label bw-display">Trader Paid</span>
+                  <span class="fs-land__cell-value bw-mono">
+                    0.0500
+                    <span class="fs-land__cell-ticker">SOL</span>
+                  </span>
+                  <span class="fs-land__cell-usd">≈ $4.30</span>
+                </div>
+
+                <div class="fs-land__cell fs-land__cell--profit">
+                  <span class="fs-land__cell-label bw-display">Profit</span>
+                  <span class="fs-land__cell-value bw-mono">
+                    +57.74
+                    <span class="fs-land__cell-ticker">BULL</span>
+                    <span class="fs-land__cell-pct">(+10%)</span>
+                  </span>
+                  <span class="fs-land__cell-usd">≈ $0.43</span>
+                </div>
+
+                <div class="fs-land__cell">
+                  <span class="fs-land__cell-label bw-display">Fill Chance</span>
+                  <span class="fs-land__cell-value bw-mono">39.52<span class="fs-land__cell-ticker">%</span></span>
+                  <span class="fs-land__cell-usd">roll &lt; threshold</span>
+                </div>
+              </div>
+
+              <div class="fs-land__swap">
+                <svg class="fs-land__swap-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="8.5 12 11 14.5 16 9.5"/>
+                </svg>
+                <span class="fs-land__swap-text bw-display">Swap complete</span>
+              </div>
+
+              <div class="fs-land__conviction">
+                <div class="fs-land__conviction-row">
+                  <span class="fs-land__conviction-label bw-display">Conviction:<strong>Conservative</strong></span>
+                </div>
+                <div class="fs-land__conviction-bar">
+                  <div class="fs-land__conviction-marker" style="left: 18%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="fs-land__foot">
+              <span class="fs-land__foot-tagline">Memecoin trading on steroids.</span>
+              <span>
+                <span class="fs-land__meta-label">TX:</span><span class="fs-land__meta-value">5k3ZHx..v95Rz6</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

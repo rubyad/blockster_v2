@@ -8,6 +8,10 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Listings — Top (Mobile) [home/category/tag]", "homepage_top_mobile"},
     {"Listings — Inline (Desktop) [home/category/tag]", "homepage_inline_desktop"},
     {"Listings — Inline (Mobile) [home/category/tag]", "homepage_inline_mobile"},
+    {"Homepage — Inline (template ads between posts)", "homepage_inline"},
+    {"Article — Inline 1 (⅓ mark)", "article_inline_1"},
+    {"Article — Inline 2 (⅔ mark)", "article_inline_2"},
+    {"Article — Inline 3 (end)", "article_inline_3"},
     {"Article — Left Sidebar", "sidebar_left"},
     {"Article — Right Sidebar", "sidebar_right"},
     {"Article — Bottom", "article_bottom"},
@@ -21,6 +25,23 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Mobile — Bottom", "mobile_bottom"}
   ]
 
+  @templates [
+    {"Image (upload a banner image)", "image"},
+    {"Dark Gradient (dark card with heading, description, CTA)", "dark_gradient"},
+    {"Portrait (image + dark panel with heading, CTA)", "portrait"},
+    {"Split Card (white card with text left, colored panel right)", "split_card"},
+    {"Follow Bar (compact dark bar with icon + heading)", "follow_bar"}
+  ]
+
+  # Which params each template supports
+  @template_params %{
+    "dark_gradient" => ~w(heading description cta_text brand_name brand_color icon_url bg_color bg_color_end),
+    "portrait" => ~w(heading subtitle cta_text brand_name image_url bg_color bg_color_end accent_color),
+    "split_card" => ~w(heading description cta_text brand_name brand_color icon_url badge panel_color panel_color_end stat_label_top stat_value stat_label_bottom),
+    "follow_bar" => ~w(heading brand_color icon_url),
+    "image" => []
+  }
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -29,7 +50,10 @@ defmodule BlocksterV2Web.BannersAdminLive do
      |> assign(:editing_banner, nil)
      |> assign(:show_new_form, false)
      |> assign(:form, nil)
-     |> assign(:placements, @placements)}
+     |> assign(:placements, @placements)
+     |> assign(:templates, @templates)
+     |> assign(:template_params, @template_params)
+     |> assign(:selected_template, "image")}
   end
 
   @impl true
@@ -40,6 +64,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
      socket
      |> assign(:show_new_form, true)
      |> assign(:editing_banner, nil)
+     |> assign(:selected_template, "image")
      |> assign(:form, to_form(changeset))}
   end
 
@@ -61,19 +86,24 @@ defmodule BlocksterV2Web.BannersAdminLive do
      socket
      |> assign(:editing_banner, banner)
      |> assign(:show_new_form, false)
+     |> assign(:selected_template, banner.template || "image")
      |> assign(:form, to_form(changeset))}
   end
 
   @impl true
   def handle_event("validate", %{"banner" => params}, socket) do
     base = socket.assigns.editing_banner || %Banner{}
+    selected_template = params["template"] || socket.assigns.selected_template
 
     changeset =
       base
       |> Banner.changeset(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :form, to_form(changeset))}
+    {:noreply,
+     socket
+     |> assign(:selected_template, selected_template)
+     |> assign(:form, to_form(changeset))}
   end
 
   @impl true
@@ -143,10 +173,43 @@ defmodule BlocksterV2Web.BannersAdminLive do
     end
   end
 
+  defp param_placeholder("heading"), do: "Buy SOL instantly"
+  defp param_placeholder("description"), do: "The fastest way to get SOL into your wallet"
+  defp param_placeholder("cta_text"), do: "Get Started"
+  defp param_placeholder("brand_name"), do: "Moonpay"
+  defp param_placeholder("brand_color"), do: "#7D00FF"
+  defp param_placeholder("icon_url"), do: "https://..."
+  defp param_placeholder("image_url"), do: "https://..."
+  defp param_placeholder("bg_color"), do: "#0a1838"
+  defp param_placeholder("bg_color_end"), do: "#142a6b"
+  defp param_placeholder("accent_color"), do: "#FF6B35"
+  defp param_placeholder("subtitle"), do: "Secondary heading"
+  defp param_placeholder("badge"), do: "New"
+  defp param_placeholder("panel_color"), do: "#7D00FF"
+  defp param_placeholder("panel_color_end"), do: "#4A00B8"
+  defp param_placeholder("stat_label_top"), do: "APY"
+  defp param_placeholder("stat_value"), do: "12.5%"
+  defp param_placeholder("stat_label_bottom"), do: "Est. annual"
+  defp param_placeholder(_), do: ""
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-50 pt-24 pb-12">
+    <BlocksterV2Web.DesignSystem.header
+      current_user={@current_user}
+      active="home"
+      bux_balance={Map.get(assigns, :bux_balance, 0)}
+      token_balances={Map.get(assigns, :token_balances, %{})}
+      cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+      unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+      notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+      recent_notifications={Map.get(assigns, :recent_notifications, [])}
+      search_query={Map.get(assigns, :search_query, "")}
+      search_results={Map.get(assigns, :search_results, [])}
+      show_search_results={Map.get(assigns, :show_search_results, false)}
+      connecting={Map.get(assigns, :connecting, false)}
+    />
+    <div class="min-h-screen bg-[#fafaf9] pt-8 pb-12">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-lg shadow">
           <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -167,7 +230,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
           </div>
 
           <%= if @show_new_form || @editing_banner do %>
-            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div id="banner-form" phx-hook="ScrollIntoView" class="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <h2 class="text-lg font-semibold text-gray-900 mb-4">
                 {if @editing_banner, do: "Edit Banner", else: "New Banner"}
               </h2>
@@ -262,7 +325,114 @@ defmodule BlocksterV2Web.BannersAdminLive do
                   />
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <%!-- Template type --%>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Template Style</label>
+                  <select
+                    name="banner[template]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 cursor-pointer"
+                  >
+                    <%= for {label, value} <- @templates do %>
+                      <option value={value} selected={@selected_template == value}>
+                        {label}
+                      </option>
+                    <% end %>
+                  </select>
+                  <p class="text-xs text-gray-500 mt-1">
+                    "Image" uses the uploaded banner image. Other templates build styled ads from the parameters below.
+                  </p>
+                </div>
+
+                <%!-- Template params (shown when template != "image") --%>
+                <% current_params = if(@form[:params].value, do: @form[:params].value, else: %{}) %>
+                <% param_fields = Map.get(@template_params, @selected_template, []) %>
+                <%= if param_fields != [] do %>
+                  <div class="border border-gray-200 rounded-lg p-4 bg-white space-y-3">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-2">
+                      Template Parameters
+                      <span class="font-normal text-gray-500">— {@selected_template}</span>
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <%= for field <- param_fields do %>
+                        <% is_color = String.contains?(field, "color") %>
+                        <% is_upload = field in ["icon_url", "image_url"] %>
+                        <div class={if(is_upload, do: "md:col-span-2", else: "")}>
+                          <label class="block text-xs font-medium text-gray-600 mb-1">
+                            {field |> String.replace("_", " ") |> String.capitalize()}
+                            <%= if is_upload do %>
+                              <span class="font-normal text-gray-400">— upload or paste URL</span>
+                            <% end %>
+                          </label>
+                          <%= if is_upload do %>
+                            <%!-- File upload + URL input + preview for icon/image fields --%>
+                            <div class="flex items-start gap-3">
+                              <% upload_id = "param_#{field}_file" %>
+                              <% input_id = "param_#{field}_input" %>
+                              <% preview_id = "param_#{field}_preview" %>
+                              <img
+                                id={preview_id}
+                                src={current_params[field] || ""}
+                                alt="Preview"
+                                class={[
+                                  "h-12 w-12 object-contain rounded border border-gray-200 bg-gray-50 flex-shrink-0",
+                                  if(current_params[field] in [nil, ""], do: "hidden", else: "")
+                                ]}
+                              />
+                              <div class="flex-1 space-y-1.5">
+                                <input
+                                  type="file"
+                                  id={upload_id}
+                                  phx-hook="BannerAdminUpload"
+                                  data-input={input_id}
+                                  data-preview={preview_id}
+                                  accept="image/*"
+                                  class="block w-full text-xs text-gray-700 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-900 file:text-white hover:file:bg-black file:cursor-pointer cursor-pointer"
+                                />
+                                <input
+                                  type="text"
+                                  id={input_id}
+                                  name={"banner[params][#{field}]"}
+                                  value={current_params[field] || ""}
+                                  placeholder={param_placeholder(field)}
+                                  class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                                />
+                              </div>
+                            </div>
+                          <% else %>
+                            <%!-- Regular text input (with color swatch for color fields) --%>
+                            <div class={if(is_color, do: "flex items-center gap-2", else: "")}>
+                              <input
+                                type="text"
+                                name={"banner[params][#{field}]"}
+                                value={current_params[field] || ""}
+                                placeholder={param_placeholder(field)}
+                                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                              />
+                              <%= if is_color do %>
+                                <% color_val = current_params[field] || "#7D00FF" %>
+                                <div class="w-7 h-7 rounded border border-gray-300 flex-shrink-0" style={"background: #{color_val}"}></div>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+                    <input
+                      type="number"
+                      name="banner[sort_order]"
+                      value={@form[:sort_order].value || 0}
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                      placeholder="0"
+                      min="0"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">Lower = shown first</p>
+                  </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
                     <input
@@ -345,6 +515,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
                     Placement
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Template
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -358,7 +531,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
               <tbody class="bg-white divide-y divide-gray-200">
                 <%= if @banners == [] do %>
                   <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
+                    <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
                       No banners yet. Click "New Banner" to add one.
                     </td>
                   </tr>
@@ -393,6 +566,17 @@ defmodule BlocksterV2Web.BannersAdminLive do
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         {placement_label(banner.placement)}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class={[
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                        if(banner.template in ["dark_gradient", "portrait", "split_card", "follow_bar"],
+                          do: "bg-purple-100 text-purple-800",
+                          else: "bg-gray-100 text-gray-600"
+                        )
+                      ]}>
+                        {banner.template || "image"}
                       </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -447,6 +631,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
         </div>
       </div>
     </div>
+    <BlocksterV2Web.DesignSystem.footer />
     """
   end
 end

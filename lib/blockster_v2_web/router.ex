@@ -29,7 +29,7 @@ defmodule BlocksterV2Web.Router do
 
     live_session :admin,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.AdminAuth],
-      layout: {BlocksterV2Web.Layouts, :app} do
+      layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
       live "/admin/waitlist", WaitlistAdminLive, :index
@@ -70,7 +70,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/ads/campaigns", AdsAdminLive.CampaignIndex, :index
       live "/admin/ads/campaigns/new", AdsAdminLive.CampaignNew, :new
 
-      # Ad Banner Manager (sidebar + mobile placements)
+      # Ad Banner Manager (sidebar + mobile + inline placements)
       live "/admin/banners", BannersAdminLive, :index
 
       # Telegram Bot Promo Admin

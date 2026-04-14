@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fs_ticker Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 40px;
+      overflow: hidden;
+    }
+    .stage--mobile { padding: 40px 24px; display: flex; justify-content: center; }
+    .device-frame {
+      width: 375px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 28px;
+      padding: 16px;
+      background: #fafaf9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-red:           #EF4444;
+      --bw-yellow:        #EAB308;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+      --bw-brand-gradient: linear-gradient(90deg, #22C55E 0%, #EAB308 50%, #EF4444 100%);
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 20px 40px -12px rgba(0,0,0,0.30),
+        0 8px 16px -6px rgba(0,0,0,0.18);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       fs_ticker
+       ============================================================ */
+    .fs-ticker {
+      position: relative;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: stretch;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    /* Brand (sticky left) */
+    .fs-ticker__brand {
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px 0 18px;
+      border-right: 1px solid var(--bw-border);
+      background: var(--bw-bg);
+    }
+    .fs-ticker__lockup {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
+    }
+    .fs-ticker__logo {
+      height: 22px;
+      width: auto;
+      display: block;
+      user-select: none;
+    }
+    .fs-ticker__lockup-sub {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--bw-primary);
+      margin-left: -24px;
+    }
+    .fs-ticker__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px 4px 7px;
+      border: 1px solid var(--bw-border);
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--bw-green);
+      text-transform: uppercase;
+    }
+
+    /* Marquee */
+    .fs-ticker__marquee {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+    }
+    @keyframes fs-ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+    .fs-ticker__track {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      width: max-content;
+      animation: fs-ticker-scroll 70s linear infinite;
+    }
+    .fs-ticker:hover .fs-ticker__track { animation-play-state: paused; }
+
+    /* Individual trade item */
+    .fs-ticker__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-right: 1px solid var(--bw-border);
+      white-space: nowrap;
+      height: 100%;
+      transition: background 150ms ease;
+    }
+    .fs-ticker__item:hover { background: rgba(255, 255, 255, 0.02); }
+
+    /* Side arrow (buy = up-right, sell = down-right) */
+    .fs-ticker__side {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .fs-ticker__side--buy {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--bw-green);
+    }
+    .fs-ticker__side--sell {
+      background: rgba(234, 179, 8, 0.12);
+      color: var(--bw-yellow);
+    }
+
+    /* Token chip (logo + symbol) */
+    .fs-ticker__token {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fs-ticker__token-logo {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Satoshi', sans-serif;
+      font-weight: 800;
+      font-size: 9px;
+      color: #fff;
+      letter-spacing: 0;
+      line-height: 1;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .fs-ticker__token-symbol {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: 0.04em;
+    }
+
+    /* Amount */
+    .fs-ticker__amount {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--bw-data);
+      letter-spacing: -0.005em;
+    }
+
+    /* Profit/loss pill */
+    .fs-ticker__pnl {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px 2px 4px;
+      border-radius: 3px;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .fs-ticker__pnl--up   { color: var(--bw-green); background: rgba(34, 197, 94, 0.10); }
+    .fs-ticker__pnl--down { color: var(--bw-red);   background: rgba(239, 68, 68, 0.10); }
+    .fs-ticker__pnl-arrow { font-size: 9px; line-height: 1; transform: translateY(-0.5px); }
+
+    /* CTA right */
+    .fs-ticker__cta-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      border-left: 1px solid var(--bw-border);
+      background: var(--bw-bg);
+      position: relative;
+      z-index: 2;
+    }
+    .fs-ticker__cta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--bw-primary);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      transition: color 120ms ease;
+    }
+    .fs-ticker__cta:hover { text-decoration: underline; }
+
+    /* ---------- Mobile ---------- */
+    .fs-ticker--mobile {
+      height: 48px;
+      border-radius: 10px;
+    }
+    .fs-ticker--mobile .fs-ticker__brand { padding: 0 12px 0 14px; gap: 8px; }
+    .fs-ticker--mobile .fs-ticker__logo { height: 18px; }
+    .fs-ticker--mobile .fs-ticker__lockup-sub { font-size: 10px; margin-left: -22px; }
+    .fs-ticker--mobile .fs-ticker__live { display: none; }
+    .fs-ticker--mobile .fs-ticker__item { padding: 0 14px; gap: 8px; }
+    .fs-ticker--mobile .fs-ticker__token-symbol { font-size: 10px; }
+    .fs-ticker--mobile .fs-ticker__amount { display: none; }
+    .fs-ticker--mobile .fs-ticker__pnl { font-size: 10px; padding: 2px 5px 2px 3px; }
+    .fs-ticker--mobile .fs-ticker__cta-wrap { display: none; }
+  </style>
+</head>
+<body>
+  <!-- fs_ticker widget mock — Phase 0 -->
+
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">fs_ticker &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Full-width horizontal marquee of the last 20 settled FateSwap trades. Each item: side arrow (↗ buy / ↘ sell) + token logo + symbol + amount + profit/loss pill.
+        CSS-only scroll, hover-pause, edge fade masks. Placements: <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">homepage_top_desktop</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">homepage_top_mobile</code>.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         DESKTOP (full × 56)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Desktop &nbsp;(full × 56)</h2>
+      <div class="stage">
+        <div class="bw-widget bw-shell fs-ticker">
+          <div class="fs-ticker__brand">
+            <span class="fs-ticker__lockup">
+              <img class="fs-ticker__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" />
+              <span class="fs-ticker__lockup-sub bw-display">Solana DEX</span>
+            </span>
+            <span class="fs-ticker__live bw-display">
+              <span class="bw-pulse-dot"></span>Live
+            </span>
+          </div>
+
+          <div class="fs-ticker__marquee">
+            <div class="fs-ticker__track">
+              <!-- Set 1 -->
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);">B</span>
+                  <span class="fs-ticker__token-symbol bw-display">BULL</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">635.13</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+10.0%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fde68a, #f59e0b 60%, #b45309);">W</span>
+                  <span class="fs-ticker__token-symbol bw-display">WIF</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">1,520</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+8.5%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444 60%, #7f1d1d);">P</span>
+                  <span class="fs-ticker__token-symbol bw-display">POPCAT</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">2,840</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-2.1%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fdba74, #f97316 60%, #9a3412);">K</span>
+                  <span class="fs-ticker__token-symbol bw-display">BONK</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">45,000</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+12.3%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #6ee7b7, #10b981 60%, #065f46);">M</span>
+                  <span class="fs-ticker__token-symbol bw-display">MEW</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">8,900</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+6.8%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6 60%, #1e40af);">C</span>
+                  <span class="fs-ticker__token-symbol bw-display">CHILL</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">612</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-3.4%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #f9a8d4, #ec4899 60%, #831843);">P</span>
+                  <span class="fs-ticker__token-symbol bw-display">PNUT</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">4,150</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+4.9%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #c4b5fd, #8b5cf6 60%, #4c1d95);">G</span>
+                  <span class="fs-ticker__token-symbol bw-display">GIGA</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">3,240</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+11.2%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fecaca, #dc2626 60%, #7f1d1d);">M</span>
+                  <span class="fs-ticker__token-symbol bw-display">MOG</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">22,100</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+7.6%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fcd34d, #d97706 60%, #78350f);">B</span>
+                  <span class="fs-ticker__token-symbol bw-display">BOME</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">18,900</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-1.8%</span>
+              </div>
+
+              <!-- Set 2 (duplicate for seamless scroll) -->
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);">B</span>
+                  <span class="fs-ticker__token-symbol bw-display">BULL</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">635.13</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+10.0%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fde68a, #f59e0b 60%, #b45309);">W</span>
+                  <span class="fs-ticker__token-symbol bw-display">WIF</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">1,520</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+8.5%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444 60%, #7f1d1d);">P</span>
+                  <span class="fs-ticker__token-symbol bw-display">POPCAT</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">2,840</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-2.1%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fdba74, #f97316 60%, #9a3412);">K</span>
+                  <span class="fs-ticker__token-symbol bw-display">BONK</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">45,000</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+12.3%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #6ee7b7, #10b981 60%, #065f46);">M</span>
+                  <span class="fs-ticker__token-symbol bw-display">MEW</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">8,900</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+6.8%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6 60%, #1e40af);">C</span>
+                  <span class="fs-ticker__token-symbol bw-display">CHILL</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">612</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-3.4%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #f9a8d4, #ec4899 60%, #831843);">P</span>
+                  <span class="fs-ticker__token-symbol bw-display">PNUT</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">4,150</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+4.9%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #c4b5fd, #8b5cf6 60%, #4c1d95);">G</span>
+                  <span class="fs-ticker__token-symbol bw-display">GIGA</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">3,240</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+11.2%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fecaca, #dc2626 60%, #7f1d1d);">M</span>
+                  <span class="fs-ticker__token-symbol bw-display">MOG</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">22,100</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+7.6%</span>
+              </div>
+
+              <div class="fs-ticker__item">
+                <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                <span class="fs-ticker__token">
+                  <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fcd34d, #d97706 60%, #78350f);">B</span>
+                  <span class="fs-ticker__token-symbol bw-display">BOME</span>
+                </span>
+                <span class="fs-ticker__amount bw-mono">18,900</span>
+                <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-1.8%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fs-ticker__cta-wrap">
+            <a class="fs-ticker__cta bw-display" href="#">Trade on FateSwap →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOBILE (full × 48)
+         ============================================================ -->
+    <section class="variant">
+      <h2 class="variant-label">Mobile &nbsp;(full × 48 — 375px viewport)</h2>
+      <div class="stage stage--mobile">
+        <div class="device-frame">
+          <div class="bw-widget bw-shell fs-ticker fs-ticker--mobile">
+            <div class="fs-ticker__brand">
+              <span class="fs-ticker__lockup">
+                <img class="fs-ticker__logo" src="https://fateswap.io/images/logo-full.svg" alt="FateSwap" />
+                <span class="fs-ticker__lockup-sub bw-display">Solana DEX</span>
+              </span>
+            </div>
+
+            <div class="fs-ticker__marquee">
+              <div class="fs-ticker__track">
+                <!-- Set 1 -->
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);">B</span>
+                    <span class="fs-ticker__token-symbol bw-display">BULL</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+10.0%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fde68a, #f59e0b 60%, #b45309);">W</span>
+                    <span class="fs-ticker__token-symbol bw-display">WIF</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+8.5%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444 60%, #7f1d1d);">P</span>
+                    <span class="fs-ticker__token-symbol bw-display">POPCAT</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-2.1%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fdba74, #f97316 60%, #9a3412);">K</span>
+                    <span class="fs-ticker__token-symbol bw-display">BONK</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+12.3%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #6ee7b7, #10b981 60%, #065f46);">M</span>
+                    <span class="fs-ticker__token-symbol bw-display">MEW</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+6.8%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6 60%, #1e40af);">C</span>
+                    <span class="fs-ticker__token-symbol bw-display">CHILL</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-3.4%</span>
+                </div>
+
+                <!-- Set 2 -->
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #a78bfa, #7c3aed 60%, #4c1d95);">B</span>
+                    <span class="fs-ticker__token-symbol bw-display">BULL</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+10.0%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fde68a, #f59e0b 60%, #b45309);">W</span>
+                    <span class="fs-ticker__token-symbol bw-display">WIF</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+8.5%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444 60%, #7f1d1d);">P</span>
+                    <span class="fs-ticker__token-symbol bw-display">POPCAT</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-2.1%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #fdba74, #f97316 60%, #9a3412);">K</span>
+                    <span class="fs-ticker__token-symbol bw-display">BONK</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+12.3%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--buy">↗</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #6ee7b7, #10b981 60%, #065f46);">M</span>
+                    <span class="fs-ticker__token-symbol bw-display">MEW</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--up bw-mono"><span class="fs-ticker__pnl-arrow">▲</span>+6.8%</span>
+                </div>
+                <div class="fs-ticker__item">
+                  <span class="fs-ticker__side fs-ticker__side--sell">↘</span>
+                  <span class="fs-ticker__token">
+                    <span class="fs-ticker__token-logo" style="background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6 60%, #1e40af);">C</span>
+                    <span class="fs-ticker__token-symbol bw-display">CHILL</span>
+                  </span>
+                  <span class="fs-ticker__pnl fs-ticker__pnl--down bw-mono"><span class="fs-ticker__pnl-arrow">▼</span>-3.4%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
