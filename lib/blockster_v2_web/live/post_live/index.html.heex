@@ -67,7 +67,13 @@
   <%= if @inline_desktop_banners != [] do %>
     <% first_ad = Enum.at(@inline_desktop_banners, 0) %>
     <div class="pb-4 w-3/4 mx-auto">
-      <BlocksterV2Web.DesignSystem.ad_banner banner={first_ad} />
+      <BlocksterV2Web.WidgetComponents.widget_or_ad
+        banner={first_ad}
+        bots={@rt_bots}
+        trades={@fs_trades}
+        selections={@widget_selections}
+        chart_data={@widget_chart_data}
+      />
     </div>
   <% end %>
 </main>
@@ -126,7 +132,13 @@
         <div class="hidden md:block py-4">
           <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
             <div class="w-3/4 mx-auto">
-              <BlocksterV2Web.DesignSystem.ad_banner banner={d_banner} />
+              <BlocksterV2Web.WidgetComponents.widget_or_ad
+                banner={d_banner}
+                bots={@rt_bots}
+                trades={@fs_trades}
+                selections={@widget_selections}
+                chart_data={@widget_chart_data}
+              />
             </div>
           </div>
         </div>
@@ -134,7 +146,13 @@
       <%= if @inline_mobile_banners != [] && show_ad do %>
         <% m_banner = Enum.at(@inline_mobile_banners, rem(ad_slot, length(@inline_mobile_banners))) %>
         <div class="md:hidden py-3 px-4">
-          <BlocksterV2Web.DesignSystem.ad_banner banner={m_banner} />
+          <BlocksterV2Web.WidgetComponents.widget_or_ad
+            banner={m_banner}
+            bots={@rt_bots}
+            trades={@fs_trades}
+            selections={@widget_selections}
+            chart_data={@widget_chart_data}
+          />
         </div>
       <% end %>
 
@@ -173,14 +191,26 @@
             <% hubs_ad = Enum.at(@inline_desktop_banners, rem(2, length(@inline_desktop_banners))) %>
             <div class="hidden md:block py-4">
               <div class="w-3/4 mx-auto">
-                <BlocksterV2Web.DesignSystem.ad_banner banner={hubs_ad} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={hubs_ad}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               </div>
             </div>
           <% end %>
           <%= if @inline_mobile_banners != [] do %>
             <% hubs_ad_m = Enum.at(@inline_mobile_banners, rem(2, length(@inline_mobile_banners))) %>
             <div class="md:hidden py-3 px-4">
-              <BlocksterV2Web.DesignSystem.ad_banner banner={hubs_ad_m} />
+              <BlocksterV2Web.WidgetComponents.widget_or_ad
+                banner={hubs_ad_m}
+                bots={@rt_bots}
+                trades={@fs_trades}
+                selections={@widget_selections}
+                chart_data={@widget_chart_data}
+              />
             </div>
           <% end %>
           <div class="h-10"></div>

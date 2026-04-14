@@ -25,7 +25,7 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
     end
   end
 
-  describe "widget_or_ad/1 — Phase 3 widgets render" do
+  describe "widget_or_ad/1 — implemented widgets render" do
     test "rt_skyscraper renders the component with data attributes" do
       banner = %Banner{
         id: 42,
@@ -55,12 +55,102 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
       assert html =~ ~s(phx-hook="FsSkyscraperWidget")
       assert html =~ ~s(phx-value-subject="fs")
     end
+
+    test "rt_chart_landscape renders with RtChartWidget hook" do
+      banner = %Banner{
+        id: 44,
+        name: "widget-rt-chart-landscape",
+        placement: "article_inline_1",
+        widget_type: "rt_chart_landscape"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          bots: [],
+          selections: %{},
+          chart_data: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="44")
+      assert html =~ ~s(phx-hook="RtChartWidget")
+      assert html =~ ~s(data-widget-type="rt_chart_landscape")
+    end
+
+    test "rt_chart_portrait renders with RtChartWidget hook" do
+      banner = %Banner{
+        id: 45,
+        name: "widget-rt-chart-portrait",
+        placement: "article_inline_1",
+        widget_type: "rt_chart_portrait"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          bots: [],
+          selections: %{},
+          chart_data: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="45")
+      assert html =~ ~s(data-widget-type="rt_chart_portrait")
+    end
+
+    test "rt_full_card renders with RtChartWidget hook" do
+      banner = %Banner{
+        id: 46,
+        name: "widget-rt-full-card",
+        placement: "article_inline_1",
+        widget_type: "rt_full_card"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          bots: [],
+          selections: %{},
+          chart_data: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="46")
+      assert html =~ ~s(data-widget-type="rt_full_card")
+    end
+
+    test "rt_square_compact renders with its dedicated hook" do
+      banner = %Banner{
+        id: 47,
+        name: "widget-rt-square-compact",
+        placement: "sidebar_right",
+        widget_type: "rt_square_compact"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          bots: [],
+          selections: %{},
+          chart_data: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="47")
+      assert html =~ ~s(phx-hook="RtSquareCompactWidget")
+      assert html =~ ~s(data-widget-type="rt_square_compact")
+    end
   end
 
-  describe "widget_or_ad/1 — raises for widgets landing in Phase 4+" do
-    @phase_4_plus Banner.valid_widget_types() -- ["rt_skyscraper", "fs_skyscraper"]
+  describe "widget_or_ad/1 — raises for widgets landing in Phase 5+" do
+    @phase_5_plus Banner.valid_widget_types() --
+                    [
+                      "rt_skyscraper",
+                      "fs_skyscraper",
+                      "rt_chart_landscape",
+                      "rt_chart_portrait",
+                      "rt_full_card",
+                      "rt_square_compact"
+                    ]
 
-    for widget_type <- @phase_4_plus do
+    for widget_type <- @phase_5_plus do
       @tag widget_type: widget_type
       test "raises for widget_type=#{widget_type}", %{widget_type: widget_type} do
         banner = %Banner{

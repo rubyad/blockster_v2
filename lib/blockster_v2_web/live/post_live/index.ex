@@ -26,6 +26,7 @@ defmodule BlocksterV2Web.PostLive.Index do
   """
 
   use BlocksterV2Web, :live_view
+  use BlocksterV2Web.WidgetEvents
 
   alias BlocksterV2.Blog
   alias BlocksterV2.Blog.Post
@@ -101,6 +102,12 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
      |> assign(:inline_desktop_banners, inline_desktop_banners)
      |> assign(:inline_mobile_banners, inline_mobile_banners)
+     |> mount_widgets(
+       homepage_top_desktop_banners ++
+         homepage_top_mobile_banners ++
+         inline_desktop_banners ++
+         inline_mobile_banners
+     )
      |> stream(:components, cycle_components)}
   end
 

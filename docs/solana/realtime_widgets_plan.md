@@ -1098,17 +1098,29 @@ Split into 2a (backend + schema) and 2b (foundation glue — CSS, fonts, macro, 
 4. **Server-side `lp_price` desc sort in `rt_skyscraper`** — the component sorts defensively every render. Chart widgets in Phase 4 should similarly not trust the `/api/bots` ordering.
 5. **Client hook handles visual polish via `updated/0`, not `push_event` payloads** — server re-renders the full list on every PubSub tick; the hook compares DOM text to a cached snapshot and flashes. Apply the same pattern for chart widgets (the chart data IS sent via push_event because `phx-update="ignore"` prevents morphdom from touching the canvas, but any non-canvas polish — flash on change, "updated X ago" label — should be driven by `updated/0`).
 
-### Phase 4 — Chart widgets (RogueTrader)
+### Phase 4 ✅ COMPLETE (2026-04-14)
 
-- [ ] `rt_chart_landscape` component + share `RtChartWidget` JS hook (lightweight-charts)
-- [ ] `rt_chart_portrait` component (shares hook)
-- [ ] `rt_full_card` component (shares hook + adds stat grid)
-- [ ] `rt_square_compact` component + `RtSquareCompactWidget` hook (mini sparkline)
-- [ ] Self-selection wired end-to-end: tracker → selector → PubSub → LiveView → push_event → hook re-renders chart
-- [ ] Add `article_inline_*` and `homepage_inline_*` placement support to `PostLive.Show` and `PostLive.Index`
-- [ ] Add `video_player_top` placement to `PostLive.Show` (above article video)
-- [ ] Insert sample banners for each widget × placement to test
-- [ ] Visual QA — confirm pixel-match against images #1, #2, #4
+- [x] `rt_chart_landscape` component + shared `RtChartWidget` JS hook (lightweight-charts)
+- [x] `rt_chart_portrait` component (shares hook)
+- [x] `rt_full_card` component (shares hook + adds 8-stat grid)
+- [x] `rt_square_compact` component + `RtSquareCompactWidget` hook (mini sparkline, forked hook for the stripped config)
+- [x] Self-selection wired end-to-end: tracker → selector → PubSub → LiveView (`WidgetEvents` macro) → push_event → hook `setData`
+- [x] `article_inline_*` placements wired in `PostLive.Show` (6 inline ad_banner → widget_or_ad calls)
+- [x] `homepage_top` + `homepage_inline_*` slot wiring in `PostLive.Index` (5 ad_banner → widget_or_ad; `use BlocksterV2Web.WidgetEvents` + `mount_widgets/2`)
+- [x] `video_player_top` placement on `PostLive.Show` — guarded by `banner.widget_type` so legacy image banners still use the pre-existing `<img>`/`<a>` template
+- [x] Sample banners seeded via `priv/repo/seeds_widget_banners.exs` — 4 new rows, one per chart widget, each with a different selection mode (biggest_gainer / biggest_mover / highest_aum / top_ranked)
+- [x] Tests: 26 new (2826 / 119 at seed 0 — zero new failures vs the 2800 / 119 Phase 3 baseline at the same seed). Four component test files, updated widget_components_test.exs (raises block → renders block for the 4 widgets), `Phase 4 chart widgets` describe in show_test.exs (2 tests), `Phase 4 widget wiring` describe in index_test.exs (1 test).
+- [ ] Visual QA in dev (not attempted this session — no browser access). Run `WIDGETS_ENABLED=true bin/dev` + `mix run priv/repo/seeds_widget_banners.exs` and eyeball an article page + the homepage.
+
+**Phase 4 deviations (load-bearing for Phase 5+)**
+
+1. **Click events push from JS, not `phx-click`** — `phx-value-*` attributes can only carry flat strings, but the chart widgets' subject is a nested `{bot_id, tf}` map. Both chart hooks add an outer `click` listener that calls `pushEvent("widget_click", { banner_id, subject: { bot_id, tf } })`. Tf pills call `stopPropagation` + `preventDefault` so pill clicks don't bubble into that listener. Phase 5 widgets that also need structured click subjects (`fs_hero_*` with `order_id`) should follow the same pattern — the server-side macro already handles binary `order_id` subjects, so the hook can just push `{ banner_id, subject: order_id }`.
+2. **Shared `RtChartHelpers` module** for formatters (`format_price`, `format_change`, `group_hex`, `resolve_bot`, etc.) — centralises what would otherwise be ~100 duplicated lines across four components. Phase 5 FS heroes should get a sibling `FsHeroHelpers` (status-pill, profit coloring, conviction-bar, USD formatting).
+3. **Chart points seeded via `<script type="application/json" data-role="rt-chart-seed">`** — the canvas subtree is `phx-update="ignore"`, so the hook can't rely on the LiveView diff for first render. A JSON seed in a sibling `<script>` is the cleanest path.
+4. **Private `stat_card/1` sub-component in `rt_full_card.ex`** (8 instances) — helpers stay pure-Elixir, components stay self-contained.
+5. **Square compact hook forked** from `RtChartWidget` rather than parametrised — the sparkline config is genuinely different (no grid, no axes, no last-value, smaller canvas) and the outer DOM differs too much (no tf pills, no H/L) for a shared hook to be cleaner.
+6. **`switch_timeframe` event is a no-op on the server** — tf pills update visual state + push the event, but no LV handler consumes it yet. Phase 4 keeps `WidgetSelector` in charge of picks; a manual-override handler lands later.
+7. **No chart-header visual polish (flash-on-change price, "updated X ago")** — the server re-renders the header via morphdom on every `{:rt_bots, bots}` tick, so the text updates naturally. The skyscraper flash pattern (cached snapshot + compare in `updated/0`) can be ported in Phase 6 polish if the text feels stale.
 
 ### Phase 5 — Tickers + leaderboard + FateSwap heroes
 

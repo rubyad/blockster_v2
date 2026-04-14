@@ -312,4 +312,81 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       refute html =~ "Waiting for trades"
     end
   end
+
+  describe "GET /:slug · Phase 4 chart widgets" do
+    setup do
+      BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia(%{})
+      :ok
+    end
+
+    test "rt_chart_landscape banner on article_inline_1 renders with seeded selection", %{
+      conn: conn
+    } do
+      post = insert_post(%{})
+
+      {:ok, banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "rt-chart-landscape-seeded",
+          placement: "article_inline_1",
+          widget_type: "rt_chart_landscape",
+          widget_config: %{"selection" => "biggest_gainer"}
+        })
+
+      bots = [
+        %{
+          "bot_id" => "kronos",
+          "slug" => "kronos",
+          "name" => "KRONOS",
+          "group_name" => "equities",
+          "bid_price" => 0.1023,
+          "ask_price" => 0.1026,
+          "lp_price_change_7d_pct" => 6.78,
+          "market_open" => true
+        }
+      ]
+
+      :mnesia.dirty_write({:widget_rt_bots_cache, :singleton, bots, System.system_time(:second)})
+
+      points = [%{"time" => 1, "value" => 0.1}, %{"time" => 2, "value" => 0.11}]
+
+      :mnesia.dirty_write(
+        {:widget_rt_chart_cache, {"kronos", "7d"}, "kronos", "7d", points, 0.11, 0.1, 6.78,
+         System.system_time(:second)}
+      )
+
+      :mnesia.dirty_write(
+        {:widget_selections, banner.id, "rt_chart_landscape", {"kronos", "7d"},
+         System.system_time(:second)}
+      )
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(phx-hook="RtChartWidget")
+      assert html =~ ~s(data-widget-type="rt_chart_landscape")
+      assert html =~ "TRACKING KRONOS"
+      assert html =~ "KRONOS-LP Price"
+      assert html =~ "+6.78%"
+      # Seed blob carries the chart points
+      assert html =~ ~s("value":0.11)
+    end
+
+    test "rt_chart_landscape without cached selection still renders empty shell", %{conn: conn} do
+      post = insert_post(%{})
+
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "rt-chart-landscape-empty",
+          placement: "article_inline_1",
+          widget_type: "rt_chart_landscape",
+          widget_config: %{"selection" => "biggest_gainer"}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      assert html =~ ~s(phx-hook="RtChartWidget")
+      assert html =~ "LIVE"
+      # Empty price placeholders
+      assert html =~ "—"
+    end
+  end
 end

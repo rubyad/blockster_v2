@@ -175,4 +175,27 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
     |> length()
     |> Kernel.-(1)
   end
+
+  describe "GET / · Phase 4 widget wiring" do
+    setup do
+      BlocksterV2.Widgets.MnesiaCase.setup_widget_mnesia(%{})
+      :ok
+    end
+
+    test "rt_chart_landscape on homepage_inline renders with the chart hook", %{conn: conn} do
+      {:ok, _banner} =
+        BlocksterV2.Ads.create_banner(%{
+          name: "homepage-rt-chart-landscape",
+          placement: "homepage_inline",
+          widget_type: "rt_chart_landscape",
+          widget_config: %{"selection" => "biggest_gainer"}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(phx-hook="RtChartWidget")
+      assert html =~ ~s(data-widget-type="rt_chart_landscape")
+      assert html =~ "LIVE"
+    end
+  end
 end

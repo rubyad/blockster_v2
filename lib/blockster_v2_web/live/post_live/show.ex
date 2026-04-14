@@ -309,7 +309,14 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:anonymous_video_earned, 0)
      |> assign(:engagement_score, nil)
      |> load_video_engagement()
-     |> mount_widgets(left_sidebar_banners ++ right_sidebar_banners)}
+     |> mount_widgets(
+       left_sidebar_banners ++
+         right_sidebar_banners ++
+         article_inline_1 ++
+         article_inline_2 ++
+         article_inline_3 ++
+         video_player_top_banners
+     )}
   end
 
   @impl true

@@ -1,9 +1,9 @@
-# Seed Phase 3 widget banners (skyscrapers) for the article page.
+# Seed Phase 3 + Phase 4 widget banners for the article page and homepage.
 #
 #   mix run priv/repo/seeds_widget_banners.exs
 #
-# Idempotent: if a banner with the same name already exists it's left alone.
-# Activates both banners regardless of prior state.
+# Idempotent: if a banner with the same name already exists, it's reactivated
+# rather than duplicated.
 
 alias BlocksterV2.Ads
 alias BlocksterV2.Ads.Banner
@@ -11,6 +11,7 @@ alias BlocksterV2.Repo
 import Ecto.Query
 
 banners = [
+  # ── Phase 3 ─────────────────────────────────────────────────────────────
   %{
     name: "RogueTrader · Top RogueBots (right sidebar)",
     placement: "sidebar_right",
@@ -28,6 +29,44 @@ banners = [
     link_url: "https://fateswap.io",
     is_active: true,
     sort_order: 0
+  },
+
+  # ── Phase 4 (chart widgets) ─────────────────────────────────────────────
+  %{
+    name: "RogueTrader · Chart landscape · biggest gainer",
+    placement: "article_inline_1",
+    widget_type: "rt_chart_landscape",
+    widget_config: %{"selection" => "biggest_gainer"},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 10
+  },
+  %{
+    name: "RogueTrader · Chart portrait · biggest mover",
+    placement: "article_inline_2",
+    widget_type: "rt_chart_portrait",
+    widget_config: %{"selection" => "biggest_mover"},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 20
+  },
+  %{
+    name: "RogueTrader · Full card · highest AUM",
+    placement: "article_inline_3",
+    widget_type: "rt_full_card",
+    widget_config: %{"selection" => "highest_aum"},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 30
+  },
+  %{
+    name: "RogueTrader · Square compact · top ranked",
+    placement: "sidebar_right",
+    widget_type: "rt_square_compact",
+    widget_config: %{"selection" => "top_ranked"},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 40
   }
 ]
 

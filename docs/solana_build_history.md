@@ -9,6 +9,102 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 4 (2026-04-14) ✅
+
+Four RogueTrader chart widgets shipped end-to-end with self-selection wired from tracker → selector → PubSub → `WidgetEvents` macro → `push_event` → `lightweight-charts` Area series. `WIDGETS_ENABLED` stays `false` in dev/test unless explicitly flipped.
+
+**Components** (`lib/blockster_v2_web/components/widgets/`)
+- `rt_chart_helpers.ex` — shared formatting + resolution module used by all 4 chart widgets. `resolve_bot/2` looks up the bot map for a `{bot_id, tf}` selection (with first-bot fallback when nil), `resolve_tf/1` + `resolve_points/2` pull the selected timeframe + cached points, `points_as_json/1` serialises for the hook's seed blob, `change_for/2` reads the right `lp_price_change_*_pct` key, `format_price/1` (4 decimals — Phase 0 locked-in), `format_change/1` (`+` / `−` unicode + 2 decimals), `group_hex/1` (5 group accent colors), `format_with_commas/1` / `format_sol/1` / `format_percent/1` / `format_rank/1` / `wins_settled/1` for the full-card stat grid, `high_low/1` for the H/L header. Centralising here avoids the four components copy-pasting 100+ lines of identical formatter helpers.
+- `rt_chart_landscape.ex` — full × 360 (mobile full × 280). Two-column header (bot meta + price/H/L on the left, timeframe pills on the right), chart canvas below fills remaining height. Chart container has `phx-update="ignore"` + `phx-hook="RtChartWidget"` so morphdom never touches the `lightweight-charts` instance.
+- `rt_chart_portrait.ex` — 440 × 640 (mobile 343px × 720). Vertical variant: bot label + price stacked at top, tf pills as a full-width row below, chart fills the rest. Shares the `RtChartWidget` hook.
+- `rt_full_card.ex` — full × ~900. Header → chart (300px min-height) → 8-stat grid (AUM / LP Supply / Rank / CP Liability / Wins·Settled / Win Rate / Volume / Avg Stake), each a `data-role="rt-stat-card"` wrapper. Stat values read from the bot snapshot — no extra API calls. Labels carry the active timeframe in parens (`"Wins/Settled (7D)"` etc.).
+- `rt_square_compact.ex` — 200 × 200. Header → bot row (dot + name + group tag) → bid/ask + change pill → SOL · tf unit caption → sparkline (flex-1). Uses a dedicated `RtSquareCompactWidget` hook because the sparkline config is meaningfully different (no grid, no axes, no last-value label, smaller canvas) — simpler to fork than to over-parametrise `RtChartWidget`.
+
+**Dispatcher** (`lib/blockster_v2_web/components/widget_components.ex`)
+- 4 new dispatch clauses: `rt_chart_landscape` / `rt_chart_portrait` / `rt_full_card` / `rt_square_compact` → real component calls. Remaining 8 widget types still raise `ArgumentError "widget component not yet implemented (Phase 3+): ..."`.
+- Added `selections :map` + `chart_data :map` attrs (default `%{}`) passed through from the host LiveView. Each chart clause pulls `Map.get(@selections, @banner.id)` so per-banner self-selection flows cleanly. `bots` / `trades` attrs from Phase 3 still in place — unused by chart widgets but kept so the dispatcher signature stays uniform.
+
+**JS hooks** (`assets/js/hooks/widgets/`)
+- `rt_chart.js` — shared by `rt_chart_landscape` / `rt_chart_portrait` / `rt_full_card`. Initialises a `lightweight-charts` Area series with the exact RogueTrader config (transparent layout background, `#22C55E` / `#EF4444` line+top colors flipped on `data-change-pct` sign, JetBrains Mono labels, scroll/scale disabled, right price scale + time scale with hairline borders). Reads the initial points from a `<script data-role="rt-chart-seed">` JSON blob under the canvas so the first paint isn't empty. Subscribes to `widget:rt_chart:update` (full-series replacement when the tracker broadcasts fresh points) and `widget:<banner_id>:select` (new `{bot_id, tf, points}` from a `:selection_changed` broadcast — updates `data-bot-id` / `data-tf` + active-pill class + calls `series.setData`). Tf-pill clicks call `stopPropagation` + `preventDefault` + push `switch_timeframe` (no host LV handler yet; Phase 5+ can wire an opt-in handler).
+- `rt_square_compact.js` — forked hook for the 200×200 tile. Same subscription pattern but a stripped `lightweight-charts` config (grid hidden, time/price scales hidden, crosshair off, `lastValueVisible: false`).
+- **Click handling pushes from JS, not `phx-click`.** `phx-value-*` attributes can only carry flat strings, but the chart widgets' subject is a nested `{bot_id, tf}` map that `WidgetEvents.__normalize_subject__/1` expects as `%{"bot_id" => _, "tf" => _}`. Both hooks add an outer `click` listener that calls `this.pushEvent("widget_click", { banner_id, subject: { bot_id, tf } })`. Tf pills `stopPropagation` + `preventDefault` so pill clicks don't bubble into that listener.
+- Both registered in `assets/js/app.js` next to the Phase 3 skyscraper hooks.
+
+**Self-selection wired end-to-end**
+1. Admin creates an `ad_banner` with `widget_type: "rt_chart_landscape"` (or portrait/full_card/square_compact) and `widget_config: %{"selection" => "biggest_gainer" | "biggest_mover" | "highest_aum" | "top_ranked" | "fixed"}`.
+2. `RogueTraderBotsTracker` polls `/api/bots` every 10 s → writes cache → calls `WidgetSelector.pick_rt/2` for each active RT banner → if pick changed, broadcasts `{:selection_changed, banner_id, {bot_id, tf}}` on `"widgets:selection:#{banner_id}"`.
+3. `WidgetEvents.handle_info({:selection_changed, …})` subscribes to `"widgets:roguetrader:chart:#{bot_id}_#{tf}"` (so subsequent tracker-level chart updates reach the right banner), fetches current points from `RogueTraderChartTracker.get_series/2`, pushes `widget:#{banner_id}:select` with `{bot_id, tf, points}`.
+4. JS hook receives the event → `series.setData(points)` + updates tile header (data attrs).
+
+All 4 steps existed before Phase 4 — this phase just added the consumers (chart components) and verified the flow in tests.
+
+**PostLive.Show integration**
+- `mount_widgets/2` now receives `left_sidebar_banners ++ right_sidebar_banners ++ article_inline_1 ++ article_inline_2 ++ article_inline_3 ++ video_player_top_banners` so impressions get counted and selection topics get subscribed for every rendered banner, not just sidebars.
+- `show.html.heex` — replaced the 6 inline-article `<.ad_banner>` calls (3 in the hub branch, 3 in the no-hub branch) with `<BlocksterV2Web.WidgetComponents.widget_or_ad>` passing `selections={@widget_selections} chart_data={@widget_chart_data}`. Nil `widget_type` still falls through to the existing template-based `ad_banner` path, so every existing image-ad row renders unchanged.
+- `video_player_top_banners` branch — added a `banner.widget_type` guard. Widget banners render via `widget_or_ad`; legacy image banners still use the pre-existing `<img>` + `<a>` template.
+
+**PostLive.Index integration** (first widget wiring on the homepage)
+- `use BlocksterV2Web.WidgetEvents` added alongside `use BlocksterV2Web, :live_view`.
+- `mount/3` calls `mount_widgets(socket, homepage_top_desktop_banners ++ homepage_top_mobile_banners ++ inline_desktop_banners ++ inline_mobile_banners)`.
+- `index.html.heex` — 5 ad_banner calls (first-inline, desktop+mobile inline between components, desktop+mobile ad-below-hubs) swapped to `widget_or_ad` with `selections` + `chart_data` passed through. `homepage_top_desktop` / `homepage_top_mobile` rendering is still the raw `<img>` path from before — Phase 5's `rt_ticker` / `fs_ticker` will re-evaluate those slots.
+
+**Seed banners** (`priv/repo/seeds_widget_banners.exs`)
+- Extended with 4 Phase 4 rows — one per chart widget, each exercising a different `selection` mode so selector behaviour is visible in dev:
+  - `rt_chart_landscape` on `article_inline_1` with `selection: "biggest_gainer"`
+  - `rt_chart_portrait` on `article_inline_2` with `selection: "biggest_mover"`
+  - `rt_full_card` on `article_inline_3` with `selection: "highest_aum"`
+  - `rt_square_compact` on `sidebar_right` with `selection: "top_ranked"`
+- All rows idempotent via name lookup + `Ads.create_banner/1` or `Ads.update_banner/1` reactivate.
+
+**Tests** — 26 new (2826 total / 119 failures at seed 0; Phase 3 baseline was 2800 / 119 — **zero new failures**).
+- `test/blockster_v2_web/components/widgets/rt_chart_landscape_test.exs` (10 tests) — root data attrs + `phx-hook="RtChartWidget"`, header (LIVE pill + TRACKING label), all 5 tf pills, chart canvas `phx-update="ignore"`, seed blob even with empty points, bot-metadata header when selection supplied (bot name + group label + bid/ask + formatted change pct), active-pill class assertion, points serialised into seed JSON, H/L header from points, empty-state fallback with `"—"` placeholders.
+- `test/blockster_v2_web/components/widgets/rt_chart_portrait_test.exs` (4 tests) — portrait widget_type + hook, all 5 tf pills, bot resolution + CRYPTO group + negative-change unicode `−2.50%`, phx-update=ignore canvas.
+- `test/blockster_v2_web/components/widgets/rt_full_card_test.exs` (4 tests) — `rt_full_card` widget_type + hook, 8 stat cards via `data-role="rt-stat-card"` split count, all 8 stat labels present, stat values come from bot snapshot (AUM `248.36`, LP Supply `2,100,000`, Rank `1` via `\s1\s*</div>` regex, Wins/Settled `142/181`, Win Rate `78.5%`, CP Liability `12.40`), phx-update=ignore canvas.
+- `test/blockster_v2_web/components/widgets/rt_square_compact_test.exs` (5 tests) — `rt_square_compact` widget_type + `phx-hook="RtSquareCompactWidget"`, 200×200 Tailwind constraints, sparkline phx-update=ignore + both seed + canvas data-roles, bot name + group tag + price + change pct when selection supplied, empty-state shell + LIVE + AI Trading Bot copy.
+- `test/blockster_v2_web/components/widget_components_test.exs` — rewrote the raise block. Added 4 render tests (landscape, portrait, full_card, square_compact) asserting `data-banner-id` + the expected `phx-hook` + `data-widget-type`. For-comprehension now iterates `valid_widget_types() -- ["rt_skyscraper", "fs_skyscraper", "rt_chart_landscape", "rt_chart_portrait", "rt_full_card", "rt_square_compact"]` for the remaining 8 raise expectations.
+- `test/blockster_v2_web/live/post_live/show_test.exs` — new `Phase 4 chart widgets` describe (2 tests). First seeds bots + chart cache + `widget_selections` row, visits `/post`, asserts `phx-hook="RtChartWidget"` + `data-widget-type` + `TRACKING KRONOS` + `+6.78%` + seed JSON carries `"value":0.11`. Second asserts that a banner without a cached selection still renders the full shell with `"—"` placeholders.
+- `test/blockster_v2_web/live/post_live/index_test.exs` — new `Phase 4 widget wiring` describe (1 test). Creates an `rt_chart_landscape` banner on `homepage_inline`, visits `/`, asserts `phx-hook="RtChartWidget"` + `data-widget-type` + `LIVE` appear.
+
+**Plan deviations (load-bearing for Phase 5+)**
+1. **Click events push from JS, not `phx-click`** — `phx-value-*` can't carry nested maps for the `{bot_id, tf}` subject, so both chart hooks add an outer `click` listener that calls `pushEvent("widget_click", { banner_id, subject: { bot_id, tf } })`. Tf pills call `stopPropagation` + `preventDefault` so pill clicks don't bubble into that listener. Phase 5 widgets that also need structured click subjects (`fs_hero_*` with an `order_id`) should follow the same pattern — the server-side macro already handles binary `order_id` subjects, so the hook can just push `{ banner_id, subject: order_id }`.
+2. **Shared `RtChartHelpers` module** — four components would otherwise have duplicated 100+ lines of formatter helpers (`format_price`, `format_change`, `group_hex`, `resolve_bot`, etc.). Phase 5's FS hero widgets should get a sibling `FsHeroHelpers` module for the same reason (status-pill variants, profit coloring, conviction-bar gradient, USD formatting).
+3. **Chart points seeded via `<script type="application/json" data-role="rt-chart-seed">`** — the canvas subtree is `phx-update="ignore"`, so the hook can't rely on LiveView diff for the first render. Reading a JSON seed from a sibling `<script>` element is the cleanest way to hand the hook initial data without a round-trip `pushEvent("request_chart_data")`.
+4. **`rt_full_card` uses a private `stat_card/1` sub-component** in the same file (8 instances). Keeping the sub-component inline rather than in `RtChartHelpers` avoids polluting the helpers module with HEEx — helpers stay pure-Elixir, components stay self-contained.
+5. **Square compact forked from `RtChartWidget`** rather than sharing the hook with a config flag. The sparkline needs a genuinely different `lightweight-charts` config (no grid, no axes, no last-value label) and the outer DOM layout is different enough (no tf pills, no H/L header) that a shared hook would be mostly `if (this.isSparkline) …` branches. Forking is cleaner at this size.
+6. **No `switch_timeframe` server handler yet** — tf pills update local state (active class + `data-tf`) and emit `pushEvent("switch_timeframe", ...)`, but the host LV ignores that event (LiveView just logs an "unhandled event" debug line). This is deliberate — Phase 4 leaves `WidgetSelector` in charge of picks; manual tf switching lands when we wire an admin/LV handler that overrides the auto-selection. For now, clicking a pill updates the visual state only.
+7. **No visual polish on chart headers** (no flash-on-change price, no "updated X ago" label) — the server re-renders the header via morphdom on every `{:rt_bots, bots}` tick, so the text updates naturally. Phase 3's skyscraper flash pattern (cached text snapshot + compare in `updated/0`) could be ported here if the price text feels stale; deferred to Phase 6 polish pass.
+
+**Files created**
+- `assets/js/hooks/widgets/rt_chart.js`
+- `assets/js/hooks/widgets/rt_square_compact.js`
+- `lib/blockster_v2_web/components/widgets/rt_chart_helpers.ex`
+- `lib/blockster_v2_web/components/widgets/rt_chart_landscape.ex`
+- `lib/blockster_v2_web/components/widgets/rt_chart_portrait.ex`
+- `lib/blockster_v2_web/components/widgets/rt_full_card.ex`
+- `lib/blockster_v2_web/components/widgets/rt_square_compact.ex`
+- `test/blockster_v2_web/components/widgets/rt_chart_landscape_test.exs`
+- `test/blockster_v2_web/components/widgets/rt_chart_portrait_test.exs`
+- `test/blockster_v2_web/components/widgets/rt_full_card_test.exs`
+- `test/blockster_v2_web/components/widgets/rt_square_compact_test.exs`
+
+**Files modified**
+- `lib/blockster_v2_web/components/widget_components.ex` — 4 new dispatch clauses; added `selections` + `chart_data` attrs
+- `lib/blockster_v2_web/live/post_live/show.ex` — `mount_widgets/2` now includes inline + video_player_top banners
+- `lib/blockster_v2_web/live/post_live/show.html.heex` — 6 inline `ad_banner` → `widget_or_ad`; video_player_top gets a `widget_type` guard branch
+- `lib/blockster_v2_web/live/post_live/index.ex` — `use BlocksterV2Web.WidgetEvents` + `mount_widgets/2` call
+- `lib/blockster_v2_web/live/post_live/index.html.heex` — 5 inline `ad_banner` → `widget_or_ad`
+- `assets/js/app.js` — imported + registered `RtChartWidget` + `RtSquareCompactWidget`
+- `priv/repo/seeds_widget_banners.exs` — 4 new Phase 4 banners (biggest_gainer / biggest_mover / highest_aum / top_ranked)
+- `test/blockster_v2_web/components/widget_components_test.exs` — 4 widgets moved from raises-block to renders-block
+- `test/blockster_v2_web/live/post_live/show_test.exs` — new `Phase 4 chart widgets` describe (2 tests)
+- `test/blockster_v2_web/live/post_live/index_test.exs` — new `Phase 4 widget wiring` describe (1 test)
+
+**Visual QA** — NOT attempted (no browser access in this session). Run in dev with `WIDGETS_ENABLED=true bin/dev` + `mix run priv/repo/seeds_widget_banners.exs`; open an article page + the homepage; confirm chart populates within 10–60 s once the trackers' first polls fill the cache, tf pills swap active state without redirecting, outer-card click goes to `/bot/:slug`.
+
+**Next**: Phase 5 — tickers (`rt_ticker`, `fs_ticker` + shared CSS-marquee hook) → `rt_leaderboard_inline` → `fs_hero_portrait` + `fs_hero_landscape` (shared `FsHeroWidget` hook). Wires `homepage_top_desktop` + `homepage_top_mobile`, plus FS self-selection (`order_id` through `WidgetEvents`). Plan: [solana/realtime_widgets_plan.md](solana/realtime_widgets_plan.md) §"Phase 5".
+
+---
+
 ## Real-Time Widgets — Phase 3 (2026-04-14) ✅
 
 Both skyscraper widgets (`rt_skyscraper`, `fs_skyscraper`) shipped end-to-end on the article page. The static rt-widget HTML in `show.html.heex` (lines 979–1180 of the pre-Phase-3 file) is gone; the right sidebar now iterates active `sidebar_right` banners through `widget_or_ad`, and `sidebar_left` widget banners render below the existing Discover Cards. `PostLive.Show` uses `BlocksterV2Web.WidgetEvents`, so live data pushed by the Phase 2a pollers reaches the DOM via `push_event` as soon as `WIDGETS_ENABLED=true` is set on the cluster.

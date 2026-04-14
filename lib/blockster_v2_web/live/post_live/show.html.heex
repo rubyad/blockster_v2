@@ -473,6 +473,8 @@
                   banner={banner}
                   bots={@rt_bots}
                   trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
                 />
               <% end %>
             </div>
@@ -742,7 +744,13 @@
               <%!-- Ad at 1/3 mark --%>
               <%= if @article_inline_1 != [] do %>
                 <% banner = Enum.random(@article_inline_1) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
 
               <%!-- Chunk 2: 1/3 to 1/2 --%>
@@ -777,7 +785,13 @@
               <%!-- Ad at 2/3 mark --%>
               <%= if @article_inline_2 != [] do %>
                 <% banner = Enum.random(@article_inline_2) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
 
               <%!-- Chunk 4: final 1/3 --%>
@@ -786,7 +800,13 @@
               <%!-- Ad at end --%>
               <%= if @article_inline_3 != [] do %>
                 <% banner = Enum.random(@article_inline_3) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
 
             <% else %>
@@ -804,7 +824,13 @@
               <%!-- Ad at 1/3 mark --%>
               <%= if @article_inline_1 != [] do %>
                 <% banner = Enum.random(@article_inline_1) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
 
               <%!-- Chunk 2: middle 1/3 --%>
@@ -813,7 +839,13 @@
               <%!-- Ad at 2/3 mark --%>
               <%= if @article_inline_2 != [] do %>
                 <% banner = Enum.random(@article_inline_2) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
 
               <%!-- Chunk 3: final 1/3 --%>
@@ -822,7 +854,13 @@
               <%!-- Ad at end --%>
               <%= if @article_inline_3 != [] do %>
                 <% banner = Enum.random(@article_inline_3) %>
-                <BlocksterV2Web.DesignSystem.ad_banner banner={banner} />
+                <BlocksterV2Web.WidgetComponents.widget_or_ad
+                  banner={banner}
+                  bots={@rt_bots}
+                  trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
+                />
               <% end %>
             <% end %>
 
@@ -996,6 +1034,8 @@
                   banner={banner}
                   bots={@rt_bots}
                   trades={@fs_trades}
+                  selections={@widget_selections}
+                  chart_data={@widget_chart_data}
                 />
               <% end %>
             </div>
@@ -1031,29 +1071,39 @@
       <%= if @video_player_top_banners != [] do %>
         <% banner = Enum.random(@video_player_top_banners) %>
         <div class="w-full">
-          <%= if banner.link_url do %>
-            <a
-              href={banner.link_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="block group cursor-pointer"
-              phx-click="track_ad_click"
-              phx-value-id={banner.id}
-            >
+          <%= if banner.widget_type do %>
+            <BlocksterV2Web.WidgetComponents.widget_or_ad
+              banner={banner}
+              bots={@rt_bots}
+              trades={@fs_trades}
+              selections={@widget_selections}
+              chart_data={@widget_chart_data}
+            />
+          <% else %>
+            <%= if banner.link_url do %>
+              <a
+                href={banner.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block group cursor-pointer"
+                phx-click="track_ad_click"
+                phx-value-id={banner.id}
+              >
+                <img
+                  src={banner.image_url}
+                  alt={banner.name}
+                  class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
+                  loading="lazy"
+                />
+              </a>
+            <% else %>
               <img
                 src={banner.image_url}
                 alt={banner.name}
-                class="w-full h-auto rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.01]"
+                class="w-full h-auto rounded-2xl"
                 loading="lazy"
               />
-            </a>
-          <% else %>
-            <img
-              src={banner.image_url}
-              alt={banner.name}
-              class="w-full h-auto rounded-2xl"
-              loading="lazy"
-            />
+            <% end %>
           <% end %>
         </div>
       <% end %>

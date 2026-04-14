@@ -4,10 +4,11 @@ defmodule BlocksterV2Web.WidgetComponents do
   renderer (when `widget_type` is nil) or a real-time widget component
   (when `widget_type` matches one of the 14 shipped widgets).
 
-  Phase 2b ships only the nil-fallback path plus an explicit raise for
-  every known `widget_type` — individual widget components land in Phase
-  3 and beyond. Raising beats a silent blank slot while the backend is
-  flag-gated to `WIDGETS_ENABLED=false`.
+  Phase 3 added `rt_skyscraper` + `fs_skyscraper`. Phase 4 adds the four
+  RogueTrader chart widgets (`rt_chart_landscape`, `rt_chart_portrait`,
+  `rt_full_card`, `rt_square_compact`). Remaining widget_types raise an
+  explicit ArgumentError so mis-typed admin configs surface loudly and
+  the nil-fallback keeps the existing image ads untouched.
 
   Plan: docs/solana/realtime_widgets_plan.md · §F "Widget components".
   """
@@ -18,12 +19,18 @@ defmodule BlocksterV2Web.WidgetComponents do
 
   import BlocksterV2Web.Widgets.FsSkyscraper, only: [fs_skyscraper: 1]
   import BlocksterV2Web.Widgets.RtSkyscraper, only: [rt_skyscraper: 1]
+  import BlocksterV2Web.Widgets.RtChartLandscape, only: [rt_chart_landscape: 1]
+  import BlocksterV2Web.Widgets.RtChartPortrait, only: [rt_chart_portrait: 1]
+  import BlocksterV2Web.Widgets.RtFullCard, only: [rt_full_card: 1]
+  import BlocksterV2Web.Widgets.RtSquareCompact, only: [rt_square_compact: 1]
 
   @known_widget_types Banner.valid_widget_types()
 
   attr :banner, :map, required: true
   attr :bots, :list, default: []
   attr :trades, :list, default: []
+  attr :selections, :map, default: %{}
+  attr :chart_data, :map, default: %{}
   attr :class, :string, default: nil
   attr :rest, :global
 
@@ -42,6 +49,50 @@ defmodule BlocksterV2Web.WidgetComponents do
   def widget_or_ad(%{banner: %{widget_type: "rt_skyscraper"}} = assigns) do
     ~H"""
     <.rt_skyscraper banner={@banner} bots={@bots} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_chart_landscape"}} = assigns) do
+    ~H"""
+    <.rt_chart_landscape
+      banner={@banner}
+      bots={@bots}
+      selection={Map.get(@selections, @banner.id)}
+      chart_data={@chart_data}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_chart_portrait"}} = assigns) do
+    ~H"""
+    <.rt_chart_portrait
+      banner={@banner}
+      bots={@bots}
+      selection={Map.get(@selections, @banner.id)}
+      chart_data={@chart_data}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_full_card"}} = assigns) do
+    ~H"""
+    <.rt_full_card
+      banner={@banner}
+      bots={@bots}
+      selection={Map.get(@selections, @banner.id)}
+      chart_data={@chart_data}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_square_compact"}} = assigns) do
+    ~H"""
+    <.rt_square_compact
+      banner={@banner}
+      bots={@bots}
+      selection={Map.get(@selections, @banner.id)}
+      chart_data={@chart_data}
+    />
     """
   end
 
