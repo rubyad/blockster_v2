@@ -456,6 +456,10 @@ Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_pl
 | `share_campaigns` | Retweet campaigns | `post_id` |
 | `share_rewards` | Share participation | `{user_id, campaign_id}` |
 | `token_prices` | CoinGecko price cache | `token_id` |
+| `widget_fs_feed_cache` | FateSwap live-trade snapshot (WIDGETS_ENABLED) | `:singleton` |
+| `widget_rt_bots_cache` | RogueTrader bot snapshot (WIDGETS_ENABLED) | `:singleton` |
+| `widget_rt_chart_cache` | RogueTrader per-series chart points (WIDGETS_ENABLED) | `{bot_id, tf}` |
+| `widget_selections` | Self-selected subject per widget banner | `banner_id` |
 
 ### Legacy Tables (not read, kept for schema compat)
 | Table | Replaced By |

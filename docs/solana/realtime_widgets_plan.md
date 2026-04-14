@@ -1035,22 +1035,43 @@ All 14 widget mocks approved by the user. Mock files live in `docs/solana/widget
 
 ### Phase 2 — Blockster foundation (pollers, schema, design tokens)
 
-- [ ] Migration: `widget_type`, `widget_config` columns + index
-- [ ] `Banner` schema + changeset (allow nil image_url when widget_type set)
-- [ ] `Ads.list_widget_banners/0` helper
-- [ ] `lib/blockster_v2/widgets/fateswap_feed_tracker.ex` (GlobalSingleton, 3 s)
-- [ ] `lib/blockster_v2/widgets/roguetrader_bots_tracker.ex` (GlobalSingleton, 10 s)
-- [ ] `lib/blockster_v2/widgets/roguetrader_chart_tracker.ex` (GlobalSingleton, 60 s, 150 series)
-- [ ] `lib/blockster_v2/widgets/widget_selector.ex`
-- [ ] `lib/blockster_v2/widgets/click_router.ex`
-- [ ] Mnesia tables in `mnesia_initializer.ex`: `widget_fs_feed_cache`, `widget_rt_bots_cache`, `widget_rt_chart_cache`, `widget_selections`
-- [ ] Supervise pollers via `BlocksterV2.GlobalSingleton`
-- [ ] `runtime.exs` config block (URLs, intervals, timeouts)
-- [ ] `assets/css/widgets.css` (design tokens + utilities + animations)
-- [ ] Load Satoshi + JetBrains Mono fonts in root layout
-- [ ] `WidgetEvents` macro
-- [ ] `WidgetComponents.widget_or_ad/1` dispatcher
-- [ ] Tests: tracker poll/diff/broadcast logic with `Req.Test` stubs; selector pure logic; click router; changeset; macro
+Split into 2a (backend + schema) and 2b (foundation glue — CSS, fonts, macro, dispatcher).
+
+#### Phase 2a ✅ COMPLETE (2026-04-14)
+
+- [x] Migration `20260414120000_add_widget_columns_to_ad_banners` — adds `widget_type` (string), `widget_config` (map default `%{}`), `index(:widget_type)`
+- [x] `Banner` schema + changeset — 14-type whitelist (added `rt_sidebar_tile`, `fs_square_compact`, `fs_sidebar_tile` per Phase 0), `image_url` required only when `widget_type` is nil, `widget_config` defaults to `%{}`
+- [x] `Ads.list_widget_banners/0` — returns active banners with non-nil `widget_type`
+- [x] `Ads.increment_impressions/1` + `Ads.increment_clicks/1` overloaded to accept `%Banner{}` or integer id (macro-friendly)
+- [x] `lib/blockster_v2/widgets/fateswap_feed_tracker.ex` (3 s)
+- [x] `lib/blockster_v2/widgets/roguetrader_bots_tracker.ex` (10 s)
+- [x] `lib/blockster_v2/widgets/roguetrader_chart_tracker.ex` (60 s sweep, 30 bots × 5 tfs staggered)
+- [x] `lib/blockster_v2/widgets/widget_selector.ex` — pure module, all 5 RT + 5 FS modes, unknown modes return `nil` (no silent default), `partition_banners/1` helper
+- [x] `lib/blockster_v2/widgets/click_router.ex` — `url_for/1` and `url_for/2` with clauses for `{bot_id, tf}` / `order_id` / `:rt` / `:fs` / fallback `"/"`
+- [x] Mnesia tables appended to `@tables` in `mnesia_initializer.ex`: `widget_fs_feed_cache` (`{:singleton, trades, fetched_at}`), `widget_rt_bots_cache` (`{:singleton, bots, fetched_at}`), `widget_rt_chart_cache` (composite `{bot_id, tf}` key with points / high / low / change_pct / fetched_at), `widget_selections` (banner_id key + widget_type + subject + picked_at)
+- [x] Supervise 3 trackers via `BlocksterV2.GlobalSingleton` in `application.ex`, **behind `WIDGETS_ENABLED` flag** so they don't spin up in dev/test unless explicitly enabled
+- [x] `runtime.exs` config block `:widgets` — URLs default to `https://fateswap.fly.dev` and `https://roguetrader-v2.fly.dev` (Phase 1 Fly URLs), intervals as speced, `WIDGETS_ENABLED` default false
+- [x] Tests: 84 tests, 0 failures across `test/blockster_v2/widgets/**` + `test/blockster_v2/ads/banner_widget_test.exs`. Full suite 2747 tests, 117 failures — all pre-existing flakes (baseline 119 on the same seed range); zero new failures introduced.
+
+**Phase 2a deviations from plan (now load-bearing)**:
+
+1. **Selector reads change% off the `/api/bots` snapshot, not the chart cache.** Phase 1's `OrderSerializer` already exposes `lp_price_change_{1h,6h,24h,48h,7d}_pct` on every bot row, so the selector doesn't have to coordinate with `RogueTraderChartTracker`. Same answer, no cross-tracker dependency at selection time.
+2. **Trackers cache in Mnesia and all reads are `dirty_read` from the local node** — no cross-node `GenServer.call`. The GlobalSingleton is just the writer; non-leader nodes serve widgets from their own Mnesia copy. This matches the `LpPriceTracker` pattern.
+3. **Selector returns `:unknown` (→ `nil` pick) for unrecognised selection modes** instead of silently falling back to `biggest_gainer`/`biggest_profit`. Mis-typed admin configs surface as blank widgets (loading state) rather than wrong picks.
+4. **Req calls in all three trackers use `retry: false`.** Default Req retries 3× on 5xx / transport errors, adding ~7 s per failed poll. Pollers just try again at the next interval — retries inside a poll step are worse than waiting.
+5. **Production Mnesia table creation stays in `MnesiaInitializer.@tables`** rather than a separate `widgets/mnesia_init.ex` helper (plan allowed either). Test-only table setup lives in `test/support/widgets_mnesia_case.ex` following the `airdrop_live_test.exs` pattern (`start_genservers: false` in test env means `MnesiaInitializer` isn't started during test runs, so the support module brings the 4 widget tables up as `ram_copies`).
+6. **Tracker processes use `Req.Test.allow/3` + an initial seed stub** so the GenServer process can see the stub the test process installed (`Req.Test.allow` needs the named stub to exist at the time of the allow call). Every tracker accepts a `:req_options` keyword so tests inject `plug: {Req.Test, StubName}`, and `:auto_start`/`:skip_global` keywords so tests can drive polling synchronously via `poll_now/1` without a background timer.
+
+#### Phase 2b — foundation glue (no widgets yet)
+
+- [ ] `assets/css/widgets.css` — scoped `.bw-widget` tokens, Satoshi + JetBrains Mono font-family hooks, `bw-card/bw-shell/bw-pulse-dot/bw-flash-*` utilities, marquee keyframes (full block from `Design tokens, fonts & assets` above)
+- [ ] Satoshi + JetBrains Mono `<link>` tags in `root.html.heex`, with `<link rel="preconnect">` for fontshare.com / fonts.gstatic.com
+- [ ] `@import "widgets.css"` in `assets/css/app.css`
+- [ ] `lib/blockster_v2_web/live/widget_events.ex` — `use BlocksterV2Web.WidgetEvents` macro with `mount_widgets/2`, `handle_info({:fs_trades, _} | {:rt_bots, _} | {:rt_chart, …} | {:selection_changed, …})`, `handle_event("widget_click", …)`
+- [ ] `lib/blockster_v2_web/components/widget_components.ex` — `widget_or_ad/1` dispatcher that falls through to `BlocksterV2Web.DesignSystem.ad_banner/1` when `widget_type` is nil. For widgets, **raise** until Phase 3+ adds the component modules — explicit failure beats silent blank slot.
+- [ ] Tests: macro — a minimal LiveView host that mounts via `use WidgetEvents`, asserts PubSub subscription happens on connected mount, `handle_info` routes update `assigns` + pushes events, `widget_click` hits `Ads.increment_clicks` and redirects via `ClickRouter`. Dispatcher — `widget_type: nil` falls through to `ad_banner`; `widget_type: "rt_skyscraper"` raises (no component yet).
+
+### Phase 2c onwards — see Phase 3+ below for skyscrapers, charts, tickers, heroes.
 
 ### Phase 3 — Skyscrapers (replace existing rt-widget + add fs counterpart)
 

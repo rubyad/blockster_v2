@@ -118,8 +118,20 @@ defmodule BlocksterV2.Application do
         []
       end
 
+    # Real-time sister-app widget pollers (behind WIDGETS_ENABLED flag)
+    widgets_children =
+      if Application.get_env(:blockster_v2, :widgets, [])[:enabled] do
+        [
+          {BlocksterV2.Widgets.FateSwapFeedTracker, []},
+          {BlocksterV2.Widgets.RogueTraderBotsTracker, []},
+          {BlocksterV2.Widgets.RogueTraderChartTracker, []}
+        ]
+      else
+        []
+      end
+
     # Endpoint always starts last
-    children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ ads_manager_children ++ hourly_promo_children ++ bot_system_children ++ [BlocksterV2Web.Endpoint]
+    children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ ads_manager_children ++ hourly_promo_children ++ bot_system_children ++ widgets_children ++ [BlocksterV2Web.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

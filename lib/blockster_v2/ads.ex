@@ -37,6 +37,18 @@ defmodule BlocksterV2.Ads do
   end
 
   @doc """
+  Returns all active banners that have a widget_type set.
+
+  Used by the real-time widget pollers (WidgetSelector) to determine which
+  banners need a fresh self-selection pick on every poll cycle.
+  """
+  def list_widget_banners do
+    Banner
+    |> where([b], b.is_active == true and not is_nil(b.widget_type))
+    |> Repo.all()
+  end
+
+  @doc """
   Gets a single banner. Raises if not found.
   """
   def get_banner!(id), do: Repo.get!(Banner, id)
@@ -68,24 +80,34 @@ defmodule BlocksterV2.Ads do
 
   @doc """
   Atomically increments the impressions count for a banner.
+  Accepts either a %Banner{} struct or an integer id.
   """
-  def increment_impressions(%Banner{} = banner) do
-    {1, [updated]} =
-      from(b in Banner, where: b.id == ^banner.id, select: b)
-      |> Repo.update_all(inc: [impressions: 1])
+  def increment_impressions(%Banner{id: id}), do: increment_impressions(id)
 
-    {:ok, updated}
+  def increment_impressions(id) when is_integer(id) do
+    case Repo.update_all(
+           from(b in Banner, where: b.id == ^id, select: b),
+           inc: [impressions: 1]
+         ) do
+      {1, [updated]} -> {:ok, updated}
+      {0, _} -> {:error, :not_found}
+    end
   end
 
   @doc """
   Atomically increments the clicks count for a banner.
+  Accepts either a %Banner{} struct or an integer id.
   """
-  def increment_clicks(%Banner{} = banner) do
-    {1, [updated]} =
-      from(b in Banner, where: b.id == ^banner.id, select: b)
-      |> Repo.update_all(inc: [clicks: 1])
+  def increment_clicks(%Banner{id: id}), do: increment_clicks(id)
 
-    {:ok, updated}
+  def increment_clicks(id) when is_integer(id) do
+    case Repo.update_all(
+           from(b in Banner, where: b.id == ^id, select: b),
+           inc: [clicks: 1]
+         ) do
+      {1, [updated]} -> {:ok, updated}
+      {0, _} -> {:error, :not_found}
+    end
   end
 
   @doc """

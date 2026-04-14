@@ -672,6 +672,56 @@ defmodule BlocksterV2.MnesiaInitializer do
         :authority_balance_lamports  # Latest authority SOL balance in lamports (integer)
       ],
       index: []
+    },
+    # Real-time sister-app widget caches (Phase 2 — Real-Time Widgets)
+    # All four tables back the three widget pollers under lib/blockster_v2/widgets/.
+    # Cache keys are :singleton (one row per table) for snapshot tables; per-subject
+    # for the chart cache and per-banner for the selection cache.
+    %{
+      name: :widget_fs_feed_cache,
+      type: :set,
+      attributes: [
+        :id,              # PRIMARY KEY - always :singleton
+        :trades,          # List of trade maps from FateSwap /api/feed/recent
+        :fetched_at       # Unix timestamp of last successful fetch
+      ],
+      index: []
+    },
+    %{
+      name: :widget_rt_bots_cache,
+      type: :set,
+      attributes: [
+        :id,              # PRIMARY KEY - always :singleton
+        :bots,            # List of bot maps from RogueTrader /api/bots
+        :fetched_at       # Unix timestamp of last successful fetch
+      ],
+      index: []
+    },
+    %{
+      name: :widget_rt_chart_cache,
+      type: :set,
+      attributes: [
+        :key,             # PRIMARY KEY - {bot_id, timeframe} tuple
+        :bot_id,          # Bot id (string)
+        :timeframe,       # Timeframe ("1h" | "6h" | "24h" | "48h" | "7d")
+        :points,          # List of %{time: unix, value: price} points
+        :high,            # High value in range
+        :low,             # Low value in range
+        :change_pct,      # Percent change across the series (float)
+        :fetched_at       # Unix timestamp of last successful fetch
+      ],
+      index: [:bot_id, :timeframe]
+    },
+    %{
+      name: :widget_selections,
+      type: :set,
+      attributes: [
+        :banner_id,       # PRIMARY KEY - ad_banners.id (integer)
+        :widget_type,     # Widget type string (copy of banner.widget_type)
+        :subject,         # Selected subject - {bot_id, tf} for RT, order_id for FS
+        :picked_at        # Unix timestamp of last selection
+      ],
+      index: [:widget_type]
     }
   ]
 

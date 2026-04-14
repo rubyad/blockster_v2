@@ -11,6 +11,14 @@ defmodule BlocksterV2.Ads.Banner do
 
   @valid_templates ~w(image follow_bar dark_gradient portrait split_card)
 
+  @valid_widget_types ~w(
+    rt_skyscraper rt_square_compact rt_sidebar_tile rt_chart_landscape rt_chart_portrait
+    rt_full_card rt_ticker rt_leaderboard_inline
+    fs_skyscraper fs_hero_portrait fs_hero_landscape fs_ticker fs_square_compact fs_sidebar_tile
+  )
+
+  def valid_widget_types, do: @valid_widget_types
+
   schema "ad_banners" do
     field :name, :string
     field :image_url, :string
@@ -25,15 +33,47 @@ defmodule BlocksterV2.Ads.Banner do
     field :template, :string, default: "image"
     field :params, :map, default: %{}
     field :sort_order, :integer, default: 0
+    field :widget_type, :string
+    field :widget_config, :map, default: %{}
     timestamps()
   end
 
   @doc false
   def changeset(banner, attrs) do
     banner
-    |> cast(attrs, [:name, :image_url, :link_url, :placement, :dimensions, :is_active, :start_date, :end_date, :template, :params, :sort_order])
+    |> cast(attrs, [
+      :name,
+      :image_url,
+      :link_url,
+      :placement,
+      :dimensions,
+      :is_active,
+      :start_date,
+      :end_date,
+      :template,
+      :params,
+      :sort_order,
+      :widget_type,
+      :widget_config
+    ])
     |> validate_required([:name, :placement])
     |> validate_inclusion(:placement, @valid_placements)
     |> validate_inclusion(:template, @valid_templates)
+    |> validate_widget_type()
+    |> maybe_require_image_url()
+  end
+
+  defp validate_widget_type(changeset) do
+    case get_field(changeset, :widget_type) do
+      nil -> changeset
+      _ -> validate_inclusion(changeset, :widget_type, @valid_widget_types)
+    end
+  end
+
+  defp maybe_require_image_url(changeset) do
+    case get_field(changeset, :widget_type) do
+      nil -> validate_required(changeset, [:image_url])
+      _ -> changeset
+    end
   end
 end

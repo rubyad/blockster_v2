@@ -9,6 +9,74 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Real-Time Widgets — Phase 2a (2026-04-14) ✅
+
+Blockster-side backend foundation for the live sister-app widgets shipped. Feature-flagged behind `WIDGETS_ENABLED` so pollers stay off in dev/test/prod until Phase 2b + 3 are landed and a production deploy explicitly flips them on. Sister-app APIs from Phase 1 unchanged.
+
+**Schema + context**
+- Migration `20260414120000_add_widget_columns_to_ad_banners` — `widget_type :string`, `widget_config :map default %{}`, `index(:widget_type)`
+- `Ads.Banner` — 14-type whitelist (8 RT + 6 FS, includes `rt_sidebar_tile`, `fs_square_compact`, `fs_sidebar_tile` variants added during Phase 0 visual design). Changeset requires `image_url` only when `widget_type` is nil. `widget_config` defaults to `%{}` and is validated as an arbitrary JSONB map.
+- `Ads.list_widget_banners/0` — active banners with non-nil `widget_type` (backbone of `WidgetSelector`'s per-banner refresh)
+- `Ads.increment_impressions/1` + `Ads.increment_clicks/1` overloaded to accept `%Banner{}` or integer id — lets the `WidgetEvents` macro call them with just a banner id from a `phx-click` payload
+
+**Pollers** (all `GlobalSingleton`, all under `lib/blockster_v2/widgets/`)
+- `FateSwapFeedTracker` (3 s) — polls `/api/feed/recent?limit=20`, caches list + broadcasts on `"widgets:fateswap:feed"` when trade-id list changes, re-runs `WidgetSelector.pick_fs/2` per active banner
+- `RogueTraderBotsTracker` (10 s) — polls `/api/bots`, snapshot key is `[{bot_id, lp_price, rank}]` so any price or rank move broadcasts on `"widgets:roguetrader:bots"`
+- `RogueTraderChartTracker` (60 s) — sweeps 30 bots × 5 tfs = 150 series staggered across the window (one every ~400 ms). Reads the list of bot_ids from `RogueTraderBotsTracker` at queue-rebuild time. Broadcasts per-series on `"widgets:roguetrader:chart:\#{bot}_\#{tf}"`. Accepts `:bot_ids` override for tests.
+- All three trackers use `Req` with `retry: false` (default retries add ~7 s per failed poll; pollers just try again next interval)
+- All three expose a `poll_now/1` / `poll_now/3` GenServer call for synchronous test-driven polling
+- All three read from local Mnesia via `dirty_read` — no cross-node `GenServer.call`, non-leader nodes serve widgets from their own replicated cache
+
+**Pure modules**
+- `Widgets.WidgetSelector` — pure functions, 5 RT modes (`biggest_gainer` default, `biggest_mover`, `highest_aum`, `top_ranked`, `fixed`) + 5 FS modes (`biggest_profit` default, `biggest_discount`, `most_recent_filled`, `random_recent`, `fixed`). RT change% reads off the bot snapshot fields (not chart cache) so selection has zero cross-tracker dependency. Unknown modes return `nil` instead of silently defaulting.
+- `Widgets.ClickRouter` — `url_for/1` + `url_for/2` with clauses for `{bot_id, tf}` → `roguetrader.io/bot/:id`, binary order_id → `fateswap.io/orders/:id`, `:rt`/`:fs` → homepages, everything else → `"/"` fallback
+
+**Mnesia** — 4 new tables appended to `MnesiaInitializer.@tables`:
+- `widget_fs_feed_cache` — `{:singleton, trades, fetched_at}`
+- `widget_rt_bots_cache` — `{:singleton, bots, fetched_at}`
+- `widget_rt_chart_cache` — composite `{bot_id, tf}` key + `bot_id, timeframe, points, high, low, change_pct, fetched_at`
+- `widget_selections` — `banner_id` key + `widget_type, subject, picked_at` (subject is `{bot_id, tf}` tuple for RT, order_id string for FS)
+
+**Config + supervision**
+- `runtime.exs` `:widgets` block — `WIDGETS_ENABLED` env flag (default false), URLs default to `https://fateswap.fly.dev` / `https://roguetrader-v2.fly.dev`, intervals as speced
+- `application.ex` — 3 trackers supervised via `GlobalSingleton` only when `WIDGETS_ENABLED=true`
+
+**Test counts** — 84 new widget tests (all green in 1.1 s). Full suite 2747 tests, 117 failures (all pre-existing flakes — baseline 99 sorted-unique failures; diff to current is symmetric random-order noise, zero regressions).
+
+**Test infra notes (carry forward for later phases)**
+- `test/support/widgets_mnesia_case.ex` is the shared Mnesia setup — `:mnesia.start()` + `create_table(ram_copies)` + `clear_table` per-test (follows `airdrop_live_test.exs` pattern; `start_genservers: false` in test env means `MnesiaInitializer` isn't started)
+- Tracker test pattern: `Req.Test.stub(Name, dummy_fun)` → `GenServer.start_link(Module, opts_with_plug_and_skip_global)` → `Req.Test.allow(Name, self(), tracker_pid)`. Tests override the stub per scenario and call `poll_now/…` synchronously. `:auto_start: false` and `:skip_global: true` prevent the tracker from scheduling recurring polls or trying to register globally during the test.
+- `retry: false` on the Req call keeps a 500/timeout test from blocking 7 s on default backoff
+
+**Files created**
+- `lib/blockster_v2/widgets/click_router.ex`
+- `lib/blockster_v2/widgets/widget_selector.ex`
+- `lib/blockster_v2/widgets/fateswap_feed_tracker.ex`
+- `lib/blockster_v2/widgets/roguetrader_bots_tracker.ex`
+- `lib/blockster_v2/widgets/roguetrader_chart_tracker.ex`
+- `priv/repo/migrations/20260414120000_add_widget_columns_to_ad_banners.exs`
+- `test/support/widgets_mnesia_case.ex`
+- `test/blockster_v2/widgets/{click_router,widget_selector,fateswap_feed_tracker,roguetrader_bots_tracker,roguetrader_chart_tracker,mnesia_tables}_test.exs`
+- `test/blockster_v2/ads/banner_widget_test.exs`
+
+**Files modified**
+- `lib/blockster_v2/ads.ex` — `list_widget_banners/0`, dual-arity `increment_*`
+- `lib/blockster_v2/ads/banner.ex` — `widget_type` + `widget_config` fields, changeset rules
+- `lib/blockster_v2/mnesia_initializer.ex` — 4 tables appended to `@tables`
+- `lib/blockster_v2/application.ex` — 3 trackers feature-flagged
+- `config/runtime.exs` — `:widgets` block
+
+**Plan deviations honored** (now load-bearing for Phase 2b and beyond)
+- Selector reads change% off `/api/bots` snapshot fields (Phase 1 already exposes them), not via chart cache
+- Non-leader nodes read from local Mnesia, not via `GenServer.call` to the singleton
+- Unknown selection modes return `nil` (no silent fallback)
+- Req calls use `retry: false`
+- Mnesia bring-up lives in `MnesiaInitializer.@tables`, not a separate widgets helper module
+
+**Next**: Phase 2b — `assets/css/widgets.css`, Satoshi + JetBrains Mono fonts, `WidgetEvents` macro, `WidgetComponents.widget_or_ad/1` dispatcher. Plan: [solana/realtime_widgets_plan.md](solana/realtime_widgets_plan.md) §"Phase 2b".
+
+---
+
 ## Real-Time Widgets — Phase 1 (2026-04-14) ✅
 
 Sister-app public widget APIs are live in production. Blockster will consume these from Phase 2 pollers. No Blockster code changed in this phase.

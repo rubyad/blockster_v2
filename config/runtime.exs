@@ -118,6 +118,15 @@ config :blockster_v2,
     min_bot_reward: 5.0,
     default_pool_size: 5000,
     video_watch_percentage: 0.35
+  ],
+  widgets: [
+    enabled: String.trim(System.get_env("WIDGETS_ENABLED", "false")) == "true",
+    fateswap_base_url: System.get_env("FATESWAP_API_URL", "https://fateswap.fly.dev"),
+    roguetrader_base_url: System.get_env("ROGUETRADER_API_URL", "https://roguetrader-v2.fly.dev"),
+    fateswap_poll_interval_ms: 3_000,
+    roguetrader_bots_poll_interval_ms: 10_000,
+    roguetrader_chart_poll_interval_ms: 60_000,
+    http_timeout_ms: 5_000
   ]
 
 # Mnesia configuration
