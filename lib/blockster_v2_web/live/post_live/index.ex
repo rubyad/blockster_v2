@@ -72,10 +72,9 @@ defmodule BlocksterV2Web.PostLive.Index do
     homepage_top_desktop_banners = load_homepage_banners(socket, "homepage_top_desktop")
     homepage_top_mobile_banners = load_homepage_banners(socket, "homepage_top_mobile")
 
-    # Load template-based inline ads. First try homepage-specific placements,
-    # then fall back to article_inline banners (same template ads shown on articles).
-    inline_desktop_banners = load_homepage_inline_banners(socket)
-    inline_mobile_banners = load_homepage_banners(socket, "homepage_inline_mobile")
+    # Single inline-ads source. Both desktop and mobile rails read from the
+    # same `homepage_inline` placement — admins manage one list of inline ads.
+    inline_banners = load_homepage_banners(socket, "homepage_inline")
 
     {:ok,
      socket
@@ -100,13 +99,15 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:deposit_modal_post, nil)
      |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
      |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
-     |> assign(:inline_desktop_banners, inline_desktop_banners)
-     |> assign(:inline_mobile_banners, inline_mobile_banners)
+     # Frozen picks — chosen once on mount so PubSub re-renders don't churn the random pick.
+     |> assign(:homepage_top_desktop_pick, random_or_nil(homepage_top_desktop_banners))
+     |> assign(:homepage_top_mobile_pick, random_or_nil(homepage_top_mobile_banners))
+     |> assign(:inline_desktop_banners, inline_banners)
+     |> assign(:inline_mobile_banners, inline_banners)
      |> mount_widgets(
        homepage_top_desktop_banners ++
          homepage_top_mobile_banners ++
-         inline_desktop_banners ++
-         inline_mobile_banners
+         inline_banners
      )
      |> stream(:components, cycle_components)}
   end
@@ -117,29 +118,11 @@ defmodule BlocksterV2Web.PostLive.Index do
       else: []
   end
 
-  # Collects template-based inline ad banners for the homepage feed.
-  # Priority: homepage_inline > homepage_inline_desktop > article_inline_*.
-  # Sorted by sort_order (ascending) so admins control display order.
-  defp load_homepage_inline_banners(socket) do
-    if connected?(socket) do
-      homepage = BlocksterV2.Ads.list_active_banners_by_placement("homepage_inline")
-
-      if homepage != [] do
-        homepage
-      else
-        desktop = BlocksterV2.Ads.list_active_banners_by_placement("homepage_inline_desktop")
-
-        if desktop != [] do
-          desktop
-        else
-          ["article_inline_1", "article_inline_2", "article_inline_3"]
-          |> Enum.flat_map(&BlocksterV2.Ads.list_active_banners_by_placement/1)
-        end
-      end
-    else
-      []
-    end
-  end
+  # Picks one banner at random from the list, or nil when empty.
+  # Called once on mount so the choice is stable across LiveView re-renders.
+  defp random_or_nil([]), do: nil
+  defp random_or_nil(list) when is_list(list), do: Enum.random(list)
+  defp random_or_nil(_), do: nil
 
   @impl true
   def handle_params(params, _url, socket) do

@@ -33,7 +33,7 @@ defmodule BlocksterV2Web.WidgetEvents do
   defmacro __using__(_opts) do
     quote do
       alias BlocksterV2.Ads
-      alias BlocksterV2.Widgets.{ClickRouter, FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker}
+      alias BlocksterV2.Widgets.{ClickRouter, FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker, TrackerStatus}
 
       @widget_fs_feed_topic "widgets:fateswap:feed"
       @widget_rt_bots_topic "widgets:roguetrader:bots"
@@ -80,6 +80,7 @@ defmodule BlocksterV2Web.WidgetEvents do
         |> Phoenix.Component.assign(:rt_bots, RogueTraderBotsTracker.get_bots())
         |> Phoenix.Component.assign(:widget_selections, __initial_selections__(widget_banners))
         |> Phoenix.Component.assign(:widget_chart_data, __initial_chart_data__(widget_banners))
+        |> Phoenix.Component.assign(:widget_tracker_errors, TrackerStatus.errors())
       end
 
       # ── handle_info ────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ defmodule BlocksterV2Web.WidgetEvents do
         {:noreply,
          socket
          |> Phoenix.Component.assign(:fs_trades, trades)
+         |> Phoenix.Component.assign(:widget_tracker_errors, TrackerStatus.errors())
          |> Phoenix.LiveView.push_event("widget:fs_feed:update", %{trades: trades})}
       end
 
@@ -95,6 +97,7 @@ defmodule BlocksterV2Web.WidgetEvents do
         {:noreply,
          socket
          |> Phoenix.Component.assign(:rt_bots, bots)
+         |> Phoenix.Component.assign(:widget_tracker_errors, TrackerStatus.errors())
          |> Phoenix.LiveView.push_event("widget:rt_bots:update", %{bots: bots})}
       end
 

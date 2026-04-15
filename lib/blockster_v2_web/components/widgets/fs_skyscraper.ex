@@ -18,10 +18,13 @@ defmodule BlocksterV2Web.Widgets.FsSkyscraper do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   @max_rows 20
 
   attr :banner, :map, required: true
   attr :trades, :list, default: []
+  attr :tracker_error?, :boolean, default: false
 
   def fs_skyscraper(assigns) do
     assigns = assign(assigns, :trades, Enum.take(assigns.trades || [], @max_rows))
@@ -73,18 +76,24 @@ defmodule BlocksterV2Web.Widgets.FsSkyscraper do
         class="bw-scroll bw-shell-bg-grid flex-1 overflow-y-auto"
         data-role="fs-skyscraper-body"
       >
-        <%= if @trades == [] do %>
-          <div class="h-full w-full grid place-items-center px-3 py-8 text-center">
-            <div>
-              <div class="bw-display text-[9px] uppercase tracking-[0.14em] text-[#6B7280] mb-1">
-                Waiting for trades
-              </div>
-              <div class="bw-display text-[10px] text-[#4B5563] leading-snug">
-                Live feed starts once FateSwap settles its next order.
+        <%= cond do %>
+          <% @trades == [] and @tracker_error? -> %>
+            <.tracker_error_placeholder brand={:fs} />
+          <% @trades == [] -> %>
+            <div class="divide-y divide-white/[0.04]" data-role="fs-skyscraper-skeleton">
+              <div :for={_ <- 1..8} class="px-2.5 py-2 bg-[#14141A]">
+                <div class="flex items-center justify-between mb-1.5 gap-1">
+                  <div class="flex items-center gap-1 min-w-0">
+                    <.skeleton_circle class="w-3 h-3" />
+                    <.skeleton_bar class="w-12 h-2.5" />
+                  </div>
+                  <.skeleton_bar class="w-10 h-2.5" />
+                </div>
+                <.skeleton_bar class="w-full h-2 mt-1.5" />
+                <.skeleton_bar class="w-2/3 h-2 mt-1" />
               </div>
             </div>
-          </div>
-        <% else %>
+          <% true -> %>
           <div class="divide-y divide-white/[0.04]">
             <div
               :for={trade <- @trades}

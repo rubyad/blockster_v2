@@ -9,7 +9,7 @@ defmodule BlocksterV2.Ads.Banner do
     homepage_inline video_player_top article_inline_1 article_inline_2 article_inline_3
   )
 
-  @valid_templates ~w(image follow_bar dark_gradient portrait split_card)
+  @valid_templates ~w(image follow_bar dark_gradient portrait split_card luxury_watch luxury_watch_compact_full luxury_watch_skyscraper luxury_watch_banner luxury_watch_split luxury_car luxury_car_skyscraper luxury_car_banner jet_card_compact jet_card_skyscraper)
 
   @valid_widget_types ~w(
     rt_skyscraper rt_square_compact rt_sidebar_tile rt_chart_landscape rt_chart_portrait

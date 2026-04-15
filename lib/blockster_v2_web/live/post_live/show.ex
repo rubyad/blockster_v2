@@ -28,6 +28,12 @@ defmodule BlocksterV2Web.PostLive.Show do
   defp display_pool_balance(pool_balance) when pool_balance <= 0, do: 0
   defp display_pool_balance(pool_balance), do: pool_balance
 
+  # Picks one banner at random from the list, or nil when empty.
+  # Called once on mount so the choice is stable across LiveView re-renders.
+  defp random_or_nil([]), do: nil
+  defp random_or_nil(list) when is_list(list), do: Enum.random(list)
+  defp random_or_nil(_), do: nil
+
   @doc """
   Determines if pool is available for NEW earning actions.
   Returns false if pool is zero or negative.
@@ -297,6 +303,17 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:article_inline_1, article_inline_1)
      |> assign(:article_inline_2, article_inline_2)
      |> assign(:article_inline_3, article_inline_3)
+     # Frozen picks — one banner per rotating slot, chosen once on mount so
+     # re-renders (PubSub ticks from widget trackers, etc.) don't churn the
+     # random pick and swap the ad mid-view. Reads pre-computed lists above.
+     |> assign(:article_inline_1_pick, random_or_nil(article_inline_1))
+     |> assign(:article_inline_2_pick, random_or_nil(article_inline_2))
+     |> assign(:article_inline_3_pick, random_or_nil(article_inline_3))
+     |> assign(:mobile_top_pick, random_or_nil(mobile_top_banners))
+     |> assign(:mobile_mid_pick, random_or_nil(mobile_mid_banners))
+     |> assign(:mobile_bottom_pick, random_or_nil(mobile_bottom_banners))
+     |> assign(:article_bottom_pick, random_or_nil(article_bottom_banners))
+     |> assign(:video_player_top_pick, random_or_nil(video_player_top_banners))
      |> assign(:content_chunks, content_chunks)
      |> assign(:has_hub, has_hub)
      |> assign(:video_modal_open, false)

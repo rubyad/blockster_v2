@@ -222,4 +222,84 @@ defmodule BlocksterV2Web.WidgetEventsTest do
       assert url == "https://fateswap.io"
     end
   end
+
+  # Phase 6e — sweep every shipped widget_type for impression + click behaviour.
+  # Each case is a 3-tuple: {widget_type, click_subject, expected_redirect_url}.
+  # "rt_bot_tuple" / "fs_order_id" signal structured subjects resolved per-test.
+  @widget_click_cases [
+    {"rt_skyscraper", "rt", "https://roguetrader.io"},
+    {"rt_ticker", "rt", "https://roguetrader.io"},
+    {"rt_leaderboard_inline", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"rt_chart_landscape", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"rt_chart_portrait", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"rt_full_card", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"rt_square_compact", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"rt_sidebar_tile", :rt_bot_tuple, "https://roguetrader.io/bot/kronos"},
+    {"fs_skyscraper", "fs", "https://fateswap.io"},
+    {"fs_ticker", "fs", "https://fateswap.io"},
+    {"fs_hero_portrait", :fs_order_id, "https://fateswap.io/orders/ord-sweep"},
+    {"fs_hero_landscape", :fs_order_id, "https://fateswap.io/orders/ord-sweep"},
+    {"fs_square_compact", :fs_order_id, "https://fateswap.io/orders/ord-sweep"},
+    {"fs_sidebar_tile", :fs_order_id, "https://fateswap.io/orders/ord-sweep"}
+  ]
+
+  describe "impression + click sweep — every shipped widget_type" do
+    for {widget_type, subject_kind, expected_url} <- @widget_click_cases do
+      @tag widget_type: widget_type, subject_kind: subject_kind, expected_url: expected_url
+      test "#{widget_type}: mount increments impressions, widget_click increments clicks + redirects", %{
+        conn: conn,
+        widget_type: widget_type,
+        subject_kind: subject_kind,
+        expected_url: expected_url
+      } do
+        {:ok, banner} =
+          Ads.create_banner(%{
+            name: "sweep-#{widget_type}",
+            placement: placement_for(widget_type),
+            widget_type: widget_type,
+            widget_config: default_widget_config(widget_type)
+          })
+
+        assert Ads.get_banner!(banner.id).impressions == 0
+        assert Ads.get_banner!(banner.id).clicks == 0
+
+        {:ok, view, _html} = live_isolated(conn, WidgetEventsTestHost)
+
+        # Connected mount fires the impression for every widget banner.
+        assert Ads.get_banner!(banner.id).impressions == 1
+
+        subject = subject_payload(subject_kind)
+
+        assert {:error, {:redirect, %{to: url}}} =
+                 render_hook(view, "widget_click", %{
+                   "banner_id" => Integer.to_string(banner.id),
+                   "subject" => subject
+                 })
+
+        assert url == expected_url, "#{widget_type}: expected redirect to #{expected_url}, got #{url}"
+        assert Ads.get_banner!(banner.id).clicks == 1
+      end
+    end
+  end
+
+  defp subject_payload(:rt_bot_tuple), do: %{"bot_id" => "kronos", "tf" => "7d"}
+  defp subject_payload(:fs_order_id), do: "ord-sweep"
+  defp subject_payload(bin) when is_binary(bin), do: bin
+
+  defp default_widget_config(t)
+       when t in ~w(rt_chart_landscape rt_chart_portrait rt_full_card rt_square_compact rt_sidebar_tile),
+       do: %{"selection" => "biggest_gainer"}
+
+  defp default_widget_config(t)
+       when t in ~w(fs_hero_portrait fs_hero_landscape fs_square_compact fs_sidebar_tile),
+       do: %{"selection" => "biggest_profit"}
+
+  defp default_widget_config(_), do: %{}
+
+  defp placement_for("rt_ticker"), do: "homepage_top_desktop"
+  defp placement_for("fs_ticker"), do: "homepage_top_mobile"
+  defp placement_for("rt_leaderboard_inline"), do: "homepage_inline_desktop"
+  defp placement_for(t) when t in ~w(rt_chart_landscape rt_chart_portrait rt_full_card), do: "article_inline_1"
+  defp placement_for(t) when t in ~w(fs_hero_portrait fs_hero_landscape), do: "article_inline_2"
+  defp placement_for(_), do: "sidebar_right"
 end

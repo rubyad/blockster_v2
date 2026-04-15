@@ -65,10 +65,18 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraperTest do
       assert html =~ "Open RogueTrader"
     end
 
-    test "renders empty state when bots is []" do
+    test "renders shimmer skeleton when bots is []" do
       html = render_widget(%{banner: banner(), bots: []})
 
-      assert html =~ "Loading roguebots"
+      assert html =~ "bw-skeleton"
+      assert html =~ "rt-skyscraper-skeleton"
+    end
+
+    test "renders tracker error placeholder when bots is [] and tracker_error? is true" do
+      html = render_widget(%{banner: banner(), bots: [], tracker_error?: true})
+
+      assert html =~ "RogueTrader feed paused"
+      refute html =~ "rt-skyscraper-skeleton"
     end
   end
 

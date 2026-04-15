@@ -90,6 +90,20 @@ defmodule BlocksterV2.Widgets.FateSwapFeedTracker do
     end
   end
 
+  @doc """
+  Returns the last poll error reason, or `nil` if the last poll
+  succeeded (or the tracker isn't running). Safe to call from any
+  node — falls back to `nil` when the GenServer is absent so widget
+  renders degrade gracefully instead of crashing.
+  """
+  def get_last_error(server \\ __MODULE__) do
+    try do
+      GenServer.call(server, :get_last_error, 100)
+    catch
+      :exit, _ -> nil
+    end
+  end
+
   @doc false
   def poll_now(server \\ __MODULE__) do
     GenServer.call(server, :poll_now, 10_000)
@@ -144,6 +158,8 @@ defmodule BlocksterV2.Widgets.FateSwapFeedTracker do
   end
 
   def handle_call(:get_state, _from, state), do: {:reply, state, state}
+
+  def handle_call(:get_last_error, _from, state), do: {:reply, state.last_error, state}
 
   # ── Polling logic ─────────────────────────────────────────────────────────
 

@@ -19,10 +19,13 @@ defmodule BlocksterV2Web.Widgets.RtTicker do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   @max_items 30
 
   attr :banner, :map, required: true
   attr :bots, :list, default: []
+  attr :tracker_error?, :boolean, default: false
 
   def rt_ticker(assigns) do
     bots = assigns.bots |> sort_bots() |> Enum.take(@max_items)
@@ -67,13 +70,23 @@ defmodule BlocksterV2Web.Widgets.RtTicker do
 
       <%!-- Marquee --%>
       <div class="bw-marquee" data-role="rt-ticker-marquee">
-        <%= if @bots == [] do %>
-          <div class="flex items-center h-full px-4">
-            <span class="bw-display text-[10px] uppercase tracking-[0.14em] text-[#6B7280]">
-              Loading prices…
-            </span>
-          </div>
-        <% else %>
+        <%= cond do %>
+          <% @bots == [] and @tracker_error? -> %>
+            <div class="flex items-center h-full px-4 gap-2">
+              <span class="bw-err-dot"></span>
+              <span class="bw-display text-[10px] uppercase tracking-[0.14em] text-[#EAB308]">
+                RogueTrader feed paused — retrying
+              </span>
+            </div>
+          <% @bots == [] -> %>
+            <div class="flex items-center h-full px-4 gap-3" data-role="rt-ticker-skeleton">
+              <div :for={_ <- 1..8} class="flex items-center gap-1.5">
+                <.skeleton_circle class="w-1.5 h-1.5" />
+                <.skeleton_bar class="w-14 h-3" />
+                <.skeleton_bar class="w-10 h-2.5" />
+              </div>
+            </div>
+          <% true -> %>
           <div class="bw-marquee-track" data-role="rt-ticker-track">
             <.rt_ticker_items bots={@bots} />
             <%!-- Duplicated set so the loop is seamless --%>

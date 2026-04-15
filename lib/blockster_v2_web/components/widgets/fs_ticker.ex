@@ -17,10 +17,13 @@ defmodule BlocksterV2Web.Widgets.FsTicker do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   @max_items 20
 
   attr :banner, :map, required: true
   attr :trades, :list, default: []
+  attr :tracker_error?, :boolean, default: false
 
   def fs_ticker(assigns) do
     trades = Enum.take(assigns.trades || [], @max_items)
@@ -65,13 +68,23 @@ defmodule BlocksterV2Web.Widgets.FsTicker do
 
       <%!-- Marquee --%>
       <div class="bw-marquee" data-role="fs-ticker-marquee">
-        <%= if @trades == [] do %>
-          <div class="flex items-center h-full px-4">
-            <span class="bw-display text-[10px] uppercase tracking-[0.14em] text-[#6B7280]">
-              Waiting for trades…
-            </span>
-          </div>
-        <% else %>
+        <%= cond do %>
+          <% @trades == [] and @tracker_error? -> %>
+            <div class="flex items-center h-full px-4 gap-2">
+              <span class="bw-err-dot"></span>
+              <span class="bw-display text-[10px] uppercase tracking-[0.14em] text-[#EAB308]">
+                FateSwap feed paused — retrying
+              </span>
+            </div>
+          <% @trades == [] -> %>
+            <div class="flex items-center h-full px-4 gap-3" data-role="fs-ticker-skeleton">
+              <div :for={_ <- 1..8} class="flex items-center gap-1.5">
+                <.skeleton_circle class="w-3 h-3" />
+                <.skeleton_bar class="w-14 h-3" />
+                <.skeleton_bar class="w-10 h-2.5" />
+              </div>
+            </div>
+          <% true -> %>
           <div class="bw-marquee-track bw-marquee-track--slow" data-role="fs-ticker-track">
             <.fs_ticker_items trades={@trades} />
             <.fs_ticker_items trades={@trades} />

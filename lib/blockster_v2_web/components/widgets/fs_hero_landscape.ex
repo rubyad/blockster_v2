@@ -17,12 +17,15 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   alias BlocksterV2Web.Widgets.FsHeroHelpers
 
   attr :banner, :map, required: true
   attr :trades, :list, default: []
   attr :selection, :any, default: nil
   attr :order_override, :map, default: nil
+  attr :tracker_error?, :boolean, default: false
 
   def fs_hero_landscape(assigns) do
     order = FsHeroHelpers.resolve_order(assigns.trades, assigns.selection, assigns.order_override)
@@ -93,14 +96,14 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
           </span>
 
           <h2
-            class="bw-display font-extrabold text-[32px] md:text-[42px] leading-[1.05] m-0 flex items-center gap-2.5 flex-wrap"
+            class="bw-display font-extrabold text-[20px] md:text-[42px] leading-[1.1] md:leading-[1.05] m-0 flex items-center gap-1.5 md:gap-2.5 flex-wrap"
             style="letter-spacing:-0.02em;"
             data-role="fs-hero-heading"
           >
             {FsHeroHelpers.action_verb(@order)}
             <span class="bw-mono font-extrabold">{FsHeroHelpers.format_token_qty(@order["payout_ui"])}</span>
-            <span class="inline-flex items-center gap-2 align-middle">
-              <.token_icon order={@order} size={:lg} />
+            <span class="inline-flex items-center gap-1.5 md:gap-2 align-middle">
+              <.token_icon order={@order} size={:md_lg} />
               {FsHeroHelpers.token_symbol(@order)}
             </span>
           </h2>
@@ -164,7 +167,7 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
             :if={@order["filled"] == true}
             class="mt-3.5 py-2.5 px-4 flex items-center justify-center gap-2.5 rounded-[10px] bg-[#22C55E]/[0.06] border border-[#22C55E]/[0.16]"
           >
-            <svg class="w-[16px] h-[16px] text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="16" height="16" class="text-[#22C55E] shrink-0 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="8.5 12 11 14.5 16 9.5" />
             </svg>
@@ -200,16 +203,23 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
           </p>
         </div>
       <% else %>
-        <div class="relative z-[1] flex-1 flex items-center justify-center px-6 py-12 text-center">
-          <div>
-            <div class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#6B7280] mb-1">
-              Waiting for a standout order
+        <%= if @tracker_error? do %>
+          <.tracker_error_placeholder brand={:fs} class="flex-1 py-12" />
+        <% else %>
+          <div class="relative z-[1] flex-1 px-6 py-6" data-role="fs-hero-skeleton">
+            <.skeleton_bar class="w-40 h-4 mb-4" />
+            <.skeleton_bar class="w-3/4 h-8 mb-5" />
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <.skeleton_bar class="w-full h-14" />
+              <.skeleton_bar class="w-full h-14" />
             </div>
-            <div class="bw-display text-[11px] text-[#4B5563]">
-              The self-selected hero populates once FateSwap settles its next trade.
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <.skeleton_bar class="w-full h-10" />
+              <.skeleton_bar class="w-full h-10" />
             </div>
+            <.skeleton_bar class="w-full h-3" />
           </div>
-        </div>
+        <% end %>
       <% end %>
 
       <%!-- Footer --%>
@@ -236,13 +246,15 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
   attr :order, :map, required: true
   attr :size, :atom, default: :sm
   attr :variant, :atom, default: :token
+  attr :class, :string, default: nil
 
   defp token_icon(assigns) do
     ~H"""
     <span
       class={[
         "inline-flex items-center justify-center rounded-full shrink-0 text-white bw-display font-extrabold select-none",
-        token_icon_size(@size)
+        token_icon_size(@size),
+        @class
       ]}
       style={token_icon_style(@variant)}
     >
@@ -252,6 +264,7 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
   end
 
   defp token_icon_size(:lg), do: "w-[32px] h-[32px] text-[15px]"
+  defp token_icon_size(:md_lg), do: "w-[22px] h-[22px] md:w-[32px] md:h-[32px] text-[11px] md:text-[15px]"
   defp token_icon_size(_), do: "w-[20px] h-[20px] text-[10px]"
 
   defp token_icon_style(:sol),

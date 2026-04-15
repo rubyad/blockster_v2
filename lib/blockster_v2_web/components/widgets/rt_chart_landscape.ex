@@ -31,6 +31,7 @@ defmodule BlocksterV2Web.Widgets.RtChartLandscape do
   attr :bots, :list, default: []
   attr :selection, :any, default: nil
   attr :chart_data, :map, default: %{}
+  attr :tracker_error?, :boolean, default: false
 
   def rt_chart_landscape(assigns) do
     tf = RtChartHelpers.resolve_tf(assigns.selection)

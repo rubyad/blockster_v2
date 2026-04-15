@@ -116,11 +116,6 @@ defmodule BlocksterV2Web.CoinFlipLive do
         socket
       end
 
-      socket =
-        socket
-        |> assign(:play_sidebar_left_banners, load_play_sidebar_banners(socket, "play_sidebar_left"))
-        |> assign(:play_sidebar_right_banners, load_play_sidebar_banners(socket, "play_sidebar_right"))
-
       {:ok, socket}
     else
       # Not logged in
@@ -167,18 +162,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
-        |> assign(:play_sidebar_left_banners, load_play_sidebar_banners(socket, "play_sidebar_left"))
-        |> assign(:play_sidebar_right_banners, load_play_sidebar_banners(socket, "play_sidebar_right"))
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
 
       {:ok, socket}
     end
-  end
-
-  defp load_play_sidebar_banners(socket, placement) do
-    if connected?(socket),
-      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
-      else: []
   end
 
   @impl true
@@ -913,12 +900,6 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                 </div>
 
-                <%!-- Sidebar ad banners (left + right merged into sidebar for redesign) --%>
-                <%= for banner <- (@play_sidebar_left_banners ++ @play_sidebar_right_banners) do %>
-                  <a href={banner.link_url} target="_blank" rel="noopener" class="block rounded-2xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                    <img src={banner.image_url} alt={banner.name} class="w-full" loading="lazy" />
-                  </a>
-                <% end %>
               <% end %>
 
               <%= if @game_state in [:awaiting_tx, :flipping, :showing_result] do %>

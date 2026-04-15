@@ -4,11 +4,14 @@ defmodule BlocksterV2Web.WidgetComponents do
   renderer (when `widget_type` is nil) or a real-time widget component
   (when `widget_type` matches one of the 14 shipped widgets).
 
-  Phase 3 added `rt_skyscraper` + `fs_skyscraper`. Phase 4 adds the four
+  Phase 3 added `rt_skyscraper` + `fs_skyscraper`. Phase 4 added the four
   RogueTrader chart widgets (`rt_chart_landscape`, `rt_chart_portrait`,
-  `rt_full_card`, `rt_square_compact`). Remaining widget_types raise an
-  explicit ArgumentError so mis-typed admin configs surface loudly and
-  the nil-fallback keeps the existing image ads untouched.
+  `rt_full_card`, `rt_square_compact`). Phase 5 added tickers, the
+  RogueTrader leaderboard, and the FateSwap hero cards. Phase 6 adds the
+  three remaining sidebar tiles (`rt_sidebar_tile`, `fs_square_compact`,
+  `fs_sidebar_tile`). Unknown widget_types raise an explicit ArgumentError
+  so mis-typed admin configs surface loudly; the nil-fallback keeps the
+  existing image ads untouched.
 
   Plan: docs/solana/realtime_widgets_plan.md · §F "Widget components".
   """
@@ -16,6 +19,7 @@ defmodule BlocksterV2Web.WidgetComponents do
   use Phoenix.Component
 
   alias BlocksterV2.Ads.Banner
+  alias BlocksterV2.Widgets.TrackerStatus
 
   import BlocksterV2Web.Widgets.FsSkyscraper, only: [fs_skyscraper: 1]
   import BlocksterV2Web.Widgets.RtSkyscraper, only: [rt_skyscraper: 1]
@@ -23,11 +27,14 @@ defmodule BlocksterV2Web.WidgetComponents do
   import BlocksterV2Web.Widgets.RtChartPortrait, only: [rt_chart_portrait: 1]
   import BlocksterV2Web.Widgets.RtFullCard, only: [rt_full_card: 1]
   import BlocksterV2Web.Widgets.RtSquareCompact, only: [rt_square_compact: 1]
+  import BlocksterV2Web.Widgets.RtSidebarTile, only: [rt_sidebar_tile: 1]
   import BlocksterV2Web.Widgets.RtTicker, only: [rt_ticker: 1]
   import BlocksterV2Web.Widgets.FsTicker, only: [fs_ticker: 1]
   import BlocksterV2Web.Widgets.RtLeaderboardInline, only: [rt_leaderboard_inline: 1]
   import BlocksterV2Web.Widgets.FsHeroPortrait, only: [fs_hero_portrait: 1]
   import BlocksterV2Web.Widgets.FsHeroLandscape, only: [fs_hero_landscape: 1]
+  import BlocksterV2Web.Widgets.FsSquareCompact, only: [fs_square_compact: 1]
+  import BlocksterV2Web.Widgets.FsSidebarTile, only: [fs_sidebar_tile: 1]
 
   @known_widget_types Banner.valid_widget_types()
 
@@ -36,6 +43,7 @@ defmodule BlocksterV2Web.WidgetComponents do
   attr :trades, :list, default: []
   attr :selections, :map, default: %{}
   attr :chart_data, :map, default: %{}
+  attr :tracker_errors, :map, default: %{}
   attr :class, :string, default: nil
   attr :rest, :global
 
@@ -47,13 +55,21 @@ defmodule BlocksterV2Web.WidgetComponents do
 
   def widget_or_ad(%{banner: %{widget_type: "fs_skyscraper"}} = assigns) do
     ~H"""
-    <.fs_skyscraper banner={@banner} trades={@trades} />
+    <.fs_skyscraper
+      banner={@banner}
+      trades={@trades}
+      tracker_error?={TrackerStatus.widget_error?("fs_skyscraper", @tracker_errors)}
+    />
     """
   end
 
   def widget_or_ad(%{banner: %{widget_type: "rt_skyscraper"}} = assigns) do
     ~H"""
-    <.rt_skyscraper banner={@banner} bots={@bots} />
+    <.rt_skyscraper
+      banner={@banner}
+      bots={@bots}
+      tracker_error?={TrackerStatus.widget_error?("rt_skyscraper", @tracker_errors)}
+    />
     """
   end
 
@@ -64,6 +80,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       bots={@bots}
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
+      tracker_error?={TrackerStatus.widget_error?("rt_chart_landscape", @tracker_errors)}
     />
     """
   end
@@ -75,6 +92,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       bots={@bots}
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
+      tracker_error?={TrackerStatus.widget_error?("rt_chart_portrait", @tracker_errors)}
     />
     """
   end
@@ -86,6 +104,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       bots={@bots}
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
+      tracker_error?={TrackerStatus.widget_error?("rt_full_card", @tracker_errors)}
     />
     """
   end
@@ -97,25 +116,72 @@ defmodule BlocksterV2Web.WidgetComponents do
       bots={@bots}
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
+      tracker_error?={TrackerStatus.widget_error?("rt_square_compact", @tracker_errors)}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "rt_sidebar_tile"}} = assigns) do
+    ~H"""
+    <.rt_sidebar_tile
+      banner={@banner}
+      bots={@bots}
+      selection={Map.get(@selections, @banner.id)}
+      chart_data={@chart_data}
+      tracker_error?={TrackerStatus.widget_error?("rt_sidebar_tile", @tracker_errors)}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_square_compact"}} = assigns) do
+    ~H"""
+    <.fs_square_compact
+      banner={@banner}
+      trades={@trades}
+      selection={Map.get(@selections, @banner.id)}
+      tracker_error?={TrackerStatus.widget_error?("fs_square_compact", @tracker_errors)}
+    />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "fs_sidebar_tile"}} = assigns) do
+    ~H"""
+    <.fs_sidebar_tile
+      banner={@banner}
+      trades={@trades}
+      selection={Map.get(@selections, @banner.id)}
+      tracker_error?={TrackerStatus.widget_error?("fs_sidebar_tile", @tracker_errors)}
     />
     """
   end
 
   def widget_or_ad(%{banner: %{widget_type: "rt_ticker"}} = assigns) do
     ~H"""
-    <.rt_ticker banner={@banner} bots={@bots} />
+    <.rt_ticker
+      banner={@banner}
+      bots={@bots}
+      tracker_error?={TrackerStatus.widget_error?("rt_ticker", @tracker_errors)}
+    />
     """
   end
 
   def widget_or_ad(%{banner: %{widget_type: "fs_ticker"}} = assigns) do
     ~H"""
-    <.fs_ticker banner={@banner} trades={@trades} />
+    <.fs_ticker
+      banner={@banner}
+      trades={@trades}
+      tracker_error?={TrackerStatus.widget_error?("fs_ticker", @tracker_errors)}
+    />
     """
   end
 
   def widget_or_ad(%{banner: %{widget_type: "rt_leaderboard_inline"}} = assigns) do
     ~H"""
-    <.rt_leaderboard_inline banner={@banner} bots={@bots} />
+    <.rt_leaderboard_inline
+      banner={@banner}
+      bots={@bots}
+      tracker_error?={TrackerStatus.widget_error?("rt_leaderboard_inline", @tracker_errors)}
+    />
     """
   end
 
@@ -125,6 +191,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       banner={@banner}
       trades={@trades}
       selection={Map.get(@selections, @banner.id)}
+      tracker_error?={TrackerStatus.widget_error?("fs_hero_portrait", @tracker_errors)}
     />
     """
   end
@@ -135,6 +202,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       banner={@banner}
       trades={@trades}
       selection={Map.get(@selections, @banner.id)}
+      tracker_error?={TrackerStatus.widget_error?("fs_hero_landscape", @tracker_errors)}
     />
     """
   end

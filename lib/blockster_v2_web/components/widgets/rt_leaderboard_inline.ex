@@ -21,10 +21,13 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInline do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   @max_rows 10
 
   attr :banner, :map, required: true
   attr :bots, :list, default: []
+  attr :tracker_error?, :boolean, default: false
 
   def rt_leaderboard_inline(assigns) do
     bots = assigns.bots |> sort_bots() |> Enum.take(@max_rows)
@@ -66,16 +69,23 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInline do
 
       <%!-- Body: desktop table + mobile card grid --%>
       <div class="relative z-[1] px-2 md:px-4 py-2 md:py-3" data-role="rt-lb-body">
-        <%= if @bots == [] do %>
-          <div class="px-4 py-10 text-center">
-            <div class="bw-display text-[10px] uppercase tracking-[0.14em] text-[#6B7280] mb-1">
-              Loading roguebots
+        <%= cond do %>
+          <% @bots == [] and @tracker_error? -> %>
+            <.tracker_error_placeholder brand={:rt} class="px-4 py-10" />
+          <% @bots == [] -> %>
+            <div class="px-2 md:px-0 py-3 space-y-2" data-role="rt-lb-skeleton">
+              <div :for={_ <- 1..6} class="flex items-center justify-between gap-3 px-2 py-2 border-b border-white/[0.04]">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <.skeleton_bar class="w-4 h-3" />
+                  <.skeleton_circle class="w-1.5 h-1.5" />
+                  <.skeleton_bar class="w-24 h-3" />
+                </div>
+                <.skeleton_bar class="w-20 h-3 hidden md:block" />
+                <.skeleton_bar class="w-12 h-3" />
+                <.skeleton_bar class="w-16 h-3 hidden md:block" />
+              </div>
             </div>
-            <div class="bw-display text-[11px] text-[#4B5563]">
-              Ranked bot list populates once data arrives.
-            </div>
-          </div>
-        <% else %>
+          <% true -> %>
           <%!-- Desktop table --%>
           <table class="w-full border-collapse hidden md:table">
             <thead>

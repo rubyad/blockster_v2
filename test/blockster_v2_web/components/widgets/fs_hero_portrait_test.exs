@@ -63,10 +63,25 @@ defmodule BlocksterV2Web.Widgets.FsHeroPortraitTest do
       assert html =~ "Gamble for a better price than market"
     end
 
-    test "empty state copy when no trades" do
+    test "empty state renders shimmer skeleton when no trades" do
       html = render_widget(%{banner: banner(), trades: [], selection: nil, order_override: nil})
 
-      assert html =~ "Waiting for a standout order"
+      assert html =~ "bw-skeleton"
+      assert html =~ "fs-hero-skeleton"
+    end
+
+    test "empty state renders tracker error placeholder when tracker_error? is true" do
+      html =
+        render_widget(%{
+          banner: banner(),
+          trades: [],
+          selection: nil,
+          order_override: nil,
+          tracker_error?: true
+        })
+
+      assert html =~ "FateSwap feed paused"
+      refute html =~ "fs-hero-skeleton"
     end
   end
 

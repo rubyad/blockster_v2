@@ -64,10 +64,18 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInlineTest do
       assert html =~ "View all AI Bots"
     end
 
-    test "renders empty state copy when bots is []" do
+    test "renders shimmer skeleton when bots is []" do
       html = render_widget(%{banner: banner(), bots: []})
 
-      assert html =~ "Loading roguebots"
+      assert html =~ "bw-skeleton"
+      assert html =~ "rt-lb-skeleton"
+    end
+
+    test "renders tracker error placeholder when bots is [] and tracker_error? is true" do
+      html = render_widget(%{banner: banner(), bots: [], tracker_error?: true})
+
+      assert html =~ "RogueTrader feed paused"
+      refute html =~ "rt-lb-skeleton"
     end
   end
 

@@ -84,6 +84,19 @@ defmodule BlocksterV2.Widgets.RogueTraderBotsTracker do
     end
   end
 
+  @doc """
+  Returns the last poll error reason, or `nil`. Safe to call from any
+  node — returns `nil` when the GenServer isn't running so widgets
+  never crash on an absent tracker.
+  """
+  def get_last_error(server \\ __MODULE__) do
+    try do
+      GenServer.call(server, :get_last_error, 100)
+    catch
+      :exit, _ -> nil
+    end
+  end
+
   @doc false
   def poll_now(server \\ __MODULE__) do
     GenServer.call(server, :poll_now, 10_000)
@@ -138,6 +151,8 @@ defmodule BlocksterV2.Widgets.RogueTraderBotsTracker do
   end
 
   def handle_call(:get_state, _from, state), do: {:reply, state, state}
+
+  def handle_call(:get_last_error, _from, state), do: {:reply, state.last_error, state}
 
   # ── Polling logic ─────────────────────────────────────────────────────────
 

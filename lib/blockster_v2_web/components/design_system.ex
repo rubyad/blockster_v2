@@ -762,10 +762,10 @@ defmodule BlocksterV2Web.DesignSystem do
         <div class="mt-14 pt-6 border-t border-white/[0.08] flex items-center justify-between flex-wrap gap-4">
           <div class="text-[11px] text-white/40">© 2026 Blockster Inc. · All rights reserved.</div>
           <div class="flex items-center gap-5 text-[11px] text-white/40">
-            <a href="#" class="hover:text-[#CAFC00] transition-colors">Media kit</a>
-            <a href="#" class="hover:text-white transition-colors">Privacy</a>
-            <a href="#" class="hover:text-white transition-colors">Terms</a>
-            <a href="#" class="hover:text-white transition-colors">Cookie Policy</a>
+            <a href="/media-kit" class="hover:text-[#CAFC00] transition-colors">Media kit</a>
+            <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
+            <a href="/terms" class="hover:text-white transition-colors">Terms</a>
+            <a href="/cookies" class="hover:text-white transition-colors">Cookie Policy</a>
             <a href="#" class="hover:text-white transition-colors">Status</a>
           </div>
         </div>
@@ -1780,6 +1780,62 @@ defmodule BlocksterV2Web.DesignSystem do
     |> Map.new()
   end
 
+  # Maps the admin-selectable image_fit param to a Tailwind object-fit class.
+  # Default "cover" matches the original portrait-template behaviour.
+  defp portrait_image_fit_class("contain"), do: "object-contain"
+  defp portrait_image_fit_class("scale-down"), do: "object-scale-down"
+  defp portrait_image_fit_class(_), do: "object-cover"
+
+  # Converts a USD price string/number on a luxury_watch banner into a live SOL
+  # amount by reading the current SOL price from PriceTracker's Mnesia cache
+  # (refreshed every minute). Returns "—" if SOL price isn't cached yet.
+  defp luxury_watch_price_sol(price_usd) do
+    with usd when is_number(usd) <- parse_number(price_usd),
+         {:ok, %{usd_price: sol_usd}} when is_number(sol_usd) and sol_usd > 0 <-
+           BlocksterV2.PriceTracker.get_price("SOL") do
+      sol = usd / sol_usd
+
+      cond do
+        sol >= 1000 -> format_with_commas(trunc(sol))
+        sol >= 100 -> :io_lib.format("~.1f", [sol]) |> IO.iodata_to_binary()
+        true -> :io_lib.format("~.2f", [sol]) |> IO.iodata_to_binary()
+      end
+    else
+      _ -> "—"
+    end
+  end
+
+  # Formats a USD price with thousand-separators, no currency symbol.
+  defp luxury_watch_format_usd(price_usd) do
+    case parse_number(price_usd) do
+      n when is_number(n) -> format_with_commas(trunc(n))
+      _ -> "—"
+    end
+  end
+
+  defp parse_number(n) when is_number(n), do: n
+
+  defp parse_number(s) when is_binary(s) do
+    case Float.parse(s) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp parse_number(_), do: nil
+
+  defp format_with_commas(n) when is_integer(n) do
+    n
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map_join(",", &Enum.join/1)
+    |> String.reverse()
+  end
+
+  defp format_with_commas(_), do: "—"
+
   def ad_banner(%{banner: %{template: "dark_gradient"}} = assigns) do
     assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
     ~H"""
@@ -1826,8 +1882,18 @@ defmodule BlocksterV2Web.DesignSystem do
         <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group max-w-[440px] mx-auto" phx-click="track_ad_click" phx-value-id={@banner.id}>
           <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18)] relative" style={"background: #{@p["bg_color"] || "#0a1838"}"}>
             <%= if @p["image_url"] do %>
-              <div class="aspect-[4/3] bg-neutral-200 relative overflow-hidden">
-                <img src={@p["image_url"]} alt="" class="w-full h-full object-cover" />
+              <div
+                class="aspect-[4/3] relative overflow-hidden"
+                style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a1838"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt=""
+                  class={[
+                    "w-full h-full",
+                    portrait_image_fit_class(@p["image_fit"])
+                  ]}
+                />
                 <div class="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2" style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}></div>
                 <div class="absolute top-3 right-3 w-2 h-2" style={"background: #{@p["accent_color"] || "#FF6B35"}"}></div>
                 <div class="absolute top-3 left-3 px-1.5 py-0.5 bg-white/95 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
@@ -1897,6 +1963,947 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
       </a>
     </div>
+    """
+  end
+
+  # Luxury watch template — editorial layout for high-end timepiece dealers.
+  # Brand wordmark at the top, large centered watch image, model line with
+  # reference number, tagline, CTA, and an optional 4-column spec row at the
+  # bottom (CASE · DIAL · BAND · YEAR). Uses serif display typography and a
+  # single accent color (intended for champagne-gold or warm metallics).
+  def ad_banner(%{banner: %{template: "luxury_watch"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full max-w-[560px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.25)] relative"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+          >
+            <%!-- Brand wordmark strip --%>
+            <%= if @p["brand_name"] do %>
+              <div class="pt-7 pb-4 flex items-center justify-center gap-3">
+                <div class="h-px w-10 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                <div class="text-[11px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+                  {@p["brand_name"]}
+                </div>
+                <div class="h-px w-10 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+              </div>
+            <% end %>
+
+            <%!-- Watch image — full width, image-driven height (no crop, no bars) --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative"
+                style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-auto block"
+                />
+                <%!-- Small "Ad" badge, bottom-right of image --%>
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <%!-- Divider --%>
+            <div class="flex justify-center pt-8">
+              <div class="h-px w-16" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+            </div>
+
+            <%!-- Model + reference --%>
+            <div class="px-8 pt-5 text-center">
+              <%= if @p["model_name"] do %>
+                <h3
+                  class="text-[22px] font-bold tracking-tight uppercase leading-[1.1]"
+                  style={"font-family: 'Inter', 'Helvetica Neue', serif; letter-spacing: 0.12em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  {@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["reference"] do %>
+                <div class="text-[11px] mt-2 italic opacity-75" style="font-family: Georgia, 'Times New Roman', serif;">
+                  {@p["reference"]}
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Price in SOL (live, from PriceTracker) with USD below, OR
+                 editorial tagline fallback when no price is set on the banner. --%>
+            <%= cond do %>
+              <% @p["price_usd"] -> %>
+                <div class="px-8 pt-6 text-center">
+                  <div class="inline-flex items-center justify-center gap-2 leading-none">
+                    <img
+                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                      alt="SOL"
+                      width="28"
+                      height="28"
+                      class="rounded-full"
+                      style="box-shadow: 0 0 0 1px rgba(153, 69, 255, 0.35);"
+                    />
+                    <span
+                      class="text-[32px] font-semibold"
+                      style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"}; letter-spacing: -0.01em;"}
+                    >
+                      {luxury_watch_price_sol(@p["price_usd"])}
+                    </span>
+                    <span
+                      class="text-[18px] font-medium uppercase tracking-[0.2em] opacity-70"
+                      style={"color: #{@p["text_color"] || "#E8E4DD"};"}
+                    >
+                      SOL
+                    </span>
+                  </div>
+                  <div
+                    class="text-[11px] mt-1.5 opacity-55"
+                    style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;"
+                  >
+                    ≈ ${luxury_watch_format_usd(@p["price_usd"])} USD
+                  </div>
+                </div>
+              <% @p["tagline"] -> %>
+                <div class="px-8 pt-6 text-center">
+                  <p
+                    class="text-[20px] leading-[1.3] font-light"
+                    style={"font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                  >
+                    "{@p["tagline"]}"
+                  </p>
+                </div>
+              <% true -> %>
+            <% end %>
+
+            <%!-- Bottom breathing room --%>
+            <div class="pb-8"></div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Luxury watch compact full — formerly the more relaxed sibling of the
+  # now-removed `luxury_watch_compact` template (the cropped 280px height
+  # variant). This one keeps the entire watch visible — image-driven height,
+  # image area auto-sizes to the photo so the entire watch is visible (no
+  # crop). Use when you'd rather have a taller card than crop the bracelet.
+  def ad_banner(%{banner: %{template: "luxury_watch_compact_full"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-10 flex justify-center", @class]}>
+      <div class="w-full max-w-[560px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.25)] relative"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+          >
+            <%= if @p["brand_name"] do %>
+              <div class="pt-5 pb-3 flex items-center justify-center gap-3">
+                <div class="h-px w-8 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                <div class="text-[10px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+                  {@p["brand_name"]}
+                </div>
+                <div class="h-px w-8 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+              </div>
+            <% end %>
+
+            <%!-- Image fills full width at its natural aspect — no crop --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative"
+                style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-auto block"
+                />
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <div class="flex justify-center pt-5">
+              <div class="h-px w-12" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+            </div>
+
+            <div class="px-6 pt-4 pb-6 text-center">
+              <%= if @p["model_name"] do %>
+                <h3
+                  class="text-[18px] font-bold uppercase leading-[1.1]"
+                  style={"font-family: 'Inter', 'Helvetica Neue', serif; letter-spacing: 0.12em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  {@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["reference"] do %>
+                <div class="text-[10px] mt-1.5 italic opacity-75" style="font-family: Georgia, serif;">
+                  {@p["reference"]}
+                </div>
+              <% end %>
+              <%= if @p["price_usd"] do %>
+                <div class="mt-3 inline-flex items-center justify-center gap-1.5 leading-none">
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full" />
+                  <span
+                    class="text-[22px] font-semibold"
+                    style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                  >
+                    {luxury_watch_price_sol(@p["price_usd"])}
+                  </span>
+                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                </div>
+                <div class="text-[10px] mt-1 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                  ≈ ${luxury_watch_format_usd(@p["price_usd"])} USD
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Luxury watch skyscraper — 200px-wide tall sidebar variant. Brand at top,
+  # square image, compact model/price, fits alongside `rt_sidebar_tile` /
+  # `fs_skyscraper` in article sidebars.
+  def ad_banner(%{banner: %{template: "luxury_watch_skyscraper"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <a
+      href={@banner.link_url || "#"}
+      target="_blank"
+      rel="noopener"
+      class={["block group w-[200px]", @class]}
+      phx-click="track_ad_click"
+      phx-value-id={@banner.id}
+    >
+      <div
+        class="rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_12px_24px_-10px_rgba(0,0,0,0.25)] relative"
+        style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+      >
+        <%= if @p["brand_name"] do %>
+          <div class="pt-3 pb-2 flex items-center justify-center gap-2">
+            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+            <div class="text-[8px] font-semibold uppercase" style={"letter-spacing: 0.22em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+              {@p["brand_name"]}
+            </div>
+            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+          </div>
+        <% end %>
+
+        <%= if @p["image_url"] do %>
+          <div
+            class="relative"
+            style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
+          >
+            <img
+              src={@p["image_url"]}
+              alt={@p["model_name"] || ""}
+              class="w-full h-auto block"
+            />
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+          </div>
+        <% end %>
+
+        <div class="flex justify-center pt-3">
+          <div class="h-px w-8" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+        </div>
+
+        <div class="px-3 pt-2 pb-4 text-center">
+          <%= if @p["model_name"] do %>
+            <h3
+              class="text-[11px] font-bold uppercase leading-[1.15]"
+              style={"font-family: 'Inter', serif; letter-spacing: 0.1em; color: #{@p["text_color"] || "#E8E4DD"};"}
+            >
+              {@p["model_name"]}
+            </h3>
+          <% end %>
+          <%= if @p["reference"] do %>
+            <div class="text-[8.5px] mt-1 italic opacity-70 leading-snug" style="font-family: Georgia, serif;">
+              {@p["reference"]}
+            </div>
+          <% end %>
+          <%= if @p["price_usd"] do %>
+            <div class="mt-2 inline-flex items-center justify-center gap-1 leading-none">
+              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full" />
+              <span
+                class="text-[14px] font-semibold"
+                style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+              >
+                {luxury_watch_price_sol(@p["price_usd"])}
+              </span>
+              <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
+            </div>
+            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+              ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </a>
+    """
+  end
+
+  # Luxury watch banner — full-width horizontal leaderboard. Image on the
+  # left (square), brand + model + price on the right. Stacks vertically on
+  # mobile (image on top, info below).
+  def ad_banner(%{banner: %{template: "luxury_watch_banner"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-6", @class]}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class="block group"
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
+        <div
+          class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] relative"
+          style={"background: linear-gradient(90deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+        >
+          <div class="flex flex-col md:flex-row items-stretch">
+            <%!-- Image: 180px tall on mobile, 160px square on desktop --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative shrink-0 w-full md:w-[180px] h-[180px] md:h-[160px]"
+                style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-full object-cover"
+                  style="object-position: center 30%;"
+                />
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <%!-- Right side: brand, model, price, subtle divider --%>
+            <div class="flex-1 px-6 py-5 flex flex-col justify-center md:items-start items-center text-center md:text-left gap-2">
+              <%= if @p["brand_name"] do %>
+                <div class="inline-flex items-center gap-2">
+                  <div class="h-px w-6 opacity-30 md:hidden" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                  <div
+                    class="text-[10px] font-semibold uppercase"
+                    style={"letter-spacing: 0.26em; color: #{@p["accent_color"] || "#D4AF37"};"}
+                  >
+                    {@p["brand_name"]}
+                  </div>
+                  <div class="h-px w-6 opacity-30 md:hidden" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                </div>
+              <% end %>
+              <%= if @p["model_name"] do %>
+                <h3
+                  class="text-[18px] md:text-[20px] font-bold uppercase leading-[1.1]"
+                  style={"font-family: 'Inter', serif; letter-spacing: 0.1em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  {@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["reference"] do %>
+                <div class="text-[11px] italic opacity-70" style="font-family: Georgia, serif;">
+                  {@p["reference"]}
+                </div>
+              <% end %>
+              <%= if @p["price_usd"] do %>
+                <div class="inline-flex items-baseline gap-1.5 mt-1 leading-none">
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                  <span
+                    class="text-[22px] font-semibold"
+                    style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                  >
+                    {luxury_watch_price_sol(@p["price_usd"])}
+                  </span>
+                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                  <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                    ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    """
+  end
+
+  # Luxury watch split — split-card layout repurposed for watches. Dark
+  # editorial info column on the left (brand · model · reference · price ·
+  # CTA), light watch panel on the right that slots the white-padded
+  # skyscraper image into the colored panel area. On mobile the watch
+  # image stacks above the info.
+  def ad_banner(%{banner: %{template: "luxury_watch_split"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["mt-6", @class]}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-1">Sponsored</div>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class="block group"
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
+        <div
+          class="relative rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.18)] hover:shadow-[0_28px_50px_-15px_rgba(0,0,0,0.22)] transition-shadow"
+          style={"background: linear-gradient(135deg, #{@p["bg_color"] || "#0e0e0e"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+        >
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_240px] items-stretch">
+            <%!-- Left: editorial info column --%>
+            <div class="p-7 flex flex-col justify-center">
+              <%= if @p["brand_name"] do %>
+                <div class="inline-flex items-center gap-2 mb-3">
+                  <div class="h-px w-6 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
+                  <div
+                    class="text-[10px] font-semibold uppercase"
+                    style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#C9A961"};"}
+                  >
+                    {@p["brand_name"]}
+                  </div>
+                </div>
+              <% end %>
+              <%= if @p["model_name"] do %>
+                <h3
+                  class="text-[24px] md:text-[26px] font-bold uppercase leading-[1.08] mb-2"
+                  style={"font-family: 'Inter', 'Helvetica Neue', serif; letter-spacing: 0.08em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  {@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["reference"] do %>
+                <div class="text-[12px] italic opacity-70 mb-4" style="font-family: Georgia, serif;">
+                  {@p["reference"]}
+                </div>
+              <% end %>
+              <%= if @p["price_usd"] do %>
+                <div class="inline-flex items-baseline gap-1.5 mb-5 leading-none">
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full translate-y-1" />
+                  <span
+                    class="text-[26px] font-semibold"
+                    style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                  >
+                    {luxury_watch_price_sol(@p["price_usd"])}
+                  </span>
+                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                  <span class="text-[11px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                    ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+                  </span>
+                </div>
+              <% end %>
+              <div
+                class="inline-flex items-center self-start gap-2 px-5 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] transition-colors"
+                style={"border: 1px solid #{@p["accent_color"] || "#C9A961"}; color: #{@p["accent_color"] || "#C9A961"};"}
+              >
+                {@p["cta_text"] || "Inspect the piece"}
+                <span class="inline-block" style="letter-spacing: 0;">→</span>
+              </div>
+            </div>
+
+            <%!-- Right: watch image panel. object-contain shows the whole
+                 watch (no crop). The light bg matches the image's white
+                 padding so any unused space blends seamlessly. --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative grid place-items-center min-h-[200px] p-4"
+                style={"background: #{@p["image_bg_color"] || "#f5f5f4"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="max-w-full max-h-full w-auto h-auto object-contain block"
+                />
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </a>
+    </div>
+    """
+  end
+
+  # Luxury car — bold landscape hero image with dark info panel below.
+  # Brand strip at top, edge-to-edge car photo, then model · year/spec
+  # row · live SOL price (with USD subtitle) · CTA. Designed for landscape
+  # exotic-car listings (Ferrari, Lamborghini, etc.).
+  def ad_banner(%{banner: %{template: "luxury_car"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full max-w-[720px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.30)] relative"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+          >
+            <%!-- Brand strip at top — bold dealer name in accent color --%>
+            <%= if @p["brand_name"] do %>
+              <div class="px-6 pt-5 pb-4 flex items-center justify-between">
+                <div class="inline-flex items-center gap-2.5">
+                  <div class="h-px w-6" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
+                  <div
+                    class="text-[11px] font-bold uppercase"
+                    style={"letter-spacing: 0.24em; color: #{@p["accent_color"] || "#FF2800"};"}
+                  >
+                    {@p["brand_name"]}
+                  </div>
+                </div>
+                <%= if @p["badge"] do %>
+                  <div
+                    class="text-[9px] font-semibold uppercase tracking-[0.18em] px-2 py-1 rounded"
+                    style={"background: #{@p["accent_color"] || "#FF2800"}1a; color: #{@p["accent_color"] || "#FF2800"};"}
+                  >
+                    {@p["badge"]}
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Hero car photo, edge-to-edge --%>
+            <%= if @p["image_url"] do %>
+              <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}>
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-auto block"
+                />
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <%!-- Info panel: model, spec row, price, CTA --%>
+            <div class="px-6 py-6">
+              <%= if @p["year"] || @p["model_name"] do %>
+                <h3
+                  class="text-[26px] md:text-[30px] font-bold uppercase leading-[1.05] mb-1"
+                  style={"font-family: 'Inter', 'Helvetica Neue', sans-serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  <%= if @p["year"] do %>
+                    <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>&nbsp;
+                  <% end %>{@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["trim"] do %>
+                <div class="text-[12px] italic opacity-70 mb-4" style="font-family: Georgia, serif;">
+                  {@p["trim"]}
+                </div>
+              <% end %>
+
+              <%!-- Spec row removed — kept the trim line above for color/variant info --%>
+              <div class="mb-5 pb-5 border-b border-white/[0.08]"></div>
+
+              <%!-- Price row + CTA --%>
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <%= if @p["price_usd"] do %>
+                  <div class="inline-flex items-baseline gap-1.5 leading-none">
+                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full translate-y-1" />
+                    <span
+                      class="text-[28px] font-semibold"
+                      style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                    >
+                      {luxury_watch_price_sol(@p["price_usd"])}
+                    </span>
+                    <span class="text-[14px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                    <span class="text-[11px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                      ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+                    </span>
+                  </div>
+                <% end %>
+                <div
+                  class="inline-flex self-start md:self-auto items-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.2em] transition-colors"
+                  style={"border: 1px solid #{@p["accent_color"] || "#FF2800"}; color: #{@p["accent_color"] || "#FF2800"};"}
+                >
+                  {@p["cta_text"] || "View this car"}
+                  <span class="inline-block" style="letter-spacing: 0;">→</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Luxury car skyscraper — 200px-wide tall sidebar variant of luxury_car.
+  # Sized to fit alongside watch skyscrapers in article sidebars.
+  def ad_banner(%{banner: %{template: "luxury_car_skyscraper"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <a
+      href={@banner.link_url || "#"}
+      target="_blank"
+      rel="noopener"
+      class={["block group w-[200px]", @class]}
+      phx-click="track_ad_click"
+      phx-value-id={@banner.id}
+    >
+      <div
+        class="rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_12px_24px_-10px_rgba(0,0,0,0.25)] relative"
+        style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+      >
+        <%= if @p["brand_name"] do %>
+          <div class="pt-3 pb-2 px-3 flex items-center gap-1.5">
+            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
+            <div class="text-[8px] font-bold uppercase truncate" style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#FF2800"};"}>
+              {@p["brand_name"]}
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @p["image_url"] do %>
+          <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}>
+            <img
+              src={@p["image_url"]}
+              alt={@p["model_name"] || ""}
+              class="w-full h-auto block"
+            />
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+          </div>
+        <% end %>
+
+        <div class="px-3 pt-3 pb-4">
+          <%= if @p["year"] || @p["model_name"] do %>
+            <h3 class="text-[12px] font-bold uppercase leading-[1.1]" style={"font-family: 'Inter', sans-serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}>
+              <%= if @p["year"] do %>
+                <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>
+              <% end %>
+              {@p["model_name"]}
+            </h3>
+          <% end %>
+          <%= if @p["trim"] do %>
+            <div class="text-[9px] italic opacity-65 mt-0.5 leading-snug" style="font-family: Georgia, serif;">
+              {@p["trim"]}
+            </div>
+          <% end %>
+          <%= if @p["price_usd"] do %>
+            <div class="mt-2 inline-flex items-baseline gap-1 leading-none">
+              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full translate-y-px" />
+              <span
+                class="text-[14px] font-semibold"
+                style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+              >
+                {luxury_watch_price_sol(@p["price_usd"])}
+              </span>
+              <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
+            </div>
+            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+              ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </a>
+    """
+  end
+
+  # Luxury car banner — full-width horizontal leaderboard. Image left,
+  # year/model + price + CTA right. Stacks vertically on mobile.
+  def ad_banner(%{banner: %{template: "luxury_car_banner"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-6", @class]}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class="block group"
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
+        <div
+          class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.30)] relative"
+          style={"background: linear-gradient(90deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+        >
+          <div class="flex flex-col md:flex-row items-stretch">
+            <%!-- Image left (wider for landscape car photos) --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative shrink-0 w-full md:w-[300px] h-[200px] md:h-[180px]"
+                style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}
+              >
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-full object-cover"
+                />
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <%!-- Right: brand · year+model · trim · price · CTA --%>
+            <div class="flex-1 px-6 py-5 flex flex-col justify-center md:items-start items-center text-center md:text-left gap-2">
+              <%= if @p["brand_name"] do %>
+                <div class="inline-flex items-center gap-2">
+                  <div class="h-px w-5 opacity-40" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
+                  <div
+                    class="text-[10px] font-bold uppercase"
+                    style={"letter-spacing: 0.24em; color: #{@p["accent_color"] || "#FF2800"};"}
+                  >
+                    {@p["brand_name"]}
+                  </div>
+                </div>
+              <% end %>
+              <%= if @p["year"] || @p["model_name"] do %>
+                <h3
+                  class="text-[20px] md:text-[22px] font-bold uppercase leading-[1.05]"
+                  style={"font-family: 'Inter', sans-serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  <%= if @p["year"] do %>
+                    <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>&nbsp;
+                  <% end %>{@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["trim"] do %>
+                <div class="text-[11px] italic opacity-70" style="font-family: Georgia, serif;">
+                  {@p["trim"]}
+                </div>
+              <% end %>
+              <%= if @p["price_usd"] do %>
+                <div class="inline-flex items-baseline gap-1.5 mt-1 leading-none">
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                  <span
+                    class="text-[24px] font-semibold"
+                    style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                  >
+                    {luxury_watch_price_sol(@p["price_usd"])}
+                  </span>
+                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                  <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                    ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    """
+  end
+
+  # Jet card compact — pre-paid private aviation hours block. The original
+  # full-width `jet_card` template was removed in favor of this compact
+  # Trimmed padding, smaller hero image (assumes a tightly cropped jet
+  # photo), no benefit bullets row. Use when you want the jet ad without
+  # taking over the article column.
+  def ad_banner(%{banner: %{template: "jet_card_compact"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-10 flex justify-center", @class]}>
+      <div class="w-full max-w-[560px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_24px_48px_-14px_rgba(0,0,0,0.30)] relative"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a1838"}, #{@p["bg_color_end"] || "#142a6b"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+          >
+            <%= if @p["brand_name"] do %>
+              <div class="px-5 pt-4 pb-3 flex items-center justify-between">
+                <div class="inline-flex items-center gap-2">
+                  <div class="h-px w-5" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                  <div
+                    class="text-[10px] font-bold uppercase"
+                    style={"letter-spacing: 0.22em; color: #{@p["accent_color"] || "#D4AF37"};"}
+                  >
+                    {@p["brand_name"]}
+                  </div>
+                </div>
+                <%= if @p["badge"] do %>
+                  <div
+                    class="text-[8px] font-semibold uppercase tracking-[0.18em] px-2 py-0.5 rounded"
+                    style={"background: #{@p["accent_color"] || "#D4AF37"}1a; color: #{@p["accent_color"] || "#D4AF37"};"}
+                  >
+                    {@p["badge"]}
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%= if @p["image_url"] do %>
+              <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a1838"};"}>
+                <img
+                  src={@p["image_url"]}
+                  alt={@p["headline"] || ""}
+                  class="w-full h-auto block"
+                />
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <div class="px-5 py-5">
+              <%= if @p["hours"] do %>
+                <h3
+                  class="text-[34px] font-bold leading-[0.95] mb-1"
+                  style={"font-family: 'Inter', sans-serif; letter-spacing: -0.02em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  <span style={"color: #{@p["accent_color"] || "#D4AF37"};"}>{@p["hours"]}</span><span class="ml-2 text-[15px] font-medium uppercase tracking-[0.18em] opacity-70">Hours</span>
+                </h3>
+              <% end %>
+              <%= if @p["headline"] do %>
+                <div class="text-[14px] font-medium opacity-90">
+                  {@p["headline"]}
+                </div>
+              <% end %>
+              <%= if @p["aircraft_category"] do %>
+                <div class="text-[11px] italic opacity-65 mb-4" style="font-family: Georgia, serif;">
+                  {@p["aircraft_category"]}
+                </div>
+              <% end %>
+
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3 border-t border-white/[0.08]">
+                <%= if @p["price_usd"] do %>
+                  <div class="inline-flex items-baseline gap-1.5 leading-none">
+                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                    <span
+                      class="text-[24px] font-semibold"
+                      style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+                    >
+                      {luxury_watch_price_sol(@p["price_usd"])}
+                    </span>
+                    <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                    <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                      ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+                    </span>
+                  </div>
+                <% end %>
+                <div
+                  class="inline-flex self-start md:self-auto items-center gap-2 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-colors"
+                  style={"border: 1px solid #{@p["accent_color"] || "#D4AF37"}; color: #{@p["accent_color"] || "#D4AF37"};"}
+                >
+                  {@p["cta_text"] || "Buy Jet Card"}
+                  <span class="inline-block" style="letter-spacing: 0;">→</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Jet card skyscraper — 200px-wide tall sidebar variant.
+  def ad_banner(%{banner: %{template: "jet_card_skyscraper"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <a
+      href={@banner.link_url || "#"}
+      target="_blank"
+      rel="noopener"
+      class={["block group w-[200px]", @class]}
+      phx-click="track_ad_click"
+      phx-value-id={@banner.id}
+    >
+      <div
+        class="rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_12px_24px_-10px_rgba(0,0,0,0.25)] relative"
+        style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a1838"}, #{@p["bg_color_end"] || "#142a6b"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+      >
+        <%= if @p["brand_name"] do %>
+          <div class="pt-3 pb-2 px-3 flex items-center gap-1.5">
+            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+            <div class="text-[8px] font-bold uppercase truncate" style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+              {@p["brand_name"]}
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @p["image_url"] do %>
+          <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a1838"};"}>
+            <img
+              src={@p["image_url"]}
+              alt={@p["headline"] || ""}
+              class="w-full h-auto block"
+            />
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+          </div>
+        <% end %>
+
+        <div class="px-3 pt-3 pb-4">
+          <%= if @p["hours"] do %>
+            <h3 class="text-[28px] font-bold leading-[0.95]" style={"font-family: 'Inter', sans-serif; letter-spacing: -0.02em; color: #{@p["text_color"] || "#E8E4DD"};"}>
+              <span style={"color: #{@p["accent_color"] || "#D4AF37"};"}>{@p["hours"]}</span>
+              <span class="text-[10px] font-medium uppercase tracking-[0.18em] opacity-70 ml-1">hrs</span>
+            </h3>
+          <% end %>
+          <%= if @p["headline"] do %>
+            <div class="text-[10px] font-medium leading-snug mt-0.5 opacity-90">
+              {@p["headline"]}
+            </div>
+          <% end %>
+          <%= if @p["aircraft_category"] do %>
+            <div class="text-[8.5px] italic opacity-65 mt-1 leading-snug" style="font-family: Georgia, serif;">
+              {@p["aircraft_category"]}
+            </div>
+          <% end %>
+          <%= if @p["price_usd"] do %>
+            <div class="mt-2.5 inline-flex items-baseline gap-1 leading-none">
+              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full translate-y-px" />
+              <span
+                class="text-[15px] font-semibold"
+                style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
+              >
+                {luxury_watch_price_sol(@p["price_usd"])}
+              </span>
+              <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
+            </div>
+            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+              ≈ ${luxury_watch_format_usd(@p["price_usd"])}
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </a>
     """
   end
 

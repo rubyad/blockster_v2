@@ -26,12 +26,15 @@ defmodule BlocksterV2Web.Widgets.FsHeroPortrait do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   alias BlocksterV2Web.Widgets.FsHeroHelpers
 
   attr :banner, :map, required: true
   attr :trades, :list, default: []
   attr :selection, :any, default: nil
   attr :order_override, :map, default: nil
+  attr :tracker_error?, :boolean, default: false
 
   def fs_hero_portrait(assigns) do
     order = FsHeroHelpers.resolve_order(assigns.trades, assigns.selection, assigns.order_override)
@@ -193,7 +196,7 @@ defmodule BlocksterV2Web.Widgets.FsHeroPortrait do
             :if={@order["filled"] == true}
             class="mt-4 py-3 px-4 flex items-center justify-center gap-2.5 rounded-[10px] bg-[#22C55E]/[0.06] border border-[#22C55E]/[0.16]"
           >
-            <svg class="w-[18px] h-[18px] text-[#22C55E] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" class="text-[#22C55E] shrink-0 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="8.5 12 11 14.5 16 9.5" />
             </svg>
@@ -219,16 +222,21 @@ defmodule BlocksterV2Web.Widgets.FsHeroPortrait do
           </div>
         </div>
       <% else %>
-        <div class="relative z-[1] flex-1 flex items-center justify-center px-6 py-12 text-center">
-          <div>
-            <div class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#6B7280] mb-1">
-              Waiting for a standout order
+        <%= if @tracker_error? do %>
+          <.tracker_error_placeholder brand={:fs} class="flex-1 py-12" />
+        <% else %>
+          <div class="relative z-[1] flex-1 flex flex-col px-6 py-6 gap-4" data-role="fs-hero-skeleton">
+            <div class="flex justify-center mb-2">
+              <.skeleton_bar class="w-32 h-4" />
             </div>
-            <div class="bw-display text-[11px] text-[#4B5563]">
-              The self-selected hero populates once FateSwap settles its next trade.
+            <div class="flex justify-center">
+              <.skeleton_bar class="w-52 h-6" />
             </div>
+            <.skeleton_bar class="w-full h-12 mt-4" />
+            <.skeleton_bar class="w-full h-12" />
+            <.skeleton_bar class="w-full h-10 mt-2" />
           </div>
-        </div>
+        <% end %>
       <% end %>
     </div>
     """

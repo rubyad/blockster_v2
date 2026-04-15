@@ -96,16 +96,8 @@ defmodule BlocksterV2Web.AirdropLive do
       |> assign(:claiming_index, nil)
       |> assign(:show_fairness_modal, false)
       |> assign(:show_all_winners, false)
-      |> assign(:airdrop_sidebar_left_banners, load_airdrop_sidebar_banners(socket, "airdrop_sidebar_left"))
-      |> assign(:airdrop_sidebar_right_banners, load_airdrop_sidebar_banners(socket, "airdrop_sidebar_right"))
 
     {:ok, socket}
-  end
-
-  defp load_airdrop_sidebar_banners(socket, placement) do
-    if connected?(socket),
-      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
-      else: []
   end
 
   # ============================================================

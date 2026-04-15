@@ -20,6 +20,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
   attr :bots, :list, default: []
   attr :selection, :any, default: nil
   attr :chart_data, :map, default: %{}
+  attr :tracker_error?, :boolean, default: false
 
   def rt_chart_portrait(assigns) do
     tf = RtChartHelpers.resolve_tf(assigns.selection)

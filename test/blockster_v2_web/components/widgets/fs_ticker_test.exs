@@ -62,11 +62,19 @@ defmodule BlocksterV2Web.Widgets.FsTickerTest do
       assert html =~ "Open FateSwap"
     end
 
-    test "renders empty state copy when trades is []" do
+    test "renders shimmer skeleton when trades is []" do
       html = render_widget(%{banner: banner(), trades: []})
 
-      assert html =~ "Waiting for trades"
+      assert html =~ "bw-skeleton"
+      assert html =~ "fs-ticker-skeleton"
       refute html =~ "bw-marquee-track"
+    end
+
+    test "renders tracker error placeholder when trades is [] and tracker_error? is true" do
+      html = render_widget(%{banner: banner(), trades: [], tracker_error?: true})
+
+      assert html =~ "FateSwap feed paused"
+      refute html =~ "fs-ticker-skeleton"
     end
   end
 

@@ -222,6 +222,67 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
       assert html =~ ~s(phx-hook="FsHeroWidget")
       assert html =~ ~s(data-widget-type="fs_hero_landscape")
     end
+
+    test "rt_sidebar_tile renders with RtSquareCompactWidget hook" do
+      banner = %Banner{
+        id: 55,
+        name: "widget-rt-sidebar-tile",
+        placement: "sidebar_right",
+        widget_type: "rt_sidebar_tile"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          bots: [],
+          selections: %{},
+          chart_data: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="55")
+      assert html =~ ~s(phx-hook="RtSquareCompactWidget")
+      assert html =~ ~s(data-widget-type="rt_sidebar_tile")
+    end
+
+    test "fs_square_compact renders with FsHeroWidget hook" do
+      banner = %Banner{
+        id: 56,
+        name: "widget-fs-square-compact",
+        placement: "sidebar_left",
+        widget_type: "fs_square_compact"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          trades: [],
+          selections: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="56")
+      assert html =~ ~s(phx-hook="FsHeroWidget")
+      assert html =~ ~s(data-widget-type="fs_square_compact")
+    end
+
+    test "fs_sidebar_tile renders with FsHeroWidget hook" do
+      banner = %Banner{
+        id: 57,
+        name: "widget-fs-sidebar-tile",
+        placement: "sidebar_right",
+        widget_type: "fs_sidebar_tile"
+      }
+
+      html =
+        render_component(&WidgetComponents.widget_or_ad/1, %{
+          banner: banner,
+          trades: [],
+          selections: %{}
+        })
+
+      assert html =~ ~s(data-banner-id="57")
+      assert html =~ ~s(phx-hook="FsHeroWidget")
+      assert html =~ ~s(data-widget-type="fs_sidebar_tile")
+    end
   end
 
   describe "widget_or_ad/1 — raises for widgets landing in Phase 6+" do
@@ -233,11 +294,14 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
                       "rt_chart_portrait",
                       "rt_full_card",
                       "rt_square_compact",
+                      "rt_sidebar_tile",
                       "rt_ticker",
                       "fs_ticker",
                       "rt_leaderboard_inline",
                       "fs_hero_portrait",
-                      "fs_hero_landscape"
+                      "fs_hero_landscape",
+                      "fs_square_compact",
+                      "fs_sidebar_tile"
                     ]
 
     for widget_type <- @phase_6_plus do

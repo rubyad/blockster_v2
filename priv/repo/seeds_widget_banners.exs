@@ -90,7 +90,7 @@ banners = [
   },
   %{
     name: "RogueTrader · Leaderboard · homepage inline desktop",
-    placement: "homepage_inline_desktop",
+    placement: "homepage_inline",
     widget_type: "rt_leaderboard_inline",
     widget_config: %{},
     link_url: "https://roguetrader.io",
@@ -114,6 +114,35 @@ banners = [
     link_url: "https://fateswap.io",
     is_active: true,
     sort_order: 90
+  },
+
+  # ── Phase 6 (sidebar tiles: rt + fs — 200-wide sidebar slots) ───────────
+  %{
+    name: "RogueTrader · Sidebar tile · biggest gainer",
+    placement: "sidebar_left",
+    widget_type: "rt_sidebar_tile",
+    widget_config: %{"selection" => "biggest_gainer"},
+    link_url: "https://roguetrader.io",
+    is_active: true,
+    sort_order: 100
+  },
+  %{
+    name: "FateSwap · Square compact · biggest profit",
+    placement: "sidebar_left",
+    widget_type: "fs_square_compact",
+    widget_config: %{"selection" => "biggest_profit"},
+    link_url: "https://fateswap.io",
+    is_active: true,
+    sort_order: 110
+  },
+  %{
+    name: "FateSwap · Sidebar tile · most recent filled",
+    placement: "sidebar_right",
+    widget_type: "fs_sidebar_tile",
+    widget_config: %{"selection" => "most_recent_filled"},
+    link_url: "https://fateswap.io",
+    is_active: true,
+    sort_order: 120
   }
 ]
 

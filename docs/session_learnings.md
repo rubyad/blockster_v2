@@ -860,3 +860,54 @@ LiveView tests using both `MnesiaCase` + `ConnCase` were failing (16 tests) beca
 - `coin_flip_solana.js`: new `pollForConfirmation()` replaces `confirmTransaction` for bet placement and reclaim
 
 **Key insight**: `sendRawTransaction` with `maxRetries: 5` already tells the RPC node to handle delivery retries. Application-level rebroadcasting on top of that is redundant and creates RPC contention.
+
+### Ad System — Luxury Templates + Banner Bug Hunt (2026-04-15)
+
+Big session adding a luxury-vertical ad template family (watches → cars → jets) to the existing template-based banner system. Plus several latent bugs surfaced.
+
+**New templates** in `lib/blockster_v2_web/components/design_system.ex`:
+- `luxury_watch` — full inline editorial card (image-driven height, brand · model · reference · live SOL price)
+- `luxury_watch_compact_full` — narrower variant, image-driven height (no crop)
+- `luxury_watch_skyscraper` — 200px sidebar tile
+- `luxury_watch_banner` — full-width horizontal leaderboard
+- `luxury_watch_split` — split layout (info left, white watch panel right)
+- `luxury_car` — landscape hero + year/model headline + spec row + live SOL price
+- `luxury_car_skyscraper` — 200px sidebar
+- `luxury_car_banner` — full-width horizontal
+- `jet_card_compact` — narrower jet card with cropped jet image (replaced removed `jet_card` full-size)
+- `jet_card_skyscraper` — 200px sidebar
+
+All luxury templates share live SOL pricing helpers (`luxury_watch_price_sol/1`, `luxury_watch_format_usd/1`) that read from `BlocksterV2.PriceTracker.get_price("SOL")` Mnesia cache (refreshed every minute). USD is stored in `params["price_usd"]`; SOL converts at render time.
+
+Admin form (`/admin/banners`) extended with all new templates in dropdown + per-template `@template_params` lists. Added `@enum_params` map for select-dropdown fields (currently only `image_fit` for the portrait template).
+
+**Bug 1: `Enum.random` in templates re-rolls on every re-render.** Both `show.html.heex` (8 slots) and `index.html.heex` (2 slots) used `<% banner = Enum.random(@list) %>` inline. LiveView re-evaluates this on every diff. With widget pollers broadcasting on PubSub every 3-60s, the random pick churned constantly — users saw the ad swap mid-view (especially noticeable on hover). **Fix**: pre-pick at mount via new `random_or_nil/1` helper, assign as `*_pick` socket assigns, templates use the frozen pick.
+
+**Bug 2: Widget shell CSS scope was a descendant selector.** `.bw-widget .bw-shell { background: var(--bw-bg) }` — but every widget root had both classes on the SAME element (`<div class="bw-widget bw-shell">`). The descendant selector never matched, widgets rendered transparent against whatever parent bg they landed on. Symptom: all widgets blended into the white page bg. **Fix**: changed selectors to `.bw-widget.bw-shell, .bw-widget .bw-shell` (and same for `.bw-card`, `.bw-shell-bg-grid`) to handle both same-element + descendant cases.
+
+**Bug 3: Tailwind dev watcher + arbitrary classes.** When the running `bin/dev` was started before new files were added, Tailwind v4's JIT didn't pick up the arbitrary classes in those new files (`w-[200px]`, `h-[320px]`, etc.). Symptom: widgets rendered at intrinsic content size with NO width constraints — token logos became giant circles, sidebar tiles wrapped weirdly. **Fix**: `mix assets.build` regenerated CSS from scratch. The watcher works once it sees new files; the issue is files added after watcher startup. Recommended: restart `bin/dev` after adding new component files.
+
+**Bug 4: Hardcoded discover cards in article left sidebar.** `show.html.heex` had ~120 lines of inline EVENT/TOKEN-SALE/AIRDROP cards that the new design no longer needs. Removed them; the sidebar now renders only widget banners (with the "Sponsored" header). One test had to be flipped from asserting the old copy to asserting the absence (refute).
+
+**Bug 5: Silent admin form failure.** Creating a portrait-template banner in `/admin/banners` did nothing visible when validation failed. The form only displayed errors for `:name` and `:placement` — every other field's error was swallowed. **Fix**: added a top-of-form red error summary listing all changeset errors when `@form.source.action != nil`. Inline `image_url` error display added under the upload field. Banner Image label now shows `*` + "required for template ads" / "ignored for widget banners" depending on whether a Widget Type is selected.
+
+**Bug 6: Image fit defaults to `cover` on portrait template.** The portrait template used `class="w-full h-full object-cover"` which crops images that don't match the 4:3 aspect. **Fix**: added `image_fit` enum param (`cover` / `contain` / `scale-down`) — a select dropdown in the admin (first use of the new `@enum_params` system). Added `image_bg_color` param for the bars when using `contain`/`scale-down`.
+
+**Bug 7: Removed redundant placement options.** `play_sidebar_left/right`, `airdrop_sidebar_left/right` (legacy — new design has no sidebars on /play or /airdrop), and `homepage_inline_desktop`/`homepage_inline_mobile` (redundant with `homepage_inline`). Dropped from admin dropdown but kept in `@valid_placements` whitelist for legacy banner-row compat. Migrated active banner #32 from `homepage_inline_desktop` → `homepage_inline` and updated seed script.
+
+**Bug 8: Homepage top banner template-based ads bypassed `ad_banner` dispatcher.** `index.html.heex` had a manual `<a><img>` fallback for non-widget banners at `homepage_top_*`, which meant template-based ads (like the new luxury_car_banner) rendered as raw images. **Fix**: replaced both branches with `BlocksterV2Web.WidgetComponents.widget_or_ad` which dispatches widget-or-template correctly.
+
+**Image hosting workflow** for luxury ads:
+1. Download source image (curl)
+2. Pad watch images to ~270×380 with sips (`sips -p H W --padColor FFFFFF`); crop car/jet images to remove dealer-overlay strips with `sips -c H W --cropOffset 0 0`
+3. Upload to S3 via `ExAws.S3.put_object(bucket, key, binary, content_type: ..., acl: :public_read)` to `ads/<dealer-slug>/<ts>-<hex>-<filename>`
+4. Reference at `https://ik.imagekit.io/blockster/<key>` (ImageKit serves from the S3 bucket as origin)
+5. Update banner row's `image_url` + `params["image_url"]`
+
+**Seed file**: `priv/repo/seeds_luxury_ads.exs` creates all 15 luxury banners on production. Idempotent on `name`. Same pattern as `seeds_widget_banners.exs`. Run manually via `mix run priv/repo/seeds_luxury_ads.exs` or via Fly: `flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(...)'"`.
+
+**Templates removed during this session** (accumulated cruft):
+- `luxury_watch_compact` — image cropped at fixed 280px height; replaced by `luxury_watch_compact_full`
+- `jet_card` — 720px-wide full version; replaced by `jet_card_compact` (560px) per user preference
+- Banner #39 (green portrait Day-Date), #41 (compact Day-Date), #43+#44 (Lambo homepage banner pre-feedback) — deleted from DB
+- 17 inactive `FateSwap*` legacy image banner rows — deleted

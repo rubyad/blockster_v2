@@ -20,10 +20,13 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
 
   use Phoenix.Component
 
+  import BlocksterV2Web.Widgets.WidgetShared
+
   @max_rows 30
 
   attr :banner, :map, required: true
   attr :bots, :list, default: []
+  attr :tracker_error?, :boolean, default: false
 
   def rt_skyscraper(assigns) do
     assigns =
@@ -80,18 +83,27 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
 
       <%!-- Bots scroll body --%>
       <div class="bw-scroll bw-shell-bg-grid flex-1 overflow-y-auto" data-role="rt-skyscraper-body">
-        <%= if @bots == [] do %>
-          <div class="h-full w-full grid place-items-center px-3 py-8 text-center">
-            <div>
-              <div class="bw-display text-[9px] uppercase tracking-[0.14em] text-[#6B7280] mb-1">
-                Loading roguebots
-              </div>
-              <div class="bw-display text-[10px] text-[#4B5563] leading-snug">
-                Prices stream in once the tracker fetches from RogueTrader.
+        <%= cond do %>
+          <% @bots == [] and @tracker_error? -> %>
+            <.tracker_error_placeholder brand={:rt} />
+          <% @bots == [] -> %>
+            <div class="divide-y divide-white/[0.04]" data-role="rt-skyscraper-skeleton">
+              <div :for={_ <- 1..8} class="px-2.5 py-2.5 bg-[#14141A]">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-1.5">
+                    <.skeleton_bar class="w-4 h-2" />
+                    <.skeleton_circle class="w-1.5 h-1.5" />
+                    <.skeleton_bar class="w-12 h-2.5" />
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-1 mt-1">
+                  <.skeleton_bar class="w-12 h-2" />
+                  <.skeleton_bar class="w-10 h-2" />
+                </div>
+                <.skeleton_bar class="w-full h-2 mt-1.5" />
               </div>
             </div>
-          </div>
-        <% else %>
+          <% true -> %>
           <div class="divide-y divide-white/[0.04]">
             <div
               :for={{bot, idx} <- Enum.with_index(@bots, 1)}

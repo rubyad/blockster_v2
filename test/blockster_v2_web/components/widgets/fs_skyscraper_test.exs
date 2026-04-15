@@ -62,10 +62,18 @@ defmodule BlocksterV2Web.Widgets.FsSkyscraperTest do
       assert html =~ "LIVE"
     end
 
-    test "renders empty state copy when trades is []" do
+    test "renders shimmer skeleton when trades is []" do
       html = render_widget(%{banner: banner(), trades: []})
 
-      assert html =~ "Waiting for trades"
+      assert html =~ "bw-skeleton"
+      assert html =~ "fs-skyscraper-skeleton"
+    end
+
+    test "renders tracker error placeholder when trades is [] and tracker_error? is true" do
+      html = render_widget(%{banner: banner(), trades: [], tracker_error?: true})
+
+      assert html =~ "FateSwap feed paused"
+      refute html =~ "fs-skyscraper-skeleton"
     end
 
     test "renders footer with Open FateSwap link text" do

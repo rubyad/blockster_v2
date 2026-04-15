@@ -75,6 +75,18 @@ defmodule BlocksterV2.Widgets.RogueTraderChartTracker do
     GenServer.call(server, {:poll_now, bot_id, tf}, 10_000)
   end
 
+  @doc """
+  Returns the last global poll error, or `nil`. Safe on any node —
+  returns `nil` when the GenServer isn't running.
+  """
+  def get_last_error(server \\ __MODULE__) do
+    try do
+      GenServer.call(server, :get_last_error, 100)
+    catch
+      :exit, _ -> nil
+    end
+  end
+
   # ── GenServer ─────────────────────────────────────────────────────────────
 
   @impl true
@@ -141,6 +153,8 @@ defmodule BlocksterV2.Widgets.RogueTraderChartTracker do
   end
 
   def handle_call(:get_state, _from, state), do: {:reply, state, state}
+
+  def handle_call(:get_last_error, _from, state), do: {:reply, state.last_error, state}
 
   # ── Scheduling ────────────────────────────────────────────────────────────
 

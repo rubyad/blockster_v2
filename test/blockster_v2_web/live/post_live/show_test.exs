@@ -64,19 +64,15 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       assert html =~ "ds-footer"
     end
 
-    test "renders discover sidebar with event, sale, and airdrop cards", %{conn: conn} do
+    test "left sidebar no longer renders the hardcoded discover cards (replaced by widgets)", %{conn: conn} do
       post = insert_post(%{})
 
       {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
 
-      # Discover sidebar cards
-      assert html =~ "More on Blockster"
-      assert html =~ "Event"
-      assert html =~ "Token sale"
-      assert html =~ "Airdrop"
-      # Event and Sale are stubs
-      assert html =~ "Coming soon"
-      assert html =~ "Stay tuned"
+      # Discover cards block was removed in Phase 6 — widgets render in its place.
+      refute html =~ "More on Blockster"
+      refute html =~ "Moonpay × Solana NYC happy hour"
+      refute html =~ "Phoenix Protocol"
     end
 
     test "renders article title and category", %{conn: conn} do
@@ -215,8 +211,9 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       assert html =~ ~s(phx-hook="RtSkyscraperWidget")
       assert html =~ "TOP ROGUEBOTS"
-      # Empty-state copy from the component
-      assert html =~ "Loading roguebots"
+      # Empty cache → shimmer skeleton (Phase 6 polish)
+      assert html =~ "rt-skyscraper-skeleton"
+      assert html =~ "bw-skeleton"
     end
 
     test "widget banner on sidebar_left renders the fs_skyscraper skeleton", %{conn: conn} do
@@ -234,7 +231,9 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       assert html =~ ~s(phx-hook="FsSkyscraperWidget")
       assert html =~ "Gamble for a better price than market"
-      assert html =~ "Waiting for trades"
+      # Empty cache → shimmer skeleton (Phase 6 polish)
+      assert html =~ "fs-skyscraper-skeleton"
+      assert html =~ "bw-skeleton"
     end
 
     test "live Mnesia bots are rendered into rt_skyscraper rows", %{conn: conn} do
@@ -271,7 +270,7 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       assert html =~ "KRONOS"
       assert html =~ "CRYPTO"
       assert html =~ "+8.2%"
-      refute html =~ "Loading roguebots"
+      refute html =~ "rt-skyscraper-skeleton"
     end
 
     test "live Mnesia trades are rendered into fs_skyscraper rows", %{conn: conn} do
@@ -309,7 +308,7 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       assert html =~ ~s(data-trade-id="order-live-1")
       assert html =~ "BUY JUP"
-      refute html =~ "Waiting for trades"
+      refute html =~ "fs-skyscraper-skeleton"
     end
   end
 
