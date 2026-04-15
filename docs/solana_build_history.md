@@ -2253,6 +2253,156 @@ Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + r
 
 ---
 
+## Real-Time Widgets Phase 6 + Luxury Ad Vertical (2026-04-15)
+
+**Scope:** Closed out Phase 6 of [`docs/solana/realtime_widgets_plan.md`](solana/realtime_widgets_plan.md) (sub-phases 6a–6e: remaining sidebar tiles, skeletons + error states, mobile QA, admin UI, impression/click tests). Then built an entire luxury-vertical ad template family (Gray & Sons watches → Ferrari/Lamborghini cars → Flight Finder Exclusive jet card) on top of the existing template-based banner system, with live SOL price conversion via `PriceTracker`.
+
+Single commit on `feat/solana-migration`: `f56d932 feat(widgets+ads): phase 6 widgets + luxury-vertical ad templates` — 49 files, +3845 / -413.
+
+### Phase 6 widgets sub-phases
+
+**6a — 3 remaining sidebar tiles**: `rt_sidebar_tile` (200×300, reuses RtSquareCompactWidget hook), `fs_square_compact` (200×200, reuses FsHeroWidget hook), `fs_sidebar_tile` (200×320, reuses FsHeroWidget hook). Dispatcher's "Phase 6+ raises" loop now evaluates to `[]`. 21 new component tests.
+
+**6b — Skeletons + error states**:
+- New `@keyframes bw-skeleton-shimmer` + `.bw-skeleton` / `.bw-skeleton-circle` / `.bw-err-dot` utilities scoped under `.bw-widget` in `assets/css/widgets.css`
+- New `BlocksterV2Web.Widgets.WidgetShared` component module — `skeleton_bar/1`, `skeleton_circle/1`, `tracker_error_placeholder/1`
+- `get_last_error/0` added to all 3 trackers (FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker) — wraps GenServer.call with try/catch :exit so missing tracker process returns nil
+- New `BlocksterV2.Widgets.TrackerStatus` facade — `errors/0`, `widget_error?/2` family routing (rt_self / fs_self / rt_all / fs_all / unknown)
+- `widget_tracker_errors` assign threaded via `WidgetEvents` macro → dispatcher → each widget's optional `tracker_error?` attr; widgets in empty state render skeleton (default) or subtle error placeholder when tracker is in `last_error` state
+
+**6c — Mobile QA pass via Playwright**:
+- Found 2 real layout bugs on mobile: (1) Swap-Complete SVG in `fs_hero_landscape` was rendering 710×710 because Tailwind arbitrary classes (`w-[16px] h-[16px]`) weren't generating CSS rules — replaced with explicit `width="16" height="16"` SVG attrs; (2) `fs_hero_landscape` headline `text-[32px]` too tall on mobile → `text-[20px] md:text-[42px]` + new `md_lg` token icon size
+- Removed 3 hardcoded Discover Cards (EVENT/TOKEN-SALE/AIRDROP) from article left sidebar in `show.html.heex` (~120 lines) — left sidebar now renders only widget banners with "Sponsored" header
+- Confirmed zero viewport overflow at 390×844 across all 14 widgets
+
+**6d — Admin UI extension** (`/admin/banners`):
+- Widget Type dropdown (14 widget types) above Template dropdown
+- Conditional Widget Config form: `selection` mode dropdown (biggest_gainer / biggest_mover / highest_aum / top_ranked / fixed for RT; biggest_profit / biggest_discount / most_recent_filled / random_recent / fixed for FS) + conditional `bot_id` + `timeframe` for RT fixed mode + `order_id` for FS fixed mode
+- Live preview pane that calls `widget_or_ad` with cached tracker data
+- Template/Image fields dim when a Widget Type is selected (with explanatory hint)
+- Top-of-form error summary (red banner) + inline `image_url` error display — fixes the silent submit failure where only `:name` and `:placement` errors had renderers
+
+**6e — Impression + click tracking sweep**:
+- Parameterised test in `widget_events_test.exs` loops every shipped widget type asserting impression=1 after mount + click=1 + correct redirect URL per family (rt/fs homepage, `/bot/:slug`, `/orders/:id`)
+- 14 new sweep tests
+
+### Bug 1: Enum.random in templates re-rolls on every re-render
+
+`show.html.heex` (8 inline ad slots) and `index.html.heex` (2 homepage top slots) used `<% banner = Enum.random(@list) %>` inline. LiveView re-evaluates this on every diff. With widget pollers broadcasting on PubSub every 3-60s, the random pick churned constantly — users saw the ad swap mid-view (especially on hover, because hover triggers small DOM mutations that overlap with poll ticks).
+
+**Fix**: pre-pick at mount. Added `random_or_nil/1` defp to both LVs. Assigns `*_pick` socket assigns (`@article_inline_1_pick`, `@homepage_top_desktop_pick`, etc.). Templates use the frozen pick. The choice is stable for the entire LiveView session — only re-rolls on a new page navigation.
+
+### Bug 2: CSS scope was a descendant selector
+
+`.bw-widget .bw-shell { background: var(--bw-bg) }` — but every widget root carries both classes on the SAME element (`<div class="bw-widget bw-shell">`). The descendant selector never matched. Symptom: every widget rendered transparent against whatever parent bg it landed on. The `fs_hero_landscape` on the homepage dark page was readable but on a white article page it disappeared into the bg.
+
+**Fix**: changed selectors to `.bw-widget.bw-shell, .bw-widget .bw-shell` (and the same for `.bw-card`, `.bw-card-hover`, `.bw-shell-bg-grid`) so both same-element and descendant cases match.
+
+### Bug 3: Tailwind dev watcher + new arbitrary classes
+
+When the running `bin/dev` started before new component files were added, Tailwind v4's JIT didn't pick up the arbitrary classes in those new files (`w-[200px]`, `h-[320px]`, `w-[16px]`, etc.). Symptom on first reload: widgets rendered at intrinsic content sizes — token logos became 700px circles, sidebar tiles wrapped weirdly.
+
+**Fix**: `mix assets.build` regenerated CSS from scratch and the running browser picked up the updated `/assets/css/app.css` on next load. Watcher works once it sees new files; the issue is files added AFTER watcher startup. Recommended: restart `bin/dev` after creating new component modules. Tests didn't catch this because `render_component` only checks string presence in HTML, not whether CSS rules exist.
+
+### Bug 4: Homepage top banner template-based ads bypassed `ad_banner` dispatcher
+
+`index.html.heex` had a manual `<a><img>` fallback at `homepage_top_*` for non-widget banners, which meant template-based ads (like the new `luxury_car_banner`) rendered as raw images. Symptom: a Lambo at homepage_top_desktop displayed as a giant 1056px-wide raw photo with no UI chrome.
+
+**Fix**: replaced both branches with `BlocksterV2Web.WidgetComponents.widget_or_ad` — the dispatcher's nil-widget_type clause already calls `BlocksterV2Web.DesignSystem.ad_banner` which knows the templates.
+
+### Luxury ad templates (11 new)
+
+All in `lib/blockster_v2_web/components/design_system.ex`. Live SOL pricing via `BlocksterV2.PriceTracker.get_price("SOL")` reading the `token_prices` Mnesia cache (refreshed every minute by the global PriceTracker GenServer).
+
+| Template | Shape | Use case |
+|---|---|---|
+| `luxury_watch` | 560px max, image-driven height | Full editorial watch ad — brand strip + photo + divider + model + reference + live SOL price |
+| `luxury_watch_compact_full` | 560px max, image-driven height | Shorter watch variant (no spec row) |
+| `luxury_watch_skyscraper` | 200px wide | Article sidebar tile |
+| `luxury_watch_banner` | full × ~140px | Wide horizontal leaderboard |
+| `luxury_watch_split` | full × ~380px | Info panel left, white watch image right (uses padded image's bg) |
+| `luxury_car` | 720px max | Landscape hero + year/model headline (year in accent color) + price + CTA |
+| `luxury_car_skyscraper` | 200px wide | Sidebar variant |
+| `luxury_car_banner` | full × ~180px | Horizontal leaderboard, image left + info right |
+| `jet_card_compact` | 560px wide | Pre-paid hour-block card with bold "N HOURS" headline + aircraft category + price + CTA |
+| `jet_card_skyscraper` | 200px wide | Sidebar variant |
+
+Shared helpers: `luxury_watch_price_sol/1`, `luxury_watch_format_usd/1`, `parse_number/1`, `format_with_commas/1` — all defp in design_system.ex.
+
+Admin form (`/admin/banners`) extended with all new templates + per-template `@template_params` lists. New `@enum_params` map drives `<select>` dropdowns for fields with enum semantics (currently `image_fit` cover/contain/scale-down for the portrait template).
+
+Templates **removed** during this session (cruft cleanup):
+- `luxury_watch_compact` — image cropped at fixed 280px height; replaced by `luxury_watch_compact_full`
+- `jet_card` — 720px-wide full version; replaced by `jet_card_compact` per user preference
+
+### Image hosting workflow for luxury ads
+
+1. `curl` source image from dealer site
+2. Pad / crop with macOS `sips`:
+   - Watches: `sips -p 380 270 --padColor FFFFFF watch.jpg --out watch-snug.jpg` (270×380 with ~10px white padding so watch fills frame)
+   - Cars / jets: `sips -c <H> <W> --cropOffset 0 0 in.jpg --out out.jpg` (anchor top-left to crop dealer overlay strips off the bottom). Don't use `sips -c` without `--cropOffset` — defaults to center-crop which removes top + bottom equally.
+3. Upload to S3 via `ExAws.S3.put_object(bucket, "ads/<dealer-slug>/<ts>-<hex>-<filename>", binary, content_type: "image/jpeg", acl: :public_read)` then `ExAws.request()`
+4. Reference at `https://ik.imagekit.io/blockster/<key>` — ImageKit serves directly from the S3 bucket as origin
+5. Update banner row's `image_url` + `params["image_url"]` to the new URL
+
+Don't use `bin/dev` JS upload hook for batch uploads — too tedious. Direct ExAws works fine for CLI scripting.
+
+### Removed redundant placement options
+
+Dropped from admin dropdown but kept in `@valid_placements` whitelist for legacy data compat:
+- `play_sidebar_left` / `play_sidebar_right` (no /play sidebar in new design)
+- `airdrop_sidebar_left` / `airdrop_sidebar_right` (no /airdrop sidebar in new design)
+- `homepage_inline_desktop` / `homepage_inline_mobile` (redundant with `homepage_inline`)
+
+Migrated active banner #32 from `homepage_inline_desktop` → `homepage_inline` and updated `seeds_widget_banners.exs`. Stripped dead-code from `airdrop_live.ex` (sidebar banner assigns + helper) and `coin_flip_live.ex` (sidebar banner assigns + helper + render block in line ~917). Dropped the 3-tier fallback in `load_homepage_inline_banners/1` — now a one-liner reading `homepage_inline` only.
+
+### Production seeds
+
+New file: `priv/repo/seeds_luxury_ads.exs` — creates all 15 luxury banners. Idempotent on `name` (matches existing `seeds_widget_banners.exs` pattern). Run manually post-deploy:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_luxury_ads.exs\") |> hd())'"
+```
+
+See `solana_mainnet_deployment.md` § "Phase 6 widgets + luxury ads — post-deploy seeds" for the full sequence.
+
+### Files
+
+**Created:**
+- `lib/blockster_v2/widgets/tracker_status.ex`
+- `lib/blockster_v2_web/components/widgets/{rt_sidebar_tile,fs_square_compact,fs_sidebar_tile,widget_shared}.ex`
+- `priv/repo/seeds_luxury_ads.exs`
+- 4 new test files (rt_sidebar_tile_test, fs_square_compact_test, fs_sidebar_tile_test, banners_admin_widget_test, tracker_status_test)
+
+**Modified:**
+- `assets/css/widgets.css` (skeleton + error styles + scope fix)
+- `lib/blockster_v2/ads/banner.ex` (added 11 luxury templates to `@valid_templates`)
+- All 3 widget trackers (added `get_last_error/0`)
+- `lib/blockster_v2_web/components/design_system.ex` (11 new template clauses, +1500 lines)
+- `lib/blockster_v2_web/components/widget_components.ex` (3 new dispatcher clauses + tracker_errors threading)
+- All 11 prior widget components (added `tracker_error?` attr passthrough)
+- `lib/blockster_v2_web/live/banners_admin_live.ex` (widget config + luxury templates + enum params + error summary)
+- `lib/blockster_v2_web/live/widget_events.ex` (widget_tracker_errors assign + refresh on data updates)
+- `lib/blockster_v2_web/live/post_live/{show,index}.{ex,html.heex}` (Enum.random fix, hardcoded discover cards removal, homepage_inline simplification, widget_or_ad dispatch fix)
+- `lib/blockster_v2_web/live/{airdrop_live,coin_flip_live}.ex` (dead sidebar code removal)
+- `priv/repo/seeds_widget_banners.exs` (Phase 6a additions)
+
+### Tests
+
+Phase 5 baseline at end of last session: 2878 / 119 failures. After this session (with 63 new tests): **2941 / 119** at seed 12345 — zero new failures introduced. Widget + admin + show test suites: 263/0 at seed 0.
+
+### Phase 7 status
+
+This commit is the last code work for Phase 7 prep. Phase 7 (production rollout) still needs:
+1. `flyctl deploy --app blockster-v2`
+2. `mix run priv/repo/seeds_widget_banners.exs` via Fly SSH
+3. `mix run priv/repo/seeds_luxury_ads.exs` via Fly SSH
+4. `flyctl secrets set WIDGETS_ENABLED=true --stage --app blockster-v2`
+5. Re-deploy to pick up the staged secret — pollers start
+6. Monitor RogueTrader / FateSwap rate-limit response codes (Blockster will hit RT ~156 req/min + FS ~20 req/min from a single GlobalSingleton — no per-user fanout)
+
+---
+
 ## Gotchas for the next session (read before starting a new page)
 
 These learnings from Wave 0 through Wave 3 Page #8 will save time on the next page:

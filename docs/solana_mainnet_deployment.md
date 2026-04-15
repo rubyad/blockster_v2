@@ -526,6 +526,70 @@ BlocksterV2.Airdrop.create_round(end_time)
 '"
 ```
 
+### Phase 6 widgets + luxury ads — post-deploy seeds
+
+The widget banners (RogueTrader / FateSwap real-time tiles) and the luxury-vertical ad banners (Gray & Sons watches, Ferrari/Lambo cars, Flight Finder Exclusive jet card) are NOT seeded automatically by `release_command = '/app/bin/migrate'`. They must be inserted via separate seed scripts after the deploy lands.
+
+Both seed files are idempotent on `name` — safe to re-run. Existing rows get reactivated; attrs are NOT updated on re-run (edit through `/admin/banners` for live changes).
+
+**1. Run the widget banner seed** (creates 14 real-time widget banner rows):
+
+```bash
+flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_widget_banners.exs\") |> hd())'"
+```
+
+Expected output: 14 lines like `Created widget banner ##: <name>` (or `Kept widget banner ##: <name> (reactivated)` on re-run).
+
+**2. Run the luxury ad seed** (creates 15 Gray & Sons / Ferrari / Lambo / Flight Finder rows):
+
+```bash
+flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_luxury_ads.exs\") |> hd())'"
+```
+
+All luxury images are hosted on ImageKit (`ik.imagekit.io/blockster/ads/<dealer>/...`) — no local-file dependency. ImageKit serves directly from the project's S3 bucket as origin.
+
+**3. Stage `WIDGETS_ENABLED` to enable the real-time pollers**:
+
+```bash
+flyctl secrets set WIDGETS_ENABLED=true --stage --app blockster-v2
+```
+
+`--stage` is mandatory (per CLAUDE.md secrets rules) — without it the production server immediately restarts. Staged secrets take effect on the next deploy.
+
+**4. Re-deploy to pick up the staged secret**:
+
+```bash
+flyctl deploy --app blockster-v2
+```
+
+After this deploy lands, the 3 trackers (`FateSwapFeedTracker`, `RogueTraderBotsTracker`, `RogueTraderChartTracker`) start polling. Combined load:
+- FateSwap: ~20 req/min to `fateswap.fly.dev/api/feed/recent`
+- RogueTrader: ~6 req/min to `roguetrader-v2.fly.dev/api/bots` + ~150 req/min to `roguetrader-v2.fly.dev/api/bots/:id/chart` (30 bots × 5 timeframes, staggered across 60s window)
+
+Traffic is constant regardless of visitor count (single GlobalSingleton per cluster — no per-user fanout).
+
+**5. Sanity check the widgets are receiving data**:
+
+Open `https://blockster.com/` (homepage) and any article page — confirm:
+- Top ticker (homepage) shows live RogueTrader bot prices scrolling
+- Article right sidebar (`rt_skyscraper`) shows 30 ranked bots with live bid/ask prices
+- Article left sidebar (`fs_skyscraper`) shows recent FateSwap trades with status pills
+- No widget shows the "feed paused — retrying" amber error placeholder (means `last_error` is set)
+
+If skeletons are stuck (no data after 30s), check:
+
+```bash
+flyctl logs --app blockster-v2 | grep -E "FateSwapFeedTracker|RogueTraderBotsTracker|RogueTraderChartTracker"
+```
+
+Expected log lines: `[<TrackerName>] Started — polling every <ms>ms`. If you see `Poll failed: ...`, the sister API is unhealthy or rate-limiting.
+
+**6. Verify luxury ads render**:
+
+Browse to any article page → confirm the Gray & Sons watch skyscraper, Ferrari/Lambo inline ads, Flight Finder Exclusive jet card render with **live SOL prices** (USD figures stored statically; SOL converted at render time via `BlocksterV2.PriceTracker.get_price("SOL")` reading the `token_prices` Mnesia cache that's refreshed every minute).
+
+If SOL prices show `—` (em dash), the PriceTracker either hasn't fetched yet (give it 60s) or its CoinGecko fetch is failing — check logs for `[PriceTracker]` errors.
+
 ---
 
 ## Step 9: Shut Down Legacy Services
