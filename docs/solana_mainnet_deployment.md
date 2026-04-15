@@ -542,6 +542,9 @@ Expected output: 14 lines like `Created widget banner ##: <name>` (or `Kept widg
 
 **2. Run the luxury ad seed** (creates 15 Gray & Sons / Ferrari / Lambo / Flight Finder rows):
 
+> Reference doc for how the luxury templates work + how to add new dealer brands: [`luxury_ad_templates.md`](luxury_ad_templates.md).
+
+
 ```bash
 flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_luxury_ads.exs\") |> hd())'"
 ```

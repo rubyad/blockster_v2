@@ -2257,6 +2257,8 @@ Tag browse (`/tag/:slug`) — visual refresh. Compact hero + 3-col post grid + r
 
 **Scope:** Closed out Phase 6 of [`docs/solana/realtime_widgets_plan.md`](solana/realtime_widgets_plan.md) (sub-phases 6a–6e: remaining sidebar tiles, skeletons + error states, mobile QA, admin UI, impression/click tests). Then built an entire luxury-vertical ad template family (Gray & Sons watches → Ferrari/Lamborghini cars → Flight Finder Exclusive jet card) on top of the existing template-based banner system, with live SOL price conversion via `PriceTracker`.
 
+> **Reference docs for the luxury ad system**: [`luxury_ad_templates.md`](luxury_ad_templates.md) — every template's purpose, params, when to use it, image hosting workflow, and the playbook for adding a new template. Read this BEFORE adding new dealer brands to the seed file or extending the system.
+
 Single commit on `feat/solana-migration`: `f56d932 feat(widgets+ads): phase 6 widgets + luxury-vertical ad templates` — 49 files, +3845 / -413.
 
 ### Phase 6 widgets sub-phases
