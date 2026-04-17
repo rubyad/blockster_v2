@@ -53,3 +53,5 @@ contracts/blockster-bankroll/
 
 # Dev-time screenshots dropped at the repo root by chrome-devtools / playwright
 /*.png
+/*.jpeg
+/*.jpg
