@@ -526,32 +526,37 @@ BlocksterV2.Airdrop.create_round(end_time)
 '"
 ```
 
-### Phase 6 widgets + luxury ads — post-deploy seeds
+### Phase 6 widgets + luxury ads — post-deploy seed
 
-The widget banners (RogueTrader / FateSwap real-time tiles) and the luxury-vertical ad banners (Gray & Sons watches, Ferrari/Lambo cars, Flight Finder Exclusive jet card) are NOT seeded automatically by `release_command = '/app/bin/migrate'`. They must be inserted via separate seed scripts after the deploy lands.
+All banner rows (widgets + luxury ads + coin flip demos) are NOT seeded automatically by `release_command = '/app/bin/migrate'`. They must be inserted via a single seed script after the deploy lands.
 
-Both seed files are idempotent on `name` — safe to re-run. Existing rows get reactivated; attrs are NOT updated on re-run (edit through `/admin/banners` for live changes).
+**Single source of truth:** [`priv/repo/seeds_banners.exs`](../priv/repo/seeds_banners.exs) defines the full banner state — 57 active + 5 dormant rows spanning `article_inline_{1,2,3}`, `homepage_inline`, `homepage_top_desktop`, and `sidebar_{left,right}`. Replaces the legacy `seeds_ad_banners.exs`, `seeds_widget_banners.exs`, `seeds_luxury_ads.exs`, and `seeds_article_inline_force.exs` scripts (deleted). See [`ad_banners_system.md`](ad_banners_system.md) for the full reference on how templates/widgets/mobile swaps work.
 
-**1. Run the widget banner seed** (creates 14 real-time widget banner rows):
+Behaviour:
+- Deactivates EVERY existing banner first (blank slate), then upserts every row in the file by `name`. Entries default to `is_active: true`; entries may set `is_active: false` to ship a dormant creative (admins toggle on via `/admin/banners`).
+- Safe to re-run — running a second time updates every attribute to match the file (not just `is_active`).
+- Any banner row NOT in the file stays in the DB but inactive. Admins can still edit/re-enable through `/admin/banners`.
+- The source file is the authoritative state — edit it to change prod ad inventory, then re-run.
+
+**1. Run the consolidated banner seed:**
 
 ```bash
-flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_widget_banners.exs\") |> hd())'"
+flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_banners.exs\") |> hd())'"
 ```
 
-Expected output: 14 lines like `Created widget banner ##: <name>` (or `Kept widget banner ##: <name> (reactivated)` on re-run).
-
-**2. Run the luxury ad seed** (creates 15 Gray & Sons / Ferrari / Lambo / Flight Finder rows):
+Expected output ends with:
+```
+Created: N
+Updated: M
+Total active:  57
+Total dormant: 5  (created but is_active: false — toggle via /admin/banners)
+```
 
 > Reference doc for how the luxury templates work + how to add new dealer brands: [`luxury_ad_templates.md`](luxury_ad_templates.md).
 
-
-```bash
-flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'Code.eval_file(Path.wildcard(\"/app/lib/blockster_v2-*/priv/repo/seeds_luxury_ads.exs\") |> hd())'"
-```
-
 All luxury images are hosted on ImageKit (`ik.imagekit.io/blockster/ads/<dealer>/...`) — no local-file dependency. ImageKit serves directly from the project's S3 bucket as origin.
 
-**3. Stage `WIDGETS_ENABLED` to enable the real-time pollers**:
+**2. Stage `WIDGETS_ENABLED` to enable the real-time pollers**:
 
 ```bash
 flyctl secrets set WIDGETS_ENABLED=true --stage --app blockster-v2
@@ -559,7 +564,7 @@ flyctl secrets set WIDGETS_ENABLED=true --stage --app blockster-v2
 
 `--stage` is mandatory (per CLAUDE.md secrets rules) — without it the production server immediately restarts. Staged secrets take effect on the next deploy.
 
-**4. Re-deploy to pick up the staged secret**:
+**3. Re-deploy to pick up the staged secret**:
 
 ```bash
 flyctl deploy --app blockster-v2
@@ -571,7 +576,7 @@ After this deploy lands, the 3 trackers (`FateSwapFeedTracker`, `RogueTraderBots
 
 Traffic is constant regardless of visitor count (single GlobalSingleton per cluster — no per-user fanout).
 
-**5. Sanity check the widgets are receiving data**:
+**4. Sanity check the widgets are receiving data**:
 
 Open `https://blockster.com/` (homepage) and any article page — confirm:
 - Top ticker (homepage) shows live RogueTrader bot prices scrolling
@@ -587,7 +592,7 @@ flyctl logs --app blockster-v2 | grep -E "FateSwapFeedTracker|RogueTraderBotsTra
 
 Expected log lines: `[<TrackerName>] Started — polling every <ms>ms`. If you see `Poll failed: ...`, the sister API is unhealthy or rate-limiting.
 
-**6. Verify luxury ads render**:
+**5. Verify luxury ads render**:
 
 Browse to any article page → confirm the Gray & Sons watch skyscraper, Ferrari/Lambo inline ads, Flight Finder Exclusive jet card render with **live SOL prices** (USD figures stored statically; SOL converted at render time via `BlocksterV2.PriceTracker.get_price("SOL")` reading the `token_prices` Mnesia cache that's refreshed every minute).
 

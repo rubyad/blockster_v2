@@ -3,18 +3,20 @@ defmodule BlocksterV2.Ads.Banner do
   import Ecto.Changeset
 
   @valid_placements ~w(
-    sidebar_left sidebar_right article_bottom mobile_top mobile_mid mobile_bottom
+    sidebar_left sidebar_right article_top article_bottom
     play_sidebar_left play_sidebar_right airdrop_sidebar_left airdrop_sidebar_right
     homepage_top_desktop homepage_top_mobile homepage_inline_desktop homepage_inline_mobile
     homepage_inline video_player_top article_inline_1 article_inline_2 article_inline_3
   )
 
-  @valid_templates ~w(image follow_bar dark_gradient portrait split_card luxury_watch luxury_watch_compact_full luxury_watch_skyscraper luxury_watch_banner luxury_watch_split luxury_car luxury_car_skyscraper luxury_car_banner jet_card_compact jet_card_skyscraper)
+  @valid_templates ~w(image follow_bar dark_gradient portrait split_card luxury_watch luxury_watch_compact_full luxury_watch_skyscraper luxury_watch_banner luxury_watch_split luxury_car luxury_car_skyscraper luxury_car_banner jet_card_compact jet_card_skyscraper streaming_trial patriotic_portrait patriotic_loop trump_2028_loop)
 
   @valid_widget_types ~w(
     rt_skyscraper rt_square_compact rt_sidebar_tile rt_chart_landscape rt_chart_portrait
     rt_full_card rt_ticker rt_leaderboard_inline
     fs_skyscraper fs_hero_portrait fs_hero_landscape fs_ticker fs_square_compact fs_sidebar_tile
+    cf_sidebar_tile cf_inline_landscape cf_portrait
+    cf_sidebar_demo cf_inline_landscape_demo cf_portrait_demo
   )
 
   def valid_widget_types, do: @valid_widget_types

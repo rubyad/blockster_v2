@@ -164,18 +164,79 @@ defmodule BlocksterV2Web.WidgetEvents do
 
       # ── handle_event ───────────────────────────────────────────────────
 
+      def handle_event("switch_timeframe", %{"banner_id" => banner_id, "tf" => tf}, socket)
+          when tf in ~w(1h 6h 24h 48h 7d) do
+        case __parse_banner_id__(banner_id) do
+          {:ok, id} ->
+            selections = Map.get(socket.assigns, :widget_selections, %{})
+
+            bot_id =
+              case Map.get(selections, id) do
+                {bid, _old_tf} when is_binary(bid) -> bid
+                _ -> nil
+              end
+
+            if bot_id do
+              Phoenix.PubSub.subscribe(
+                BlocksterV2.PubSub,
+                @widget_rt_chart_topic_prefix <> "#{bot_id}_#{tf}"
+              )
+
+              points = RogueTraderChartTracker.get_series(bot_id, tf)
+
+              chart_data =
+                socket.assigns
+                |> Map.get(:widget_chart_data, %{})
+                |> Map.put({bot_id, tf}, points)
+
+              selections = Map.put(selections, id, {bot_id, tf})
+
+              {:noreply,
+               socket
+               |> Phoenix.Component.assign(:widget_selections, selections)
+               |> Phoenix.Component.assign(:widget_chart_data, chart_data)
+               |> Phoenix.LiveView.push_event("widget:#{id}:select", %{
+                 bot_id: bot_id,
+                 tf: tf,
+                 points: points
+               })}
+            else
+              {:noreply, socket}
+            end
+
+          :error ->
+            {:noreply, socket}
+        end
+      end
+
+      def handle_event("switch_timeframe", _, socket), do: {:noreply, socket}
+
       def handle_event("widget_click", %{"banner_id" => banner_id} = params, socket) do
         subject = __normalize_subject__(Map.get(params, "subject"))
 
         case __parse_banner_id__(banner_id) do
           {:ok, id} ->
             Ads.increment_clicks(id)
-            {:noreply, Phoenix.LiveView.redirect(socket, external: ClickRouter.url_for(id, subject))}
+            url = ClickRouter.url_for(id, subject)
+
+            if __rt_subject__(subject) do
+              {:noreply, Phoenix.LiveView.push_event(socket, "open_external_url", %{url: url})}
+            else
+              {:noreply, Phoenix.LiveView.redirect(socket, external: url)}
+            end
 
           :error ->
             {:noreply, socket}
         end
       end
+
+      @doc false
+      # Whether the subject belongs to a RogueTrader widget — those clicks
+      # open in a new tab via `phx:open_external_url`.
+      def __rt_subject__(:rt), do: true
+      def __rt_subject__("rt"), do: true
+      def __rt_subject__({bot_id, _tf}) when is_binary(bot_id), do: true
+      def __rt_subject__(_), do: false
 
       # ── Internal helpers (prefixed so host LiveViews don't clash) ──────
 

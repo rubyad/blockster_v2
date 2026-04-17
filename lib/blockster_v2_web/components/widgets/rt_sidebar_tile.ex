@@ -1,6 +1,6 @@
 defmodule BlocksterV2Web.Widgets.RtSidebarTile do
   @moduledoc """
-  RogueTrader sidebar tile (200 × 300) — taller sibling of
+  RogueTrader sidebar tile (200 × 340) — taller sibling of
   `rt_square_compact` sized to match the height of Blockster's article-page
   discover-card sidebar boxes. Adds an H/L row and a larger sparkline.
 
@@ -40,7 +40,7 @@ defmodule BlocksterV2Web.Widgets.RtSidebarTile do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-[200px] h-[300px] flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell relative w-[200px] h-[340px] flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD]"
       phx-hook="RtSquareCompactWidget"
       data-banner-id={@banner.id}
       data-widget-type="rt_sidebar_tile"
@@ -91,13 +91,13 @@ defmodule BlocksterV2Web.Widgets.RtSidebarTile do
           </span>
         </div>
 
-        <div class="flex items-baseline justify-between gap-2 mt-3">
-          <span class="bw-mono text-[14px] font-medium text-[#E8E4DD]">
+        <div class="flex items-baseline justify-between gap-1 mt-3">
+          <span class="bw-mono text-[11px] font-medium text-[#E8E4DD] whitespace-nowrap">
             {RtChartHelpers.format_price(@bot && @bot["bid_price"])}<span class="text-[#6B7280] opacity-60 mx-0.5">/</span>{RtChartHelpers.format_price(@bot && @bot["ask_price"])}
           </span>
           <span
-            class="bw-mono text-[14px] font-semibold px-2 py-0.5 rounded leading-tight"
-            style={"color:#{RtChartHelpers.change_color(@change)};background:#{RtChartHelpers.change_bg(@change)};"}
+            class="bw-mono text-[11px] font-semibold px-1 py-0.5 rounded leading-tight shrink-0 whitespace-nowrap"
+            style={"color:#{RtChartHelpers.change_color(@change)};background:#{RtChartHelpers.change_bg(@change)};margin-right:6px;"}
           >
             {RtChartHelpers.format_change(@change)}
           </span>
@@ -120,7 +120,7 @@ defmodule BlocksterV2Web.Widgets.RtSidebarTile do
         <div
           id={"widget-#{@banner.id}-canvas-wrapper"}
           phx-update="ignore"
-          class="relative flex-1 min-h-0 mt-2.5 -mx-0.5"
+          class="relative flex-1 min-h-0 mt-1 -mx-0.5"
         >
           <div
             data-role="rt-square-canvas"
@@ -139,7 +139,7 @@ defmodule BlocksterV2Web.Widgets.RtSidebarTile do
           <span class="bw-pulse-dot" style="width:4px;height:4px;"></span>AI Trading Bot
         </span>
         <span class="bw-display text-[10px] font-medium text-[#E8E4DD] tracking-[0.02em]">
-          view →
+          Deposit SOL →
         </span>
       </div>
     </div>

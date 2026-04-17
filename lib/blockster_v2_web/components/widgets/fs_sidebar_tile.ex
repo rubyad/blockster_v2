@@ -39,7 +39,7 @@ defmodule BlocksterV2Web.Widgets.FsSidebarTile do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-[200px] h-[320px] flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell relative w-[200px] h-[320px] flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD]"
       phx-hook="FsHeroWidget"
       data-banner-id={@banner.id}
       data-widget-type="fs_sidebar_tile"

@@ -165,20 +165,19 @@ defmodule BlocksterV2Web.WidgetEventsTest do
   end
 
   describe "handle_event(\"widget_click\", ...)" do
-    test "tuple subject (from DOM JSON map) → increments clicks and redirects to /bot/:id",
+    test "tuple subject (from DOM JSON map) → increments clicks and pushes open_external_url for /bot/:id",
          %{conn: conn} do
       banner = create_widget_banner(%{widget_type: "rt_chart_landscape"})
       assert Ads.get_banner!(banner.id).clicks == 0
 
       {:ok, view, _html} = live_isolated(conn, WidgetEventsTestHost)
 
-      assert {:error, {:redirect, %{to: url}}} =
-               render_hook(view, "widget_click", %{
-                 "banner_id" => Integer.to_string(banner.id),
-                 "subject" => %{"bot_id" => "kronos", "tf" => "7d"}
-               })
+      render_hook(view, "widget_click", %{
+        "banner_id" => Integer.to_string(banner.id),
+        "subject" => %{"bot_id" => "kronos", "tf" => "7d"}
+      })
 
-      assert url == "https://roguetrader.io/bot/kronos"
+      assert_push_event(view, "open_external_url", %{url: "https://roguetrader.io/bot/kronos"})
       assert Ads.get_banner!(banner.id).clicks == 1
     end
 
@@ -196,17 +195,16 @@ defmodule BlocksterV2Web.WidgetEventsTest do
       assert Ads.get_banner!(banner.id).clicks == 1
     end
 
-    test "subject \"rt\" → redirects to RogueTrader homepage", %{conn: conn} do
+    test "subject \"rt\" → pushes open_external_url for RogueTrader homepage", %{conn: conn} do
       banner = create_widget_banner(%{widget_type: "rt_skyscraper"})
       {:ok, view, _html} = live_isolated(conn, WidgetEventsTestHost)
 
-      assert {:error, {:redirect, %{to: url}}} =
-               render_hook(view, "widget_click", %{
-                 "banner_id" => Integer.to_string(banner.id),
-                 "subject" => "rt"
-               })
+      render_hook(view, "widget_click", %{
+        "banner_id" => Integer.to_string(banner.id),
+        "subject" => "rt"
+      })
 
-      assert url == "https://roguetrader.io"
+      assert_push_event(view, "open_external_url", %{url: "https://roguetrader.io"})
     end
 
     test "subject \"fs\" → redirects to FateSwap homepage", %{conn: conn} do
@@ -270,17 +268,31 @@ defmodule BlocksterV2Web.WidgetEventsTest do
 
         subject = subject_payload(subject_kind)
 
-        assert {:error, {:redirect, %{to: url}}} =
-                 render_hook(view, "widget_click", %{
-                   "banner_id" => Integer.to_string(banner.id),
-                   "subject" => subject
-                 })
+        if rt_subject_kind?(subject_kind) do
+          render_hook(view, "widget_click", %{
+            "banner_id" => Integer.to_string(banner.id),
+            "subject" => subject
+          })
 
-        assert url == expected_url, "#{widget_type}: expected redirect to #{expected_url}, got #{url}"
+          assert_push_event(view, "open_external_url", %{url: ^expected_url})
+        else
+          assert {:error, {:redirect, %{to: url}}} =
+                   render_hook(view, "widget_click", %{
+                     "banner_id" => Integer.to_string(banner.id),
+                     "subject" => subject
+                   })
+
+          assert url == expected_url, "#{widget_type}: expected redirect to #{expected_url}, got #{url}"
+        end
+
         assert Ads.get_banner!(banner.id).clicks == 1
       end
     end
   end
+
+  defp rt_subject_kind?(:rt_bot_tuple), do: true
+  defp rt_subject_kind?("rt"), do: true
+  defp rt_subject_kind?(_), do: false
 
   defp subject_payload(:rt_bot_tuple), do: %{"bot_id" => "kronos", "tf" => "7d"}
   defp subject_payload(:fs_order_id), do: "ord-sweep"

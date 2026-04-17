@@ -190,6 +190,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         search_query={Map.get(assigns, :search_query, "")}
         search_results={Map.get(assigns, :search_results, [])}
         show_search_results={Map.get(assigns, :show_search_results, false)}
+        show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
         display_token="SOL"

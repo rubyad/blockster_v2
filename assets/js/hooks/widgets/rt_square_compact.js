@@ -136,6 +136,10 @@ export const RtSquareCompactWidget = {
         lastValueVisible: false,
       });
 
+      this.series.priceScale().applyOptions({
+        scaleMargins: { top: 0.05, bottom: 0.05 },
+      });
+
       const seedEl = this.el.querySelector('[data-role="rt-square-seed"]');
       if (seedEl && seedEl.textContent) {
         try {

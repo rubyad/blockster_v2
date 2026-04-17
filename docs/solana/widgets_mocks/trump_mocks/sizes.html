@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Thank You 47 · size variants</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f3; }
+  .page { max-width: 1600px; margin: 0 auto; padding: 48px 32px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  h2 { font-size: 18px; margin: 40px 0 12px; font-weight: 600; color: #333; }
+  p.lead { color: #5a5a55; max-width: 680px; line-height: 1.55; }
+  .card { background: #fff; padding: 20px 20px 24px; border-radius: 16px; box-shadow: 0 4px 18px -6px rgba(0,0,0,0.08); margin-top: 24px; }
+  .card h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #141414; font-weight: 700; }
+  .meta { font-size: 11px; color: #888; margin-bottom: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Shared frame chrome */
+  .pl {
+    position: relative;
+    background: #0a0a0a;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -15px rgba(0,0,0,0.35);
+  }
+  .pl-img {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center 22%;
+    opacity: 0;
+    filter: contrast(1.1) saturate(1.15);
+    animation: pl-img 11s infinite ease;
+  }
+  @keyframes pl-img {
+    0%, 30% { opacity: 0; }
+    40% { opacity: 1; }
+    58% { opacity: 1; }
+    65%, 100% { opacity: 0; }
+  }
+  .pl-dim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.9) 100%);
+    opacity: 0;
+    animation: pl-img 11s infinite ease;
+  }
+  .bg-img { background-image: url('https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp'); }
+
+  .pl-headline-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    padding: 20px; text-align: center;
+    color: white; z-index: 5;
+    animation: pl-hl 11s infinite ease;
+  }
+  @keyframes pl-hl {
+    0%, 30% { opacity: 1; }
+    38%, 100% { opacity: 0; }
+  }
+  .pl-hl { font-weight: 700; letter-spacing: -0.01em; }
+  .pl-hl span {
+    display: inline-block; opacity: 0;
+    animation: pl-word 11s infinite ease;
+  }
+  @keyframes pl-word {
+    0% { opacity: 0; } 10%, 30% { opacity: 1; } 38%, 100% { opacity: 0; }
+  }
+  .pl-hl span:nth-child(1) { animation-delay: 0s; }
+  .pl-hl span:nth-child(2) { animation-delay: 0.1s; }
+  .pl-hl span:nth-child(3) { animation-delay: 0.2s; }
+  .pl-hl span:nth-child(4) { animation-delay: 0.3s; }
+  .pl-hl span:nth-child(5) { animation-delay: 0.4s; }
+  .pl-hl span:nth-child(6) { animation-delay: 0.5s; }
+  .pl-hl span:nth-child(7) { animation-delay: 0.6s; }
+
+  .pl-thank-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column;
+    color: white; z-index: 5;
+    opacity: 0;
+    animation: pl-thank 11s infinite ease;
+  }
+  @keyframes pl-thank {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .pl-thank-top {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    line-height: 1; letter-spacing: 0.06em; color: white;
+  }
+  .pl-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    line-height: 0.85; font-weight: 900;
+    letter-spacing: -0.03em; color: #BF0A30;
+  }
+
+  .pl-brand {
+    position: absolute; top: 10px; left: 10px;
+    display: flex; align-items: center; gap: 8px;
+    color: white; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700;
+    z-index: 10;
+  }
+  .pl-brand::before {
+    content: ""; width: 18px; height: 1px; background: #BF0A30;
+  }
+  .pl-badge {
+    position: absolute; top: 10px; right: 10px;
+    font-size: 9px; font-weight: 800;
+    padding: 2px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.15); color: white;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    z-index: 10;
+  }
+  .pl-cta {
+    position: absolute;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 5px;
+    background: #BF0A30; color: white;
+    font-weight: 700; font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    z-index: 10;
+  }
+
+  /* ── Square (reference — current production template) ───── */
+  .pl-square { width: 100%; max-width: 440px; aspect-ratio: 1/1; margin: 0 auto; }
+  .pl-square .pl-hl { font-size: 24px; max-width: 320px; }
+  .pl-square .pl-thank-top { font-size: 52px; margin-bottom: -8px; }
+  .pl-square .pl-num { font-size: 200px; }
+  .pl-square .pl-brand { font-size: 10px; }
+  .pl-square .pl-cta { bottom: 14px; left: 14px; }
+
+  /* ── Full-width top banner (1200 × 120) ─────────────────── */
+  .pl-banner { width: 100%; height: 120px; max-width: 1200px; margin: 0 auto; border-radius: 0; }
+  .pl-banner .pl-hl { font-size: 22px; max-width: 700px; line-height: 1.15; }
+  .pl-banner .pl-thank-layer { flex-direction: row; gap: 18px; }
+  .pl-banner .pl-thank-top { font-size: 38px; margin: 0; }
+  .pl-banner .pl-num { font-size: 78px; }
+  .pl-banner .pl-brand { font-size: 10px; top: 12px; left: 14px; }
+  .pl-banner .pl-cta { bottom: 14px; right: 14px; }
+  .pl-banner .pl-badge { top: 12px; right: 14px; display: none; }
+
+  /* ── Thin top strip (1280 × 72) · ticker-esque ──────────── */
+  .pl-strip { width: 100%; height: 72px; max-width: 1280px; margin: 0 auto; border-radius: 0; }
+  .pl-strip .pl-hl { font-size: 16px; max-width: 700px; }
+  .pl-strip .pl-thank-layer { flex-direction: row; gap: 12px; }
+  .pl-strip .pl-thank-top { font-size: 24px; margin: 0; }
+  .pl-strip .pl-num { font-size: 46px; }
+  .pl-strip .pl-brand { font-size: 9px; top: 6px; left: 12px; }
+  .pl-strip .pl-cta { bottom: 8px; right: 12px; padding: 4px 10px; font-size: 9px; }
+  .pl-strip .pl-badge { display: none; }
+
+  /* ── Leaderboard 728 × 90 ──────────────────────────────── */
+  .pl-leaderboard { width: 728px; height: 90px; margin: 0 auto; border-radius: 6px; }
+  .pl-leaderboard .pl-hl { font-size: 18px; max-width: 560px; line-height: 1.1; }
+  .pl-leaderboard .pl-thank-layer { flex-direction: row; gap: 14px; }
+  .pl-leaderboard .pl-thank-top { font-size: 28px; margin: 0; }
+  .pl-leaderboard .pl-num { font-size: 58px; }
+  .pl-leaderboard .pl-brand { font-size: 9px; top: 6px; left: 10px; }
+  .pl-leaderboard .pl-cta { bottom: 8px; right: 10px; padding: 4px 10px; font-size: 9px; }
+  .pl-leaderboard .pl-badge { display: none; }
+
+  /* ── Mobile banner (375 × 120) — full width on phone ──── */
+  .pl-mobile-banner { width: 100%; max-width: 375px; height: 120px; margin: 0 auto; border-radius: 8px; }
+  .pl-mobile-banner .pl-hl { font-size: 14px; max-width: 240px; line-height: 1.15; }
+  .pl-mobile-banner .pl-thank-layer { flex-direction: column; gap: 2px; }
+  .pl-mobile-banner .pl-thank-top { font-size: 20px; margin-bottom: -4px; }
+  .pl-mobile-banner .pl-num { font-size: 68px; }
+  .pl-mobile-banner .pl-brand { font-size: 9px; top: 6px; left: 10px; }
+  .pl-mobile-banner .pl-cta { bottom: 8px; right: 10px; padding: 4px 8px; font-size: 9px; }
+  .pl-mobile-banner .pl-badge { display: none; }
+
+  /* ── Mobile square (375 × 375) ──────────────────────────── */
+  .pl-mobile-square { width: 100%; max-width: 375px; aspect-ratio: 1/1; margin: 0 auto; }
+  .pl-mobile-square .pl-hl { font-size: 20px; max-width: 260px; }
+  .pl-mobile-square .pl-thank-top { font-size: 42px; margin-bottom: -6px; }
+  .pl-mobile-square .pl-num { font-size: 150px; }
+  .pl-mobile-square .pl-brand { font-size: 9px; top: 10px; left: 10px; }
+  .pl-mobile-square .pl-cta { bottom: 12px; left: 12px; }
+
+  /* ── Mobile portrait (375 × 500 — 3:4) ─────────────────── */
+  .pl-mobile-portrait { width: 100%; max-width: 375px; aspect-ratio: 3/4; margin: 0 auto; }
+  .pl-mobile-portrait .pl-hl { font-size: 22px; max-width: 280px; }
+  .pl-mobile-portrait .pl-thank-top { font-size: 44px; margin-bottom: -6px; }
+  .pl-mobile-portrait .pl-num { font-size: 170px; }
+  .pl-mobile-portrait .pl-brand { font-size: 9px; top: 10px; left: 10px; }
+  .pl-mobile-portrait .pl-cta { bottom: 12px; left: 12px; }
+
+  /* ── Tall skyscraper (200 × 600) — sidebar ─────────────── */
+  .pl-sky { width: 200px; height: 600px; margin: 0 auto; border-radius: 10px; }
+  .pl-sky .pl-hl { font-size: 16px; max-width: 160px; line-height: 1.1; }
+  .pl-sky .pl-thank-top { font-size: 32px; margin-bottom: -4px; }
+  .pl-sky .pl-num { font-size: 96px; }
+  .pl-sky .pl-brand { font-size: 8px; top: 8px; left: 8px; }
+  .pl-sky .pl-cta { bottom: 10px; left: 10px; right: 10px; justify-content: center; font-size: 9px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Thank You 47 · size variants</h1>
+  <p class="lead">
+    Same animation (text → image → "THANK YOU / 47" on black), fit into different aspect ratios and sizes.
+    Each card is the real rendered size — scroll around to judge legibility. Once you pick which ones to ship, I'll add them as new template clauses: <code>patriotic_banner</code>, <code>patriotic_strip</code>, <code>patriotic_mobile</code>, etc.
+  </p>
+
+  <!-- SQUARE (current template) -->
+  <div class="card">
+    <h3>Square 1:1 · 440px · <em>current production template</em></h3>
+    <div class="meta">patriotic_loop · fits the article-inline slot at desktop + mobile</div>
+    <div class="pl pl-square">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-badge">Ad</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor the legacy →</div>
+    </div>
+  </div>
+
+  <!-- FULL-WIDTH BANNER -->
+  <div class="card">
+    <h3>Full-width banner · 1200 × 120</h3>
+    <div class="meta">horizontal leaderboard feel · above-the-fold strip · THANK YOU + 47 inline</div>
+    <div class="pl pl-banner">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor the legacy →</div>
+    </div>
+  </div>
+
+  <!-- THIN STRIP -->
+  <div class="card">
+    <h3>Thin top strip · 1280 × 72</h3>
+    <div class="meta">ticker-style · edge-to-edge · super subtle</div>
+    <div class="pl pl-strip">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor →</div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD 728 × 90 -->
+  <div class="card">
+    <h3>Standard leaderboard · 728 × 90</h3>
+    <div class="meta">IAB standard display ad size · great for header / between-posts</div>
+    <div class="pl pl-leaderboard">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor →</div>
+    </div>
+  </div>
+
+  <!-- MOBILE BANNER -->
+  <div class="card">
+    <h3>Mobile banner · 375 × 120</h3>
+    <div class="meta">skinny mobile strip · fits homepage_top_mobile slot</div>
+    <div class="pl pl-mobile-banner">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor →</div>
+    </div>
+  </div>
+
+  <!-- MOBILE SQUARE -->
+  <div class="card">
+    <h3>Mobile square · 375 × 375</h3>
+    <div class="meta">full-width square for inline article on mobile</div>
+    <div class="pl pl-mobile-square">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-badge">Ad</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor the legacy →</div>
+    </div>
+  </div>
+
+  <!-- MOBILE PORTRAIT -->
+  <div class="card">
+    <h3>Mobile portrait · 375 × 500 (3:4)</h3>
+    <div class="meta">tall mobile hero — more breathing room, bigger "47"</div>
+    <div class="pl pl-mobile-portrait">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-badge">Ad</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor the legacy →</div>
+    </div>
+  </div>
+
+  <!-- SKYSCRAPER -->
+  <div class="card">
+    <h3>Sidebar skyscraper · 200 × 600</h3>
+    <div class="meta">narrow vertical column · sidebar_left / sidebar_right slot</div>
+    <div class="pl pl-sky">
+      <div class="pl-img bg-img"></div>
+      <div class="pl-dim"></div>
+      <div class="pl-brand">America 250</div>
+      <div class="pl-headline-layer">
+        <div class="pl-hl"><span>The</span> <span>greatest</span> <span>president</span> <span>in</span> <span>American</span> <span>history.</span></div>
+      </div>
+      <div class="pl-thank-layer">
+        <div class="pl-thank-top">THANK YOU</div>
+        <div class="pl-num">47</div>
+      </div>
+      <div class="pl-cta">Honor →</div>
+    </div>
+  </div>
+
+  <h2>Notes</h2>
+  <ul style="color:#5a5a55; font-size:13px; line-height:1.6; max-width:820px;">
+    <li><strong>All 8 variants</strong> share the same animation timing (11s loop) — only the frame size + typography scale change.</li>
+    <li><strong>Placement fit</strong>:
+      <ul style="padding-left:20px; margin-top:4px;">
+        <li>Square → <code>article_inline_{1,2,3}</code> + <code>homepage_inline</code> (current)</li>
+        <li>Full-width banner (1200×120) → <code>homepage_top_desktop</code> replacing the RT ticker</li>
+        <li>Thin strip (1280×72) → same slot, more subtle</li>
+        <li>Leaderboard (728×90) → <code>article_bottom</code> or between-posts</li>
+        <li>Mobile banner (375×120) → <code>homepage_top_mobile</code></li>
+        <li>Mobile square/portrait → overrides on mobile inline via <code>inline_ad_slot</code> mobile-swap</li>
+        <li>Skyscraper (200×600) → <code>sidebar_left</code> / <code>sidebar_right</code></li>
+      </ul>
+    </li>
+    <li><strong>Templates to add</strong>: likely 3 new clauses — <code>patriotic_banner</code> (wide short), <code>patriotic_strip</code> (ticker), <code>patriotic_skyscraper</code> (narrow tall). The square template already handles 1:1 across viewports.</li>
+  </ul>
+</div>
+</body>
+</html>

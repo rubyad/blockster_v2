@@ -3,10 +3,11 @@
 How the watch / car / jet card ad templates work — for admins picking templates in `/admin/banners`, and for engineers extending the system.
 
 > **Quick links**
+> - Full ad system source of truth: [`ad_banners_system.md`](ad_banners_system.md)
 > - Code: `lib/blockster_v2_web/components/design_system.ex` (each `def ad_banner(%{banner: %{template: "..."}})` clause)
 > - Admin UI: `lib/blockster_v2_web/live/banners_admin_live.ex` (`@templates`, `@template_params`, `@enum_params`)
 > - Schema whitelist: `lib/blockster_v2/ads/banner.ex` (`@valid_templates`)
-> - Production seeds: `priv/repo/seeds_luxury_ads.exs`
+> - Production seed: `priv/repo/seeds_banners.exs` (unified — replaces the old `seeds_luxury_ads.exs`)
 > - Build history: [`solana_build_history.md`](solana_build_history.md) — "Real-Time Widgets Phase 6 + Luxury Ad Vertical (2026-04-15)"
 
 ---

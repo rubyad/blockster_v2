@@ -35,8 +35,72 @@ defmodule BlocksterV2Web.WidgetComponents do
   import BlocksterV2Web.Widgets.FsHeroLandscape, only: [fs_hero_landscape: 1]
   import BlocksterV2Web.Widgets.FsSquareCompact, only: [fs_square_compact: 1]
   import BlocksterV2Web.Widgets.FsSidebarTile, only: [fs_sidebar_tile: 1]
+  import BlocksterV2Web.Widgets.CfSidebarDemo, only: [cf_sidebar_demo: 1]
+  import BlocksterV2Web.Widgets.CfInlineLandscapeDemo, only: [cf_inline_landscape_demo: 1]
+  import BlocksterV2Web.Widgets.CfPortraitDemo, only: [cf_portrait_demo: 1]
+  import BlocksterV2Web.Widgets.CfSidebarTile, only: [cf_sidebar_tile: 1]
+  import BlocksterV2Web.Widgets.CfInlineLandscape, only: [cf_inline_landscape: 1]
+  import BlocksterV2Web.Widgets.CfPortrait, only: [cf_portrait: 1]
 
   @known_widget_types Banner.valid_widget_types()
+
+  # Renders an article-inline ad slot responsively. Landscape widgets and
+  # `luxury_watch_split` don't read well at mobile width, so they auto-swap
+  # to their portrait/editorial siblings below the `lg` breakpoint. The DB
+  # row is untouched — only the struct passed to `widget_or_ad` is cloned
+  # with a swapped widget_type/template.
+  attr :banner, :map, required: true
+  attr :bots, :list, default: []
+  attr :trades, :list, default: []
+  attr :selections, :map, default: %{}
+  attr :chart_data, :map, default: %{}
+  attr :tracker_errors, :map, default: %{}
+  attr :cf_games, :list, default: []
+  attr :class, :string, default: nil
+
+  def inline_ad_slot(assigns) do
+    assigns = assign(assigns, :mobile_banner, mobile_swap(assigns.banner))
+
+    ~H"""
+    <div class={if @mobile_banner, do: "hidden lg:block", else: ""}>
+      <.widget_or_ad
+        banner={@banner}
+        bots={@bots}
+        trades={@trades}
+        selections={@selections}
+        chart_data={@chart_data}
+        tracker_errors={@tracker_errors}
+        cf_games={@cf_games}
+      />
+    </div>
+    <%= if @mobile_banner do %>
+      <div class="lg:hidden">
+        <.widget_or_ad
+          banner={@mobile_banner}
+          bots={@bots}
+          trades={@trades}
+          selections={@selections}
+          chart_data={@chart_data}
+          tracker_errors={@tracker_errors}
+          cf_games={@cf_games}
+        />
+      </div>
+    <% end %>
+    """
+  end
+
+  # Desktop → mobile banner transform. Returns nil when the same render
+  # works on both viewports.
+  defp mobile_swap(%{widget_type: "cf_inline_landscape_demo"} = b),
+    do: %{b | widget_type: "cf_portrait_demo"}
+
+  defp mobile_swap(%{widget_type: "rt_chart_landscape"} = b),
+    do: %{b | widget_type: "rt_chart_portrait"}
+
+  defp mobile_swap(%{template: "luxury_watch_split"} = b),
+    do: %{b | template: "luxury_watch"}
+
+  defp mobile_swap(_), do: nil
 
   attr :banner, :map, required: true
   attr :bots, :list, default: []
@@ -44,6 +108,7 @@ defmodule BlocksterV2Web.WidgetComponents do
   attr :selections, :map, default: %{}
   attr :chart_data, :map, default: %{}
   attr :tracker_errors, :map, default: %{}
+  attr :cf_games, :list, default: []
   attr :class, :string, default: nil
   attr :rest, :global
 
@@ -204,6 +269,44 @@ defmodule BlocksterV2Web.WidgetComponents do
       selection={Map.get(@selections, @banner.id)}
       tracker_error?={TrackerStatus.widget_error?("fs_hero_landscape", @tracker_errors)}
     />
+    """
+  end
+
+  # Coin Flip live widgets (use cf_games data)
+  def widget_or_ad(%{banner: %{widget_type: "cf_sidebar_tile"}} = assigns) do
+    ~H"""
+    <.cf_sidebar_tile banner={@banner} cf_games={@cf_games} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "cf_inline_landscape"}} = assigns) do
+    ~H"""
+    <.cf_inline_landscape banner={@banner} cf_games={@cf_games} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "cf_portrait"}} = assigns) do
+    ~H"""
+    <.cf_portrait banner={@banner} cf_games={@cf_games} />
+    """
+  end
+
+  # Coin Flip demo widgets (no live data needed)
+  def widget_or_ad(%{banner: %{widget_type: "cf_sidebar_demo"}} = assigns) do
+    ~H"""
+    <.cf_sidebar_demo banner={@banner} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "cf_inline_landscape_demo"}} = assigns) do
+    ~H"""
+    <.cf_inline_landscape_demo banner={@banner} />
+    """
+  end
+
+  def widget_or_ad(%{banner: %{widget_type: "cf_portrait_demo"}} = assigns) do
+    ~H"""
+    <.cf_portrait_demo banner={@banner} />
     """
   end
 

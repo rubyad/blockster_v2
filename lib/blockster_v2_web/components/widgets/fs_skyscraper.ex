@@ -32,7 +32,7 @@ defmodule BlocksterV2Web.Widgets.FsSkyscraper do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell flex flex-col w-[200px] h-[760px] cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell flex flex-col w-[200px] h-[760px] cursor-pointer text-[#E8E4DD]"
       phx-hook="FsSkyscraperWidget"
       data-banner-id={@banner.id}
       data-widget-type="fs_skyscraper"

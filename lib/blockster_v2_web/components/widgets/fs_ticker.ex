@@ -33,7 +33,7 @@ defmodule BlocksterV2Web.Widgets.FsTicker do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell bw-ticker relative w-full h-[56px] flex items-stretch overflow-hidden cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell bw-ticker relative w-full h-[56px] flex items-stretch overflow-hidden cursor-pointer text-[#E8E4DD]"
       phx-hook="FsTickerWidget"
       data-banner-id={@banner.id}
       data-widget-type="fs_ticker"

@@ -61,7 +61,7 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInlineTest do
 
       assert html =~ ~s(phx-click="widget_click")
       assert html =~ ~s(phx-value-subject="rt")
-      assert html =~ "View all AI Bots"
+      assert html =~ "Deposit SOL"
     end
 
     test "renders shimmer skeleton when bots is []" do

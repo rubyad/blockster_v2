@@ -36,7 +36,7 @@ defmodule BlocksterV2.Widgets.ClickRouter do
   def url_for(subject), do: destination(subject)
 
   defp destination({bot_id, _tf}) when is_binary(bot_id) and byte_size(bot_id) > 0,
-    do: "#{@rt_base}/bot/#{bot_id}"
+    do: "#{@rt_base}/bot/#{resolve_numeric_id(bot_id)}"
 
   defp destination(order_id) when is_binary(order_id) and byte_size(order_id) > 0 do
     case order_id do
@@ -49,6 +49,20 @@ defmodule BlocksterV2.Widgets.ClickRouter do
   defp destination(:rt), do: @rt_base
   defp destination(:fs), do: @fs_base
   defp destination(_), do: "/"
+
+  # RogueTrader bot pages are keyed on the numeric `bot_id`, not the slug/name.
+  # The widget subject still carries the slug (for UI lookup), so translate it
+  # to the numeric id via the bots cache. Falls back to the original identifier
+  # if the bot isn't in the cache (URL may be stale but never crashes).
+  defp resolve_numeric_id(id) do
+    case BlocksterV2.Widgets.RogueTraderBotsTracker.get_bot(id) do
+      %{"bot_id" => n} when is_integer(n) -> Integer.to_string(n)
+      %{"bot_id" => n} when is_binary(n) and n != "" -> n
+      _ -> id
+    end
+  rescue
+    _ -> id
+  end
 
   @doc "RogueTrader base URL."
   def rt_base, do: @rt_base

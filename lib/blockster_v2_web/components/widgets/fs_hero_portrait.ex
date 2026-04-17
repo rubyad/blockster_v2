@@ -49,7 +49,7 @@ defmodule BlocksterV2Web.Widgets.FsHeroPortrait do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-full md:w-[440px] max-w-[440px] mx-auto flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
+      class="not-prose bw-widget bw-shell relative w-full md:w-[440px] max-w-[440px] mx-auto flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       style="min-height:640px;"
       phx-hook="FsHeroWidget"
       data-banner-id={@banner.id}

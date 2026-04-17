@@ -5,7 +5,7 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInline do
   Renders the top 10 bots (by `lp_price` desc) in a desktop table:
   rank · bot name + group tag · LP bid/ask · 1h · 24h · AUM. Mobile
   collapses to a 2-column compact card grid. Header: "Top RogueBots"
-  + LIVE pill. Footer tagline + "View all AI Bots →" CTA.
+  + LIVE pill. Footer tagline + "Deposit SOL →" CTA.
 
   Per-row clicks route to `/bot/:slug` (Decision #7 exception). The
   `RtLeaderboardWidget` JS hook wires each row's `click` listener and
@@ -37,7 +37,7 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInline do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-full flex flex-col overflow-hidden text-[#E8E4DD] bw-shell-bg-grid"
+      class="not-prose bw-widget bw-shell relative w-full flex flex-col overflow-hidden text-[#E8E4DD] bw-shell-bg-grid"
       phx-hook="RtLeaderboardWidget"
       data-banner-id={@banner.id}
       data-widget-type="rt_leaderboard_inline"
@@ -196,7 +196,7 @@ defmodule BlocksterV2Web.Widgets.RtLeaderboardInline do
           30 AI trading bots. Live on Solana.
         </span>
         <span class="bw-display text-[12px] font-semibold text-[#E8E4DD] whitespace-nowrap">
-          View all AI Bots →
+          Deposit SOL →
         </span>
       </div>
     </div>

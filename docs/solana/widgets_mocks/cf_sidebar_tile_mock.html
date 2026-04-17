@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cf_sidebar_tile Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1080px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 14px;
+      padding: 56px 40px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 56px;
+      flex-wrap: wrap;
+    }
+    .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .tile-caption {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #9ca3af;
+    }
+
+    /* ============================================================
+       .bw-widget scoped tokens
+       ============================================================ */
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-red:           #EF4444;
+      --bw-yellow:        #EAB308;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+      --bw-lime:          #CAFC00;
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .bw-shell {
+      background: var(--bw-bg);
+      border-radius: 0.875rem;
+      overflow: hidden;
+      box-shadow:
+        0 24px 48px -14px rgba(0,0,0,0.35),
+        0 10px 20px -8px rgba(0,0,0,0.20);
+    }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       CASINO CHIPS — match to app.css .casino-chip-heads/tails
+       ============================================================ */
+    .cf-chip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+    }
+    .cf-chip--heads {
+      background: conic-gradient(
+        #f59e0b 0deg 30deg, #ffffff 30deg 60deg,
+        #f59e0b 60deg 90deg, #ffffff 90deg 120deg,
+        #f59e0b 120deg 150deg, #ffffff 150deg 180deg,
+        #f59e0b 180deg 210deg, #ffffff 210deg 240deg,
+        #f59e0b 240deg 270deg, #ffffff 270deg 300deg,
+        #f59e0b 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #d97706;
+    }
+    .cf-chip--tails {
+      background: conic-gradient(
+        #374151 0deg 30deg, #ffffff 30deg 60deg,
+        #374151 60deg 90deg, #ffffff 90deg 120deg,
+        #374151 120deg 150deg, #ffffff 150deg 180deg,
+        #374151 180deg 210deg, #ffffff 210deg 240deg,
+        #374151 240deg 270deg, #ffffff 270deg 300deg,
+        #374151 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #1f2937;
+    }
+    .cf-chip__inner {
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .cf-chip--heads .cf-chip__inner { background: #f59e0b; }
+    .cf-chip--tails .cf-chip__inner { background: #374151; }
+
+    /* Sidebar chip — sized to read clearly in a 200px tile */
+    .cf-chip--sb { width: 42px; height: 42px; }
+    .cf-chip--sb .cf-chip__inner { width: 28px; height: 28px; font-size: 18px; }
+
+    /* Match / no-match rings */
+    .cf-chip--match { box-shadow: 0 0 0 2px var(--bw-bg), 0 0 0 4px #22C55E, 0 3px 10px rgba(0, 0, 0, 0.45); }
+    .cf-chip--miss  { box-shadow: 0 0 0 2px var(--bw-bg), 0 0 0 4px #EF4444, 0 3px 10px rgba(0, 0, 0, 0.45); }
+
+    .cf-chip__badge {
+      position: absolute;
+      bottom: -5px; right: -5px;
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9.5px;
+      font-weight: 900;
+      color: #FFFFFF;
+      line-height: 1;
+      box-shadow: 0 0 0 2px var(--bw-bg);
+      z-index: 2;
+    }
+    .cf-chip__badge--ok { background: #22C55E; }
+    .cf-chip__badge--no { background: #EF4444; }
+
+    /* Token logo */
+    .cf-token {
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+      object-fit: cover;
+    }
+
+    /* ============================================================
+       cf_sidebar_tile — 200 × 340
+       ============================================================ */
+    .cf-sb {
+      position: relative;
+      width: 200px;
+      height: 340px;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .cf-sb::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.022) 0.5px, transparent 1px);
+      background-size: 10px 10px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .cf-sb::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(202, 252, 0, 0.35) 50%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* ---- Header ---- */
+    .cf-sb__head {
+      position: relative; z-index: 1;
+      padding: 9px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .cf-sb__head-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Blockster wordmark: BL[circle]CKSTER */
+    .cf-sb__brand-wordmark {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+    }
+    .cf-sb__brand-wordmark-o {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin: 0 0.5px;
+      vertical-align: middle;
+      display: inline-block;
+      box-shadow: 0 0 4px rgba(202, 252, 0, 0.35);
+    }
+    .cf-sb__head-spacer { flex: 1; }
+    .cf-sb__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--bw-green);
+    }
+    .cf-sb__sub {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--bw-primary);
+      line-height: 1;
+    }
+
+    /* ---- Body ---- */
+    .cf-sb__body {
+      position: relative;
+      z-index: 1;
+      padding: 11px 12px 8px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .cf-sb__status {
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px 3px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .cf-sb__status--win  { background: rgba(34, 197, 94, 0.14); color: var(--bw-green); }
+    .cf-sb__status--loss { background: rgba(239, 68, 68, 0.14); color: var(--bw-red); }
+
+    .cf-sb__sub-heading {
+      font-size: 10.5px;
+      color: var(--bw-data);
+      letter-spacing: 0.01em;
+      margin: 0;
+      font-weight: 500;
+      text-align: center;
+    }
+    .cf-sb__sub-heading .cf-sb__odds {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: -0.01em;
+    }
+    /* ---- Coin rows (centered, bigger chips) ---- */
+    .cf-sb__row {
+      margin-top: 12px;
+    }
+    .cf-sb__row-label {
+      font-size: 8.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--bw-secondary);
+      margin: 0 0 8px;
+      text-align: center;
+      line-height: 1;
+    }
+    .cf-sb__coins {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* ---- Stats row with USD subtitle ---- */
+    .cf-sb__stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--bw-border);
+    }
+    .cf-sb__stat-col--right { text-align: right; }
+    .cf-sb__stat-label {
+      font-size: 8.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--bw-secondary);
+      line-height: 1;
+      margin: 0 0 5px;
+    }
+    .cf-sb__stat-value {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--bw-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cf-sb__stat-value--pos { color: var(--bw-green); }
+    .cf-sb__stat-value--neg { color: var(--bw-red); }
+    .cf-sb__stat-ticker {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--bw-data);
+      margin-left: 1px;
+    }
+    .cf-sb__stat-value--pos .cf-sb__stat-ticker,
+    .cf-sb__stat-value--neg .cf-sb__stat-ticker { color: inherit; opacity: 0.82; }
+    .cf-sb__stat-usd {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 9px;
+      color: var(--bw-faint);
+      margin-top: 3px;
+      line-height: 1;
+      display: block;
+    }
+
+    /* ---- Footer ---- */
+    .cf-sb__foot {
+      position: relative;
+      z-index: 1;
+      height: 26px;
+      padding: 0 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid var(--bw-border);
+      background: rgba(255, 255, 255, 0.01);
+    }
+    .cf-sb__tagline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--bw-data);
+    }
+    .cf-sb__tagline .bw-pulse-dot { width: 4px; height: 4px; }
+
+    @media (max-width: 640px) {
+      .stage { padding: 40px 24px; gap: 32px; }
+      body { padding: 32px 16px 64px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">cf_sidebar_tile &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0</span></h1>
+      <p class="page-sub">
+        Blockster counterpart to <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">fs_sidebar_tile</code> — 200 × 340 single-game tile for the <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#eee;padding:1px 4px;border-radius:3px;">/play</code> coin-flip game. Uses the same casino-chip 🚀/💩 coins and SOL/BUX token logos as the play page. USD subtitle under each stake/payout.
+      </p>
+    </header>
+
+    <section class="variant">
+      <h2 class="variant-label">Winner &nbsp;· 200 × 340 — sidebar tile</h2>
+      <div class="stage">
+        <div class="tile-wrap">
+          <div class="bw-widget bw-shell cf-sb">
+            <div class="cf-sb__head">
+              <div class="cf-sb__head-row">
+                <span class="cf-sb__brand-wordmark bw-display">BL<img class="cf-sb__brand-wordmark-o" src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="O" />CKSTER</span>
+                <span class="cf-sb__head-spacer"></span>
+                <span class="cf-sb__live bw-display"><span class="bw-pulse-dot"></span>LIVE</span>
+              </div>
+              <div class="cf-sb__head-row">
+                <span class="cf-sb__sub bw-display">Coin Flip</span>
+              </div>
+            </div>
+
+            <div class="cf-sb__body">
+              <span class="cf-sb__status cf-sb__status--win bw-display">Winner</span>
+
+              <p class="cf-sb__sub-heading bw-display">
+                Win All · 2 Flips · <span class="cf-sb__odds bw-mono">3.96×</span>
+              </p>
+
+              <div class="cf-sb__row">
+                <p class="cf-sb__row-label bw-display">Player's Pick</p>
+                <div class="cf-sb__coins">
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                </div>
+              </div>
+
+              <div class="cf-sb__row">
+                <p class="cf-sb__row-label bw-display">Result</p>
+                <div class="cf-sb__coins">
+                  <span class="cf-chip cf-chip--sb cf-chip--heads cf-chip--match">
+                    <span class="cf-chip__inner">🚀</span>
+                    <span class="cf-chip__badge cf-chip__badge--ok">✓</span>
+                  </span>
+                  <span class="cf-chip cf-chip--sb cf-chip--heads cf-chip--match">
+                    <span class="cf-chip__inner">🚀</span>
+                    <span class="cf-chip__badge cf-chip__badge--ok">✓</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="cf-sb__stats">
+                <div>
+                  <p class="cf-sb__stat-label bw-display">Stake</p>
+                  <span class="cf-sb__stat-value bw-mono">
+                    0.50
+                    <img class="cf-token" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" />
+                    <span class="cf-sb__stat-ticker bw-display">SOL</span>
+                  </span>
+                  <span class="cf-sb__stat-usd">≈ $118.00</span>
+                </div>
+                <div class="cf-sb__stat-col--right">
+                  <p class="cf-sb__stat-label bw-display">Payout</p>
+                  <span class="cf-sb__stat-value cf-sb__stat-value--pos bw-mono" style="justify-content:flex-end;width:100%;">
+                    +0.98
+                    <img class="cf-token" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" />
+                    <span class="cf-sb__stat-ticker bw-display">SOL</span>
+                  </span>
+                  <span class="cf-sb__stat-usd">≈ +$231.28</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cf-sb__foot">
+              <span class="cf-sb__tagline bw-display">
+                <span class="bw-pulse-dot"></span>Provably Fair · On Solana
+              </span>
+            </div>
+          </div>
+          <span class="tile-caption">Winner — Win All · 2 flips · SOL</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="variant">
+      <h2 class="variant-label">House Wins &nbsp;· 200 × 340 — sidebar tile</h2>
+      <div class="stage">
+        <div class="tile-wrap">
+          <div class="bw-widget bw-shell cf-sb">
+            <div class="cf-sb__head">
+              <div class="cf-sb__head-row">
+                <span class="cf-sb__brand-wordmark bw-display">BL<img class="cf-sb__brand-wordmark-o" src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="O" />CKSTER</span>
+                <span class="cf-sb__head-spacer"></span>
+                <span class="cf-sb__live bw-display"><span class="bw-pulse-dot"></span>LIVE</span>
+              </div>
+              <div class="cf-sb__head-row">
+                <span class="cf-sb__sub bw-display">Coin Flip</span>
+              </div>
+            </div>
+
+            <div class="cf-sb__body">
+              <span class="cf-sb__status cf-sb__status--loss bw-display">House Wins</span>
+
+              <p class="cf-sb__sub-heading bw-display">
+                Win All · 3 Flips · <span class="cf-sb__odds bw-mono">7.92×</span>
+              </p>
+
+              <div class="cf-sb__row">
+                <p class="cf-sb__row-label bw-display">Player's Pick</p>
+                <div class="cf-sb__coins">
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                  <span class="cf-chip cf-chip--sb cf-chip--tails"><span class="cf-chip__inner">💩</span></span>
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                </div>
+              </div>
+
+              <div class="cf-sb__row">
+                <p class="cf-sb__row-label bw-display">Result</p>
+                <div class="cf-sb__coins">
+                  <span class="cf-chip cf-chip--sb cf-chip--heads cf-chip--match">
+                    <span class="cf-chip__inner">🚀</span>
+                    <span class="cf-chip__badge cf-chip__badge--ok">✓</span>
+                  </span>
+                  <span class="cf-chip cf-chip--sb cf-chip--tails cf-chip--match">
+                    <span class="cf-chip__inner">💩</span>
+                    <span class="cf-chip__badge cf-chip__badge--ok">✓</span>
+                  </span>
+                  <span class="cf-chip cf-chip--sb cf-chip--tails cf-chip--miss">
+                    <span class="cf-chip__inner">💩</span>
+                    <span class="cf-chip__badge cf-chip__badge--no">✗</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="cf-sb__stats">
+                <div>
+                  <p class="cf-sb__stat-label bw-display">Stake</p>
+                  <span class="cf-sb__stat-value bw-mono">
+                    5,000
+                    <img class="cf-token" src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" />
+                    <span class="cf-sb__stat-ticker bw-display">BUX</span>
+                  </span>
+                  <span class="cf-sb__stat-usd">≈ $5.00</span>
+                </div>
+                <div class="cf-sb__stat-col--right">
+                  <p class="cf-sb__stat-label bw-display">Payout</p>
+                  <span class="cf-sb__stat-value cf-sb__stat-value--neg bw-mono" style="justify-content:flex-end;width:100%;">
+                    −5,000
+                    <img class="cf-token" src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" />
+                    <span class="cf-sb__stat-ticker bw-display">BUX</span>
+                  </span>
+                  <span class="cf-sb__stat-usd">≈ −$5.00</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cf-sb__foot">
+              <span class="cf-sb__tagline bw-display">
+                <span class="bw-pulse-dot"></span>Provably Fair · On Solana
+              </span>
+            </div>
+          </div>
+          <span class="tile-caption">House Wins — Win All · 3 flips · BUX</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

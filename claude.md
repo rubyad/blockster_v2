@@ -1,561 +1,228 @@
 # Blockster V2
 
-Phoenix LiveView application with Elixir backend, serving a web3 content platform with a shop, hubs, events, and token-based engagement system.
+Phoenix LiveView web3 content platform — shop, hubs, events, token-based engagement. Migrated from Rogue Chain (EVM) to Solana.
 
-> **Claude Instructions**: For detailed historical bug fixes and implementation notes, see [docs/session_learnings.md](docs/session_learnings.md). Keep this file concise (~350 lines). Only add new learnings here if they represent stable patterns or critical rules. Move detailed narratives to session_learnings.md.
+> **Claude instructions**: Keep this file concise (~250 lines). Move detailed narratives into linked docs — do not grow CLAUDE.md.
 >
-> **When user says "update docs"**: Update ALL of these as appropriate:
-> - `docs/solana_build_history.md` — chronological build log (always update for Solana-related changes)
-> - `docs/session_learnings.md` — detailed bug fix narratives
-> - `CLAUDE.md` — only for stable patterns or critical rules
->
-> **CRITICAL GIT RULES**:
-> - NEVER add, commit, or push changes to git without EXPLICIT user instructions
-> - NEVER change git branches without EXPLICIT user instructions
-> - **NEVER run `git checkout --`, `git restore`, or `git stash` on files without first running `git diff` to verify no pre-existing uncommitted changes exist** — these commands destroy ALL unstaged work irreversibly, not just your own edits. To undo only your changes, use targeted Edit tool calls.
->
-> **CRITICAL SECURITY RULES**:
-> - NEVER read or access any `.env` file - these contain private keys and secrets
-> - **NEVER use public RPC endpoints** (`api.devnet.solana.com`, `api.mainnet-beta.solana.com`) for ANY Solana command — always use the project QuickNode RPC from `contracts/blockster-settler/src/config.ts`. This applies to `solana program deploy`, `solana balance`, `solana transfer`, scripts, and ALL CLI commands. Public RPCs are rate-limited and unreliable.
-> - NEVER use `solana airdrop` or any devnet faucet — they are rate-limited and do not work. Ask the user to fund the wallet manually.
->
-> **CRITICAL SOLANA TX CONFIRMATION RULES**:
-> - **NEVER use `confirmTransaction` (websocket subscriptions)** for confirming Solana transactions — it is unreliable, creates RPC contention when multiple txs are in flight, and causes slow/stuck confirmations
-> - **NEVER use manual rebroadcast loops** (`setInterval` + `sendRawTransaction`) — `maxRetries` on `sendRawTransaction` handles delivery retries at the RPC level
-> - **ALWAYS use `getSignatureStatuses` polling** (like ethers.js `tx.wait()`) — send the tx once with `maxRetries:5`, then poll `getSignatureStatuses` every 2s until "confirmed". See `rpc-client.ts:waitForConfirmation` and `coin_flip_solana.js:pollForConfirmation`
-> - This applies to ALL Solana code: settler services, client-side JS hooks, scripts, and any new services
->
-> **CRITICAL SOLANA STATE PROPAGATION RULES**:
-> - **NEVER chain dependent Solana transactions back-to-back** — if tx B reads state modified by tx A, there MUST be meaningful time between A's confirmation and B's submission. Even the SAME RPC endpoint can return stale state in `simulateTransaction` immediately after confirming tx A via `getSignatureStatuses`.
-> - **NEVER pre-submit the next game's `submit_commitment` immediately after `settle_bet`** — the `place_bet` that follows will fail with `NonceMismatch` because wallet RPCs (and even the settler RPC's simulation engine) haven't propagated the state changes yet. Sleeps (2s, 4s) and JS retries (3x over 6s) were all insufficient.
-> - **The fix**: trigger dependent transactions from USER ACTIONS (button clicks, page loads), not programmatically back-to-back. The natural delay of user interaction gives RPCs time to sync. See `docs/session_learnings.md` for the full debugging narrative.
->
-> **CRITICAL DEPENDENCY RULES**:
-> - NEVER update Phoenix, LiveView, Ecto, or other core dependencies without EXPLICIT user permission
->
-> **CRITICAL AI MODEL RULES**:
-> - NEVER downgrade the AI Manager model to Sonnet or Haiku — always use the latest Opus model
-> - The AI Manager (`ai_manager.ex`) must always use Claude Opus for API calls
->
-> **CRITICAL DATABASE RULES**:
-> - NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops/recreates the database
-> - NEVER delete or truncate tables — production data (products, hubs, users) is manually curated and irreplaceable
-> - The ONLY safe Ecto commands are `mix ecto.migrate` and `mix ecto.rollback`
-> - If a migration needs fixing, roll it back and fix — NEVER reset the entire database
->
-> **CRITICAL MNESIA RULES**:
-> - NEVER delete Mnesia directories (`priv/mnesia/node1`, `priv/mnesia/node2`) - contains unrecoverable user data
-> - When new Mnesia tables are added, restart both nodes to create them
-> - There is NO scenario where deleting Mnesia directories is correct
->
-> **CRITICAL FLY.IO SECRETS RULES**:
-> - ALWAYS use `--stage` when setting secrets: `flyctl secrets set KEY=VALUE --stage --app blockster-v2`
-> - `flyctl secrets set` WITHOUT `--stage` **immediately restarts the production server** — this is destructive
-> - Staged secrets take effect on the next deploy, which is the safe and expected behavior
-> - NEVER run `flyctl secrets set` without `--stage` unless the user EXPLICITLY says to restart production
->
-> **CRITICAL SOLANA PROGRAM DEPLOY RULES**:
-> - **Upgrade authority** for both Bankroll and Airdrop programs is the settler keypair (`6b4n...`), NOT the CLI wallet (`49aN...`)
-> - Deploy command MUST use `--upgrade-authority` pointing to settler keypair:
->   ```
->   solana program deploy target/deploy/blockster_bankroll.so \
->     --program-id 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm \
->     --upgrade-authority contracts/blockster-settler/keypairs/mint-authority.json \
->     --url https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/
->   ```
-> - Fee payer is the CLI wallet (`49aN...`) — needs ~5 SOL for program deploys
-> - **IF DEPLOY FAILS** (insufficient funds, network error): Solana creates a **buffer account** with an ephemeral keypair. The output shows a 12-word seed phrase. **YOU MUST RECOVER AND CLOSE THIS BUFFER** or the SOL is lost:
->   1. Save the seed phrase from the error output
->   2. Recover keypair using `expect` (solana-keygen needs TTY, use this pattern):
->      ```
->      expect -c '
->      spawn solana-keygen recover --outfile /tmp/buffer-keypair.json --force --skip-seed-phrase-validation
->      expect "seed phrase:"
->      send "PASTE_SEED_PHRASE_HERE\r"
->      expect "passphrase"
->      send "\r"
->      expect "Continue"
->      send "y\r"
->      expect eof
->      '
->      ```
->   3. Close buffer to recover SOL: `solana program close /tmp/buffer-keypair.json --url https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/`
->   4. Retry deploy after funding the wallet
-> - **NEVER ignore a failed deploy** — always recover the buffer first
->
-> **CRITICAL BUX TOKEN RULES**:
-> - BUX tokens live ON-CHAIN in users' smart wallets — they are real ERC-20 tokens, not just Mnesia entries
-> - Mnesia tracks balances for fast reads, but the on-chain balance is the source of truth
-> - To move BUX out of a user's wallet: approve() + transferFrom() — NEVER mint fresh tokens as a shortcut
-> - The airdrop deposit flow MUST use approve + transferFrom from the user's smart wallet to the vault
-> - NEVER assume tokens don't exist on-chain. If a user earned BUX and it was minted to their smart wallet, it's THERE.
-> - DO NOT invent or assume how systems work — read the code, read the contracts, and if unsure ASK THE USER
->
-> **DEVELOPMENT WORKFLOW**:
-> - DO NOT restart nodes after code fixes - Elixir hot reloads. Only restart for supervision tree/config changes
-> - NEVER use the Write tool to rewrite entire documentation files - use Edit for targeted changes
-> - NEVER deploy without explicit user instructions
-> - **ALL tests must pass before deploying** — run `mix test` and fix every single failure. Zero failures required.
+> **When user says "update docs"**: update `docs/solana_build_history.md` (chronological build log), `docs/session_learnings.md` (bug fix narratives), and CLAUDE.md (only for stable patterns or new critical rules).
+
+## Critical Rules
+
+**Git**:
+- NEVER add, commit, push, or change branches without explicit user instructions.
+- NEVER run `git checkout --`, `git restore`, or `git stash` on a file without first running `git diff` to confirm no pre-existing uncommitted work. These destroy ALL unstaged work irreversibly. To undo only your edits, use targeted Edit calls.
+
+**Security**:
+- NEVER read `.env` files — they contain private keys.
+- NEVER use public Solana RPCs (`api.devnet.solana.com`, `api.mainnet-beta.solana.com`). Always use the project QuickNode RPC from `contracts/blockster-settler/src/config.ts`.
+- NEVER use `solana airdrop` or any devnet faucet — ask the user to fund wallets manually.
+
+**Solana transactions** (see [docs/solana_program_deploy.md](docs/solana_program_deploy.md)):
+- Use `getSignatureStatuses` polling for confirmation — NEVER `confirmTransaction` (websocket), NEVER manual rebroadcast loops.
+- NEVER chain dependent txs back-to-back — state propagation is unreliable even on the same RPC. Trigger dependent txs from user actions.
+
+**Database / Mnesia**:
+- NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops the database. Only `mix ecto.migrate` and `mix ecto.rollback` are safe.
+- NEVER delete `priv/mnesia/*` directories — unrecoverable user data. No exceptions.
+- NEVER truncate tables — production data (products, hubs, users) is manually curated.
+
+**Fly.io secrets**:
+- ALWAYS use `--stage`: `flyctl secrets set KEY=VALUE --stage --app blockster-v2`. Without `--stage`, Fly immediately restarts production.
+
+**Tokens**:
+- BUX tokens live ON-CHAIN. Mnesia is a cache; on-chain is source of truth. To move BUX out of a user's wallet: `approve()` + `transferFrom()` — NEVER mint as a shortcut.
+- Primary wallet field is `wallet_address` (Solana pubkey for new users, EVM EOA for legacy). `smart_wallet_address` is legacy EVM ERC-4337, `nil` for Solana users — NEVER use it for BuxMinter calls.
+
+**AI / dependencies**:
+- AI Manager (`ai_manager.ex`) must always use Claude Opus. Never downgrade to Sonnet/Haiku.
+- NEVER update Phoenix, LiveView, Ecto, or other core deps without explicit user permission.
+
+**Deploy**:
+- NEVER deploy without explicit user instructions. ALL tests must pass (`mix test`, zero failures) before deploy.
+- Elixir hot-reloads — do not restart nodes after code fixes. Only restart for supervision tree / config changes.
+
+**CSS debugging**:
+- When the user reports a visual/spacing/sizing issue, open DevTools and inspect COMPUTED styles FIRST — before mutating HEEx or adding fixed heights.
+- Widgets rendered inside `.prose` articles MUST have `not-prose` on the root — Tailwind Typography injects `:where(img) { margin: 2em 0 }` which silently hijacks embedded components. Applies to every widget in `lib/blockster_v2_web/components/widgets/`.
+
+**Editing docs**: Use `Edit` for targeted changes. Do NOT use `Write` to rewrite entire doc files.
+
+## Tech Stack
+
+- **Backend**: Elixir/Phoenix 1.7+ LiveView, PostgreSQL + Ecto, Mnesia (distributed real-time state)
+- **Frontend**: TailwindCSS, TipTap, Solana Wallet Standard
+- **Blockchain**: Solana (devnet now, mainnet pending). Legacy EVM (Rogue Chain 560013) preserved on `evm-archive` branch.
+- **Deployment**: Fly.io (app: `blockster-v2`)
+
+## Key Directories
+
+- `lib/blockster_v2/` — core business logic
+- `lib/blockster_v2_web/live/` — LiveView modules
+- `assets/js/` — LiveView JS hooks
+- `priv/repo/migrations/` — Ecto migrations
+- `contracts/blockster-bankroll/` — Anchor: dual-vault bankroll (SOL + BUX)
+- `contracts/blockster-airdrop/` — Anchor: multi-round airdrop
+- `contracts/blockster-settler/` — Node.js service: mint, bet settlement, pool/airdrop tx builders
+- `contracts/legacy-evm/` — legacy Solidity contracts (EVM, preserved)
+- `docs/` — feature/plan/runbook docs
 
 ## Branding
 
-- **Brand Color**: `#CAFC00` (lime green) - accent ONLY, NOT for buttons, tabs, or large UI surfaces on light backgrounds
-  - NEVER use as text color
-  - NEVER use as button backgrounds — lime on white looks washed out
-  - NEVER use random greens (green-600, emerald, etc.) for text — looks cheap
-  - OK for: small accent dots, icon backgrounds, subtle borders/rings, progress indicators
-  - **Buttons/tabs**: Use `bg-gray-900 text-white` (dark) or `bg-gray-100 text-gray-900` (light) — NOT lime
-- **Logo**: `https://ik.imagekit.io/blockster/blockster-icon.png` - via `lightning_icon/1` component
-- **Icons**: Heroicons solid style, pattern: `w-16 h-16 bg-[#CAFC00] rounded-xl` + `w-8 h-8 text-black`
-- **Brand assets (wordmark + icon PNGs, all sizes + transparent/dark variants)**: see [docs/brand_assets.md](docs/brand_assets.md). Origin: `s3://blockster-images/brand/` → served at `https://ik.imagekit.io/blockster/brand/...`
-
-## Tech Stack
-- **Backend**: Elixir/Phoenix 1.7+ with LiveView
-- **Database**: PostgreSQL with Ecto, Mnesia for real-time distributed state
-- **Frontend**: TailwindCSS, TipTap editor, Thirdweb for wallet integration
-- **Blockchain**: Rogue Chain Mainnet (Chain ID: 560013)
-- **Deployment**: Fly.io (app: blockster-v2)
-- **Account Abstraction**: ERC-4337 with gasless smart wallets via Paymaster
-
-## Key Directories
-- `lib/blockster_v2/` - Core business logic
-- `lib/blockster_v2_web/live/` - LiveView modules
-- `assets/js/` - JavaScript hooks for LiveView
-- `priv/repo/migrations/` - Ecto migrations
-- `docs/` - Feature documentation
-- `contracts/legacy-evm/` - Solidity contracts (EVM, legacy - renamed from bux-booster-game)
-- `contracts/blockster-bankroll/` - Anchor program: dual-vault bankroll (SOL + BUX)
-- `contracts/blockster-settler/` - Node.js settler service: BUX minting, bet settlement
+- **Brand Color** `#CAFC00` — accent ONLY (small dots, icon backgrounds, subtle borders). NEVER as text, button background, or random-green substitute.
+- **Buttons/tabs**: `bg-gray-900 text-white` (dark) or `bg-gray-100 text-gray-900` (light).
+- **Logo**: `https://ik.imagekit.io/blockster/blockster-icon.png` via `lightning_icon/1`. Full asset set: [docs/brand_assets.md](docs/brand_assets.md).
+- **Icons**: Heroicons solid, pattern `w-16 h-16 bg-[#CAFC00] rounded-xl` + `w-8 h-8 text-black`.
 
 ## Running Locally
 
-### Quick Start (recommended)
 ```bash
-bin/dev           # Starts settler + 2 Elixir nodes (full cluster)
-bin/dev single    # Starts settler + 1 Elixir node (no cluster)
-bin/dev settler   # Starts only the settler service
+bin/dev           # settler + 2 Elixir nodes (full cluster) — DEFAULT, always use this
+bin/dev single    # single node, no cluster (discouraged)
+bin/dev settler   # settler only
 ```
-This starts all services in one terminal. Ctrl+C stops everything.
 
-### What `bin/dev` starts
 | Service | Port | Purpose |
 |---------|------|---------|
 | Settler | 3000 | Solana minter/settler (BUX mint, bet settlement, airdrop, pool txs) |
 | Node 1 | 4000 | Main Phoenix app |
 | Node 2 | 4001 | Cluster peer (Mnesia replication, GlobalSingleton failover) |
 
-### Prerequisites
+**Prereqs** (first time only): `cd contracts/blockster-settler && npm install`, verify `contracts/blockster-settler/keypairs/mint-authority.json` exists, run `mix ecto.migrate`.
+
+**Dev env**: Settler auth bypassed (`SETTLER_API_SECRET=dev-secret`), BuxMinter defaults to `http://localhost:3000`, Solana = devnet (QuickNode), libcluster auto-discovers `node1`/`node2`.
+
+**Real-time widgets**: `WIDGETS_ENABLED=false` by default. To see live data:
 ```bash
-# 1. Install settler dependencies (first time only)
-cd contracts/blockster-settler && npm install && cd ../..
-
-# 2. Ensure keypairs exist (needed for Solana devnet minting)
-ls contracts/blockster-settler/keypairs/mint-authority.json
-
-# 3. Ensure PostgreSQL is running and DB is migrated
-mix ecto.migrate
+WIDGETS_ENABLED=true bin/dev
+mix run priv/repo/seeds_widget_banners.exs   # one-time
 ```
-
-### Manual Start (separate terminals)
-```bash
-# Terminal 1: Settler service (Solana devnet, auth bypassed in dev)
-cd contracts/blockster-settler && npx ts-node src/index.ts
-
-# Terminal 2: Elixir node1
-elixir --sname node1 -S mix phx.server
-
-# Terminal 3: Elixir node2
-PORT=4001 elixir --sname node2 -S mix phx.server
-```
-
-### Dev Environment Details
-- **Settler auth**: Skipped in dev mode (`SETTLER_API_SECRET=dev-secret`)
-- **Elixir→Settler**: BuxMinter defaults to `http://localhost:3000` when `BLOCKSTER_SETTLER_URL` is unset
-- **Solana network**: Devnet (QuickNode RPC in settler config)
-- **Mnesia**: Stored at `priv/mnesia/{node_name}` — NEVER delete these directories
-- **libcluster**: Auto-discovers `node1`/`node2` in dev via Erlang distribution
-- **Real-time widgets**: `WIDGETS_ENABLED=false` by default. Pollers (FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker) stay dormant unless flipped on. To see live widget data locally:
-  ```bash
-  WIDGETS_ENABLED=true bin/dev             # full cluster — use this, never bin/dev single
-  mix run priv/repo/seeds_widget_banners.exs   # one-time: insert rt_skyscraper + fs_skyscraper banners
-  ```
-  Widgets render their skeleton/empty state with the flag off; live data streams in from `https://roguetrader-v2.fly.dev` + `https://fateswap.fly.dev` once enabled.
 
 ## Deployment
+
 ```bash
 git push origin <branch> && flyctl deploy --app blockster-v2
 ```
 
----
-
 ## Development Guidelines
 
 ### UI/UX
-- Always add `cursor-pointer` to clickable elements
-- Custom fonts: `font-haas_medium_65`, `font-haas_roman_55`
-- Prefer Tailwind utility classes over arbitrary hex values
-- Style content links: `[&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline`
+- Always add `cursor-pointer` to clickable elements.
+- Fonts: `font-haas_medium_65`, `font-haas_roman_55`.
+- Prefer Tailwind utilities over arbitrary hex.
+- Style content links: `[&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline`.
 
 ### LiveView Patterns
 
-**Async API Calls** - ALWAYS use `start_async` for external calls:
+**Async API calls** — always `start_async`, extract values before the closure:
 ```elixir
-# Extract values BEFORE start_async (NEVER access socket.assigns inside)
 user_id = socket.assigns.current_user.id
 start_async(socket, :fetch_data, fn -> fetch_data(user_id) end)
 ```
 
-**HTTP Timeouts** - ALWAYS configure:
-```elixir
-Req.get(url, receive_timeout: 30_000)
-# or for :httpc
-:httpc.request(:get, {url, headers}, [{:timeout, 10_000}, {:connect_timeout, 5_000}], [])
-```
+**HTTP timeouts** — always configure: `Req.get(url, receive_timeout: 30_000)` or `:httpc.request(..., [{:timeout, 10_000}, {:connect_timeout, 5_000}], [])`.
 
-**Double Mount**: LiveView mounts twice. Use `connected?(socket)` for side effects (API calls, blockchain transactions) to avoid duplicates.
+**Double mount**: LiveView mounts twice. Use `connected?(socket)` for side effects.
 
-**Modal Backdrop "Click outside to close"**: Use `phx-click-away="close_modal"` on the inner content div, NOT `phx-click="close_modal"` on an outer backdrop with a `phx-click="stop_propagation"` no-op on the inner div. The no-op handler does NOT actually call DOM `e.stopPropagation()` — submit-button clicks bubble through, fire BOTH the form submit AND `close_modal`, modal disappears mid-submit. See `docs/session_learnings.md` for the full debugging narrative.
+**Never silently discard `Repo.insert`/`Repo.update`** — pattern-match and log on failure, especially when the write backs notification rows or reward records.
 
-**Never silently discard `Repo.insert` / `Repo.update` results**: if the call has side effects (notification rows that back activity feeds, reward records, etc.), always pattern-match the return and at least log on failure. A real example: a `Notifications.create_notification` call in `event_processor.ex` was silently failing on a `validate_inclusion(:type, ...)` mismatch — BUX was minted via `credit_bux` but no notification record existed, so the activity tab was empty for users who'd just verified their phone. Pattern:
-```elixir
-case Notifications.create_notification(user_id, attrs) do
-  {:ok, _} -> :ok
-  {:error, changeset} -> Logger.error("[X] failed: #{inspect(changeset.errors)}")
-end
-```
-
-**Sticky banners on animated-height headers**: anything that needs to stay flush against the bottom of a fixed header that animates its height (e.g. the global `site_header` collapses on scroll) MUST be a child of the same fixed container as the header. `position: sticky` + a static `top:` offset will not work because the offset is constant while the header height changes between two states. The "Why Earn BUX?" lime banner lives inside `site_header/1` for this reason — gated by an `attr :show_why_earn_bux` so individual LiveViews opt in via `assign(:show_why_earn_bux, true)` in mount.
+Detailed patterns (modal backdrop click-outside, sticky banners on animated headers, etc.): [docs/session_learnings.md](docs/session_learnings.md).
 
 ### Mnesia
-- **Always use dirty operations** (`dirty_read`, `dirty_write`, `dirty_delete`, `dirty_index_read`)
-- **For concurrent updates**: Route writes through a dedicated GenServer to serialize
-- **Modifying table schemas**: Add new fields to END only. Create migration function. Scale to 1 server before deploying. See CLAUDE.md history for full process.
+- Always use dirty operations (`dirty_read`, `dirty_write`, etc.).
+- Concurrent updates: route writes through a dedicated GenServer.
+- Schema changes: add fields to END only, create a migration function, scale to 1 server before deploying.
+- Full table reference: [docs/mnesia_tables.md](docs/mnesia_tables.md).
 
 ### GenServer Global Registration
-- Use `BlocksterV2.GlobalSingleton` for GenServers that should run once across cluster
-- Handles rolling deploy conflicts safely (keeps existing process, rejects new)
-- **Global**: MnesiaInitializer, PriceTracker, BuxBoosterBetSettler, TimeTracker, BotCoordinator
-- **Local**: HubLogoCache (manages local ETS table)
+- `BlocksterV2.GlobalSingleton` for cluster-wide singletons — handles rolling-deploy conflicts.
+- **Global**: `MnesiaInitializer`, `PriceTracker`, `BuxBoosterBetSettler`, `TimeTracker`, `BotCoordinator`, `LpPriceTracker`, `CoinFlipBetSettler`.
+- **Local**: `HubLogoCache` (local ETS).
 
-### Smart Contract Upgrades (UUPS)
-- NEVER change order or remove state variables - ONLY add at END
-- NEVER enable `viaIR: true` for stack too deep - use helper functions instead
-- Upgrade process: compile → force-import → upgrade-manual → init-vN → verify
-- **ALL contracts must be flattened** (inline all OZ dependencies) so they can be verified as a single file on RogueScan/Arbiscan
-- Never use `import "@openzeppelin/..."` — copy the needed code inline
+### Smart Contract Upgrades (UUPS, legacy EVM)
+- NEVER change order or remove state variables — only append at END.
+- NEVER enable `viaIR: true` — use helper functions for stack-too-deep.
+- All contracts must be **flattened** (inline OpenZeppelin) for single-file verification on RogueScan/Arbiscan. Never use `import "@openzeppelin/..."`.
 
----
+## Solana Migration
 
-## Token System
+All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 
-BUX is the only active token. ROGUE is the native gas token. Hub tokens (moonBUX, etc.) are deprecated.
+- **Plan + phase details**: [docs/solana_migration_plan.md](docs/solana_migration_plan.md)
+- **All addresses / PDAs / program IDs**: [docs/addresses.md](docs/addresses.md)
+- **Build history**: [docs/solana_build_history.md](docs/solana_build_history.md)
+- **Mainnet deployment runbook**: [docs/solana_mainnet_deployment.md](docs/solana_mainnet_deployment.md)
+- **Program deploy runbook (authorities, buffer recovery, tx confirmation rules)**: [docs/solana_program_deploy.md](docs/solana_program_deploy.md)
 
-### Contract Addresses (Rogue Chain Mainnet)
-| Contract | Address |
-|----------|---------|
-| BUX Token | `0x8E3F9fa591cC3E60D9b9dbAF446E806DD6fce3D8` |
-| BuxBoosterGame (Proxy) | `0x97b6d6A8f2c6AF6e6fb40f8d36d60DF2fFE4f17B` |
-| ROGUEBankroll | `0x51DB4eD2b69b598Fade1aCB5289C7426604AB2fd` |
-| NFTRewarder | `0x96aB9560f1407586faE2b69Dc7f38a59BEACC594` |
-| EntryPoint v0.6.0 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` |
-| ManagedAccountFactory | `0xfbbe1193496752e99BA6Ad74cdd641C33b48E0C3` |
-| Paymaster | `0x804cA06a85083eF01C9aE94bAE771446c25269a6` |
-| Referral Admin | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` |
-| AirdropVault V3 (Proxy, Rogue) | `0x27049F96f8a00203fEC5f871e6DAa6Ee4c244F6c` |
-| AirdropPrizePool (Proxy, Arbitrum) | `0x919149CA8DB412541D2d8B3F150fa567fEFB58e1` |
-| Deployer Wallet | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` |
-| Vault Admin Wallet | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` |
-| High Rollers NFT (Arbitrum) | `0x7176d2edd83aD037bd94b7eE717bd9F661F560DD` |
+**Key facts**:
+- Bankroll + Airdrop programs live on devnet, fully initialized. Coin Flip registered as `game_id=1`.
+- Upgrade authority = settler keypair (`6b4n...`). Deploy fee payer = CLI wallet (`49aN...`).
+- Settler service (`contracts/blockster-settler/`) replaces the legacy `bux-minter.fly.dev` for all Solana ops.
+- Multi-vault: SOL + BUX, LP tokens `bSOL` / `bBUX` (displayed as SOL-LP / BUX-LP).
+- Auth: SIWS via Wallet Standard. User model has `is_active`, `legacy_email`, `pending_email`, `merged_into_user_id` for legacy account reclaim.
+- Multiplier v2: `overall = x * phone * sol * email`, capped at 200x. Stored in `unified_multipliers_v2`.
 
-### BUX Minter Service
-Deployed at `https://bux-minter.fly.dev` (Node.js + Express + ethers.js)
+## Coin Flip (Solana)
 
-Key endpoints: `POST /mint`, `GET /balance/:address`, `GET /aggregated-balances/:address`, `POST /submit-commitment`, `POST /settle-bet`, `GET /game-token-config/:token`
+- Route: `/play` → `CoinFlipLive`.
+- Game logic: `lib/blockster_v2/coin_flip_game.ex`. Settler: `coin_flip_bet_settler.ex` (GlobalSingleton, minute loop).
+- JS hook: `assets/js/coin_flip_solana.js` (Wallet Standard, optimistic flow).
+- Payout/max-bet math: MUST use `trunc`/`div` (not `Float.round`) to match on-chain integer truncation.
+- Nonce managed from Mnesia for instant init; on-chain fallback only on `NonceMismatch`.
+- Settlement is fire-and-forget (`spawn`) — next bet does not wait for previous settlement.
+- Reclaim expired bets: 30s banner on `/play` checks for placed bets older than 5 min; user signs `reclaim_expired`.
+- Old EVM game preserved (`bux_booster_onchain.ex`, `BuxBoosterLive`) but unrouted.
 
-Minting is a common operation - don't add unnecessary validation.
+## Pool / LP System
 
----
+- Routes: `/pool` (`PoolIndexLive`), `/pool/sol`, `/pool/bux` (`PoolDetailLive`).
+- Pool JS hook: `assets/js/hooks/pool_hook.js` (deposit/withdraw signing).
+- LP prices: `LpPriceTracker` (GlobalSingleton, 60s poll) + `LpPriceHistory` (Mnesia, per-timeframe downsampling). Real-time chart updates via PubSub on `{:bet_settled, vault_type}`.
 
-## User Registration & Wallet Fields
+## Ad Banners
 
-- `wallet_address` = **primary wallet** — Solana pubkey for new users, EOA for legacy EVM users. **Use this for all mint/sync/balance operations.**
-- `smart_wallet_address` = legacy EVM ERC-4337 smart wallet (nil for Solana users, kept for schema compat)
-- **NEVER use `smart_wallet_address` for BuxMinter calls** — Solana users don't have one, so mints silently skip
-- Settler mint response key is `"signature"` (Solana tx sig), NOT `"transactionHash"` (EVM)
-
----
-
-## Rogue Chain Network
-| Property | Value |
-|----------|-------|
-| Chain ID | `560013` |
-| RPC URL | `https://rpc.roguechain.io/rpc` |
-| Explorer | `https://roguescan.io` |
-| Bundler | `https://rogue-bundler-mainnet.fly.dev` |
-
-## Solana Migration (Phases 1-12 complete)
-
-Migration from Rogue Chain (EVM) to Solana. Full plan: [docs/solana_migration_plan.md](docs/solana_migration_plan.md). All addresses: [docs/addresses.md](docs/addresses.md).
-
-| Resource | Address / Value |
-|----------|----------------|
-| BUX Mint (devnet) | `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` |
-| Mint Authority | `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` |
-| Bankroll Program ID | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` |
-| Airdrop Program ID | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` |
-| RPC (devnet) | QuickNode (see migration plan) |
-
-**Deployment status (devnet)**: Both programs deployed and fully initialized. Coin Flip game registered (game_id=1). Authority = `6b4n...` (settler keypair). Deploy fee payer = `49aN...` (CLI wallet). See `docs/addresses.md` for all PDA addresses.
-
-**Bankroll Program** (`contracts/blockster-bankroll/`): Anchor 0.30.1, dual-vault (SOL + BUX), LP tokens (bSOL + bBUX), game registry, provably fair commit-reveal, two-tier referrals. 4-step init due to SBF stack limits. IDL manually maintained at `target/idl/blockster_bankroll.json` (auto-gen broken on modern Rust). Per-difficulty max bet enforcement: `place_bet` accepts `difficulty: u8` (not `max_payout`), program computes max_payout on-chain from stored multipliers (matching EVM BuxBoosterGame). GameEntry stores `multipliers: [u16; 9]` as BPS/100. Config: `max_bet_bps=100` (1%), `min_bet=0.01 tokens`. **Concurrent bets**: `has_active_order` constraint removed from `place_bet` — multiple BetOrders can exist per player at different nonces. Each BetOrder PDA is seeded `[b"bet", player, nonce_le_bytes]` so they're fully independent. The `has_active_order` field is kept in PlayerState for layout compatibility but is no longer read or enforced.
-
-**Airdrop Program** (`contracts/blockster-airdrop/`): Anchor 0.30.1, multi-round, any SPL/SOL prizes, BUX entries, SHA256 commit-reveal. IDL at `target/idl/blockster_airdrop.json`.
-
-**Settler Service** (`contracts/blockster-settler/`): Node.js service for BUX minting, bet settlement, balance queries. Replaces bux-minter.fly.dev.
-
-**Solana Auth** (Phase 2 — complete):
-- SIWS: `lib/blockster_v2/auth/solana_auth.ex` + `nonce_store.ex`
-- Wallet hook: `assets/js/hooks/solana_wallet.js` (Wallet Standard, deferred localStorage)
-- WalletAuthEvents macro: `lib/blockster_v2_web/live/wallet_auth_events.ex`
-- Wallet UI: `lib/blockster_v2_web/components/wallet_components.ex` (connect_button, wallet_selector_modal)
-- Session: `POST/DELETE /api/auth/session`, UserAuth on_mount reads wallet_address from session + connect_params
-- User model: `email_verified`, `legacy_email` fields added (migration `20260402200001`); `is_active`, `merged_into_user_id`, `deactivated_at`, `pending_email` added later for legacy reclaim (migration `20260407200001`). All public lookups in `BlocksterV2.Accounts` filter `is_active = true`.
-- `downcase_wallet_address` skips Solana base58 addresses (case-sensitive)
-- Deps: hex `base58`; npm `@wallet-standard/app`, `bs58`, `@solana/web3.js`
-
-**BUX Minter Service** (Phase 3 — complete):
-- `lib/blockster_v2/bux_minter.ex` rewritten for Solana settler (`BLOCKSTER_SETTLER_URL` env var)
-- Same `mint_bux/5` interface, calls `/mint` on settler service
-- `get_balance/1` returns `%{sol: float, bux: float}` from settler `/balance/:wallet`
-- New Mnesia table `user_solana_balances` `{user_id, wallet_address, updated_at, sol_balance, bux_balance}`
-- EngagementTracker: `get_user_sol_balance/1`, `update_user_sol_balance/3`, `update_user_solana_bux_balance/3`
-- Config: `settler_url`, `settler_secret`, `solana_rpc_url` in `runtime.exs`
-- Deprecated: `get_aggregated_balances`, `get_rogue_house_balance`, `transfer_rogue` (return `{:error, :deprecated}`)
-
-**User Onboarding & Migration** (Phase 4 — complete):
-- Email verification: `lib/blockster_v2/accounts/email_verification.ex` (6-digit code, 10min expiry, Swoosh delivery). `send_verification_code` writes to `pending_email`, NOT `email`. `verify_code` returns `{:ok, user, %{merged: bool, summary: map}}` and dispatches to `LegacyMerge` if the email matches an active legacy user.
-- Legacy BUX migration: `lib/blockster_v2/migration/legacy_bux.ex` + PG table `legacy_bux_migrations`
-- Legacy account merge: `lib/blockster_v2/migration/legacy_merge.ex` — `merge_legacy_into!/2` runs the full all-or-nothing transaction (deactivate → BUX mint → username → X → Telegram → phone → content/social FKs → referrals → fingerprints → finalize email). Settler mint failure rolls back the entire merge. BUX minter is configurable via `Application.compile_env(:blockster_v2, :bux_minter, BuxMinter)` so tests can use `BlocksterV2.BuxMinterStub`. Reward type for legacy mints: `:legacy_migration`.
-- Per-step reclaim hooks (phone, X OAuth callback, Telegram /start handler) — when a deactivated legacy user holds the identifier, the reclaim path transfers the row + locked fields to the new Solana user. Active-user collisions still blocked.
-- Onboarding flow (8 steps): `welcome → migrate_email → redeem → profile → phone → email → x → complete`. Welcome branches on `set_migration_intent` ("I'm new" → redeem, "I have an account" → migrate_email). `next_unfilled_step/2` walks the steps and skips any step the user's state already satisfies (filled by the merge or by prior verification). `redeem` is never skipped.
-- Onboarding modal: `lib/blockster_v2_web/components/onboarding_modal.ex` (welcome → email → claim)
-- `/login` route removed — redirects to `/` via `PageController.login_redirect`
-
-**Multiplier System Overhaul** (Phase 5 — complete):
-- SOL multiplier: `lib/blockster_v2/sol_multiplier.ex` (10 tiers: 0x at <0.01 SOL → 5x at 10+ SOL)
-- Email multiplier: `lib/blockster_v2/email_multiplier.ex` (verified=2x, unverified=1x)
-- Unified multiplier rewritten: `overall = x * phone * sol * email`, max 200x
-- New Mnesia table `unified_multipliers_v2` (replaces `unified_multipliers` fields: sol_multiplier, email_multiplier instead of rogue_multiplier, wallet_multiplier)
-- Deleted: `rogue_multiplier.ex`, `wallet_multiplier.ex`, `wallet_multiplier_refresher.ex`
-- Removed `WalletMultiplierRefresher` from supervision tree
-- SOL multiplier refreshes on every `BuxMinter.sync_user_balances` call
-- Email multiplier updates on `EmailVerification.verify_code` success
-
-**Coin Flip Game on Solana** (Phase 6 — complete):
-- Game logic: `lib/blockster_v2/coin_flip_game.ex` (replaces `bux_booster_onchain.ex` for new games)
-- New Mnesia table `coin_flip_games` (19 fields, vault_type instead of token_address, Solana tx sigs instead of EVM hashes)
-- Bet settler: `lib/blockster_v2/coin_flip_bet_settler.ex` (GlobalSingleton, checks every minute)
-- JS hook: `assets/js/coin_flip_solana.js` (Wallet Standard API, optimistic flow)
-- **Payout/max bet math**: MUST use `trunc`/`div` (not `Float.round`) to match on-chain integer truncation. See `calculate_payout` and `calculate_max_bet`.
-- **Nonce management**: `get_or_init_game` computes nonce from Mnesia (like old `BuxBoosterOnchain`), NOT from on-chain state. This makes init instant (<1ms). On-chain fallback only on NonceMismatch (Mnesia out of sync). Settlement is fire-and-forget (`spawn`) — next bet doesn't wait for previous settlement.
-- **Settlement status UI**: Result screen shows pending/settled/failed indicator. Settled links to Solscan tx. Failed shows auto-retry info.
-- **Reclaim expired bets**: Global banner on `/play` checks every 30s for placed bets older than `bet_timeout` (5 min). User signs `reclaim_expired` tx to recover funds. Handler: `"reclaim_stuck_bet"` event in `coin_flip_live.ex`.
-- **Settler tx confirmation**: All txs use priority fees (`computeBudgetIxs`) and `maxRetries:5` on `sendRawTransaction`. Confirmation uses `getSignatureStatuses` polling (like ethers `tx.wait()`), NOT websocket subscriptions. See `rpc-client.ts:waitForConfirmation`. Client-side JS (`coin_flip_solana.js`) uses the same polling pattern.
-- LiveView: `lib/blockster_v2_web/live/coin_flip_live.ex` (SOL + BUX tokens, no ROGUE)
-- Route `/play` → `CoinFlipLive` (was `BuxBoosterLive`)
-- Old EVM game files preserved but no longer routed (BuxBoosterLive, bux_booster_onchain.ex)
-
-**Bankroll Program & LP System** (Phase 7 — complete):
-- Settler bankroll service: `contracts/blockster-settler/src/services/bankroll-service.ts` (PDA derivation, VaultState deserialization, tx builders)
-- Init script: `contracts/blockster-settler/scripts/init-bankroll.ts` (4-step init, game registration, liquidity seeding)
-- Settler pool routes: GET /pool-stats, /game-config/:gameId, /lp-balance/:wallet/:vaultType, POST /build-deposit-sol, /build-withdraw-sol, /build-deposit-bux, /build-withdraw-bux
-- BuxMinter: `get_lp_balance/2`, `build_deposit_tx/3`, `build_withdraw_tx/3`, fixed `get_house_balance/1`
-- New Mnesia table `user_lp_balances` `{user_id, wallet_address, updated_at, bsol_balance, bbux_balance}`
-- EngagementTracker: `get_user_lp_balances/1`, `get_user_bsol_balance/1`, `get_user_bbux_balance/1`, `update_user_bsol_balance/3`, `update_user_bbux_balance/3`
-- Pool Index: `lib/blockster_v2_web/live/pool_index_live.ex` (two vault cards with stats, links to detail pages)
-- Pool Detail: `lib/blockster_v2_web/live/pool_detail_live.ex` (two-column layout: order form + chart/stats/activity)
-- Pool Components: `lib/blockster_v2_web/components/pool_components.ex` (pool_card, lp_price_chart, pool_stats_grid, stat_card, activity_table)
-- Pool JS hook: `assets/js/hooks/pool_hook.js` (Wallet Standard signing for deposit/withdraw)
-- Price Chart hook: `assets/js/hooks/price_chart.js` (TradingView lightweight-charts, area series)
-- LP Price History: `lib/blockster_v2/lp_price_history.ex` — Mnesia-backed price snapshots with per-timeframe downsampling (1H=60s, 24H=5m, 7D=30m, 30D=2h, All=1d), PubSub broadcast on `"pool_chart:#{vault_type}"`, chart stats (high/low/change_pct). Skips downsampling when <500 points.
-- LP Price Tracker: `lib/blockster_v2/lp_price_tracker.ex` — GlobalSingleton GenServer, polls settler every 60s, subscribes to `"pool:settlements"` for real-time chart updates on bet settlement, daily Mnesia prune
-- New Mnesia table `lp_price_history` `{id={vault_type,timestamp}, vault_type, timestamp, lp_price}` ordered_set, indexed by vault_type
-- Real-time chart flow: bet settles → `CoinFlipGame` broadcasts `{:bet_settled, vault_type}` → LpPriceTracker fetches fresh LP price → records with `force: true` → PubSub → PoolDetailLive pushes `chart_update` to JS
-- Routes: `/pool` → `PoolIndexLive`, `/pool/sol` → `PoolDetailLive`, `/pool/bux` → `PoolDetailLive`
-- LP token display names: SOL-LP (was bSOL), BUX-LP (was bBUX)
-- Old `pool_live.ex` deprecated (no longer routed)
-- Coin Flip house balance links to `/pool`
-
-**Airdrop Migration** (Phase 8 — complete):
-- Settler airdrop service: `contracts/blockster-settler/src/services/airdrop-service.ts` (PDA derivation, state deserialization, tx builders)
-- Init script: `contracts/blockster-settler/scripts/init-airdrop.ts`
-- Settler airdrop routes: POST /airdrop-start-round, /airdrop-fund-prizes, /airdrop-close, /airdrop-draw-winners, /airdrop-build-deposit, /airdrop-build-claim. GET /airdrop-vault-round-id, /airdrop-round-info/:roundId, /airdrop-state
-- Airdrop.ex rewritten: keccak256→SHA256 (`sha256_combined`, `derive_position`), slot_at_close instead of block_hash, wallet_address instead of smart_wallet
-- Airdrop.Settler simplified: close→slot from settler, draw→on-chain via settler, no per-winner prize registration
-- BuxMinter: removed `airdrop_deposit`, `airdrop_claim`, `airdrop_set_prize`, `airdrop_set_winner`, `airdrop_sync_prize_pool_round`. Added `airdrop_build_deposit/4`, `airdrop_build_claim/3`
-- AirdropLive: WalletAuthEvents, wallet signing for deposit+claim, Solscan links, removed EVM/Arbitrum references
-- JS hook: `assets/js/hooks/airdrop_solana.js` (Wallet Standard signing, registered in app.js)
-
-**Shop & Referral Updates** (Phase 9 — complete):
-- Checkout: ROGUE payment removed (slider, rate lock, discount, event handlers all no-op/zero). BUX + Helio only.
-- Referrals: `normalize_wallet/1` handles EVM (downcase) and Solana (case-sensitive) addresses
-- ReferralRewardPoller: EVM polling disabled (GenServer skeleton preserved for future Solana events)
-- Orders: ROGUE affiliate payout returns `{:error, :deprecated}`, `get_current_rogue_rate` returns zero
-
-**UI Overhaul** (Phase 10 — complete):
-- Header/footer: Removed ROGUE references, replaced Roguescan with Solscan links
-- Profile: ROGUE tab replaced with SOL balance, External Wallet tab removed, multiplier display updated (SOL + email)
-- Hub ordering: sorted by post count descending
-- Ad Banner system: migration, schema (`ads/banner.ex`), context (`ads.ex`), 19 tests. Placements: sidebar + mobile + inline
-  - **Template-based ads** (added in redesign): `template` field on `ad_banners` table — `follow_bar`, `dark_gradient`, `portrait`, `split_card`, `image` (legacy). Admin provides text params in `params` jsonb field, system renders styled HTML ads. Components in `design_system.ex` via `<.ad_banner banner={banner} />`.
-  - **`sort_order`** integer field controls display sequence (lower = shown first). All `list_active_banners_by_placement` queries order by `sort_order` then `name`.
-  - **`sanitize_ad_params`** strips empty strings to nil so `@p["key"] || "default"` works correctly (admin form submits `""` for unfilled fields).
-  - **Homepage inline ads**: `homepage_inline` placement (falls back to `article_inline_*` if none). Layout: Ad #1 at top → Component 1 → [Welcome hero anon] → Component 2 → Ad #2 → Hub showcase → Ad #3 → posts continue with ad every 2nd component, recycling through sorted ad list.
-  - **Inline article placements**: `article_inline_1` (1/3 mark), `article_inline_2` (2/3 mark), `article_inline_3` (end). Content split by `TipTapRenderer.render_content_split/2`.
-  - **Follow Hub bar**: rendered from `@post.hub` data at 1/2 mark (not from ad system), only on hub-associated articles
-  - **All ad links open `target="_blank"`** — all 5 `ad_banner` template variants include `target="_blank" rel="noopener"`
-  - **Admin UI** (`/admin/banners`): Template dropdown, dynamic param fields per template, icon/logo file upload (BannerAdminUpload hook), sort order field, ScrollIntoView on edit
-
-**EVM Cleanup & Deprecation** (Phase 11 — complete):
-- Deprecated JS hooks: ConnectWalletHook, WalletTransferHook, BalanceFetcherHook, BuxBoosterOnchain, RoguePaymentHook, AirdropDepositHook, AirdropApproveHook (all annotated with @deprecated)
-- Deprecated EVM Thirdweb init block in `home_hooks.js` (rogueChain, thirdwebClient globals)
-- Deprecated Elixir modules: `connected_wallet.ex`, `wallet_transfer.ex`, `wallets.ex`, `thirdweb_login_live.ex`, `bux_booster_onchain.ex` (all with @deprecated moduledoc)
-- Deprecated config: `bux_minter_url`, `bux_minter_secret`, `thirdweb_client_id` in runtime.exs
-- Deprecated EVM content: how_it_works.html.heex Rogue Chain/Arbitrum sections marked for update
-- Renamed `contracts/bux-booster-game/` to `contracts/legacy-evm/`
-- No files deleted (conservative approach — all still-referenced code kept with deprecation notes)
-- `ROGUE_RPC_URL`, `BUNDLER_URL`, `PAYMASTER_URL` already absent from runtime.exs (clean)
-
-**Testing & Documentation** (Phase 12 — complete):
-- Phase 12A: All tests updated throughout Phases 1-11 (tests written per phase, not deferred)
-- Phase 12B: Documentation updated — `claude.md`, `docs/addresses.md`, `docs/solana_migration_plan.md`
-- Phase 12C: Final integration test pass — 2126 total tests, 0 new failures
-
-## Services
-| Service | URL |
-|---------|-----|
-| Main App | `https://blockster.com` |
-| BUX Minter | `https://bux-minter.fly.dev` |
-| Bundler | `https://rogue-bundler-mainnet.fly.dev` |
-
-## Telegram
-| Resource | URL |
-|----------|-----|
-| Blockster Group | `https://t.me/+7bIzOyrYBEc3OTdh` |
-| Blockster V2 Bot | `https://t.me/BlocksterV2Bot` |
-
-**IMPORTANT**: `t.me/blockster` is NOT ours. Never use it anywhere.
-
----
-
-## Mnesia Tables
-
-### Active Tables
-| Table | Purpose | Key |
-|-------|---------|-----|
-| `user_solana_balances` | SOL + BUX balances (source of truth for display) | `user_id` |
-| `user_post_engagement` | Reading metrics | `{user_id, post_id}` |
-| `user_post_rewards` | BUX rewards earned | `{user_id, post_id}` |
-| `unified_multipliers_v2` | Reward multipliers (SOL + email) | `user_id` |
-| `coin_flip_games` | Solana coin flip game sessions | `game_id` |
-| `user_lp_balances` | LP token balances (bSOL + bBUX) | `user_id` |
-| `x_connections` | X OAuth tokens | `user_id` |
-| `share_campaigns` | Retweet campaigns | `post_id` |
-| `share_rewards` | Share participation | `{user_id, campaign_id}` |
-| `token_prices` | CoinGecko price cache | `token_id` |
-| `widget_fs_feed_cache` | FateSwap live-trade snapshot (WIDGETS_ENABLED) | `:singleton` |
-| `widget_rt_bots_cache` | RogueTrader bot snapshot (WIDGETS_ENABLED) | `:singleton` |
-| `widget_rt_chart_cache` | RogueTrader per-series chart points (WIDGETS_ENABLED) | `{bot_id, tf}` |
-| `widget_selections` | Self-selected subject per widget banner | `banner_id` |
-
-### Legacy Tables (not read, kept for schema compat)
-| Table | Replaced By |
-|-------|-------------|
-| `user_bux_balances` | `user_solana_balances` |
-| `user_rogue_balances` | N/A (ROGUE removed) |
-| `bux_booster_onchain_games` | `coin_flip_games` |
-| `unified_multipliers` | `unified_multipliers_v2` |
-
-**Directories**: Production: `/data/mnesia/blockster`, Dev: `priv/mnesia/{node_name}`
-
----
-
-## Engagement Tracking
-
-Users earn BUX for reading: `bux = (engagement_score / 10) * base_reward * multiplier`
-- Time Score (0-6), Depth Score (0-3), Base Score (1)
-- Bot detection: <3 scroll events, >5000 px/s scroll speed, >300 wpm reading
-
----
+- System: `lib/blockster_v2/ads.ex`, schema `ads/banner.ex`, components in `design_system.ex` via `<.ad_banner banner={banner} />`.
+- Templates: `follow_bar`, `dark_gradient`, `portrait`, `split_card`, `image` (legacy).
+- Placements: `sidebar`, `mobile`, `homepage_inline`, `article_inline_1/2/3`.
+- `sort_order` controls display sequence; `sanitize_ad_params` strips empty strings to `nil`.
+- All ad links open `target="_blank" rel="noopener"`.
+- Admin: `/admin/banners`. Reference: [docs/ad_banners_system.md](docs/ad_banners_system.md), [docs/luxury_ad_templates.md](docs/luxury_ad_templates.md).
 
 ## Bot Reader System
 
-1000 bot accounts simulate reading with real on-chain BUX minting. See [docs/bot_reader_system.md](docs/bot_reader_system.md) for full docs.
-
-- **Feature flag**: `BOT_SYSTEM_ENABLED=true` env var
-- **Fully automatic**: auto-creates bots, seeds pools, schedules reads, **rotates legacy EVM wallets to Solana** on deploy
-- **Wallets**: Solana ed25519 keypairs (base58 pubkey in `wallet_address`, base58 64-byte secret in `bot_private_key`). `smart_wallet_address` is a legacy 0x placeholder, **never read** by the bot system. Bot mints use `wallet_address` (same rule as real users).
-- **EVM → Solana auto-rotation**: `BotCoordinator.handle_info(:initialize, ...)` calls `BotSetup.rotate_to_solana_keypairs/0` once per boot, before building the bot cache. Idempotent — only rotates bots whose `wallet_address` is not a valid 32-byte base58 string. First production deploy will rotate all 1000 EVM bots; subsequent boots are no-ops. ~2 SOL one-time cost for ATA creation surge — see `docs/solana_mainnet_deployment.md`.
-- **Files**: `lib/blockster_v2/bot_system/` (coordinator, setup, simulator, deploy, dev_setup, solana_wallet_crypto)
-- **Config**: `config :blockster_v2, :bot_system` in `runtime.exs`
-- **Key behavior**: 60-85% of 300 active bots read each post, ~55% in first hour, 500ms mint interval, 5 BUX minimum reward, 50% pool cap
-- **Pools**: Content automation auto-deposits on publish; coordinator auto-seeds 5000 BUX on posts with < 100 during backfill
-
----
+1000 bot accounts simulate reading with real on-chain BUX minting. Feature flag: `BOT_SYSTEM_ENABLED=true`. Auto-rotates legacy EVM wallets to Solana keypairs on boot (idempotent). Bot mints use `wallet_address`. Full docs: [docs/bot_reader_system.md](docs/bot_reader_system.md).
 
 ## Security
 
-### Provably Fair Server Seed
-**NEVER display server seed for unsettled games.** Only reveal AFTER bet is settled on-chain. Always verify `status == :settled` before showing.
+- **Provably-fair server seed**: NEVER display for unsettled games — verify `status == :settled` first.
+- **Fingerprint anti-sybil**: non-blocking (signup proceeds if FingerprintJS fails). Dev/test skips the HTTP call; `SKIP_FINGERPRINT_CHECK` env var skips server verification but fingerprint DB ops still run when data is present.
 
-### Fingerprint Anti-Sybil
-Fingerprint verification is **non-blocking** — if FingerprintJS fails (ad blockers, Safari, Brave, privacy extensions), signup proceeds without device verification. When fingerprint data is available, anti-sybil checks apply as normal. Dev/test environments skip the FingerprintJS HTTP call entirely. The `SKIP_FINGERPRINT_CHECK` env var skips the server-side HTTP verification to FingerprintJS API but fingerprint DB operations (conflict detection, device tracking) still run when fingerprint data is present.
+## Engagement Tracking
 
----
+`bux = (engagement_score / 10) * base_reward * multiplier`. Time score 0-6, depth score 0-3, base 1. Bot detection: <3 scroll events, >5000 px/s scroll, >300 wpm reading.
 
-## Common Routes
-- Hub: `/hub/:slug`
-- Product: `/shop/:slug`
-- Post: `/:slug`
-- Member: `/member/:slug`
-- Coin Flip: `/play`
-- Pool Index: `/pool`
-- Pool Detail: `/pool/sol`, `/pool/bux`
-- Admin Stats: `/admin/stats`, `/admin/stats/players`, `/admin/stats/players/:address`
+## Services & Routes
 
----
+| Service | URL |
+|---------|-----|
+| Main App | `https://blockster.com` |
+| Settler (Solana) | TBD (prod deploy pending) |
+| Legacy BUX Minter (EVM) | `https://bux-minter.fly.dev` |
+
+**Telegram**: [Group](https://t.me/+7bIzOyrYBEc3OTdh), [Bot](https://t.me/BlocksterV2Bot). `t.me/blockster` is NOT ours — never use it.
+
+**Common routes**: `/hub/:slug`, `/shop/:slug`, `/:slug` (post), `/member/:slug`, `/play`, `/pool`, `/pool/sol`, `/pool/bux`, `/admin/stats`, `/admin/stats/players`, `/admin/stats/players/:address`.
 
 ## Admin Operations
 
-### Query User by Wallet
-```bash
-flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'alias BlocksterV2.{Repo, Accounts.User}; import Ecto.Query; Repo.all(from u in User, where: ilike(u.wallet_address, \"%PARTIAL%\") or ilike(u.smart_wallet_address, \"%PARTIAL%\"), select: {u.id, u.wallet_address, u.smart_wallet_address}) |> IO.inspect()'"
-```
-
-### Mint BUX
-```bash
-# Use smart_wallet_address, not wallet_address. Reward types: :read, :x_share, :video_watch, :signup, :phone_verified
-flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'BlocksterV2.BuxMinter.mint_bux(\"SMART_WALLET\", 1000, USER_ID, nil, :signup) |> IO.inspect()'"
-```
-
-### Clear Phone Verification
-```bash
-flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
-alias BlocksterV2.{Repo, Accounts.User, Accounts.PhoneVerification}; import Ecto.Query; user_id = 89
-Repo.delete_all(from p in PhoneVerification, where: p.user_id == ^user_id)
-Repo.update_all(from(u in User, where: u.id == ^user_id), set: [phone_verified: false, geo_multiplier: Decimal.new(\"0.5\"), geo_tier: \"unverified\"])
-'"
-```
-
----
+SSH snippets (query user by wallet, mint BUX, clear phone verification, etc.): [docs/admin_operations.md](docs/admin_operations.md).
 
 ## Performance
 
-- Route images through `ImageKit` (`w500_h500`, `w800_h800`, etc.)
-- Above-fold: `fetchpriority="high" loading="eager"`, below-fold: `loading="lazy"`
-- Swiper bundled via npm (not CDN)
-- Preconnect: `ik.imagekit.io`, `fonts.googleapis.com`, `fonts.gstatic.com`
+- Route images through ImageKit (`w500_h500`, `w800_h800`, etc.).
+- Above-fold: `fetchpriority="high" loading="eager"`. Below-fold: `loading="lazy"`.
+- Swiper bundled via npm, not CDN.
+- Preconnect: `ik.imagekit.io`, `fonts.googleapis.com`, `fonts.gstatic.com`.
 
 ---
 
-*For detailed historical notes, bug fix narratives, and contract upgrade transaction hashes, see [docs/session_learnings.md](docs/session_learnings.md).*
+*Historical bug-fix narratives and contract upgrade tx hashes: [docs/session_learnings.md](docs/session_learnings.md).*

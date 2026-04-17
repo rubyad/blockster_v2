@@ -26,9 +26,9 @@ defmodule BlocksterV2Web.Widgets.RtFullCardTest do
         "ask_price" => 0.1026,
         "lp_price_change_7d_pct" => 6.78,
         "sol_balance_ui" => 248.36,
-        "lp_supply" => 2_100_000,
+        "lp_supply" => 2_100_000_000_000_000,
         "rank" => 1,
-        "counterparty_locked_sol" => 12.4,
+        "counterparty_locked_sol" => 12_400_000_000,
         "wins_settled_7d" => %{"wins" => 142, "total" => 181},
         "win_rate" => 78.5,
         "volume_7d_sol" => 2418,
@@ -49,7 +49,7 @@ defmodule BlocksterV2Web.Widgets.RtFullCardTest do
     assert html =~ ~s(phx-hook="RtChartWidget")
   end
 
-  test "renders 8 stat cards with labels from the mock" do
+  test "renders 4 stat cards (single row: AUM / LP Supply / Rank / Win Rate)" do
     html =
       render_widget(%{
         banner: banner(),
@@ -59,17 +59,19 @@ defmodule BlocksterV2Web.Widgets.RtFullCardTest do
       })
 
     # data-role on each card
-    assert Enum.count(String.split(html, ~s(data-role="rt-stat-card"))) - 1 == 8
+    assert Enum.count(String.split(html, ~s(data-role="rt-stat-card"))) - 1 == 4
 
     # Labels
     assert html =~ "AUM"
     assert html =~ "LP Supply"
     assert html =~ "Rank"
-    assert html =~ "CP Liability"
-    assert html =~ "Wins/Settled"
     assert html =~ "Win Rate"
-    assert html =~ "Volume"
-    assert html =~ "Avg Stake"
+
+    # Removed stats no longer render
+    refute html =~ "CP Liability"
+    refute html =~ "Wins/Settled"
+    refute html =~ "Volume"
+    refute html =~ "Avg Stake"
   end
 
   test "stat values come from the bot snapshot" do
@@ -83,16 +85,12 @@ defmodule BlocksterV2Web.Widgets.RtFullCardTest do
 
     # AUM — 248.36 SOL
     assert html =~ "248.36"
-    # LP Supply — formatted with commas (2,100,000)
+    # LP Supply — 2,100,000 tokens (raw 2.1e15 base-units / 1e9)
     assert html =~ "2,100,000"
     # Rank — "1" with only whitespace on the line inside its stat card div
     assert Regex.match?(~r/\s1\s*<\/div>/, html)
-    # Wins/Settled
-    assert html =~ "142/181"
     # Win rate
     assert html =~ "78.5%"
-    # CP Liability
-    assert html =~ "12.40"
   end
 
   test "chart container is phx-update=ignore with canvas role" do

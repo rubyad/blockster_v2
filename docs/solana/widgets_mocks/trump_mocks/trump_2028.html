@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Trump 2028 · ad variants</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f3; }
+  .page { max-width: 1600px; margin: 0 auto; padding: 48px 32px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  h2 { font-size: 18px; margin: 32px 0 12px; font-weight: 600; color: #333; }
+  p.lead { color: #5a5a55; max-width: 680px; line-height: 1.55; }
+  .grid-mocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 40px; margin-top: 24px; }
+  .card { background: #fff; padding: 20px 20px 24px; border-radius: 16px; box-shadow: 0 4px 18px -6px rgba(0,0,0,0.08); }
+  .card h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #141414; font-weight: 700; }
+  .meta { font-size: 11px; color: #888; margin-bottom: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .frame {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -15px rgba(0,0,0,0.35);
+    background: #0a0a0a;
+    color: white;
+  }
+  .ad-badge {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 9px; font-weight: 800;
+    padding: 2px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.15); color: white;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    z-index: 10;
+  }
+
+  .bebas { font-family: 'Bebas Neue', Impact, sans-serif; }
+  .oswald { font-family: 'Oswald', sans-serif; }
+  .playfair { font-family: 'Playfair Display', serif; }
+
+  /* V1 — Classic campaign poster */
+  .v1 {
+    background: #002868;
+  }
+  .v1-stripes {
+    position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        #BF0A30 0 20px,
+        white 20px 40px,
+        #BF0A30 40px 60px,
+        white 60px 80px,
+        #002868 80px 440px
+      );
+    opacity: 0.15;
+  }
+  .v1-portrait {
+    position: absolute; inset: 0;
+    background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg');
+    background-size: cover;
+    background-position: center 15%;
+    opacity: 0.55;
+    mix-blend-mode: luminosity;
+  }
+  .v1-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,40,104,0) 0%, rgba(0,40,104,0.85) 70%, #002868 100%);
+  }
+
+  /* V2 — Dark patriot bold */
+  .v2 { background: #0a0a0a; }
+  .v2-fist {
+    position: absolute; inset: 0;
+    background-image: url('https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp');
+    background-size: cover;
+    background-position: center 22%;
+  }
+  .v2-dim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%);
+  }
+
+  /* V3 — Gold elite */
+  .v3 {
+    background: radial-gradient(circle at center, #1a1a1a, #0a0a0a);
+  }
+  .v3-portrait-frame {
+    position: absolute;
+    top: 70px; left: 50%; transform: translateX(-50%);
+    width: 160px; height: 160px; border-radius: 50%;
+    background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg');
+    background-size: 250% auto;
+    background-position: center 20%;
+    border: 3px solid #C9A961;
+    box-shadow: 0 0 0 6px rgba(201,169,97,0.2), 0 12px 30px rgba(0,0,0,0.6);
+  }
+
+  /* V4 — Animated loop Trump 2028 reveal */
+  .v4 { background: #0a0a0a; }
+  .v4-img {
+    position: absolute; inset: 0;
+    background-image: url('https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp');
+    background-size: cover;
+    background-position: center 22%;
+    opacity: 0;
+    animation: v4-img 10s infinite ease;
+  }
+  @keyframes v4-img {
+    0%, 25% { opacity: 0; }
+    35%, 55% { opacity: 1; }
+    62%, 100% { opacity: 0; }
+  }
+  .v4-dim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.8));
+    opacity: 0;
+    animation: v4-img 10s infinite ease;
+  }
+  .v4-text {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    padding: 40px; text-align: center;
+    z-index: 5;
+    animation: v4-text 10s infinite ease;
+  }
+  @keyframes v4-text {
+    0%, 25% { opacity: 1; }
+    32%, 100% { opacity: 0; }
+  }
+  .v4-reveal {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 4px;
+    z-index: 6;
+    opacity: 0;
+    animation: v4-reveal 10s infinite ease;
+  }
+  @keyframes v4-reveal {
+    0%, 60% { opacity: 0; }
+    68%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* V5 — Stars & stripes maximal */
+  .v5 {
+    background: #BF0A30;
+  }
+  .v5-flag {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom,
+        #BF0A30 0 14.28%, white 14.28% 28.56%,
+        #BF0A30 28.56% 42.84%, white 42.84% 57.12%,
+        #BF0A30 57.12% 71.4%, white 71.4% 85.68%,
+        #BF0A30 85.68% 100%);
+    opacity: 0.85;
+  }
+  .v5-canton {
+    position: absolute; top: 0; left: 0;
+    width: 50%; height: 57.12%;
+    background: #002868;
+    background-image:
+      radial-gradient(circle, white 1.5px, transparent 2px),
+      radial-gradient(circle, white 1.5px, transparent 2px);
+    background-size: 30px 30px, 30px 30px;
+    background-position: 0 0, 15px 15px;
+  }
+  .v5-portrait {
+    position: absolute;
+    bottom: 0; right: -10%;
+    width: 70%; height: 75%;
+    background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: bottom right;
+    filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+  }
+
+  /* V6 — Minimalist red */
+  .v6 { background: #BF0A30; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Trump 2028 · ad variants</h1>
+  <p class="lead">
+    Six square (1:1) variants — mix of static and animated. All use either the official 2025 portrait
+    (public domain) or the fist-raised image (AP copyrighted). Pick one (or several) and tell me
+    placements + CTA link, and I'll wire up templates + seeds.
+  </p>
+
+  <div class="grid-mocks">
+
+    <!-- V1: Classic campaign poster -->
+    <div class="card">
+      <h3>V1 · Classic campaign poster · stripes + portrait</h3>
+      <div class="meta">navy bg · red/white stripes · vintage typography · official portrait</div>
+      <div class="frame v1">
+        <div class="v1-stripes"></div>
+        <div class="v1-portrait"></div>
+        <div class="v1-overlay"></div>
+        <div class="ad-badge">Ad</div>
+        <div class="absolute inset-0 flex flex-col justify-end items-center text-center p-6 z-10">
+          <div class="oswald text-[13px] tracking-[0.32em] text-white/80 font-semibold uppercase mb-1">Official</div>
+          <div class="bebas text-white" style="font-size:96px; line-height:0.9; letter-spacing:0.02em;">TRUMP</div>
+          <div class="bebas" style="font-size:120px; line-height:0.85; color:#FFD700; text-shadow:0 4px 12px rgba(0,0,0,0.5);">2028</div>
+          <div class="playfair italic text-white/90 text-[16px] mt-3 max-w-[280px]">Make America great again. Again.</div>
+          <div class="inline-flex items-center gap-2 mt-4 bg-white text-[#002868] px-5 py-2.5 rounded-full font-bold text-[11px] uppercase tracking-[0.18em]">
+            Join the movement →
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V2: Dark patriot bold -->
+    <div class="card">
+      <h3>V2 · Dark patriot · fist image + bold sans</h3>
+      <div class="meta">black · fist-raised hero · "FINISH THE FIGHT"</div>
+      <div class="frame v2">
+        <div class="v2-fist"></div>
+        <div class="v2-dim"></div>
+        <div class="ad-badge">Ad</div>
+        <div class="absolute top-5 left-5 flex items-center gap-3 z-10">
+          <div class="h-px w-6 bg-[#BF0A30]"></div>
+          <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-white">Trump · Vance</span>
+        </div>
+        <div class="absolute inset-0 flex flex-col justify-end p-6 z-10">
+          <div class="bebas text-white" style="font-size:90px; line-height:0.85; letter-spacing:-0.02em;">TRUMP <span style="color:#BF0A30;">2028</span></div>
+          <div class="bebas text-white/70 mt-2" style="font-size:22px; letter-spacing:0.24em;">FINISH THE FIGHT</div>
+          <div class="inline-flex items-center gap-2 mt-5 bg-[#BF0A30] text-white px-5 py-3 rounded font-bold text-[11px] uppercase tracking-[0.18em] self-start">
+            Pledge your vote →
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V3: Gold elite -->
+    <div class="card">
+      <h3>V3 · Gold elite · circular portrait · serif</h3>
+      <div class="meta">black · gold frame · stately · editorial</div>
+      <div class="frame v3">
+        <div class="ad-badge">Ad</div>
+        <div class="absolute top-4 left-0 right-0 text-center z-10">
+          <span class="text-[10px] uppercase tracking-[0.4em] font-bold" style="color:#C9A961;">America 2028</span>
+        </div>
+        <div class="v3-portrait-frame"></div>
+        <div class="absolute inset-x-6 bottom-6 text-center z-10">
+          <div class="playfair italic text-white/80 text-[14px] mb-3">The greatest comeback in American history.</div>
+          <div class="bebas" style="font-size:88px; line-height:0.85; letter-spacing:0.01em; color:white;">TRUMP</div>
+          <div class="bebas" style="font-size:88px; line-height:0.85; letter-spacing:0.01em; color:#C9A961;">2028</div>
+          <div class="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-full font-bold text-[11px] uppercase tracking-[0.18em]" style="border:1px solid #C9A961; color:#C9A961;">
+            Read the mandate →
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V4: Animated loop Trump 2028 reveal -->
+    <div class="card">
+      <h3>V4 · Animated loop · "America needs him" → image → "TRUMP 2028"</h3>
+      <div class="meta">square · 10s loop · V6-style reveal for 2028 payoff</div>
+      <div class="frame v4">
+        <div class="v4-img"></div>
+        <div class="v4-dim"></div>
+        <div class="ad-badge">Ad</div>
+        <div class="absolute top-3 left-3 flex items-center gap-2 z-10">
+          <div class="h-px w-5 bg-[#BF0A30]"></div>
+          <span class="text-[9px] uppercase tracking-[0.28em] font-bold text-white">Trump · Vance 2028</span>
+        </div>
+        <div class="v4-text">
+          <div class="text-white text-[26px] font-bold leading-[1.15] max-w-[300px]" style="letter-spacing:-0.01em;">
+            America needs him, again.
+          </div>
+        </div>
+        <div class="v4-reveal">
+          <div class="bebas text-white" style="font-size:96px; line-height:0.85; letter-spacing:-0.02em;">TRUMP</div>
+          <div class="bebas" style="font-size:140px; line-height:0.85; color:#BF0A30; letter-spacing:-0.02em;">2028</div>
+          <div class="oswald text-white/70 text-[12px] tracking-[0.28em] uppercase mt-3">Finish what you started</div>
+        </div>
+        <div class="absolute bottom-4 left-0 right-0 flex justify-center z-20">
+          <div class="inline-flex items-center gap-2 bg-[#BF0A30] text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-[0.18em]">Join →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V5: Stars & stripes maximal -->
+    <div class="card">
+      <h3>V5 · Stars &amp; stripes · flag backdrop · portrait cutout</h3>
+      <div class="meta">max patriotic · flag canton · portrait bottom-right</div>
+      <div class="frame v5">
+        <div class="v5-flag"></div>
+        <div class="v5-canton"></div>
+        <div class="v5-portrait"></div>
+        <div class="ad-badge">Ad</div>
+        <div class="absolute top-6 left-6 z-10">
+          <div class="bebas text-white" style="font-size:62px; line-height:0.9; text-shadow:0 3px 10px rgba(0,0,0,0.6);">TRUMP</div>
+          <div class="bebas" style="font-size:96px; line-height:0.85; color:white; text-shadow:0 4px 12px rgba(0,0,0,0.8), 0 0 0 3px #BF0A30;">2028</div>
+        </div>
+        <div class="absolute bottom-6 left-6 z-10 max-w-[240px]">
+          <div class="oswald text-white font-bold text-[14px] leading-[1.15] uppercase tracking-wide" style="text-shadow:0 2px 8px rgba(0,0,0,0.8);">
+            Save America. One more time.
+          </div>
+          <div class="inline-flex items-center gap-2 mt-3 bg-[#002868] text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-[0.18em]">
+            Pledge your support →
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V6: Minimalist red -->
+    <div class="card">
+      <h3>V6 · Minimalist red · type-driven · no image</h3>
+      <div class="meta">red monochrome · giant numerals · brutalist</div>
+      <div class="frame v6">
+        <div class="ad-badge" style="background:rgba(0,0,0,0.25);">Ad</div>
+        <div class="absolute top-5 left-5 z-10">
+          <div class="h-px w-6 bg-white"></div>
+          <div class="oswald text-white text-[11px] font-bold tracking-[0.3em] uppercase mt-1">Trump · Vance</div>
+        </div>
+        <div class="absolute inset-0 flex flex-col justify-center items-center text-center z-10">
+          <div class="bebas text-white" style="font-size:64px; line-height:0.85; letter-spacing:0.06em;">TRUMP</div>
+          <div class="bebas text-white" style="font-size:180px; line-height:0.85; letter-spacing:-0.04em;">2028</div>
+          <div class="oswald text-white/90 mt-4 text-[14px] font-semibold uppercase tracking-[0.2em]">Make America great again. Again.</div>
+        </div>
+        <div class="absolute bottom-5 left-0 right-0 flex justify-center z-10">
+          <div class="inline-flex items-center gap-2 bg-white text-[#BF0A30] px-5 py-2.5 rounded-full font-bold text-[11px] uppercase tracking-[0.18em]">
+            I'm in →
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Notes</h2>
+  <ul style="color:#5a5a55; font-size:13px; line-height:1.6; max-width:820px;">
+    <li><strong>Slogans used:</strong> "Make America great again. Again." · "Finish the fight." · "The greatest comeback in American history." · "Save America. One more time." · "America needs him, again." · "Finish what you started."</li>
+    <li><strong>Image sources:</strong> Official 2025 portrait (public domain, safe) · Fist-raised Butler photo (AP copyrighted — legally risky for prod, recommend re-hosting + negotiating a license before shipping to prod).</li>
+    <li><strong>To ship:</strong> pick the variant(s), tell me placements (article_inline_1/2/3, homepage_inline, sidebars), and CTA link (donaldjtrump.com? 2028 campaign site if one exists? article on your own site?). I'll add new template clauses (<code>trump_2028_poster</code>, <code>trump_2028_loop</code>, etc.) + seed entries.</li>
+    <li><strong>Legal reminder:</strong> Trump is barred from a third term under the 22nd Amendment — this ad is political speech/opinion, not an official campaign. Label/caption it accordingly if that matters to you.</li>
+  </ul>
+</div>
+</body>
+</html>

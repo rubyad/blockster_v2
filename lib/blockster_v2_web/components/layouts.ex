@@ -66,6 +66,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :show_categories, :boolean, default: false, doc: "whether to show the categories row"
   attr :post_category_slug, :string, default: nil, doc: "the current post's category slug for highlighting"
   attr :show_mobile_search, :boolean, default: false, doc: "whether to show the mobile search bar"
+  attr :show_search_modal, :boolean, default: false, doc: "whether to show the desktop search modal"
   attr :header_token, :string, default: "BUX", doc: "token to display in header"
   attr :cart_item_count, :integer, default: 0, doc: "number of items in the user's cart"
   attr :unread_notification_count, :integer, default: 0, doc: "number of unread notifications"
@@ -118,57 +119,11 @@ defmodule BlocksterV2Web.Layouts do
         <!-- Navigation Row: Search left, Menu centered, Balance right -->
         <div class="max-w-7xl mx-auto px-4 pb-2">
           <div class="flex items-center">
-          <!-- Search Bar with Scroll Logo - Left (flex-1 for equal width with right side) -->
-          <div class="flex items-center gap-3 flex-1">
-            <div class="relative" id="search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
-            <!-- Lightning Bolt Logo (hidden by default, shows on scroll, positioned right of search) -->
-            <.link navigate={~p"/"} id="scroll-logo" class="absolute -right-12 top-1/2 -translate-y-1/2 cursor-pointer opacity-0 transition-opacity duration-300 z-20 pointer-events-none">
+          <!-- Scroll Logo Holder - Left (flex-1 for equal width with right side) -->
+          <div class="flex items-center flex-1">
+            <.link navigate={~p"/"} id="scroll-logo" class="cursor-pointer opacity-0 transition-opacity duration-300 pointer-events-none">
               <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="Blockster" class="h-8 w-8" />
             </.link>
-            <div class="input-wrapper relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
-                        stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search"
-                value={@search_query}
-                phx-keyup="search_posts"
-                phx-debounce="300"
-                class="text-left text-grey-30 h-10 px-4 pl-9 bg-[#F5F6FB] text-sm font-haas_roman_55 w-[180px] rounded-full border border-[#E8EAEC]"
-              />
-              <!-- Search Results Dropdown -->
-              <%= if @show_search_results && length(@search_results) > 0 do %>
-                <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-[#E7E8F1] shadow-xl z-50 max-h-[500px] overflow-y-auto">
-                  <div class="py-2">
-                    <%= for post <- @search_results do %>
-                      <.link
-                        navigate={~p"/#{post.slug}"}
-                        class="flex items-start gap-3 px-4 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer"
-                      >
-                        <div class="img-wrapper rounded-lg overflow-hidden shrink-0" style="width: 60px; height: 60px;">
-                          <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
-                            <%= post.title %>
-                          </h4>
-                          <%= if post.category do %>
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
-                              <%= post.category.name %>
-                            </span>
-                          <% end %>
-                        </div>
-                      </.link>
-                    <% end %>
-                  </div>
-                </div>
-              <% end %>
-            </div>
-          </div>
           </div>
 
           <!-- Navigation Links - Centered -->
@@ -176,12 +131,18 @@ defmodule BlocksterV2Web.Layouts do
             <.link navigate={~p"/"} data-nav-path="/" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">News</.link>
             <.link navigate={~p"/hubs"} data-nav-path="/hubs" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Hubs</.link>
             <.link navigate={~p"/shop"} data-nav-path="/shop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Shop</.link>
-            <.link navigate={~p"/airdrop"} data-nav-path="/airdrop" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors">Airdrop</.link>
             <.link navigate={~p"/play"} data-nav-path="/play" class="px-4 py-2 font-haas_medium_65 text-[14px] text-black uppercase rounded-full hover:bg-gray-100 transition-colors cursor-pointer">Play</.link>
           </nav>
 
           <!-- Balance/User - Right (flex-1 for equal width with left side) -->
           <div class="flex items-center gap-2 flex-1 justify-end">
+            <!-- Search Icon (always visible) -->
+            <button phx-click="open_search_modal" aria-label="Search"
+              class="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-[#141414]">
+                <path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clip-rule="evenodd" />
+              </svg>
+            </button>
             <%= if @current_user do %>
               <!-- Cart Icon with Badge -->
               <.link navigate={~p"/cart"} class="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer">
@@ -835,6 +796,71 @@ defmodule BlocksterV2Web.Layouts do
         </div>
       </div>
     <% end %>
+
+    <!-- Search Modal -->
+    <%= if @show_search_modal do %>
+      <div class="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/40 backdrop-blur-sm"
+           phx-window-keydown="close_search_modal" phx-key="escape">
+        <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+             phx-click-away="close_search_modal">
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 14 14" fill="none">
+              <path d="M11.25 12.25L8.74167 9.74167M10.0833 6.41667C10.0833 8.994 7.994 11.0833 5.41667 11.0833C2.83934 11.0833 0.75 8.994 0.75 6.41667C0.75 3.83934 2.83934 1.75 5.41667 1.75C7.994 1.75 10.0833 3.83934 10.0833 6.41667Z"
+                    stroke="#101C36" stroke-opacity="0.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={@search_query}
+              phx-keyup="search_posts"
+              phx-debounce="300"
+              phx-mounted={JS.focus()}
+              class="flex-1 bg-transparent text-base font-haas_roman_55 outline-none border-0 focus:ring-0"
+              id="desktop-search-modal-input"
+            />
+            <button phx-click="close_search_modal" aria-label="Close"
+              class="w-8 h-8 flex items-center justify-center text-gray-500 rounded-full bg-[#F3F5FF] hover:bg-gray-200 cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <%= if @show_search_results && length(@search_results) > 0 do %>
+            <div class="max-h-[60vh] overflow-y-auto py-2">
+              <%= for post <- @search_results do %>
+                <.link navigate={~p"/#{post.slug}"}
+                  class="flex items-start gap-3 px-5 py-3 hover:bg-[#F5F6FB] transition-colors cursor-pointer">
+                  <div class="img-wrapper rounded-lg overflow-hidden shrink-0" style="width: 56px; height: 56px;">
+                    <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-haas_medium_65 text-[#141414] line-clamp-2">
+                      <%= post.title %>
+                    </h4>
+                    <%= if post.category do %>
+                      <span class="inline-block mt-1 px-2 py-0.5 bg-[#F3F5FF] text-[#515B70] rounded-full text-xs font-haas_medium_65">
+                        <%= post.category.name %>
+                      </span>
+                    <% end %>
+                  </div>
+                </.link>
+              <% end %>
+            </div>
+          <% else %>
+            <%= if String.length(@search_query) >= 2 do %>
+              <div class="px-5 py-10 text-center text-sm text-gray-500 font-haas_roman_55">
+                No results for "<%= @search_query %>"
+              </div>
+            <% else %>
+              <div class="px-5 py-10 text-center text-sm text-gray-400 font-haas_roman_55">
+                Type to search articles
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
     </div>
     <!-- Spacer to push content below fixed header (extra room when banner is shown) -->
     <div class={if @show_why_earn_bux, do: "h-[88px] lg:h-[128px]", else: "h-14 lg:h-24"}></div>
@@ -897,7 +923,6 @@ defmodule BlocksterV2Web.Layouts do
             <ul class="space-y-3">
               <li><.link navigate={~p"/how-it-works"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">How it Works</.link></li>
               <li><.link navigate={~p"/shop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Shop</.link></li>
-              <li><.link navigate={~p"/airdrop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Airdrop</.link></li>
               <li><.link navigate={~p"/play"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX Booster</.link></li>
             </ul>
           </div>

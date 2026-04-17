@@ -40,7 +40,7 @@ defmodule BlocksterV2Web.Widgets.FsHeroLandscape do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-full flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
+      class="not-prose bw-widget bw-shell relative w-full flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       style="min-height:480px;"
       phx-hook="FsHeroWidget"
       data-banner-id={@banner.id}

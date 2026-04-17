@@ -12,11 +12,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Article — Inline 3 (end)", "article_inline_3"},
     {"Article — Left Sidebar", "sidebar_left"},
     {"Article — Right Sidebar", "sidebar_right"},
+    {"Article — Top (flush under header)", "article_top"},
     {"Article — Bottom", "article_bottom"},
-    {"Video Player — Top", "video_player_top"},
-    {"Mobile — Top", "mobile_top"},
-    {"Mobile — Mid", "mobile_mid"},
-    {"Mobile — Bottom", "mobile_bottom"}
+    {"Video Player — Top", "video_player_top"}
   ]
 
   @templates [
@@ -34,7 +32,11 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Luxury Car — Skyscraper (200 × tall sidebar)", "luxury_car_skyscraper"},
     {"Luxury Car — Banner (full-width horizontal leaderboard)", "luxury_car_banner"},
     {"Jet Card — Compact (narrower · trimmed jet image · 560px)", "jet_card_compact"},
-    {"Jet Card — Skyscraper (200 × tall sidebar)", "jet_card_skyscraper"}
+    {"Jet Card — Skyscraper (200 × tall sidebar)", "jet_card_skyscraper"},
+    {"Streaming Trial (brand wordmark · hero image · free-trial badge · CTA)", "streaming_trial"},
+    {"Patriotic Portrait (centered · hero portrait · flag stripe · tribute tagline)", "patriotic_portrait"},
+    {"Patriotic Loop (animated square · text → image → THANK YOU / number)", "patriotic_loop"},
+    {"Trump 2028 Loop (animated square · text → image → TRUMP / 2028 / subtitle)", "trump_2028_loop"}
   ]
 
   # Which params each template supports
@@ -77,6 +79,21 @@ defmodule BlocksterV2Web.BannersAdminLive do
     "jet_card_skyscraper" =>
       ~w(brand_name image_url image_bg_color hours headline aircraft_category price_usd
          bg_color bg_color_end accent_color text_color),
+    "streaming_trial" =>
+      ~w(brand_name brand_tagline brand_color brand_text_color
+         heading subheading image_url
+         trial_label price_after cta_text watch_on
+         bg_color bg_color_end text_color),
+    "patriotic_portrait" =>
+      ~w(brand_name image_url image_bg_color
+         model_name reference heading subheading cta_text
+         bg_color bg_color_end accent_color text_color),
+    "patriotic_loop" =>
+      ~w(brand_name image_url headline thank_top number_text
+         number_color cta_text cta_meta accent_color),
+    "trump_2028_loop" =>
+      ~w(brand_name image_url headline top_text number_text
+         number_color subtitle cta_text accent_color),
     "image" => []
   }
 
@@ -110,7 +127,13 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"FateSwap — Sidebar tile (200 × 320) — 1 trade detailed", "fs_sidebar_tile"},
     {"FateSwap — Hero portrait (440 × ~720)", "fs_hero_portrait"},
     {"FateSwap — Hero landscape (full × 480)", "fs_hero_landscape"},
-    {"FateSwap — Ticker (full × 56)", "fs_ticker"}
+    {"FateSwap — Ticker (full × 56)", "fs_ticker"},
+    {"Coin Flip — Sidebar Live (200×340, cycles last 10 games)", "cf_sidebar_tile"},
+    {"Coin Flip — Landscape Live (full-width, cycles last 10 games)", "cf_inline_landscape"},
+    {"Coin Flip — Portrait Live (400px, cycles last 10 games)", "cf_portrait"},
+    {"Coin Flip — Sidebar Demo (200×340, animated how-it-works)", "cf_sidebar_demo"},
+    {"Coin Flip — Landscape Demo (full-width, animated how-it-works)", "cf_inline_landscape_demo"},
+    {"Coin Flip — Portrait Demo (400px, animated how-it-works)", "cf_portrait_demo"}
   ]
 
   @rt_self_selecting ~w(rt_chart_landscape rt_chart_portrait rt_full_card rt_square_compact rt_sidebar_tile)
@@ -419,6 +442,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
       search_query={Map.get(assigns, :search_query, "")}
       search_results={Map.get(assigns, :search_results, [])}
       show_search_results={Map.get(assigns, :show_search_results, false)}
+      show_search_modal={Map.get(assigns, :show_search_modal, false)}
       connecting={Map.get(assigns, :connecting, false)}
     />
     <div class="min-h-screen bg-[#fafaf9] pt-8 pb-12">

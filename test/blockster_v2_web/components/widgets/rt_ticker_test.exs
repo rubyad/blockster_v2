@@ -53,7 +53,7 @@ defmodule BlocksterV2Web.Widgets.RtTickerTest do
       assert html =~ "rogue-logo-white.png"
       assert html =~ "TRADER"
       assert html =~ "Live"
-      assert html =~ "View all AI Bots"
+      assert html =~ "Deposit SOL"
     end
 
     test "renders shimmer skeleton when bots is []" do

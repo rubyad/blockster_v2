@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Article Inline Ad Mocks · Mobile (375px)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f5f5f3;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #141414;
+  }
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+  h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.015em; }
+  h2 { font-size: 18px; margin: 40px 0 12px; letter-spacing: -0.01em; }
+  p.lead { color: #5a5a55; max-width: 640px; line-height: 1.55; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 32px;
+    margin-top: 32px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px 20px 24px;
+    box-shadow: 0 4px 18px -6px rgba(0,0,0,0.08);
+  }
+  .card h3 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .meta {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .viewport-frame {
+    width: 375px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #e7e6e2;
+    border-radius: 22px;
+    padding: 8px;
+    box-shadow: 0 8px 30px -12px rgba(0,0,0,0.12);
+  }
+  .viewport-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+  }
+  .note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fff8e1;
+    border-left: 3px solid #f5b700;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #665500;
+    line-height: 1.4;
+  }
+  .note.ok {
+    background: #e8f5e9;
+    border-left-color: #34a853;
+    color: #1e5631;
+  }
+  .legend {
+    font-size: 12px;
+    color: #5a5a55;
+    padding: 14px 16px;
+    background: #fff;
+    border-radius: 10px;
+    margin-top: 24px;
+    line-height: 1.55;
+  }
+  .legend code {
+    background: #f0efea;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Article inline ads — mobile (375×)</h1>
+  <p class="lead">
+    Current state of every active ad family as rendered in the article body at mobile width.
+    Captured from <code>/the-quiet-revolution-of-onchain-liquidity-pools</code> at a 375×900 viewport (2× DPR).
+  </p>
+
+  <div class="legend">
+    The ad picker rotates one banner per class into each of <code>article_inline_1</code>, <code>article_inline_2</code>, <code>article_inline_3</code>.
+    Landscape-only widgets (<code>cf_inline_landscape_demo</code>, <code>rt_chart_landscape</code>) will be swapped to their
+    portrait siblings when rendered on mobile — those are NOT shown here.
+  </div>
+
+  <h2>1 · Ferrari · <code>luxury_car</code></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Ferrari Roma Spider</h3>
+      <div class="meta">template: luxury_car · 375×auto</div>
+      <div class="viewport-frame"><img src="ferrari.png" alt="Ferrari ad on mobile" /></div>
+      <div class="note ok">Already stacks cleanly at mobile width. Max-width 560px · flex-center wrapper means nothing overflows.</div>
+    </div>
+  </div>
+
+  <h2>2 · Jet Card · <code>jet_card_compact</code></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Flight Finder Exclusive · 25-Hour Jet Card</h3>
+      <div class="meta">template: jet_card_compact · 375×auto</div>
+      <div class="viewport-frame"><img src="jet_card.png" alt="Jet card ad on mobile" /></div>
+      <div class="note ok">Already uses <code>flex-col md:flex-row</code> on the price row. Fits mobile width with no overflow.</div>
+    </div>
+  </div>
+
+  <h2>3 · Rolex · <code>luxury_watch</code> (mobile)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Gray &amp; Sons · Rolex Submariner</h3>
+      <div class="meta">template: luxury_watch · 375×auto</div>
+      <div class="viewport-frame"><img src="luxury_watch_vertical.png" alt="Rolex vertical ad on mobile" /></div>
+      <div class="note ok">
+        Brand wordmark → full-width watch image → divider → centered model + reference → large SOL price.
+        Matches the editorial feel of the sidebar skyscraper, scaled up for the inline slot.
+        On mobile the <code>luxury_watch_split</code> banner swaps to this <code>luxury_watch</code> rendering.
+      </div>
+    </div>
+  </div>
+
+  <h2>4 · Coin Flip · <code>cf_portrait_demo</code></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Coin Flip Portrait (demo)</h3>
+      <div class="meta">widget: cf_portrait_demo · 375×auto</div>
+      <div class="viewport-frame"><img src="cf_portrait_demo.png" alt="Coin Flip portrait widget on mobile" /></div>
+      <div class="note ok">
+        Portrait demo — naturally narrow, fits mobile. <code>cf_inline_landscape_demo</code> will auto-swap to this on mobile.
+      </div>
+    </div>
+  </div>
+
+  <h2>5 · RogueTrader Chart · <code>rt_chart_portrait</code></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>RogueTrader Chart Portrait</h3>
+      <div class="meta">widget: rt_chart_portrait · 375×auto</div>
+      <div class="viewport-frame"><img src="rt_chart_portrait.png" alt="RT chart portrait on mobile" /></div>
+      <div class="note ok">
+        Portrait chart — <code>max-w-[440px] mx-auto</code>, renders inside mobile viewport fine.
+        <code>rt_chart_landscape</code> will auto-swap to this on mobile.
+      </div>
+    </div>
+  </div>
+
+  <h2>Implementation plan</h2>
+  <div class="legend">
+    <strong>Single responsive rendering:</strong>
+    <ul>
+      <li>In <code>show.html.heex</code>, wrap each <code>widget_or_ad</code> inline call with a helper that checks the banner's <code>widget_type</code>:
+        if it's a landscape variant, swap it to the matching portrait variant behind a <code>lg:hidden</code> block, and keep the original
+        behind <code>hidden lg:block</code>. All other templates render once (they already stack responsively).
+      </li>
+      <li>Retire the <code>mobile_top</code>, <code>mobile_mid</code>, <code>mobile_bottom</code> placements: remove their
+        render blocks from <code>show.html.heex</code>, the assigns from <code>show.ex</code>, and the options from the
+        <code>/admin/banners</code> placement dropdown. Existing rows stay in the DB but stop rendering.
+      </li>
+    </ul>
+    <strong>Mapping used for the desktop → mobile swap:</strong>
+    <ul>
+      <li><code>cf_inline_landscape_demo</code> → <code>cf_portrait_demo</code></li>
+      <li><code>rt_chart_landscape</code> → <code>rt_chart_portrait</code></li>
+      <li><code>luxury_watch_split</code> → <code>luxury_watch</code></li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

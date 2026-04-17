@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Trump · 250 ad variants</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f3; }
+  .page { max-width: 1600px; margin: 0 auto; padding: 48px 32px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  h2 { font-size: 18px; margin: 40px 0 12px; letter-spacing: -0.01em; font-weight: 600; color: #333; }
+  p.lead { color: #5a5a55; max-width: 680px; line-height: 1.55; }
+  .grid-mocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 40px; margin-top: 24px; }
+  .card { background: #fff; padding: 20px 20px 24px; border-radius: 16px; box-shadow: 0 4px 18px -6px rgba(0,0,0,0.08); }
+  .card h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #141414; font-weight: 700; }
+  .meta { font-size: 11px; color: #888; margin-bottom: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .ad-wrap { display: flex; justify-content: center; }
+  .ad-inner { width: 100%; max-width: 560px; }
+  .sponsored-label { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #9ca3af; margin-bottom: 8px; font-weight: 700; text-align: center; }
+
+  /* Stars/stripes overlay used in a few variants */
+  .flag-stripes::after {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(229, 29, 29, 0.10) 0 8px,
+        transparent 8px 16px
+      );
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .star-field {
+    background: #002868;
+    background-image:
+      radial-gradient(circle, white 1px, transparent 1.5px),
+      radial-gradient(circle, white 1px, transparent 1.5px);
+    background-size: 18px 18px, 18px 18px;
+    background-position: 0 0, 9px 9px;
+  }
+  .num-250 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    font-size: 200px;
+    letter-spacing: -0.04em;
+    line-height: 0.85;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Trump · America 250 — ad variants</h1>
+  <p class="lead">
+    Six mock variants using different templates, images, and headlines. Pick which ones to wire into
+    <code>priv/repo/seeds_banners.exs</code> and tell me which placements (article inline 1/2/3, homepage).
+    Fist image: Evan Vucci / AP via Wikipedia. Portrait: 2025 official White House portrait (public domain).
+  </p>
+
+  <div class="grid-mocks">
+
+    <!-- ── A: streaming_trial style + fist raised + FIGHT callout ── -->
+    <div class="card">
+      <h3>A · Streaming-trial style · fist raised</h3>
+      <div class="meta">bold headline · dark card · red accent · 7-day trial vibe</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="relative rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10" style="background:linear-gradient(180deg,#0a0a0a,#1a1a1a); color:white;">
+          <div class="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <span class="text-[22px] font-black tracking-tight" style="color:#BF0A30; letter-spacing:-0.02em;">AMERICA 250</span>
+              <span class="text-[9px] uppercase tracking-[0.2em] font-bold opacity-60 pl-3 border-l border-white/20">1776 — 2026</span>
+            </div>
+            <div class="text-[8px] font-bold uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded">Ad</div>
+          </div>
+          <div class="relative aspect-[16/9] overflow-hidden">
+            <img src="https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp" class="w-full h-full object-cover" />
+            <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 40%,#0a0a0a 100%);"></div>
+            <div class="absolute top-3 right-3 text-[10px] font-black tracking-[0.3em] text-[#BF0A30] px-2 py-1 bg-black/60 rounded">FIGHT · FIGHT · FIGHT</div>
+          </div>
+          <div class="px-5 py-6">
+            <h3 class="text-[26px] font-bold leading-[1.1] mb-2" style="letter-spacing:-0.02em;">America at 250 — led by her greatest president.</h3>
+            <p class="text-[13px] leading-snug opacity-70 mb-5">Honoring 250 years of American exceptionalism.</p>
+            <div class="inline-flex items-center gap-2 px-5 py-3 rounded font-bold text-[13px] uppercase tracking-[0.14em]" style="background:#BF0A30; color:white;">
+              Explore the legacy
+              <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+          <div class="px-5 py-3 border-t border-white/10 text-[9px] uppercase tracking-[0.22em] opacity-50 text-center font-semibold">1776 · 2026 · America 250</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ── B: split_card style · portrait · 250 panel ── -->
+    <div class="card">
+      <h3>B · Split card · official portrait · 250 panel</h3>
+      <div class="meta">white card · info left · flag-blue 250 panel right</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="rounded-2xl overflow-hidden bg-white border border-neutral-200/70 shadow-xl">
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] items-stretch">
+            <div class="p-7">
+              <div class="flex items-center gap-2 mb-4">
+                <div class="w-6 h-6 rounded-md grid place-items-center" style="background:#BF0A30;"><div class="w-3 h-3 rounded-full bg-white"></div></div>
+                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">America 250</span>
+                <span class="text-neutral-300">·</span>
+                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">1776 — 2026</span>
+              </div>
+              <h3 class="font-bold text-[28px] text-[#141414] mb-2 leading-[1.05]" style="letter-spacing:-0.02em;">The greatest president in American history.</h3>
+              <p class="text-neutral-600 text-[14px] leading-snug mb-5 max-w-[420px]">Celebrating 250 years of American excellence.</p>
+              <div class="inline-flex items-center gap-2 bg-[#002868] text-white px-4 py-2.5 rounded-full font-bold text-[13px]">
+                Watch the tribute
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </div>
+            </div>
+            <div class="hidden md:grid relative place-items-center overflow-hidden star-field">
+              <div class="relative z-10 text-white text-center">
+                <div class="text-[10px] uppercase tracking-[0.14em] opacity-70 mb-1">Celebrating</div>
+                <div class="num-250" style="font-size:108px;">250</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] opacity-70 mt-1">Years of America</div>
+              </div>
+            </div>
+          </div>
+          <div class="relative h-[220px] border-t border-neutral-200/70">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg" class="w-full h-full object-cover object-top" />
+            <div class="absolute inset-0 flag-stripes"></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ── C: full-bleed editorial · fist raised hero · huge 250 ── -->
+    <div class="card">
+      <h3>C · Full-bleed editorial · fist hero · huge 250</h3>
+      <div class="meta">cinematic · dark · numeric dominance</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="relative rounded-2xl overflow-hidden shadow-2xl">
+          <img src="https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp" class="w-full h-[520px] object-cover" />
+          <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.95) 100%);"></div>
+          <div class="absolute top-5 left-5 flex items-center gap-3">
+            <div class="h-px w-8" style="background:#BF0A30;"></div>
+            <span class="text-[10px] uppercase tracking-[0.28em] font-bold text-white">America 250</span>
+          </div>
+          <div class="absolute top-5 right-5 text-[8px] font-bold uppercase tracking-wider bg-white/15 backdrop-blur px-1.5 py-0.5 rounded text-white">Ad</div>
+          <div class="absolute inset-x-6 bottom-[200px] pointer-events-none opacity-25">
+            <div class="num-250 text-white text-right leading-none">250</div>
+          </div>
+          <div class="absolute inset-x-0 bottom-0 px-6 pb-6">
+            <h3 class="text-white text-[34px] font-bold leading-[1.02] mb-3" style="letter-spacing:-0.025em;">1776 to 2026.<br/>The greatest era.<br/>The greatest president.</h3>
+            <p class="text-white/70 text-[13px] mb-5 max-w-[400px]">Proudly celebrating 250 years of American excellence, with the country's greatest president ever.</p>
+            <div class="inline-flex items-center gap-2 px-5 py-3 rounded font-bold text-[13px] uppercase tracking-[0.14em]" style="background:#BF0A30; color:white;">
+              Join the celebration
+              <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ── D: luxury_watch editorial style · portrait · centered ── -->
+    <div class="card">
+      <h3>D · Editorial · centered portrait · serif</h3>
+      <div class="meta">luxury_watch layout · gold accents · stately</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="rounded-2xl overflow-hidden shadow-xl" style="background:linear-gradient(180deg,#0a0a0a,#1a1a1a); color:#E8E4DD;">
+          <div class="pt-7 pb-4 flex items-center justify-center gap-3">
+            <div class="h-px w-10 opacity-40" style="background:#C9A961;"></div>
+            <div class="text-[11px] font-semibold uppercase" style="letter-spacing:0.28em; color:#C9A961;">America 250</div>
+            <div class="h-px w-10 opacity-40" style="background:#C9A961;"></div>
+          </div>
+          <div class="relative" style="background:#FFFFFF;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg" class="w-full h-auto block" />
+            <div class="absolute top-0 left-0 right-0 h-2" style="background:linear-gradient(90deg,#BF0A30 33%,#FFFFFF 33% 66%,#002868 66%);"></div>
+          </div>
+          <div class="flex justify-center pt-8">
+            <div class="h-px w-16" style="background:#C9A961; opacity:0.5;"></div>
+          </div>
+          <div class="px-8 pt-5 text-center">
+            <h3 class="text-[22px] font-bold tracking-tight uppercase leading-[1.1]" style="font-family:'Inter',serif; letter-spacing:0.12em; color:#E8E4DD;">Donald J. Trump</h3>
+            <div class="text-[11px] mt-2 italic opacity-75" style="font-family:Georgia,serif;">45th &amp; 47th President of the United States</div>
+          </div>
+          <div class="px-8 pt-6 text-center">
+            <div class="text-[26px] font-bold leading-tight" style="font-family:'Inter',sans-serif; color:#C9A961;">The greatest president in American history.</div>
+            <div class="text-[11px] mt-3 opacity-55" style="letter-spacing:0.18em; text-transform:uppercase;">Celebrating 250 years of American excellence</div>
+          </div>
+          <div class="pb-8 px-8 pt-6 text-center">
+            <div class="inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold text-[11px] uppercase tracking-[0.2em]" style="border:1px solid #C9A961; color:#C9A961;">
+              Honor the legacy
+              <span>→</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ── E: portrait template · flag-background hero · bold ── -->
+    <div class="card">
+      <h3>E · Portrait template · flag backdrop · bold stacked</h3>
+      <div class="meta">stacked layout · blue → red gradient · flag element</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-xl">
+          <div class="relative overflow-hidden" style="background:#002868;">
+            <div class="aspect-[4/3] relative overflow-hidden">
+              <img src="https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp" class="w-full h-full object-cover" />
+              <div class="absolute inset-0" style="background:linear-gradient(135deg, rgba(0,40,104,0.3), rgba(191,10,48,0.3));"></div>
+              <div class="absolute top-3 left-3 px-1.5 py-0.5 bg-white/95 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              <div class="absolute top-3 right-3 text-white font-black" style="font-size:56px; line-height:0.85; letter-spacing:-0.04em; text-shadow:0 2px 8px rgba(0,0,0,0.4);">250</div>
+            </div>
+            <div class="px-7 pt-7 pb-6 relative" style="background:linear-gradient(to bottom,#002868,#BF0A30);">
+              <h3 class="text-white font-bold text-[28px] leading-[1.08] mb-5 max-w-[380px]" style="letter-spacing:-0.02em;">A nation turns 250. Led by a legend.</h3>
+              <div class="text-white font-semibold text-[14px] mb-5 opacity-90">Celebrating American power, strength, and leadership.</div>
+              <div class="inline-flex items-center px-4 py-2 border border-white/80 text-white text-[12px] font-bold rounded">
+                Explore →
+              </div>
+              <div class="mt-5 pt-4 border-t border-white/20 text-right">
+                <span class="text-white text-[16px] tracking-tight font-bold">Donald J. Trump · 45 · 47</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ── F: dark_gradient · portrait icon · no hero image ── -->
+    <div class="card">
+      <h3>F · Dark gradient · portrait as icon · minimal</h3>
+      <div class="meta">clean · text-forward · small portrait avatar</div>
+      <div class="ad-wrap"><div class="ad-inner">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="relative rounded-2xl overflow-hidden p-6 shadow-2xl ring-1 ring-white/10" style="background:linear-gradient(135deg,#0a0a0a,#1c1c25);">
+          <div class="absolute top-0 right-0 w-64 h-64 pointer-events-none" style="background:radial-gradient(circle at top right, rgba(191,10,48,0.25), transparent 60%);"></div>
+          <div class="absolute bottom-0 left-0 w-48 h-48 pointer-events-none" style="background:radial-gradient(circle at bottom left, rgba(0,40,104,0.3), transparent 60%);"></div>
+          <div class="relative flex items-center justify-between gap-6">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-3">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg" class="w-8 h-8 rounded-full object-cover ring-2 ring-white/20" />
+                <span class="text-[11px] uppercase tracking-[0.14em] text-white/60">America 250 · 1776 — 2026</span>
+              </div>
+              <h3 class="text-white font-bold text-[24px] leading-[1.1] mb-2 max-w-[380px]" style="letter-spacing:-0.015em;">250 years of American greatness. One historic president.</h3>
+              <p class="text-white/60 text-[13px] leading-snug max-w-[380px]">Honoring Donald J. Trump — the 45th and 47th President of the United States.</p>
+            </div>
+            <div class="flex-shrink-0 hidden md:block">
+              <div class="text-white font-black leading-none text-right" style="font-size:80px; letter-spacing:-0.04em; color:#BF0A30; text-shadow:0 2px 12px rgba(191,10,48,0.3);">250</div>
+            </div>
+          </div>
+          <div class="relative mt-5 inline-flex items-center gap-2 bg-white text-[#002868] px-4 py-2.5 rounded-full font-bold text-[13px]">
+            Read the tribute
+            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+
+  <h2 style="margin-top: 64px;">Notes</h2>
+  <ul style="color:#5a5a55; font-size:13px; line-height:1.6; max-width:820px;">
+    <li><strong>Images:</strong> fist-raised photo is © Evan Vucci / AP — Wikipedia hosts a low-res version, but hotlinking in production is legal-risk. For prod, upload to ImageKit. Portrait is public-domain (US government work), safe to hotlink or re-host.</li>
+    <li><strong>Templates:</strong> A reuses <code>streaming_trial</code>, B reuses <code>split_card</code>, C/E/F are new styles (would need new template clauses), D reuses <code>luxury_watch</code> layout. If you pick C/E/F I'll add a new <code>patriotic_hero</code> / <code>patriotic_portrait</code> / <code>patriotic_minimal</code> template.</li>
+    <li><strong>Once you pick:</strong> tell me which variant(s) + headline(s) + placements (article inline 1/2/3, homepage_inline), and whether to use <code>{:template, ...}</code> or a new dedupe class like <code>:america_250</code>.</li>
+  </ul>
+</div>
+</body>
+</html>

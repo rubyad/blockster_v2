@@ -34,6 +34,31 @@ defmodule BlocksterV2Web.PostLive.Show do
   defp random_or_nil(list) when is_list(list), do: Enum.random(list)
   defp random_or_nil(_), do: nil
 
+  # Pick one banner for each inline slot with no duplicates across slots.
+  # "The same ad" is identified by `link_url` so banners seeded into multiple
+  # placements (e.g. Ferrari at inline_1, _2, and _3 for rotation reach) only
+  # render in one slot per page view. Falls back to id when link_url is nil.
+  defp pick_distinct_inline(list1, list2, list3) do
+    p1 = random_or_nil(list1)
+    used = with_key(MapSet.new(), p1)
+
+    p2 = random_or_nil(reject_used(list2, used))
+    used = with_key(used, p2)
+
+    p3 = random_or_nil(reject_used(list3, used))
+    {p1, p2, p3}
+  end
+
+  defp with_key(set, nil), do: set
+  defp with_key(set, banner), do: MapSet.put(set, banner_key(banner))
+
+  defp reject_used(list, used),
+    do: Enum.reject(list, &MapSet.member?(used, banner_key(&1)))
+
+  # Dedupe by ad class (defined in `BlocksterV2.Ads.banner_class/1`). One
+  # banner per class per page view across the 3 inline slots.
+  defp banner_key(banner), do: BlocksterV2.Ads.banner_class(banner)
+
   @doc """
   Determines if pool is available for NEW earning actions.
   Returns false if pool is zero or negative.
@@ -201,24 +226,14 @@ defmodule BlocksterV2Web.PostLive.Show do
         do: BlocksterV2.Ads.list_active_banners_by_placement("article_bottom"),
         else: []
 
-    mobile_top_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_top"),
-        else: []
-
-    mobile_mid_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_mid"),
-        else: []
-
-    mobile_bottom_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("mobile_bottom"),
-        else: []
-
     video_player_top_banners =
       if connected?(socket),
         do: BlocksterV2.Ads.list_active_banners_by_placement("video_player_top"),
+        else: []
+
+    article_top_banners =
+      if connected?(socket),
+        do: BlocksterV2.Ads.list_active_banners_by_placement("article_top"),
         else: []
 
     # Inline article ad placements (template-based)
@@ -296,9 +311,6 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:left_sidebar_banners, left_sidebar_banners)
      |> assign(:right_sidebar_banners, right_sidebar_banners)
      |> assign(:article_bottom_banners, article_bottom_banners)
-     |> assign(:mobile_top_banners, mobile_top_banners)
-     |> assign(:mobile_mid_banners, mobile_mid_banners)
-     |> assign(:mobile_bottom_banners, mobile_bottom_banners)
      |> assign(:video_player_top_banners, video_player_top_banners)
      |> assign(:article_inline_1, article_inline_1)
      |> assign(:article_inline_2, article_inline_2)
@@ -306,12 +318,18 @@ defmodule BlocksterV2Web.PostLive.Show do
      # Frozen picks — one banner per rotating slot, chosen once on mount so
      # re-renders (PubSub ticks from widget trackers, etc.) don't churn the
      # random pick and swap the ad mid-view. Reads pre-computed lists above.
-     |> assign(:article_inline_1_pick, random_or_nil(article_inline_1))
-     |> assign(:article_inline_2_pick, random_or_nil(article_inline_2))
-     |> assign(:article_inline_3_pick, random_or_nil(article_inline_3))
-     |> assign(:mobile_top_pick, random_or_nil(mobile_top_banners))
-     |> assign(:mobile_mid_pick, random_or_nil(mobile_mid_banners))
-     |> assign(:mobile_bottom_pick, random_or_nil(mobile_bottom_banners))
+     # Inline picks dedupe across slots so the same banner can't repeat.
+     |> then(fn s ->
+       {p1, p2, p3} =
+         pick_distinct_inline(article_inline_1, article_inline_2, article_inline_3)
+
+       s
+       |> assign(:article_inline_1_pick, p1)
+       |> assign(:article_inline_2_pick, p2)
+       |> assign(:article_inline_3_pick, p3)
+     end)
+     |> assign(:article_top_banners, article_top_banners)
+     |> assign(:article_top_pick, random_or_nil(article_top_banners))
      |> assign(:article_bottom_pick, random_or_nil(article_bottom_banners))
      |> assign(:video_player_top_pick, random_or_nil(video_player_top_banners))
      |> assign(:content_chunks, content_chunks)
@@ -327,7 +345,8 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:engagement_score, nil)
      |> load_video_engagement()
      |> mount_widgets(
-       left_sidebar_banners ++
+       article_top_banners ++
+         left_sidebar_banners ++
          right_sidebar_banners ++
          article_inline_1 ++
          article_inline_2 ++

@@ -1208,16 +1208,18 @@ html, body {
   list-style: none;
   padding: 0;
   margin: 1.25rem 0 1.5rem;
-  border-left: 2px solid #e5e5e2;
-  padding-left: 1.25rem;
 }
 .article-body ul li {
   position: relative;
   padding-left: 1.1rem;
-  margin-bottom: 0.4rem;
-  line-height: 1.55;
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 1.45;
   font-size: 17px;
   color: #343434;
+}
+.article-body ul li p {
+  margin: 0;
 }
 .article-body ul li:last-child { margin-bottom: 0; }
 .article-body ul li::before {
@@ -1361,4 +1363,274 @@ html, body {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────
+   PATRIOTIC LOOP — animated square ad template (V6 pattern)
+   Sequence (11s loop):
+     0–30%   headline writes word-by-word on black
+     30–38%  headline fades out
+     38–58%  hero image fades in with grain
+     58–65%  image fades out
+     65–92%  "THANK YOU" + "47" shown on black (no glow)
+     92–100% fades out, restart
+───────────────────────────────────────────────────────── */
+.pl-frame {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.35);
+  background: #0a0a0a;
+}
+.pl-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background-size: cover; background-position: center 22%;
+  opacity: 0;
+  filter: contrast(1.1) saturate(1.15);
+  animation: pl-img 11s infinite ease;
+}
+@keyframes pl-img {
+  0%, 30% { opacity: 0; }
+  40% { opacity: 1; }
+  58% { opacity: 1; }
+  65%, 100% { opacity: 0; }
+}
+.pl-dim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.9) 100%);
+  opacity: 0;
+  animation: pl-img 11s infinite ease;
+}
+.pl-grain {
+  position: absolute; inset: 0; z-index: 3; opacity: 0;
+  background-image:
+    radial-gradient(circle at 25% 30%, rgba(255,255,255,0.04) 1px, transparent 2px),
+    radial-gradient(circle at 75% 60%, rgba(255,255,255,0.04) 1px, transparent 2px);
+  background-size: 6px 6px, 8px 8px;
+  animation: pl-grain 11s infinite ease;
+}
+@keyframes pl-grain {
+  0%, 38% { opacity: 0; }
+  48%, 58% { opacity: 1; }
+  65%, 100% { opacity: 0; }
+}
+.pl-headline-layer {
+  position: absolute; inset: 0;
+  display: flex; justify-content: center; align-items: center;
+  padding: 32px; text-align: center;
+  color: white; z-index: 5;
+  animation: pl-headline-life 11s infinite ease;
+}
+@keyframes pl-headline-life {
+  0%, 30% { opacity: 1; }
+  38%, 100% { opacity: 0; }
+}
+.pl-headline {
+  font-size: 28px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
+  max-width: 360px;
+}
+.pl-headline span {
+  display: inline-block; opacity: 0;
+  animation: pl-word 11s infinite ease;
+}
+@keyframes pl-word {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  30% { opacity: 1; }
+  38% { opacity: 0; }
+  100% { opacity: 0; }
+}
+.pl-headline span:nth-child(1) { animation-delay: 0s; }
+.pl-headline span:nth-child(2) { animation-delay: 0.1s; }
+.pl-headline span:nth-child(3) { animation-delay: 0.2s; }
+.pl-headline span:nth-child(4) { animation-delay: 0.3s; }
+.pl-headline span:nth-child(5) { animation-delay: 0.4s; }
+.pl-headline span:nth-child(6) { animation-delay: 0.5s; }
+.pl-headline span:nth-child(7) { animation-delay: 0.6s; }
+.pl-headline span:nth-child(8) { animation-delay: 0.7s; }
+.pl-headline span:nth-child(9) { animation-delay: 0.8s; }
+.pl-headline span:nth-child(10) { animation-delay: 0.9s; }
+.pl-thank-layer {
+  position: absolute; inset: 0;
+  display: flex; justify-content: center; align-items: center;
+  flex-direction: column;
+  color: white; z-index: 5;
+  opacity: 0;
+  animation: pl-thank-life 11s infinite ease;
+}
+@keyframes pl-thank-life {
+  0%, 62% { opacity: 0; }
+  70%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.pl-thank-top {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 56px; line-height: 1; letter-spacing: 0.06em; color: white;
+  margin-bottom: -8px;
+}
+.pl-num {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 220px; line-height: 0.85; font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.pl-brand {
+  position: absolute; top: 12px; left: 12px;
+  display: flex; align-items: center; gap: 10px;
+  color: white; font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700;
+  z-index: 10;
+}
+.pl-brand::before {
+  content: ""; width: 22px; height: 1px; background: #BF0A30;
+}
+.pl-ad-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 9px; font-weight: 800;
+  padding: 2px 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.15); color: white;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  z-index: 10;
+}
+.pl-cta {
+  position: absolute; bottom: 18px; left: 18px; right: 18px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  z-index: 10;
+}
+.pl-cta-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 6px;
+  color: white; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.pl-cta-meta {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────────────────
+   TRUMP 2028 LOOP — animated square ad (10s loop)
+   0–25%   headline "America needs him, again." on black
+   25–32%  text fades, image fades in
+   32–55%  image holds
+   55–62%  image fades out
+   60–92%  "TRUMP" above "2028" + subtitle on black
+   92–100% fade out, restart
+───────────────────────────────────────────────────────── */
+.t28-frame {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.35);
+  background: #0a0a0a;
+}
+.t28-img {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center 22%;
+  opacity: 0;
+  filter: contrast(1.1) saturate(1.15);
+  animation: t28-img 10s infinite ease;
+}
+@keyframes t28-img {
+  0%, 25% { opacity: 0; }
+  35% { opacity: 1; }
+  55% { opacity: 1; }
+  62%, 100% { opacity: 0; }
+}
+.t28-dim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.8));
+  opacity: 0;
+  animation: t28-img 10s infinite ease;
+}
+.t28-headline-layer {
+  position: absolute; inset: 0;
+  display: flex; justify-content: center; align-items: center;
+  padding: 40px; text-align: center;
+  color: white; z-index: 5;
+  animation: t28-hl 10s infinite ease;
+}
+@keyframes t28-hl {
+  0%, 25% { opacity: 1; }
+  32%, 100% { opacity: 0; }
+}
+.t28-hl {
+  font-size: 26px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
+  max-width: 300px;
+}
+.t28-hl span {
+  display: inline-block; opacity: 0;
+  animation: t28-word 10s infinite ease;
+}
+@keyframes t28-word {
+  0% { opacity: 0; } 10%, 25% { opacity: 1; } 32%, 100% { opacity: 0; }
+}
+.t28-hl span:nth-child(1) { animation-delay: 0s; }
+.t28-hl span:nth-child(2) { animation-delay: 0.1s; }
+.t28-hl span:nth-child(3) { animation-delay: 0.2s; }
+.t28-hl span:nth-child(4) { animation-delay: 0.3s; }
+.t28-hl span:nth-child(5) { animation-delay: 0.4s; }
+.t28-hl span:nth-child(6) { animation-delay: 0.5s; }
+.t28-reveal-layer {
+  position: absolute; inset: 0;
+  display: flex; justify-content: center; align-items: center;
+  flex-direction: column; gap: 4px;
+  z-index: 6; opacity: 0;
+  animation: t28-reveal 10s infinite ease;
+}
+@keyframes t28-reveal {
+  0%, 60% { opacity: 0; }
+  68%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.t28-top {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 96px; line-height: 0.85; font-weight: 900;
+  letter-spacing: -0.02em; color: white;
+}
+.t28-num {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 140px; line-height: 0.85; font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.t28-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  margin-top: 12px;
+}
+.t28-brand {
+  position: absolute; top: 12px; left: 12px;
+  display: flex; align-items: center; gap: 10px;
+  color: white; font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700;
+  z-index: 10;
+}
+.t28-brand::before {
+  content: ""; width: 22px; height: 1px; background: #BF0A30;
+}
+.t28-ad-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 9px; font-weight: 800;
+  padding: 2px 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.15); color: white;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  z-index: 10;
+}
+.t28-cta {
+  position: absolute; bottom: 16px; left: 0; right: 0;
+  display: flex; justify-content: center;
+  z-index: 10;
+}
+.t28-cta-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 6px;
+  color: white; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.18em; text-transform: uppercase;
 }

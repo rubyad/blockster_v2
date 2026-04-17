@@ -161,6 +161,7 @@ defmodule BlocksterV2Web.Router do
       live "/notifications", NotificationLive.Index, :index
       live "/notifications/settings", NotificationSettingsLive.Index, :index
       live "/notifications/referrals", NotificationLive.Referrals, :index
+      live "/media-kit", MediaKitLive, :index
     end
 
     live_session :default,

@@ -1,0 +1,493 @@
+<div class="min-h-screen bg-[#fafaf9] text-[#141414]">
+  <BlocksterV2Web.DesignSystem.header
+    current_user={@current_user}
+    active="media-kit"
+    bux_balance={Map.get(assigns, :bux_balance, 0)}
+    token_balances={Map.get(assigns, :token_balances, %{})}
+    cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+    unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+    notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+    recent_notifications={Map.get(assigns, :recent_notifications, [])}
+    search_query={Map.get(assigns, :search_query, "")}
+    search_results={Map.get(assigns, :search_results, [])}
+    show_search_results={Map.get(assigns, :show_search_results, false)}
+    show_search_modal={Map.get(assigns, :show_search_modal, false)}
+    connecting={Map.get(assigns, :connecting, false)}
+  />
+
+  <main class="max-w-[1280px] mx-auto px-6">
+    <%!-- ═══════════════════════════════════════════════════════════════
+         HERO
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section class="pt-12 pb-10 md:pt-16 md:pb-14">
+      <div class="grid grid-cols-12 gap-8 items-end">
+        <div class="col-span-12 md:col-span-7">
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
+            Press · brand · downloads
+          </BlocksterV2Web.DesignSystem.eyebrow>
+          <h1 class="text-[56px] md:text-[80px] leading-[0.96] font-bold tracking-[-0.022em] mb-4">
+            Blockster Media Kit
+          </h1>
+          <p class="text-[16px] text-neutral-600 leading-[1.55] max-w-[560px]">
+            AI &times; Blockchain media platform. Everything you need to write about Blockster or build with us &mdash; brand assets, platform metrics, the interview library, and the one-line story. Free to use, attribution appreciated.
+          </p>
+        </div>
+        <div class="col-span-12 md:col-span-5">
+          <div class="grid grid-cols-3 gap-3">
+            <a
+              href={@brand_assets_zip}
+              download
+              class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-center hover:border-[#141414] transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+            >
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <div class="text-[11px] font-bold text-[#141414]">Download all</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">.zip &middot; 970 KB</div>
+            </a>
+            <a
+              href="#metrics"
+              class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-center hover:border-[#141414] transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+            >
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+              <div class="text-[11px] font-bold text-[#141414]">Platform metrics</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">14-month arc</div>
+            </a>
+            <a
+              href="#interviews"
+              class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-center hover:border-[#141414] transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+            >
+              <svg class="w-5 h-5 mx-auto mb-2 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <div class="text-[11px] font-bold text-[#141414]">Interviews</div>
+              <div class="text-[9px] font-mono text-neutral-500 mt-0.5">{length(@interviews)} videos</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         PLATFORM METRICS  ·  JAN 2025 → Q1 2026
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section id="metrics" class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">
+            Jan 2025 &rarr; Q1 2026 &middot; Full growth arc
+          </BlocksterV2Web.DesignSystem.eyebrow>
+          <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">Combined platform performance</h2>
+        </div>
+        <div class="text-[11px] font-mono text-neutral-500 max-w-[380px] text-right">
+          Clear progression from global scale acquisition in 2025 to refined engagement depth across AI and blockchain audiences in 2026.
+        </div>
+      </div>
+
+      <%!-- Top-line cumulative numbers --%>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <.metric_card label="Total active users" value="2.79M+" sub="cumulative scale" />
+        <.metric_card label="Engaged sessions" value="1.31M+" sub="qualified traffic" />
+        <.metric_card label="Total events" value="13.9M+" sub="platform interactions" />
+        <.metric_card label="Key event volume" value="26,200+" sub="high-intent actions" />
+      </div>
+
+      <%!-- Engagement benchmarks --%>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <.metric_card label="Avg engagement rate" value="41–45%" sub="blended view" tone="lime" />
+        <.metric_card label="Avg engagement time" value="~2m+" sub="peaks in 2025, stable 2026" tone="lime" />
+        <.metric_card label="Event-to-user density" value="High" sub="consistently strong both periods" tone="lime" />
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         GROWTH ARC  ·  THREE-PHASE BREAKDOWN
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section id="growth-arc" class="py-12 border-t border-neutral-200/70">
+      <div class="mb-7">
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Growth phases</BlocksterV2Web.DesignSystem.eyebrow>
+        <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">The 14-month arc</h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <%!-- 2025 · Global Scale Expansion --%>
+        <article class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">2025</span>
+            <span class="h-px flex-1 bg-neutral-200"></span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.1em] text-[#141414]">Global scale</span>
+          </div>
+          <h3 class="text-[22px] font-bold tracking-[-0.014em] mb-4">Global scale expansion</h3>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Active users</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">2.75M+</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Events</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">13.5M+</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Engagement rate</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">44.84%</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Avg time</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">2m 58s</dd>
+            </div>
+          </dl>
+          <div class="mb-5">
+            <div class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500 mb-2">Key markets</div>
+            <div class="flex flex-wrap gap-1.5">
+              <.region_pill>United States &middot; 20.5%</.region_pill>
+              <.region_pill>Canada &middot; 6.0%</.region_pill>
+              <.region_pill>United Kingdom &middot; 5.4%</.region_pill>
+              <.region_pill>Portugal</.region_pill>
+              <.region_pill>Türkiye</.region_pill>
+              <.region_pill>UAE</.region_pill>
+              <.region_pill>Switzerland</.region_pill>
+              <.region_pill>Germany</.region_pill>
+              <.region_pill>Egypt</.region_pill>
+            </div>
+          </div>
+          <p class="text-[13px] leading-[1.55] text-neutral-600 mt-auto">
+            Established Blockster as a global crypto media distribution network, with strong penetration across developed and emerging markets.
+          </p>
+        </article>
+
+        <%!-- Q1 2026 · Engagement Consolidation --%>
+        <article class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">Q1 2026</span>
+            <span class="h-px flex-1 bg-neutral-200"></span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.1em] text-[#141414]">Refined layer</span>
+          </div>
+          <h3 class="text-[22px] font-bold tracking-[-0.014em] mb-4">Engagement consolidation</h3>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Active users</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">48,571</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Total events</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">389,163</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Engagement rate</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">34.96%</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500">Intent signal</dt>
+              <dd class="font-mono text-[18px] font-bold text-[#141414]">High</dd>
+            </div>
+          </dl>
+          <div class="mb-5">
+            <div class="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-500 mb-2">Key markets</div>
+            <div class="flex flex-wrap gap-1.5">
+              <.region_pill>United States &middot; 30.97%</.region_pill>
+              <.region_pill>China &middot; 18.43%</.region_pill>
+              <.region_pill>Singapore &middot; 8.88%</.region_pill>
+              <.region_pill>Nigeria</.region_pill>
+              <.region_pill>Poland</.region_pill>
+              <.region_pill>UK</.region_pill>
+              <.region_pill>India</.region_pill>
+              <.region_pill>Germany</.region_pill>
+              <.region_pill>Russia</.region_pill>
+              <.region_pill>Netherlands</.region_pill>
+            </div>
+          </div>
+          <p class="text-[13px] leading-[1.55] text-neutral-600 mt-auto">
+            A more concentrated, higher-intent audience layer emerged, with stronger signal density across the U.S., Asia, and Europe.
+          </p>
+        </article>
+
+        <%!-- Q2 2026+ · Onchain Media Layer --%>
+        <article class="bg-[#0a0a0a] text-white rounded-2xl border border-[#0a0a0a] p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col relative overflow-hidden">
+          <div class="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#CAFC00]/20 blur-3xl pointer-events-none"></div>
+          <div class="flex items-center gap-2 mb-4 relative">
+            <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Q2 2026+</span>
+            <span class="h-px flex-1 bg-white/15"></span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.1em] text-[#CAFC00]">Live now</span>
+          </div>
+          <h3 class="text-[22px] font-bold tracking-[-0.014em] mb-4 relative">Onchain media layer</h3>
+          <p class="text-[14px] leading-[1.55] text-white/70 mb-5 relative">
+            Blockster now operates on Solana, introducing an onchain-powered engagement ecosystem. Real content, real rewards, real settlement.
+          </p>
+          <div class="space-y-3 mb-5 relative">
+            <div class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-[#CAFC00] grid place-items-center shrink-0 mt-0.5">
+                <svg class="w-3 h-3 text-[#0a0a0a]" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2L4 14h7l-1 8 10-12h-7l1-8z"/></svg>
+              </div>
+              <div>
+                <div class="text-[13px] font-bold text-white">BUX rewards</div>
+                <div class="text-[12px] text-white/55">Earn for reading, watching, and sharing content</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-white/10 border border-white/15 grid place-items-center shrink-0 mt-0.5">
+                <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+              </div>
+              <div>
+                <div class="text-[13px] font-bold text-white">Redemption economy</div>
+                <div class="text-[12px] text-white/55">Airdrops, partner discounts, exclusive events</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-white/10 border border-white/15 grid place-items-center shrink-0 mt-0.5">
+                <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+              </div>
+              <div>
+                <div class="text-[13px] font-bold text-white">Solana settlement</div>
+                <div class="text-[12px] text-white/55">Every interaction posted to chain</div>
+              </div>
+            </div>
+          </div>
+          <p class="text-[12px] leading-[1.55] text-white/45 mt-auto font-mono relative">
+            $BUX points &middot; Built on Solana
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         PLATFORM POSITIONING  ·  THREE-LAYER STACK
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="grid grid-cols-12 gap-8">
+        <div class="col-span-12 md:col-span-4">
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-2">Positioning</BlocksterV2Web.DesignSystem.eyebrow>
+          <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em] leading-[1.05] mb-4">
+            A unified stack of content, distribution & onchain rewards.
+          </h2>
+          <p class="text-[14px] text-neutral-600 leading-[1.55]">
+            Blockster integrates three core layers into one ecosystem. Each reinforces the next — media drives engagement, engagement drives rewards, rewards drive retention.
+          </p>
+        </div>
+
+        <div class="col-span-12 md:col-span-8 space-y-3">
+          <.layer_card
+            index="01"
+            title="Global AI × blockchain media distribution"
+            body="Top-of-funnel reach across the intersection of AI and blockchain — where the next wave of builders, traders, and curious readers already live."
+            tone="light"
+          />
+          <.layer_card
+            index="02"
+            title="High-intent crypto-native audience interaction"
+            body="Engagement layer for readers who actually finish articles, watch full videos, and share what they care about. Signal over noise."
+            tone="light"
+          />
+          <.layer_card
+            index="03"
+            title="Solana-powered BUX rewards economy"
+            body="Onchain layer where every qualified interaction mints BUX. Redeem for airdrops, partner discounts, and exclusive events."
+            tone="dark"
+          />
+        </div>
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         BUX REWARD SYSTEM
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section class="py-12 border-t border-neutral-200/70">
+      <div class="mb-7">
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Onchain points</BlocksterV2Web.DesignSystem.eyebrow>
+        <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">The BUX reward system</h2>
+        <p class="text-[14px] text-neutral-600 leading-[1.55] max-w-[620px] mt-3">
+          An onchain points system built into the platform. Users earn BUX for interacting with content, and redeem it across the Blockster ecosystem.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-2 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-[#CAFC00] grid place-items-center">
+              <svg class="w-4 h-4 text-[#0a0a0a]" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2L4 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            </div>
+            <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-neutral-500">Earn BUX for</div>
+          </div>
+          <ul class="space-y-3">
+            <.earn_row label="Reading articles" sub="Engagement time + scroll depth score up to 10 points per post" />
+            <.earn_row label="Watching video content" sub="Full watch-through on interviews, explainers, partner drops" />
+            <.earn_row label="Sharing stories" sub="Retweet + share campaigns with verifiable reach" />
+          </ul>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div class="flex items-center gap-2 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-[#0a0a0a] grid place-items-center">
+              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            </div>
+            <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-neutral-500">Redeem BUX for</div>
+          </div>
+          <ul class="space-y-3">
+            <.earn_row label="Sponsored airdrops" sub="Enter partner token distributions with BUX-gated tickets" />
+            <.earn_row label="Partner discounts" sub="Products & services across the Blockster network" />
+            <.earn_row label="Events & experiences" sub="Exclusive access to launches, IRL meetups, and livestreams" />
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         INTERVIEW LIBRARY
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section id="interviews" class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">
+            Brands we've interviewed &middot; {length(@interviews)} conversations
+          </BlocksterV2Web.DesignSystem.eyebrow>
+          <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">Interview library</h2>
+        </div>
+        <a
+          href="https://www.youtube.com/@blockster"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-4 py-2 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3a2.7 2.7 0 0 0-1.9-1.9C18.8 4.3 12 4.3 12 4.3s-6.8 0-8.6.5A2.7 2.7 0 0 0 1.5 6.7C1 8.4 1 12 1 12s0 3.6.5 5.3a2.7 2.7 0 0 0 1.9 1.9c1.8.5 8.6.5 8.6.5s6.8 0 8.6-.5a2.7 2.7 0 0 0 1.9-1.9c.5-1.7.5-5.3.5-5.3zM9.75 15.5V8.5l6 3.5-6 3.5z"/></svg>
+          YouTube channel
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <.interview_card :for={interview <- @visible_interviews} interview={interview} />
+        <%= if @show_all_interviews do %>
+          <.interview_card :for={interview <- @hidden_interviews} interview={interview} />
+        <% end %>
+      </div>
+
+      <%= if not @show_all_interviews and @hidden_interviews != [] do %>
+        <div class="mt-8 flex justify-center">
+          <button
+            phx-click="show_all_interviews"
+            class="inline-flex items-center gap-2 bg-white border border-neutral-200/70 px-5 py-2.5 rounded-full text-[13px] font-bold text-[#141414] hover:border-[#141414] hover:bg-[#0a0a0a] hover:text-white transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.04)] cursor-pointer"
+          >
+            Load {length(@hidden_interviews)} more interviews
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      <% end %>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         BRAND ASSETS  (renamed from Logos & marks)
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section id="brand-assets" class="py-12 border-t border-neutral-200/70">
+      <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">All formats &middot; high-res PNG</BlocksterV2Web.DesignSystem.eyebrow>
+          <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">Brand assets</h2>
+        </div>
+        <a
+          href={@brand_assets_zip}
+          download
+          class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-4 py-2 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download all &middot; .zip
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <%!-- Wordmark · light --%>
+        <.asset_card
+          preview_bg="bg-[#fafaf9]"
+          name="Wordmark · light surfaces"
+          desc="Black type · use on #fafaf9 or white"
+          downloads={[
+            {"PNG 1K", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-light-1000x750.png"},
+            {"PNG 3K", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-light-3000x2250.png"},
+            {"Transparent", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-light-transparent-3000x2250.png"}
+          ]}
+        >
+          <img src="https://ik.imagekit.io/blockster/brand/blockster-wordmark-light-transparent-1000x750.png" alt="Blockster wordmark · light surfaces" class="max-h-24 object-contain" />
+        </.asset_card>
+
+        <%!-- Wordmark · dark --%>
+        <.asset_card
+          preview_bg="bg-[#0a0a0a]"
+          name="Wordmark · dark surfaces"
+          desc="Light type · use on #0a0a0a or photography"
+          downloads={[
+            {"PNG 1K", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-dark-1000x750.png"},
+            {"PNG 3K", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-dark-3000x2250.png"},
+            {"Transparent", "https://ik.imagekit.io/blockster/brand/blockster-wordmark-dark-transparent-3000x2250.png"}
+          ]}
+        >
+          <img src="https://ik.imagekit.io/blockster/brand/blockster-wordmark-dark-transparent-1000x750.png" alt="Blockster wordmark · dark surfaces" class="max-h-24 object-contain" />
+        </.asset_card>
+
+        <%!-- Icon · primary lime --%>
+        <.asset_card
+          preview_bg="bg-[#fafaf9]"
+          name="Icon · primary lime"
+          desc="Lightning bolt in lime circle · favicon, app icon, social avatar"
+          downloads={[
+            {"PNG 256", "https://ik.imagekit.io/blockster/brand/blockster-icon-256.png"},
+            {"PNG 2K", "https://ik.imagekit.io/blockster/brand/blockster-icon-2048.png"}
+          ]}
+        >
+          <img src="https://ik.imagekit.io/blockster/brand/blockster-icon-2048.png" alt="Blockster icon" class="w-32 h-32" />
+        </.asset_card>
+
+        <%!-- Transparency reminder card --%>
+        <article class="rounded-2xl border border-dashed border-neutral-300 p-6 bg-white/60 flex flex-col justify-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <BlocksterV2Web.DesignSystem.eyebrow class="mb-2">On-the-fly sizing</BlocksterV2Web.DesignSystem.eyebrow>
+          <h3 class="text-[17px] font-bold mb-2 tracking-[-0.01em]">Need a custom size?</h3>
+          <p class="text-[13px] text-neutral-600 leading-[1.55] mb-3">
+            All assets are served through ImageKit &mdash; append <code class="font-mono text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">?tr=w-512,h-512</code> to any URL for on-the-fly resizing.
+          </p>
+          <a href="/docs/brand_assets.md" class="text-[12px] font-mono text-[#141414] underline decoration-dotted underline-offset-2 hover:decoration-solid">
+            See brand_assets.md &rarr;
+          </a>
+        </article>
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         COLORS
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section id="colors" class="py-12 border-t border-neutral-200/70">
+      <div class="mb-6">
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Color system</BlocksterV2Web.DesignSystem.eyebrow>
+        <h2 class="text-[28px] md:text-[34px] font-bold tracking-[-0.018em]">Colors</h2>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <.color_swatch hex="#CAFC00" name="Lime accent" note="Accent only" text_dark={true} />
+        <.color_swatch hex="#0a0a0a" name="Deep black" note="Primary surface" text_dark={false} />
+        <.color_swatch hex="#141414" name="Body text" note="On light" text_dark={false} />
+        <.color_swatch hex="#fafaf9" name="Warm white" note="Primary light surface" text_dark={true} />
+        <.color_swatch hex="#E8E4DD" name="Stone" note="Light type on dark" text_dark={true} />
+      </div>
+    </section>
+
+    <%!-- ═══════════════════════════════════════════════════════════════
+         SUMMARY STRIP
+         ═══════════════════════════════════════════════════════════════ --%>
+    <section class="py-14 border-t border-neutral-200/70">
+      <div class="bg-[#0a0a0a] text-white rounded-3xl p-10 md:p-14 relative overflow-hidden">
+        <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-[#CAFC00]/10 blur-3xl pointer-events-none"></div>
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-3 text-white/40">The one-liner</BlocksterV2Web.DesignSystem.eyebrow>
+        <h2 class="text-[28px] md:text-[42px] leading-[1.08] font-bold tracking-[-0.018em] max-w-[900px] relative">
+          From 2023 to Q2 2026, Blockster scaled into a global AI &times; blockchain media platform &mdash; and is now transitioning into a <span class="text-[#CAFC00]">Solana</span>-powered content economy.
+        </h2>
+        <div class="mt-6 flex flex-wrap gap-3 relative">
+          <a
+            href={@brand_assets_zip}
+            download
+            class="inline-flex items-center gap-2 bg-[#CAFC00] text-[#0a0a0a] px-5 py-2.5 rounded-full text-[13px] font-bold hover:bg-[#d6ff2a] transition-colors"
+          >
+            Download brand kit &middot; .zip
+          </a>
+          <a
+            href="mailto:press@blockster.com"
+            class="inline-flex items-center gap-2 border border-white/20 text-white px-5 py-2.5 rounded-full text-[13px] font-bold hover:bg-white/5 transition-colors"
+          >
+            Press inquiries &rarr;
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <BlocksterV2Web.DesignSystem.footer />
+</div>

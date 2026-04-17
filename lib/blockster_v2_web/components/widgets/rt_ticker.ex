@@ -35,7 +35,7 @@ defmodule BlocksterV2Web.Widgets.RtTicker do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell bw-ticker relative w-full h-[56px] md:h-[56px] flex items-stretch overflow-hidden cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell bw-ticker relative w-full h-[56px] md:h-[56px] flex items-stretch overflow-hidden cursor-pointer text-[#E8E4DD]"
       phx-hook="RtTickerWidget"
       data-banner-id={@banner.id}
       data-widget-type="rt_ticker"
@@ -98,7 +98,7 @@ defmodule BlocksterV2Web.Widgets.RtTicker do
       <%!-- Right CTA --%>
       <div class="relative z-[2] shrink-0 hidden md:flex items-center px-[18px] border-l border-white/[0.06] bg-[#0A0A0F]">
         <span class="bw-display text-[11px] font-semibold tracking-[0.02em] text-[#E8E4DD] whitespace-nowrap">
-          View all AI Bots →
+          Deposit SOL →
         </span>
       </div>
     </div>

@@ -59,7 +59,7 @@ defmodule BlocksterV2.AdsTest do
     end
 
     test "accepts all valid placements" do
-      placements = ~w(sidebar_left sidebar_right mobile_top mobile_mid mobile_bottom)
+      placements = ~w(sidebar_left sidebar_right article_bottom article_inline_1)
 
       for {placement, idx} <- Enum.with_index(placements) do
         attrs = %{@valid_attrs | name: "Banner #{idx}", placement: placement}

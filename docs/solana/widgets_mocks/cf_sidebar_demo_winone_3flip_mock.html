@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cf_sidebar_demo_winone_3flip Widget Mock — Phase 0</title>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f5f5f4;
+      color: #111113;
+      font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 48px 24px 96px;
+    }
+    .page { max-width: 1080px; margin: 0 auto; }
+    .page-header { margin-bottom: 40px; }
+    .page-title { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .page-sub { font-size: 13px; color: #6B7280; margin: 0; max-width: 720px; line-height: 1.5; }
+    .variant { margin-top: 48px; }
+    .variant-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #6B7280; margin: 0 0 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .variant-label::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.06); }
+    .stage {
+      background: #ffffff; border: 1px solid rgba(0,0,0,0.06); border-radius: 14px;
+      padding: 56px 40px;
+      display: flex; justify-content: center; align-items: flex-start; gap: 48px;
+    }
+    .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .tile-caption {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #9ca3af;
+    }
+
+    .bw-widget {
+      --bw-bg:            #0A0A0F;
+      --bw-card:          #14141A;
+      --bw-primary:       #E8E4DD;
+      --bw-secondary:     #6B7280;
+      --bw-faint:         #4B5563;
+      --bw-data:          #9CA3AF;
+      --bw-green:         #22C55E;
+      --bw-red:           #EF4444;
+      --bw-border:        rgba(255, 255, 255, 0.06);
+      --bw-border-strong: rgba(255, 255, 255, 0.10);
+      --bw-lime:          #CAFC00;
+    }
+    .bw-widget, .bw-widget * { box-sizing: border-box; }
+    .bw-display { font-family: 'Satoshi', system-ui, sans-serif; font-feature-settings: 'ss01' on; }
+    .bw-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    .bw-shell { background: var(--bw-bg); border-radius: 0.875rem; overflow: hidden; box-shadow: 0 24px 48px -14px rgba(0,0,0,0.35), 0 10px 20px -8px rgba(0,0,0,0.20); }
+
+    @keyframes bw-pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.2); }
+    }
+    .bw-pulse-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: var(--bw-green);
+      animation: bw-pulse-dot 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+    }
+
+    /* ============================================================
+       Static casino chips (for pick + result rows)
+       ============================================================ */
+    .cf-chip {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+    }
+    .cf-chip--heads {
+      background: conic-gradient(
+        #f59e0b 0deg 30deg, #ffffff 30deg 60deg,
+        #f59e0b 60deg 90deg, #ffffff 90deg 120deg,
+        #f59e0b 120deg 150deg, #ffffff 150deg 180deg,
+        #f59e0b 180deg 210deg, #ffffff 210deg 240deg,
+        #f59e0b 240deg 270deg, #ffffff 270deg 300deg,
+        #f59e0b 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #d97706;
+    }
+    .cf-chip--tails {
+      background: conic-gradient(
+        #374151 0deg 30deg, #ffffff 30deg 60deg,
+        #374151 60deg 90deg, #ffffff 90deg 120deg,
+        #374151 120deg 150deg, #ffffff 150deg 180deg,
+        #374151 180deg 210deg, #ffffff 210deg 240deg,
+        #374151 240deg 270deg, #ffffff 270deg 300deg,
+        #374151 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #1f2937;
+    }
+    .cf-chip__inner {
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .cf-chip--heads .cf-chip__inner { background: #f59e0b; }
+    .cf-chip--tails .cf-chip__inner { background: #374151; }
+    .cf-chip--sb { width: 38px; height: 38px; }
+    .cf-chip--sb .cf-chip__inner { width: 26px; height: 26px; font-size: 16px; }
+    .cf-chip--match { box-shadow: 0 0 0 2px var(--bw-bg), 0 0 0 4px #22C55E, 0 3px 10px rgba(0, 0, 0, 0.45); }
+    .cf-chip--miss  { box-shadow: 0 0 0 2px var(--bw-bg), 0 0 0 4px #EF4444, 0 3px 10px rgba(0, 0, 0, 0.45); }
+    .cf-chip__badge {
+      position: absolute;
+      bottom: -5px; right: -5px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 900; color: #FFFFFF;
+      line-height: 1;
+      box-shadow: 0 0 0 2px var(--bw-bg);
+      z-index: 2;
+    }
+    .cf-chip__badge--ok { background: #22C55E; }
+    .cf-chip__badge--no { background: #EF4444; }
+
+    /* "?" placeholder */
+    .cf-chip--placeholder {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 2px dashed rgba(255, 255, 255, 0.20);
+      background: rgba(255, 255, 255, 0.02);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; color: var(--bw-faint); font-weight: 700;
+    }
+
+    /* ============================================================
+       3D flipping coin (sidebar demo, 84px)
+       ============================================================ */
+    .cf-demo-coin-zone {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      margin: 6px auto;
+    }
+    .cf-demo-orbit {
+      position: absolute;
+      inset: -8px;
+      border: 2px dashed rgba(255, 255, 255, 0.14);
+      border-radius: 50%;
+      animation: cf-orbit-spin 8s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes cf-orbit-spin { to { transform: rotate(360deg); } }
+    .cf-demo-coin-zone::before {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.12), transparent 55%),
+        radial-gradient(circle at 70% 70%, rgba(125, 0, 255, 0.08), transparent 55%);
+      border-radius: 50%;
+      filter: blur(10px);
+      pointer-events: none;
+    }
+    .cf-demo-slot { position: absolute; inset: 0; perspective: 1000px; }
+    .cf-demo-rotator { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+    .cf-demo-face {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      backface-visibility: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cf-demo-face--heads {
+      background: conic-gradient(
+        #f59e0b 0deg 30deg, #ffffff 30deg 60deg,
+        #f59e0b 60deg 90deg, #ffffff 90deg 120deg,
+        #f59e0b 120deg 150deg, #ffffff 150deg 180deg,
+        #f59e0b 180deg 210deg, #ffffff 210deg 240deg,
+        #f59e0b 240deg 270deg, #ffffff 270deg 300deg,
+        #f59e0b 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #d97706;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+    }
+    .cf-demo-face--tails {
+      background: conic-gradient(
+        #374151 0deg 30deg, #ffffff 30deg 60deg,
+        #374151 60deg 90deg, #ffffff 90deg 120deg,
+        #374151 120deg 150deg, #ffffff 150deg 180deg,
+        #374151 180deg 210deg, #ffffff 210deg 240deg,
+        #374151 240deg 270deg, #ffffff 270deg 300deg,
+        #374151 300deg 330deg, #ffffff 330deg 360deg
+      );
+      border: 3px solid #1f2937;
+      transform: rotateY(180deg);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+    }
+    .cf-demo-face__inner {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px; line-height: 1;
+    }
+    .cf-demo-face--heads .cf-demo-face__inner { background: #f59e0b; }
+    .cf-demo-face--tails .cf-demo-face__inner { background: #374151; }
+
+    /* ============================================================
+       MASTER DEMO TIMELINE — 18s loop
+       0-16.67%   Coin 1 spin (ease-out decel → lands 🚀)
+       16.67-22%  Coin 1 stopped, ~1s hold (result 1 reveals)
+       22-25%     Coin 1 fades out, gap
+       25-41.67%  Coin 2 spin (ease-out → lands 💩)
+       41.67-47%  Coin 2 stopped, hold (result 2 reveals)
+       47-50%     Coin 2 fades, gap
+       50-66.67%  Coin 3 spin (ease-out → lands 🚀)
+       66.67-72%  Coin 3 stopped, hold (result 3 reveals)
+       72-76%     Coin area collapses, winner scales in
+       76-94%     Hold winner
+       94-100%    Fade back + restore
+       Decel curve: animation-timing-function per-keyframe
+       ============================================================ */
+
+    /* OPACITY tracks per coin slot */
+    @keyframes cf-demo-op-1 {
+      0%, 22%  { opacity: 1; }
+      24%, 100% { opacity: 0; }
+    }
+    @keyframes cf-demo-op-2 {
+      0%, 23%   { opacity: 0; }
+      25%       { opacity: 1; }
+      47%       { opacity: 1; }
+      49%, 100% { opacity: 0; }
+    }
+    @keyframes cf-demo-op-3 {
+      0%, 48%   { opacity: 0; }
+      50%       { opacity: 1; }
+      72%       { opacity: 1; }
+      74%, 100% { opacity: 0; }
+    }
+
+    /* ROTATION — moderate start speed, long gradual deceleration, doesn't crawl.
+       cubic-bezier(0.33,0.6,0.35,1): starts at ~2× speed, spends bulk of time
+       decelerating smoothly, still has momentum at the very end. */
+    @keyframes cf-demo-rot-1 {
+      0%       { transform: rotateY(0deg);    animation-timing-function: cubic-bezier(0.33, 0.6, 0.35, 1); }
+      16.67%   { transform: rotateY(900deg);  animation-timing-function: linear; }
+      100%     { transform: rotateY(900deg); }
+    }
+    @keyframes cf-demo-rot-2 {
+      0%       { transform: rotateY(0deg);    animation-timing-function: linear; }
+      25%      { transform: rotateY(0deg);    animation-timing-function: cubic-bezier(0.33, 0.6, 0.35, 1); }
+      41.67%   { transform: rotateY(900deg);  animation-timing-function: linear; }
+      100%     { transform: rotateY(900deg); }
+    }
+    @keyframes cf-demo-rot-3 {
+      0%       { transform: rotateY(0deg);    animation-timing-function: linear; }
+      50%      { transform: rotateY(0deg);    animation-timing-function: cubic-bezier(0.33, 0.6, 0.35, 1); }
+      66.67%   { transform: rotateY(1080deg); animation-timing-function: linear; }
+      100%     { transform: rotateY(1080deg); }
+    }
+
+    .cf-demo-slot-1 { animation: cf-demo-op-1 18s linear infinite; }
+    .cf-demo-slot-1 .cf-demo-rotator { animation: cf-demo-rot-1 18s linear infinite; }
+    .cf-demo-slot-2 { animation: cf-demo-op-2 18s linear infinite; }
+    .cf-demo-slot-2 .cf-demo-rotator { animation: cf-demo-rot-2 18s linear infinite; }
+    .cf-demo-slot-3 { animation: cf-demo-op-3 18s linear infinite; }
+    .cf-demo-slot-3 .cf-demo-rotator { animation: cf-demo-rot-3 18s linear infinite; }
+
+    /* Coin area COLLAPSES after final flip — one smooth slide up.
+       Uses only max-height + margin (no scaleY which causes a second visual step).
+       Wider 72→80% window so the slide feels gradual, not snappy. */
+    @keyframes cf-sb-coinarea-collapse {
+      0%, 72%     { max-height: 90px; opacity: 1; margin-top: 4px; margin-bottom: 4px; }
+      76%, 94%    { max-height: 0;    opacity: 0; margin-top: 0;   margin-bottom: 0;   }
+      97%         { max-height: 0;    opacity: 0; margin-top: 0;   margin-bottom: 0;   }
+      100%        { max-height: 90px; opacity: 1; margin-top: 4px; margin-bottom: 4px; }
+    }
+
+    /* Result chip reveals (AFTER coin has stopped — during hold phase) */
+    @keyframes cf-demo-result-1 {
+      0%, 18%   { opacity: 0; transform: scale(0.5); }
+      20%       { opacity: 1; transform: scale(1.18); }
+      22%, 93%  { opacity: 1; transform: scale(1); }
+      96%, 100% { opacity: 0; transform: scale(0.5); }
+    }
+    @keyframes cf-demo-result-2 {
+      0%, 43%   { opacity: 0; transform: scale(0.5); }
+      45%       { opacity: 1; transform: scale(1.18); }
+      47%, 93%  { opacity: 1; transform: scale(1); }
+      96%, 100% { opacity: 0; transform: scale(0.5); }
+    }
+    @keyframes cf-demo-result-3 {
+      0%, 68%   { opacity: 0; transform: scale(0.5); }
+      70%       { opacity: 1; transform: scale(1.18); }
+      72%, 93%  { opacity: 1; transform: scale(1); }
+      96%, 100% { opacity: 0; transform: scale(0.5); }
+    }
+    .cf-demo-result-1 { animation: cf-demo-result-1 18s linear infinite; transform-origin: center; }
+    .cf-demo-result-2 { animation: cf-demo-result-2 18s linear infinite; transform-origin: center; }
+    .cf-demo-result-3 { animation: cf-demo-result-3 18s linear infinite; transform-origin: center; }
+
+    /* Placeholder "?" hides as result reveals */
+    @keyframes cf-demo-ph-1 { 0%, 18% { opacity: 1; } 20%, 96% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes cf-demo-ph-2 { 0%, 43% { opacity: 1; } 45%, 96% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes cf-demo-ph-3 { 0%, 68% { opacity: 1; } 70%, 96% { opacity: 0; } 100% { opacity: 1; } }
+    .cf-demo-ph-1 { animation: cf-demo-ph-1 18s linear infinite; }
+    .cf-demo-ph-2 { animation: cf-demo-ph-2 18s linear infinite; }
+    .cf-demo-ph-3 { animation: cf-demo-ph-3 18s linear infinite; }
+
+    /* Status text swaps */
+    @keyframes cf-demo-status-spin1 { 0%, 16.67% { opacity: 1; } 18%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-hold1 { 0%, 17%    { opacity: 0; } 20%, 22%  { opacity: 1; } 24%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-spin2 { 0%, 24%    { opacity: 0; } 26%, 41.67% { opacity: 1; } 43%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-hold2 { 0%, 42%    { opacity: 0; } 45%, 47%  { opacity: 1; } 49%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-spin3 { 0%, 49%    { opacity: 0; } 51%, 66.67% { opacity: 1; } 68%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-hold3 { 0%, 67%    { opacity: 0; } 70%, 72%  { opacity: 1; } 74%, 100% { opacity: 0; } }
+    @keyframes cf-demo-status-win   { 0%, 74%    { opacity: 0; } 77%, 93%  { opacity: 1; } 95%, 100% { opacity: 0; } }
+
+    .cf-demo-status-spin1 { animation: cf-demo-status-spin1 18s linear infinite; }
+    .cf-demo-status-hold1 { animation: cf-demo-status-hold1 18s linear infinite; }
+    .cf-demo-status-spin2 { animation: cf-demo-status-spin2 18s linear infinite; }
+    .cf-demo-status-hold2 { animation: cf-demo-status-hold2 18s linear infinite; }
+    .cf-demo-status-spin3 { animation: cf-demo-status-spin3 18s linear infinite; }
+    .cf-demo-status-hold3 { animation: cf-demo-status-hold3 18s linear infinite; }
+    .cf-demo-status-win   { animation: cf-demo-status-win   18s linear infinite; }
+
+    /* Winner banner fades in after coin area collapses */
+    @keyframes cf-demo-winner {
+      0%, 74%   { opacity: 0; transform: translateY(8px) scale(0.9); }
+      77%       { opacity: 1; transform: translateY(0) scale(1.04); }
+      80%, 93%  { opacity: 1; transform: translateY(0) scale(1); }
+      96%, 100% { opacity: 0; transform: translateY(8px) scale(0.9); }
+    }
+    @keyframes cf-demo-stake-op {
+      0%, 72%   { opacity: 1; }
+      76%, 93%  { opacity: 0; }
+      96%, 100% { opacity: 1; }
+    }
+
+    /* ============================================================
+       cf_sidebar_demo — 200 × 340
+       ============================================================ */
+    .cf-sb {
+      position: relative;
+      width: 200px;
+      height: 340px;
+      color: var(--bw-primary);
+      font-family: 'Satoshi', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .cf-sb::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.022) 0.5px, transparent 1px);
+      background-size: 10px 10px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .cf-sb::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(202, 252, 0, 0.35) 50%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .cf-sb__head {
+      position: relative; z-index: 1;
+      padding: 9px 11px;
+      display: flex; align-items: center; gap: 6px;
+      border-bottom: 1px solid var(--bw-border);
+    }
+    .cf-sb__brand-wordmark {
+      font-size: 13px; font-weight: 900; letter-spacing: -0.02em; color: #FFFFFF;
+      line-height: 1; display: inline-flex; align-items: center; gap: 0;
+    }
+    .cf-sb__brand-wordmark-o {
+      width: 12px; height: 12px; border-radius: 50%; object-fit: cover;
+      vertical-align: middle; display: inline-block; margin: 0 0.5px;
+      box-shadow: 0 0 4px rgba(202, 252, 0, 0.35);
+    }
+    .cf-sb__head-spacer { flex: 1; }
+    .cf-sb__sub {
+      font-size: 9.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--bw-data); line-height: 1;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    .cf-sb__body {
+      position: relative; z-index: 1;
+      padding: 6px 12px 4px;
+      flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
+
+    .cf-sb__mode-line {
+      text-align: center; margin: 0 0 2px;
+      font-size: 10px; color: var(--bw-data); font-weight: 500;
+    }
+    .cf-sb__mode-line .cf-sb__odds {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-weight: 700; color: var(--bw-primary);
+    }
+
+    .cf-sb__row { margin-top: 2px; }
+    .cf-sb__row-label {
+      font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+      color: var(--bw-secondary);
+      margin: 0 0 4px; text-align: center; line-height: 1;
+    }
+    .cf-sb__coins {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+
+    /* Coin arena — collapses when winner is shown.
+       NO overflow:hidden — the orbit ring extends outside via negative inset
+       and must not be clipped. Collapse uses opacity+max-height only. */
+    .cf-sb__coin-area {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      padding: 4px 0;
+      animation: cf-sb-coinarea-collapse 18s linear infinite;
+    }
+
+    .cf-sb__status-wrap {
+      position: relative;
+      height: 13px;
+      text-align: center;
+      margin-top: 1px;
+    }
+    .cf-sb__status-item {
+      position: absolute; inset: 0;
+      font-size: 8.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--bw-primary);
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      line-height: 1;
+    }
+    .cf-sb__status-item .bw-pulse-dot { width: 4px; height: 4px; }
+    .cf-sb__status-item--hold { color: var(--bw-lime); }
+    .cf-sb__status-item--win  { color: var(--bw-green); }
+
+    /* Result slots */
+    .cf-sb__result-slot {
+      position: relative;
+      width: 38px; height: 38px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .cf-sb__result-slot .cf-chip,
+    .cf-sb__result-slot .cf-chip--placeholder {
+      position: absolute; inset: 0;
+    }
+
+    /* Bottom stats / winner banner */
+    .cf-sb__bottom {
+      margin-top: auto;
+      padding-top: 6px;
+      border-top: 1px solid var(--bw-border);
+      position: relative;
+      min-height: 44px;
+    }
+    .cf-sb__stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      animation: cf-demo-stake-op 18s linear infinite;
+    }
+    .cf-sb__stat-label {
+      font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
+      color: var(--bw-secondary); line-height: 1; margin: 0 0 4px;
+    }
+    .cf-sb__stat-value {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
+      font-size: 11.5px; font-weight: 700; color: var(--bw-primary);
+      line-height: 1.1;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .cf-sb__stat-ticker {
+      font-family: 'Satoshi', system-ui, sans-serif;
+      font-size: 9.5px; font-weight: 700; color: var(--bw-data);
+    }
+    .cf-sb__stat-usd {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
+      font-size: 9px; color: var(--bw-faint); margin-top: 3px; display: block;
+      line-height: 1;
+    }
+    .cf-token { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; display: inline-block; object-fit: cover; }
+
+    .cf-sb__winner {
+      position: absolute; inset: 4px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(202, 252, 0, 0.18) 50%, rgba(34, 197, 94, 0.18) 100%);
+      border: 1px solid rgba(34, 197, 94, 0.30);
+      animation: cf-demo-winner 18s linear infinite;
+      opacity: 0;
+      transform-origin: center;
+      overflow: hidden;
+    }
+    .cf-sb__winner-label {
+      font-size: 8px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #bbf7d0; line-height: 1;
+    }
+    .cf-sb__winner-amount {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
+      font-size: 16px; font-weight: 900; color: var(--bw-green);
+      letter-spacing: -0.02em; line-height: 1;
+      display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .cf-sb__winner-amount .cf-token { width: 12px; height: 12px; }
+    .cf-sb__winner-usd {
+      font-size: 8px; color: #bbf7d0; opacity: 0.85; letter-spacing: 0.02em;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;
+      margin-top: 1px;
+    }
+
+    .cf-sb__foot {
+      position: relative; z-index: 1;
+      height: 24px; padding: 0 10px;
+      display: flex; align-items: center; justify-content: center;
+      border-top: 1px solid var(--bw-border);
+      background: rgba(255, 255, 255, 0.01);
+    }
+    .cf-sb__tagline {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 8px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--bw-data);
+    }
+    .cf-sb__tagline .bw-pulse-dot { width: 4px; height: 4px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <h1 class="page-title">cf_sidebar_demo &nbsp;<span style="color:#6B7280;font-weight:400">— widget mock, Phase 0 (animated)</span></h1>
+      <p class="page-sub">
+        "How the game works" Win One variant — 200 × 340, 18s loop. Picks all 🚀, results 💩💩🚀. Misses on flips 1–2 (red ✗), wins on flip 3 (green ✓). 1.13× payout. Pure CSS.
+      </p>
+    </header>
+
+    <section class="variant">
+      <h2 class="variant-label">Demo &nbsp;· 200 × 340 — sidebar tile (18s loop)</h2>
+      <div class="stage">
+        <div class="tile-wrap">
+          <div class="bw-widget bw-shell cf-sb">
+            <div class="cf-sb__head">
+                <span class="cf-sb__brand-wordmark bw-display">BL<img class="cf-sb__brand-wordmark-o" src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="O" />CKSTER</span>
+                <span class="cf-sb__head-spacer"></span>
+                <span class="cf-sb__sub bw-display"><span class="bw-pulse-dot"></span>Coin Flip</span>
+            </div>
+
+            <div class="cf-sb__body">
+              <p class="cf-sb__mode-line bw-display">
+                Win One · 3 Flips · <span class="cf-sb__odds bw-mono">1.13×</span>
+              </p>
+
+              <div class="cf-sb__row">
+                <p class="cf-sb__row-label bw-display">Player's Pick</p>
+                <div class="cf-sb__coins">
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                  <span class="cf-chip cf-chip--sb cf-chip--heads"><span class="cf-chip__inner">🚀</span></span>
+                </div>
+              </div>
+
+              <!-- COLLAPSING coin area -->
+              <div class="cf-sb__coin-area">
+                <div class="cf-demo-coin-zone">
+                  <div class="cf-demo-orbit"></div>
+                  <div class="cf-demo-slot cf-demo-slot-1">
+                    <div class="cf-demo-rotator">
+                      <div class="cf-demo-face cf-demo-face--heads"><span class="cf-demo-face__inner">🚀</span></div>
+                      <div class="cf-demo-face cf-demo-face--tails"><span class="cf-demo-face__inner">💩</span></div>
+                    </div>
+                  </div>
+                  <div class="cf-demo-slot cf-demo-slot-2">
+                    <div class="cf-demo-rotator">
+                      <div class="cf-demo-face cf-demo-face--heads"><span class="cf-demo-face__inner">🚀</span></div>
+                      <div class="cf-demo-face cf-demo-face--tails"><span class="cf-demo-face__inner">💩</span></div>
+                    </div>
+                  </div>
+                  <div class="cf-demo-slot cf-demo-slot-3">
+                    <div class="cf-demo-rotator">
+                      <div class="cf-demo-face cf-demo-face--heads"><span class="cf-demo-face__inner">🚀</span></div>
+                      <div class="cf-demo-face cf-demo-face--tails"><span class="cf-demo-face__inner">💩</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status (7 stacked items) -->
+              <div class="cf-sb__status-wrap">
+                <span class="cf-sb__status-item cf-demo-status-spin1 bw-display"><span class="bw-pulse-dot"></span>Flipping · 1 of 3</span>
+                <span class="cf-sb__status-item cf-sb__status-item--hold cf-demo-status-hold1 bw-display"><span class="bw-pulse-dot" style="background: var(--bw-lime);"></span>Landed · 1 of 3</span>
+                <span class="cf-sb__status-item cf-demo-status-spin2 bw-display"><span class="bw-pulse-dot"></span>Flipping · 2 of 3</span>
+                <span class="cf-sb__status-item cf-sb__status-item--hold cf-demo-status-hold2 bw-display"><span class="bw-pulse-dot" style="background: var(--bw-lime);"></span>Landed · 2 of 3</span>
+                <span class="cf-sb__status-item cf-demo-status-spin3 bw-display"><span class="bw-pulse-dot"></span>Flipping · 3 of 3</span>
+                <span class="cf-sb__status-item cf-sb__status-item--hold cf-demo-status-hold3 bw-display"><span class="bw-pulse-dot" style="background: var(--bw-lime);"></span>Landed · 3 of 3</span>
+                <span class="cf-sb__status-item cf-sb__status-item--win cf-demo-status-win bw-display"><span class="bw-pulse-dot"></span>You Won!</span>
+              </div>
+
+              <!-- Result row -->
+              <div class="cf-sb__row" style="margin-top: 4px;">
+                <p class="cf-sb__row-label bw-display">Result</p>
+                <div class="cf-sb__coins">
+                  <div class="cf-sb__result-slot">
+                    <span class="cf-chip--placeholder cf-demo-ph-1">?</span>
+                    <span class="cf-chip cf-chip--sb cf-chip--tails cf-chip--miss cf-demo-result-1">
+                      <span class="cf-chip__inner">💩</span>
+                      <span class="cf-chip__badge cf-chip__badge--no">✗</span>
+                    </span>
+                  </div>
+                  <div class="cf-sb__result-slot">
+                    <span class="cf-chip--placeholder cf-demo-ph-2">?</span>
+                    <span class="cf-chip cf-chip--sb cf-chip--tails cf-chip--miss cf-demo-result-2">
+                      <span class="cf-chip__inner">💩</span>
+                      <span class="cf-chip__badge cf-chip__badge--no">✗</span>
+                    </span>
+                  </div>
+                  <div class="cf-sb__result-slot">
+                    <span class="cf-chip--placeholder cf-demo-ph-3">?</span>
+                    <span class="cf-chip cf-chip--sb cf-chip--heads cf-chip--match cf-demo-result-3">
+                      <span class="cf-chip__inner">🚀</span>
+                      <span class="cf-chip__badge cf-chip__badge--ok">✓</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom stats / winner banner -->
+              <div class="cf-sb__bottom">
+                <div class="cf-sb__stats">
+                  <div>
+                    <p class="cf-sb__stat-label bw-display">Stake</p>
+                    <span class="cf-sb__stat-value bw-mono">
+                      5.00
+                      <img class="cf-token" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" />
+                      <span class="cf-sb__stat-ticker bw-display">SOL</span>
+                    </span>
+                    <span class="cf-sb__stat-usd">≈ $670</span>
+                  </div>
+                  <div style="text-align:right;">
+                    <p class="cf-sb__stat-label bw-display">Payout</p>
+                    <span class="cf-sb__stat-value bw-mono" style="justify-content:flex-end;width:100%;color:var(--bw-faint);">
+                      —
+                    </span>
+                    <span class="cf-sb__stat-usd">&nbsp;</span>
+                  </div>
+                </div>
+                <div class="cf-sb__winner">
+                  <span class="cf-sb__winner-label bw-display">You Won</span>
+                  <span class="cf-sb__winner-amount bw-mono">
+                    +0.65 SOL
+                  </span>
+                  <span class="cf-sb__winner-usd">≈ +$87</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cf-sb__foot">
+              <span class="cf-sb__tagline bw-display">
+                <span class="bw-pulse-dot"></span>Flip a Coin · Win up to 31.68×
+              </span>
+            </div>
+          </div>
+          <span class="tile-caption">Win One · 3 flips · 🚀🚀🚀 → Winner (+0.65 SOL)</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

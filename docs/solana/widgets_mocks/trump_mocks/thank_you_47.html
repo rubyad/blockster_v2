@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Thank You 47 · square animated variants</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f3; }
+  .page { max-width: 1600px; margin: 0 auto; padding: 48px 32px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  p.lead { color: #5a5a55; max-width: 680px; line-height: 1.55; }
+  .grid-mocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 40px; margin-top: 24px; }
+  .card { background: #fff; padding: 20px 20px 24px; border-radius: 16px; box-shadow: 0 4px 18px -6px rgba(0,0,0,0.08); }
+  .card h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #141414; font-weight: 700; }
+  .meta { font-size: 11px; color: #888; margin-bottom: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .ad-frame {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    aspect-ratio: 1/1;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -15px rgba(0,0,0,0.35);
+    background: #0a0a0a;
+  }
+  .ad-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    background-size: cover; background-position: center 22%;
+  }
+  .ad-dim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.9) 100%);
+  }
+  .ad-ad-badge {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 9px; font-weight: 800;
+    padding: 2px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.15); color: white;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    z-index: 10;
+  }
+  .ad-brand {
+    position: absolute; top: 12px; left: 12px;
+    display: flex; align-items: center; gap: 10px;
+    color: white; font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700;
+    z-index: 10;
+  }
+  .ad-brand::before {
+    content: ""; width: 22px; height: 1px; background: #BF0A30;
+  }
+  .ad-cta {
+    position: absolute; bottom: 18px; left: 18px; right: 18px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    z-index: 10;
+  }
+  .ad-cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-radius: 6px;
+    background: #BF0A30; color: white;
+    font-weight: 700; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .ad-cta-meta {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); font-weight: 600;
+  }
+  .bg-img { background-image: url('https://upload.wikimedia.org/wikipedia/en/8/88/Shooting_of_Donald_Trump.webp'); }
+
+  /* Shared film grain */
+  .grain {
+    position: absolute; inset: 0; z-index: 3; opacity: 0;
+    background-image:
+      radial-gradient(circle at 25% 30%, rgba(255,255,255,0.04) 1px, transparent 2px),
+      radial-gradient(circle at 75% 60%, rgba(255,255,255,0.04) 1px, transparent 2px);
+    background-size: 6px 6px, 8px 8px;
+    animation: grain 11s infinite ease;
+  }
+  @keyframes grain {
+    0%, 38% { opacity: 0; }
+    48%, 58% { opacity: 1; }
+    65%, 100% { opacity: 0; }
+  }
+
+  /* Shared headline intro (text 0–30%, fade 30–38%) */
+  .headline-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    padding: 32px; text-align: center;
+    color: white; z-index: 5;
+    animation: hl-life 11s infinite ease;
+  }
+  @keyframes hl-life {
+    0%, 30% { opacity: 1; }
+    38%, 100% { opacity: 0; }
+  }
+  .headline {
+    font-size: 28px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
+    max-width: 360px;
+  }
+  .headline span {
+    display: inline-block; opacity: 0;
+    animation: hl-word 11s infinite ease;
+  }
+  @keyframes hl-word {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    30% { opacity: 1; }
+    38% { opacity: 0; }
+    100% { opacity: 0; }
+  }
+  .headline span:nth-child(1) { animation-delay: 0s; }
+  .headline span:nth-child(2) { animation-delay: 0.1s; }
+  .headline span:nth-child(3) { animation-delay: 0.2s; }
+  .headline span:nth-child(4) { animation-delay: 0.3s; }
+  .headline span:nth-child(5) { animation-delay: 0.4s; }
+  .headline span:nth-child(6) { animation-delay: 0.5s; }
+
+  /* Shared image reveal (30–60%, fades back out 60–65%) */
+  .img-layer {
+    position: absolute; inset: 0;
+    opacity: 0;
+    filter: contrast(1.1) saturate(1.15);
+    animation: img-life 11s infinite ease;
+  }
+  @keyframes img-life {
+    0%, 30% { opacity: 0; }
+    40% { opacity: 1; }
+    58% { opacity: 1; }
+    65%, 100% { opacity: 0; }
+  }
+
+  /* ── V1: "47" huge center · "THANK YOU 47" small caps below ──────── */
+  .v1-47 {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 12px;
+    color: white;
+    z-index: 5;
+    opacity: 0;
+    animation: v1-life 11s infinite ease;
+  }
+  @keyframes v1-life {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .v1-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 260px; line-height: 0.85; font-weight: 900;
+    letter-spacing: -0.03em;
+  }
+  .v1-thank {
+    font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase;
+    color: rgba(255,255,255,0.6); font-weight: 600;
+  }
+
+  /* ── V2: "THANK YOU" small caps above · "47" huge center ───────────── */
+  .v2-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 16px;
+    color: white; z-index: 5;
+    opacity: 0;
+    animation: v2-life 11s infinite ease;
+  }
+  @keyframes v2-life {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .v2-thank {
+    font-size: 13px; letter-spacing: 0.5em; text-transform: uppercase;
+    color: #C9A961; font-weight: 700; margin-bottom: -8px;
+  }
+  .v2-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 240px; line-height: 0.85; font-weight: 900;
+    letter-spacing: -0.03em;
+  }
+
+  /* ── V3: Handwritten cursive "Thank You 47" ─────────────────────── */
+  .v3-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 10px;
+    color: white; z-index: 5;
+    opacity: 0;
+    animation: v3-life 11s infinite ease;
+  }
+  @keyframes v3-life {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .v3-cursive {
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700; font-size: 68px; line-height: 1; color: white;
+  }
+  .v3-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 180px; line-height: 0.85; font-weight: 900;
+    color: #BF0A30;
+  }
+
+  /* ── V4: Stamp/badge style "Thank You 47" ──────────────────────── */
+  .v4-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    color: white; z-index: 5;
+    opacity: 0;
+    animation: v4-life 11s infinite ease;
+  }
+  @keyframes v4-life {
+    0%, 62% { opacity: 0; transform: scale(0.9); }
+    70% { opacity: 1; transform: scale(1.08); }
+    74%, 92% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.9); }
+  }
+  .v4-stamp {
+    border: 4px solid #BF0A30;
+    padding: 24px 40px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transform: rotate(-4deg);
+    background: rgba(0,0,0,0.4);
+  }
+  .v4-thank {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700; font-style: italic; font-size: 22px;
+    color: white; letter-spacing: 0.04em;
+  }
+  .v4-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 120px; line-height: 0.85; font-weight: 900;
+    color: #BF0A30; letter-spacing: -0.02em;
+  }
+
+  /* ── V5: "47" huge, then "Thank You" slides in after ─────────── */
+  .v5-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 6px;
+    color: white; z-index: 5;
+  }
+  .v5-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 260px; line-height: 0.85; font-weight: 900;
+    letter-spacing: -0.03em; color: white;
+    opacity: 0;
+    animation: v5-num 11s infinite ease;
+  }
+  @keyframes v5-num {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .v5-thank {
+    font-family: 'Playfair Display', serif;
+    font-style: italic; font-weight: 700; font-size: 26px;
+    color: #C9A961; opacity: 0;
+    transform: translateY(10px);
+    animation: v5-thank 11s infinite ease;
+  }
+  @keyframes v5-thank {
+    0%, 78% { opacity: 0; transform: translateY(10px); }
+    82%, 92% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(10px); }
+  }
+
+  /* ── V6: Two-line typographic · THANK YOU · 4 7 ───────────────── */
+  .v6-layer {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column;
+    color: white; z-index: 5;
+    opacity: 0;
+    animation: v6-life 11s infinite ease;
+  }
+  @keyframes v6-life {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .v6-top {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 56px; line-height: 1; letter-spacing: 0.06em; color: white;
+    margin-bottom: -8px;
+  }
+  .v6-num {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 220px; line-height: 0.85; font-weight: 900;
+    letter-spacing: -0.03em; color: #BF0A30;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Thank You 47 · animated square variants</h1>
+  <p class="lead">
+    Square (1:1) loop. Sequence: <strong>text writes → image appears → image clears & "47" + Thank You appears on black</strong>. No glow behind "47".
+    Six different "Thank You 47" treatments — pick one and I'll build it as a <code>patriotic_loop</code> template.
+  </p>
+
+  <div class="grid-mocks">
+
+    <!-- V1 -->
+    <div class="card">
+      <h3>V1 · "47" giant · THANK YOU 47 small caps below</h3>
+      <div class="meta">minimal · clean · centered · all-white</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v1-47">
+          <div class="v1-num">47</div>
+          <div class="v1-thank">Thank You 47</div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V2 -->
+    <div class="card">
+      <h3>V2 · "THANK YOU" gold caps above · "47" huge white</h3>
+      <div class="meta">two-line · gold accent · editorial</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v2-layer">
+          <div class="v2-thank">Thank You</div>
+          <div class="v2-num">47</div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V3 -->
+    <div class="card">
+      <h3>V3 · Cursive "Thank You" above · red "47"</h3>
+      <div class="meta">hand-signed feel · gratitude vibe</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v3-layer">
+          <div class="v3-cursive">Thank You,</div>
+          <div class="v3-num">47</div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V4 -->
+    <div class="card">
+      <h3>V4 · Red stamp box · italic "Thank You" + "47"</h3>
+      <div class="meta">rotated badge · formal · tangible</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v4-layer">
+          <div class="v4-stamp">
+            <div class="v4-thank">Thank You</div>
+            <div class="v4-num">47</div>
+          </div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V5 -->
+    <div class="card">
+      <h3>V5 · "47" first · italic "Thank You" slides in after</h3>
+      <div class="meta">two-stage reveal · gold italic tribute</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v5-layer">
+          <div class="v5-num">47</div>
+          <div class="v5-thank">Thank You</div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- V6 -->
+    <div class="card">
+      <h3>V6 · "THANK YOU" all caps · red "47"</h3>
+      <div class="meta">billboard caps · red + white contrast</div>
+      <div class="ad-frame">
+        <div class="img-layer ad-img bg-img"></div>
+        <div class="img-layer ad-dim"></div>
+        <div class="grain"></div>
+        <div class="v6-layer">
+          <div class="v6-top">THANK YOU</div>
+          <div class="v6-num">47</div>
+        </div>
+        <div class="headline-layer">
+          <div class="headline">
+            <span>The</span> <span>greatest</span> <span>president</span>
+            <span>in</span> <span>American</span> <span>history.</span>
+          </div>
+        </div>
+        <div class="ad-brand">America 250</div>
+        <div class="ad-ad-badge">Ad</div>
+        <div class="ad-cta">
+          <div class="ad-cta-btn">Honor the legacy →</div>
+          <div class="ad-cta-meta">1776 — 2026</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

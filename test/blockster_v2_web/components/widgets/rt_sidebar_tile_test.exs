@@ -42,11 +42,11 @@ defmodule BlocksterV2Web.Widgets.RtSidebarTileTest do
     assert html =~ ~s(phx-hook="RtSquareCompactWidget")
   end
 
-  test "constrained to 200 × 300 dimensions" do
+  test "constrained to 200 × 340 dimensions" do
     html = render_widget(%{banner: banner(), bots: [], selection: nil, chart_data: %{}})
 
     assert html =~ "w-[200px]"
-    assert html =~ "h-[300px]"
+    assert html =~ "h-[340px]"
   end
 
   test "sparkline container has phx-update=ignore + square-canvas seed" do

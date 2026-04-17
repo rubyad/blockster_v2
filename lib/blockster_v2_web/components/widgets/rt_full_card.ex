@@ -42,7 +42,7 @@ defmodule BlocksterV2Web.Widgets.RtFullCard do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-full flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
+      class="not-prose bw-widget bw-shell relative w-full flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       phx-hook="RtChartWidget"
       data-banner-id={@banner.id}
       data-widget-type="rt_full_card"
@@ -51,33 +51,34 @@ defmodule BlocksterV2Web.Widgets.RtFullCard do
       data-change-pct={if is_number(@change), do: Float.to_string(@change * 1.0), else: ""}
     >
       <%!-- Header strip --%>
-      <div class="relative z-10 flex items-center gap-3 px-5 pt-4 pb-3 border-b border-white/[0.06]">
-        <span class="relative inline-flex shrink-0" style="line-height:1;">
-          <img
-            class="h-[28px] w-auto block"
-            src="https://ik.imagekit.io/blockster/rogue-logo-white.png"
-            alt="Rogue Trader"
-          />
-          <span
-            class="bw-mono"
-            style="position:absolute;bottom:-5px;right:0;font-weight:700;font-size:10px;color:#22C55E;letter-spacing:0.3em;line-height:1;"
-          >
-            TRADER
+      <div class="px-5 pt-3 pb-2.5 border-b border-white/[0.06] shrink-0">
+        <div class="flex items-center justify-between gap-3">
+          <div class="relative inline-flex items-center" style="line-height:1;">
+            <img
+              src="https://ik.imagekit.io/blockster/rogue-logo-white.png"
+              alt="Rogue Trader"
+              class="h-[22px] w-auto block"
+            />
+            <span
+              class="bw-mono"
+              style="position:absolute;bottom:-4px;right:0;font-weight:700;font-size:8px;color:#22C55E;letter-spacing:0.3em;line-height:1;"
+            >
+              TRADER
+            </span>
+          </div>
+          <span class="flex-1"></span>
+          <span class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#4B5563] font-medium">
+            TRACKING {RtChartHelpers.bot_name(@bot)}
           </span>
-        </span>
-        <span class="w-px h-[10px] bg-white/[0.10]"></span>
-        <span class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#4B5563] font-medium">
-          TRACKING {RtChartHelpers.bot_name(@bot)}
-        </span>
-        <span class="flex-1"></span>
-        <span class="bw-display inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-[#22C55E]">
-          <span class="bw-pulse-dot"></span>LIVE
-        </span>
+          <span class="bw-display inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-[#22C55E]">
+            <span class="bw-pulse-dot"></span>LIVE
+          </span>
+        </div>
       </div>
 
       <%!-- Body: chart card + stats grid --%>
-      <div class="relative z-10 p-3.5 flex flex-col gap-4">
-        <div class="bw-card flex flex-col px-5 pt-5 pb-3">
+      <div class="relative z-10 p-2 flex flex-col gap-2">
+        <div class="bw-card flex flex-col px-5 pt-3 pb-3">
           <%!-- Header row (same as landscape) --%>
           <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
             <div class="min-w-0">
@@ -172,14 +173,10 @@ defmodule BlocksterV2Web.Widgets.RtFullCard do
           </div>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-            <.stat_card label="AUM" value={RtChartHelpers.format_sol(@bot && (@bot["sol_balance_ui"] || @bot["sol_balance"]))} suffix="SOL" />
-            <.stat_card label="LP Supply" value={RtChartHelpers.format_with_commas(@bot && @bot["lp_supply"])} />
+            <.stat_card label="AUM" value={RtChartHelpers.aum_value(@bot)} suffix="SOL" />
+            <.stat_card label="LP Supply" value={RtChartHelpers.format_base_units(@bot && @bot["lp_supply"])} />
             <.stat_card label="Rank" value={RtChartHelpers.format_rank(@bot && @bot["rank"])} />
-            <.stat_card label="CP Liability" value={RtChartHelpers.format_sol(@bot && @bot["counterparty_locked_sol"])} suffix="SOL" />
-            <.stat_card label={"Wins/Settled (" <> RtChartHelpers.tf_label(@tf) <> ")"} value={RtChartHelpers.wins_settled(@bot)} />
-            <.stat_card label={"Win Rate (" <> RtChartHelpers.tf_label(@tf) <> ")"} value={RtChartHelpers.format_percent(@bot && @bot["win_rate"])} value_color="#22C55E" />
-            <.stat_card label={"Volume (" <> RtChartHelpers.tf_label(@tf) <> ")"} value={RtChartHelpers.format_with_commas(@bot && @bot["volume_7d_sol"])} suffix="SOL" />
-            <.stat_card label={"Avg Stake (" <> RtChartHelpers.tf_label(@tf) <> ")"} value={RtChartHelpers.format_sol(@bot && @bot["avg_stake_7d_sol"])} suffix="SOL" />
+            <.stat_card label="Win Rate" value={RtChartHelpers.format_percent(@bot && @bot["win_rate"])} value_color="#22C55E" />
           </div>
         </div>
       </div>
@@ -190,7 +187,7 @@ defmodule BlocksterV2Web.Widgets.RtFullCard do
           {RtChartHelpers.bot_name(@bot)} is a Solana-powered AI trading bot.
         </span>
         <span class="bw-display text-[12px] font-semibold text-[#E8E4DD] whitespace-nowrap">
-          Open on RogueTrader →
+          Deposit SOL →
         </span>
       </div>
     </div>

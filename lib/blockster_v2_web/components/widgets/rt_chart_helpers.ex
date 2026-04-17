@@ -192,6 +192,49 @@ defmodule BlocksterV2Web.Widgets.RtChartHelpers do
 
   def format_sol(_), do: "—"
 
+  @doc "Resolves a bot's AUM: prefers `sol_balance_ui` (UI units) then converts raw `sol_balance` lamports."
+  def aum_value(nil), do: "—"
+
+  def aum_value(bot) when is_map(bot) do
+    case {bot["sol_balance_ui"], bot["sol_balance"]} do
+      {ui, _} when is_number(ui) -> format_sol(ui)
+      {_, raw} when is_number(raw) -> format_lamports(raw)
+      _ -> "—"
+    end
+  end
+
+  def aum_value(_), do: "—"
+
+  @doc "Formats a raw lamports value (base units, 9 decimals) as a SOL amount with 2–4 decimals."
+  def format_lamports(nil), do: "—"
+
+  def format_lamports(val) when is_number(val) do
+    sol = val / 1_000_000_000
+    cond do
+      sol >= 1 -> :io_lib.format("~.2f", [sol * 1.0]) |> IO.iodata_to_binary()
+      sol >= 0.01 -> :io_lib.format("~.4f", [sol * 1.0]) |> IO.iodata_to_binary()
+      sol > 0 -> :io_lib.format("~.6f", [sol * 1.0]) |> IO.iodata_to_binary()
+      true -> "0.00"
+    end
+  end
+
+  def format_lamports(_), do: "—"
+
+  @doc "Formats a raw token base-unit value (9 decimals) as a human-readable amount with commas."
+  def format_base_units(nil), do: "—"
+
+  def format_base_units(val) when is_number(val) do
+    ui = val / 1_000_000_000
+    cond do
+      ui >= 1000 -> format_with_commas(ui)
+      ui >= 1 -> :io_lib.format("~.2f", [ui * 1.0]) |> IO.iodata_to_binary()
+      ui > 0 -> :io_lib.format("~.4f", [ui * 1.0]) |> IO.iodata_to_binary()
+      true -> "0"
+    end
+  end
+
+  def format_base_units(_), do: "—"
+
   def format_percent(nil), do: "—"
 
   def format_percent(val) when is_number(val) do

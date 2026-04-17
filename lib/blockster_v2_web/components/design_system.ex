@@ -292,6 +292,7 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :search_query, :string, default: ""
   attr :search_results, :list, default: []
   attr :show_search_results, :boolean, default: false
+  attr :show_search_modal, :boolean, default: false
   attr :show_why_earn_bux, :boolean, default: true
   attr :connecting, :boolean, default: false
   attr :display_token, :string, default: "BUX", values: ~w(BUX SOL), doc: "which token balance to show in the header pill"
@@ -330,65 +331,30 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
         </div>
 
-        <%!-- Center: search + nav --%>
+        <%!-- Center: nav --%>
         <div class="flex items-center gap-4 flex-1 justify-center">
-          <%!-- Search input --%>
-          <div class="relative hidden md:block" id="ds-search-container" phx-click-away={if @show_search_results, do: "close_search", else: nil}>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2">
-                <svg class="w-3.5 h-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="7"></circle>
-                  <path d="m21 21-4.3-4.3"></path>
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search"
-                value={@search_query}
-                phx-keyup="search_posts"
-                phx-debounce="300"
-                class="h-9 pl-9 pr-3 bg-neutral-100 text-sm w-[180px] rounded-full border border-neutral-200/60 focus:outline-none focus:border-neutral-400 text-[#141414]"
-              />
-            </div>
-            <%!-- Search results dropdown --%>
-            <%= if @show_search_results && length(@search_results) > 0 do %>
-              <div class="absolute top-full left-0 mt-2 w-[400px] bg-white rounded-2xl border border-neutral-200 shadow-xl z-50 max-h-[500px] overflow-y-auto">
-                <div class="py-2">
-                  <%= for post <- @search_results do %>
-                    <.link
-                      navigate={~p"/#{post.slug}"}
-                      class="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer"
-                    >
-                      <div class="rounded-lg overflow-hidden shrink-0 w-[60px] h-[60px]">
-                        <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <h4 class="text-sm font-bold text-[#141414] line-clamp-2">{post.title}</h4>
-                        <%= if post.category do %>
-                          <span class="inline-block mt-1 px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-xs">
-                            {post.category.name}
-                          </span>
-                        <% end %>
-                      </div>
-                    </.link>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-          </div>
-
           <nav class="hidden md:flex items-center gap-7 text-[13px] text-neutral-700">
             <.header_nav_link href={~p"/"} active={@active == "home"}>Home</.header_nav_link>
             <.header_nav_link href={~p"/hubs"} active={@active == "hubs"}>Hubs</.header_nav_link>
             <.header_nav_link href={~p"/shop"} active={@active == "shop"}>Shop</.header_nav_link>
             <.header_nav_link href={~p"/play"} active={@active == "play"}>Play</.header_nav_link>
             <.header_nav_link href={~p"/pool"} active={@active == "pool"}>Pool</.header_nav_link>
-            <.header_nav_link href={~p"/airdrop"} active={@active == "airdrop"}>Airdrop</.header_nav_link>
           </nav>
         </div>
 
         <%!-- Right --%>
         <div class="flex items-center gap-2 shrink-0">
+          <%!-- Search icon (opens modal) --%>
+          <button
+            type="button"
+            phx-click="open_search_modal"
+            aria-label="Search"
+            class="relative w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+          >
+            <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
+              <path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clip-rule="evenodd" />
+            </svg>
+          </button>
           <%= if @current_user do %>
             <%!-- Notifications bell with dropdown --%>
             <div class="relative" id="ds-notification-bell">
@@ -577,6 +543,70 @@ defmodule BlocksterV2Web.DesignSystem do
 
       <.why_earn_bux_banner :if={@show_why_earn_bux} />
     </header>
+
+    <%!-- Search modal --%>
+    <%= if @show_search_modal do %>
+      <div
+        class="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/40 backdrop-blur-sm"
+        phx-window-keydown="close_search_modal"
+        phx-key="escape"
+      >
+        <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden" phx-click-away="close_search_modal">
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
+            <svg class="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={@search_query}
+              phx-keyup="search_posts"
+              phx-debounce="300"
+              phx-mounted={JS.focus()}
+              class="flex-1 bg-transparent text-base outline-none border-0 focus:ring-0 text-[#141414]"
+              id="ds-search-modal-input"
+            />
+            <button type="button" phx-click="close_search_modal" aria-label="Close"
+              class="w-8 h-8 flex items-center justify-center text-neutral-500 rounded-full bg-neutral-100 hover:bg-neutral-200 cursor-pointer">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <%= cond do %>
+            <% @show_search_results and length(@search_results) > 0 -> %>
+              <div class="max-h-[60vh] overflow-y-auto py-2">
+                <%= for post <- @search_results do %>
+                  <.link navigate={~p"/#{post.slug}"}
+                    class="flex items-start gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors cursor-pointer">
+                    <div class="rounded-lg overflow-hidden shrink-0 w-14 h-14">
+                      <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-bold text-[#141414] line-clamp-2">{post.title}</h4>
+                      <%= if post.category do %>
+                        <span class="inline-block mt-1 px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-xs">
+                          {post.category.name}
+                        </span>
+                      <% end %>
+                    </div>
+                  </.link>
+                <% end %>
+              </div>
+            <% String.length(@search_query) >= 2 -> %>
+              <div class="px-5 py-10 text-center text-sm text-neutral-500">
+                No results for "{@search_query}"
+              </div>
+            <% true -> %>
+              <div class="px-5 py-10 text-center text-sm text-neutral-400">
+                Type to search articles
+              </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
     """
   end
 
@@ -727,7 +757,6 @@ defmodule BlocksterV2Web.DesignSystem do
               <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
               <li><.link navigate={~p"/pool"} class="text-white/70 hover:text-white transition-colors">Pool</.link></li>
               <li><.link navigate={~p"/play"} class="text-white/70 hover:text-white transition-colors">Play</.link></li>
-              <li><.link navigate={~p"/airdrop"} class="text-white/70 hover:text-white transition-colors">Airdrops</.link></li>
               <li><.link navigate={~p"/shop"} class="text-white/70 hover:text-white transition-colors">Shop</.link></li>
             </ul>
           </div>
@@ -1772,6 +1801,12 @@ defmodule BlocksterV2Web.DesignSystem do
     """
   end
 
+  # Requests a crisp retina-ready render from ImageKit for ad hero images.
+  # The raw stored URL can resolve to a 270-px source file — way too small for
+  # 2-3× DPR displays. w-1200 asks ImageKit to deliver up to 1200px wide,
+  # which is plenty for every inline/banner ad placement.
+  defp ad_image_url(url), do: BlocksterV2.ImageKit.url(url, width: 1200, quality: 95)
+
   # Strips empty-string values to nil so `@p["key"] || "default"` falls through correctly.
   # Without this, the admin form submits "" for unfilled fields and "" is truthy in Elixir.
   defp sanitize_ad_params(params) do
@@ -1887,7 +1922,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a1838"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt=""
                   class={[
                     "w-full h-full",
@@ -2008,7 +2043,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="w-full h-auto block"
                 />
@@ -2135,7 +2170,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="w-full h-auto block"
                 />
@@ -2219,7 +2254,7 @@ defmodule BlocksterV2Web.DesignSystem do
             style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
           >
             <img
-              src={@p["image_url"]}
+              src={ad_image_url(@p["image_url"])}
               alt={@p["model_name"] || ""}
               class="w-full h-auto block"
             />
@@ -2295,7 +2330,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || @p["bg_color"] || "#0a0a0a"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="w-full h-full object-cover"
                   style="object-position: center 30%;"
@@ -2437,7 +2472,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || "#f5f5f4"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="max-w-full max-h-full w-auto h-auto object-contain block"
                 />
@@ -2460,7 +2495,7 @@ defmodule BlocksterV2Web.DesignSystem do
 
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
-      <div class="w-full max-w-[720px]">
+      <div class="w-full max-w-[560px]">
         <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
         <a
           href={@banner.link_url || "#"}
@@ -2501,7 +2536,7 @@ defmodule BlocksterV2Web.DesignSystem do
             <%= if @p["image_url"] do %>
               <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}>
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="w-full h-auto block"
                 />
@@ -2593,7 +2628,7 @@ defmodule BlocksterV2Web.DesignSystem do
         <%= if @p["image_url"] do %>
           <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}>
             <img
-              src={@p["image_url"]}
+              src={ad_image_url(@p["image_url"])}
               alt={@p["model_name"] || ""}
               class="w-full h-auto block"
             />
@@ -2664,7 +2699,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 style={"background: #{@p["image_bg_color"] || "#0a0a0a"};"}
               >
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["model_name"] || ""}
                   class="w-full h-full object-cover"
                 />
@@ -2772,7 +2807,7 @@ defmodule BlocksterV2Web.DesignSystem do
             <%= if @p["image_url"] do %>
               <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a1838"};"}>
                 <img
-                  src={@p["image_url"]}
+                  src={ad_image_url(@p["image_url"])}
                   alt={@p["headline"] || ""}
                   class="w-full h-auto block"
                 />
@@ -2861,7 +2896,7 @@ defmodule BlocksterV2Web.DesignSystem do
         <%= if @p["image_url"] do %>
           <div class="relative" style={"background: #{@p["image_bg_color"] || "#0a1838"};"}>
             <img
-              src={@p["image_url"]}
+              src={ad_image_url(@p["image_url"])}
               alt={@p["headline"] || ""}
               class="w-full h-auto block"
             />
@@ -2904,6 +2939,394 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
       </div>
     </a>
+    """
+  end
+
+  # Patriotic editorial portrait — centered brand wordmark · full-width
+  # hero portrait with red/white/blue flag stripe across the top · bold
+  # model name · italic reference line · central tagline · uppercase
+  # subheading · rounded outline CTA. Designed for commemorative / political
+  # ads (e.g. 250-year anniversary tribute).
+  def ad_banner(%{banner: %{template: "patriotic_portrait"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full max-w-[560px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.25)] relative"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#E8E4DD"};"}
+          >
+            <%!-- Brand wordmark strip --%>
+            <%= if @p["brand_name"] do %>
+              <div class="pt-7 pb-4 flex items-center justify-center gap-3">
+                <div class="h-px w-10 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
+                <div class="text-[11px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#C9A961"};"}>
+                  {@p["brand_name"]}
+                </div>
+                <div class="h-px w-10 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
+              </div>
+            <% end %>
+
+            <%!-- Hero portrait with American flag stripe across the top --%>
+            <%= if @p["image_url"] do %>
+              <div
+                class="relative"
+                style={"background: #{@p["image_bg_color"] || "#FFFFFF"};"}
+              >
+                <img
+                  src={ad_image_url(@p["image_url"])}
+                  alt={@p["model_name"] || ""}
+                  class="w-full h-auto block"
+                />
+                <div
+                  class="absolute top-0 left-0 right-0 h-2 z-10"
+                  style="background: linear-gradient(90deg, #BF0A30 33%, #FFFFFF 33% 66%, #002868 66%);"
+                ></div>
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+              </div>
+            <% end %>
+
+            <%!-- Gold divider --%>
+            <div class="flex justify-center pt-8">
+              <div class="h-px w-16" style={"background: #{@p["accent_color"] || "#C9A961"}; opacity: 0.5;"}></div>
+            </div>
+
+            <%!-- Model name (bold · uppercase) + italic reference --%>
+            <div class="px-8 pt-5 text-center">
+              <%= if @p["model_name"] do %>
+                <h3
+                  class="text-[22px] font-bold tracking-tight uppercase leading-[1.1]"
+                  style={"font-family: 'Inter', 'Helvetica Neue', serif; letter-spacing: 0.12em; color: #{@p["text_color"] || "#E8E4DD"};"}
+                >
+                  {@p["model_name"]}
+                </h3>
+              <% end %>
+              <%= if @p["reference"] do %>
+                <div class="text-[11px] mt-2 italic opacity-75" style="font-family: Georgia, 'Times New Roman', serif;">
+                  {@p["reference"]}
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Central tagline (big, colored) --%>
+            <%= if @p["heading"] do %>
+              <div class="px-8 pt-6 text-center">
+                <div
+                  class="text-[24px] md:text-[26px] font-bold leading-[1.15]"
+                  style={"font-family: 'Inter', sans-serif; color: #{@p["accent_color"] || "#C9A961"}; letter-spacing: -0.01em;"}
+                >
+                  {@p["heading"]}
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Subheading (small uppercase) --%>
+            <%= if @p["subheading"] do %>
+              <div class="px-8 pt-3 text-center">
+                <div class="text-[11px] opacity-55 font-semibold" style="letter-spacing: 0.18em; text-transform: uppercase;">
+                  {@p["subheading"]}
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Outline CTA pill --%>
+            <div class="pb-8 px-8 pt-6 text-center">
+              <div
+                class="inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold text-[11px] uppercase tracking-[0.2em] transition-colors"
+                style={"border: 1px solid #{@p["accent_color"] || "#C9A961"}; color: #{@p["accent_color"] || "#C9A961"};"}
+              >
+                {@p["cta_text"] || "Learn more"}
+                <span class="inline-block">→</span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Trump 2028 loop — square (1:1) animated ad. 10s loop:
+  #   0–25%   headline ("America needs him, again.") on black
+  #   25–62%  headline fades, hero image fades in + out
+  #   60–92%  "TRUMP" / "2028" / subtitle on black (no glow)
+  # CSS under `.t28-*` prefix in app.css.
+  def ad_banner(%{banner: %{template: "trump_2028_loop"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    headline_words =
+      (assigns.p["headline"] || "")
+      |> String.split(~r/\s+/, trim: true)
+      |> Enum.take(6)
+
+    assigns = assign(assigns, :headline_words, headline_words)
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full" style="max-width: 440px;">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div class="t28-frame">
+            <%= if @p["image_url"] do %>
+              <div class="t28-img" style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}></div>
+            <% end %>
+            <div class="t28-dim"></div>
+
+            <%= if @p["brand_name"] do %>
+              <div class="t28-brand">{@p["brand_name"]}</div>
+            <% end %>
+            <div class="t28-ad-badge">Ad</div>
+
+            <%!-- Stage 1: headline --%>
+            <div class="t28-headline-layer">
+              <div class="t28-hl">
+                <%= for word <- @headline_words do %><span>{word}</span> <% end %>
+              </div>
+            </div>
+
+            <%!-- Stage 2: "TRUMP" / "2028" / subtitle --%>
+            <div class="t28-reveal-layer">
+              <%= if @p["top_text"] do %>
+                <div class="t28-top">{@p["top_text"]}</div>
+              <% end %>
+              <%= if @p["number_text"] do %>
+                <div class="t28-num" style={"color: #{@p["number_color"] || "#BF0A30"};"}>
+                  {@p["number_text"]}
+                </div>
+              <% end %>
+              <%= if @p["subtitle"] do %>
+                <div class="t28-subtitle">{@p["subtitle"]}</div>
+              <% end %>
+            </div>
+
+            <%!-- CTA --%>
+            <div class="t28-cta">
+              <div class="t28-cta-btn" style={"background: #{@p["accent_color"] || "#BF0A30"};"}>
+                {@p["cta_text"] || "Learn more"}
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Patriotic loop — square (1:1) animated ad. 11s loop:
+  #   0–30%  : headline writes word-by-word on black
+  #   30–58% : hero image fades in (with grain)
+  #   58–65% : image fades out
+  #   65–92% : "THANK YOU" + "47" (or similar) shown on black, no glow
+  #   92–100%: fades, restart
+  # CSS lives in `assets/css/app.css` under the `.pl-*` prefix.
+  def ad_banner(%{banner: %{template: "patriotic_loop"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    # Split headline into word spans so the CSS nth-child word-by-word
+    # animation can stagger them. Max 10 words (matches CSS nth-child rules).
+    headline_words =
+      (assigns.p["headline"] || "")
+      |> String.split(~r/\s+/, trim: true)
+      |> Enum.take(10)
+
+    assigns = assign(assigns, :headline_words, headline_words)
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full" style="max-width: 440px;">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div class="pl-frame">
+            <%= if @p["image_url"] do %>
+              <div class="pl-img" style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}></div>
+            <% end %>
+            <div class="pl-dim"></div>
+            <div class="pl-grain"></div>
+
+            <%!-- Brand wordmark top-left + AD badge top-right --%>
+            <%= if @p["brand_name"] do %>
+              <div class="pl-brand">{@p["brand_name"]}</div>
+            <% end %>
+            <div class="pl-ad-badge">Ad</div>
+
+            <%!-- Stage 1: headline words --%>
+            <div class="pl-headline-layer">
+              <div class="pl-headline">
+                <%= for word <- @headline_words do %><span>{word}</span> <% end %>
+              </div>
+            </div>
+
+            <%!-- Stage 2: THANK YOU + "47" on black --%>
+            <div class="pl-thank-layer">
+              <%= if @p["thank_top"] do %>
+                <div class="pl-thank-top">{@p["thank_top"]}</div>
+              <% end %>
+              <%= if @p["number_text"] do %>
+                <div class="pl-num" style={"color: #{@p["number_color"] || "#BF0A30"};"}>
+                  {@p["number_text"]}
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- CTA + meta at bottom --%>
+            <div class="pl-cta">
+              <div class="pl-cta-btn" style={"background: #{@p["accent_color"] || "#BF0A30"};"}>
+                {@p["cta_text"] || "Learn more"}
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <%= if @p["cta_meta"] do %>
+                <div class="pl-cta-meta">{@p["cta_meta"]}</div>
+              <% end %>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # Streaming-service trial ad (FOX One, Hulu, Disney+, etc.). Dark card
+  # with a bold brand wordmark, optional 16:9 hero image with gradient
+  # overlay, large editorial headline, red/branded "free trial" badge, CTA
+  # pill, and a device-availability footer strip. Stacks cleanly on mobile.
+  def ad_banner(%{banner: %{template: "streaming_trial"}} = assigns) do
+    assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full max-w-[560px]">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="relative rounded-2xl overflow-hidden shadow-[0_24px_48px_-14px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.06]"
+            style={"background: linear-gradient(180deg, #{@p["bg_color"] || "#0a0a0a"}, #{@p["bg_color_end"] || "#1a1a1a"}); color: #{@p["text_color"] || "#ffffff"};"}
+          >
+            <%!-- Brand strip --%>
+            <div class="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/[0.08]">
+              <div class="flex items-center gap-3">
+                <%= if @p["brand_name"] do %>
+                  <span
+                    class="text-[22px] font-black tracking-tight leading-none"
+                    style={"font-family: 'Inter', Impact, sans-serif; letter-spacing: -0.02em; color: #{@p["brand_color"] || "#003DA5"};"}
+                  >
+                    {@p["brand_name"]}
+                  </span>
+                <% end %>
+                <%= if @p["brand_tagline"] do %>
+                  <span class="text-[9px] uppercase tracking-[0.2em] font-bold opacity-60 pl-3 border-l border-white/20">
+                    {@p["brand_tagline"]}
+                  </span>
+                <% end %>
+              </div>
+              <div class="text-[8px] font-bold uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded">Ad</div>
+            </div>
+
+            <%!-- Optional hero image with gradient overlay --%>
+            <%= if @p["image_url"] do %>
+              <div class="relative aspect-[16/9] overflow-hidden">
+                <img
+                  src={ad_image_url(@p["image_url"])}
+                  alt={@p["heading"] || ""}
+                  class="w-full h-full object-cover"
+                />
+                <div
+                  class="absolute inset-0 pointer-events-none"
+                  style={"background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, #{@p["bg_color"] || "#0a0a0a"} 100%);"}
+                ></div>
+              </div>
+            <% end %>
+
+            <%!-- Body --%>
+            <div class="px-5 py-6">
+              <%= if @p["heading"] do %>
+                <h3
+                  class="text-[24px] md:text-[26px] font-bold leading-[1.12] mb-2"
+                  style={"font-family: 'Inter', 'Helvetica Neue', sans-serif; letter-spacing: -0.02em; color: #{@p["text_color"] || "#ffffff"};"}
+                >
+                  {@p["heading"]}
+                </h3>
+              <% end %>
+              <%= if @p["subheading"] do %>
+                <p class="text-[13px] leading-snug opacity-70 mb-5 max-w-[480px]">
+                  {@p["subheading"]}
+                </p>
+              <% end %>
+
+              <%!-- Trial badge + price-after row --%>
+              <div class="flex flex-wrap items-center gap-3 mb-5">
+                <%= if @p["trial_label"] do %>
+                  <div
+                    class="px-3 py-1.5 rounded font-bold text-[11px] uppercase tracking-[0.14em]"
+                    style={"background: #{@p["brand_color"] || "#003DA5"}; color: #{@p["brand_text_color"] || "#ffffff"};"}
+                  >
+                    {@p["trial_label"]}
+                  </div>
+                <% end %>
+                <%= if @p["price_after"] do %>
+                  <span class="text-[12px] opacity-60">
+                    then {@p["price_after"]}
+                  </span>
+                <% end %>
+              </div>
+
+              <%!-- CTA --%>
+              <div
+                class="inline-flex items-center gap-2 px-5 py-3 rounded font-bold text-[13px] uppercase tracking-[0.14em] transition-colors"
+                style={"background: #{@p["brand_color"] || "#003DA5"}; color: #{@p["brand_text_color"] || "#ffffff"};"}
+              >
+                {@p["cta_text"] || "Start Free Trial"}
+                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <%!-- Device availability footer --%>
+            <%= if @p["watch_on"] do %>
+              <div class="px-5 py-3 border-t border-white/[0.08] text-[9px] uppercase tracking-[0.22em] opacity-50 text-center font-semibold">
+                {@p["watch_on"]}
+              </div>
+            <% end %>
+          </div>
+        </a>
+      </div>
+    </div>
     """
   end
 

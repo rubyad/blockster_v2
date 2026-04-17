@@ -59,10 +59,10 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraperTest do
       assert html =~ "TOP ROGUEBOTS"
     end
 
-    test "renders footer with Open RogueTrader link text" do
+    test "renders footer with Deposit SOL CTA text" do
       html = render_widget(%{banner: banner(), bots: []})
 
-      assert html =~ "Open RogueTrader"
+      assert html =~ "Deposit SOL"
     end
 
     test "renders shimmer skeleton when bots is []" do
@@ -81,7 +81,7 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraperTest do
   end
 
   describe "bot rows" do
-    test "renders a crypto bot row with 4-decimal prices + group tag + rank + change% + market dot" do
+    test "renders a crypto bot row with 4-decimal prices + group tag + rank + change%" do
       html = render_widget(%{banner: banner(), bots: [bot(%{})]})
 
       assert html =~ ~s(data-bot-id="hermes")
@@ -91,15 +91,12 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraperTest do
       # Bid/ask rendered with 4 decimals
       assert html =~ "1.2331"
       assert html =~ "1.2581"
-      # AUM, 2 decimals
-      assert html =~ "486.34"
-      # Change % with sign + arrow + magnitude
+      # Change % column replaces AUM — sign + arrow + magnitude
+      assert html =~ "24H"
       assert html =~ "+12.4%"
-      # Market dot + Open label
-      assert html =~ "Open"
     end
 
-    test "renders a closed-market bot with Closed dot and grey label" do
+    test "renders a closed-market bot without a market label (row is compact)" do
       html =
         render_widget(%{
           banner: banner(),
@@ -108,7 +105,8 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraperTest do
 
       assert html =~ "WOLF"
       assert html =~ "EQUITIES"
-      assert html =~ "Closed"
+      refute html =~ "Closed"
+      refute html =~ ">Open<"
     end
 
     test "covers every locked-in group tag" do

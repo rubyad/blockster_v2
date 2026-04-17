@@ -1,14 +1,14 @@
 defmodule BlocksterV2Web.Widgets.RtSkyscraper do
   @moduledoc """
-  RogueTrader top-bots skyscraper widget (200 × 760).
+  RogueTrader top-bots skyscraper widget (200 × 696).
 
   Renders a dark trading terminal card: header with "ROGUE TRADER" logo +
   LIVE pill + "TOP ROGUEBOTS" subtitle, a scrollable feed of up to 30
-  bots ranked by `lp_price` desc, and an "Open RogueTrader" footer CTA.
+  bots ranked by `lp_price` desc, and a "Deposit SOL" footer CTA.
   Each bot row includes rank, group dot + tag (CRYPTO / EQUITIES /
-  INDEXES / COMMODITIES / FOREX), bid/ask/AUM grid, 24H change %, and a
-  market-open/closed dot. The CTA is the click target for the whole
-  widget — `phx-click="widget_click"` with `subject="rt"` bubbles to the
+  INDEXES / COMMODITIES / FOREX), and a bid / ask / 24H-change grid.
+  The CTA is the click target for the whole widget —
+  `phx-click="widget_click"` with `subject="rt"` bubbles to the
   `WidgetEvents` macro.
 
   Prices render with 4 decimal places per the Phase 0 locked-in
@@ -36,7 +36,7 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell flex flex-col w-[200px] h-[760px] cursor-pointer text-[#E8E4DD]"
+      class="not-prose bw-widget bw-shell flex flex-col w-[200px] h-[696px] cursor-pointer text-[#E8E4DD]"
       phx-hook="RtSkyscraperWidget"
       data-banner-id={@banner.id}
       data-widget-type="rt_skyscraper"
@@ -107,7 +107,10 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
           <div class="divide-y divide-white/[0.04]">
             <div
               :for={{bot, idx} <- Enum.with_index(@bots, 1)}
-              class="px-2.5 py-2.5 bg-[#14141A] hover:bg-[#1c1c25] transition-colors duration-200 relative"
+              class={[
+                "px-2.5 py-2.5 hover:bg-[#1f1f28] transition-colors duration-200 relative",
+                if(rem(idx, 2) == 0, do: "bg-[#0a0a0f]", else: "bg-[#1a1a22]")
+              ]}
               data-bot-id={bot["bot_id"] || bot["slug"]}
             >
               <div class="flex items-center justify-between mb-1.5">
@@ -135,7 +138,7 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
                 </span>
               </div>
 
-              <div class="grid grid-cols-3 gap-1 mb-1.5">
+              <div class="grid grid-cols-3 gap-1">
                 <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
                   <div class="bw-display text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">
                     Bid
@@ -160,33 +163,14 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
                 </div>
                 <div class="bg-white/[0.025] border border-white/[0.05] rounded px-1 py-1">
                   <div class="bw-display text-[7px] tracking-[0.08em] text-[#6B7280] uppercase leading-none">
-                    AUM
+                    24H
                   </div>
-                  <div class="bw-mono text-[9.5px] font-semibold text-[#E8E4DD] leading-tight mt-0.5">
-                    {format_aum(bot)}
-                  </div>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <span class={[
-                  "bw-mono text-[9px] font-semibold",
-                  change_color(bot)
-                ]}>
-                  {change_arrow(bot)} {format_change(bot)}
-                </span>
-                <div class="flex items-center gap-1">
                   <div class={[
-                    "w-[5px] h-[5px] rounded-full",
-                    market_dot_class(bot)
+                    "bw-mono text-[9.5px] font-semibold leading-tight mt-0.5",
+                    change_color(bot)
                   ]}>
+                    {change_arrow(bot)} {format_change(bot)}
                   </div>
-                  <span class={[
-                    "bw-display text-[7.5px] uppercase tracking-[0.1em]",
-                    market_label_class(bot)
-                  ]}>
-                    {market_label(bot)}
-                  </span>
                 </div>
               </div>
             </div>
@@ -197,12 +181,12 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
       <%!-- Tagline + footer link --%>
       <div class="border-t border-white/[0.05] shrink-0">
         <p class="px-3 pt-2.5 pb-2 bw-display text-[10px] text-[#9CA3AF] leading-[1.45]">
-          30 AI agents trading crypto, stocks, forex, commodities.
+          Solana-powered AI agents trading crypto, stocks, forex, commodities.
         </p>
         <div class="block px-3 pb-2.5 group">
           <div class="flex items-center justify-between">
             <span class="bw-display text-[8px] font-semibold tracking-[0.14em] text-[#6B7280] uppercase">
-              Open RogueTrader
+              Deposit SOL
             </span>
             <span class="text-[#6B7280] text-[10px]">→</span>
           </div>
@@ -271,19 +255,6 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
 
   defp format_price(_), do: "—"
 
-  defp format_aum(bot) do
-    case bot["sol_balance_ui"] || bot["sol_balance"] do
-      nil ->
-        "—"
-
-      val when is_number(val) ->
-        :io_lib.format("~.2f", [val * 1.0]) |> IO.iodata_to_binary()
-
-      _ ->
-        "—"
-    end
-  end
-
   defp change_value(bot) do
     bot["lp_price_change_24h_pct"] || bot["lp_price_change_7d_pct"]
   end
@@ -315,17 +286,6 @@ defmodule BlocksterV2Web.Widgets.RtSkyscraper do
         "—"
     end
   end
-
-  defp market_dot_class(%{"market_open" => true}), do: "bg-[#22C55E]"
-  defp market_dot_class(%{"market_open" => false}), do: "bg-[#4B5563]"
-  defp market_dot_class(_), do: "bg-[#4B5563]"
-
-  defp market_label_class(%{"market_open" => true}), do: "text-[#6B7280]"
-  defp market_label_class(_), do: "text-[#4B5563]"
-
-  defp market_label(%{"market_open" => true}), do: "Open"
-  defp market_label(%{"market_open" => false}), do: "Closed"
-  defp market_label(_), do: "—"
 
   defp updated_label([]), do: "—"
   defp updated_label(_), do: "live"

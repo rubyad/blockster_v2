@@ -102,8 +102,10 @@ defmodule BlocksterV2Web.PostLive.Index do
      # Frozen picks — chosen once on mount so PubSub re-renders don't churn the random pick.
      |> assign(:homepage_top_desktop_pick, random_or_nil(homepage_top_desktop_banners))
      |> assign(:homepage_top_mobile_pick, random_or_nil(homepage_top_mobile_banners))
-     |> assign(:inline_desktop_banners, inline_banners)
-     |> assign(:inline_mobile_banners, inline_banners)
+     # Homepage rotator: random banner per slot, class-cycled so no class
+     # repeats within any K-slot window (K = number of distinct classes).
+     # See `Ads.random_class_rotated_pool/2`.
+     |> assign(:inline_desktop_banners, BlocksterV2.Ads.random_class_rotated_pool(inline_banners))
      |> mount_widgets(
        homepage_top_desktop_banners ++
          homepage_top_mobile_banners ++

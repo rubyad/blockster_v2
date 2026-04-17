@@ -40,7 +40,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
     ~H"""
     <div
       id={"widget-#{@banner.id}"}
-      class="bw-widget bw-shell relative w-full max-w-[440px] flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
+      class="not-prose bw-widget bw-shell relative w-full max-w-[440px] mx-auto flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       style="min-height:640px;"
       phx-hook="RtChartWidget"
       data-banner-id={@banner.id}
@@ -164,7 +164,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
           {RtChartHelpers.bot_name(@bot)} is a Solana-powered AI trading bot.
         </span>
         <span class="bw-display text-[12px] font-semibold text-[#E8E4DD] whitespace-nowrap">
-          View →
+          Deposit SOL →
         </span>
       </div>
     </div>

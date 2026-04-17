@@ -7,6 +7,8 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Tailwind Typography img Margins Hijacked a Widget Header — Check Computed Styles First](#tailwind-typography-img-margins-hijacked-a-widget-header--check-computed-styles-first-apr-2026)
+- [Coin Flip Widgets: Copy Mocks Verbatim — Never Rebuild From Scratch](#coin-flip-widgets-copy-mocks-verbatim--never-rebuild-from-scratch-apr-2026)
 - [Notification.@valid_types Silent Validation Failure Swallowed Reward Records](#notificationvalid_types-silent-validation-failure-swallowed-reward-records-apr-2026)
 - [LiveView Modal Backdrop: Use phx-click-away, NOT phx-click + stop_propagation](#liveview-modal-backdrop-use-phx-click-away-not-phx-click--stop_propagation-apr-2026)
 - [Sticky Banners and Animated-Height Headers: Make the Banner a Child of the Header](#sticky-banners-and-animated-height-headers-make-the-banner-a-child-of-the-header-apr-2026)
@@ -52,6 +54,53 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
+
+---
+
+## Tailwind Typography img Margins Hijacked a Widget Header — Check Computed Styles First (Apr 2026)
+
+**Problem**: The `rt_full_card` widget (and any RT widget rendered inline in an article) had a massively tall header. The ROGUE logo appeared ~45px tall even though the `<img>` had `class="h-[22px]"`, and the "TRADER" subtitle sat far below the logo with a big gap. User correctly diagnosed it in 3 seconds via DevTools: **the logo `<img>` had 32px top and bottom margins**. I spent over an hour mutating HEEx structure, swapping `<span>` for `<div>`, switching absolute positioning to flex column, adding `outline` debug colors, forcing fixed header heights, rewriting TRADER as bright yellow-on-red — none of which was the problem.
+
+**Root cause**: The widget is rendered inside an article that uses Tailwind Typography's `.prose` class. Typography adds `:where(img):not([class~="not-prose"]) { margin-top: 2em; margin-bottom: 2em; }` — at a 16px base font, that's exactly 32px top/bottom margin on every `<img>` in the subtree, including the widget's logo. The widget's local CSS had no chance of overriding a typography-level rule scoped to the article container.
+
+**The fix**: Add `not-prose` class to every widget root. Applied to all 19 widgets (`rt_full_card`, `rt_skyscraper`, `rt_chart_landscape`, `rt_chart_portrait`, `rt_sidebar_tile`, `rt_square_compact`, `rt_leaderboard_inline`, `rt_ticker`, `fs_skyscraper`, `fs_hero_landscape`, `fs_hero_portrait`, `fs_sidebar_tile`, `fs_square_compact`, `fs_ticker`, `cf_sidebar_tile`, `cf_sidebar_demo`, `cf_portrait`, `cf_portrait_demo`, `cf_inline_landscape`, `cf_inline_landscape_demo`) on the outermost `class="..."`. This opts the entire widget subtree out of typography styling.
+
+**Rules for next time** (hard-learned):
+1. **When a CSS issue is reported, open DevTools and inspect computed styles on the affected element FIRST.** Not "look at the HEEx," not "try a different layout approach" — look at the actual browser-computed `margin`, `padding`, `height`, `width`. If the computed margin is 32px and your CSS says 0, something in an ancestor is injecting it. That's the clue. Every other path wastes time.
+2. **When a widget lives inside an article (`.prose` container), escape typography styling with `not-prose` on the widget root.** Tailwind Typography applies defaults (margins on `img`, `p`, `blockquote`, list styles, etc.) that will silently hijack any embedded component.
+3. **Symptoms of this exact bug to recognize immediately**: images much larger than their constrained `h-[]` / `height:` style; weird vertical gaps between stacked elements inside articles; anything that "looks fine in the mock file but wrong on the article page" when the only difference is the `.prose` ancestor.
+4. **Don't blame Phoenix live-reload, Tailwind JIT, or browser cache before checking the computed styles.** I went down all three paths in this session. The bug wasn't in the pipeline — it was in the CSS cascade.
+
+**Where the typography rule lives**: auto-generated from `@tailwindcss/typography` plugin; shows up in `priv/static/assets/css/app.css` as `:where(img):not(:where([class~="not-prose"],[class~="not-prose"] *)) { margin-top: 2em; margin-bottom: 2em; }`. Multiple occurrences (different prose size variants: prose-sm, prose-base, prose-lg) — all share the same `not-prose` opt-out.
+
+---
+
+## Coin Flip Widgets: Copy Mocks Verbatim — Never Rebuild From Scratch (Apr 2026)
+
+**Problem**: The coin flip widget plan specified 25 HTML mock files as the "exact visual spec." Instead of copying the mock HTML/CSS directly into the HEEx components, I rebuilt everything from scratch — invented new class hierarchies (`.cf-land__`, `.cf-port__`), wrote CSS from memory with wrong values (padding, font-size, spacing all different from mocks), generated panel HTML dynamically with loops instead of copying the static markup, and used generic animations instead of the per-panel scoped keyframes (`.p0`–`.p8`) from the mocks. The result looked nothing like the mocks.
+
+**What went wrong, in order**:
+1. **Invented new class names instead of using the mock's** — the landscape mock uses `.vw`, `.v-head`, `.bd`, `.bm`, `.d-face`, `.v-chip`. I wrote `.cf-land__head`, `.cf-land__brand-wordmark`, `.cf-chip--lg`. Completely different CSS that had to be rewritten.
+2. **Generated HTML dynamically with EEx loops** — the mock has 9 hardcoded panels with exact HTML for each difficulty. I tried to generate them from `CfHelpers.demo_configs()` with loops. This produced different HTML structure, different class usage, and broke the per-panel CSS animation scoping.
+3. **Wrote CSS values from memory** — sidebar mock has `padding: 6px 12px 4px`, `margin-top: 2px`, `font-size: 8px`, `height: 24px`. I wrote `padding: 11px 12px 8px`, `margin-top: 12px`, `font-size: 8.5px`, `height: 26px`. Every value was wrong by just enough to break the 200×340 layout.
+4. **Sidebar demo: added 9-panel cycling that doesn't exist in the mock** — the mock is a single Win All 3 flips animation (18s CSS loop, no JS). I invented a 9-panel cycling system with CfDemoCycle hook. Completely wrong.
+5. **Missing animation keyframes** — the sidebar mock has ~20 `@keyframes` rules for the 18s animation. I didn't add any of them. The coin didn't spin, results didn't reveal, winner didn't appear.
+6. **CSS selector scoping wrong** — landscape/portrait use `.bw-widget.cfd` (both classes on same element, no space). I wrote `.bw-widget .cfd` (descendant selector, with space). All styles silently failed to apply.
+
+**The fix**: Literally copy-paste the mock's HTML into HEEx templates and the mock's CSS into `widgets.css`. No interpretation, no generation, no loops. The mocks ARE the code.
+
+**Additional issues discovered after mock copy** (CSS context differences between standalone mock and LiveView/Tailwind context):
+- `display:inline-flex` gets blockified to `display:flex` inside flex column parents → children stretched to fill height. Fix: explicit `height` + `flex:none` on `.v-winner-amount` and `.v-card-val`.
+- `position:absolute` children trapped by intermediate `position:relative` parents (`.v-winner` inside `.v-coin-area`). Fix: `position:static` on landscape `.v-coin-area`.
+- `phx-update="ignore"` required on demo widget roots — without it, LiveView re-renders reset the JS cycling timer, causing difficulty levels to jump randomly.
+
+**Rules for next time**:
+1. **When a working mock exists, the component's job is to serve that mock's HTML — nothing else.** Don't abstract, don't loop, don't generate. Copy it.
+2. **The mock's CSS class names are the ones you use.** Don't rename `.vw` to `.cf-land`, don't rename `.bd` to `.bw-display`. Use what the mock uses.
+3. **The mock's CSS values are the ones you use.** Don't write `padding: 11px` when the mock says `padding: 6px`. Open the mock, copy the number.
+4. **If the mock has per-component scoped keyframes, they go in the CSS file verbatim.** Don't try to generate them. Copy them.
+5. **Test in the browser by comparing side-by-side with the mock file.** Open `file:///path/to/mock.html` in one tab and `localhost:4000/article` in another. They should look identical.
+6. **After embedding mock CSS in a LiveView context, check for flex blockification issues.** The mock runs in a clean HTML context. LiveView templates render inside flex/grid parents that can stretch inline-flex children.
 
 ---
 
