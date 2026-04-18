@@ -10,13 +10,20 @@ defmodule BlocksterV2Web.AnnouncementBanner do
 
   @doc """
   Returns a map `%{text: str, short: str, link: str|nil, cta: str|nil, badge: bool}`
-  randomly chosen from all messages the user is eligible to see.
+  chosen from all messages the user is eligible to see.
+
+  Uses a deterministic seed based on user_id + current second so:
+    * Both LiveView mounts (static + connected) within the same second
+      get the same message — no visible flicker.
+    * Navigating to a new page (always >= 1 second later) picks a
+      different message — the user sees variety.
 
   `user` is the current_user struct (or nil for anonymous visitors).
   """
   def pick(user) do
     messages = build_eligible_messages(user)
-    Enum.random(messages)
+    seed = :erlang.phash2({user && user.id, System.monotonic_time(:second)})
+    Enum.at(messages, rem(seed, length(messages)))
   end
 
   # ── Message pool ──────────────────────────────────────────────────────────
