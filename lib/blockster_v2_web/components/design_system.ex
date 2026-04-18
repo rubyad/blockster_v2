@@ -339,18 +339,8 @@ defmodule BlocksterV2Web.DesignSystem do
         _ -> assigns.bux_balance
       end
 
-    # Auto-pick a rotated banner message when callers pass show_why_earn_bux=true
-    # but no pre-computed announcement_banner. This ensures every .heex file
-    # that sets show_why_earn_bux={true} gets rotation without needing a mount change.
-    announcement_banner =
-      assigns.announcement_banner ||
-        if assigns.show_why_earn_bux do
-          BlocksterV2Web.AnnouncementBanner.pick(assigns.current_user)
-        end
-
     assigns =
       assigns
-      |> assign(:announcement_banner, announcement_banner)
       |> assign(:formatted_bux, format_bux(assigns.bux_balance))
       |> assign(:formatted_display_balance, format_display_balance(display_token, display_balance))
       |> assign(:display_token_icon, display_token_icon(display_token))

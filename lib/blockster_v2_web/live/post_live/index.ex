@@ -80,7 +80,7 @@ defmodule BlocksterV2Web.PostLive.Index do
      socket
      |> assign(:page_title, "Latest Posts")
      |> assign(:show_categories, false)
-     |> assign(:announcement_banner, BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user]))
+     |> assign(:announcement_banner, if(connected?(socket), do: BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user])))
      |> assign(:hero_post, hero_post)
      |> assign(:hub_showcase, hub_showcase)
      |> assign(:followed_hub_posts, followed_hub_posts)

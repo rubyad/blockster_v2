@@ -1,3 +1,21 @@
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active={nil}
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
+/>
+
 <div class="legal-page bg-[#F5F6FB] min-h-screen">
   <div class="container mx-auto px-6 py-12 lg:py-24">
     <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm p-8 md:p-12">
@@ -121,3 +139,5 @@
     </div>
   </div>
 </div>
+
+<BlocksterV2Web.DesignSystem.footer />

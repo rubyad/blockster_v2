@@ -179,6 +179,7 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
       show_search_modal={Map.get(assigns, :show_search_modal, false)}
       connecting={Map.get(assigns, :connecting, false)}
       show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
     />
 
     <main class="max-w-[720px] mx-auto px-6">

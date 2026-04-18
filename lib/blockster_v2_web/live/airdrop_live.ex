@@ -489,6 +489,7 @@ defmodule BlocksterV2Web.AirdropLive do
         show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
       />
 
       <%!-- AirdropSolanaHook mount point — preserved exactly --%>
@@ -541,7 +542,7 @@ defmodule BlocksterV2Web.AirdropLive do
 
     ~H"""
     <section class="pt-12 pb-10">
-      <div class="grid grid-cols-12 gap-8 items-end">
+      <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
         <div class="col-span-12 md:col-span-7">
           <div class="flex items-center gap-2 mb-3">
             <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-neutral-400">
@@ -594,7 +595,7 @@ defmodule BlocksterV2Web.AirdropLive do
   defp open_state_section(assigns) do
     ~H"""
     <section class="py-10 border-t border-neutral-200/70">
-      <div class="grid grid-cols-12 gap-8">
+      <div class="grid grid-cols-12 gap-4 md:gap-8">
         <div class="col-span-12 md:col-span-7 space-y-6">
           <.countdown_card {assigns} />
           <.prize_distribution_card {assigns} />
@@ -1060,18 +1061,19 @@ defmodule BlocksterV2Web.AirdropLive do
             {Number.Delimit.number_to_delimited(@total_entries, precision: 0)} BUX · {Number.Delimit.number_to_delimited(@participant_count, precision: 0)} players
           </span>
         </div>
-        <div class="grid grid-cols-[60px_1fr_140px_140px_120px] px-6 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">
+        <div class="overflow-x-auto">
+        <div class="grid grid-cols-[40px_1fr_80px_90px_90px] md:grid-cols-[60px_1fr_140px_140px_120px] px-4 md:px-6 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold min-w-[500px] md:min-w-0">
           <div>#</div>
           <div>Wallet</div>
           <div>Position</div>
           <div>Prize</div>
           <div class="text-right">Status</div>
         </div>
-        <div class="divide-y divide-neutral-100">
+        <div class="divide-y divide-neutral-100 min-w-[500px] md:min-w-0">
           <%= for winner <- @visible_winners do %>
             <% row_bg = winners_row_bg(winner.winner_index) %>
-            <div class={"px-6 py-3 transition-colors hover:bg-black/[0.02] " <> row_bg}>
-              <div class="grid grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
+            <div class={"px-4 md:px-6 py-3 transition-colors hover:bg-black/[0.02] " <> row_bg}>
+              <div class="grid grid-cols-[40px_1fr_80px_90px_90px] md:grid-cols-[60px_1fr_140px_140px_120px] items-center gap-3">
                 <div class={"font-mono font-bold text-[13px] " <> winner_index_color(winner.winner_index)}>
                   {winner.winner_index + 1}
                 </div>
@@ -1107,6 +1109,7 @@ defmodule BlocksterV2Web.AirdropLive do
               </button>
             </div>
           <% end %>
+        </div>
         </div>
       </div>
 

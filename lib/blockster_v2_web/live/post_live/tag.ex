@@ -65,7 +65,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
          |> assign(:tag_name, tag.name)
          |> assign(:tag_slug, tag.slug)
          |> assign(:page_title, "##{tag.name} - Blockster")
-         |> assign(:announcement_banner, BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user]))
+         |> assign(:announcement_banner, if(connected?(socket), do: BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user])))
          |> assign(:post_count, post_count)
          |> assign(:total_reads, total_reads)
          |> assign(:related_tags, related_tags)

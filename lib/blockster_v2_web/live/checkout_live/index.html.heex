@@ -13,6 +13,7 @@
   show_search_modal={Map.get(assigns, :show_search_modal, false)}
   connecting={Map.get(assigns, :connecting, false)}
   show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
 />
 
 <main class="max-w-[1280px] mx-auto px-6 pb-16">
@@ -58,7 +59,7 @@
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :shipping do %>
     <section class="pb-12">
-      <div class="grid grid-cols-12 gap-8">
+      <div class="grid grid-cols-12 gap-4 md:gap-8">
         <%!-- Left Column — Shipping Form / Rate Selection --%>
         <div class="col-span-12 md:col-span-7">
           <%= if @shipping_phase == :address do %>
@@ -350,7 +351,7 @@
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :review do %>
     <section class="pb-12">
-      <div class="grid grid-cols-12 gap-8">
+      <div class="grid grid-cols-12 gap-4 md:gap-8">
         <%!-- Left Column — Review Details --%>
         <div class="col-span-12 md:col-span-7">
           <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -487,7 +488,7 @@
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :payment do %>
     <section class="pb-12">
-      <div class="grid grid-cols-12 gap-8">
+      <div class="grid grid-cols-12 gap-4 md:gap-8">
         <%!-- Left Column — Payment Cards --%>
         <div class="col-span-12 md:col-span-7 space-y-5">
           <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">

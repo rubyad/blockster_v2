@@ -13,6 +13,7 @@
   show_search_modal={Map.get(assigns, :show_search_modal, false)}
   connecting={Map.get(assigns, :connecting, false)}
   show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
 />
 
 <main class="max-w-[1280px] mx-auto px-6">
@@ -32,7 +33,7 @@
 
   <%!-- ── HERO — Gallery + Buy Panel ─────────────────────���───────────── --%>
   <section class="pb-10">
-    <div class="grid grid-cols-12 gap-10">
+    <div class="grid grid-cols-12 gap-6 md:gap-10">
 
       <%!-- LEFT: Gallery --%>
       <div class="col-span-12 md:col-span-6">

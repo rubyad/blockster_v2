@@ -26,6 +26,7 @@
   show_search_modal={Map.get(assigns, :show_search_modal, false)}
   connecting={Map.get(assigns, :connecting, false)}
   show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
 />
 
 <main class="max-w-[1280px] mx-auto px-6">
@@ -34,7 +35,7 @@
        PAGE HERO
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
   <section class="pt-16 pb-12">
-    <div class="grid grid-cols-12 gap-8 items-end">
+    <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
       <div class="col-span-12 md:col-span-8">
         <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">Browse</BlocksterV2Web.DesignSystem.eyebrow>
         <h1 class="font-bold text-[64px] md:text-[80px] mb-5 leading-[0.96] tracking-[-0.022em] text-[#141414]">Hubs</h1>

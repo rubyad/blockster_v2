@@ -470,6 +470,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
         show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
       />
 
       <%!-- ══════════════════════════════════════════════════════
@@ -487,7 +488,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
             <span class="text-white/85"><%= @token %> Pool</span>
           </div>
 
-          <div class="grid grid-cols-12 gap-8 items-start">
+          <div class="grid grid-cols-12 gap-4 md:gap-8 items-start">
             <%!-- Left 7 col: identity + hero LP price + stats row --%>
             <div class="col-span-12 md:col-span-7">
               <div class="flex items-center gap-5 mb-6">

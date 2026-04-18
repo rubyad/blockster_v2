@@ -431,6 +431,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
         show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
       />
 
       <main class="max-w-[1280px] mx-auto px-6">
@@ -438,7 +439,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
              PAGE HEADER + STATS
         ══════════════════════════════════════════════════════ --%>
         <section class="pt-12 pb-10">
-          <div class="grid grid-cols-12 gap-8 items-end">
+          <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
             <div class="col-span-12 md:col-span-7">
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
                 Earn from every bet · On-chain settlement
