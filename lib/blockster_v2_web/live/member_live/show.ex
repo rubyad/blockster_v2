@@ -24,7 +24,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(show_phone_modal: false)
      |> assign(show_email_modal: false)
      |> assign(countdown: nil)
-     |> assign(show_why_earn_bux: true)
+     |> assign(:announcement_banner, BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user]))
      |> assign(is_own_profile: false)}
   end
 

@@ -76,7 +76,7 @@ defmodule BlocksterV2Web.Layouts do
   attr :detected_wallets, :list, default: [], doc: "detected Solana wallets"
   attr :show_wallet_selector, :boolean, default: false, doc: "whether to show wallet selector modal"
   attr :connecting, :boolean, default: false, doc: "whether wallet is connecting"
-  attr :show_why_earn_bux, :boolean, default: false, doc: "render the lime Why Earn BUX announcement bar at the bottom of the header"
+  attr :announcement_banner, :any, default: nil, doc: "a message map from AnnouncementBanner.pick/1 — renders the lime bar when present"
 
   def site_header(assigns) do
     # Get the selected token balance and logo (defaults to BUX)
@@ -772,26 +772,36 @@ defmodule BlocksterV2Web.Layouts do
       <% end %>
     </div>
 
-    <%# Why Earn BUX announcement bar — last child of the fixed header so it
-      %  always sits flush against the bottom of the header in BOTH initial
-      %  (full logo) and scrolled (collapsed) states. The header's collapse
-      %  animation drags this banner up with it. %>
-    <%= if @show_why_earn_bux do %>
+    <%# Announcement banner — rotates through context-aware messages picked once
+      %  at LiveView mount via AnnouncementBanner.pick/1. Renders as the last
+      %  child of the fixed header so it rides the collapse animation. %>
+    <%= if @announcement_banner do %>
+      <% banner = @announcement_banner %>
       <div class="bg-[#CAFC00] border-t border-black/10">
         <div class="container mx-auto px-4">
           <div class="flex items-center justify-center gap-3 py-1.5 text-xs sm:text-sm text-black font-haas_medium_65 text-center">
-            <span class="hidden sm:inline">
-              <strong>Why Earn BUX?</strong> Redeem BUX to enter sponsored airdrops.
-            </span>
-            <span class="sm:hidden">
-              <strong>Why Earn BUX?</strong> Sponsored airdrops.
-            </span>
-            <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-haas_medium_65 whitespace-nowrap">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Coming Soon
-            </span>
+            <span class="hidden sm:inline"><%= banner.text %></span>
+            <span class="sm:hidden"><%= banner.short %></span>
+            <%= if banner[:badge] do %>
+              <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-haas_medium_65 whitespace-nowrap">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <%= banner.cta %>
+              </span>
+            <% else %>
+              <%= if banner[:link] do %>
+                <a href={banner.link} class="inline-flex items-center gap-1 bg-black/10 hover:bg-black/20 px-2 py-0.5 rounded-md text-[11px] font-haas_medium_65 whitespace-nowrap transition-colors cursor-pointer">
+                  <%= banner.cta %>
+                </a>
+              <% else %>
+                <%= if banner[:cta] do %>
+                  <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-haas_medium_65 whitespace-nowrap">
+                    <%= banner.cta %>
+                  </span>
+                <% end %>
+              <% end %>
+            <% end %>
           </div>
         </div>
       </div>
@@ -863,7 +873,7 @@ defmodule BlocksterV2Web.Layouts do
     <% end %>
     </div>
     <!-- Spacer to push content below fixed header (extra room when banner is shown) -->
-    <div class={if @show_why_earn_bux, do: "h-[88px] lg:h-[128px]", else: "h-14 lg:h-24"}></div>
+    <div class={if @announcement_banner, do: "h-[88px] lg:h-[128px]", else: "h-14 lg:h-24"}></div>
     """
   end
 

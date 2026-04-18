@@ -77,7 +77,7 @@ defmodule BlocksterV2Web.PostLive.Category do
          |> assign(:category_slug, category.slug)
          |> assign(:category_description, category.description)
          |> assign(:page_title, "#{category.name} - Blockster")
-         |> assign(:show_why_earn_bux, true)
+         |> assign(:announcement_banner, BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user]))
          |> assign(:featured_post, featured_post)
          |> assign(:featured_author, featured_author)
          |> assign(:post_count, post_count)

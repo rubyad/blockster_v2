@@ -240,12 +240,27 @@ defmodule BlocksterV2Web.DesignSystem do
   # The lime band that sits under every header. Per D3 the copy is locked.
 
   @doc """
-  Renders the lime "Why Earn BUX?" announcement banner.
+  Renders the lime announcement banner with a rotated message from
+  `AnnouncementBanner.pick/1`. Falls back to static copy when no message
+  map is provided.
   """
   attr :class, :string, default: nil
+  attr :message, :any, default: nil, doc: "a map from AnnouncementBanner.pick/1"
   attr :rest, :global
 
   def why_earn_bux_banner(assigns) do
+    # Fallback for callers that don't pass a message map yet
+    assigns =
+      if assigns.message do
+        assigns
+      else
+        assign(assigns, :message, %{
+          text: "Why Earn BUX? Redeem BUX to enter sponsored airdrops.",
+          short: "BUX = airdrop entries.",
+          link: nil, cta: "Coming Soon", badge: true
+        })
+      end
+
     ~H"""
     <div
       class={[
@@ -256,10 +271,28 @@ defmodule BlocksterV2Web.DesignSystem do
     >
       <div class="max-w-[1280px] mx-auto px-6">
         <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black">
-          <span>
-            <strong class="font-bold">Why Earn BUX?</strong>
-            Redeem BUX to enter sponsored airdrops.
-          </span>
+          <span class="hidden sm:inline"><%= @message.text %></span>
+          <span class="sm:hidden"><%= @message.short %></span>
+          <%= if @message[:badge] do %>
+            <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <%= @message.cta %>
+            </span>
+          <% else %>
+            <%= if @message[:link] do %>
+              <a href={@message.link} class="inline-flex items-center gap-1 bg-black/10 hover:bg-black/20 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer">
+                <%= @message.cta %>
+              </a>
+            <% else %>
+              <%= if @message[:cta] do %>
+                <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap">
+                  <%= @message.cta %>
+                </span>
+              <% end %>
+            <% end %>
+          <% end %>
         </div>
       </div>
     </div>
@@ -293,7 +326,8 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :search_results, :list, default: []
   attr :show_search_results, :boolean, default: false
   attr :show_search_modal, :boolean, default: false
-  attr :show_why_earn_bux, :boolean, default: true
+  attr :announcement_banner, :any, default: nil, doc: "message map from AnnouncementBanner.pick/1"
+  attr :show_why_earn_bux, :boolean, default: true, doc: "deprecated — use announcement_banner"
   attr :connecting, :boolean, default: false
   attr :display_token, :string, default: "BUX", values: ~w(BUX SOL), doc: "which token balance to show in the header pill"
 
@@ -305,8 +339,18 @@ defmodule BlocksterV2Web.DesignSystem do
         _ -> assigns.bux_balance
       end
 
+    # Auto-pick a rotated banner message when callers pass show_why_earn_bux=true
+    # but no pre-computed announcement_banner. This ensures every .heex file
+    # that sets show_why_earn_bux={true} gets rotation without needing a mount change.
+    announcement_banner =
+      assigns.announcement_banner ||
+        if assigns.show_why_earn_bux do
+          BlocksterV2Web.AnnouncementBanner.pick(assigns.current_user)
+        end
+
     assigns =
       assigns
+      |> assign(:announcement_banner, announcement_banner)
       |> assign(:formatted_bux, format_bux(assigns.bux_balance))
       |> assign(:formatted_display_balance, format_display_balance(display_token, display_balance))
       |> assign(:display_token_icon, display_token_icon(display_token))
@@ -319,7 +363,7 @@ defmodule BlocksterV2Web.DesignSystem do
       phx-hook="SolanaWallet"
       class="ds-header bg-white/[0.92] backdrop-blur-md border-b border-neutral-200/70 sticky top-0 z-30"
     >
-      <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
+      <div class="max-w-[1280px] mx-auto px-3 md:px-6 h-14 flex items-center justify-between gap-2 md:gap-4">
         <%!-- Left: logo + Solana mainnet pulse --%>
         <div class="flex items-center gap-3 min-w-0 shrink-0">
           <.link navigate={~p"/"} class="flex items-center" aria-label="Blockster home">
@@ -343,7 +387,7 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
 
         <%!-- Right --%>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
           <%!-- Search icon (opens modal) --%>
           <button
             type="button"
@@ -448,10 +492,10 @@ defmodule BlocksterV2Web.DesignSystem do
 
             <%!-- User dropdown (token pill + avatar) --%>
             <div class="relative" id="ds-user-dropdown" phx-click-away={JS.hide(to: "#ds-header-user-menu")}>
-              <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-10 rounded-full bg-neutral-100 pl-2 pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
+              <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-9 md:h-10 rounded-full bg-neutral-100 pl-1.5 pr-2 md:pl-2 md:pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
                 <img src={@display_token_icon} alt={@display_token} class="w-6 h-6 rounded-full object-cover" />
-                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
-                <span class="text-[11px] text-neutral-500">{@display_token}</span>
+                <span class="hidden md:inline text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
+                <span class="hidden md:inline text-[11px] text-neutral-500">{@display_token}</span>
                 <svg class="w-4 h-4 ml-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none">
                   <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
                 </svg>
@@ -541,7 +585,7 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
       </div>
 
-      <.why_earn_bux_banner :if={@show_why_earn_bux} />
+      <.why_earn_bux_banner :if={@announcement_banner || @show_why_earn_bux} message={@announcement_banner} />
     </header>
 
     <%!-- Search modal --%>
@@ -717,7 +761,7 @@ defmodule BlocksterV2Web.DesignSystem do
       <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
       <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
-        <div class="grid grid-cols-12 gap-8">
+        <div class="grid grid-cols-12 gap-4 md:gap-8">
           <%!-- Brand block --%>
           <div class="col-span-12 md:col-span-5">
             <div class="flex items-center mb-5">
@@ -843,7 +887,7 @@ defmodule BlocksterV2Web.DesignSystem do
   def page_hero(assigns) do
     ~H"""
     <section class={["ds-page-hero pt-12 pb-10", @class]}>
-      <div class="grid grid-cols-12 gap-8 items-end">
+      <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
         <div class={[
           "col-span-12",
           length(@stat) > 0 && "md:col-span-7",
@@ -1168,7 +1212,7 @@ defmodule BlocksterV2Web.DesignSystem do
         <% end %>
       </div>
       <.link navigate={@href} class="block group">
-        <div class="grid grid-cols-12 gap-8 items-center">
+        <div class="grid grid-cols-12 gap-4 md:gap-8 items-center">
           <%!-- Image --%>
           <div class="col-span-12 md:col-span-7">
             <div class="aspect-[16/11] rounded-2xl overflow-hidden ring-1 ring-black/5 bg-neutral-100">
@@ -1628,18 +1672,18 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def welcome_hero(assigns) do
     ~H"""
-    <section class="ds-welcome-hero pt-12 pb-6 mt-8">
-      <div class="grid grid-cols-12 gap-8 items-center bg-gradient-to-br from-[#0a0a0a] via-[#1a1a22] to-[#0a0a0a] rounded-3xl overflow-hidden p-12 ring-1 ring-white/10 relative">
+    <section class="ds-welcome-hero pt-6 pb-4 md:pt-12 md:pb-6 md:mt-8">
+      <div class="grid grid-cols-12 gap-6 md:gap-8 items-center bg-gradient-to-br from-[#0a0a0a] via-[#1a1a22] to-[#0a0a0a] rounded-3xl overflow-hidden p-6 md:p-12 ring-1 ring-white/10 relative">
         <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.06] to-transparent pointer-events-none"></div>
         <div class="absolute bottom-0 left-0 w-[40%] h-[60%] bg-gradient-to-tr from-[#7D00FF]/15 to-transparent blur-3xl pointer-events-none"></div>
         <div class="col-span-12 md:col-span-7 relative">
           <div class="font-bold uppercase text-[10px] tracking-[0.16em] mb-4 text-[#CAFC00]">
             Welcome to Blockster
           </div>
-          <h2 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[44px] md:text-[58px] mb-5 max-w-[640px]">
+          <h2 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[32px] md:text-[58px] mb-5 max-w-[640px]">
             The chain meets the model. <span class="text-white/45">Read it daily.</span>
           </h2>
-          <p class="text-white/65 text-[16px] leading-[1.55] max-w-[520px] mb-7">
+          <p class="text-white/65 text-[15px] md:text-[16px] leading-[1.55] max-w-[520px] mb-6 md:mb-7">
             Blockster is a publication about the intersection of crypto and AI. We pay readers BUX for engaging with the best writing in the space — and every dollar of attention is settled on chain.
           </p>
           <div class="flex items-center gap-3 flex-wrap">
@@ -1661,7 +1705,7 @@ defmodule BlocksterV2Web.DesignSystem do
               Or browse without an account
             </a>
           </div>
-          <div class="mt-7 flex items-center gap-6 text-white/40 text-[11px] font-mono">
+          <div class="mt-6 md:mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-6 text-white/40 text-[11px] font-mono">
             <div><span class="text-white font-bold tabular-nums">{@article_count}</span> articles</div>
             <div><span class="text-white font-bold tabular-nums">{@bux_paid}</span> BUX paid out</div>
             <div><span class="text-white font-bold tabular-nums">{@hub_count}</span> hubs</div>
@@ -3564,7 +3608,7 @@ defmodule BlocksterV2Web.DesignSystem do
           <span class="text-white/85">{@hub.name}</span>
         </div>
 
-        <div class="grid grid-cols-12 gap-8 items-start">
+        <div class="grid grid-cols-12 gap-4 md:gap-8 items-start">
           <div class="col-span-12 md:col-span-8">
             <%!-- Identity block --%>
             <div class="flex items-center gap-5 mb-6">

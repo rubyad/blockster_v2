@@ -338,7 +338,7 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:is_anonymous, is_anonymous)
      |> assign(:show_signup_prompt, false)
      |> assign(:show_video_signup_prompt, false)
-     |> assign(:show_why_earn_bux, true)
+     |> assign(:announcement_banner, BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user]))
      |> assign(:earning_bar_dismissed, false)
      |> assign(:anonymous_earned, 0)
      |> assign(:anonymous_video_earned, 0)
