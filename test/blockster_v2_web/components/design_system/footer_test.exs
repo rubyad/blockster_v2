@@ -80,7 +80,7 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
       assert html =~ ">Earn</div>"
       assert html =~ ">Hubs</a>" or html =~ ">Hubs</.link>" or html =~ ">Hubs<"
       assert html =~ ">Pool<"
-      assert html =~ ">Airdrops<"
+      assert html =~ ">Shop<"
     end
   end
 end

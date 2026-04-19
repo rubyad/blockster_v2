@@ -20,9 +20,8 @@ config :blockster_v2, BlocksterV2.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :blockster_v2, BlocksterV2Web.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  # Bind to 0.0.0.0 so devices on the same Wi-Fi can hit http://<LAN-IP>:4000
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

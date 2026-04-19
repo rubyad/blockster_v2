@@ -36,7 +36,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Streaming Trial (brand wordmark · hero image · free-trial badge · CTA)", "streaming_trial"},
     {"Patriotic Portrait (centered · hero portrait · flag stripe · tribute tagline)", "patriotic_portrait"},
     {"Patriotic Loop (animated square · text → image → THANK YOU / number)", "patriotic_loop"},
-    {"Trump 2028 Loop (animated square · text → image → TRUMP / 2028 / subtitle)", "trump_2028_loop"}
+    {"Trump 2028 Loop (animated square · text → image → TRUMP / 2028 / subtitle)", "trump_2028_loop"},
+    {"FateSwap Combined (440×480 animated Buy→Sell flow)", "fateswap_combined"},
+    {"FateSwap Kinetic (440×640 memecoin hero)", "fateswap_kinetic"}
   ]
 
   # Which params each template supports
@@ -94,6 +96,8 @@ defmodule BlocksterV2Web.BannersAdminLive do
     "trump_2028_loop" =>
       ~w(brand_name image_url headline top_text number_text
          number_color subtitle cta_text accent_color),
+    "fateswap_combined" => [],
+    "fateswap_kinetic" => [],
     "image" => []
   }
 

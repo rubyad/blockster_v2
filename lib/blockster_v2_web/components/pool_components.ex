@@ -422,7 +422,7 @@ defmodule BlocksterV2Web.PoolComponents do
 
   defp activity_row(assigns) do
     ~H"""
-    <div class="px-5 py-3 grid grid-cols-[180px_1fr_140px_60px] items-center gap-2 hover:bg-black/[0.02] transition-colors">
+    <div class="px-4 md:px-5 py-3 grid grid-cols-[110px_1fr_70px_50px] md:grid-cols-[180px_1fr_140px_60px] items-center gap-2 hover:bg-black/[0.02] transition-colors">
       <%!-- Col 1: icon tile + label --%>
       <div class="flex items-center gap-2.5">
         <div class={[

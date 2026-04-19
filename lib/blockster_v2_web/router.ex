@@ -162,15 +162,15 @@ defmodule BlocksterV2Web.Router do
       live "/notifications/settings", NotificationSettingsLive.Index, :index
       live "/notifications/referrals", NotificationLive.Referrals, :index
       live "/media-kit", MediaKitLive, :index
+      live "/privacy", LegalLive.Privacy, :index
+      live "/terms", LegalLive.Terms, :index
+      live "/cookies", LegalLive.Cookies, :index
     end
 
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/how-it-works", PostLive.HowItWorks, :index
-      live "/privacy", LegalLive.Privacy, :index
-      live "/terms", LegalLive.Terms, :index
-      live "/cookies", LegalLive.Cookies, :index
       live "/events", EventLive.Index, :index
       live "/event/:slug", EventLive.Show, :show
       live "/hubs/admin", HubLive.Admin, :index

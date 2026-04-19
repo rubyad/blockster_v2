@@ -378,12 +378,12 @@ defmodule BlocksterV2Web.DesignSystem do
 
         <%!-- Right --%>
         <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
-          <%!-- Search icon (opens modal) --%>
+          <%!-- Search icon (opens modal) — hidden on mobile to prioritize BUX balance pill --%>
           <button
             type="button"
             phx-click="open_search_modal"
             aria-label="Search"
-            class="relative w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+            class="relative w-9 h-9 hidden md:flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
           >
             <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
               <path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clip-rule="evenodd" />
@@ -484,7 +484,7 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="relative" id="ds-user-dropdown" phx-click-away={JS.hide(to: "#ds-header-user-menu")}>
               <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-9 md:h-10 rounded-full bg-neutral-100 pl-1.5 pr-2 md:pl-2 md:pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
                 <img src={@display_token_icon} alt={@display_token} class="w-6 h-6 rounded-full object-cover" />
-                <span class="hidden md:inline text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
+                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
                 <span class="hidden md:inline text-[11px] text-neutral-500">{@display_token}</span>
                 <svg class="w-4 h-4 ml-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none">
                   <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
@@ -555,7 +555,7 @@ defmodule BlocksterV2Web.DesignSystem do
               type="button"
               phx-click="show_wallet_selector"
               disabled={@connecting}
-              class={"hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-bold transition-colors cursor-pointer disabled:cursor-not-allowed #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22]"}"}
+              class={"inline-flex items-center gap-1.5 md:gap-2 px-3 py-2 md:px-4 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap #{if @connecting, do: "bg-gray-200 text-gray-400", else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22]"}"}
             >
               <%= if @connecting do %>
                 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -3357,6 +3357,363 @@ defmodule BlocksterV2Web.DesignSystem do
                 {@p["watch_on"]}
               </div>
             <% end %>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # FateSwap A2 · Combined — 440×480 animated ad. Buy→Sell flow driven by
+  # the FsA2CombinedAd JS hook; all CSS scoped under .bw-fs-ad-root. See
+  # docs/ad_banners_system.md for the system overview and the upstream spec
+  # at fateswap/docs/ads/a2_combined_porting_spec.md for the source port.
+  def ad_banner(%{banner: %{template: "fateswap_combined"}} = assigns) do
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full" style="max-width: 440px;">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div class="bw-fs-ad-wrap bw-fs-ad-shape-a2">
+            <div class="bw-fs-ad-root" id={"bw-fs-a2c-#{@banner.id}"} phx-hook="FsA2CombinedAd" phx-update="ignore">
+              <div class="ad adA2 a2-combo">
+                <div class="a-head">
+                  <span class="fs-mark">
+                    <svg class="fs-full" viewBox="0 0 220 28" aria-hidden="true">
+                      <defs>
+                        <linearGradient id={"a2c-grad-#{@banner.id}"} x1="30" y1="14" x2="220" y2="14" gradientUnits="userSpaceOnUse">
+                          <stop offset="0%" stop-color="#22C55E"/>
+                          <stop offset="50%" stop-color="#EAB308"/>
+                          <stop offset="100%" stop-color="#EF4444"/>
+                        </linearGradient>
+                      </defs>
+                      <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E"/>
+                      <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308"/>
+                      <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444"/>
+                      <text x="28" y="21" font-family="Satoshi,system-ui,sans-serif" font-weight="700" font-size="20" fill={"url(#a2c-grad-#{@banner.id})"}>FATESWAP</text>
+                    </svg>
+                    <span class="sep"></span>
+                    <span class="dex">Solana DEX</span>
+                  </span>
+                  <span class="bal" data-bal><span class="lbl">Bal</span><span class="val">$50</span></span>
+                </div>
+                <div class="a-mode">
+                  <button class="buy active" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17l10-10M9 7h8v8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Buy
+                  </button>
+                  <button class="sell" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 7L7 17M15 17H7v-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Sell
+                  </button>
+                </div>
+                <div class="a-steps">
+                  <span class="a-step" data-step="0"></span>
+                  <span class="a-step" data-step="1"></span>
+                  <span class="a-step" data-step="2"></span>
+                  <span class="a-step" data-step="3"></span>
+                  <span class="a-step" data-step="4"></span>
+                </div>
+
+                <div class="a-body">
+                  <div class="a-panels">
+                    <div class="a-panel buy-panel" data-panel="0">
+                      <p class="panel-title"><span class="num">1</span>Pick a token to buy</p>
+                      <div class="t-list">
+                        <div class="tok2" data-t="0">
+                          <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <span class="nm">USDC <span class="tk">Stablecoin</span></span>
+                          <span class="px"><b>$1.00</b>stable</span>
+                        </div>
+                        <div class="tok2" data-t="1">
+                          <img class="usdc" src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL"/>
+                          <span class="nm">SOL <span class="tk">Solana</span></span>
+                          <span class="px"><b>+2.1%</b>$134.22</span>
+                        </div>
+                        <div class="tok2" data-t="2">
+                          <span class="av-letter usdt">T</span>
+                          <span class="nm">USDT <span class="tk">Stablecoin</span></span>
+                          <span class="px"><b>$1.00</b>stable</span>
+                        </div>
+                        <div class="tok2" data-t="3">
+                          <span class="av-letter bonk">B</span>
+                          <span class="nm">BONK <span class="tk">Memecoin</span></span>
+                          <span class="px"><b>+14.2%</b>$0.000034</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel buy-panel" data-panel="1">
+                      <p class="panel-title"><span class="num">2</span>Set your discount</p>
+                      <div class="p2-hdr">
+                        <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                        <span class="nm">USDC<small>Buying</small></span>
+                        <span class="px"><b>$1.00</b>market</span>
+                      </div>
+                      <div class="p2-line">
+                        Buy <b>USDC</b> at
+                        <span style="display:block;margin-top:4px"><span class="em" data-pct-a2c-buy>50</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% off</span></span>
+                        <span class="lbl">below market price</span>
+                      </div>
+                      <div class="slider2"><div class="fill"></div><div class="thumb"></div></div>
+                      <div class="p2-tiers"><span>1%</span><span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>90%</span></div>
+                      <div class="p2-cmp">
+                        <div class="b"><p class="lbl">You pay</p><span class="v">$50</span><span class="vsub">0.37 SOL</span></div>
+                        <div class="b"><p class="lbl">You get (if filled)</p><span class="v win">$100</span><span class="vsub">of USDC</span></div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel buy-panel" data-panel="2">
+                      <p class="panel-title"><span class="num">3</span>Place your fate order</p>
+                      <div class="rev">
+                        <div class="buy-line">
+                          <img class="usdc usdc-sm" style="width:22px;height:22px" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <span class="nm">Buying USDC</span>
+                          <span class="disc">50% off</span>
+                        </div>
+                        <div class="row"><span class="k">You pay</span><span class="v">$50.00</span></div>
+                        <div class="row"><span class="k">You get if filled</span><span class="v win">$100.00 USDC</span></div>
+                        <div class="row"><span class="k">Fill chance</span><span class="v">49.25%</span></div>
+                        <div class="row"><span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span></div>
+                      </div>
+                      <div class="cta2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#0A0A0F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Buy USDC at 50% Discount
+                      </div>
+                    </div>
+
+                    <div class="a-panel buy-panel" data-panel="3">
+                      <p class="panel-title"><span class="num">4</span><span class="dot"></span>Revealing fate</p>
+                      <div class="reveal">
+                        <div class="cnum">
+                          <span class="n" data-fate-a2c-buy>00.00</span>
+                          <span class="vs">Fill if below <b>49.25</b></span>
+                        </div>
+                        <div style="flex:1"></div>
+                        <div class="bar2">
+                          <div class="fill"></div>
+                          <div class="unfill"></div>
+                          <div class="lbl"><span class="l">FILLED</span><span class="r">NOT FILLED</span></div>
+                          <div class="need"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel p5b buy-panel" data-panel="4">
+                      <span class="stamp">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Order Filled
+                      </span>
+                      <div class="eq">
+                        <span class="was">$100</span>
+                        <span class="arrow">→</span>
+                        <span class="now">$50</span>
+                      </div>
+                      <div class="receipt">
+                        <div class="got">
+                          <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <span class="big">$100</span>
+                          <span class="tk">USDC</span>
+                        </div>
+                        <p class="line">You bought <b>$100 of USDC</b> for <b>$50</b></p>
+                        <div class="split">Doubled your money · on-chain</div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel sell-panel" data-panel="5">
+                      <p class="panel-title"><span class="num">1</span>Set your premium</p>
+                      <div class="p2-hdr">
+                        <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                        <span class="nm">USDC<small>Selling</small></span>
+                        <span class="px"><b>$1.00</b>market</span>
+                      </div>
+                      <div class="p2-line">
+                        Sell <b>USDC</b> at
+                        <span style="display:block;margin-top:4px"><span class="em" data-pct-a2c-sell>100</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% premium</span></span>
+                        <span class="lbl">above market price</span>
+                      </div>
+                      <div class="slider2"><div class="fill"></div><div class="thumb"></div></div>
+                      <div class="p2-tiers"><span>1%</span><span>25%</span><span>50%</span><span>100%</span><span>250%</span><span>900%</span></div>
+                      <div class="p2-cmp">
+                        <div class="b"><p class="lbl">You stake</p><span class="v">$100</span><span class="vsub">of USDC</span></div>
+                        <div class="b"><p class="lbl">You get (if filled)</p><span class="v win">$200</span><span class="vsub">paid in SOL</span></div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel sell-panel" data-panel="6">
+                      <p class="panel-title"><span class="num">2</span>Place your fate order</p>
+                      <div class="rev">
+                        <div class="buy-line">
+                          <img class="usdc usdc-sm" style="width:22px;height:22px" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <span class="nm">Selling USDC</span>
+                          <span class="disc">100% premium</span>
+                        </div>
+                        <div class="row"><span class="k">You stake</span><span class="v">$100.00 USDC</span></div>
+                        <div class="row"><span class="k">You get if filled</span><span class="v win">$200.00</span></div>
+                        <div class="row"><span class="k">Fill chance</span><span class="v">49.25%</span></div>
+                        <div class="row"><span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span></div>
+                      </div>
+                      <div class="cta2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#0A0A0F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Sell USDC at 100% premium
+                      </div>
+                    </div>
+
+                    <div class="a-panel sell-panel" data-panel="7">
+                      <p class="panel-title"><span class="num">3</span><span class="dot"></span>Revealing fate</p>
+                      <div class="reveal">
+                        <div class="cnum">
+                          <span class="n" data-fate-a2c-sell>00.00</span>
+                          <span class="vs">Fill if below <b>49.25</b></span>
+                        </div>
+                        <div style="flex:1"></div>
+                        <div class="bar2">
+                          <div class="fill"></div>
+                          <div class="unfill"></div>
+                          <div class="lbl"><span class="l">FILLED</span><span class="r">NOT FILLED</span></div>
+                          <div class="need"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="a-panel p5b sell-panel" data-panel="8">
+                      <span class="stamp">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Order Filled
+                      </span>
+                      <div class="eq">
+                        <span class="was">$100</span>
+                        <span class="arrow">→</span>
+                        <span class="now">$200</span>
+                      </div>
+                      <div class="receipt">
+                        <div class="got">
+                          <img class="usdc" src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL"/>
+                          <span class="big">$200</span>
+                          <span class="tk">paid out</span>
+                        </div>
+                        <p class="line">You sold <b>$100 of USDC</b> for <b>$200</b></p>
+                        <div class="split">Doubled your money · on-chain</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="hand" aria-hidden="true">
+                  <svg viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 6 2 C 6 1 7 0 8 0 C 9 0 10 1 10 2 L 10 11 L 11 11 L 11 6 C 11 5 12 4 13 4 C 14 4 15 5 15 6 L 15 11 L 16 11 L 16 8 C 16 7 17 6 18 6 C 19 6 20 7 20 8 L 20 19 C 20 24 16 28 11 28 L 9 28 C 5 28 2 25 1 21 L 0 17 C 0 15 2 14.5 3.5 15.5 L 6 17 Z"
+                      fill="#FFFFFF" stroke="#111111" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+                  </svg>
+                </div>
+
+                <div class="a-foot">
+                  <span class="foot-tag">Gamble for a better price than market</span>
+                  <span class="foot-cta">Trade Now →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    """
+  end
+
+  # FateSwap C · Kinetic Hero — 440×640 hero ad with BONK token, "50% OFF"
+  # typography, fate dial, and FILLED overlay. Driven by the FsKineticAd JS
+  # hook; all CSS scoped under .bw-fs-ad-root.
+  def ad_banner(%{banner: %{template: "fateswap_kinetic"}} = assigns) do
+    ~H"""
+    <div class={["not-prose my-12 flex justify-center", @class]}>
+      <div class="w-full" style="max-width: 440px;">
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div class="bw-fs-ad-wrap bw-fs-ad-shape-c">
+            <div class="bw-fs-ad-root" id={"bw-fs-c-#{@banner.id}"} phx-hook="FsKineticAd" phx-update="ignore">
+              <div class="ad adC">
+                <div class="c-glow"></div>
+                <div class="c-wrap">
+                  <div class="c-head">
+                    <span class="fs-mark">
+                      <svg class="fs-full" viewBox="0 0 220 28" aria-hidden="true">
+                        <defs>
+                          <linearGradient id={"c-grad-#{@banner.id}"} x1="30" y1="14" x2="220" y2="14" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#22C55E"/>
+                            <stop offset="50%" stop-color="#EAB308"/>
+                            <stop offset="100%" stop-color="#EF4444"/>
+                          </linearGradient>
+                        </defs>
+                        <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E"/>
+                        <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308"/>
+                        <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444"/>
+                        <text x="28" y="21" font-family="Satoshi,system-ui,sans-serif" font-weight="700" font-size="20" fill={"url(#c-grad-#{@banner.id})"}>FATESWAP</text>
+                      </svg>
+                      <span class="sep"></span>
+                      <span class="dex">Solana DEX</span>
+                    </span>
+                  </div>
+
+                  <div class="c-tok">
+                    <span class="av">B</span>
+                    <span class="nm">BONK</span>
+                    <span class="chg">+14.2%</span>
+                  </div>
+
+                  <div class="c-hook">Memecoin trading on <b>steroids</b></div>
+
+                  <div class="c-hero">
+                    <span data-hero-c>50</span>
+                    <span class="pct">% OFF</span>
+                  </div>
+                  <div class="c-hero-sub">Name your <b>discount</b>. Roll your <b>fate</b>.</div>
+
+                  <div class="c-dial">
+                    <div class="c-dial-lbl">
+                      <span class="l">Fill &lt; 50.00</span>
+                      <span class="r">Miss ≥ 50.00</span>
+                    </div>
+                    <div class="c-counter">
+                      <span class="n" data-fate-c>00.00</span>
+                      <span class="s">Your fate vs <b>50.00</b></span>
+                    </div>
+                    <div class="c-track">
+                      <div class="fill"></div>
+                      <div class="need"></div>
+                    </div>
+                  </div>
+
+                  <div class="c-filled">
+                    <div class="stamp">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="txt">
+                      <span class="k">Order Filled</span>
+                      <span class="v"><b>+1.00 SOL</b> of BONK</span>
+                      <span class="vs">≈ +$134 · paid $67</span>
+                    </div>
+                  </div>
+
+                  <div class="c-foot">
+                    <span class="tag"><span class="dot"></span>Provably fair</span>
+                    <span class="cta">Place Fate Order →</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </a>
       </div>
