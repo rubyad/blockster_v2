@@ -1,12 +1,18 @@
 defmodule BlocksterV2.ContentAutomation.FeedConfig do
   @moduledoc """
-  Static RSS feed configuration for the content automation pipeline.
+  Static feed configuration for the content automation pipeline.
 
-  Premium tier includes major mainstream financial outlets (whose framing we
-  challenge with counter-narrative content) and top crypto-native publications.
+  Each entry is a map with:
+    * `:source`  — display name
+    * `:type`    — `:rss` (default) or `:x` (X/Twitter timeline via X API v2)
+    * `:url`     — RSS/Atom URL (RSS feeds only)
+    * `:handle`  — X username without the `@` (X feeds only)
+    * `:tier`    — `:premium` (2x ranking weight) or `:standard`
+    * `:status`  — `:active` or `:blocked` (blocked = paywalled/broken, kept for later)
 
-  Feeds with status :blocked have paywalled or unreliable RSS — they're kept
-  in the list so they can be activated when workarounds become available.
+  X feeds are polled on a separate, slower interval (see `Config.x_feed_poll_interval/0`)
+  to stay inside X API rate limits. Each X poll = one user-lookup (cached) + one timeline
+  fetch per active X feed.
   """
 
   alias BlocksterV2.ContentAutomation.Settings
@@ -127,12 +133,30 @@ defmodule BlocksterV2.ContentAutomation.FeedConfig do
     %{source: "Avalanche Blog", url: "https://medium.com/feed/avalancheavax", tier: :standard, status: :active},
     %{source: "Cosmos Blog", url: "https://blog.cosmos.network/feed", tier: :standard, status: :blocked},
     %{source: "Sui Blog", url: "https://blog.sui.io/feed", tier: :standard, status: :active},
-    %{source: "Aptos Blog", url: "https://medium.com/feed/aptoslabs", tier: :standard, status: :active}
+    %{source: "Aptos Blog", url: "https://medium.com/feed/aptoslabs", tier: :standard, status: :active},
+
+    # ── Solana Ecosystem X Accounts (polled via X API v2) ──
+    %{source: "Kamino (X)",       type: :x, handle: "kamino",       tier: :premium,  status: :active},
+    %{source: "Pyth Network (X)", type: :x, handle: "PythNetwork",  tier: :premium,  status: :active},
+    %{source: "SNS (X)",          type: :x, handle: "sns",          tier: :premium,  status: :active},
+    %{source: "Blinks.gg (X)",    type: :x, handle: "blinks_gg",    tier: :standard, status: :active},
+    %{source: "Bio Protocol (X)", type: :x, handle: "BioProtocol",  tier: :standard, status: :active},
+    %{source: "Natix Network (X)",type: :x, handle: "NATIXNetwork", tier: :standard, status: :active},
+    %{source: "Swarms (X)",       type: :x, handle: "swarms_corp",  tier: :standard, status: :active},
+    %{source: "SwarmNode (X)",    type: :x, handle: "swarmnode",    tier: :standard, status: :active},
+    %{source: "Momo Agent (X)",   type: :x, handle: "Momo_Agent_",  tier: :standard, status: :active},
+    %{source: "Unitas Labs (X)",  type: :x, handle: "UnitasLabs",   tier: :standard, status: :active},
+    %{source: "Staika (X)",       type: :x, handle: "staika_official", tier: :standard, status: :active},
+    %{source: "Perle Labs (X)",   type: :x, handle: "PerleLabs",    tier: :standard, status: :active},
+    %{source: "Reservoir (X)",    type: :x, handle: "reservoir_xyz",tier: :standard, status: :active},
+    %{source: "Pumpcade (X)",     type: :x, handle: "pumpcade",     tier: :standard, status: :active},
+    %{source: "PayAI Network (X)",type: :x, handle: "PayAINetwork", tier: :standard, status: :active}
   ]
 
   @doc """
   Returns active feeds not disabled by admin settings.
   Filters out :blocked feeds (paywalled) and admin-disabled feeds.
+  Entries without an explicit `:type` default to `:rss`.
   """
   def get_active_feeds do
     disabled = Settings.get(:disabled_feeds, [])
@@ -140,13 +164,26 @@ defmodule BlocksterV2.ContentAutomation.FeedConfig do
     @feeds
     |> Enum.filter(&(&1.status == :active))
     |> Enum.reject(fn feed -> feed.source in disabled end)
+    |> Enum.map(&normalize_type/1)
+  end
+
+  @doc "Active RSS feeds only."
+  def get_active_rss_feeds do
+    get_active_feeds() |> Enum.filter(&(&1.type == :rss))
+  end
+
+  @doc "Active X feeds only."
+  def get_active_x_feeds do
+    get_active_feeds() |> Enum.filter(&(&1.type == :x))
   end
 
   @doc "Returns all feeds including blocked ones (for admin dashboard)."
-  def all_feeds, do: @feeds
+  def all_feeds, do: Enum.map(@feeds, &normalize_type/1)
 
   @doc "Returns the weight multiplier for a tier."
   def tier_weight(:premium), do: 2.0
   def tier_weight(:standard), do: 1.0
   def tier_weight(_), do: 1.0
+
+  defp normalize_type(feed), do: Map.put_new(feed, :type, :rss)
 end

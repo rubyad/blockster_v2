@@ -259,8 +259,40 @@ defmodule BlocksterV2Web.WalletComponents do
               </p>
             </div>
 
-            <%!-- Wallet rows --%>
-            <div class="px-4 pb-2 space-y-2">
+            <%!-- Mobile: Wallet Standard isn't exposed in Safari/Chrome, so
+                 skip detection and jump directly into the wallet's in-app
+                 browser via universal-link deep links. One button per wallet
+                 that publishes a `browse_url`. --%>
+            <div class="md:hidden px-4 pb-3">
+              <p class="text-[11px] text-neutral-500 font-medium mb-3 px-1">
+                Open this page inside your wallet's in-app browser to connect.
+              </p>
+              <div class="space-y-2">
+                <%= for wallet <- @wallets, wallet.browse_url do %>
+                  <button
+                    type="button"
+                    id={"open-in-wallet-#{String.downcase(wallet.name)}"}
+                    phx-hook="OpenInWallet"
+                    data-browse-url={wallet.browse_url}
+                    class="w-full flex items-center gap-3 p-3 rounded-2xl border border-neutral-200 hover:border-black/[0.12] bg-white transition-colors cursor-pointer"
+                  >
+                    <div class={"w-10 h-10 rounded-xl shrink-0 grid place-items-center ring-1 ring-white/30 bg-gradient-to-br #{wallet.gradient} #{wallet.shadow}"}>
+                      <.wallet_icon_small name={wallet.name} />
+                    </div>
+                    <div class="flex-1 text-left min-w-0">
+                      <div class="text-[13px] font-bold text-[#141414]">Open in {wallet.name}</div>
+                      <div class="text-[11px] text-neutral-500 truncate">{wallet.tagline}</div>
+                    </div>
+                    <svg class="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 20 20" fill="none">
+                      <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Desktop wallet rows: detection-based, Wallet Standard gated --%>
+            <div class="hidden md:block px-4 pb-2 space-y-2">
               <%= for wallet <- @wallets do %>
                 <div class={"w-full flex items-center gap-4 p-3 rounded-2xl border bg-white text-left transition-all duration-150 " <> if(wallet.detected, do: "border-neutral-200 hover:bg-[#fafaf9] hover:border-black/[0.12] hover:-translate-y-px cursor-pointer", else: "border-neutral-200 opacity-60")}>
                   <%!-- Brand badge --%>

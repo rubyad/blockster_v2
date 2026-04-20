@@ -11,6 +11,7 @@ import poolRoutes from "./routes/pool";
 import buildTxRoutes from "./routes/build-tx";
 import airdropRoutes from "./routes/airdrop";
 import playerStateRoutes from "./routes/player-state";
+import paymentIntentRoutes from "./routes/payment-intents";
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use(poolRoutes);
 app.use(buildTxRoutes);
 app.use(airdropRoutes);
 app.use(playerStateRoutes);
+app.use(paymentIntentRoutes);
 
 // Start server
 app.listen(PORT, () => {

@@ -1,12 +1,13 @@
 defmodule BlocksterV2Web.OrdersAdminLive do
   use BlocksterV2Web, :live_view
-  alias BlocksterV2.Orders
+  import Ecto.Query
+  alias BlocksterV2.{Orders, Repo}
+  alias BlocksterV2.Orders.PaymentIntent
 
   @statuses [
     {"All", "all"},
     {"Pending", "pending"},
     {"BUX Paid", "bux_paid"},
-    {"ROGUE Paid", "rogue_paid"},
     {"Paid", "paid"},
     {"Processing", "processing"},
     {"Shipped", "shipped"},
@@ -22,6 +23,7 @@ defmodule BlocksterV2Web.OrdersAdminLive do
     {:ok,
      socket
      |> assign(orders: orders)
+     |> assign(order_intents: load_intents(orders))
      |> assign(status_filter: "all")
      |> assign(statuses: @statuses)}
   end
@@ -29,7 +31,20 @@ defmodule BlocksterV2Web.OrdersAdminLive do
   @impl true
   def handle_event("filter_status", %{"status" => status}, socket) do
     orders = Orders.list_orders_admin(%{status: status})
-    {:noreply, socket |> assign(orders: orders) |> assign(status_filter: status)}
+
+    {:noreply,
+     socket
+     |> assign(orders: orders)
+     |> assign(order_intents: load_intents(orders))
+     |> assign(status_filter: status)}
+  end
+
+  defp load_intents(orders) do
+    ids = Enum.map(orders, & &1.id)
+
+    from(i in PaymentIntent, where: i.order_id in ^ids)
+    |> Repo.all()
+    |> Map.new(&{&1.order_id, &1})
   end
 
   @impl true
@@ -123,13 +138,18 @@ defmodule BlocksterV2Web.OrdersAdminLive do
                         <%= if order.bux_tokens_burned > 0 do %>
                           <span class="text-xs text-yellow-700"><%= order.bux_tokens_burned %> BUX</span>
                         <% end %>
-                        <%= if Decimal.gt?(order.rogue_tokens_sent || Decimal.new(0), 0) do %>
-                          <span class="text-xs text-purple-700"><%= format_rogue(order.rogue_tokens_sent) %> ROGUE</span>
+                        <% intent = Map.get(@order_intents, order.id) %>
+                        <%= if intent do %>
+                          <span class="text-xs text-violet-700">
+                            {BlocksterV2.Shop.Pricing.format_sol(intent.expected_lamports / 1_000_000_000)} SOL · <%= intent.status %>
+                          </span>
+                          <%= if intent.funded_tx_sig do %>
+                            <a href={"https://solscan.io/tx/#{intent.funded_tx_sig}"} target="_blank" rel="noopener" class="text-[10px] font-mono text-gray-500 hover:text-blue-600 cursor-pointer">
+                              tx · <%= String.slice(intent.funded_tx_sig, 0, 6) %>…
+                            </a>
+                          <% end %>
                         <% end %>
-                        <%= if Decimal.gt?(order.helio_payment_amount || Decimal.new(0), 0) do %>
-                          <span class="text-xs text-blue-700">$<%= Decimal.round(order.helio_payment_amount, 2) %> <%= order.helio_payment_currency %></span>
-                        <% end %>
-                        <%= if order.bux_tokens_burned == 0 and not Decimal.gt?(order.rogue_tokens_sent || Decimal.new(0), 0) and not Decimal.gt?(order.helio_payment_amount || Decimal.new(0), 0) do %>
+                        <%= if order.bux_tokens_burned == 0 and is_nil(intent) do %>
                           <span class="text-xs text-gray-400">--</span>
                         <% end %>
                       </div>
@@ -171,9 +191,6 @@ defmodule BlocksterV2Web.OrdersAdminLive do
   defp status_label("pending"), do: "Pending"
   defp status_label("bux_pending"), do: "BUX Pending"
   defp status_label("bux_paid"), do: "BUX Paid"
-  defp status_label("rogue_pending"), do: "ROGUE Pending"
-  defp status_label("rogue_paid"), do: "ROGUE Paid"
-  defp status_label("helio_pending"), do: "Helio Pending"
   defp status_label("paid"), do: "Paid"
   defp status_label("processing"), do: "Processing"
   defp status_label("shipped"), do: "Shipped"

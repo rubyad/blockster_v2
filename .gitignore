@@ -55,3 +55,7 @@ contracts/blockster-bankroll/
 /*.png
 /*.jpeg
 /*.jpg
+
+# Claude Code local settings and design-review artifacts
+.claude/
+mobile-review/

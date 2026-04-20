@@ -208,7 +208,7 @@ defmodule BlocksterV2Web.PostLive.Tag do
   end
 
   defp post_author_name(post) do
-    post.author_name || (post.author && post.author.username) || "Unknown"
+    post.author_name || (post.author && post.author.username) || "Anonymous"
   end
 
   defp post_read_minutes(post) do

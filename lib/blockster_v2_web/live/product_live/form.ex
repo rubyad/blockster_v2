@@ -1104,21 +1104,34 @@ defmodule BlocksterV2Web.ProductLive.Form do
 
           <%!-- Price Input --%>
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Price (applies to all variants) *</label>
-            <div class="relative w-48">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                name="variant_price"
-                value={@variant_price}
-                phx-keyup="update_variant_price"
-                phx-debounce="100"
-                placeholder="0.00"
-                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-              />
+            <label class="block text-sm font-medium text-gray-700 mb-2">Price · USD (applies to all variants) *</label>
+            <div class="flex items-center gap-4">
+              <div class="relative w-48">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  name="variant_price"
+                  value={@variant_price}
+                  phx-keyup="update_variant_price"
+                  phx-debounce="100"
+                  placeholder="0.00"
+                  class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div class="text-sm text-gray-500">
+                <span class="font-mono text-gray-800">
+                  ≈ {price_in_sol_preview(@variant_price)}
+                </span>
+                <span class="text-xs block text-gray-400">
+                  at 1 SOL = ${:erlang.float_to_binary(BlocksterV2.Shop.Pricing.sol_usd_rate(), decimals: 2)}
+                </span>
+              </div>
             </div>
+            <p class="mt-2 text-[11px] text-gray-500">
+              USD is the storage currency. Buyers see the SOL equivalent on shop cards and pay in SOL at checkout, converted at the live rate.
+            </p>
           </div>
 
           <%!-- Sizes Selection (only show if Has Sizes is disabled in config — legacy mode) --%>
@@ -1374,5 +1387,20 @@ defmodule BlocksterV2Web.ProductLive.Form do
       </.form>
     </div>
     """
+  end
+
+  defp price_in_sol_preview(price_input) do
+    usd =
+      case price_input do
+        n when is_number(n) -> n * 1.0
+        s when is_binary(s) ->
+          case Float.parse(s) do
+            {f, _} -> f
+            :error -> 0.0
+          end
+        _ -> 0.0
+      end
+
+    "#{BlocksterV2.Shop.Pricing.format_sol(BlocksterV2.Shop.Pricing.usd_to_sol(usd))} SOL"
   end
 end

@@ -75,9 +75,13 @@
         </div>
 
       <% (@already_rewarded || (@article_completed && @current_bux && @current_bux > 0)) && @current_user -> %>
-        <%!-- Earned state — same white panel, no pulse, "Earned" label --%>
+        <%!-- Earned state — pulse-once animation on first render to signal
+             the transition from "Earning Live" → "Earned". --%>
         <% earned_amount = @bux_earned || @current_bux || 0 %>
-        <div class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-1 ring-neutral-200 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]">
+        <div
+          id="bux-earned-panel-desktop"
+          class="hidden md:block bg-white rounded-2xl p-4 min-w-[240px] ring-2 ring-[#CAFC00] animate-pulse-once shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18),0_12px_25px_-8px_rgba(0,0,0,0.10)]"
+        >
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-[#22C55E]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
@@ -93,7 +97,7 @@
             <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-11 h-11 rounded-full object-cover" />
             <div>
               <div class="flex items-baseline gap-1.5">
-                <span class="text-[26px] font-bold leading-none text-[#141414]">+<%= trunc(earned_amount) %></span>
+                <span class="text-[26px] font-bold leading-none text-[#141414]">+<%= :erlang.float_to_binary(earned_amount * 1.0, decimals: 2) %></span>
                 <span class="text-[11px] text-neutral-500">BUX</span>
               </div>
               <div class="text-[10px] mt-1 text-neutral-400 uppercase tracking-[0.1em]">This Article</div>
@@ -276,39 +280,92 @@
   <% end %>
 <% end %>
 
-<!-- Mobile Earning Bars - Outside bux-panel to prevent horizontal scroll -->
+<%!-- Mobile sticky earning bar — sits just above the mobile bottom nav.
+     Visible only on mobile; desktop uses the floating bottom-right panel
+     above. States mirror the desktop panel so the user sees consistent
+     earning progress / earned confirmation regardless of device. --%>
 <%= if !@video_modal_open do %>
-  <!-- Logged-in user mobile earning bar - HIDDEN: moved to sticky top bar -->
-  <%= if @current_user && !@already_rewarded && !@article_completed && @pool_available do %>
-    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
-      <div class="flex items-center justify-between mb-1.5">
-        <div class="flex items-center gap-2">
+  <% earned_amount_mobile = @bux_earned || @current_bux || 0 %>
+  <%= cond do %>
+    <% (@already_rewarded || (@article_completed && @current_bux && @current_bux > 0)) && @current_user -> %>
+      <%!-- Earned state — pulse-once on transition from "Earning Live" --%>
+      <div
+        id="bux-earned-panel-mobile"
+        class="md:hidden fixed bottom-16 left-2 right-2 bg-white rounded-2xl ring-2 ring-[#CAFC00] animate-pulse-once shadow-[0_10px_30px_-10px_rgba(0,0,0,0.2)] px-3.5 py-2.5 z-40"
+      >
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-[#22C55E]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
-          <span class="text-sm font-bold">+{@current_bux} BUX</span>
-          <span class="text-xs opacity-75">({@user_multiplier}x)</span>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-[18px] font-bold leading-none text-[#141414]">+<%= :erlang.float_to_binary(earned_amount_mobile * 1.0, decimals: 2) %></span>
+            <span class="text-[11px] text-neutral-500">BUX earned</span>
+          </div>
+          <%= if @read_tx_id do %>
+            <a href={"https://solscan.io/tx/#{@read_tx_id}"} target="_blank" rel="noopener noreferrer" class="ml-auto text-[10px] font-mono text-neutral-400 hover:text-neutral-700 cursor-pointer">View tx</a>
+          <% end %>
         </div>
-        <span class="text-xs">Keep reading to earn more BUX</span>
       </div>
-    </div>
-  <% end %>
 
-  <!-- Anonymous user mobile earning bar - HIDDEN: moved to sticky top bar -->
-  <%= if @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available do %>
-    <div class="hidden fixed bottom-[68px] left-2 right-2 bg-gradient-to-r from-[#8AE388] to-[#6BCB69] text-white rounded-xl shadow-2xl px-3 py-2 z-50">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
-          <span class="text-sm font-bold">+<%= Float.round(@anonymous_earned, 2) %> BUX</span>
+    <% @current_user && !@user_eligible_to_earn -> %>
+      <%!-- Needs SOL --%>
+      <div class="md:hidden fixed bottom-16 left-2 right-2 bg-white rounded-2xl ring-1 ring-neutral-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.2)] px-3.5 py-2.5 z-40">
+        <div class="flex items-center gap-3">
+          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-6 h-6 rounded-full bg-neutral-100 p-0.5" />
+          <div class="min-w-0">
+            <div class="text-[11px] font-semibold text-neutral-500 leading-tight">Not Earning</div>
+            <div class="text-[13px] font-bold text-[#141414] leading-tight">Add 0.01 SOL to start</div>
+          </div>
         </div>
-        <span class="text-xs">Keep reading to earn more BUX</span>
       </div>
-    </div>
+
+    <% @article_completed && @current_user && !@pool_available -> %>
+      <%!-- Completed but pool empty --%>
+      <div class="md:hidden fixed bottom-16 left-2 right-2 bg-white rounded-2xl ring-1 ring-neutral-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.2)] px-3.5 py-2.5 z-40">
+        <div class="flex items-center gap-3 opacity-70">
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full opacity-50" />
+          <div class="text-[13px] font-bold text-neutral-500">Article complete · pool empty</div>
+        </div>
+      </div>
+
+    <% @current_user && @pool_available -> %>
+      <%!-- Earning live --%>
+      <div class="md:hidden fixed bottom-16 left-2 right-2 bg-white rounded-2xl ring-1 ring-neutral-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.2)] px-3.5 py-2.5 z-40">
+        <div class="flex items-center gap-3">
+          <div class="relative w-1.5 h-1.5 shrink-0">
+            <div class="absolute inset-0 bg-[#22C55E] rounded-full animate-pulse"></div>
+          </div>
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <div class="flex items-baseline gap-1.5 min-w-0">
+            <span class="text-[18px] font-bold leading-none text-[#141414]">+{@current_bux}</span>
+            <span class="text-[11px] text-neutral-500 truncate">BUX · {@user_multiplier}x</span>
+          </div>
+          <span class="ml-auto text-[10px] text-neutral-400 truncate">Keep reading…</span>
+        </div>
+      </div>
+
+    <% @is_anonymous && !@show_signup_prompt && !@earning_bar_dismissed && @engagement_score && @pool_available -> %>
+      <%!-- Anonymous earning live --%>
+      <div class="md:hidden fixed bottom-16 left-2 right-2 bg-white rounded-2xl ring-1 ring-neutral-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.2)] px-3.5 py-2.5 z-40">
+        <div class="flex items-center gap-3">
+          <div class="relative w-1.5 h-1.5 shrink-0">
+            <div class="absolute inset-0 bg-[#22C55E] rounded-full animate-pulse"></div>
+          </div>
+          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 rounded-full object-cover" />
+          <div class="flex items-baseline gap-1.5 min-w-0">
+            <span class="text-[18px] font-bold leading-none text-[#141414]">+<%= Float.round(@anonymous_earned, 0) |> trunc() %></span>
+            <span class="text-[11px] text-neutral-500 truncate">BUX</span>
+          </div>
+          <span class="ml-auto text-[10px] font-bold text-[#141414] truncate">Connect to claim</span>
+        </div>
+      </div>
+
+    <% true -> %>
   <% end %>
 <% end %>
 
 <!-- Onboarding Popup Hook Wrapper - triggers popup on 20% scroll for eligible users -->
 <div
-  class="article-page bg-[#fafaf9] min-h-screen"
+  class="article-page bg-[#fafaf9] min-h-screen pb-20 md:pb-0"
   id="post-engagement-tracker"
   phx-hook="EngagementTracker"
   data-user-id={if @current_user, do: @current_user.id, else: "anonymous"}

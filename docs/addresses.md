@@ -21,7 +21,9 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | `VAULT_ADMIN_PRIVATE_KEY` | bux-minter (Fly) | AirdropVault deposits + AirdropPrizePool claims (legacy) |
 | `API_SECRET` | bux-minter (Fly) | Auth token for Blockster backend → BUX Minter calls (legacy) |
 | `SETTLER_API_SECRET` | blockster-settler (Fly) | Auth token for Blockster backend → Settler calls |
-| `SETTLER_MINT_AUTHORITY` | blockster-settler (Fly) | Solana keypair for BUX minting + settlement |
+| `MINT_AUTHORITY_KEYPAIR` | blockster-settler (Fly) | Solana keypair for BUX minting + settlement + shop intent sweep fee payer |
+| `PAYMENT_INTENT_SEED` | blockster-settler (Fly) | 32-byte HKDF master seed for shop checkout ephemeral keypair derivation. Rotating invalidates every unswept intent — only rotate after confirming all are `swept`. |
+| `SOL_TREASURY_ADDRESS` | blockster-settler (Fly) | Solana pubkey that receives swept shop revenue (SOL) after buyers fund per-order intents |
 
 ---
 

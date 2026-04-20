@@ -76,7 +76,7 @@ import { SolanaWallet } from "./hooks/solana_wallet.js";
 import { BuxPaymentHook } from "./hooks/bux_payment.js";
 // DEPRECATED (EVM): RoguePaymentHook - Rogue Chain native token shop payment. No longer used by any LiveView.
 import { RoguePaymentHook } from "./hooks/rogue_payment.js";
-import { HelioCheckoutHook } from "./hooks/helio_checkout.js"
+import { SolPaymentHook } from "./hooks/sol_payment.js"
 import { NotificationToastHook } from "./hooks/notification_toast.js";
 import { EventTracker } from "./hooks/event_tracker.js";
 // DEPRECATED (EVM): AirdropDepositHook - Rogue Chain EVM airdrop deposit, replaced by AirdropSolanaHook
@@ -256,6 +256,60 @@ let MobileNavHighlight = {
         link.classList.remove('bg-[#CAFC00]');
         link.classList.add('hover:bg-gray-100');
       }
+    });
+  }
+};
+
+// Deep-links the user into a wallet app's in-app browser at the current URL.
+// Works for any Solana wallet with a universal-link browse URL (Phantom,
+// Solflare). Resolves the mobile Safari / Chrome problem where Wallet Standard
+// doesn't see the wallet unless the page is already inside its browser.
+// Element must carry `data-browse-url` — e.g. `https://phantom.app/ul/browse/`.
+let OpenInWallet = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const browseUrl = this.el.dataset.browseUrl;
+      if (!browseUrl) return;
+      const ref = encodeURIComponent(window.location.origin);
+      const target = encodeURIComponent(window.location.href);
+      window.location.href = `${browseUrl}${target}?ref=${ref}`;
+    });
+  }
+};
+
+// Design-system mobile bottom nav highlight. Toggles `data-active` on the
+// current tab so Tailwind's `data-[active]:text-…` selectors style it.
+let DsMobileNavHighlight = {
+  mounted() {
+    this.apply();
+    window.addEventListener('phx:navigate', () => setTimeout(() => this.apply(), 50));
+  },
+  updated() {
+    this.apply();
+  },
+  apply() {
+    const path = window.location.pathname;
+    const sections = ['/hubs', '/hub', '/shop', '/cart', '/checkout', '/airdrop', '/play', '/pool', '/members', '/member', '/login', '/admin'];
+    const inKnown = sections.some(s => path === s || path.startsWith(s + '/'));
+
+    this.el.querySelectorAll('[data-nav-path]').forEach(link => {
+      const p = link.dataset.navPath;
+      let active = false;
+
+      if (p === '/') {
+        // News: homepage, category/tag pages, and any unknown top-level path (article pages)
+        active = path === '/' || !inKnown;
+      } else if (p === '/hubs') {
+        active = path === '/hubs' || path.startsWith('/hubs/') || path.startsWith('/hub/');
+      } else if (p === '/shop') {
+        active = path === '/shop' || path.startsWith('/shop/') || path === '/cart' || path.startsWith('/checkout/');
+      } else {
+        active = path === p || path.startsWith(p + '/');
+      }
+
+      if (active) link.setAttribute('data-active', 'true');
+      else link.removeAttribute('data-active');
     });
   }
 };
@@ -614,7 +668,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, HelioCheckoutHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
 });
 
 // connect if there are any LiveViews on the page

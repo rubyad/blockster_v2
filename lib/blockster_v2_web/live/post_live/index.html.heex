@@ -98,6 +98,8 @@
             preview_author={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
             preview_read_minutes={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
             preview_bux_reward={if @hero_post, do: Map.get(@bux_balances, @hero_post.id, 0)}
+            article_count={@hero_article_count}
+            bux_paid={@hero_bux_paid}
             hub_count={length(@hub_showcase)}
           />
 
@@ -117,8 +119,9 @@
            comp.inline_banner_index > 2 -> div(comp.inline_banner_index, 2) + 1
            true -> 0
          end %>
-      <%= if @inline_desktop_banners != [] && show_ad do %>
-        <% banner = Enum.at(@inline_desktop_banners, rem(ad_slot, length(@inline_desktop_banners))) %>
+      <% slot_a_banner = if comp.inline_banner_index == 1, do: @homepage_fateswap_pick, else: nil %>
+      <%= if show_ad && (slot_a_banner || @inline_desktop_banners != []) do %>
+        <% banner = slot_a_banner || Enum.at(@inline_desktop_banners, rem(ad_slot, length(@inline_desktop_banners))) %>
         <div class="py-3 md:py-4 px-4 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px] mx-auto">
           <div class="md:w-3/4 mx-auto">
             <BlocksterV2Web.WidgetComponents.inline_ad_slot

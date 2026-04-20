@@ -48,6 +48,9 @@ defmodule BlocksterV2Web.ShopLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    # Current SOL/USD rate (cached in Mnesia by PriceTracker, 10-min poll).
+    sol_usd = BlocksterV2.Shop.Pricing.sol_usd_rate()
+
     # Load all active products with associations
     all_products = Shop.list_active_products(preload: [:images, :variants, :hub, :artist_record, :categories, :product_tags])
 
@@ -122,7 +125,8 @@ defmodule BlocksterV2Web.ShopLive.Index do
      |> assign(:active_filter, nil)
      |> assign(:show_product_picker, false)
      |> assign(:picking_slot, nil)
-     |> assign(:show_mobile_filters, false)}
+     |> assign(:show_mobile_filters, false)
+     |> assign(:sol_usd, sol_usd)}
   end
 
   # Build display slots list: [{slot_number, product_or_nil}, ...]
@@ -166,6 +170,9 @@ defmodule BlocksterV2Web.ShopLive.Index do
     |> Enum.reject(&(&1 == ""))
     |> Enum.frequencies()
   end
+
+  # Re-export the shared product price block so templates can use `<.product_price_block />`.
+  defdelegate product_price_block(assigns), to: BlocksterV2Web.ShopComponents
 
   defp transform_product(product) do
     first_variant = List.first(product.variants || [])

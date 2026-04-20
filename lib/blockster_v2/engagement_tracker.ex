@@ -1249,6 +1249,25 @@ defmodule BlocksterV2.EngagementTracker do
   end
 
   @doc """
+  Sums total_distributed across every post in the post_bux_points table.
+  Used by the homepage hero "BUX paid out" stat. Single scan — fine at
+  current scale, revisit if post count grows into the tens of thousands.
+  """
+  def get_total_bux_distributed do
+    :mnesia.dirty_all_keys(:post_bux_points)
+    |> Enum.reduce(0, fn key, acc ->
+      case :mnesia.dirty_read({:post_bux_points, key}) do
+        [record] -> acc + max(0, elem(record, 6) || 0)
+        _ -> acc
+      end
+    end)
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  @doc """
   Gets total_distributed for a post from the post_bux_points table.
   Returns 0 if no record exists. Always clamped to >= 0.
   """

@@ -467,10 +467,12 @@
                 <div class="flex justify-between"><span class="text-neutral-500">Sales tax</span><span class="font-mono text-[#141414]">$0.00</span></div>
               </div>
               <% review_total = @order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(@order.bux_discount_amount) %>
+              <% review_total_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(review_total), BlocksterV2.Shop.Pricing.sol_usd_rate()) %>
               <div class="pt-4 mt-4 border-t border-neutral-100 flex items-baseline justify-between">
-                <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
+                <span class="text-[13px] font-bold text-[#141414]">Total</span>
                 <div class="text-right">
-                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">$<%= format_usd(review_total) %></div>
+                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">{BlocksterV2.Shop.Pricing.format_sol(review_total_sol)} SOL</div>
+                  <div class="mt-1 text-[11px] text-neutral-500 font-mono">≈ $<%= format_usd(review_total) %></div>
                   <%= if @order.bux_tokens_burned > 0 do %>
                     <div class="text-[10px] text-neutral-500 font-mono mt-1">+ <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX burned</div>
                   <% end %>
@@ -484,7 +486,7 @@
   <% end %>
 
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
-  <%!-- Step 3: Payment (BUX burn + Helio) --%>
+  <%!-- Step 3: Payment (BUX burn + SOL direct transfer) --%>
   <%!-- ═══════════════════════════════════════════════════════════════════════ --%>
   <%= if @step == :payment do %>
     <section class="pb-12">
@@ -494,7 +496,7 @@
           <div class="bg-white rounded-2xl border border-neutral-200/70 p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Step 3 of 4</div>
             <h2 class="font-bold tracking-[-0.022em] text-[28px] text-[#141414] mb-2">Pay your order</h2>
-            <p class="text-[13px] text-neutral-500 font-medium mb-7">First we burn the BUX you redeemed (one Solana tx), then Helio collects the remaining USD.</p>
+            <p class="text-[13px] text-neutral-500 font-medium mb-7">{payment_step_copy(assigns)}</p>
 
             <%!-- BUX Burn Card --%>
             <%= if @order.bux_tokens_burned > 0 do %>
@@ -586,120 +588,112 @@
               </div>
             <% end %>
 
-            <%!-- Helio Payment Card --%>
-            <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) do %>
-              <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-              <% token_payments_done = bux_done %>
+            <%!-- SOL Payment Card --%>
+            <% bux_done = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
+            <% intent = @payment_intent %>
+            <%= if Decimal.gt?(@remaining_usd, 0) do %>
               <%
-                helio_card_class = case @helio_payment_status do
-                  :completed -> "block bg-[#fafaf9] border border-[#22C55E] rounded-2xl p-[18px]"
-                  s when s in [:processing, :widget_ready, :confirming] -> "block bg-white border border-[#141414] rounded-2xl p-[18px]"
-                  :failed -> "block bg-white border border-red-300 rounded-2xl p-[18px]"
-                  _ -> "block bg-white border border-neutral-200 rounded-2xl p-[18px]"
-                end
+                sol_card_class =
+                  case @sol_payment_status do
+                    :completed -> "block bg-[#fafaf9] border border-[#22C55E] rounded-2xl p-5"
+                    :confirming -> "block bg-white border border-[#141414] rounded-2xl p-5"
+                    :failed -> "block bg-white border border-red-300 rounded-2xl p-5"
+                    _ -> "block bg-white border border-neutral-200 rounded-2xl p-5"
+                  end
               %>
               <div
-                id="helio-checkout-hook"
-                phx-hook="HelioCheckoutHook"
+                id="sol-payment-card"
+                phx-hook="SolPaymentHook"
+                data-intent-pubkey={intent && intent.pubkey}
+                data-intent-lamports={intent && intent.expected_lamports}
                 data-order-id={@order.id}
-                data-order-number={@order.order_number}
-                class={helio_card_class}
+                class={sol_card_class}
               >
-                <div class="flex items-start gap-4 mb-5">
-                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0052FF] to-[#001E5C] grid place-items-center shrink-0">
-                    <span class="text-white font-bold text-[12px]">$</span>
+                <div class="flex items-start gap-4 mb-4">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#9945FF] to-[#14F195] grid place-items-center shrink-0">
+                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-7 h-7" />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="font-bold text-[15px] text-[#141414]">Pay $<%= format_usd(@order.helio_payment_amount) %> via Helio</span>
-                      <%= case @helio_payment_status do %>
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                      <span class="font-bold text-[15px] text-[#141414]">Pay {BlocksterV2.Shop.Pricing.format_sol(@remaining_sol)} SOL</span>
+                      <%= case @sol_payment_status do %>
                         <% :completed -> %>
                           <span class="inline-flex items-center gap-1 bg-[#22C55E]/[0.12] text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
                             <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             Paid
                           </span>
-                        <% s when s in [:processing, :widget_ready, :confirming] -> %>
+                        <% :confirming -> %>
                           <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                            <svg class="animate-spin w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Processing
+                            <svg class="animate-spin w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            Confirming
                           </span>
                         <% :failed -> %>
                           <span class="inline-flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Failed</span>
                         <% _ -> %>
-                          <%= if token_payments_done do %>
-                            <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Pending</span>
+                          <%= if bux_done do %>
+                            <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Awaiting payment</span>
                           <% else %>
-                            <span class="inline-flex items-center gap-1 bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Waiting</span>
+                            <span class="inline-flex items-center gap-1 bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">Waiting on BUX</span>
                           <% end %>
                       <% end %>
                     </div>
-                    <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">USDC settled on chain through the Helio gateway. Cards, Apple Pay, Google Pay accepted.</p>
+                    <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">
+                      ≈ $<%= format_usd(@remaining_usd) %> &middot; locked at 1 SOL = $<%= format_usd(Decimal.from_float(@sol_usd_rate * 1.0) |> Decimal.round(2)) %>
+                    </p>
                   </div>
                 </div>
 
-                <%!-- Helio TX display --%>
-                <%= if @helio_payment_status == :completed && @order.helio_transaction_id do %>
-                  <div class="pt-3 border-t border-[#22C55E]/30">
-                    <p class="text-[10px] text-[#15803d] font-mono truncate">
-                      TX: <%= @order.helio_transaction_id %>
-                    </p>
+                <%= if intent do %>
+                  <%!-- Unique payment address --%>
+                  <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4 mb-4">
+                    <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-neutral-500 mb-2">Your one-time payment address</div>
+                    <div class="flex items-center gap-2">
+                      <code class="flex-1 min-w-0 font-mono text-[11px] text-[#141414] break-all"><%= intent.pubkey %></code>
+                      <button
+                        type="button"
+                        onclick={"navigator.clipboard.writeText('#{intent.pubkey}')"}
+                        class="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-white border border-neutral-300 hover:border-[#141414] px-2.5 py-1.5 rounded-lg cursor-pointer"
+                      >Copy</button>
+                    </div>
+                    <div class="mt-2 text-[10px] text-neutral-400">
+                      Expires in <span id="intent-countdown" phx-update="ignore" data-expires-at={DateTime.to_iso8601(intent.expires_at)}>—</span>
+                    </div>
                   </div>
                 <% end %>
 
-                <%!-- Helio embedded widget --%>
-                <%= if @helio_payment_status == :widget_ready do %>
-                  <div class="bg-neutral-50 border border-dashed border-neutral-300 rounded-xl p-5 mb-4">
-                    <div id="helio-widget-container" class="w-full min-h-[400px]"></div>
-                  </div>
-                  <p class="text-[10px] text-center text-neutral-500 font-medium mb-4">Complete your payment above. Your order will update automatically once confirmed.</p>
-                <% end %>
-
-                <%!-- Processing status --%>
-                <%= if @helio_payment_status == :processing do %>
-                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                    <p class="text-[11px] text-amber-700 font-medium mb-3">
-                      Waiting for payment confirmation. If you haven't completed payment yet, click below to re-open the checkout.
-                    </p>
-                    <button
-                      phx-click="initiate_helio_payment"
-                      phx-disable-with="Loading payment..."
-                      class="w-full inline-flex items-center justify-center bg-[#0a0a0a] text-white px-4 py-2.5 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
-                    >
-                      Re-open Payment
-                    </button>
+                <%= if @sol_payment_status == :completed and intent && intent.funded_tx_sig do %>
+                  <div class="pt-3 border-t border-[#22C55E]/30 mb-4">
+                    <a href={"https://solscan.io/tx/#{intent.funded_tx_sig}"} target="_blank" rel="noopener" class="text-[10px] text-[#15803d] font-mono hover:underline cursor-pointer">
+                      tx · <%= String.slice(intent.funded_tx_sig, 0, 8) %>… →
+                    </a>
                   </div>
                 <% end %>
 
-                <%!-- Confirming status --%>
-                <%= if @helio_payment_status == :confirming do %>
-                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                    <p class="text-[11px] text-amber-700 font-medium">
-                      Payment submitted. Waiting for blockchain confirmation...
-                    </p>
-                  </div>
-                <% end %>
-
-                <%!-- Pay button --%>
-                <%= if @helio_payment_status == :pending and token_payments_done do %>
+                <%= if @sol_payment_status in [:pending] and bux_done and intent do %>
                   <button
-                    phx-click="initiate_helio_payment"
-                    phx-disable-with="Creating payment..."
+                    phx-click="initiate_sol_payment"
+                    phx-disable-with="Opening wallet…"
                     class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
                   >
-                    Pay $<%= format_usd(@order.helio_payment_amount) %>
+                    Pay {BlocksterV2.Shop.Pricing.format_sol(@remaining_sol)} SOL from connected wallet
                     <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   </button>
                   <div class="mt-3 text-center text-[10px] text-neutral-400 font-medium">
-                    Powered by <span class="font-bold">Helio</span> &middot; settles in USDC on Solana
+                    Direct SOL transfer — no middleman, no payment processor.
                   </div>
                 <% end %>
 
-                <%!-- Retry on failure --%>
-                <%= if @helio_payment_status == :failed do %>
+                <%= if @sol_payment_status == :confirming do %>
+                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p class="text-[11px] text-amber-700 font-medium">Transfer submitted. Waiting for on-chain confirmation…</p>
+                  </div>
+                <% end %>
+
+                <%= if @sol_payment_status == :failed do %>
                   <div class="flex gap-2">
                     <button
-                      phx-click="initiate_helio_payment"
-                      phx-disable-with="Retrying..."
+                      phx-click="initiate_sol_payment"
+                      phx-disable-with="Retrying…"
                       class="flex-1 inline-flex items-center justify-center bg-[#0a0a0a] text-white px-4 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
                     >
                       Retry
@@ -713,29 +707,6 @@
                   </div>
                 <% end %>
               </div>
-            <% end %>
-
-            <%!-- Action buttons based on state --%>
-            <% has_helio = Decimal.gt?(@order.helio_payment_amount || Decimal.new("0"), 0) %>
-            <% bux_done_final = @order.bux_tokens_burned <= 0 or @bux_payment_status == :completed %>
-            <% helio_done = !has_helio or @helio_payment_status == :completed %>
-            <%= cond do %>
-              <% bux_done_final and helio_done and not has_helio -> %>
-                <button
-                  phx-click="advance_after_bux"
-                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer mt-5"
-                >
-                  Complete Order
-                </button>
-              <% @order.bux_tokens_burned <= 0 and not has_helio -> %>
-                <button
-                  phx-click="complete_order"
-                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer mt-5"
-                >
-                  Place Order
-                </button>
-              <% true -> %>
-                <div></div>
             <% end %>
           </div>
 
@@ -764,10 +735,14 @@
                 <div class="flex justify-between"><span class="text-neutral-500">Shipping</span><span class="font-mono text-[#141414]">$<%= format_usd(pay_shipping) %></span></div>
               </div>
               <% pay_total = @order.subtotal |> Decimal.add(pay_shipping) |> Decimal.sub(@order.bux_discount_amount) %>
+              <% pay_total_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(pay_total), @sol_usd_rate) %>
               <div class="pt-4 mt-4 border-t border-neutral-100">
                 <div class="flex items-baseline justify-between">
-                  <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
-                  <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">$<%= format_usd(pay_total) %></div>
+                  <span class="text-[13px] font-bold text-[#141414]">Total</span>
+                  <div class="text-right">
+                    <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">{BlocksterV2.Shop.Pricing.format_sol(pay_total_sol)} SOL</div>
+                    <div class="mt-1 text-[11px] text-neutral-500 font-mono">≈ $<%= format_usd(pay_total) %></div>
+                  </div>
                 </div>
                 <%= if @bux_payment_status == :completed and @order.bux_tokens_burned > 0 do %>
                   <div class="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between text-[11px]">
@@ -825,10 +800,12 @@
                 </a>
               </div>
             <% end %>
-            <%= if @order.helio_transaction_id do %>
+            <%= if @payment_intent && @payment_intent.funded_tx_sig do %>
               <div>
-                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Helio ref</div>
-                <div class="font-mono text-[12px] text-[#141414] truncate"><%= String.slice(@order.helio_transaction_id, 0, 16) %>&hellip;</div>
+                <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">SOL payment tx</div>
+                <a href={"https://solscan.io/tx/#{@payment_intent.funded_tx_sig}"} target="_blank" rel="noopener" class="font-mono text-[12px] text-[#141414] hover:text-[#15803d] cursor-pointer">
+                  <%= String.slice(@payment_intent.funded_tx_sig, 0, 4) %>&hellip;<%= String.slice(@payment_intent.funded_tx_sig, -4..-1) %> &nearr;
+                </a>
               </div>
             <% end %>
             <%= if @order.bux_tokens_burned > 0 do %>

@@ -61,6 +61,8 @@ defmodule BlocksterV2.Application do
         {BlocksterV2.Orders.AffiliatePayoutWorker, []},
         # Shop checkout: expire stale unpaid orders (every 5 min)
         {BlocksterV2.Orders.OrderExpiryWorker, []},
+        # Shop checkout: poll settler for SOL payment intent funding (every 10s)
+        {BlocksterV2.PaymentIntentWatcher, []},
         # Airdrop: auto-settle rounds when countdown expires
         {BlocksterV2.Airdrop.Settler, []}
       ]

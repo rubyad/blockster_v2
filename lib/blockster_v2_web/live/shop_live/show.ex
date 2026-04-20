@@ -113,7 +113,8 @@ defmodule BlocksterV2Web.ShopLive.Show do
          |> assign(:added_to_cart, false)
          |> assign(:related_products, related_products)
          |> assign(:hub_color_primary, hub_color_primary)
-         |> assign(:hub_color_secondary, hub_color_secondary)}
+         |> assign(:hub_color_secondary, hub_color_secondary)
+         |> assign(:sol_usd, BlocksterV2.Shop.Pricing.sol_usd_rate())}
     end
   end
 

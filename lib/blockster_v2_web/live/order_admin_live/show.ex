@@ -17,6 +17,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
       {:ok,
        socket
        |> assign(order: order)
+       |> assign(payment_intent: BlocksterV2.PaymentIntents.get_for_order(order.id))
        |> assign(admin_statuses: @admin_statuses)
        |> assign(tracking_number: order.tracking_number || "")
        |> assign(flash_message: nil)}
@@ -169,11 +170,32 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
                   <% end %>
                 <% end %>
 
-                <%= if Decimal.gt?(@order.helio_payment_amount || Decimal.new(0), 0) do %>
+                <%= if @payment_intent do %>
                   <div class="flex justify-between text-sm">
-                    <span class="text-blue-700">Helio Payment</span>
-                    <span class="font-medium text-blue-700">$<%= Decimal.round(@order.helio_payment_amount, 2) %> (<%= @order.helio_payment_currency %>)</span>
+                    <span class="text-violet-700">SOL payment</span>
+                    <span class="font-medium text-violet-700">
+                      {BlocksterV2.Shop.Pricing.format_sol(@payment_intent.expected_lamports / 1_000_000_000)} SOL · {@payment_intent.status}
+                    </span>
                   </div>
+                  <div class="text-[10px] text-gray-500 text-right font-mono break-all">
+                    {@payment_intent.pubkey}
+                  </div>
+                  <%= if @payment_intent.funded_tx_sig do %>
+                    <div class="text-xs text-gray-400 text-right">
+                      funded tx:
+                      <a href={"https://solscan.io/tx/#{@payment_intent.funded_tx_sig}"} target="_blank" rel="noopener" class="text-blue-500 hover:underline cursor-pointer font-mono">
+                        <%= String.slice(@payment_intent.funded_tx_sig, 0, 12) %>…
+                      </a>
+                    </div>
+                  <% end %>
+                  <%= if @payment_intent.swept_tx_sig do %>
+                    <div class="text-xs text-gray-400 text-right">
+                      swept tx:
+                      <a href={"https://solscan.io/tx/#{@payment_intent.swept_tx_sig}"} target="_blank" rel="noopener" class="text-blue-500 hover:underline cursor-pointer font-mono">
+                        <%= String.slice(@payment_intent.swept_tx_sig, 0, 12) %>…
+                      </a>
+                    </div>
+                  <% end %>
                 <% end %>
 
                 <div class="border-t border-gray-200 pt-3 flex justify-between text-sm font-semibold">
@@ -367,7 +389,7 @@ defmodule BlocksterV2Web.OrderAdminLive.Show do
   defp status_label("bux_paid"), do: "BUX Paid"
   defp status_label("rogue_pending"), do: "ROGUE Pending"
   defp status_label("rogue_paid"), do: "ROGUE Paid"
-  defp status_label("helio_pending"), do: "Helio Pending"
+  defp status_label("helio_pending"), do: "Helio Pending (legacy)"
   defp status_label("paid"), do: "Paid"
   defp status_label("processing"), do: "Processing"
   defp status_label("shipped"), do: "Shipped"

@@ -69,12 +69,30 @@ defmodule BlocksterV2Web.PostLive.Index do
 
     hub_showcase = list_hub_showcase()
 
+    # Real stats for the anonymous welcome hero.
+    hero_stats =
+      if user == nil and connected?(socket) do
+        %{
+          article_count: Number.Delimit.number_to_delimited(Blog.count_published_posts(), precision: 0),
+          bux_paid: format_compact(EngagementTracker.get_total_bux_distributed())
+        }
+      else
+        %{article_count: "—", bux_paid: "—"}
+      end
+
     homepage_top_desktop_banners = load_homepage_banners(socket, "homepage_top_desktop")
     homepage_top_mobile_banners = load_homepage_banners(socket, "homepage_top_mobile")
 
     # Single inline-ads source. Both desktop and mobile rails read from the
     # same `homepage_inline` placement — admins manage one list of inline ads.
     inline_banners = load_homepage_banners(socket, "homepage_inline")
+
+    # FateSwap ads are pinned to Slot A (the first inline ad, after the 2nd
+    # component). All other slots rotate through the non-FateSwap banners.
+    {fateswap_banners, other_inline_banners} =
+      Enum.split_with(inline_banners, fn b ->
+        is_binary(b.template) and String.starts_with?(b.template, "fateswap_")
+      end)
 
     {:ok,
      socket
@@ -97,15 +115,20 @@ defmodule BlocksterV2Web.PostLive.Index do
      |> assign(:show_mobile_search, false)
      |> assign(:show_bux_deposit_modal, false)
      |> assign(:deposit_modal_post, nil)
+     |> assign(:hero_article_count, hero_stats.article_count)
+     |> assign(:hero_bux_paid, hero_stats.bux_paid)
      |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
      |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
      # Frozen picks — chosen once on mount so PubSub re-renders don't churn the random pick.
      |> assign(:homepage_top_desktop_pick, random_or_nil(homepage_top_desktop_banners))
      |> assign(:homepage_top_mobile_pick, random_or_nil(homepage_top_mobile_banners))
+     # Slot A is pinned to a FateSwap banner (frozen at mount). Empty list if
+     # no FateSwap banners are active — template falls back to the regular pool.
+     |> assign(:homepage_fateswap_pick, random_or_nil(fateswap_banners))
      # Homepage rotator: random banner per slot, class-cycled so no class
      # repeats within any K-slot window (K = number of distinct classes).
      # See `Ads.random_class_rotated_pool/2`.
-     |> assign(:inline_desktop_banners, BlocksterV2.Ads.random_class_rotated_pool(inline_banners))
+     |> assign(:inline_desktop_banners, BlocksterV2.Ads.random_class_rotated_pool(other_inline_banners))
      |> mount_widgets(
        homepage_top_desktop_banners ++
          homepage_top_mobile_banners ++
@@ -125,6 +148,21 @@ defmodule BlocksterV2Web.PostLive.Index do
   defp random_or_nil([]), do: nil
   defp random_or_nil(list) when is_list(list), do: Enum.random(list)
   defp random_or_nil(_), do: nil
+
+  # Compact number format for the hero stats row — 4,200,000 → "4.2M".
+  defp format_compact(n) when is_number(n) and n >= 1_000_000 do
+    "#{:erlang.float_to_binary(n / 1_000_000, decimals: 1)}M"
+  end
+
+  defp format_compact(n) when is_number(n) and n >= 1_000 do
+    "#{:erlang.float_to_binary(n / 1_000, decimals: 1)}K"
+  end
+
+  defp format_compact(n) when is_number(n) do
+    Number.Delimit.number_to_delimited(n, precision: 0)
+  end
+
+  defp format_compact(_), do: "0"
 
   @impl true
   def handle_params(params, _url, socket) do

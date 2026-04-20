@@ -26,7 +26,11 @@
       can be added to the new header in a follow-up if needed)
 --%>
 
-{@inner_content}
+<div class="pb-20 md:pb-0">
+  {@inner_content}
+</div>
+
+<BlocksterV2Web.DesignSystem.mobile_bottom_nav />
 
 <BlocksterV2Web.WalletComponents.wallet_selector_modal
   detected_wallets={assigns[:detected_wallets] || []}

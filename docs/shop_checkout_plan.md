@@ -1,13 +1,70 @@
 # Shop Checkout System - Implementation Plan
 
-> **Status**: Phase 11 Complete
+> **Status**: Phase 12 Complete — Helio replaced by SOL-direct payment
 > **Created**: 2026-02-16
-> **Branch**: `feat/shop-checkout`
-> **Scope**: Complete checkout system with Helio payments, BUX/ROGUE discounts, affiliate system, and order fulfillment
+> **Last update**: 2026-04-19
+> **Branch**: `feat/solana-migration`
+> **Scope**: Complete checkout system with SOL-direct payment intents, BUX discount burn, affiliate system, and order fulfillment
 
 ---
 
 ## Implementation Progress
+
+### Phase 12: SOL-Direct Checkout — Helio Removed (2026-04-19) ✅
+
+Replaced Helio entirely with native SOL-direct payment via a unique ephemeral address per order. See [`solana_build_history.md`](solana_build_history.md#shop--sol-direct-checkout--redesign-polish-2026-04-19-) for the full narrative — summary here:
+
+**Flow:**
+1. Buyer applies BUX for optional discount (unchanged — still burns BUX on-chain first).
+2. At the payment step, Elixir asks settler (`POST /intents`) to derive a unique ephemeral Solana keypair from `HKDF(PAYMENT_INTENT_SEED, order_id)`. No keypair storage — derive-on-demand.
+3. `order_payment_intents` row persisted with the pubkey, `expected_lamports`, `quoted_usd`, `quoted_sol_usd_rate`, 15-min `expires_at`.
+4. Checkout UI shows pubkey + copy button + countdown + "Pay from connected wallet" button.
+5. Buyer clicks Pay → `SolPaymentHook` builds `SystemProgram.transfer` for exactly `expected_lamports` and signs via Wallet Standard.
+6. `PaymentIntentWatcher` (GlobalSingleton, 10s tick) polls settler status → on funded, marks intent + order paid inside a transaction + broadcasts `{:order_updated, order}` on `order:<id>` PubSub → checkout flips to confirmation.
+7. Next tick, watcher sweeps funded balance to `SOL_TREASURY_ADDRESS` via settler (fee paid by `MINT_AUTHORITY`).
+
+**Files created:**
+- `priv/repo/migrations/20260420024131_create_order_payment_intents.exs`
+- `lib/blockster_v2/orders/payment_intent.ex` — schema
+- `lib/blockster_v2/payment_intents.ex` — context
+- `lib/blockster_v2/settler_client.ex` — HTTP client
+- `lib/blockster_v2/payment_intent_watcher.ex` — GlobalSingleton watcher
+- `contracts/blockster-settler/src/services/payment-intent-service.ts` — HKDF derivation + sweep
+- `contracts/blockster-settler/src/routes/payment-intents.ts` — POST /intents, GET /intents/:pubkey, POST /intents/:pubkey/sweep
+- `assets/js/hooks/sol_payment.js` — wallet signing + countdown
+
+**Files rewritten:**
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — all Helio handlers deleted; SOL flow in their place
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Helio card replaced with SOL payment card; review + total blocks show SOL primary / USD secondary
+
+**Deleted:**
+- `lib/blockster_v2/helio.ex`
+- `lib/blockster_v2_web/controllers/helio_webhook_controller.ex`
+- `/helio/webhook` route
+- `HelioCheckoutHook` JS hook import
+- `helio_*` secrets from `config/runtime.exs`
+
+**Kept for historical orders:**
+- `helio_payment_amount`, `helio_payment_currency`, `helio_charge_id`, `helio_transaction_id`, `helio_payer_address` columns on `orders` table (read by admin detail page only for legacy orders; no code path writes them now).
+- `Orders.complete_helio_payment/2` — dead code, preserved for potential rollback.
+
+**Admin surfacing (Phase 5c in the build-history doc):**
+- `orders_admin_live.ex` Payment column shows SOL intent amount + status + funded-tx Solscan link.
+- `order_admin_live/show.ex` has a dedicated SOL Payment panel: pubkey, status, funded tx, swept tx (Solscan links).
+- `product_live/form.ex` price input shows live USD → SOL preview next to the USD input.
+
+**Env vars needed on settler for prod:**
+- `PAYMENT_INTENT_SEED` (32 hex bytes)
+- `SOL_TREASURY_ADDRESS` (Solana pubkey receiving swept shop revenue)
+
+Dev defaults exist but are insecure — always set both on mainnet. See [`solana_mainnet_deployment.md`](solana_mainnet_deployment.md) Step 5.
+
+**Known follow-ups:**
+- `Orders.process_paid_order` still computes affiliate commission from `order.helio_payment_amount` (= 0 on new SOL orders). Needs to swap to `total_paid` or the intent amount before affiliate payouts work on SOL orders.
+- All 93 active products have `bux_max_discount: 0` which the `shop_live/show.ex:67-69` fallback treats as uncapped (up to 100% off). Pre-existing footgun — set explicit caps per product or change the fallback.
+- SOL RPC URL in `assets/js/hooks/sol_payment.js` is hardcoded to devnet QuickNode. Set `window.__SOLANA_RPC_URL` to mainnet before prod deploy.
+
+---
 
 ### Phase 11: Polish & Production Prep — COMPLETE (2026-02-17)
 

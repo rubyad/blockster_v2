@@ -178,6 +178,19 @@ All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 - Pool JS hook: `assets/js/hooks/pool_hook.js` (deposit/withdraw signing).
 - LP prices: `LpPriceTracker` (GlobalSingleton, 60s poll) + `LpPriceHistory` (Mnesia, per-timeframe downsampling). Real-time chart updates via PubSub on `{:bet_settled, vault_type}`.
 
+## Shop / Checkout (SOL-direct)
+
+- Routes: `/shop` (`ShopLive.Index`), `/shop/:slug` (`ShopLive.Show`), `/cart` (`CartLive.Index`), `/checkout/:order_id` (`CheckoutLive.Index`).
+- Prices stored in USD; displayed in SOL primary + USD secondary via `BlocksterV2.Shop.Pricing` + `BlocksterV2Web.ShopComponents.product_price_block`. Rate from `PriceTracker.get_price("SOL")` (10-min CoinGecko poll).
+- Payment flow (Phase 5b): buyer pays remaining `subtotal + shipping − bux_discount` as a single SOL transfer from their connected wallet to a **unique ephemeral address per order**. No Helio, no Stripe, no external processor.
+  - Settler HKDF-derives the ephemeral keypair from `(PAYMENT_INTENT_SEED, order_id)` — stateless, no per-order key storage. Rotating the seed invalidates every unswept intent.
+  - `order_payment_intents` table holds pubkey + `expected_lamports` + status (`pending → funded → swept | expired | failed`) + 15-min `expires_at`.
+  - `PaymentIntentWatcher` (GlobalSingleton, 10s tick) polls settler `GET /intents/:pubkey` → on funded flips order → `paid`, broadcasts `{:order_updated, order}` on `order:<id>` → watcher sweeps next tick to `SOL_TREASURY_ADDRESS` (fee paid by `MINT_AUTHORITY`).
+  - Checkout JS hook: `assets/js/hooks/sol_payment.js` — builds `SystemProgram.transfer`, signs via Wallet Standard `signAndSendTransaction`.
+- BUX discount: still optional, still burns on-chain via `BuxPaymentHook` before the SOL payment step.
+- Per-product `bux_max_discount` cap (0/nil = uncapped = 100% discount allowed — known footgun, set explicit caps per product or change the fallback in `shop_live/show.ex`).
+- Settler env vars (required for prod): `PAYMENT_INTENT_SEED`, `SOL_TREASURY_ADDRESS`. Dev defaults exist. Full deploy runbook: [`docs/solana_mainnet_deployment.md`](docs/solana_mainnet_deployment.md) Step 5.
+
 ## Ad Banners
 
 - System: `lib/blockster_v2/ads.ex`, schema `ads/banner.ex`, components in `design_system.ex` via `<.ad_banner banner={banner} />`.
@@ -202,11 +215,11 @@ All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 
 ## Services & Routes
 
-| Service | URL |
-|---------|-----|
-| Main App | `https://blockster.com` |
-| Settler (Solana) | TBD (prod deploy pending) |
-| Legacy BUX Minter (EVM) | `https://bux-minter.fly.dev` |
+| Service | URL | Role |
+|---------|-----|------|
+| Main App | `https://blockster.com` | Phoenix LiveView |
+| Settler (Solana) | `https://blockster-settler.fly.dev` (prod deploy pending) | BUX mint, bet settlement, airdrop txs, shop payment intents |
+| Legacy BUX Minter (EVM) | `https://bux-minter.fly.dev` | Scheduled for shutdown post-migration; settler replaced it |
 
 **Telegram**: [Group](https://t.me/+7bIzOyrYBEc3OTdh), [Bot](https://t.me/BlocksterV2Bot). `t.me/blockster` is NOT ours — never use it.
 

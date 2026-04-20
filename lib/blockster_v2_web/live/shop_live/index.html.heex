@@ -220,15 +220,7 @@
                   </div>
                   <div class="p-4 md:p-5 flex flex-col flex-1 text-center">
                     <h3 class="font-bold text-[14px] md:text-[16px] text-[#141414] leading-tight mb-2 tracking-tight flex-1"><%= product.name %></h3>
-                    <div class="flex flex-col items-center mb-3">
-                      <%= if product.total_max_discount > 0 do %>
-                        <span class="text-[11px] text-neutral-400 line-through font-mono">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                        <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %></span>
-                        <span class="text-[10px] text-neutral-500 font-medium mt-0.5">with BUX tokens</span>
-                      <% else %>
-                        <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                      <% end %>
-                    </div>
+                    <.product_price_block product={product} sol_usd={@sol_usd} />
                     <div class="w-full py-2 bg-[#0a0a0a] text-white text-[11px] md:text-[12px] font-bold rounded-full text-center group-hover:bg-[#1a1a22] transition-colors">Buy Now</div>
                   </div>
                 </.link>
@@ -268,15 +260,7 @@
                 </div>
                 <div class="p-4 md:p-5 flex flex-col flex-1 text-center">
                   <h3 class="font-bold text-[14px] md:text-[16px] text-[#141414] leading-tight mb-2 tracking-tight flex-1"><%= product.name %></h3>
-                  <div class="flex flex-col items-center mb-3">
-                    <%= if product.total_max_discount > 0 do %>
-                      <span class="text-[11px] text-neutral-400 line-through font-mono">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                      <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %></span>
-                      <span class="text-[10px] text-neutral-500 font-medium mt-0.5">with BUX tokens</span>
-                    <% else %>
-                      <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                    <% end %>
-                  </div>
+                  <.product_price_block product={product} sol_usd={@sol_usd} />
                   <div class="w-full py-2 bg-[#0a0a0a] text-white text-[11px] md:text-[12px] font-bold rounded-full text-center group-hover:bg-[#1a1a22] transition-colors">Buy Now</div>
                 </div>
               </.link>
@@ -300,15 +284,7 @@
               </div>
               <div class="p-4 md:p-5 flex flex-col flex-1 text-center">
                 <h3 class="font-bold text-[14px] md:text-[16px] text-[#141414] leading-tight mb-2 tracking-tight flex-1"><%= product.name %></h3>
-                <div class="flex flex-col items-center mb-3">
-                  <%= if product.total_max_discount > 0 do %>
-                    <span class="text-[11px] text-neutral-400 line-through font-mono">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                    <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.max_discounted_price, decimals: 2) %></span>
-                    <span class="text-[10px] text-neutral-500 font-medium mt-0.5">with BUX tokens</span>
-                  <% else %>
-                    <span class="font-mono font-bold text-[20px] text-[#141414] leading-none">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                  <% end %>
-                </div>
+                <.product_price_block product={product} sol_usd={@sol_usd} />
                 <div class="w-full py-2 bg-[#0a0a0a] text-white text-[11px] md:text-[12px] font-bold rounded-full text-center group-hover:bg-[#1a1a22] transition-colors">Buy Now</div>
               </div>
             </.link>

@@ -42,12 +42,14 @@ Blockster App (blockster-v2, Fly.io)
 Blockster Settler (blockster-settler, Fly.io)
     │
     ├── Signs with authority keypair
+    ├── Derives shop payment-intent keypairs (HKDF, stateless)
     │
     ▼
 Solana Mainnet
     ├── BUX SPL Token (mint)
     ├── Bankroll Program (bets, LP, referrals)
-    └── Airdrop Program (rounds, prizes, claims)
+    ├── Airdrop Program (rounds, prizes, claims)
+    └── Shop payment intents (ephemeral pubkeys — direct SOL transfers)
 ```
 
 ### Wallets
@@ -315,6 +317,8 @@ flyctl secrets set \
   BANKROLL_PROGRAM_ID="49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm" \
   AIRDROP_PROGRAM_ID="wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG" \
   MINT_AUTHORITY_KEYPAIR='[PASTE_FULL_KEYPAIR_JSON_ARRAY]' \
+  PAYMENT_INTENT_SEED="$(openssl rand -hex 32)" \
+  SOL_TREASURY_ADDRESS="MAINNET_TREASURY_PUBKEY" \
   --stage --app blockster-settler
 ```
 
@@ -322,6 +326,13 @@ flyctl secrets set \
 ```bash
 cat contracts/blockster-settler/keypairs/mint-authority.json
 ```
+
+**Shop payment intents** (Phase 5b):
+
+- `PAYMENT_INTENT_SEED` — 32+ bytes of random hex. The settler HKDF-derives a unique ephemeral Solana keypair per order from `(seed, order_id)`, so no per-order key material is ever stored. Rotating this seed **invalidates every unswept payment intent** — only rotate after confirming all outstanding intents have `status: swept`.
+- `SOL_TREASURY_ADDRESS` — Solana pubkey that receives swept SOL from funded checkout intents. Distinct from the authority wallet if you want shop revenue isolated from program-operations funds. If unset, the settler falls back to the mint authority pubkey (fine for devnet; explicit pubkey required on mainnet).
+
+Sweep tx fees (~5000 lamports each) are paid by `MINT_AUTHORITY_KEYPAIR`, which already holds SOL for BUX minting — no additional budget needed beyond the authority wallet's existing runway.
 
 ### Deploy Settler
 
@@ -376,6 +387,8 @@ The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the se
 | `BUX_MINT_ADDRESS` | settler | Mainnet BUX mint address |
 | `BANKROLL_PROGRAM_ID` | settler | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` |
 | `AIRDROP_PROGRAM_ID` | settler | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` |
+| `PAYMENT_INTENT_SEED` | settler | 32-byte hex — HKDF master seed for shop checkout ephemeral keypairs |
+| `SOL_TREASURY_ADDRESS` | settler | Solana pubkey that receives swept shop revenue |
 
 ---
 
@@ -471,6 +484,7 @@ curl https://blockster.com
 4. **Coin Flip**: Go to `/play` → place a SOL bet → verify game works
 5. **Pool**: Go to `/pool` → deposit SOL → verify LP tokens received
 6. **Airdrop**: Go to `/airdrop` → verify page loads (round must be started first)
+7. **Shop checkout** (Phase 5b): Go to `/shop`, add a low-value item to cart, complete shipping → proceed to payment → verify a unique SOL address + expiry countdown render → click "Pay from connected wallet" → approve → verify order flips to "paid" within 10–20s and the confirmation page shows the funded tx Solscan link. Within the next minute or two `/admin/orders/:id` should show the `swept_tx_sig` populated (watcher ticks every 10s, sweep takes one extra tick after funding).
 
 ### Verify Bot Wallet Rotation
 
@@ -693,8 +707,8 @@ The EVM code is preserved on the `evm-archive` branch. The Solana code paths onl
 
 ```bash
 # 1. Fund wallets (send SOL from exchange/wallet)
-#    49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d — 5 SOL
-#    6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1 — 1 SOL
+#    49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d — 5 SOL (program deploys)
+#    6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1 — 3 SOL (program init + bot ATA surge + 1 month headroom)
 
 # 2. Set RPC
 export MAINNET_RPC=https://YOUR_QUICKNODE_MAINNET_URL
@@ -723,7 +737,7 @@ echo "Save this: $SHARED_SECRET"
 # 7. Build and deploy settler
 npm run build
 flyctl launch --name blockster-settler --region iad --no-deploy
-flyctl secrets set SOLANA_RPC_URL="$MAINNET_RPC" SOLANA_NETWORK="mainnet-beta" SETTLER_API_SECRET="$SHARED_SECRET" BUX_MINT_ADDRESS="MAINNET_MINT" BANKROLL_PROGRAM_ID="49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm" AIRDROP_PROGRAM_ID="wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG" MINT_AUTHORITY_KEYPAIR="$(cat keypairs/mint-authority.json)" --stage --app blockster-settler
+flyctl secrets set SOLANA_RPC_URL="$MAINNET_RPC" SOLANA_NETWORK="mainnet-beta" SETTLER_API_SECRET="$SHARED_SECRET" BUX_MINT_ADDRESS="MAINNET_MINT" BANKROLL_PROGRAM_ID="49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm" AIRDROP_PROGRAM_ID="wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG" MINT_AUTHORITY_KEYPAIR="$(cat keypairs/mint-authority.json)" PAYMENT_INTENT_SEED="$(openssl rand -hex 32)" SOL_TREASURY_ADDRESS="MAINNET_TREASURY_PUBKEY" --stage --app blockster-settler
 flyctl deploy --app blockster-settler
 
 # 8. Configure and deploy main app

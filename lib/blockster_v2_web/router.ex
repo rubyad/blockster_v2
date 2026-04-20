@@ -28,7 +28,7 @@ defmodule BlocksterV2Web.Router do
     pipe_through :browser
 
     live_session :admin,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.AdminAuth],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook, BlocksterV2Web.AdminAuth],
       layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
@@ -93,19 +93,19 @@ defmodule BlocksterV2Web.Router do
     get "/login", PageController, :login_redirect
 
     live_session :authenticated,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/settings/devices", MemberLive.Devices, :index
     end
 
     live_session :author_new,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, {BlocksterV2Web.AuthorAuth, :require_author}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook, {BlocksterV2Web.AuthorAuth, :require_author}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/new", PostLive.Form, :new
     end
 
     live_session :author_edit,
-      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
+      on_mount: [BlocksterV2Web.SearchHook, {BlocksterV2Web.UserAuth, :default}, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook, {BlocksterV2Web.AuthorAuth, :check_post_ownership}],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/:slug/edit", PostLive.Form, :edit
     end
@@ -142,7 +142,7 @@ defmodule BlocksterV2Web.Router do
     # and <BlocksterV2Web.DesignSystem.footer /> directly. As later waves migrate more
     # pages, they move from :default to :redesign one at a time.
     live_session :redesign,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook],
       layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/", PostLive.Index, :index
       live "/hubs", HubLive.Index, :index
@@ -168,7 +168,7 @@ defmodule BlocksterV2Web.Router do
     end
 
     live_session :default,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook],
       layout: {BlocksterV2Web.Layouts, :app} do
       live "/how-it-works", PostLive.HowItWorks, :index
       live "/events", EventLive.Index, :index
@@ -190,7 +190,7 @@ defmodule BlocksterV2Web.Router do
     # Article page in redesign layout — must come AFTER :default because
     # /:slug is a catch-all that would swallow specific routes if placed earlier.
     live_session :redesign_article,
-      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook],
+      on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook],
       layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/:slug", PostLive.Show, :show
     end
@@ -221,9 +221,6 @@ defmodule BlocksterV2Web.Router do
     # Token prices (from PriceTracker / CoinGecko cache)
     get "/prices", PriceController, :index
     get "/prices/:symbol", PriceController, :show
-
-    # Helio payment webhook (authenticated via Bearer token in handler)
-    post "/helio/webhook", HelioWebhookController, :handle
 
     # Twilio SMS opt-out/opt-in webhook
     post "/webhooks/twilio/sms", TwilioWebhookController, :handle

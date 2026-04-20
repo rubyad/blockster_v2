@@ -61,8 +61,13 @@ export const EngagementTracker = {
     this.reachedEnd = false;
     this.hasRecordedRead = false;
 
-    // Get article content element for calculating scroll depth
-    this.articleEl = document.getElementById("post-content");
+    // Get article content element for calculating scroll depth.
+    // Redesigned templates chunk content into #post-content-1, #post-content-2,
+    // etc.; legacy templates use a single #post-content. Match either so the
+    // hook works across both layouts.
+    this.articleEl =
+      document.getElementById("post-content") ||
+      document.querySelector("[id^='post-content-']");
     // Get the end marker element for detecting when user reaches the end
     this.endMarkerEl = document.getElementById("article-end-marker");
 
@@ -236,20 +241,20 @@ export const EngagementTracker = {
     this.lastScrollTime = now;
     this.scrollEvents++;
 
-    // Calculate scroll depth relative to article content
-    const articleRect = this.articleEl.getBoundingClientRect();
-    const articleTop = articleRect.top + window.scrollY;
+    // Calculate scroll depth using the end-marker as the true bottom of the
+    // article. Chunked templates split content across multiple divs, so the
+    // first chunk's height would vastly underestimate article length. Using
+    // endMarker.top − articleEl.top gives the real full-article height.
+    const articleTop = this.articleEl.getBoundingClientRect().top + window.scrollY;
     const viewportBottom = window.scrollY + window.innerHeight;
-
-    // Calculate how much of the article has been scrolled past
+    const articleBottom = this.endMarkerEl
+      ? this.endMarkerEl.getBoundingClientRect().top + window.scrollY
+      : articleTop + this.articleEl.getBoundingClientRect().height;
+    const articleHeight = Math.max(1, articleBottom - articleTop);
     const articleScrolled = viewportBottom - articleTop;
-    const articleHeight = articleRect.height;
-
-    if (articleHeight > 0) {
-      const newDepth = Math.min(100, Math.max(0, (articleScrolled / articleHeight) * 100));
-      if (newDepth > this.scrollDepth) {
-        this.scrollDepth = newDepth;
-      }
+    const newDepth = Math.min(100, Math.max(0, (articleScrolled / articleHeight) * 100));
+    if (newDepth > this.scrollDepth) {
+      this.scrollDepth = newDepth;
     }
 
     // Check if the end marker is visible in the viewport
@@ -273,6 +278,18 @@ export const EngagementTracker = {
       console.log("EngagementTracker: User reached end of article (marker/bottom visible with 100px buffer)");
 
       // Send the article-read event
+      this.sendReadEvent();
+      return;
+    }
+
+    // Mobile fallback: viewport-chrome changes + short articles can leave the
+    // 200px end-marker check unmet even after a genuine read. If the user has
+    // scrolled past 95% AND met the minimum read time, treat that as a complete
+    // read so they still receive their BUX.
+    if (!this.reachedEnd && !this.hasRecordedRead &&
+        this.scrollDepth >= 95 && this.timeSpent >= this.minReadTime) {
+      this.reachedEnd = true;
+      console.log("EngagementTracker: Completion via scrollDepth>=95% + min read time (mobile fallback)");
       this.sendReadEvent();
     }
   },

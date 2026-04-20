@@ -20,6 +20,7 @@ defmodule BlocksterV2.ContentAutomation.Config do
   def content_model, do: get(:content_model, "claude-opus-4-6")
   def topic_model, do: get(:topic_model, "claude-haiku-4-5-20251001")
   def feed_poll_interval, do: get(:feed_poll_interval, :timer.minutes(5))
+  def x_feed_poll_interval, do: get(:x_feed_poll_interval, :timer.minutes(60))
   def topic_analysis_interval, do: get(:topic_analysis_interval, :timer.minutes(15))
   def brand_x_user_id, do: get(:brand_x_user_id)
 end

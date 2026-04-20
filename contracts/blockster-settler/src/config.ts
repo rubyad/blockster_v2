@@ -62,6 +62,28 @@ export const MINT_AUTHORITY = loadKeypair(
 );
 
 // -------------------------------------------------------------------
+// Shop payment intents
+// -------------------------------------------------------------------
+
+// HKDF seed for deterministic ephemeral keypair derivation per-order.
+// Rotating this invalidates every outstanding unswept intent — only rotate
+// after confirming all prior intents have been swept.
+export const PAYMENT_INTENT_SEED =
+  process.env.PAYMENT_INTENT_SEED || "dev-payment-intent-seed-do-not-use-in-prod";
+
+// Treasury address that receives swept SOL from funded intents. In dev this
+// falls back to the mint authority pubkey so the settler has somewhere valid
+// to send test funds to.
+export const SOL_TREASURY_ADDRESS = new PublicKey(
+  process.env.SOL_TREASURY_ADDRESS || MINT_AUTHORITY.publicKey.toBase58()
+);
+
+// Keypair that pays fees for the sweep transaction. Defaults to the mint
+// authority — swept amounts arrive at the treasury, minus ~5000 lamports of
+// tx fee paid by this keypair.
+export const SWEEP_FEE_PAYER = MINT_AUTHORITY;
+
+// -------------------------------------------------------------------
 // Connection
 // -------------------------------------------------------------------
 

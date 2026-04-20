@@ -206,29 +206,39 @@
             <% end %>
           </div>
 
-          <%!-- Price block --%>
+          <%!-- Price block — SOL primary, USD secondary --%>
           <%
             total_price = @product.price * @quantity
             discount_amount_top = @tokens_to_redeem * @token_value_usd
             discounted_price_top = max(total_price - discount_amount_top, 0)
             discount_percent_top = if total_price > 0, do: round(discount_amount_top / total_price * 100), else: 0
             has_discount = @tokens_to_redeem > 0
+            sol_total = BlocksterV2.Shop.Pricing.usd_to_sol(total_price, @sol_usd)
+            sol_discounted = BlocksterV2.Shop.Pricing.usd_to_sol(discounted_price_top, @sol_usd)
           %>
-          <div class="flex flex-wrap items-baseline gap-3 mb-2">
+          <div class="mb-4">
             <%= if has_discount do %>
-              <span class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">
-                $<%= :erlang.float_to_binary(discounted_price_top, decimals: 2) %>
-              </span>
-              <span class="text-[18px] font-mono text-neutral-400 line-through">
-                $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
-              </span>
-              <span class="px-2 py-1 rounded-full bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 text-[11px] font-bold">
-                <%= discount_percent_top %>% OFF
-              </span>
+              <div class="flex flex-wrap items-baseline gap-3">
+                <span class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">
+                  {BlocksterV2.Shop.Pricing.format_sol(sol_discounted)} SOL
+                </span>
+                <span class="text-[16px] font-mono text-neutral-400 line-through">
+                  {BlocksterV2.Shop.Pricing.format_sol(sol_total)} SOL
+                </span>
+                <span class="px-2 py-1 rounded-full bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 text-[11px] font-bold">
+                  <%= discount_percent_top %>% OFF
+                </span>
+              </div>
+              <div class="mt-1 text-[12px] text-neutral-500 font-medium">
+                ≈ {BlocksterV2.Shop.Pricing.format_usd(discounted_price_top)} · was {BlocksterV2.Shop.Pricing.format_usd(total_price)}
+              </div>
             <% else %>
               <span class="font-mono font-bold text-[40px] text-[#141414] leading-none tracking-tight">
-                $<%= :erlang.float_to_binary(total_price, decimals: 2) %>
+                {BlocksterV2.Shop.Pricing.format_sol(sol_total)} SOL
               </span>
+              <div class="mt-1 text-[12px] text-neutral-500 font-medium">
+                ≈ {BlocksterV2.Shop.Pricing.format_usd(total_price)}
+              </div>
             <% end %>
           </div>
           <button
@@ -301,7 +311,10 @@
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-neutral-500 font-medium">You pay</span>
-                  <span class="font-mono font-bold text-[18px] text-[#141414]">$<%= :erlang.float_to_binary(discounted_price, decimals: 2) %></span>
+                  <div class="text-right">
+                    <div class="font-mono font-bold text-[18px] text-[#141414]">{BlocksterV2.Shop.Pricing.format_sol(BlocksterV2.Shop.Pricing.usd_to_sol(discounted_price, @sol_usd))} SOL</div>
+                    <div class="text-[10px] text-neutral-400 font-mono">≈ {BlocksterV2.Shop.Pricing.format_usd(discounted_price)}</div>
+                  </div>
                 </div>
               </div>
 
@@ -540,11 +553,13 @@
                 Coming Soon
               </button>
             <% else %>
+              <% cart_usd = if @tokens_to_redeem > 0, do: max(@product.price * @quantity - @tokens_to_redeem * @token_value_usd, 0), else: @product.price * @quantity %>
+              <% cart_sol = BlocksterV2.Shop.Pricing.usd_to_sol(cart_usd, @sol_usd) %>
               <button
                 phx-click="add_to_cart"
                 class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
               >
-                Add to cart · $<%= :erlang.float_to_binary(if(@tokens_to_redeem > 0, do: max(@product.price * @quantity - @tokens_to_redeem * @token_value_usd, 0), else: @product.price * @quantity), decimals: 2) %>
+                Add to cart · {BlocksterV2.Shop.Pricing.format_sol(cart_sol)} SOL
                 <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <button class="w-full text-center text-[12px] text-neutral-500 hover:text-[#141414] font-medium py-2 underline cursor-pointer">
@@ -605,15 +620,8 @@
             </div>
             <div class="p-4 text-center">
               <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2"><%= rp.name %></h3>
-              <div class="flex flex-col items-center mb-3">
-                <%= if rp.total_max_discount > 0 do %>
-                  <span class="text-[10px] text-neutral-400 line-through font-mono">$<%= :erlang.float_to_binary(rp.price, decimals: 2) %></span>
-                  <span class="font-mono font-bold text-[18px] text-[#141414]">$<%= :erlang.float_to_binary(rp.max_discounted_price, decimals: 2) %></span>
-                  <span class="text-[9px] text-neutral-500 font-medium">with BUX tokens</span>
-                <% else %>
-                  <span class="font-mono font-bold text-[18px] text-[#141414]">$<%= :erlang.float_to_binary(rp.price, decimals: 2) %></span>
-                <% end %>
-              </div>
+              <% rp_with_total = Map.put_new(rp, :total_max_discount, Map.get(rp, :total_max_discount, 0)) %>
+              <BlocksterV2Web.ShopComponents.product_price_block product={rp_with_total} sol_usd={@sol_usd} size="sm" />
               <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full">Buy Now</div>
             </div>
           </.link>

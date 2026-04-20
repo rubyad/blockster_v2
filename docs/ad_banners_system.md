@@ -2,7 +2,7 @@
 
 Everything that renders in an `ad_banners` slot on Blockster — template ads, real-time widgets, coin-flip demos — flows through one table, one admin UI, and one seed script. This doc is the single reference. When the system changes, update here first.
 
-> **Current inventory** (2026-04-17): 57 active + 5 dormant banners. See §6 for the seed flow.
+> **Current inventory** (2026-04-19): 57 active + 5 dormant banners. See §6 for the seed flow.
 
 > **Quick map**
 > - Schema: `lib/blockster_v2/ads/banner.ex`
@@ -155,6 +155,30 @@ The homepage uses a stronger guarantee than the article page: not only "no class
 4. Returns a list N × K long (default N=4, so 20 slots for a 5-class pool) so modulo wrap in the render layer doesn't produce same-class collisions at the boundary.
 
 The simpler `pick_one_per_class/1` exists for future placements that only need "one per class per mount" without random ordering.
+
+### Homepage Slot A — FateSwap pin
+
+Before the class-rotated pool is built, `post_live/index.ex` splits `homepage_inline` banners into two pools by template prefix:
+
+1. **FateSwap pool** — any banner whose `template` starts with `"fateswap_"`. Stored in the `:homepage_fateswap_pick` assign (one random banner, frozen at mount).
+2. **Everything else** — fed into `random_class_rotated_pool/2` as the `inline_desktop_banners` rotator.
+
+At render time, the component loop (`index.html.heex`) checks `comp.inline_banner_index == 1`. If true, it renders `@homepage_fateswap_pick` into Slot A (the first inline ad, after the 2nd component). All other inline slots pull from the rotated pool.
+
+If no FateSwap banner is active, `@homepage_fateswap_pick` is `nil` and Slot A falls back to the next banner in the rotated pool.
+
+Why: FateSwap is the strategic partner slot — it must appear on every homepage visit regardless of shuffle state.
+
+### Ads load on connected mount only
+
+`load_homepage_banners/2`, `load_listing_banners/2`, and the inline `if connected?(socket), do: ..., else: []` guards in `post_live/show.ex` gate banner queries on `connected?(socket)`.
+
+- First HTTP render (disconnected): banner lists are `[]`, no ads render.
+- WebSocket connects → `mount/3` runs a second time with `connected?: true`: banners load, random picks frozen, page re-renders with ads.
+
+Consequences:
+1. Users briefly see ad-free slots before the WebSocket handshake completes. On local dev + production same-origin this is <100 ms and invisible. Over slow tunnels (ngrok, pinggy, Cloudflare trycloudflare) it can be seconds.
+2. **Do not remove the gate.** Loading on both mounts means `Enum.random/1` runs twice with different seeds, producing different picks between the disconnected and connected renders — users see a banner flash on page load. The "slot briefly empty" trade-off is strictly better than the flash.
 
 ---
 

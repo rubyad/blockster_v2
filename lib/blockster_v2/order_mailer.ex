@@ -58,10 +58,9 @@ defmodule BlocksterV2.OrderMailer do
     <h3>Payment Summary</h3>
     <table>
       <tr><td>Subtotal:</td><td>$#{order.subtotal}</td></tr>
-      <tr><td>BUX Discount:</td><td>-$#{order.bux_discount_amount}</td></tr>
-      <tr><td>ROGUE Payment:</td><td>$#{order.rogue_payment_amount}</td></tr>
-      <tr><td>Helio Payment:</td><td>$#{order.helio_payment_amount} (#{order.helio_payment_currency || "N/A"})</td></tr>
-      <tr><td><strong>Total:</strong></td><td><strong>$#{order.total_paid}</strong></td></tr>
+      <tr><td>BUX Discount:</td><td>-$#{order.bux_discount_amount} (#{order.bux_tokens_burned} BUX burned)</td></tr>
+      <tr><td>Shipping:</td><td>$#{order.shipping_cost || "0"}</td></tr>
+      <tr><td><strong>Total:</strong></td><td><strong>$#{order.total_paid} (paid via SOL on chain)</strong></td></tr>
     </table>
 
     <p><em>Contact: #{order.shipping_email}</em></p>
@@ -100,10 +99,9 @@ defmodule BlocksterV2.OrderMailer do
 
     Payment Summary:
     Subtotal: $#{order.subtotal}
-    BUX Discount: -$#{order.bux_discount_amount}
-    ROGUE Payment: $#{order.rogue_payment_amount}
-    Helio Payment: $#{order.helio_payment_amount} (#{order.helio_payment_currency || "N/A"})
-    Total: $#{order.total_paid}
+    BUX Discount: -$#{order.bux_discount_amount} (#{order.bux_tokens_burned} BUX burned)
+    Shipping: $#{order.shipping_cost || "0"}
+    Total: $#{order.total_paid} (paid via SOL on chain)
 
     Contact: #{order.shipping_email}
     """

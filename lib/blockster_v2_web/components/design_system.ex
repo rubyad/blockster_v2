@@ -727,6 +727,70 @@ defmodule BlocksterV2Web.DesignSystem do
   end
 
   # ── <.footer /> ─────────────────────────────────────────────────────────────
+  # ── <.mobile_bottom_nav /> ─────────────────────────────────────────────────
+  #
+  # Bottom tab bar for mobile. Rendered in the redesign layout so every
+  # redesigned page (home, hub, article, shop, etc.) gets consistent nav on
+  # small screens. Hidden on md+ screens.
+
+  @doc """
+  Renders the fixed bottom navigation bar for mobile. The `DsMobileNavHighlight`
+  JS hook (see assets/js/app.js) toggles `data-active` on each tab based on the
+  current path — no server assign required.
+  """
+
+  def mobile_bottom_nav(assigns) do
+    ~H"""
+    <nav
+      id="ds-mobile-bottom-nav"
+      phx-hook="DsMobileNavHighlight"
+      phx-update="ignore"
+      class="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 backdrop-blur border-t border-neutral-200/80 pb-[env(safe-area-inset-bottom)]"
+    >
+      <ul class="flex items-stretch justify-between px-2">
+        <.mobile_nav_tab href={~p"/"} nav_path="/" label="News">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clip-rule="evenodd"/><path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z"/></svg>
+        </.mobile_nav_tab>
+        <.mobile_nav_tab href={~p"/hubs"} nav_path="/hubs" label="Hubs">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clip-rule="evenodd"/></svg>
+        </.mobile_nav_tab>
+        <.mobile_nav_tab href={~p"/shop"} nav_path="/shop" label="Shop">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd"/></svg>
+        </.mobile_nav_tab>
+        <.mobile_nav_tab href={~p"/pool"} nav_path="/pool" label="Pool">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M21 6.375c0 2.692-4.03 4.875-9 4.875S3 9.067 3 6.375 7.03 1.5 12 1.5s9 2.183 9 4.875Z"/><path d="M12 12.75c2.685 0 5.19-.586 7.078-1.609a8.283 8.283 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.301 8.301 0 0 0 1.897 1.384C6.809 12.164 9.315 12.75 12 12.75Z"/><path d="M12 16.5c2.685 0 5.19-.586 7.078-1.609a8.282 8.282 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.3 8.3 0 0 0 1.897 1.384C6.809 15.914 9.315 16.5 12 16.5Z"/></svg>
+        </.mobile_nav_tab>
+        <.mobile_nav_tab href={~p"/play"} nav_path="/play" label="Play">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 0 1 .75.75c0 5.056-2.383 9.555-6.084 12.436A6.75 6.75 0 0 1 9.75 22.5a.75.75 0 0 1-.75-.75v-4.131A15.838 15.838 0 0 1 6.382 15H2.25a.75.75 0 0 1-.75-.75 6.75 6.75 0 0 1 7.815-6.666ZM15 6.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" clip-rule="evenodd"/></svg>
+        </.mobile_nav_tab>
+      </ul>
+    </nav>
+    """
+  end
+
+  attr :href, :string, required: true
+  attr :nav_path, :string, required: true
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+
+  defp mobile_nav_tab(assigns) do
+    ~H"""
+    <li class="flex-1">
+      <.link
+        navigate={@href}
+        data-nav-path={@nav_path}
+        class="flex flex-col items-center justify-center gap-1 py-2.5 text-neutral-400 data-[active]:text-[#141414] transition-colors"
+      >
+        {render_slot(@inner_block)}
+        <span class="text-[10px] font-bold tracking-[0.04em]">
+          {@label}
+        </span>
+      </.link>
+    </li>
+    """
+  end
+
+  # ── <.footer /> ────────────────────────────────────────────────────────────
   #
   # The dark footer shared across every page. Mission line, address row,
   # link columns, newsletter form, bottom utility row with media kit link.
@@ -758,10 +822,10 @@ defmodule BlocksterV2Web.DesignSystem do
               <.logo size="22px" variant="dark" />
             </div>
             <h3 class="font-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">
-              Where the chain meets the model.
+              All in on Solana.
             </h3>
             <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px]">
-              Blockster is a decentralized publishing platform where readers earn BUX for engaging with the best writing in crypto and AI — and where every dollar of attention is settled on chain.
+              The home feed of the Solana ecosystem. Builders, protocols, culture — daily.
             </p>
             <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 leading-relaxed max-w-[360px]">
               <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -776,11 +840,9 @@ defmodule BlocksterV2Web.DesignSystem do
           <div class="col-span-6 md:col-span-2">
             <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Read</div>
             <ul class="space-y-2.5 text-[13px]">
-              <li><.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">Hubs</.link></li>
-              <li><a href="#" class="text-white/70 hover:text-white transition-colors">Categories</a></li>
-              <li><a href="#" class="text-white/70 hover:text-white transition-colors">Authors</a></li>
               <li><.link navigate={~p"/"} class="text-white/70 hover:text-white transition-colors">Latest</.link></li>
-              <li><a href="#" class="text-white/70 hover:text-white transition-colors">Trending</a></li>
+              <li><.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">Hubs</.link></li>
+              <li><.link navigate={~p"/how-it-works"} class="text-white/70 hover:text-white transition-colors">How it works</.link></li>
             </ul>
           </div>
 
@@ -788,10 +850,11 @@ defmodule BlocksterV2Web.DesignSystem do
           <div class="col-span-6 md:col-span-2">
             <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Earn</div>
             <ul class="space-y-2.5 text-[13px]">
-              <li><a href="#" class="text-white/70 hover:text-white transition-colors">BUX Token</a></li>
+              <li><.link navigate={~p"/pool/bux"} class="text-white/70 hover:text-white transition-colors">BUX Token</.link></li>
               <li><.link navigate={~p"/pool"} class="text-white/70 hover:text-white transition-colors">Pool</.link></li>
               <li><.link navigate={~p"/play"} class="text-white/70 hover:text-white transition-colors">Play</.link></li>
               <li><.link navigate={~p"/shop"} class="text-white/70 hover:text-white transition-colors">Shop</.link></li>
+              <li><.link navigate={~p"/airdrop"} class="text-white/70 hover:text-white transition-colors">Airdrop</.link></li>
             </ul>
           </div>
 
@@ -829,7 +892,6 @@ defmodule BlocksterV2Web.DesignSystem do
             <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
             <a href="/terms" class="hover:text-white transition-colors">Terms</a>
             <a href="/cookies" class="hover:text-white transition-colors">Cookie Policy</a>
-            <a href="#" class="hover:text-white transition-colors">Status</a>
           </div>
         </div>
       </div>
@@ -1648,9 +1710,9 @@ defmodule BlocksterV2Web.DesignSystem do
   @doc """
   Renders the dark anonymous Welcome / Connect Wallet hero.
   """
-  attr :article_count, :string, default: "12,450"
-  attr :bux_paid, :string, default: "4.2M"
-  attr :hub_count, :string, default: "66"
+  attr :article_count, :string, required: true
+  attr :bux_paid, :string, required: true
+  attr :hub_count, :any, required: true
   attr :preview_image, :string, default: nil
   attr :preview_title, :string, default: nil
   attr :preview_hub_name, :string, default: nil
@@ -1671,10 +1733,10 @@ defmodule BlocksterV2Web.DesignSystem do
             Welcome to Blockster
           </div>
           <h2 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[32px] md:text-[58px] mb-5 max-w-[640px]">
-            The chain meets the model. <span class="text-white/45">Read it daily.</span>
+            All in on Solana. <span class="text-white/45">The center of the ecosystem.</span>
           </h2>
           <p class="text-white/65 text-[15px] md:text-[16px] leading-[1.55] max-w-[520px] mb-6 md:mb-7">
-            Blockster is a publication about the intersection of crypto and AI. We pay readers BUX for engaging with the best writing in the space — and every dollar of attention is settled on chain.
+            Blockster is a Solana publication. Solana is the most active chain in crypto — we cover the builders, the protocols, the drops, and everything moving on-chain. Read the stories. Follow the ecosystem. Earn BUX for every article you engage with.
           </p>
           <div class="flex items-center gap-3 flex-wrap">
             <button
@@ -1689,7 +1751,7 @@ defmodule BlocksterV2Web.DesignSystem do
               Connect Wallet to start earning
             </button>
             <a
-              href="#"
+              href="/hubs"
               class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors text-[13px]"
             >
               Or browse without an account
@@ -1722,12 +1784,14 @@ defmodule BlocksterV2Web.DesignSystem do
               </h3>
               <div class="flex items-center justify-between text-[10px]">
                 <span class="text-neutral-500">
-                  {@preview_author}{if @preview_read_minutes, do: " · #{@preview_read_minutes} min", else: ""}
+                  <% author = if @preview_author in [nil, "", "Anonymous", "Unknown"], do: nil, else: @preview_author %>
+                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes, do: "#{@preview_read_minutes} min", else: ""}
                 </span>
-                <%= if @preview_bux_reward do %>
+                <% reward = parse_reward(@preview_bux_reward) %>
+                <%= if reward > 0 do %>
                   <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-bold">
                     <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
-                    Earn {@preview_bux_reward} BUX
+                    {reward} BUX
                   </div>
                 <% end %>
               </div>
@@ -1777,7 +1841,7 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
           <h3 class="font-bold text-[16px] text-[#141414] mb-2">Follow {@hub_count} hubs</h3>
           <p class="text-[13px] text-neutral-600 leading-relaxed">
-            Curate your own feed by following the hubs you care about. Solana, Bitcoin, Ethereum, Moonpay and more.
+            Curate your own feed by following the hubs you care about. Solana, Moonpay and more.
           </p>
         </div>
         <div class="bg-white rounded-2xl p-6 border border-neutral-200/70">
@@ -3073,13 +3137,23 @@ defmodule BlocksterV2Web.DesignSystem do
               </div>
             <% end %>
 
-            <%!-- Outline CTA pill --%>
-            <div class="pb-8 px-8 pt-6 text-center">
+            <%!-- Outline CTA pill — uses first word of cta on mobile so wide
+                 uppercase tracking doesn't blow the pill out of the card. --%>
+            <% cta_full = @p["cta_text"] || "Learn more" %>
+            <% cta_short = cta_full |> String.split(" ", trim: true) |> List.first() || cta_full %>
+            <div class="pb-8 px-6 md:px-8 pt-6 text-center">
               <div
-                class="inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold text-[11px] uppercase tracking-[0.2em] transition-colors"
+                class="hidden md:inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold text-[11px] uppercase tracking-[0.2em] transition-colors"
                 style={"border: 1px solid #{@p["accent_color"] || "#C9A961"}; color: #{@p["accent_color"] || "#C9A961"};"}
               >
-                {@p["cta_text"] || "Learn more"}
+                {cta_full}
+                <span class="inline-block">→</span>
+              </div>
+              <div
+                class="inline-flex md:hidden items-center gap-2 px-4 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-[0.16em] transition-colors"
+                style={"border: 1px solid #{@p["accent_color"] || "#C9A961"}; color: #{@p["accent_color"] || "#C9A961"};"}
+              >
+                {cta_short}
                 <span class="inline-block">→</span>
               </div>
             </div>
@@ -4105,4 +4179,22 @@ defmodule BlocksterV2Web.DesignSystem do
   defp compact_number(n) when n >= 1_000_000, do: "#{Float.round(n / 1_000_000, 1)}M"
   defp compact_number(n) when n >= 1_000, do: "#{Float.round(n / 1_000, 1)}k"
   defp compact_number(n), do: "#{n}"
+
+  # Normalizes a BUX reward value (any of nil / int / float / "0.0" / Decimal)
+  # into a non-negative integer for display in preview badges.
+  defp parse_reward(nil), do: 0
+  defp parse_reward(n) when is_integer(n) and n >= 0, do: n
+  defp parse_reward(n) when is_integer(n), do: 0
+  defp parse_reward(n) when is_float(n) and n >= 0, do: trunc(n)
+  defp parse_reward(n) when is_float(n), do: 0
+  defp parse_reward(%Decimal{} = d), do: d |> Decimal.to_float() |> parse_reward()
+
+  defp parse_reward(s) when is_binary(s) do
+    case Float.parse(s) do
+      {n, _} -> parse_reward(n)
+      :error -> 0
+    end
+  end
+
+  defp parse_reward(_), do: 0
 end

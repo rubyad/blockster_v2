@@ -62,11 +62,9 @@ config :blockster_v2,
   twilio_account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
   twilio_auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
   twilio_verify_service_sid: System.get_env("TWILIO_VERIFY_SERVICE_SID"),
-  # Helio payments (card/crypto checkout)
-  helio_api_key: System.get_env("HELIO_API_KEY"),
-  helio_secret_key: System.get_env("HELIO_SECRET_KEY"),
-  helio_paylink_id: System.get_env("HELIO_PAYLINK_ID"),
-  helio_webhook_secret: System.get_env("HELIO_WEBHOOK_SECRET"),
+  # SOL direct-pay checkout (Phase 5b): ephemeral keypairs live on the
+  # settler. Treasury + payment-intent seed are configured in the settler
+  # service (SOL_TREASURY_ADDRESS / PAYMENT_INTENT_SEED env vars).
   # Telegram fulfillment notifications
   telegram_bot_token: System.get_env("TELEGRAM_BOT_TOKEN"),
   telegram_fulfillment_channel_id: System.get_env("TELEGRAM_FULFILLMENT_CHANNEL_ID"),
@@ -103,6 +101,7 @@ config :blockster_v2,
       val -> String.to_integer(val)
     end),
     feed_poll_interval: :timer.minutes(5),
+    x_feed_poll_interval: :timer.minutes(60),
     topic_analysis_interval: :timer.minutes(15)
   ],
   hourly_promo: [

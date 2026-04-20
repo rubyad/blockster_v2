@@ -220,6 +220,26 @@
 - **IDL consistency tests**: `contracts/blockster-settler/tests/` — discriminator verification, PDA derivation, account count, program ID checks
 - **Total devnet SOL spent**: ~4.5 SOL (program deploys + PDA rent)
 
+### Phase 13: Shop SOL-Direct Checkout — COMPLETE (2026-04-19)
+
+Supersedes Phase 9A's Helio integration. Shop now accepts SOL exclusively via ephemeral address per order.
+
+- **Architecture**: Settler HKDF-derives an ephemeral keypair from `(PAYMENT_INTENT_SEED, order_id)` — stateless, no per-order key storage. Elixir persists pubkey + expected_lamports + TTL in `order_payment_intents`. JS hook builds `SystemProgram.transfer`, buyer signs via Wallet Standard. `PaymentIntentWatcher` (GlobalSingleton, 10s tick) polls settler, marks paid, broadcasts PubSub → checkout page flips to confirmation. Next tick sweeps funds to `SOL_TREASURY_ADDRESS`.
+- **Helio removal**: `lib/blockster_v2/helio.ex` + `helio_webhook_controller.ex` deleted. `/helio/webhook` route gone. `HelioCheckoutHook` JS removed. `helio_*` runtime config dropped. Historical `helio_*` columns on `orders` retained for legacy order rendering only.
+- **Shop SOL pricing (Phase 5a in build history)**: All shop cards, product page, cart, checkout display SOL primary / USD secondary. USD remains the storage currency; conversion via `BlocksterV2.Shop.Pricing.usd_to_sol/2` reading `PriceTracker.get_price("SOL")` cache (10-min CoinGecko poll).
+- **Admin**: `orders_admin_live` and `order_admin_live.show` got SOL intent columns (amount, status, funded tx, swept tx with Solscan links). Product form shows live USD → SOL preview.
+- **New settler env vars required for prod**: `PAYMENT_INTENT_SEED` (32-hex seed, rotate only after all outstanding intents are `swept`), `SOL_TREASURY_ADDRESS` (pubkey receiving shop revenue). Dev defaults exist. Runbook: [`solana_mainnet_deployment.md`](solana_mainnet_deployment.md) Step 5.
+- **Known follow-ups**: (a) `Orders.process_paid_order` still computes affiliate from `helio_payment_amount` (0 on new orders) — swap to `total_paid` before affiliate payouts on SOL orders. (b) `bux_max_discount: 0` across all products = uncapped 100% BUX discount (pre-existing footgun; set explicit caps or change the fallback in `shop_live/show.ex`).
+- Full narrative: [`solana_build_history.md`](solana_build_history.md#shop--sol-direct-checkout--redesign-polish-2026-04-19-).
+- Detailed implementation phases: [`shop_checkout_plan.md`](shop_checkout_plan.md) Phase 12.
+
+### Phase 13b: Redesign Polish — Mobile Nav + Sticky Earning Bar + Engagement Tracker Fix — COMPLETE (2026-04-19)
+
+- **Critical bug fix**: Engagement tracker was silently never firing `article-read` after the redesign. `#post-content` (singular) id didn't match the redesigned chunked ids (`#post-content-1/2/3/4`). Fix: `getElementById("post-content") || querySelector("[id^='post-content-']")`, plus using `#article-end-marker` for accurate scroll-depth calc, plus a `scrollDepth >= 95 + minReadTime` fallback trigger for mobile viewports. Full narrative: [`session_learnings.md`](session_learnings.md#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026).
+- **Mobile bottom nav**: `DesignSystem.mobile_bottom_nav/1` rendered in the redesign layout with 5 tabs (News/Hubs/Shop/Pool/Play), highlighted via new `DsMobileNavHighlight` JS hook (data-active attr toggled by pathname). Redesign layout wraps `@inner_content` in `pb-20` for clearance.
+- **Mobile sticky earning bar**: Replaces the hidden desktop floating panel on mobile. Five states matching desktop (earning live / earned / needs SOL / pool empty / anonymous earning). `animate-pulse-once` + `ring-2 ring-[#CAFC00]` lime border on transition to "Earned". 2-decimal BUX amounts.
+- **Mobile Phantom deep-link**: Wallet selector mobile section now shows "Open in {wallet}" deep-link buttons per wallet with a `browse_url`, replacing the detection-based desktop UI which fails on mobile Safari/Chrome. New `OpenInWallet` JS hook (generic, reads `data-browse-url`, uses `window.location.href` at click time).
+
 ---
 
 ## Executive Summary

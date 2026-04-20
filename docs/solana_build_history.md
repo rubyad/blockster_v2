@@ -9,6 +9,154 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Shop → SOL Direct Checkout + Redesign Polish (2026-04-19) ✅
+
+Big mixed push: replaced Helio with native SOL-direct checkout for the shop, fixed a critical engagement-tracker bug that silently blocked every BUX payment after the redesign, and cleaned up a batch of post-redesign UX debt.
+
+### Phase 5b — SOL-direct checkout (kill Helio)
+
+The shop now accepts SOL exclusively, via a unique on-chain address per order.
+
+**Flow:**
+1. Buyer applies BUX for an optional discount (unchanged — still burns BUX on-chain via `initiate_bux_payment` + `BuxPaymentHook`).
+2. On reaching the `:payment` step, `CheckoutLive.Index` asks the settler (`POST /intents`) to derive a fresh ephemeral Solana keypair for this order.
+3. Settler returns a pubkey; we persist it in the new `order_payment_intents` table along with `expected_lamports`, `quoted_usd`, `quoted_sol_usd_rate`, `expires_at` (15-min TTL).
+4. Checkout page shows the pubkey + copy button + live countdown + "Pay from connected wallet" button.
+5. User clicks Pay → `SolPaymentHook` JS builds a `SystemProgram.transfer` for exactly `expected_lamports` and signs via Wallet Standard `signAndSendTransaction`.
+6. `PaymentIntentWatcher` (GlobalSingleton, 10s tick) polls the settler's `GET /intents/:pubkey?expected=X` endpoint for each pending intent; when `funded` flips true, marks the intent + order as paid inside a DB transaction and broadcasts `{:order_updated, order}` on the `order:<id>` PubSub topic so the checkout page flips to the confirmation step instantly.
+7. Next tick, the watcher sweeps funded intents via `POST /intents/:pubkey/sweep` → settler signs a `SystemProgram.transfer` from ephemeral → `SOL_TREASURY_ADDRESS`, uses `MINT_AUTHORITY` as fee payer, confirms via `getSignatureStatuses` polling (per CLAUDE.md Solana tx rules — never `confirmTransaction`).
+
+**Why ephemeral HKDF-derived keys:**
+- Settler has no per-order keypair storage. On intent creation, it derives with `HKDF-SHA256(PAYMENT_INTENT_SEED, salt="blockster-shop-intent", info=order_id, 32)` → `Keypair.fromSeed(seed)`. On sweep, the Elixir side sends back the `order_id`, settler re-derives, signs, forgets.
+- Rotating `PAYMENT_INTENT_SEED` invalidates every unswept intent — only rotate after confirming all outstanding are `status: swept`.
+
+**New files:**
+- `priv/repo/migrations/20260420024131_create_order_payment_intents.exs` — table with order_id (unique), pubkey (unique), status, funded_tx_sig, swept_tx_sig, expires_at.
+- `lib/blockster_v2/orders/payment_intent.ex` — schema with status lifecycle `pending → funded → swept | expired | failed`.
+- `lib/blockster_v2/payment_intents.ex` — context: `create_for_order/2`, `mark_funded/3` (transaction + PubSub broadcast), `mark_swept/2`, `mark_expired/1`.
+- `lib/blockster_v2/settler_client.ex` — HTTP client for the 3 settler endpoints.
+- `lib/blockster_v2/payment_intent_watcher.ex` — GlobalSingleton GenServer in the supervision tree.
+- `contracts/blockster-settler/src/services/payment-intent-service.ts` — key derivation + `getBalance` status + sweep tx builder.
+- `contracts/blockster-settler/src/routes/payment-intents.ts` — POST /intents, GET /intents/:pubkey, POST /intents/:pubkey/sweep.
+- `assets/js/hooks/sol_payment.js` — hook that catches `send_sol_payment`, builds `SystemProgram.transfer`, signs+submits, handles the countdown.
+
+**Files rewritten / cleaned:**
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — all Helio event handlers deleted. New: `initiate_sol_payment`, `sol_payment_submitted`, `sol_payment_error`. Intent created on `proceed_to_payment` (or after `bux_payment_complete` when there's a BUX step). PubSub `order:<id>` subscription in mount flips to `:confirmation` when watcher broadcasts.
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — Helio card replaced with SOL payment card (SOL amount primary, USD secondary, locked rate display, address, copy button, countdown, Pay button). Review + payment total boxes show SOL primary / USD secondary. Confirmation step shows `payment_intent.funded_tx_sig` Solscan link.
+- `lib/blockster_v2/orders/order.ex` — schema unchanged (helio_* columns preserved for historical orders); no code path writes them now.
+
+**Deleted:**
+- `lib/blockster_v2/helio.ex`, `lib/blockster_v2_web/controllers/helio_webhook_controller.ex`, `/helio/webhook` route, `HelioCheckoutHook` JS hook import, `helio_*` entries in `config/runtime.exs`.
+
+### Phase 5a — SOL pricing on shop (storefront)
+
+Shop product cards, product detail, cart, checkout all show SOL as the primary amount with USD equivalent below.
+
+- `lib/blockster_v2/shop/pricing.ex` — helper module: `sol_usd_rate/0` (reads from `PriceTracker` Mnesia cache, fallback 150.0), `usd_to_sol/2`, `format_sol/1`, `format_usd/1`.
+- `lib/blockster_v2_web/components/shop_components.ex` — new `product_price_block/1` function component. Used on shop index (slotted, unslotted, filtered grids) + related-products grid on the product detail page.
+- Checkout review + payment totals render SOL/USD split. Add-to-cart button shows "Add to cart · X SOL".
+
+**Admin form** (`lib/blockster_v2_web/live/product_live/form.ex`): price input still stored as USD (USD is the storage currency) but gained a live SOL preview next to the input showing the current conversion at the cached rate — admins see what buyers will see.
+
+### Phase 5c — Orders admin SOL payment surface
+
+- `lib/blockster_v2_web/live/orders_admin_live.ex` — Payment column now shows SOL intent amount + status + funded-tx Solscan link per order. Filter list dropped the `rogue_pending` / `rogue_paid` / `helio_pending` statuses.
+- `lib/blockster_v2_web/live/order_admin_live/show.ex` — dedicated SOL payment panel: ephemeral pubkey, status, funded tx, swept tx (with Solscan links). Payment intent loaded in mount via `PaymentIntents.get_for_order/1`.
+
+### Phase 3 — Engagement tracker bug fix (BUX was silently never paying)
+
+**Root cause:** `assets/js/engagement_tracker.js` looked for `document.getElementById("post-content")` — singular. The legacy template used that id, but the redesigned article template chunks content into `#post-content-1`, `#post-content-2`, etc. Result: `this.articleEl` was `null` → `trackScroll()` early-returned on every scroll tick → `scrollDepth` stayed 0, `isEndReached` never fired → **neither `article-read` (logged-in mint) nor `show-anonymous-claim` (anonymous claim modal) was ever dispatched**.
+
+Silent failure mode — no error, no log, no server hit. Both desktop and mobile affected. Shipped on top of the redesign with no one noticing until users complained they'd read articles but their BUX balance hadn't moved.
+
+**Fix:**
+- `articleEl = document.getElementById("post-content") || document.querySelector("[id^='post-content-']")` — matches either the legacy singular id or any suffixed chunk.
+- Scroll-depth calc now uses `article-end-marker` as the true article bottom (first chunk is only ~1/4 of the article; chunk height alone would misreport 100% after the user scrolls past one section).
+- Added belt-and-suspenders completion trigger in `trackScroll`: if `scrollDepth >= 95 && timeSpent >= minReadTime` and the end-marker visibility check hasn't fired yet, dispatch `sendReadEvent` anyway. Catches mobile viewports where dynamic chrome (URL bar collapse) shifts the 200px end-marker buffer check off.
+
+**Anonymous claim chain is unchanged code-wise** — it was always intact (`localStorage` stores `pending_claim_read_<postId>`, `app.js` passes it as connect_params on next LV mount, `member_live/show.ex:946 process_pending_claims/2` redeems on first visit to the member page after signup). It just never fired because the JS never reached `sendReadEvent`.
+
+### Phase 3 (cont.) — Mobile bottom nav + sticky earning bar
+
+The redesign layout intentionally dropped the legacy `app.html.heex` mobile nav. That left the redesigned pages with no bottom nav on mobile — not a regression, an incomplete migration. Added:
+
+- `BlocksterV2Web.DesignSystem.mobile_bottom_nav/1` — 5 tabs (News / Hubs / Shop / Pool / Play), rendered in `redesign.html.heex`, `md:hidden`, `fixed bottom-0`, backdrop-blur.
+- `DsMobileNavHighlight` JS hook — toggles `data-active` on the current tab's link based on pathname, styled via Tailwind `data-[active]:text-[#141414]` variants. No server-side `active_nav` assign needed.
+- `redesign.html.heex` wraps `@inner_content` in `pb-20` so content clears the nav on mobile.
+
+**Mobile sticky earning bar** (`lib/blockster_v2_web/live/post_live/show.html.heex` lines 279+):
+- The old template had two hard-coded `hidden fixed bottom-[68px]` bars — never rendered. Replaced with a visible `md:hidden fixed bottom-16` sticky bar that shows the same states as the desktop panel (earning live / earned / needs SOL / pool empty / anonymous earning).
+- "Earned" state now gets `animate-pulse-once` (existing keyframe in `app.css` — scale 1 → 1.1 → 1 with orange glow, 0.6s) on transition + persistent `ring-2 ring-[#CAFC00]` lime border so the flip is unmistakable.
+- BUX amount renders with 2 decimal places on both desktop + mobile bars (switched from `trunc(earned_amount)` to `:erlang.float_to_binary(earned_amount, decimals: 2)`).
+
+### Phase 4 — Mobile Phantom deep-link
+
+The wallet selector was showing "Install Phantom" to mobile users who had Phantom installed but opened the site in Safari/Chrome (where Wallet Standard isn't exposed). Ported the RogueTrader pattern: on mobile, skip detection entirely and show per-wallet "Open in {wallet}" deep-links using each wallet's `browse_url` (Phantom: `https://phantom.app/ul/browse/<current-url>`).
+
+- `OpenInWallet` JS hook — generic, reads `data-browse-url`, uses `window.location.href` at click time so the deep link lands on the exact page the user was on.
+- Mobile modal section (`md:hidden`) shows one button per wallet with a `browse_url` (Phantom, Solflare); desktop wallet-detection list is now `hidden md:block` — no more "two Phantom buttons" visual bug.
+
+### Phase 1 + 2 — Footer, homepage hero, announcement banner, member page cleanup
+
+- **Footer** (`design_system.ex:737+`): tagline → "All in on Solana.", description → "The home feed of the Solana ecosystem. Builders, protocols, culture — daily.", Authors/Trending/Categories/Status placeholder links removed, remaining links all resolve to real routes.
+- **Newsletter subscribe** (footer form was previously dead): new `BlocksterV2.Newsletter.Subscription` schema + migration (`20260419230210_create_newsletter_subscriptions.exs`), `BlocksterV2.Newsletter` context with idempotent `subscribe/2` (resubscribes a previously-unsubscribed email in place), `BlocksterV2Web.NewsletterHook` that `attach_hook`s a `newsletter_subscribe` handle_event to every live_session via router on_mount. Works on any page without per-LiveView wiring.
+- **Homepage hero** (`welcome_hero` in `design_system.ex`): heading rewritten to "All in on Solana. The center of the ecosystem.", description Solana-focused. Real stats: `article_count` from `Blog.count_published_posts/0`, `bux_paid` from new `EngagementTracker.get_total_bux_distributed/0` (sums `post_bux_points` Mnesia rows). Defaults removed — assigns now required. `hub_count` already real. "Earn 0 BUX" badge hidden entirely when reward is 0; "Earn " prefix stripped from the badge (now just "X BUX"). Suppresses `preview_author` when it's empty / "Anonymous" / "Unknown".
+- **Tag + category pages**: `"Unknown"` fallback → `"Anonymous"` to match the `Shared.author_name/1` convention.
+- **Hub show page**: "Earn {bux_balance} BUX" badges → "{bux_balance} BUX" (no "Earn " prefix).
+- **Announcement banner** (`announcement_banner.ex:100+`): `conditional_referral/1` now passes `link: "/member/#{slug}?tab=refer"` — was `link: nil` so the "Share Link →" CTA was non-clickable.
+- **Member page Danger Zone**: deleted (export / deactivate were placeholders; "Disconnect wallet" lives in the header logout button post-redesign).
+
+### Mobile/visual polish
+
+- Patriotic ad template (`patriotic_portrait`): mobile variant uses the first word of `cta_text` only (full text on desktop) so "Honor the legacy →" doesn't overflow on narrow screens.
+- Fake homepage hero numbers ("12,450", "4.2M") gone — all three stats come from real data.
+
+### Deploy impact
+
+- **New DB migrations** run via `release_command`: `newsletter_subscriptions` + `order_payment_intents`. Both auto-apply on next deploy.
+- **New settler env vars needed before checkout works on prod**: `PAYMENT_INTENT_SEED` (32 hex bytes) + `SOL_TREASURY_ADDRESS`. Dev defaults exist — prod requires both via `flyctl secrets set --stage --app blockster-settler`. Full runbook: [`solana_mainnet_deployment.md`](solana_mainnet_deployment.md) Step 5.
+- **Legacy Helio API credentials** (`HELIO_API_KEY`, `HELIO_SECRET_KEY`, `HELIO_PAYLINK_ID`, `HELIO_WEBHOOK_SECRET`) can be removed from prod via `flyctl secrets unset --stage`. Historical orders with Helio columns still render; no new orders write them.
+
+### Known follow-ups (NOT done in this push)
+
+- `Orders.process_paid_order` still calculates affiliate commission from `order.helio_payment_amount`. New SOL orders have that field at 0, so no affiliate payouts compute. Needs a swap to use `total_paid` or the intent's `expected_lamports` converted to USD before affiliate payouts work on SOL orders.
+- `bux_max_discount = 0` on all 93 active products means each product currently allows 100% BUX discount (the pre-5a fallback treats 0 as "uncapped"). Flagged to the user — recommended fix is either (a) change the fallback in `shop_live/show.ex:67-69` + `transform_product/1` from `100.0` to `50.0`, or (b) bulk-set per-product caps via admin before deploy.
+- SOL RPC URL in `sol_payment.js` hardcodes the QuickNode devnet URL. Prod needs `window.__SOLANA_RPC_URL` wired to the mainnet endpoint before shipping.
+
+---
+
+## Content Automation — X Feed Ingestion (2026-04-19) ✅
+
+Extended `FeedPoller` to ingest X (Twitter) timelines alongside RSS feeds so the daily AI editor can pull content from Solana-ecosystem projects that are X-native (no blog/RSS). Wires into the existing `BlocksterV2.Social.XApiClient` + brand OAuth token already used by `XProfileFetcher` for "Blockster of the Week".
+
+**Config** (`lib/blockster_v2/content_automation/feed_config.ex`)
+- Feed entries gained an optional `:type` field (`:rss` default, `:x` new). RSS entries unchanged — `get_active_feeds/0` normalizes missing `:type` to `:rss` for backward compat.
+- X entry shape: `%{source, type: :x, handle, tier, status}` (no `:url`).
+- New splitters: `get_active_rss_feeds/0`, `get_active_x_feeds/0`.
+- Added 15 Solana X accounts (all `status: :active`): Kamino, Pyth Network, SNS as `:premium`; Blinks.gg, Bio Protocol, Natix, Swarms, SwarmNode, Momo Agent, Unitas Labs, Staika, Perle Labs, Reservoir, Pumpcade, PayAI Network as `:standard`. All flow into the existing `"solana"` category (boost 3.0, max 4/day in `TopicEngine.@baseline_category_config`).
+
+**Poller** (`lib/blockster_v2/content_automation/feed_poller.ex`)
+- Split into two independent timers: `:poll_rss` (5 min) and `:poll_x` (60 min). Paused state check applies to both.
+- X poll reads the brand access token via `Config.brand_x_user_id()` + `Social.get_x_connection_for_user/1` — same path `XProfileFetcher` uses. If the token is missing, the poll logs a warning and no-ops (does not crash).
+- Per X feed: `XApiClient.get_user_by_username/2` → `XApiClient.get_user_tweets_with_metrics/3` (50 tweets, excludes retweets). Tweets map into the existing `ContentFeedItem` shape:
+  - `title` = first 120 chars of text (single-line, truncated with `…`)
+  - `url` = `https://twitter.com/<handle>/status/<id>` (unique constraint dedups repeat polls for free)
+  - `summary` = full tweet text
+  - `published_at` = `created_at` from the tweet
+- Handle → `user_id` cache held in GenServer state with a 7-day TTL, so we don't burn a user-lookup call per feed per poll.
+- Admin dashboard: `force_poll/0` still triggers RSS (unchanged); added `force_poll_x/0` for manual X refresh.
+
+**Runtime config** (`config/runtime.exs`, `lib/blockster_v2/content_automation/config.ex`)
+- Added `x_feed_poll_interval` (default `:timer.minutes(60)`) — separate knob from `feed_poll_interval` so X stays inside API quota.
+
+**Rate-limit math**: 15 X feeds × 1 timeline call/hour = 360 reads/day, well inside the X API Basic tier's 10k reads/mo. User-lookup calls are amortized by the 7-day cache (~2 lookups/handle/week).
+
+**Ops prerequisites**:
+- `BRAND_X_USER_ID` env var must be set on Fly.
+- The brand user must have a valid X OAuth connection (same connection used for Blockster of the Week auto-tweets + retweet profile fetches).
+
+---
+
 ## Real-Time Widgets — Phase 5 (2026-04-14) ✅
 
 Tickers + leaderboard + FateSwap hero cards shipped. The five new widgets (`rt_ticker`, `fs_ticker`, `rt_leaderboard_inline`, `fs_hero_portrait`, `fs_hero_landscape`) finish the "all-data" and "self-selected FateSwap" halves of the catalog; the three sidebar-tile variants (`rt_sidebar_tile`, `fs_square_compact`, `fs_sidebar_tile`) remain for Phase 6 polish.

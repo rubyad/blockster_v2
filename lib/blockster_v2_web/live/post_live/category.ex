@@ -217,7 +217,7 @@ defmodule BlocksterV2Web.PostLive.Category do
 
       %{
         user: author,
-        name: featured_post.author_name || author.username || "Unknown",
+        name: featured_post.author_name || author.username || "Anonymous",
         bio: author.bio,
         initials: user_initials(author),
         post_count: (stats && stats.post_count) || 0,
@@ -269,7 +269,7 @@ defmodule BlocksterV2Web.PostLive.Category do
   end
 
   defp post_author_name(post) do
-    post.author_name || (post.author && post.author.username) || "Unknown"
+    post.author_name || (post.author && post.author.username) || "Anonymous"
   end
 
   defp post_author_initials(post) do

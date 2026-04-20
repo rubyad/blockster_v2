@@ -71,10 +71,10 @@ defmodule BlocksterV2.TelegramNotifier do
     #{phone}
     <b>Payment:</b>
     Subtotal: $#{order.subtotal}
-    BUX: -$#{order.bux_discount_amount} (#{order.bux_tokens_burned} BUX)
-    ROGUE: $#{order.rogue_payment_amount} (#{order.rogue_tokens_sent} ROGUE)
-    Helio: $#{order.helio_payment_amount} (#{order.helio_payment_currency || "N/A"})
+    BUX discount: -$#{order.bux_discount_amount} (#{order.bux_tokens_burned} BUX burned)
+    Shipping: $#{order.shipping_cost || "0"}
     <b>Total: $#{order.total_paid}</b>
+    Paid via on-chain SOL transfer.
 
     Contact: #{order.shipping_email}\
     """

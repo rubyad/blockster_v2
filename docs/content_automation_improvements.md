@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers all pending improvements, bug fixes, and new features for the Blockster content automation system. The system auto-generates crypto articles from RSS feeds using Claude, manages them through an admin review queue, and publishes them with optional auto-tweeting via the @BlocksterCom X account.
+This document covers all pending improvements, bug fixes, and new features for the Blockster content automation system. The system auto-generates crypto articles from RSS feeds **and X (Twitter) timelines** using Claude, manages them through an admin review queue, and publishes them with optional auto-tweeting via the @BlocksterCom X account.
 
 ---
 
@@ -3197,6 +3197,59 @@ The altcoin analysis feature connects to the existing system at several points:
 | `lib/blockster_v2_web/live/content_automation_live/request_article.ex` | Added "Market Analysis" and "Narrative Report" templates with async auto-population and sector dropdown | **DONE** |
 | `lib/blockster_v2_web/live/content_automation_live/dashboard.ex` | Added "Market Analysis" button with `start_async(:generate_market)` | **DONE** |
 | `lib/blockster_v2/price_tracker.ex` | **NOT modified** — AltcoinAnalyzer uses its own CoinGecko call instead | N/A |
+
+---
+
+## 19. X Timeline Ingestion (2026-04-19) ✅
+
+### What
+
+Extended the feed pipeline to poll X (Twitter) timelines alongside RSS so X-native ecosystem projects (common on Solana — agents, games, newer DeFi) can feed into daily article generation. Added 15 Solana X accounts as the first users of the new path.
+
+### How it's wired
+
+- **Feed entries** gained an optional `:type` field (`:rss` default, `:x` new). X entries are shaped `%{source, type: :x, handle, tier, status}` — no `:url`.
+- **`FeedPoller`** runs two independent timers now: `:poll_rss` (5 min) and `:poll_x` (60 min). Split via `FeedConfig.get_active_rss_feeds/0` / `get_active_x_feeds/0`.
+- **Auth**: X polling uses the existing brand X OAuth token via `BlocksterV2.Social.get_x_connection_for_user(Config.brand_x_user_id())` — same path `XProfileFetcher` already uses for Blockster of the Week. No new token / no new secret.
+- **API calls** per X feed per poll: `XApiClient.get_user_by_username/2` (cached 7 days) + `XApiClient.get_user_tweets_with_metrics/3` (50 tweets, excludes retweets).
+- **Tweet → `ContentFeedItem` mapping**:
+  - `title` = first 120 chars of tweet text (single-line, truncated with `…`)
+  - `url` = `https://twitter.com/<handle>/status/<id>` (unique-constraint dedups repeat polls)
+  - `summary` = full tweet text
+  - `published_at` = tweet `created_at`
+- **Handle → user_id cache**: held in `FeedPoller` GenServer state, 7-day TTL. Saves one API call per handle per poll.
+
+### Config
+
+Runtime config adds `x_feed_poll_interval` (default `:timer.minutes(60)`) separate from `feed_poll_interval` so X can be throttled independently.
+
+### Rate-limit budget
+
+15 X feeds × 1 timeline call/hour = 360 reads/day = ~10.8k/mo — inside X API Basic tier (10k reads/mo, upgrade to Pro if feed count grows). User-lookup calls are amortized by the 7-day cache (~2 lookups per handle per week).
+
+### Ops prerequisites
+
+- `BRAND_X_USER_ID` env var must be set. If missing, X poll logs a warning and no-ops (won't crash the pipeline).
+- Brand user must have a valid X OAuth connection. If the refresh token expires and silent refresh fails, all X feeds stop — watch `[FeedPoller] No brand X token` in logs.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `lib/blockster_v2/content_automation/feed_config.ex` | `:type` field, `get_active_rss_feeds/0` + `get_active_x_feeds/0` splitters, 15 Solana X entries |
+| `lib/blockster_v2/content_automation/feed_poller.ex` | Rewrote to run RSS + X timers independently; added user-id cache + tweet→feed-item mapping |
+| `lib/blockster_v2/content_automation/config.ex` | Added `x_feed_poll_interval/0` |
+| `config/runtime.exs` | Added `x_feed_poll_interval` to content_automation keyword list |
+
+### Admin controls
+
+- `FeedPoller.force_poll/0` — unchanged, triggers RSS poll (what the admin dashboard button calls).
+- `FeedPoller.force_poll_x/0` — new, for manual X refresh (no UI button yet — add if needed).
+
+### Known caveats
+
+- **Tweets are short and noisy** compared to RSS article items. `TopicEngine`'s clustering prompt was tuned for article-length text. If clustering quality suffers (empty or trivial topics), consider either filtering low-engagement tweets before storing (e.g. skip <10 likes) or adjusting the Haiku clustering prompt to weight tweets differently.
+- **No admin dashboard surfacing yet** — the feeds page (`lib/blockster_v2_web/live/content_automation_live/feeds.ex`) renders the feed list generically; X entries will show up with `type: :x` but there's no X-specific status (e.g. "token missing" indicator). Enhancement if needed.
 
 ---
 

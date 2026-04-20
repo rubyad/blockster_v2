@@ -54,6 +54,50 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [BuxBooster Admin Stats Dashboard](#buxbooster-admin-stats-dashboard-feb-3-2026)
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
+- [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign (Apr 2026)
+
+**Symptom**: After the article-page redesign shipped, users reported that reaching the bottom of an article no longer paid BUX (for logged-in users) and no longer showed the "you earned X BUX — connect to claim" modal (for anonymous users). Both device classes affected. No server errors. No JS exceptions. The LiveView handler for `article-read` and `show-anonymous-claim` was never called — server logs were silent.
+
+**Root cause**: `assets/js/engagement_tracker.js` line 65 looked for the article container with `document.getElementById("post-content")` — singular. The legacy template used that id; the redesigned article template chunks content into `#post-content-1`, `#post-content-2`, `#post-content-3`, `#post-content-4` for ad insertions at the 1/3, 1/2, and 2/3 marks. Result:
+
+- `this.articleEl` → `null`
+- `trackScroll()` early-returned every tick: `if (!this.articleEl || this.isPaused) return;`
+- `scrollDepth` stayed at 0, `isEndReached` never flipped
+- Neither `sendReadEvent` nor the anonymous `pushEvent("show-anonymous-claim", ...)` ever fired
+- `localStorage.pending_claim_read_<postId>` was never written, so even post-signup reclaim was dead
+
+Silent failure mode — no console error, no telemetry. The anonymous-claim retrieval chain (`app.js:667` connect_params → `member_live/show.ex:946 process_pending_claims/2`) was intact the whole time. It just never got any data.
+
+**Fix** (`assets/js/engagement_tracker.js`):
+
+```js
+// Match either legacy singular id or any suffixed chunk
+this.articleEl =
+  document.getElementById("post-content") ||
+  document.querySelector("[id^='post-content-']");
+```
+
+Scroll depth calc rewritten to use `#article-end-marker` as the true article bottom — otherwise the first chunk's height would misreport 100% after the user scrolls past one section:
+
+```js
+const articleTop = this.articleEl.getBoundingClientRect().top + window.scrollY;
+const articleBottom = this.endMarkerEl
+  ? this.endMarkerEl.getBoundingClientRect().top + window.scrollY
+  : articleTop + this.articleEl.getBoundingClientRect().height;
+const articleHeight = Math.max(1, articleBottom - articleTop);
+```
+
+Added a belt-and-suspenders completion trigger: if `scrollDepth >= 95 && timeSpent >= minReadTime` and the 200px end-marker check hasn't fired yet, dispatch `sendReadEvent` anyway. Catches mobile where dynamic chrome (URL bar collapse) shifts the end-marker's bottom-of-viewport check.
+
+**Takeaways**:
+1. **Layout-level ID changes silently break JS hooks that use fixed selectors.** When refactoring a template, grep the entire codebase for `getElementById("<the-id>")` AND `[id^="<prefix>"]` before committing — not just the current file.
+2. **Early returns in scroll handlers are invisible failures.** No throw, no console warning when `articleEl` is null — `trackScroll` just silently noops. Next time, at least `console.warn("EngagementTracker: articleEl not found")` so a DevTools check surfaces the problem.
+3. **Claim-retrieval chains fail gracefully when they're never invoked.** Anonymous claim worked perfectly in unit tests, but production had zero items in `pending_claim_read_*` localStorage for the affected weeks. A passive monitoring check ("are we still seeing article-read events at expected rate?") would've caught this in under a day.
+4. **Redesign-stage work deserves a dedicated "core flow still works" checklist**, not just visual QA. Wallet connect → read article → see BUX → refresh → see persisted BUX. Click through once manually before calling a redesign done.
 
 ---
 
