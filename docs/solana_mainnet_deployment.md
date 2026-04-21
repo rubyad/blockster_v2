@@ -4,6 +4,8 @@ Complete step-by-step instructions to deploy Blockster V2 on Solana mainnet.
 
 **Prerequisites**: All code changes are on `feat/solana-migration` branch and tested on devnet.
 
+**Last substantive update**: 2026-04-20 — incorporated Phase 1 rent_payer on-chain upgrade, Phase 4 multi-signer tx builders, Phase 0–4 Web3Auth social login infrastructure, hourly promo deactivation. Phase 5–10 social login rollout additions (client ID, RSA signing key, feature-flag rollout) are pre-documented with `<TBD>` placeholders where operators fill in at deploy time. See [docs/solana_build_history.md](solana_build_history.md) + [docs/social_login_plan.md](social_login_plan.md) Appendix C for the session-level narrative.
+
 ---
 
 ## Table of Contents
@@ -120,10 +122,11 @@ solana balance 49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d --url mainnet-beta
 
 ### Fund Authority Wallet
 
-Send **3 SOL** (real SOL) to the authority wallet. Breakdown:
+Send **4 SOL** (real SOL) to the authority wallet. Breakdown:
 - ~0.1 SOL for program initialization (Bankroll + Airdrop PDAs, BUX mint)
 - ~2 SOL for the one-time bot wallet rotation ATA surge (see [Step 7](#step-7-deploy-main-app))
 - ~1 SOL of headroom for the first month of minting
+- **~1 SOL rent float for bet_order PDAs** (new in Phase 1 — settler is the on-chain `rent_payer` for every SOL and BUX bet; each bet_order PDA costs ~0.00139 SOL at placement and returns to the settler on settle/reclaim. The float is cycled, not spent, but the wallet needs this balance for concurrent in-flight bets).
 
 ```
 6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1
@@ -234,6 +237,17 @@ solana program show wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG --url $MAINNET_R
 
 Both should show `Authority: 6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1`.
 
+### Bankroll program contract (Phase 1 behavior)
+
+The deployed bankroll program enforces **settler as mandatory rent_payer** on `place_bet_sol` / `place_bet_bux`. Implication for operators:
+
+- Every `place_bet_*` tx now has two signers: the player AND the settler keypair.
+- The settler pays PDA rent (~0.00139 SOL) at placement; `settle_bet` and `reclaim_expired` close the PDA with `close = rent_payer`, returning rent to settler. Net flow at steady state = zero SOL cost to settler beyond priority fees.
+- Users never need to hold SOL for rent. Phase 1 is the on-chain mechanism for the "zero SOL gameplay" UX guarantee.
+- If you ever upgrade the program binary, the `rent_payer` field at `BetOrder` offset 115–146 must remain (repurposed from pre-upgrade `_reserved: [u8; 32]` — same serialized bytes). Do not remove.
+
+This is non-negotiable — the program reverts any `place_bet_*` where `rent_payer.key() != game_registry.settler`. The settler tx-builder in `contracts/blockster-settler/src/services/bankroll-service.ts` partial-signs the tx with settler to satisfy this; never bypass that path.
+
 ---
 
 ## Step 4: Initialize Programs
@@ -334,6 +348,14 @@ cat contracts/blockster-settler/keypairs/mint-authority.json
 
 Sweep tx fees (~5000 lamports each) are paid by `MINT_AUTHORITY_KEYPAIR`, which already holds SOL for BUX minting — no additional budget needed beyond the authority wallet's existing runway.
 
+### Multi-signer tx builders (Phase 4 behavior)
+
+`contracts/blockster-settler/src/services/bankroll-service.ts` builds every `place_bet_*`, `reclaim_expired`, and `settle_bet` tx with the settler pre-included as a signer (for `place_bet_*`) or account slot (for `reclaim_expired` / `settle_bet`). The settler partial-signs before returning base64 to the client. Implications for operators:
+
+- `MINT_AUTHORITY_KEYPAIR` is actively signing every bet placement, not just settlement. No behavioral change — settler was already on-line per-bet for commitment submission; partial-signing is additional but on the same keypair.
+- **DO NOT modify** `feePayer` in `buildPlaceBetTx` to be the settler for Wallet Standard (Phantom / Solflare / Backpack) users. Those wallets reject sign requests where the connected wallet isn't the fee payer ("Unexpected error" with no useful explanation). `feePayer = player` is required. Web3Auth-sourced sessions (Phase 5+) CAN use `feePayer = settler` because Web3Auth signs locally from an exported key with no wallet-approval invariants. Phase 5 introduces per-signer-source branching.
+- Rust struct field order for `place_bet_sol/bux` / `reclaim_expired` / `settle_bet` is canonical. The TS keys array must match exactly. If you add a field in Rust, update the TS at the same index or Anchor fails with `Custom(3007) AccountOwnedByWrongProgram` — positional reads trip the ownership check.
+
 ### Deploy Settler
 
 ```bash
@@ -368,10 +390,78 @@ flyctl secrets set \
   BLOCKSTER_SETTLER_SECRET="YOUR_GENERATED_SECRET" \
   SOLANA_RPC_URL="https://YOUR_QUICKNODE_MAINNET_URL" \
   SOLANA_AUTHORITY_ADDRESS="6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1" \
+  HOURLY_PROMO_ENABLED="false" \
   --stage --app blockster-v2
 ```
 
 The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the settler.
+
+`HOURLY_PROMO_ENABLED=false` is the intended default — the `HourlyPromoScheduler` GenServer is gated behind this flag and will NOT start when it's unset or false. Keeping the Telegram promo bot silent on mainnet is the current product decision (see [docs/social_login_plan.md](social_login_plan.md) Appendix A). To re-enable later: `flyctl secrets set HOURLY_PROMO_ENABLED=true --stage --app blockster-v2`, deploy, then toggle the `hourly_promo_enabled` SystemConfig key true via `/admin/promo`.
+
+### Web3Auth social login secrets (Phase 5+)
+
+**These are staged now but the social login feature stays OFF until Phase 10 flips `SOCIAL_LOGIN_ENABLED=true`.** Set them at this step so the deploy picks them up; they're no-ops while the flag is off.
+
+```bash
+flyctl secrets set \
+  WEB3AUTH_CLIENT_ID="<PROD_WEB3AUTH_CLIENT_ID>" \
+  WEB3AUTH_TELEGRAM_VERIFIER_ID="blockster-telegram" \
+  WEB3AUTH_JWT_SIGNING_KEY_PATH="/data/web3auth/signing_key.json" \
+  BLOCKSTER_V2_BOT_TOKEN="<TELEGRAM_BOT_TOKEN>" \
+  SOCIAL_LOGIN_ENABLED="false" \
+  --stage --app blockster-v2
+```
+
+`WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` as the authorized origin. Set up the same four Connections (Email Passwordless, Google, Apple, Twitter) + the Telegram Custom JWT verifier. Full setup procedure: [docs/web3auth_integration.md](web3auth_integration.md) §7.
+
+`WEB3AUTH_JWT_SIGNING_KEY_PATH` points at a Fly-mounted RSA private key file that the backend uses to sign Telegram Custom JWTs. The dev path (`priv/web3auth_keys/signing_key.json`, boot-generated) is NOT safe for prod — see "Provision the Web3Auth JWT signing key" below.
+
+`BLOCKSTER_V2_BOT_TOKEN` is the existing Telegram bot token (already used for account-connect + group-join detection). The `POST /api/auth/telegram/verify` endpoint uses it to HMAC-verify Telegram Login Widget payloads before issuing a Blockster JWT.
+
+`SOCIAL_LOGIN_ENABLED=false` is the kill switch — with this off the sign-in modal only shows Phantom/Solflare/Backpack (current behavior). Phase 10 is where this flips via the staged rollout procedure.
+
+### Provision the Web3Auth JWT signing key
+
+The backend signs Telegram Custom JWTs with an RSA private key. In dev, `BlocksterV2.Auth.Web3AuthSigning` auto-generates one on boot and persists it to `priv/web3auth_keys/signing_key.json` (gitignored). On mainnet, **generate it once on a secure machine, mount as a Fly secret volume or file, and set `WEB3AUTH_JWT_SIGNING_KEY_PATH`**.
+
+```bash
+# One-time: generate a 2048-bit RSA keypair wrapped in the JSON format the
+# backend reads (same shape as the dev file).
+cat <<'EOF' > /tmp/gen_web3auth_key.exs
+jwk = JOSE.JWK.generate_key({:rsa, 2048})
+{_, pem_bin} = JOSE.JWK.to_pem(jwk)
+pem = to_string(pem_bin)
+kid = :crypto.hash(:sha256, pem)
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+File.write!("/tmp/web3auth_signing_key.json", Jason.encode!(%{pem: pem, kid: kid}))
+IO.puts("kid: #{kid}")
+IO.puts("Saved to /tmp/web3auth_signing_key.json")
+EOF
+mix run /tmp/gen_web3auth_key.exs
+```
+
+Upload to Fly as a mounted file. Preferred: create a Fly volume just for this key so the filesystem path is stable across deploys.
+
+```bash
+# Create a tiny volume attached to the main app
+flyctl volumes create web3auth_keys --size 1 --region iad --app blockster-v2
+
+# Mount it in fly.toml under [mounts]:
+#   [[mounts]]
+#     source = "web3auth_keys"
+#     destination = "/data/web3auth"
+
+# On first deploy, SSH in and copy the key into the volume
+flyctl ssh console --app blockster-v2
+mkdir -p /data/web3auth
+# paste the contents of /tmp/web3auth_signing_key.json into /data/web3auth/signing_key.json
+# chmod 600 /data/web3auth/signing_key.json
+```
+
+Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https://blockster.com/.well-known/jwks.json` — the backend serves the public JWK set from that path automatically).
+
+**Rotation policy**: if you ever suspect the key is compromised, generate a new one + update the Fly volume + re-register the new JWKS URL (or serve both old and new `kid`s during a transition window). Outstanding Telegram JWTs issued with the old key become invalid at rotation time — users re-sign in.
 
 ### Secrets Reference
 
@@ -389,6 +479,12 @@ The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the se
 | `AIRDROP_PROGRAM_ID` | settler | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` |
 | `PAYMENT_INTENT_SEED` | settler | 32-byte hex — HKDF master seed for shop checkout ephemeral keypairs |
 | `SOL_TREASURY_ADDRESS` | settler | Solana pubkey that receives swept shop revenue |
+| `WEB3AUTH_CLIENT_ID` | main app | Web3Auth Sapphire Mainnet project client ID |
+| `WEB3AUTH_TELEGRAM_VERIFIER_ID` | main app | Web3Auth Custom JWT verifier name (usually `blockster-telegram`) |
+| `WEB3AUTH_JWT_SIGNING_KEY_PATH` | main app | Path to mounted RSA private key file (e.g. `/data/web3auth/signing_key.json`) |
+| `BLOCKSTER_V2_BOT_TOKEN` | main app | Telegram bot token for HMAC verification of Login Widget payloads |
+| `SOCIAL_LOGIN_ENABLED` | main app | Feature flag — `false` keeps social login UI hidden |
+| `HOURLY_PROMO_ENABLED` | main app | `false` — keeps the Telegram promo scheduler off |
 
 ---
 
@@ -611,6 +707,56 @@ Expected log lines: `[<TrackerName>] Started — polling every <ms>ms`. If you s
 Browse to any article page → confirm the Gray & Sons watch skyscraper, Ferrari/Lambo inline ads, Flight Finder Exclusive jet card render with **live SOL prices** (USD figures stored statically; SOL converted at render time via `BlocksterV2.PriceTracker.get_price("SOL")` reading the `token_prices` Mnesia cache that's refreshed every minute).
 
 If SOL prices show `—` (em dash), the PriceTracker either hasn't fetched yet (give it 60s) or its CoinGecko fetch is failing — check logs for `[PriceTracker]` errors.
+
+---
+
+## Step 8.5: Social Login Rollout (Phase 10)
+
+Social login ships behind `SOCIAL_LOGIN_ENABLED`. After the Phase 5–10 session delivers the UI + hook + onboarding + settings flows, roll out gradually:
+
+### Pre-flight checklist before enabling
+
+- [ ] Web3Auth Sapphire Mainnet project created, client ID matches `WEB3AUTH_CLIENT_ID` secret.
+- [ ] `https://blockster.com` whitelisted in the Web3Auth dashboard.
+- [ ] All four Connections enabled in the dashboard: Email Passwordless, Google, Apple, Twitter (X).
+- [ ] Telegram Custom JWT verifier registered with `JWKS URL = https://blockster.com/.well-known/jwks.json`, `aud = blockster-web3auth`, `iss = blockster`, algorithm `RS256`, verifier ID field `sub`. Name should match `WEB3AUTH_TELEGRAM_VERIFIER_ID`.
+- [ ] RSA signing key mounted at `/data/web3auth/signing_key.json` on the production volume.
+- [ ] `curl https://blockster.com/.well-known/jwks.json` returns a valid JWKS with one RSA key.
+- [ ] `curl -X POST https://blockster.com/api/auth/telegram/verify -H 'content-type: application/json' -d '{...}'` handles at least one known-good Telegram payload end-to-end (can test with a dev-only payload first).
+- [ ] A manual Web3Auth email signup flow on staging completes: modal → email OTP → pubkey returned → user row created → session cookie set → onboarding lands.
+
+### Staged rollout
+
+```bash
+# 1. Enable flag, staged (takes effect on next deploy)
+flyctl secrets set SOCIAL_LOGIN_ENABLED=true --stage --app blockster-v2
+flyctl deploy --app blockster-v2
+
+# 2. Gate by user: the code checks SOCIAL_LOGIN_ENABLED + optionally an
+#    allowlist hash for 10%/50% ramp. Adjust the allowlist helper as
+#    needed (Phase 5 session will ship the exact mechanism).
+```
+
+Ramp: 10% → 50% → 100% over ~1 week. At each ramp, watch metrics for 24h before advancing.
+
+### Metrics to watch during rollout
+
+- **Signups by `auth_method`** per day — confirm social paths are seeing real traffic, not just errors.
+- **Web3Auth JWT verify failure rate** — alerts if > 5%/hour (suggests JWKS issue or clock skew).
+- **Settler balance drift per day** — should be net-zero at steady state (rent cycles). Slight negative for priority fees. If drifting negative fast, investigate — likely an unsettled-bet accumulation issue.
+- **First-bet conversion per auth_method** — target > 60% for social signups. Lower means UX friction somewhere.
+- **FEE_PAYER balance alert**: if settler < 5 SOL, top up. (Note: rent cycles through settler — the alert is about priority-fee depletion, not rent.)
+
+### Rollback
+
+If social login causes issues at any ramp, immediate kill:
+
+```bash
+flyctl secrets set SOCIAL_LOGIN_ENABLED=false --stage --app blockster-v2
+flyctl deploy --app blockster-v2
+```
+
+Wallet Standard (Phantom) flow is defense-in-depth — disabling social login doesn't affect wallet users. Zero impact on existing users.
 
 ---
 
