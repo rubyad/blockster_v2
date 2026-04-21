@@ -1,3 +1,7 @@
+// Node-global polyfills (Buffer/process/global). MUST be the first import
+// so its side effects run before any Web3Auth / Solana deps evaluate.
+import "./polyfills.js"
+
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
@@ -85,6 +89,8 @@ import { AirdropSolanaHook } from "./hooks/airdrop_solana.js";
 import { PriceChart } from "./hooks/price_chart.js";
 import { FsA2CombinedAd } from "./hooks/fs_a2_combined_ad.js";
 import { FsKineticAd } from "./hooks/fs_kinetic_ad.js";
+// THROWAWAY: Phase 0 Web3Auth prototype. Remove with /test-web3auth route once Phase 5 ships.
+import { TestWeb3Auth } from "./hooks/test_web3auth.js";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -668,7 +674,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, TestWeb3Auth, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
 });
 
 // connect if there are any LiveViews on the page

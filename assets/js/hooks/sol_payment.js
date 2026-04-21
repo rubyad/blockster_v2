@@ -19,6 +19,8 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
+import bs58 from "bs58";
+import { getSigner } from "./signer.js";
 
 const RPC_URL =
   window.__SOLANA_RPC_URL ||
@@ -44,21 +46,15 @@ export const SolPaymentHook = {
 
   async _sendPayment({ to, lamports, order_id }) {
     try {
-      const wallet = window.__solanaWallet;
-      if (!wallet) {
+      const signer = getSigner();
+      if (!signer) {
         this.pushEvent("sol_payment_error", {
           error: "No Solana wallet connected. Please reconnect.",
         });
         return;
       }
 
-      const account = wallet.accounts && wallet.accounts[0];
-      if (!account) {
-        this.pushEvent("sol_payment_error", { error: "No account available." });
-        return;
-      }
-
-      const fromPubkey = new PublicKey(account.address);
+      const fromPubkey = new PublicKey(signer.pubkey);
       const toPubkey = new PublicKey(to);
 
       const { blockhash } = await this._connection.getLatestBlockhash("confirmed");
@@ -74,27 +70,12 @@ export const SolPaymentHook = {
         }),
       );
 
-      // Serialize unsigned tx for Wallet Standard.
       const serialized = tx.serialize({
         requireAllSignatures: false,
         verifySignatures: false,
       });
 
-      const signAndSend = wallet.features["solana:signAndSendTransaction"];
-      if (!signAndSend) {
-        this.pushEvent("sol_payment_error", {
-          error: "Wallet does not support signAndSendTransaction",
-        });
-        return;
-      }
-
-      const [{ signature }] = await signAndSend.signAndSendTransaction({
-        account,
-        transaction: new Uint8Array(serialized),
-        chain: "solana:devnet",
-      });
-
-      const { default: bs58 } = await import("bs58");
+      const { signature } = await signer.signAndSendTransaction(new Uint8Array(serialized));
       const sig = bs58.encode(new Uint8Array(signature));
 
       this.pushEvent("sol_payment_submitted", {

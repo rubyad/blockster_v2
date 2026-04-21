@@ -207,6 +207,137 @@ defmodule BlocksterV2.Accounts do
   end
 
   @doc """
+  Creates or looks up a user from a verified Web3Auth ID token's claims.
+
+  Claims map is expected to follow the shape returned by
+  `BlocksterV2.Auth.Web3Auth.verify_id_token/2`:
+
+      %{
+        solana_pubkey: <base58 string, required>,
+        email: <string | nil>,
+        name: <string | nil>,
+        profile_image: <string | nil>,
+        verifier: <string | nil>,              # e.g. "web3auth", "blockster-telegram"
+        auth_connection: <string | nil>,       # e.g. "email_passwordless", "google", "twitter", "custom"
+        x_user_id: <string | nil>,
+        telegram_user_id: <string | nil>,
+        telegram_username: <string | nil>,
+        ...
+      }
+
+  Returns `{:ok, user, session, is_new_user}` or `{:error, reason}`.
+  """
+  def get_or_create_user_by_web3auth(%{} = claims) do
+    pubkey = claims[:solana_pubkey] || claims["solana_pubkey"]
+
+    cond do
+      is_nil(pubkey) or pubkey == "" ->
+        {:error, :missing_solana_pubkey}
+
+      existing = get_user_by_wallet_address(pubkey) ->
+        # Backfill social fields if the user record predates the Web3Auth
+        # session (e.g. they previously logged in via plain wallet connect).
+        case maybe_update_web3auth_fields(existing, claims) do
+          {:ok, user} ->
+            case create_session(user.id) do
+              {:ok, session} -> {:ok, user, session, false}
+              error -> error
+            end
+
+          error ->
+            error
+        end
+
+      true ->
+        case create_user_from_web3auth(pubkey, claims) do
+          {:ok, user} ->
+            case create_session(user.id) do
+              {:ok, session} -> {:ok, user, session, true}
+              error -> error
+            end
+
+          error ->
+            error
+        end
+    end
+  end
+
+  # Build a user row from Web3Auth claims.
+  defp create_user_from_web3auth(pubkey, claims) do
+    auth_method = auth_method_for(claims)
+
+    base_attrs = %{
+      wallet_address: pubkey,
+      auth_method: auth_method,
+      username: "user_#{String.slice(pubkey, 0..5)}",
+      web3auth_verifier: claims[:verifier] || claims["verifier"],
+      social_avatar_url: claims[:profile_image] || claims["profile_image"],
+      email: claims[:email] || claims["email"],
+      x_user_id: claims[:x_user_id] || claims["x_user_id"],
+      telegram_user_id: claims[:telegram_user_id] || claims["telegram_user_id"],
+      telegram_username: claims[:telegram_username] || claims["telegram_username"]
+    }
+
+    result =
+      base_attrs
+      |> Map.reject(fn {_, v} -> is_nil(v) end)
+      |> User.web3auth_registration_changeset()
+      |> Repo.insert()
+
+    case result do
+      {:ok, user} ->
+        BlocksterV2.Notifications.create_preferences(user.id)
+
+        try do
+          BlocksterV2.Workers.WelcomeSeriesWorker.enqueue_series(user.id)
+        rescue
+          _ -> :ok
+        end
+
+        create_user_betting_stats(user.id, user.wallet_address)
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
+  # Backfill social-login fields on an existing user (e.g. the user previously
+  # logged in with plain wallet connect and is now using Web3Auth).
+  defp maybe_update_web3auth_fields(%User{} = user, claims) do
+    new_verifier = claims[:verifier] || claims["verifier"]
+
+    patch =
+      %{}
+      |> maybe_put(:web3auth_verifier, new_verifier, user.web3auth_verifier)
+      |> maybe_put(:social_avatar_url, claims[:profile_image] || claims["profile_image"], user.social_avatar_url)
+      |> maybe_put(:x_user_id, claims[:x_user_id] || claims["x_user_id"], user.x_user_id)
+      |> maybe_put(:email, claims[:email] || claims["email"], user.email)
+
+    if map_size(patch) == 0 do
+      {:ok, user}
+    else
+      update_user(user, patch)
+    end
+  end
+
+  defp maybe_put(map, _key, nil, _existing), do: map
+  defp maybe_put(map, _key, value, value), do: map
+  defp maybe_put(map, key, value, _existing), do: Map.put(map, key, value)
+
+  # Map Web3Auth's authConnection claim to our auth_method enum.
+  defp auth_method_for(claims) do
+    case claims[:auth_connection] || claims["auth_connection"] do
+      "email_passwordless" -> "web3auth_email"
+      "google" -> "web3auth_email"
+      "apple" -> "web3auth_email"
+      "twitter" -> "web3auth_x"
+      "custom" -> "web3auth_telegram"
+      _ -> "web3auth_email"
+    end
+  end
+
+  @doc """
   Creates a user from email signup (Thirdweb embedded wallet).
   Expects attrs to contain: %{email: "...", wallet_address: "0x..."}
   """

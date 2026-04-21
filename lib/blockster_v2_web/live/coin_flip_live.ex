@@ -90,6 +90,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(error_message: error_msg)
         |> assign(settlement_status: nil)
         |> assign(has_expired_bet: false)
+        |> assign(stuck_onchain_bet: nil)
         |> assign(show_token_dropdown: false)
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
@@ -144,6 +145,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(error_message: nil)
         |> assign(settlement_status: nil)
         |> assign(has_expired_bet: false)
+        |> assign(stuck_onchain_bet: nil)
         |> assign(show_token_dropdown: false)
         |> assign(show_provably_fair: false)
         |> assign(flip_id: 0)
@@ -284,9 +286,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         ]}
                       >
                         <%= if token == "SOL" do %>
-                          <div class="w-4 h-4 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);">
-                            <span class="text-black font-bold text-[6px]">SOL</span>
-                          </div>
+                          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-4 h-4 rounded-full" />
                         <% else %>
                           <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full" />
                         <% end %>
@@ -530,9 +530,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
                   <div class="flex items-center gap-3">
                     <%= if @selected_token == "SOL" do %>
-                      <div class="w-9 h-9 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 100%);">
-                        <span class="text-black font-bold text-[10px]">SOL</span>
-                      </div>
+                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-9 h-9 rounded-full" />
                     <% else %>
                       <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-9 h-9 rounded-full" />
                     <% end %>
@@ -1402,8 +1400,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
     bet_timeout = 300
     now = System.system_time(:second)
 
-    # Find the expired placed bet
-    expired_nonce = try do
+    # 1. Prefer Mnesia-known expired bets. We have the vault_type recorded.
+    mnesia_match = try do
       case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
         games when is_list(games) ->
           expired = games
@@ -1415,26 +1413,42 @@ defmodule BlocksterV2Web.CoinFlipLive do
           |> Enum.sort_by(fn record -> elem(record, 18) end, :asc)
           |> List.first()
 
-          if expired, do: elem(expired, 6), else: nil
+          if expired do
+            %{nonce: elem(expired, 6), vault_type: elem(expired, 9) |> to_string()}
+          else
+            nil
+          end
+
         _ -> nil
       end
     rescue
       _ -> nil
     end
 
-    if expired_nonce do
-      Logger.info("[CoinFlip] Reclaiming stuck bet at nonce #{expired_nonce} for #{wallet}")
+    # 2. Fall back to the on-chain-detected bet (populated by check_expired_bets
+    #    when Mnesia has no matching record — the drift-recovery path).
+    onchain_match =
+      case socket.assigns[:stuck_onchain_bet] do
+        %{"nonce" => n, "vault_type" => vt} -> %{nonce: n, vault_type: to_string(vt)}
+        _ -> nil
+      end
+
+    reclaim = mnesia_match || onchain_match
+
+    if reclaim do
+      Logger.info(
+        "[CoinFlip] Reclaiming stuck bet at nonce #{reclaim.nonce} " <>
+          "(vault=#{reclaim.vault_type}, source=#{if mnesia_match, do: "mnesia", else: "onchain_scan"}) " <>
+          "for #{wallet}"
+      )
+
       {:noreply,
        socket
        |> assign(:error_message, "Building reclaim transaction...")
        |> start_async(:build_reclaim_tx, fn ->
-         case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, expired_nonce, "bux") do
-           {:ok, tx} -> {:ok, tx, expired_nonce}
-           {:error, _} ->
-             case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, expired_nonce, "sol") do
-               {:ok, tx} -> {:ok, tx, expired_nonce}
-               {:error, reason} -> {:error, reason}
-             end
+         case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, reclaim.nonce, reclaim.vault_type) do
+           {:ok, tx} -> {:ok, tx, reclaim.nonce}
+           {:error, reason} -> {:error, reason}
          end
        end)}
     else
@@ -1447,11 +1461,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
     user_id = socket.assigns.current_user.id
     wallet = socket.assigns.wallet_address
 
+    # Refresh token balances — reclaim returned SOL (or BUX) to the player,
+    # sync_user_balances_async re-queries on-chain and broadcasts the
+    # {:token_balances_updated, ...} message that BuxBalanceHook listens for.
+    BuxMinter.sync_user_balances_async(user_id, wallet, force: true)
+
     {:noreply,
      socket
      |> assign(:error_message, nil)
      |> assign(:init_retry_count, 0)
      |> assign(:has_expired_bet, false)
+     |> assign(:stuck_onchain_bet, nil)
      |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet) end)}
   end
 
@@ -1981,16 +2001,19 @@ defmodule BlocksterV2Web.CoinFlipLive do
       user_id = socket.assigns.current_user.id
       wallet = socket.assigns.wallet_address
 
-      bet_timeout = 300
+      # UI-side reclaim grace: 5 min. Program-side timeout is 120s, but the
+      # UI is conservative so auto-settlement gets a chance first.
+      ui_timeout = 300
       now = System.system_time(:second)
 
-      has_expired = try do
+      # 1. Mnesia-known stuck bets (the historical path).
+      mnesia_expired = try do
         case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
           games when is_list(games) ->
             Enum.any?(games, fn record ->
               status = elem(record, 7)
               created_at = elem(record, 18)
-              status == :placed and created_at != nil and (now - created_at) > bet_timeout
+              status == :placed and created_at != nil and (now - created_at) > ui_timeout
             end)
           _ -> false
         end
@@ -1998,12 +2021,53 @@ defmodule BlocksterV2Web.CoinFlipLive do
         _ -> false
       end
 
+      # 2. On-chain stuck bets (bets Mnesia never learned about — the drift
+      #    symptom from the Phase 1 multi-signer transition). Do this in an
+      #    async task so we don't block the UI on a slow settler response.
+      # Capture the LiveView pid here — inside Task.start, `self()` returns
+      # the Task's pid, not the LiveView's. send to the LV pid explicitly.
+      lv_pid = self()
+      Task.start(fn ->
+        result =
+          case BlocksterV2.BuxMinter.get_pending_bets(wallet) do
+            {:ok, %{"pending_bets" => bets}} when is_list(bets) and bets != [] ->
+              Enum.filter(bets, fn b ->
+                created = Map.get(b, "created_at") || 0
+                now - created > ui_timeout
+              end)
+              |> Enum.min_by(fn b -> Map.get(b, "created_at") || 0 end, fn -> nil end)
+
+            _ ->
+              nil
+          end
+
+        send(lv_pid, {:onchain_stuck_bet, result})
+      end)
+
       Process.send_after(self(), :check_expired_bets, 30_000)
-      {:noreply, assign(socket, has_expired_bet: has_expired)}
+      {:noreply, assign(socket, has_expired_bet: mnesia_expired)}
     else
       Process.send_after(self(), :check_expired_bets, 30_000)
       {:noreply, socket}
     end
+  end
+
+  # Async result from check_expired_bets's on-chain scan. Stores the bet
+  # metadata so `reclaim_stuck_bet` can build a reclaim tx for it directly.
+  def handle_info({:onchain_stuck_bet, nil}, socket) do
+    {:noreply, assign(socket, :stuck_onchain_bet, nil)}
+  end
+
+  def handle_info({:onchain_stuck_bet, bet}, socket) when is_map(bet) do
+    Logger.info(
+      "[CoinFlip] Detected orphaned on-chain bet for #{socket.assigns.wallet_address}: " <>
+        "nonce=#{bet["nonce"]} vault=#{bet["vault_type"]} created_at=#{bet["created_at"]}"
+    )
+
+    {:noreply,
+     socket
+     |> assign(:stuck_onchain_bet, bet)
+     |> assign(:has_expired_bet, true)}
   end
 
   def handle_info({:new_settled_game, settled_game}, socket) do

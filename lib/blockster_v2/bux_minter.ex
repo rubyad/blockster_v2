@@ -287,6 +287,44 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  @doc """
+  Gets on-chain pending bet_order PDAs for a wallet. The settler scans a
+  window of the most-recent nonces and returns any PDAs still in status=Pending.
+
+  Returns `{:ok, %{"current_nonce" => int, "pending_bets" => [bet...]}}` or
+  `{:error, reason}`. Each bet has: nonce, vault_type, amount, created_at,
+  rent_payer, bet_order_pda.
+
+  Used by the LiveView stuck-bet detector to find bets Mnesia never recorded
+  (because the client errored after the bet actually landed). On-chain is
+  the source of truth.
+  """
+  def get_pending_bets(wallet_address, opts \\ []) do
+    settler_url = get_settler_url()
+    api_secret = get_api_secret()
+
+    if is_nil(api_secret) or api_secret == "" do
+      {:error, :not_configured}
+    else
+      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      query = URI.encode_query(Map.take(Map.new(opts), [:startNonce, :count]))
+
+      sep = if query == "", do: "", else: "?"
+
+      case http_get("#{settler_url}/pending-bets/#{wallet_address}#{sep}#{query}", headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: status, body: body}} ->
+          error = safe_decode(body)
+          {:error, error["error"] || "Pending bets failed (HTTP #{status})"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   def get_pool_stats do
     settler_url = get_settler_url()
     api_secret = get_api_secret()

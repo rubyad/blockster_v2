@@ -150,6 +150,47 @@ defmodule BlocksterV2.ReferralsTest do
       assert stats.total_bux_earned == 500
     end
 
+    test "finds Solana referrer by wallet_address (no smart_wallet_address)" do
+      # Solana user — wallet_address set, smart_wallet_address nil.
+      solana_wallet = "FUWYT33RLgmCtGsSHvtv2avKLpDFovFDQSnuGjN5wDyP"
+
+      referrer =
+        %User{}
+        |> User.changeset(%{
+          wallet_address: solana_wallet,
+          smart_wallet_address: nil,
+          email: "solana-referrer#{System.unique_integer([:positive])}@example.com",
+          username: "solref#{System.unique_integer([:positive])}",
+          auth_method: "web3auth_email"
+        })
+        |> Repo.insert!()
+
+      referee = create_user()
+
+      assert {:ok, returned_referrer} =
+               Referrals.process_signup_referral(referee, solana_wallet)
+
+      assert returned_referrer.id == referrer.id
+    end
+
+    test "blocks self-referral when user is a Solana account (wallet_address match)" do
+      solana_wallet = "DWY2b8csW3zMnLAso9Aijw7JEuDAGSshnBhrCCKKN5Ua"
+
+      user =
+        %User{}
+        |> User.changeset(%{
+          wallet_address: solana_wallet,
+          smart_wallet_address: nil,
+          email: "self#{System.unique_integer([:positive])}@example.com",
+          username: "self#{System.unique_integer([:positive])}",
+          auth_method: "web3auth_x"
+        })
+        |> Repo.insert!()
+
+      assert {:error, :self_referral} =
+               Referrals.process_signup_referral(user, solana_wallet)
+    end
+
     test "handles wallet address case insensitivity" do
       # PostgreSQL stores wallet addresses in lowercase, so we test with lowercase
       wallet = "0xabcdef1234567890abcdef1234567890abcdef12"

@@ -32,6 +32,21 @@ defmodule BlocksterV2.Referrals do
   def normalize_wallet("0X" <> _rest = wallet), do: String.downcase(wallet)
   def normalize_wallet(wallet) when is_binary(wallet), do: wallet
 
+  @doc """
+  Look up a user by referrer wallet address. Prefers the Solana
+  `wallet_address` field (new auth path); falls back to legacy EVM
+  `smart_wallet_address` for referrers from the pre-migration world.
+  """
+  def find_referrer_by_wallet(""), do: nil
+  def find_referrer_by_wallet(nil), do: nil
+
+  def find_referrer_by_wallet(wallet) when is_binary(wallet) do
+    normalized = normalize_wallet(wallet)
+
+    Repo.get_by(User, wallet_address: normalized) ||
+      Repo.get_by(User, smart_wallet_address: normalized)
+  end
+
   # ----- Signup Referral Processing -----
 
   @doc """
@@ -41,13 +56,20 @@ defmodule BlocksterV2.Referrals do
   def process_signup_referral(new_user, referrer_wallet) when is_binary(referrer_wallet) do
     referrer_wallet = normalize_wallet(referrer_wallet)
 
-    # Prevent self-referral
-    if new_user.smart_wallet_address &&
-       normalize_wallet(new_user.smart_wallet_address) == referrer_wallet do
+    # Prevent self-referral — check both wallet fields because the incoming
+    # user might be a Solana user (wallet_address) or a legacy EVM user
+    # (smart_wallet_address).
+    new_user_wallets =
+      [new_user.wallet_address, new_user.smart_wallet_address]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&normalize_wallet/1)
+
+    if referrer_wallet in new_user_wallets do
       {:error, :self_referral}
     else
-      # Find referrer by smart wallet address
-      case Repo.get_by(User, smart_wallet_address: referrer_wallet) do
+      # Look up referrer by Solana wallet_address first (new auth path),
+      # fall back to legacy smart_wallet_address (EVM).
+      case find_referrer_by_wallet(referrer_wallet) do
         nil ->
           {:error, :referrer_not_found}
 
@@ -60,9 +82,12 @@ defmodule BlocksterV2.Referrals do
           })
           |> Repo.update!()
 
-          # Store in Mnesia (with both wallet addresses for blockchain event matching)
+          # Store in Mnesia — prefer the Solana wallet_address, fall back to
+          # legacy smart_wallet_address if that's all the user has.
           now = System.system_time(:second)
-          referee_wallet = normalize_wallet(new_user.smart_wallet_address || "")
+          referee_wallet =
+            normalize_wallet(new_user.wallet_address || new_user.smart_wallet_address || "")
+
           referral_record = {:referrals, new_user.id, referrer.id, referrer_wallet, referee_wallet, now, false}
           :mnesia.dirty_write(referral_record)
 

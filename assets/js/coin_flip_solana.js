@@ -24,27 +24,14 @@
  */
 
 import { Connection } from "@solana/web3.js";
+import {
+  getSigner,
+  pollForConfirmation,
+  decodeBase64Tx,
+  signAndConfirm,
+} from "./hooks/signer.js";
 
 const DEVNET_RPC = "https://api.devnet.solana.com";
-
-/**
- * Poll getSignatureStatuses until confirmed. Simple HTTP polling — no websockets.
- */
-async function pollForConfirmation(connection, signature, timeoutMs = 60000, intervalMs = 1000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const response = await connection.getSignatureStatuses([signature]);
-    const status = response?.value?.[0];
-    if (status) {
-      if (status.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
-      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
-        return signature;
-      }
-    }
-    await new Promise(r => setTimeout(r, intervalMs));
-  }
-  throw new Error("Transaction confirmation timed out. Please refresh and try again.");
-}
 
 export const CoinFlipSolana = {
   mounted() {
@@ -72,27 +59,16 @@ export const CoinFlipSolana = {
 
   async signAndSendSimple(base64Tx, successEvent, failEvent) {
     try {
-      const wallet = window.__solanaWallet;
-      if (!wallet) { this.pushEvent(failEvent, { error: "No wallet connected" }); return; }
+      const signer = getSigner();
+      if (!signer) {
+        this.pushEvent(failEvent, { error: "No wallet connected" });
+        return;
+      }
 
-      const txBytes = Uint8Array.from(atob(base64Tx), c => c.charCodeAt(0));
-      const signAndSend = wallet.features["solana:signAndSendTransaction"];
-      if (!signAndSend) { this.pushEvent(failEvent, { error: "Wallet does not support signing" }); return; }
+      const txBytes = decodeBase64Tx(base64Tx);
+      const sig = await signAndConfirm(signer, this.connection, txBytes);
 
-      const account = wallet.accounts[0];
-      if (!account) { this.pushEvent(failEvent, { error: "No account in wallet" }); return; }
-
-      const [{ signature }] = await signAndSend.signAndSendTransaction({
-        account, transaction: txBytes, chain: "solana:devnet"
-      });
-
-      const { default: bs58 } = await import("bs58");
-      const sig = bs58.encode(new Uint8Array(signature));
-
-      console.log(`[CoinFlipSolana] ${successEvent} tx submitted, confirming: ${sig}`);
-      await pollForConfirmation(this.connection, sig);
       console.log(`[CoinFlipSolana] ${successEvent} confirmed: ${sig}`);
-
       this.pushEvent(successEvent, { signature: sig });
     } catch (error) {
       console.error(`[CoinFlipSolana] ${failEvent}:`, error);
@@ -117,43 +93,19 @@ export const CoinFlipSolana = {
     const startTime = Date.now();
 
     try {
-      const wallet = window.__solanaWallet;
-      if (!wallet) {
+      const signer = getSigner();
+      if (!signer) {
         this.pushEvent("bet_error", {
           error: "No Solana wallet connected. Please connect your wallet and try again."
         });
         return;
       }
 
-      // Decode base64 transaction
-      const txBytes = Uint8Array.from(atob(transaction), c => c.charCodeAt(0));
-
-      // Sign and send via Wallet Standard
-      const signAndSend = wallet.features["solana:signAndSendTransaction"];
-      if (!signAndSend) {
-        this.pushEvent("bet_error", { error: "Wallet does not support signAndSendTransaction" });
-        return;
-      }
-
-      const account = wallet.accounts[0];
-      if (!account) {
-        this.pushEvent("bet_error", { error: "No account available in wallet" });
-        return;
-      }
-
-      const [{ signature }] = await signAndSend.signAndSendTransaction({
-        account,
-        transaction: txBytes,
-        chain: "solana:devnet"
-      });
-
-      // Convert signature to base58
-      const { default: bs58 } = await import("bs58");
-      const sig = bs58.encode(new Uint8Array(signature));
-
-      // Poll for on-chain confirmation (no websockets)
-      console.log(`[CoinFlipSolana] Bet tx submitted, confirming: ${sig}`);
-      await pollForConfirmation(this.connection, sig);
+      const txBytes = decodeBase64Tx(transaction);
+      // signAndConfirm handles the full pattern — sign via the wallet,
+      // probe for wallet-side auto-submit, submit if needed, poll for
+      // confirmation, and distinguish duplicate-submission from real errors.
+      const sig = await signAndConfirm(signer, this.connection, txBytes);
 
       const confirmationTime = Date.now() - startTime;
       console.log(`[CoinFlipSolana] Bet confirmed in ${confirmationTime}ms: ${sig}`);

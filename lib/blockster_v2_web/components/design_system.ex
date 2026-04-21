@@ -3507,7 +3507,7 @@ defmodule BlocksterV2Web.DesignSystem do
                           <span class="px"><b>$1.00</b>stable</span>
                         </div>
                         <div class="tok2" data-t="1">
-                          <img class="usdc" src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL"/>
+                          <img class="usdc" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL"/>
                           <span class="nm">SOL <span class="tk">Solana</span></span>
                           <span class="px"><b>+2.1%</b>$134.22</span>
                         </div>
@@ -3669,7 +3669,7 @@ defmodule BlocksterV2Web.DesignSystem do
                       </div>
                       <div class="receipt">
                         <div class="got">
-                          <img class="usdc" src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL"/>
+                          <img class="usdc" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL"/>
                           <span class="big">$200</span>
                           <span class="tk">paid out</span>
                         </div>

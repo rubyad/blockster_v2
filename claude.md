@@ -16,6 +16,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 - NEVER read `.env` files — they contain private keys.
 - NEVER use public Solana RPCs (`api.devnet.solana.com`, `api.mainnet-beta.solana.com`). Always use the project QuickNode RPC from `contracts/blockster-settler/src/config.ts`.
 - NEVER use `solana airdrop` or any devnet faucet — ask the user to fund wallets manually.
+- NEVER cache Web3Auth-derived Solana private keys in memory between operations. Fetch via `provider.request({method: "solana_privateKey"})` per sign, use within the call, then `secretKey.fill(0)` in the `finally` block. Never write to localStorage/sessionStorage. See [docs/web3auth_integration.md](docs/web3auth_integration.md) §4 for the pattern.
 
 **Solana transactions** (see [docs/solana_program_deploy.md](docs/solana_program_deploy.md)):
 - Use `getSignatureStatuses` polling for confirmation — NEVER `confirmTransaction` (websocket), NEVER manual rebroadcast loops.

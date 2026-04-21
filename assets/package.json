@@ -15,6 +15,8 @@
     "@tiptap/extension-underline": "^2.1.13",
     "@tiptap/starter-kit": "^2.27.1",
     "@wallet-standard/app": "^1.1.0",
+    "@web3auth/modal": "^10.15.0",
+    "@web3auth/solana-provider": "^9.7.0",
     "bs58": "^6.0.0",
     "lightweight-charts": "^5.1.0",
     "swiper": "^12.0.3"

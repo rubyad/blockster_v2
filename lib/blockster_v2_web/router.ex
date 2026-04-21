@@ -211,6 +211,21 @@ defmodule BlocksterV2Web.Router do
     # Solana wallet session (SIWS flow)
     post "/auth/session", AuthController, :create_session
     delete "/auth/session", AuthController, :delete_session_action
+
+    # Web3Auth social login — validates Telegram widget payload, returns JWT
+    # that Web3Auth's Custom verifier consumes. See Auth.Web3AuthSigning.
+    post "/auth/telegram/verify", AuthController, :telegram_verify
+
+    # Web3Auth social login — verifies a Web3Auth-issued ID token and
+    # creates/looks up the matching user row. See Auth.Web3Auth.
+    post "/auth/web3auth/session", AuthController, :verify_web3auth
+  end
+
+  # Web3Auth Custom verifier reads this to validate our JWTs.
+  scope "/", BlocksterV2Web do
+    pipe_through :public_api
+
+    get "/.well-known/jwks.json", AuthController, :jwks
   end
 
   # Public API endpoints (no authentication required)
@@ -255,6 +270,14 @@ defmodule BlocksterV2Web.Router do
       pipe_through :browser
 
       live "/design-preview", DesignPreviewLive, :index
+    end
+
+    # Phase 0 Web3Auth prototype — THROWAWAY. Delete once Phase 5 ships.
+    # Routed under /dev so the main scope's /:slug catch-all doesn't swallow it.
+    scope "/dev", BlocksterV2Web do
+      pipe_through :browser
+
+      live "/test-web3auth", TestWeb3AuthLive, :index
     end
   end
 end

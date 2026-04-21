@@ -29,7 +29,8 @@ defmodule BlocksterV2.Application do
       BlocksterV2.Repo,
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: BlocksterV2.PubSub},
-      BlocksterV2.Auth.NonceStore
+      BlocksterV2.Auth.NonceStore,
+      BlocksterV2.Auth.Web3AuthSigning
     ] ++ libcluster_child
 
     # GenServers that should not start in test mode
@@ -109,8 +110,16 @@ defmodule BlocksterV2.Application do
         []
       end
 
-    # Hourly promo scheduler (always running, controlled via admin dashboard toggle)
-    hourly_promo_children = [{BlocksterV2.TelegramBot.HourlyPromoScheduler, []}]
+    # Hourly promo scheduler is DEACTIVATED by default. To re-enable, set
+    # HOURLY_PROMO_ENABLED=true (runtime config) AND toggle the
+    # `hourly_promo_enabled` SystemConfig flag true via /admin/promo.
+    # See docs/social_login_plan.md §Appendix: Hourly promo deactivation.
+    hourly_promo_children =
+      if Application.get_env(:blockster_v2, :hourly_promo, [])[:enabled] do
+        [{BlocksterV2.TelegramBot.HourlyPromoScheduler, []}]
+      else
+        []
+      end
 
     # Bot reader system (behind feature flag)
     bot_system_children =

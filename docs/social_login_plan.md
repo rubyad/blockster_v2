@@ -708,3 +708,141 @@ Sized for continuous AI-assisted work, one phase at a time, with user available 
 ---
 
 *End of plan. Review + decide on the open questions in §5 before starting Phase 0.*
+
+---
+
+## Appendix C: Phases 1–4 Retrospective + Learnings (added 2026-04-20)
+
+### Status at end of session
+
+| Phase | State | Tests |
+|---|---|---|
+| 0 Prototype | ✅ validated on devnet (email + Google + X). Apple/Telegram deferred. | Manual devnet verification. |
+| 1 Anchor upgrade | ✅ deployed on devnet (slot 456930093). `BetOrder._reserved` → `rent_payer: Pubkey` (same bytes). `settle_bet` + `reclaim_expired` now `close = rent_payer` with `has_one = rent_payer`. | 36 Anchor tests pass (4 new Phase 1 invariant tests + 32 updated existing). |
+| 2 Signer abstraction | ✅ `window.__signer` interface + `signAndConfirm` helper. 4 consumers refactored. `solana_wallet.js` installs/clears signer on connect/disconnect. | Manual Phantom devnet regression. |
+| 3 Backend auth | ✅ `Auth.Web3Auth` verifier (ES256 JWKS fetch + cache), user schema migrated (`x_user_id`, `social_avatar_url`, `web3auth_verifier`), widened `auth_method` enum, `get_or_create_user_by_web3auth`, `POST /api/auth/web3auth/session`, referrals.ex Solana wallet bug fixed. | 22 Elixir auth tests pass. |
+| 4 Settler rent_payer | ✅ place_bet_sol/bux partial-sign with settler. reclaim/settle include rent_payer account in correct struct position. feePayer stays = player (Phantom rejects pre-signed multi-signer txs where fee_payer isn't the connected wallet — empirical). | Devnet verified end-to-end (bet place, reclaim). |
+
+Also in-session: **on-chain state reconcilers** added to `/play` to prevent Mnesia drift (reconciler A at mount, reconciler B in the 30s expired-bets check, reconciler C deferred). Settler exposes `GET /pending-bets/:wallet`. Mount-time nonce sync via `Auth.Web3Auth → BuxMinter.get_player_state`.
+
+### Costly learnings (most likely to bite Phase 5+)
+
+**1. Phantom's `signAndSendTransaction` silently strips pre-applied foreign signatures.**
+Ships the tx without them → on-chain signature verification fails → Phantom returns generic "Unexpected error". Any multi-signer tx (settler pre-signing as rent_payer) MUST use `signTransaction` + our own `sendRawTransaction`. Phantom's `signTransaction` does NOT strip existing sigs. Hook consumers use `signAndConfirm` from `assets/js/hooks/signer.js` which picks the right method internally.
+
+**2. Phantom's `signTransaction` silently submits the tx.**
+Documented as sign-only per Wallet Standard spec, but empirically submits via its own RPC as well. Naive `sendRawTransaction` afterwards trips "Transaction has already been processed". `signAndConfirm` handles this: pre-checks `getSignatureStatus`, skips re-submit if already in flight, swallows specific duplicate error strings on the submit path.
+
+**3. Anchor account order in the Rust struct IS the wire order. Non-negotiable.**
+Reclaim tx failed with `Custom(3007) AccountOwnedByWrongProgram` because our TypeScript put `rent_payer` at position 2 but the Rust struct had it at position 7. Anchor reads accounts positionally — `rent_payer` landed where `game_registry` was expected. Pubkey of settler (system-owned) vs expected bankroll-owned account → ownership check failed. Fix: TS keys array must match Rust field order EXACTLY. Every time you add a field in Rust, update the TS builder in `contracts/blockster-settler/src/services/bankroll-service.ts`.
+
+**4. `_reserved: [u8; 32]` is a legitimate upgrade mechanism, not waste.**
+The `BetOrder._reserved` field was pre-added for exactly this kind of extension. Repurposing it to `rent_payer: Pubkey` preserves the exact same serialized layout (32 bytes at the same offset), so legacy pre-upgrade bets remain readable — their `rent_payer` field reads as `Pubkey::default()` (all zeros). If you add more state fields, prefer repurposing reserved bytes over appending. Always append at end if creating genuinely new space.
+
+**5. Anchor 0.30.1's `anchor build --no-idl` works but IDL generation is broken on current proc-macro2.**
+`Span::source_file()` was removed; `anchor-syn 0.30.1` still uses it; can't pin proc-macro2 because `syn` requires 1.0.91+. Workaround: `contracts/blockster-bankroll/scripts/patch-idl-rent-payer.mjs` does a targeted JSON patch of `target/idl/blockster_bankroll.json` after `anchor build --no-idl`. Not great, but deterministic. Upgrade to anchor 0.31+ once the ecosystem catches up.
+
+**6. State drift between Mnesia and on-chain is an architectural gap, not a symptom.**
+The `check_expired_bets` timer only queried Mnesia. When a UI error-path fires after the tx actually landed, Mnesia never records the bet as `:placed` → reclaim banner never appears → user stuck. Reconciler A (mount-time `get_player_state` sync) and Reconciler B (30s on-chain `pending-bets` scan) fix this. Pattern applies broadly: **any LiveView that drives on-chain state should reconcile from on-chain at mount**. Don't trust local cache alone.
+
+**7. Web3Auth v10 idToken verification path != our own JWT issuer path.**
+Two JWKS flows in opposite directions:
+- Web3Auth → us: backend fetches `https://api-auth.web3auth.io/jwks` to verify idTokens passed in from the client (ES256).
+- Us → Web3Auth: our `/.well-known/jwks.json` serves RS256 keys that Web3Auth's dashboard Custom JWT verifier consumes for the Telegram flow.
+
+`lib/blockster_v2/auth/web3auth.ex` is the VERIFIER. `lib/blockster_v2/auth/web3auth_signing.ex` is our ISSUER. Don't confuse them.
+
+**8. Buffer/process polyfill is a real requirement.**
+Esbuild doesn't polyfill Node globals. Web3Auth transitive deps (`@toruslabs/eccrypto` etc.) read `Buffer` as a bare identifier at module init time. The polyfill MUST be a separate file imported first in `app.js` — inline top-level assignments don't work because ES imports hoist. See `assets/js/polyfills.js`.
+
+**9. Phantom rejects multi-signer txs where fee_payer isn't the connected wallet.**
+Phase 4 initially set `feePayer = settler` so Web3Auth users (future Phase 5) could bet with 0 SOL. Phantom returned "Unexpected error" because a wallet user isn't the fee payer. Reverted to `feePayer = player` for Phase 4; Phase 5 Web3Auth hook will handle fee-payer branching at the client side (Web3Auth signs locally from exported key, no wallet-approval invariants to respect).
+
+**10. `Task.start(fn -> send(self(), ...) end)` — `self()` refers to the Task, not the caller.**
+Sounds obvious but caught me. Capture `lv_pid = self()` outside the `Task.start` closure and `send(lv_pid, ...)` inside. Same trap applies to any Task-based async work in LiveView handlers.
+
+**11. Errors in LiveView JS push events don't atomically mean "tx failed."**
+The old EVM single-signer pattern gave us atomic success/failure. Solana's multi-signer + wallet-submitted-already-and-we-double-sent pattern means "error" can coexist with "tx landed." Every error handler that advances state MUST verify the on-chain result before declaring failure. `signAndConfirm`'s duplicate-error detection solves the symptom; mount-time reconcilers solve the structural drift.
+
+### Deferred work (carry into future phases)
+
+- **Reconciler C**: `CoinFlipBetSettler` on-chain scan every minute. A+B cover the common case; C would catch "user never opened /play after stuck bet" scenarios. Low-urgency.
+- **BUX ATA pre-creation check**: `place_bet_bux` assumes player's BUX ATA exists. First-time BUX bet by a user who's never held BUX would fail. Phase 4 plan §4.5 notes the fallback (include `ensure_ata` in the place_bet tx as a preceding instruction).
+- **Apple login** in Web3Auth dashboard: needs Apple Developer account + `services.plist`. Defer until product priority.
+- **Telegram JWT end-to-end**: backend endpoint works + tested, dashboard Custom JWT needs a stable JWKS URL (not localhost). Cloudflare tunnel for dev, production URL once deployed.
+- **Anchor test file drift cleanup** (was never in this session's scope): some existing tests in `tests/blockster-bankroll.ts` used pre-Phase-1 signatures; reconciled for Phase 1 but the full suite hasn't been reviewed for broader drift.
+- **One-off stuck bet recovery script**: not needed now that reconciler B works, but worth keeping in mind if similar drift appears elsewhere (e.g., airdrop).
+
+---
+
+## Appendix B: Phase 0 Retrospective (added 2026-04-20)
+
+Phase 0 validated email, Google, and X logins end-to-end on Solana devnet. Apple and Telegram deferred per the original plan. Several assumptions in §1 and §2 of this plan turned out to be incomplete once we hit the SDK — updating here so downstream phases don't re-learn them.
+
+### What landed vs. what the plan assumed
+
+**Plan §2.1 "single-click BUX bet" path:** still valid, but the mechanism changed. Plan described signing via the Web3Auth provider directly (`solanaWallet.signTransaction(tx)`). In practice Web3Auth v10 Modal's AUTH connector returns a `ws-embed` iframe provider whose signing methods are inconsistent. Production pattern is now **pull the ed25519 seed via `solana_privateKey`, sign locally with `@solana/web3.js`, zero the buffer.** Same zero-popup UX guarantee, different code shape. Full details in `docs/web3auth_integration.md` §4.
+
+**Plan §1.1 provider choice:** still Web3Auth Modal v10, but we're NOT using `@web3auth/solana-provider`'s `SolanaWallet` wrapper. It's incompatible with the modal's AUTH connector output (different method-name conventions). Phase 5 hook uses `provider.request({ method: "solana_privateKey" })` directly. See §3 of the integration doc for the incompatibility details.
+
+**Plan §1.4 JWT verification:** confirmed. Web3Auth-issued idToken is ES256 signed by `https://api-auth.web3auth.io/jwks`. Phase 3 backend fetches that JWKS. Separately, our Telegram path issues RS256 JWTs signed with our own key at `/.well-known/jwks.json` — the Web3Auth dashboard's Custom JWT connector fetches our JWKS. Two JWKS flows in opposite directions; don't conflate them.
+
+### Surprises that warrant Phase 5 attention
+
+1. **Chain ID convention:** devnet is `0x67` in ws-embed's map, NOT `0x3` as Web3Auth's public Solana docs show. Using `0x3` silently misroutes the provider. Phase 5 hook must hardcode `0x67` for devnet / `0x65` for mainnet.
+2. **Method names:** `solana_requestAccounts`, `solana_signMessage`, `solana_signTransaction`, `solana_sendTransaction`, `solana_privateKey` — all prefixed. Bare names fail.
+3. **Buffer/process polyfill mandatory:** Web3Auth's transitive deps reference Node globals directly. Esbuild doesn't auto-polyfill. `assets/js/polyfills.js` must be the first import in `app.js`. (Already landed during Phase 0.)
+4. **Bundle size:** eagerly importing `@web3auth/modal` bloats `app.js` from ~5MB to ~12.5MB. Phase 5 MUST lazy-load the Web3Auth hook (dynamic `import()` inside the hook's `mounted()`) so unauthenticated pages don't pay the download cost.
+5. **Popup blocking via `prompt()`:** `prompt()` before `connectTo()` breaks the user-gesture chain → popup blocked. Use inline form inputs. Phase 5's sign-in modal must honor this — no modal-internal prompts before the popup opens.
+6. **`getUserInfo()` is flaky on Solana-only sessions:** wrap in try/catch and treat failures as benign. The idToken, email, and verifier come through regardless.
+
+### Verified invariants (now locked in by tests)
+
+- Each identity (email / Google / X / future Apple / future Telegram) derives a **stable deterministic Solana pubkey**. Same login = same wallet every time.
+- Web3Auth-signed transactions successfully compose into two-signer txs where the settler is fee_payer (proven with [devnet tx `5y5HZ...FvT4`](https://explorer.solana.com/tx/5y5HZ4Uh2U9Z9D2eQXYQ4zWisPcYZjgY6WUz2DvyA2h9wVNoAeKcf92rkGzTG4GXW33s43poku9qVwryBwFdFvT4?cluster=devnet)). This is the UX guarantee from §2.1.
+
+### Dashboard config that works (reproducible)
+
+See `docs/web3auth_integration.md` §7 for the full setup. Summary: Sapphire Devnet project, Solana chain added (dashboard infers chainId), `http://localhost:4000` whitelisted for dev. For Telegram's Custom JWT: localhost URLs are rejected by Web3Auth's endpoint validator, so dev requires a Cloudflare tunnel. This is why Phase 0 deferred the Telegram path and we'll finish it in Phase 5 against the production domain.
+
+### Throwaway surface area still in tree
+
+- `/dev/test-web3auth` route + `TestWeb3AuthLive` LiveView
+- `assets/js/hooks/test_web3auth.js`
+
+Both clearly marked "THROWAWAY". Delete in Phase 5 when the production hook lands.
+
+### Reading order for Phase 5 implementers
+
+1. This appendix (the plan deltas).
+2. `docs/web3auth_integration.md` (technical reference — method names, param shapes, dashboard setup).
+3. `assets/js/hooks/test_web3auth.js` (concrete working example — copy the signing pattern verbatim).
+4. `lib/blockster_v2/auth/web3auth_signing.ex` + tests (backend JWT issuer — reuse for Telegram).
+
+---
+
+## Appendix A: Hourly Promo Bot Deactivation (added 2026-04-20)
+
+Parallel to the social-login work, the `HourlyPromoScheduler` GenServer and the Telegram group bot it drives are being deactivated. The promo system was used to post hourly "BUX Booster" / "Giveaway" / "Competition" messages into the Blockster Telegram group. It is **off** going forward.
+
+### Why here
+- We're already touching Telegram plumbing in this initiative (Phase 0 Telegram JWT, Phase 5 Login Widget, Phase 9 Telegram multiplier). Turning off the promo bot in the same sweep keeps the Telegram surface area coherent and avoids stale automation running alongside the new sign-in flow.
+- The bot is on the same `TELEGRAM_V2_BOT_TOKEN` as the Login Widget / account-connect flow; leaving it running would interleave promo messages with the new onboarding copy.
+
+### What changes
+- `lib/blockster_v2/application.ex`: `HourlyPromoScheduler` child spec now gated behind `Application.get_env(:blockster_v2, :hourly_promo, [])[:enabled]`. Default in `config/runtime.exs` is `false` (set by `HOURLY_PROMO_ENABLED` env var, default `"false"`). Deploying with the default results in the scheduler **not starting** — no Telegram posts, no Mnesia writes from the promo engine.
+- `lib/blockster_v2/telegram_bot/hourly_promo_scheduler.ex`: **unchanged**. Module preserved so it can be reactivated without a code change. Its public API (`get_state/0`, `force_next/1`, `run_now/0`) already handles the "not running" case, so `/admin/promo` continues to render cleanly with a red "Scheduler Not Running" badge.
+- `lib/blockster_v2_web/live/promo_admin_live.ex` and `/admin/promo` route: **unchanged**. Dashboard still reads `SystemConfig.get("hourly_promo_enabled", false)` and gracefully shows the scheduler as off. `PromoEngine.all_templates()` still works for the Template Library view.
+- `Notifications.SystemConfig` `hourly_promo_enabled` key: should be set to `false` in prod (if currently `true`) so that no stale config survives — confirm via `BlocksterV2.Notifications.SystemConfig.get("hourly_promo_enabled", false)` before/after the deploy.
+
+### Reactivation path (if ever needed)
+1. `flyctl secrets set HOURLY_PROMO_ENABLED=true --stage --app blockster-v2` (note `--stage` per CLAUDE.md).
+2. Deploy. Scheduler starts on boot.
+3. Visit `/admin/promo` and click "Resume Bot" to flip `hourly_promo_enabled` → `true`. Posts resume on the next hour boundary.
+
+No reactivation is planned for v1.
+
+### Checklist for the deploy that lands this
+- [ ] Confirm `HOURLY_PROMO_ENABLED` is absent (or `=false`) in prod secrets.
+- [ ] Optional: set `hourly_promo_enabled` SystemConfig key to `false` via admin dashboard or psql before the deploy to silence any in-flight hour.
+- [ ] Post-deploy: visit `/admin/promo` and confirm the red "Scheduler Not Running" badge and that no new history rows are appearing.

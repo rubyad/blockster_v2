@@ -64,7 +64,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | Resource | Address / ID | Purpose |
 |----------|-------------|---------|
 | BUX Mint | `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` | BUX SPL token (9 decimals, no freeze authority) |
-| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX, LP tokens, game registry, commit-reveal |
+| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX, LP tokens, game registry, commit-reveal. **Phase 1 upgrade 2026-04-20** (slot 456930093) — settler is now mandatory `rent_payer` on `place_bet_sol/bux`, `settle_bet` + `reclaim_expired` `close = rent_payer`. `BetOrder._reserved` repurposed as `rent_payer: Pubkey`. See [social_login_plan.md](social_login_plan.md) §Phase 1 + [web3auth_integration.md](web3auth_integration.md). |
 | Airdrop Program | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` | Multi-round airdrop, any SPL/SOL prizes, BUX entries |
 
 ### Wallets

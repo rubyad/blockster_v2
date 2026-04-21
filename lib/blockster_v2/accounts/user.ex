@@ -52,6 +52,11 @@ defmodule BlocksterV2.Accounts.User do
     field :bio, :string
     field :x_handle, :string
 
+    # Web3Auth / social login fields
+    field :x_user_id, :string
+    field :social_avatar_url, :string
+    field :web3auth_verifier, :string
+
     # Legacy account deactivation fields (set when this user is merged into another)
     field :is_active, :boolean, default: true
     field :deactivated_at, :utc_datetime
@@ -90,11 +95,18 @@ defmodule BlocksterV2.Accounts.User do
                     :telegram_group_joined_at, :is_bot,
                     :email_verified, :email_verification_code, :email_verification_sent_at, :legacy_email,
                     :pending_email, :is_active, :deactivated_at, :merged_into_user_id,
-                    :bio, :x_handle])
+                    :bio, :x_handle,
+                    :x_user_id, :social_avatar_url, :web3auth_verifier])
     |> validate_required([:wallet_address, :auth_method])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:username, min: 3, max: 20)
-    |> validate_inclusion(:auth_method, ["wallet", "email"])
+    |> validate_inclusion(:auth_method, [
+         "wallet",
+         "email",
+         "web3auth_email",
+         "web3auth_x",
+         "web3auth_telegram"
+       ])
     |> validate_number(:bux_balance, greater_than_or_equal_to: 0)
     |> validate_number(:level, greater_than_or_equal_to: 1)
     |> validate_number(:experience_points, greater_than_or_equal_to: 0)
@@ -106,7 +118,65 @@ defmodule BlocksterV2.Accounts.User do
     |> unique_constraint(:username)
     |> unique_constraint(:slug)
     |> unique_constraint(:telegram_user_id, message: "this Telegram account is already connected to another user")
+    |> unique_constraint(:x_user_id, message: "this X account is already connected to another user")
   end
+
+  @doc """
+  Changeset for creating a new user via Web3Auth social login. Wraps the
+  common fields + sets auth_method + marks `is_verified = true` (the social
+  provider's OAuth / OTP step is the verification step). Email flagged as
+  verified when the verifier is an OTP path.
+  """
+  def web3auth_registration_changeset(attrs) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    auth_method = Map.get(attrs, "auth_method")
+
+    %__MODULE__{}
+    |> cast(attrs, [
+      :wallet_address,
+      :email,
+      :username,
+      :avatar_url,
+      :social_avatar_url,
+      :auth_method,
+      :web3auth_verifier,
+      :x_user_id,
+      :x_handle,
+      :telegram_user_id,
+      :telegram_username,
+      :email_verified
+    ])
+    |> put_change(:is_verified, true)
+    |> put_change(:email_verified, auth_method == "web3auth_email")
+    |> put_telegram_connected_at(auth_method)
+    |> validate_required([:wallet_address, :auth_method])
+    |> validate_inclusion(:auth_method, [
+         "web3auth_email",
+         "web3auth_x",
+         "web3auth_telegram"
+       ])
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
+    |> set_admin_if_authorized()
+    |> generate_slug()
+    |> unique_constraint(:wallet_address)
+    |> unique_constraint(:email)
+    |> unique_constraint(:slug)
+    |> unique_constraint(:telegram_user_id,
+         message: "this Telegram account is already connected to another user"
+       )
+    |> unique_constraint(:x_user_id,
+         message: "this X account is already connected to another user"
+       )
+  end
+
+  defp put_telegram_connected_at(changeset, "web3auth_telegram") do
+    case get_change(changeset, :telegram_connected_at) do
+      nil -> put_change(changeset, :telegram_connected_at, DateTime.utc_now() |> DateTime.truncate(:second))
+      _ -> changeset
+    end
+  end
+
+  defp put_telegram_connected_at(changeset, _), do: changeset
 
   @doc """
   Changeset for creating a new user from wallet connection

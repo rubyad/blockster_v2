@@ -42,6 +42,11 @@ node_modules
 /priv/mnesia/
 .playwright-mcp/
 
+# Web3Auth JWT signing key — RSA private key, must never be committed.
+# Regenerated on first boot if missing; prod sets WEB3AUTH_JWT_SIGNING_KEY_PATH
+# to point at a Fly.io secret-mounted file.
+/priv/web3auth_keys/
+
 # macOS metadata
 .DS_Store
 **/.DS_Store

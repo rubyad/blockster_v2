@@ -17,6 +17,8 @@
  */
 
 import { Connection } from "@solana/web3.js";
+import bs58 from "bs58";
+import { getSigner, pollForConfirmation, decodeBase64Tx } from "./signer.js";
 
 const DEVNET_RPC = "https://api.devnet.solana.com";
 
@@ -35,58 +37,30 @@ export const PoolHook = {
 
   async signAndSubmit(base64Tx, vaultType, action) {
     try {
-      const wallet = window.__solanaWallet;
-      if (!wallet) {
+      const signer = getSigner();
+      if (!signer) {
         this.pushEvent("tx_failed", {
           vault_type: vaultType,
-          action: action,
+          action,
           error: "No Solana wallet connected. Please connect your wallet."
         });
         return;
       }
 
-      // Decode base64 transaction
-      const txBytes = Uint8Array.from(atob(base64Tx), c => c.charCodeAt(0));
-
-      // Use Wallet Standard signAndSendTransaction
-      const signAndSend = wallet.features["solana:signAndSendTransaction"];
-      if (!signAndSend) {
-        this.pushEvent("tx_failed", {
-          vault_type: vaultType,
-          action: action,
-          error: "Wallet does not support signAndSendTransaction"
-        });
-        return;
-      }
-
-      const account = wallet.accounts[0];
-      if (!account) {
-        this.pushEvent("tx_failed", {
-          vault_type: vaultType,
-          action: action,
-          error: "No account available in wallet"
-        });
-        return;
-      }
-
-      const [{ signature }] = await signAndSend.signAndSendTransaction({
-        account,
-        transaction: txBytes,
-        chain: "solana:devnet"
-      });
-
-      // Convert signature to base58
-      const { default: bs58 } = await import("bs58");
+      const txBytes = decodeBase64Tx(base64Tx);
+      // signAndSendTransaction preserves settler partial sigs per Wallet
+      // Standard spec. Avoid signTransaction+sendRawTransaction because
+      // Phantom's signTransaction silently submits in some versions.
+      const { signature } = await signer.signAndSendTransaction(txBytes);
       const sig = bs58.encode(new Uint8Array(signature));
 
-      // Wait for transaction confirmation before notifying LiveView
       console.log(`[PoolHook] ${action} submitted, confirming: ${sig}`);
-      await this.connection.confirmTransaction(sig, "confirmed");
+      await pollForConfirmation(this.connection, sig);
       console.log(`[PoolHook] ${action} confirmed: ${sig}`);
 
       this.pushEvent("tx_confirmed", {
         vault_type: vaultType,
-        action: action,
+        action,
         signature: sig
       });
 
@@ -95,7 +69,7 @@ export const PoolHook = {
 
       this.pushEvent("tx_failed", {
         vault_type: vaultType,
-        action: action,
+        action,
         error: parseError(error)
       });
     }

@@ -9,6 +9,65 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Social Login Phases 0–4 + CoinFlip State Reconcilers (2026-04-20) ✅
+
+Foundational push toward social login (Web3Auth email/Google/X). Landed all pre-UI infrastructure: prototype validation, on-chain rent_payer upgrade, JS signer abstraction, backend JWT verifier, settler multi-signer build path. Also hardened CoinFlip against Mnesia/on-chain state drift this work exposed. UI/modal work deferred to Phase 5.
+
+### What shipped
+
+- **Phase 0 — Web3Auth prototype.** Validated email + Google + X logins on devnet via throwaway `/dev/test-web3auth` route. Each identity derives a deterministic Solana pubkey; two-signer zero-SOL bet shape proven with devnet tx `5y5HZ4...FvT4`. Apple + Telegram deferred to Phase 5+ (Apple needs Developer cert; Telegram needs a stable JWKS URL / production domain).
+- **Phase 1 — Anchor program upgrade.** Deployed to devnet at slot 456930093. `place_bet_sol/bux` now require `rent_payer: Signer` validated against `game_registry.settler`. `settle_bet` + `reclaim_expired` use `close = rent_payer` with `has_one`. `BetOrder._reserved: [u8; 32]` repurposed as `rent_payer: Pubkey` — identical serialized layout. Zero SOL required from users for PDA rent going forward; rent cycles through settler.
+- **Phase 2 — Signer abstraction.** New `window.__signer` interface (`assets/js/hooks/signer.js`) installed by `solana_wallet.js` on connect. `coin_flip_solana.js`, `pool_hook.js`, `airdrop_solana.js`, `sol_payment.js` all refactored to route through it. `signAndConfirm` helper handles Phantom's auto-submit quirk + settler partial-sig preservation + duplicate detection. Replaces ~4x duplicated `pollForConfirmation` + `signAndSendTransaction` boilerplate.
+- **Phase 3 — Backend auth.** `joken` + `joken_jwks` deps added. `BlocksterV2.Auth.Web3Auth` verifies Web3Auth ES256 JWTs against `api-auth.web3auth.io/jwks` (ETS-cached 1h). `BlocksterV2.Auth.Web3AuthSigning` issues our own RS256 JWTs for the Telegram Custom JWT connector. `GET /.well-known/jwks.json`, `POST /api/auth/telegram/verify`, `POST /api/auth/web3auth/session` wired. User schema migrated: `x_user_id` (unique), `social_avatar_url`, `web3auth_verifier`. Auth method enum widened to accept `web3auth_email`, `web3auth_x`, `web3auth_telegram`. **Referrals bug fix** (not social-login specific but in scope): `Referrals.process_signup_referral` now looks up referrers by `wallet_address` first, falls back to `smart_wallet_address` — Solana users can now refer each other.
+- **Phase 4 — Settler rent_payer wiring.** `buildPlaceBetTx` in `bankroll-service.ts` sets `rent_payer = settler`, partial-signs with settler. `buildReclaimExpiredTx` and `settleBet` include rent_payer in the correct struct position. Important: **`feePayer` stays = player** for Wallet Standard users — Phantom rejects sign requests where the connected wallet isn't the fee payer. Web3Auth users (Phase 5) will get a separate build path with settler-as-fee-payer since Web3Auth signs locally from exported key.
+- **On-chain state reconcilers for CoinFlip** (unplanned — forced by Phase 1 drift):
+  - Reconciler A: `CoinFlipGame.get_or_init_game` queries on-chain `PlayerState` via settler `/player-state/:wallet`, takes `max(mnesia_nonce, onchain_nonce)` so drifted local state self-heals on LiveView mount.
+  - Reconciler B: `check_expired_bets` timer now also scans `GET /pending-bets/:wallet` (new settler endpoint); any pending bet_order past UI timeout triggers the reclaim banner regardless of Mnesia knowing about it.
+  - Reconciler C (deferred): `CoinFlipBetSettler` periodic on-chain scan as a backend backstop.
+- **Hourly promo deactivation** (unrelated housekeeping). `HourlyPromoScheduler` now gated behind `HOURLY_PROMO_ENABLED=true` — default off. Deploying with default silences the Telegram promo bot. Admin UI at `/admin/promo` renders gracefully.
+
+### Why state reconcilers became mandatory
+
+Phase 1 introduced multi-signer txs. Phantom's behavior with multi-signer txs is non-atomic:
+- `signAndSendTransaction` strips foreign partial sigs → rejects with "Unexpected error".
+- `signTransaction` silently submits despite Wallet Standard spec saying otherwise.
+
+That means a `bet_error` from the JS hook can coexist with a successful on-chain bet. The old path (single-signer, `signAndSendTransaction` atomic) never had this gap. Mnesia's nonce didn't advance because the UI treated the bet as failed → next attempt reused the same nonce → `init, payer = rent_payer` fails with `AccountAlreadyInUse (Custom 0)` → user stuck. Reconciler A + B break this loop by treating on-chain as source of truth.
+
+### Critical bugs fixed in-session (for reference)
+
+- **Anchor struct order mismatch.** I initially inserted `rent_payer` at position 2 in `buildReclaimExpiredTx` TypeScript, but the Rust struct has it at position 7 (between `bux_token_account` and `player_state`). Anchor reads accounts positionally → `rent_payer` landed where `game_registry` was expected → system-owned vs bankroll-owned ownership check failed → `Custom(3007) AccountOwnedByWrongProgram`. **Rule: TS keys array MUST match Rust struct field order exactly, every time.**
+- **`feePayer: settler` broke Phantom flow.** Wallet Standard wallets enforce "I'm the fee payer" as a UX invariant. Must stay `feePayer = player` for wallet users.
+- **Polyfill in wrong place.** `Buffer`/`process` assignments MUST be in a separately-imported module — ES imports hoist, so inline top-level assignments run AFTER the Web3Auth dep graph initializes. `assets/js/polyfills.js` is the first import in `app.js`.
+- **`Task.start(fn -> send(self(), ...))` sends to the Task pid, not the caller.** Capture `lv_pid = self()` outside the closure.
+- **Balance UI drift after reclaim.** Initial `reclaim_confirmed` handler didn't call `BuxMinter.sync_user_balances_async` → UI balance stale until page refresh. Fixed: added sync call in the handler. Same pattern should apply to any future tx-completion handler.
+- **Wrong SOL logo URL.** Temporarily globally-replaced `ik.imagekit.io/blockster/solana-sol-logo.png` with the `raw.githubusercontent.com/solana-labs/token-list/.../logo.png`. The github one is the green "SOL" circle (new Solana brand), not the familiar purple/teal mark. User caught it; reverted.
+
+### Tests added (82 total)
+
+- `contracts/blockster-bankroll/tests/blockster-bankroll.ts`: 36 tests pass (4 new Phase 1 invariant tests + 32 existing reconciled for Phase 1 schema).
+- `test/blockster_v2/auth/web3auth_test.exs`: 10 tests (ES256 verification, JWKS cache, claim normalization).
+- `test/blockster_v2/auth/web3auth_signing_test.exs`: 2 tests (RSA keypair generation, JWT signing, JWKS output).
+- `test/blockster_v2_web/controllers/auth_controller_telegram_test.exs`: 4 tests (HMAC validation, JWT issuance, stale rejection, JWKS endpoint).
+- `test/blockster_v2/accounts_web3auth_test.exs`: 6 tests (per-provider user creation + backfill).
+- `test/blockster_v2/referrals_test.exs`: 2 new tests for Solana-only wallet referrers.
+
+### Devnet addresses
+
+- Bankroll program: `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` (upgraded at slot 456930093).
+- Upgrade authority: `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` (settler).
+- Deploy fee paid by CLI wallet `49aN...pC1d` (spent ~0.008 SOL).
+
+### Where the next session should pick up
+
+- **Phase 5** is next — Web3Auth hook + sign-in modal rebuild. Mandatory `/frontend-design:frontend-design` skill per CLAUDE.md + the plan. Nothing else shipped.
+- Phase 6/7/8 UI work also requires the frontend-design skill.
+- Phases 0–4 infrastructure is solid and verified end-to-end on devnet (Phantom user placed and reclaimed a bet successfully after the session's bug fixes).
+- See [docs/web3auth_integration.md](web3auth_integration.md) for the technical reference that Phase 5 implementers must read.
+- See [docs/social_login_plan.md](social_login_plan.md) Appendix C for the session's learnings (11 costly gotchas, numbered for reference).
+
+---
+
 ## Shop → SOL Direct Checkout + Redesign Polish (2026-04-19) ✅
 
 Big mixed push: replaced Helio with native SOL-direct checkout for the shop, fixed a critical engagement-tracker bug that silently blocked every BUX payment after the redesign, and cleaned up a batch of post-redesign UX debt.

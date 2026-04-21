@@ -3,8 +3,13 @@
 
 import { getWallets } from "@wallet-standard/app"
 import bs58 from "bs58"
+import {
+  installWalletStandardSigner,
+  clearSigner,
+} from "./signer.js"
 
 const STORAGE_KEY = "blockster_wallet"
+const CHAIN = "solana:devnet" // TODO wire to window.BLOCKSTER_CHAIN in Phase 5
 
 export const SolanaWallet = {
   mounted() {
@@ -156,6 +161,7 @@ export const SolanaWallet = {
       this._connectedWallet = wallet
       this._connectedAccount = account
       window.__solanaWallet = wallet
+      installWalletStandardSigner({ wallet, account, chain: CHAIN })
       this._subscribeWalletEvents(wallet)
 
       // Do NOT write localStorage here — wait for persist_session (after SIWS verification)
@@ -220,6 +226,13 @@ export const SolanaWallet = {
   // state, and push wallet_connected so the server kicks off a new SIWS.
   _handleAccountChange(newAccount) {
     this._connectedAccount = newAccount
+    // Re-install the signer against the new account so downstream calls
+    // sign with the correct key.
+    installWalletStandardSigner({
+      wallet: this._connectedWallet,
+      account: newAccount,
+      chain: CHAIN,
+    })
     try {
       // Stale localStorage points at the old pubkey — wipe it so a refresh
       // doesn't auto-reconnect to the wrong account
@@ -240,6 +253,7 @@ export const SolanaWallet = {
     this._connectedWallet = null
     this._connectedAccount = null
     window.__solanaWallet = null
+    clearSigner()
     if (this._unsubscribeAccountChange) {
       try { this._unsubscribeAccountChange() } catch (_) {}
       this._unsubscribeAccountChange = null
@@ -286,6 +300,7 @@ export const SolanaWallet = {
     this._connectedWallet = null
     this._connectedAccount = null
     window.__solanaWallet = null
+    clearSigner()
     try { localStorage.removeItem(STORAGE_KEY) } catch (_) {}
     this.pushEvent("wallet_disconnected", {})
   },
@@ -311,6 +326,7 @@ export const SolanaWallet = {
       this._connectedWallet = wallet
       this._connectedAccount = account
       window.__solanaWallet = wallet
+      installWalletStandardSigner({ wallet, account, chain: CHAIN })
       this._subscribeWalletEvents(wallet)
 
       if (account.address !== stored.address) {

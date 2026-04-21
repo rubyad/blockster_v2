@@ -17,8 +17,16 @@
  * - "airdrop_claim_error" { error } → claim failed
  */
 
+import { Connection } from "@solana/web3.js";
+import bs58 from "bs58";
+import { getSigner, decodeBase64Tx } from "./signer.js";
+
+const DEVNET_RPC = "https://api.devnet.solana.com";
+
 export const AirdropSolanaHook = {
   mounted() {
+    this.connection = new Connection(DEVNET_RPC, "confirmed");
+
     this.handleEvent("sign_airdrop_deposit", async (params) => {
       await this.signAndSubmit(params.transaction, "deposit", {
         amount: params.amount,
@@ -36,42 +44,17 @@ export const AirdropSolanaHook = {
 
   async signAndSubmit(base64Tx, action, metadata) {
     try {
-      const wallet = window.__solanaWallet;
-      if (!wallet) {
+      const signer = getSigner();
+      if (!signer) {
         this.pushEvent(`airdrop_${action}_error`, {
           error: "No Solana wallet connected. Please connect your wallet."
         });
         return;
       }
 
-      // Decode base64 transaction
-      const txBytes = Uint8Array.from(atob(base64Tx), c => c.charCodeAt(0));
-
-      // Use Wallet Standard signAndSendTransaction
-      const signAndSend = wallet.features["solana:signAndSendTransaction"];
-      if (!signAndSend) {
-        this.pushEvent(`airdrop_${action}_error`, {
-          error: "Wallet does not support signAndSendTransaction"
-        });
-        return;
-      }
-
-      const account = wallet.accounts[0];
-      if (!account) {
-        this.pushEvent(`airdrop_${action}_error`, {
-          error: "No account available in wallet"
-        });
-        return;
-      }
-
-      const [{ signature }] = await signAndSend.signAndSendTransaction({
-        account,
-        transaction: txBytes,
-        chain: "solana:devnet"
-      });
-
-      // Convert signature to base58
-      const { default: bs58 } = await import("bs58");
+      const txBytes = decodeBase64Tx(base64Tx);
+      // signAndSendTransaction preserves settler partial sigs per spec.
+      const { signature } = await signer.signAndSendTransaction(txBytes);
       const sig = bs58.encode(new Uint8Array(signature));
 
       if (action === "deposit") {

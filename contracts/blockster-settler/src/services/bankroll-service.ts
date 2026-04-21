@@ -660,6 +660,7 @@ export async function buildPlaceBetTx(
 ): Promise<string> {
   const player = new PublicKey(wallet);
   const nonceBigint = BigInt(nonce);
+  const settler = MINT_AUTHORITY;
 
   const [gameRegistry] = deriveGameRegistry();
   const [playerState] = derivePlayerState(player);
@@ -681,10 +682,13 @@ export async function buildPlaceBetTx(
   data.writeUInt8(difficulty, 32);
 
   // Account order MUST match Anchor struct exactly.
-  // PlaceBetSol: player, game_registry, sol_vault, sol_vault_state, player_state, bet_order, system_program
-  // PlaceBetBux: player, game_registry, bux_vault_state, bux_token_account, player_bux_account, player_state, bet_order, system_program, token_program
+  // Post-Phase-1 rent_payer upgrade — `rent_payer` is the second account
+  // (right after `player`). Program validates it == game_registry.settler.
+  // PlaceBetSol: player, rent_payer, game_registry, sol_vault, sol_vault_state, player_state, bet_order, system_program
+  // PlaceBetBux: player, rent_payer, game_registry, bux_vault_state, bux_token_account, player_bux_account, player_state, bet_order, system_program, token_program
   const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
     { pubkey: player, isSigner: true, isWritable: true },
+    { pubkey: settler.publicKey, isSigner: true, isWritable: true },
     { pubkey: gameRegistry, isSigner: false, isWritable: false },
   ];
 
@@ -723,11 +727,22 @@ export async function buildPlaceBetTx(
   });
 
   const blockhash = await getRecentBlockhash();
+  // Player is fee_payer (pays ~5k lamports priority fee from their wallet).
+  // Settler partial-signs ONLY the rent_payer signer slot (Phase 1 requires
+  // settler as rent_payer; program enforces `rent_payer == game_registry.settler`).
+  // Fee_payer is decoupled from rent_payer by design so Wallet Standard
+  // wallets (Phantom/Solflare/Backpack) don't reject the tx for "fee payer
+  // is not the connected wallet" — that's a Phantom UX invariant.
+  //
+  // Web3Auth social users will get a different build path in Phase 5 (they
+  // sign locally after key export, so no wallet-approval layer to appease;
+  // settler can be fee_payer there to deliver zero-SOL UX).
   const tx = new Transaction({
     recentBlockhash: blockhash,
     feePayer: player,
   });
   tx.add(...computeBudgetIxs(), ix);
+  tx.partialSign(settler);
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -754,6 +769,7 @@ export async function buildReclaimExpiredTx(
 ): Promise<string> {
   const player = new PublicKey(wallet);
   const nonceBigint = BigInt(nonce);
+  const settler = MINT_AUTHORITY;
 
   const [gameRegistry] = deriveGameRegistry();
   const [solVault] = deriveSolVault();
@@ -778,18 +794,25 @@ export async function buildReclaimExpiredTx(
     playerBuxAta = BANKROLL_PROGRAM_ID; // None sentinel for Anchor Option<Account>
   }
 
-  // Account order must match Anchor ReclaimExpired struct exactly:
+  // Post-Phase-1 ReclaimExpired struct (EXACT order from reclaim_expired.rs):
   // 1. player (Signer, mut)
   // 2. game_registry (read-only)
   // 3. sol_vault (mut)
   // 4. sol_vault_state (mut)
   // 5. bux_vault_state (mut)
   // 6. bux_token_account (mut)
-  // 7. player_state (mut)
-  // 8. bet_order (mut, close=player)
-  // 9. player_bux_account (Option, mut)
-  // 10. system_program
-  // 11. token_program
+  // 7. rent_payer (mut, UncheckedAccount — receives rent via close=rent_payer)
+  // 8. player_state (mut)
+  // 9. bet_order (mut, close=rent_payer, has_one = rent_payer)
+  // 10. player_bux_account (Option, mut)
+  // 11. system_program
+  // 12. token_program
+  //
+  // Ordering note: rent_payer sits between bux_token_account and
+  // player_state in the Rust struct, NOT right after player. The original
+  // placement here (post-player) caused Anchor to read the settler wallet
+  // in the slot expecting game_registry, which tripped
+  // AccountOwnedByWrongProgram (Custom 3007). Keep the struct order exact.
   const keys = [
     { pubkey: player, isSigner: true, isWritable: true },
     { pubkey: gameRegistry, isSigner: false, isWritable: false },
@@ -797,6 +820,7 @@ export async function buildReclaimExpiredTx(
     { pubkey: solVaultState, isSigner: false, isWritable: true },
     { pubkey: buxVaultState, isSigner: false, isWritable: true },
     { pubkey: buxTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: settler.publicKey, isSigner: false, isWritable: true },
     { pubkey: playerState, isSigner: false, isWritable: true },
     { pubkey: betOrder, isSigner: false, isWritable: true },
     { pubkey: playerBuxAta, isSigner: false, isWritable: true },
@@ -811,6 +835,10 @@ export async function buildReclaimExpiredTx(
   });
 
   const blockhash = await getRecentBlockhash();
+  // Player is fee_payer AND the only signer. rent_payer is an
+  // UncheckedAccount in the Anchor struct (validated via `has_one` against
+  // stored bet_order.rent_payer) — NOT a Signer — so settler does not need
+  // to sign this tx. Player alone suffices.
   const tx = new Transaction({
     recentBlockhash: blockhash,
     feePayer: player,
@@ -930,7 +958,8 @@ export async function settleBet(
     playerBuxAta = BANKROLL_PROGRAM_ID; // None sentinel for Anchor Option<Account>
   }
 
-  // All 18 accounts in exact Anchor order. Optional accounts use program ID for None.
+  // All 19 accounts in exact Anchor order (post-Phase-1: rent_payer inserted
+  // at position 8, right after player). Optional accounts use program ID for None.
   const NONE = BANKROLL_PROGRAM_ID;
   const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
     { pubkey: settler.publicKey, isSigner: true, isWritable: true },       // 1. settler
@@ -940,17 +969,18 @@ export async function settleBet(
     { pubkey: buxVaultState, isSigner: false, isWritable: true },          // 5. bux_vault_state
     { pubkey: buxTokenAccount, isSigner: false, isWritable: true },        // 6. bux_token_account
     { pubkey: playerKey, isSigner: false, isWritable: true },              // 7. player
-    { pubkey: playerState, isSigner: false, isWritable: true },            // 8. player_state
-    { pubkey: betOrder, isSigner: false, isWritable: true },               // 9. bet_order
-    { pubkey: playerBuxAta, isSigner: false, isWritable: true },           // 10. player_bux_account (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 11. tier1_referrer (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 12. tier1_referrer_bux_account (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 13. tier2_referrer (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 14. tier2_referrer_bux_account (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 15. tier1_referral_state (Option)
-    { pubkey: NONE, isSigner: false, isWritable: false },                  // 16. tier2_referral_state (Option)
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 17. system_program
-    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },      // 18. token_program
+    { pubkey: settler.publicKey, isSigner: false, isWritable: true },      // 8. rent_payer (UncheckedAccount, validated via has_one)
+    { pubkey: playerState, isSigner: false, isWritable: true },            // 9. player_state
+    { pubkey: betOrder, isSigner: false, isWritable: true },               // 10. bet_order
+    { pubkey: playerBuxAta, isSigner: false, isWritable: true },           // 11. player_bux_account (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 12. tier1_referrer (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 13. tier1_referrer_bux_account (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 14. tier2_referrer (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 15. tier2_referrer_bux_account (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 16. tier1_referral_state (Option)
+    { pubkey: NONE, isSigner: false, isWritable: false },                  // 17. tier2_referral_state (Option)
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 18. system_program
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },      // 19. token_program
   ];
 
   const ix = new TransactionInstruction({

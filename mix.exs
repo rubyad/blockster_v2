@@ -74,7 +74,10 @@ defmodule BlocksterV2.MixProject do
       {:fast_rss, "~> 0.5"},
       {:tz, "~> 0.28"},
       {:oban, "~> 2.18"},
-      {:ex_keccak, "~> 0.7"}
+      {:ex_keccak, "~> 0.7"},
+      # Web3Auth / JWT verification (social login, Phase 3+)
+      {:joken, "~> 2.6"},
+      {:joken_jwks, "~> 1.7"}
     ]
   end
 

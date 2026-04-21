@@ -505,8 +505,8 @@ defmodule BlocksterV2.CoinFlipGame do
   This is fast (<1ms) because it only reads local Mnesia, not Solana RPC.
   """
   def get_or_init_game(user_id, wallet_address) do
-    # Calculate next nonce from Mnesia — same pattern as old BuxBoosterOnchain
-    next_nonce = case :mnesia.dirty_match_object(
+    # Calculate next nonce from Mnesia — same pattern as old BuxBoosterOnchain.
+    mnesia_next = case :mnesia.dirty_match_object(
       {:coin_flip_games, :_, user_id, wallet_address, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
     ) do
       [] -> 0
@@ -522,6 +522,27 @@ defmodule BlocksterV2.CoinFlipGame do
         end
     end
 
+    # Reconciler A: Mnesia can drift below on-chain state if a frontend error
+    # path fires between the user signing a bet tx and the LiveView recording
+    # it as :placed. In that case Mnesia computes an already-used nonce,
+    # `init` on the bet_order PDA fails with AccountAlreadyInUse, and the
+    # user is stuck until Mnesia catches up. Take the max of Mnesia and
+    # on-chain so we always move forward.
+    onchain_next =
+      case BlocksterV2.BuxMinter.get_player_state(wallet_address) do
+        {:ok, %{"nonce" => n}} when is_integer(n) -> n
+        _ -> 0
+      end
+
+    next_nonce = max(mnesia_next, onchain_next)
+
+    if onchain_next > mnesia_next do
+      Logger.warning(
+        "[CoinFlipGame] Mnesia nonce (#{mnesia_next}) behind on-chain (#{onchain_next}) " <>
+          "for wallet #{wallet_address} — using on-chain value. Likely a missed bet_confirmed event."
+      )
+    end
+
     # Reuse existing pending commitment if nonce matches
     case get_pending_game(user_id) do
       %{wallet_address: ^wallet_address, commitment_sig: sig, nonce: nonce} = existing
@@ -535,7 +556,10 @@ defmodule BlocksterV2.CoinFlipGame do
         }}
 
       _ ->
-        Logger.info("[CoinFlipGame] Creating new game with nonce #{next_nonce} (from Mnesia) for user #{user_id}, wallet #{wallet_address}")
+        Logger.info(
+          "[CoinFlipGame] Creating new game with nonce #{next_nonce} " <>
+            "(mnesia=#{mnesia_next}, onchain=#{onchain_next}) for user #{user_id}, wallet #{wallet_address}"
+        )
         init_game_with_nonce(user_id, wallet_address, next_nonce)
     end
   end
