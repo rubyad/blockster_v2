@@ -385,7 +385,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
     # Record price snapshot (broadcasts via PubSub for chart_update)
     LpPriceHistory.record(vault_type, lp_price)
 
-    {:noreply, assign(socket, pool_stats: stats, pool_loading: false)}
+    # POOL-03/06: also persist lp_price to the socket so tx_confirmed/3
+    # can read it. render/1 does its own recompute inside the function-
+    # component assigns map, but that local assign never reaches
+    # socket.assigns outside the render — so before this commit
+    # socket.assigns[:lp_price] was always nil at tx_confirmed time and
+    # PoolPositions.record_withdraw/4 silently no-op'd on the
+    # `is_number(lp_price) and lp_price > 0` guard.
+    {:noreply, assign(socket, pool_stats: stats, pool_loading: false, lp_price: lp_price)}
   end
 
   def handle_async(:fetch_pool_stats, {:ok, {:error, _reason}}, socket) do
