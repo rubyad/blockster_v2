@@ -156,10 +156,17 @@ defmodule BlocksterV2Web.ShopLive.Show do
     # Get BUX discount percentage from product (hub token discounts removed)
     bux_max_discount = db_product.bux_max_discount || 0
 
-    # Calculate max BUX tokens needed for discount (0 = uncapped, treat as 100%)
+    # SHOP-04: mirror the mount-path flip. `0/nil` ⇒ BUX discount disabled
+    # under SHOP_BUX_CAP_ENFORCED; legacy 100% fallback kept for dev.
     # Formula: (price * discount_percent / 100) / token_value
-    # e.g., $220 * 50% = $110 discount = 11,000 BUX at $0.01 each
-    effective_discount = if bux_max_discount > 0, do: bux_max_discount, else: 100
+    # e.g. $220 * 50% = $110 discount = 11,000 BUX at $0.01 each.
+    effective_discount =
+      cond do
+        bux_max_discount > 0 -> bux_max_discount
+        BlocksterV2.Shop.BuxDiscountConfig.cap_enforced?() -> 0
+        true -> 100
+      end
+
     max_bux_tokens = round((price * effective_discount / 100) / @token_value_usd)
 
     # Get hub info if available (for display purposes only, not for tokens)
