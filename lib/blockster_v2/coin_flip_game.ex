@@ -393,6 +393,11 @@ defmodule BlocksterV2.CoinFlipGame do
       vault_type:
         if(is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)),
       bet_amount: game.bet_amount,
+      difficulty: game.difficulty,
+      # Keep multiplier derivable from @multipliers so the LV's recent-games
+      # render has the field it expects. Match the basis-points → float
+      # conversion the LV does (get_multiplier_for_difficulty/1 / @multipliers).
+      multiplier: Map.get(@multipliers, game.difficulty, 10000) / 10000,
       predictions: game.predictions,
       results: game.results,
       won: game.won,

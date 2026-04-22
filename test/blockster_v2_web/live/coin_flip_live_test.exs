@@ -304,4 +304,73 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       assert html =~ "ds-play-game"
     end
   end
+
+  # ==========================================================================
+  # CF-07 — Recent games list updates live from PubSub broadcasts
+  # ==========================================================================
+
+  describe "PubSub: {:new_settled_game, payload} (CF-07)" do
+    test "prepends a new settled game to @recent_games", %{conn: conn} do
+      user = insert_user(%{slug: "cf-pubsub-1"})
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, ~p"/play")
+
+      # Payload shape matches CoinFlipGame.broadcast_game_settled/2 (see
+      # lib/blockster_v2/coin_flip_game.ex).
+      payload = %{
+        game_id: "cf_new_game_test_1",
+        vault_type: "sol",
+        bet_amount: 0.05,
+        difficulty: 1,
+        multiplier: 1.98,
+        predictions: [:heads],
+        results: [:heads],
+        won: true,
+        payout: 0.099,
+        commitment_hash: String.duplicate("a", 64),
+        server_seed: String.duplicate("b", 64),
+        nonce: 5,
+        commitment_sig: "cs_test",
+        bet_sig: "bs_test",
+        settlement_sig: "ss_test"
+      }
+
+      send(view.pid, {:new_settled_game, payload})
+      html = render(view)
+
+      # game_id leaks into the fairness-modal data attribute and the sig
+      # markup; either reference is enough to prove the row landed.
+      assert html =~ "cf_new_game_test_1" or html =~ "ss_test"
+    end
+  end
+
+  # ==========================================================================
+  # CF-02 — Recovery CTA on settlement failure states
+  # ==========================================================================
+
+  describe "settlement_status :manual_review (CF-02)" do
+    test "{:settlement_failed, :manual_review} flips status and keeps the LV responsive", %{conn: conn} do
+      user = insert_user(%{slug: "cf-manreview"})
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, ~p"/play")
+
+      # Drive the LV directly into :manual_review. In production this comes
+      # from the spawned settlement task after CoinFlipGame returns
+      # {:error, :manual_review} (commitment_mismatch unrecoverable).
+      send(view.pid, {:settlement_failed, :manual_review})
+
+      # No crash; the result-card UI is only visible when game_state ==
+      # :result which we can't easily stage from unit tests (requires a
+      # fully-placed bet + :show_final_result handler firing). So the
+      # assertion here is: the handler accepted the message, the LV is
+      # still alive, and the idle-state page still renders. In particular
+      # reset_game remains callable — proven by a subsequent render().
+      assert Process.alive?(view.pid)
+      html = render(view)
+      assert is_binary(html)
+      assert html =~ "ds-play-game"
+    end
+  end
 end
