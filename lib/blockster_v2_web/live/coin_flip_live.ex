@@ -785,6 +785,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                             <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Settling on chain</div>
                             <div class="text-[11px] text-neutral-500">This usually takes under a second</div>
                           </div>
+                        <% :timeout -> %>
+                          <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
+                            <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          </div>
+                          <div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">Settlement still pending</div>
+                            <div class="text-[11px] text-amber-700/70">Check Recent games — the background settler is retrying</div>
+                          </div>
                         <% :failed -> %>
                           <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
                             <svg class="w-5 h-5 text-amber-600 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -795,6 +803,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                           <div>
                             <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">Retrying settlement</div>
                             <div class="text-[11px] text-amber-700/70">Auto-retry every 60s · reclaim available after 5 min</div>
+                          </div>
+                        <% :manual_review -> %>
+                          <div class="w-9 h-9 rounded-full bg-red-100 grid place-items-center">
+                            <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          </div>
+                          <div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-red-700 mb-0.5">Needs manual review</div>
+                            <div class="text-[11px] text-red-700/70">This bet hit an on-chain commitment mismatch — contact support or use Reclaim after 5 min</div>
                           </div>
                         <% _ -> %>
                       <% end %>
@@ -808,9 +824,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
                           Verify fairness
                         </button>
                       <% end %>
-                      <%= if @settlement_status == :settled do %>
+                      <%= if @settlement_status in [:settled, :failed, :timeout, :manual_review] do %>
                         <button type="button" phx-click="reset_game" class="bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center gap-2 cursor-pointer">
-                          <%= if @won, do: "Play again", else: "Try again" %>
+                          <%= cond do
+                            @settlement_status == :settled and @won -> "Play again"
+                            @settlement_status == :settled -> "Try again"
+                            true -> "Place another bet"
+                          end %>
                           <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
                       <% end %>
@@ -1510,11 +1530,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
     selected_difficulty = socket.assigns.selected_difficulty
     predictions_needed = get_predictions_needed(selected_difficulty)
 
+    # CF-02: cancel any pending settlement-timeout timer so it doesn't fire
+    # after the user has moved on to a new bet.
+    cancel_settlement_timer(socket)
+
     if socket.assigns.current_user == nil do
       socket =
         socket
         |> assign(game_state: :idle, current_flip: 0, predictions: List.duplicate(nil, predictions_needed),
-                  results: [], won: nil, payout: 0, confetti_pieces: [], error_message: nil)
+                  results: [], won: nil, payout: 0, confetti_pieces: [], error_message: nil, settlement_status: nil, settlement_timeout_ref: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
       {:noreply, socket}
@@ -1533,7 +1557,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(game_state: :idle, current_flip: 0, predictions: List.duplicate(nil, predictions_needed),
                   results: [], won: nil, payout: 0, balances: balances, user_stats: user_stats,
                   server_seed: nil, confetti_pieces: [], show_fairness_modal: false, fairness_game: nil,
-                  bet_sig: nil, settlement_sig: nil, error_message: nil)
+                  bet_sig: nil, settlement_sig: nil, error_message: nil,
+                  settlement_status: nil, settlement_timeout_ref: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
 
       socket = if wallet_address do
@@ -1926,7 +1951,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
       user_stats = load_user_stats(user_id, token_type)
       confetti_pieces = if won, do: generate_confetti_data(100), else: []
 
-      # Settle in background
+      # Settle in background. Fire-and-forget (spawn) so the next bet does
+      # not block on settlement.
       game_id = socket.assigns.onchain_game_id
       liveview_pid = self()
       spawn(fn ->
@@ -1938,9 +1964,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
         end
       end)
 
+      # CF-02: cap the pending spinner at 60s. If settlement hasn't
+      # completed/failed by then surface a recovery CTA so the user isn't
+      # locked on the result card.
+      cancel_settlement_timer(socket)
+      timeout_ref = Process.send_after(self(), :settlement_timeout, 60_000)
+
       socket =
         socket
-        |> assign(game_state: :result, won: won, payout: payout, user_stats: user_stats, confetti_pieces: confetti_pieces, settlement_status: :pending)
+        |> assign(game_state: :result, won: won, payout: payout, user_stats: user_stats, confetti_pieces: confetti_pieces, settlement_status: :pending, settlement_timeout_ref: timeout_ref)
         |> push_event("bet_settled", %{won: won, payout: payout})
 
       {:noreply, socket}
@@ -1952,41 +1984,20 @@ defmodule BlocksterV2Web.CoinFlipLive do
     user_id = socket.assigns.current_user.id
     wallet_address = socket.assigns.wallet_address
 
+    cancel_settlement_timer(socket)
+
     BuxMinter.sync_user_balances_async(user_id, wallet_address, force: true)
 
-    # Broadcast settled game
-    game_id = socket.assigns.onchain_game_id
-    case CoinFlipGame.get_game(game_id) do
-      {:ok, game} when game.status == :settled ->
-        settled_game = %{
-          game_id: game.game_id,
-          vault_type: if(is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)),
-          bet_amount: game.bet_amount,
-          multiplier: get_multiplier_for_difficulty(game.difficulty),
-          predictions: game.predictions,
-          results: game.results,
-          won: game.won,
-          payout: game.payout,
-          commitment_hash: game.commitment_hash,
-          server_seed: game.server_seed,
-          nonce: game.nonce,
-          commitment_sig: game.commitment_sig,
-          bet_sig: game.bet_sig,
-          settlement_sig: game.settlement_sig
-        }
-
-        Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "coin_flip_settlement:#{user_id}", {:new_settled_game, settled_game})
-
-      _ -> :ok
-    end
-
-    # Refresh house balance and user balances after settlement
+    # Refresh house balance and user balances after settlement. The
+    # user-scoped {:new_settled_game, payload} broadcast now fires from
+    # CoinFlipGame.broadcast_game_settled/2 so background-settler
+    # settlements also update @recent_games, not just direct-from-LV ones.
     selected_token = socket.assigns.selected_token
     selected_difficulty = socket.assigns.selected_difficulty
 
     socket =
       socket
-      |> assign(settlement_sig: sig, settlement_status: :settled)
+      |> assign(settlement_sig: sig, settlement_status: :settled, settlement_timeout_ref: nil)
       |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
       |> start_async(:sync_post_settle, fn ->
         BuxMinter.sync_user_balances(user_id, wallet_address)
@@ -1998,6 +2009,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
     {:noreply, socket}
   end
 
+  def handle_info(:settlement_timeout, socket) do
+    # Fire only while still pending — if settlement landed first the
+    # status moves to :settled / :failed / :manual_review and this timer
+    # is a no-op.
+    if socket.assigns[:settlement_status] == :pending do
+      Logger.warning(
+        "[CoinFlip] Settlement timeout for game #{inspect(socket.assigns[:onchain_game_id])} — surfacing recovery CTA"
+      )
+      {:noreply, assign(socket, settlement_status: :timeout, settlement_timeout_ref: nil)}
+    else
+      {:noreply, assign(socket, settlement_timeout_ref: nil)}
+    end
+  end
+
+  defp cancel_settlement_timer(socket) do
+    case socket.assigns[:settlement_timeout_ref] do
+      ref when is_reference(ref) -> Process.cancel_timer(ref)
+      _ -> :ok
+    end
+  end
+
   @impl true
   def handle_async(:sync_post_settle, {:ok, balances}, socket) do
     {:noreply, assign(socket, :balances, balances)}
@@ -2006,15 +2038,25 @@ defmodule BlocksterV2Web.CoinFlipLive do
   def handle_async(:sync_post_settle, _, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_info({:settlement_failed, :manual_review}, socket) do
+    # CoinFlipGame parked this bet in :manual_review (CF-01 recovery path
+    # exhausted). Stop retrying; surface a "needs manual review" state so
+    # the user sees a real error instead of the spinner.
+    cancel_settlement_timer(socket)
+    {:noreply, assign(socket, settlement_status: :manual_review, settlement_timeout_ref: nil)}
+  end
+
   def handle_info({:settlement_failed, reason}, socket) do
-    # Timeouts don't mean the tx failed — it's likely still in flight on Solana.
-    # The background BetSettler will pick it up. Keep status as :pending for timeouts.
+    # Transport-level timeouts don't mean the tx failed — likely still in
+    # flight. Keep :pending and let the :settlement_timeout timer surface
+    # a CTA if the background settler can't recover either.
     reason_str = if is_binary(reason), do: reason, else: inspect(reason)
     if String.contains?(reason_str, "timeout") or String.contains?(reason_str, "TransportError") do
       Logger.warning("[CoinFlip] Settlement timed out — tx likely still in flight, background settler will retry")
       {:noreply, socket}
     else
-      {:noreply, assign(socket, settlement_status: :failed)}
+      cancel_settlement_timer(socket)
+      {:noreply, assign(socket, settlement_status: :failed, settlement_timeout_ref: nil)}
     end
   end
 
