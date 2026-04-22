@@ -51,6 +51,7 @@ defmodule BlocksterV2Web.Router do
       live "/admin/stats", Admin.StatsLive.Index, :index
       live "/admin/stats/players", Admin.StatsLive.Players, :index
       live "/admin/stats/players/:address", Admin.StatsLive.PlayerDetail, :show
+      live "/admin/stats/stuck-bets", Admin.StatsLive.StuckBets, :index
 
       # Shop Orders Admin
       live "/admin/orders", OrdersAdminLive, :index
