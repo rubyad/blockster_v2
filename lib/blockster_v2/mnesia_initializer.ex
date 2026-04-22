@@ -665,6 +665,24 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:user_id, :vault_type]
     },
+    # Dead-letter queue for settler-driven operations that hit terminal
+    # errors after the SettlerRetry classifier gave up. Admin review UI
+    # at /admin/stats/stuck-bets reads from this table.
+    %{
+      name: :settler_dead_letters,
+      type: :set,
+      attributes: [
+        :id,                          # PRIMARY KEY — {operation_type, operation_id}
+        :operation_type,              # :coin_flip | :bux_mint | :payment_intent | :airdrop_claim
+        :operation_id,                # String — the per-operation natural key (e.g. game_id)
+        :reason,                      # String — inspect'd error reason
+        :attempt_count,               # int — how many times we tried
+        :first_failed_at,             # Unix timestamp (seconds)
+        :last_failed_at,              # Unix timestamp (seconds)
+        :payload                      # map — captured operation context for debugging
+      ],
+      index: [:operation_type, :last_failed_at]
+    },
     # LP price history for pool charts
     %{
       name: :lp_price_history,
