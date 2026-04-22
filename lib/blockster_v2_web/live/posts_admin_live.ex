@@ -221,7 +221,15 @@ defmodule BlocksterV2Web.PostsAdminLive do
   end
 
   @impl true
-  def handle_event("search_hub", %{"value" => query}, socket) do
+  # Two payload shapes: phx-keyup on the <input> sends `%{"value" => q}`;
+  # phx-change on the wrapping <form> (PR 1b §2) sends `%{"hub_query" => q}`.
+  def handle_event("search_hub", %{"value" => query}, socket),
+    do: do_search_hub(query, socket)
+
+  def handle_event("search_hub", %{"hub_query" => query}, socket),
+    do: do_search_hub(query, socket)
+
+  defp do_search_hub(query, socket) do
     results =
       if query == "" do
         []
@@ -255,7 +263,13 @@ defmodule BlocksterV2Web.PostsAdminLive do
   end
 
   @impl true
-  def handle_event("search_author", %{"value" => query}, socket) do
+  def handle_event("search_author", %{"value" => query}, socket),
+    do: do_search_author(query, socket)
+
+  def handle_event("search_author", %{"author_query" => query}, socket),
+    do: do_search_author(query, socket)
+
+  defp do_search_author(query, socket) do
     results =
       if query == "" do
         []

@@ -28,19 +28,22 @@
   <%!-- Filter Section --%>
   <div class="bg-white shadow rounded-lg p-4 mb-6">
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <%!-- Hub Filter with Autocomplete --%>
+      <%!-- Hub Filter with Autocomplete (LV hygiene: wrap phx-keyup in a form) --%>
       <div class="relative" phx-hook="Autocomplete" id="hub-filter">
         <label for="hub-input" class="block text-sm font-medium text-gray-700 mb-1">Hub</label>
-        <input
-          type="text"
-          id="hub-input"
-          placeholder="Type to search hubs..."
-          value={get_hub_name(@hubs, @filter_hub)}
-          phx-keyup="search_hub"
-          phx-debounce="300"
-          class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          autocomplete="off"
-        />
+        <form phx-change="search_hub">
+          <input
+            type="text"
+            id="hub-input"
+            name="hub_query"
+            placeholder="Type to search hubs..."
+            value={get_hub_name(@hubs, @filter_hub)}
+            phx-keyup="search_hub"
+            phx-debounce="300"
+            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            autocomplete="off"
+          />
+        </form>
         <input type="hidden" id="hub-value" name="hub" value={@filter_hub || ""} />
         <%= if @hub_search_results && length(@hub_search_results) > 0 do %>
           <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
@@ -67,21 +70,24 @@
           </div>
         <% end %>
       </div>
-      <%!-- Author Filter with Autocomplete --%>
+      <%!-- Author Filter with Autocomplete (LV hygiene: wrap phx-keyup in a form) --%>
       <div class="relative" phx-hook="Autocomplete" id="author-filter">
         <label for="author-input" class="block text-sm font-medium text-gray-700 mb-1">
           Author
         </label>
-        <input
-          type="text"
-          id="author-input"
-          placeholder="Type to search authors..."
-          value={get_author_name(@authors, @filter_author)}
-          phx-keyup="search_author"
-          phx-debounce="300"
-          class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          autocomplete="off"
-        />
+        <form phx-change="search_author">
+          <input
+            type="text"
+            id="author-input"
+            name="author_query"
+            placeholder="Type to search authors..."
+            value={get_author_name(@authors, @filter_author)}
+            phx-keyup="search_author"
+            phx-debounce="300"
+            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            autocomplete="off"
+          />
+        </form>
         <input type="hidden" id="author-value" name="author" value={@filter_author || ""} />
         <%= if @author_search_results && length(@author_search_results) > 0 do %>
           <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
