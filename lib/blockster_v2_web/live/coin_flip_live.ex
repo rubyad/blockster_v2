@@ -2151,7 +2151,37 @@ defmodule BlocksterV2Web.CoinFlipLive do
   end
 
   def handle_info({:new_settled_game, settled_game}, socket) do
-    {:noreply, assign(socket, :recent_games, [settled_game | socket.assigns.recent_games])}
+    # Dedupe by game_id so the page doesn't show a duplicate row if both
+    # the LV-direct settle path AND the background settler broadcast
+    # (e.g. after a GlobalSingleton failover replay).
+    gid = Map.get(settled_game, :game_id)
+    existing = socket.assigns[:recent_games] || []
+
+    deduped =
+      if gid do
+        Enum.reject(existing, fn g -> Map.get(g, :game_id) == gid end)
+      else
+        existing
+      end
+
+    {:noreply, assign(socket, :recent_games, [settled_game | deduped])}
+  end
+
+  # CF-07 safety net: if a :game_settled broadcast arrives without the
+  # richer :new_settled_game payload (e.g. a future GenServer that only
+  # fires the lightweight signal), trigger a recent-games reload from
+  # Mnesia so the panel stays fresh.
+  def handle_info({:game_settled, _game_id}, socket) do
+    user_id = socket.assigns[:current_user] && socket.assigns.current_user.id
+
+    if user_id do
+      {:noreply,
+       start_async(socket, :load_recent_games, fn ->
+         load_recent_games(user_id)
+       end)}
+    else
+      {:noreply, socket}
+    end
   end
 
   # ============ Helpers ============
