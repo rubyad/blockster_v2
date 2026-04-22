@@ -119,6 +119,10 @@ router.get("/pending-bets/:wallet", async (req: Request, res: Response) => {
       const d = acct.data;
       const vaultType = d.readUInt8(48) === 0 ? "sol" : "bux";
       const amount = Number(d.readBigUInt64LE(49));
+      // commitment_hash sits at offset 65 (disc 8 + player 32 + game_id 8 +
+      // vault_type 1 + amount 8 + max_payout 8), 32 bytes. Serialised as
+      // hex lowercase to match CoinFlipGame.init_game_with_nonce storage.
+      const commitmentHashHex = Buffer.from(d.subarray(65, 97)).toString("hex");
       const nonce = Number(d.readBigUInt64LE(97));
       const status = d.readUInt8(105);
       const createdAt = Number(d.readBigInt64LE(106));
@@ -131,6 +135,7 @@ router.get("/pending-bets/:wallet", async (req: Request, res: Response) => {
         vault_type: vaultType,
         amount_raw: amount,
         amount: vaultType === "sol" ? amount / 1e9 : amount / 1e9,
+        commitment_hash: commitmentHashHex,
         created_at: createdAt,
         rent_payer: rentPayer,
         bet_order_pda: pdas[idx].toBase58(),

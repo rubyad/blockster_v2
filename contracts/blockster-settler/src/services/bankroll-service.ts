@@ -28,6 +28,7 @@ import {
   MINT_AUTHORITY,
 } from "../config";
 import { getRecentBlockhash, sendSettlerTx, computeBudgetIxs } from "./rpc-client";
+import { createHash } from "node:crypto";
 
 const SYSVAR_RENT = new PublicKey(
   "SysvarRent111111111111111111111111111111111"
@@ -998,6 +999,37 @@ export async function settleBet(
   const seedBytes = Buffer.from(serverSeed, "hex");
   if (seedBytes.length !== 32) {
     throw new Error(`Invalid server seed length: ${seedBytes.length}, expected 32`);
+  }
+
+  // Pre-submit defence against CF-01: fetch on-chain bet_order and verify
+  // SHA256(serverSeed) matches bet_order.commitment_hash. The on-chain
+  // settle_bet handler does this check too (settle_bet.rs:130-135) and
+  // rejects with InvalidServerSeed (0x178a), but burning a tx fee just to
+  // learn the seeds don't match is wasteful. Catching it here surfaces a
+  // structured error so Elixir can route the bet to manual_review without
+  // the background retry loop spamming 0x178a logs.
+  //
+  // BetOrder layout: disc(8) + player(32) + game_id(8) + vault_type(1) +
+  // amount(8) + max_payout(8) + commitment_hash(32) @ offset 65.
+  const betOrderAcct = await connection.getAccountInfo(betOrder, "confirmed");
+  if (!betOrderAcct) {
+    throw new Error(`Bet order PDA not found on-chain for nonce ${nonce}`);
+  }
+  if (betOrderAcct.data.length < 97) {
+    throw new Error(
+      `Bet order PDA data too short (${betOrderAcct.data.length} bytes) for nonce ${nonce}`
+    );
+  }
+  const onchainCommitment = Buffer.from(betOrderAcct.data.subarray(65, 97)).toString("hex");
+  const computedCommitment = createHash("sha256").update(seedBytes).digest("hex");
+  if (computedCommitment !== onchainCommitment) {
+    const err: any = new Error(
+      `commitment_mismatch: SHA256(serverSeed) ${computedCommitment} ≠ on-chain commitment ${onchainCommitment} for player ${player} nonce ${nonce}`
+    );
+    err.code = "COMMITMENT_MISMATCH";
+    err.onchain_commitment_hash = onchainCommitment;
+    err.computed_commitment_hash = computedCommitment;
+    throw err;
   }
 
   // Payout in raw units

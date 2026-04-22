@@ -34,6 +34,20 @@ router.post("/settle-bet", async (req: Request, res: Response) => {
       signature,
     });
   } catch (err: any) {
+    // Structured response for the CF-01 commitment mismatch case so Elixir
+    // can route the bet to manual_review instead of retrying forever.
+    if (err?.code === "COMMITMENT_MISMATCH") {
+      console.warn(
+        `[settle-bet] commitment_mismatch for ${req.body?.player}/${req.body?.nonce}: ${err.message}`
+      );
+      return res.status(409).json({
+        success: false,
+        error: "commitment_mismatch",
+        message: err.message,
+        onchain_commitment_hash: err.onchain_commitment_hash,
+        computed_commitment_hash: err.computed_commitment_hash,
+      });
+    }
     console.error("Settlement error:", err.message);
     res.status(500).json({ error: err.message });
   }
