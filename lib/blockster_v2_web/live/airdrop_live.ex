@@ -447,6 +447,22 @@ defmodule BlocksterV2Web.AirdropLive do
         Enum.take(assigns.winners, @winners_collapsed_count)
       end
 
+    # AIRDROP-01: when a single entrant sweeps the round (all 33 winners share
+    # one wallet), render a summary card instead of 33 duplicate rows. Full
+    # table stays behind the same show_all_winners toggle so curious users
+    # can still verify provably-fair math against every winner_index.
+    distinct_winner_count =
+      assigns.winners
+      |> Enum.map(& &1.wallet_address)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> length()
+
+    single_winner =
+      if distinct_winner_count == 1 and length(assigns.winners) > 1,
+        do: List.first(assigns.winners),
+        else: nil
+
     user_winning_results =
       if assigns.airdrop_drawn do
         assigns.entry_results
@@ -470,6 +486,8 @@ defmodule BlocksterV2Web.AirdropLive do
       |> assign(:quick_chips, @quick_chips)
       |> assign(:visible_winners, visible_winners)
       |> assign(:winners_collapsed_count, @winners_collapsed_count)
+      |> assign(:distinct_winner_count, distinct_winner_count)
+      |> assign(:single_winner, single_winner)
       |> assign(:user_winning_results, user_winning_results)
 
     ~H"""
@@ -1050,11 +1068,39 @@ defmodule BlocksterV2Web.AirdropLive do
         </div>
       <% end %>
 
+      <%!-- AIRDROP-01: single-winner collapse — when one wallet took every
+           position, surface that as a summary pill so the 33 duplicate rows
+           below don't drown out the fact. Full table is still available
+           via the existing expand toggle. --%>
+      <%= if @single_winner do %>
+        <div class="bg-gradient-to-r from-amber-50 to-neutral-50 border border-amber-200/60 rounded-2xl p-5 mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-100 grid place-items-center">
+              <svg class="w-5 h-5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 1 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 1 0 0-5H18" />
+                <path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">One winner took all</div>
+              <div class="font-bold text-[14px] text-[#141414]">
+                Winner took all {length(@winners)} positions
+              </div>
+              <div class="text-[12px] text-neutral-500 font-mono mt-1">
+                Wallet: {truncate_address(@single_winner.wallet_address)}
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
       <%!-- Full winners table --%>
       <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden mb-6">
         <div class="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
           <div>
-            <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-neutral-400 mb-1">All 33 winners</div>
+            <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-neutral-400 mb-1">All {length(@winners)} winners</div>
             <h3 class="font-bold text-[18px] text-[#141414] tracking-tight">Round {round_number_or_dash(@current_round)} results</h3>
           </div>
           <span class="text-[10px] font-mono text-neutral-400">
