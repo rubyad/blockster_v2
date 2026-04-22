@@ -97,22 +97,47 @@ defmodule BlocksterV2.CoinFlipBetSettler do
         :ok
 
       # CoinFlipGame already parked the bet as :manual_review and logged
-      # the reason — no need to retry. PR 2b's dead-letter queue takes
-      # over from here with the admin-review UI.
+      # the reason. Add a dead-letter row for admin review surface, then
+      # stop retrying. PR 2b.
       {:error, :manual_review} ->
+        BlocksterV2.SettlerRetry.park_dead_letter(:coin_flip, bet.game_id, %{
+          reason: :manual_review,
+          bet_age_seconds: age_seconds,
+          user_id: Map.get(bet, :user_id)
+        })
         :manual_review
 
       {:error, reason} ->
+        classification = BlocksterV2.SettlerRetry.classify(reason)
         reason_str = if is_binary(reason), do: reason, else: inspect(reason)
 
-        if String.contains?(reason_str, "AccountNotInitialized") do
-          # Bet order doesn't exist on-chain — mark as failed to stop retrying
-          Logger.warning("[CoinFlipBetSettler] Bet #{bet.game_id} has no on-chain bet order, marking as failed")
-          mark_game_failed(bet.game_id)
-        else
-          Logger.error("[CoinFlipBetSettler] Failed to settle bet #{bet.game_id}: #{reason_str}")
+        case classification do
+          :terminal ->
+            # On-chain state (or class of error) says retrying won't help.
+            # Mark the Mnesia game as failed + dead-letter for admin review.
+            Logger.warning(
+              "[CoinFlipBetSettler] Bet #{bet.game_id} hit terminal error (#{reason_str}) — dead-lettering"
+            )
+            mark_game_failed(bet.game_id)
+            BlocksterV2.SettlerRetry.park_dead_letter(:coin_flip, bet.game_id, %{
+              reason: reason_str,
+              bet_age_seconds: age_seconds,
+              user_id: Map.get(bet, :user_id)
+            })
+            :error
+
+          :transient ->
+            # RPC / blockhash flake — keep retrying on the next tick. Log
+            # at info so we can see these patterns without spamming error.
+            Logger.info(
+              "[CoinFlipBetSettler] Bet #{bet.game_id} transient error (#{reason_str}) — will retry next tick"
+            )
+            :error
+
+          :retry ->
+            Logger.error("[CoinFlipBetSettler] Failed to settle bet #{bet.game_id}: #{reason_str}")
+            :error
         end
-        :error
     end
   rescue
     error ->
