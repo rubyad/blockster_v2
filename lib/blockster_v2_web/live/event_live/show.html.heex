@@ -201,15 +201,17 @@
                 </svg>
               </button>
 
-              <input
-                type="number"
-                value={@ticket_quantity}
-                phx-change="update_quantity"
-                name="quantity"
-                min="1"
-                max={get_available_tickets(@event)}
-                class="flex-1 h-10 text-center border border-[#E7E8F1] rounded-lg font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-transparent"
-              />
+              <%!-- LV hygiene: phx-change belongs on a <form>, not a bare input. --%>
+              <form phx-change="update_quantity" class="flex-1">
+                <input
+                  type="number"
+                  value={@ticket_quantity}
+                  name="quantity"
+                  min="1"
+                  max={get_available_tickets(@event)}
+                  class="w-full h-10 text-center border border-[#E7E8F1] rounded-lg font-haas_medium_65 text-[#141414] focus:outline-none focus:ring-2 focus:ring-[#8AE388] focus:border-transparent"
+                />
+              </form>
 
               <button
                 phx-click="increment_quantity"
