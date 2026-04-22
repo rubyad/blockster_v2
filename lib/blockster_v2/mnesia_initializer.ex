@@ -618,7 +618,7 @@ defmodule BlocksterV2.MnesiaInitializer do
         :created_at,                # Unix timestamp when game started
         :settled_at                 # Unix timestamp when settled (nil until settled)
       ],
-      index: [:user_id, :wallet_address, :status, :created_at]
+      index: [:user_id, :wallet_address, :status, :created_at, :commitment_hash]
     },
     # LP token balances for bankroll pools (Phase 7 — bSOL and bBUX balances)
     %{
@@ -1786,6 +1786,8 @@ defmodule BlocksterV2.MnesiaInitializer do
           migrate_table_schema(table_name, existing_attrs, attributes)
         end
 
+        reconcile_indexes(table_name, index)
+
         if copy_type == :disc_copies, do: ensure_disc_copies(table_name)
 
       false ->
@@ -1823,6 +1825,52 @@ defmodule BlocksterV2.MnesiaInitializer do
     true
   catch
     :exit, _ -> false
+  end
+
+  # Idempotently adds any declared indexes that are missing from a live table.
+  # Safe on cold start (indexes match) and on hot-reload (new indexes get added).
+  defp reconcile_indexes(table_name, declared_index_attrs) do
+    current_index_positions =
+      case :mnesia.table_info(table_name, :index) do
+        positions when is_list(positions) -> positions
+        _ -> []
+      end
+
+    attributes =
+      case :mnesia.table_info(table_name, :attributes) do
+        attrs when is_list(attrs) -> attrs
+        _ -> []
+      end
+
+    current_index_attrs =
+      Enum.map(current_index_positions, fn pos ->
+        # Mnesia reports 1-based positions where slot 1 is the primary key;
+        # user attributes start at slot 2 — subtract 2 for the attributes list.
+        Enum.at(attributes, pos - 2)
+      end)
+
+    missing = declared_index_attrs -- current_index_attrs
+
+    Enum.each(missing, fn attr ->
+      case :mnesia.add_table_index(table_name, attr) do
+        {:atomic, :ok} ->
+          Logger.info("[MnesiaInitializer] Added missing index #{inspect(attr)} to #{table_name}")
+
+        {:aborted, {:already_exists, _, _}} ->
+          :ok
+
+        {:aborted, reason} ->
+          Logger.warning(
+            "[MnesiaInitializer] Could not add index #{inspect(attr)} to #{table_name}: #{inspect(reason)}"
+          )
+      end
+    end)
+  rescue
+    e ->
+      Logger.warning("[MnesiaInitializer] reconcile_indexes/#{table_name} crashed: #{inspect(e)}")
+  catch
+    :exit, reason ->
+      Logger.warning("[MnesiaInitializer] reconcile_indexes/#{table_name} exited: #{inspect(reason)}")
   end
 
   # Schema migration for tables that have changed structure

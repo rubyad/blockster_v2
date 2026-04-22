@@ -565,37 +565,75 @@ defmodule BlocksterV2.CoinFlipGame do
   end
 
   @doc """
+  Look up a game record by its commitment_hash (hex string, lowercase, no prefix).
+
+  Used during settlement to recover the correct server seed when the on-chain
+  bet_order's commitment_hash drifts from the most-recently-initialised game
+  for a given (player, nonce) — e.g. when two submit_commitment calls fire
+  before the first place_bet lands and the on-chain player_state.pending_commitment
+  gets overwritten (see docs/bug_audit_2026_04_22.md CF-01).
+
+  Falls back to dirty_match_object if the :commitment_hash index is unavailable
+  (e.g. in old test environments that create the table without the index).
+  Returns {:ok, game_map} or {:error, :not_found}.
+  """
+  def get_game_by_commitment_hash(commitment_hash) when is_binary(commitment_hash) do
+    records =
+      try do
+        :mnesia.dirty_index_read(:coin_flip_games, commitment_hash, :commitment_hash)
+      catch
+        :exit, _ ->
+          :mnesia.dirty_match_object(
+            {:coin_flip_games, :_, :_, :_, :_, commitment_hash,
+             :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}
+          )
+      end
+
+    case records do
+      [record | _] -> {:ok, record_to_game(record)}
+      _ -> {:error, :not_found}
+    end
+  rescue
+    _ -> {:error, :not_found}
+  end
+
+  def get_game_by_commitment_hash(_), do: {:error, :not_found}
+
+  defp record_to_game(
+         {:coin_flip_games, game_id, user_id, wallet_address, server_seed, commitment_hash, nonce,
+          status, vault_type, bet_amount, difficulty, predictions, results, won, payout,
+          commitment_sig, bet_sig, settlement_sig, created_at, settled_at}
+       ) do
+    %{
+      game_id: game_id,
+      user_id: user_id,
+      wallet_address: wallet_address,
+      server_seed: server_seed,
+      commitment_hash: commitment_hash,
+      nonce: nonce,
+      status: status,
+      vault_type: vault_type,
+      bet_amount: bet_amount,
+      difficulty: difficulty,
+      predictions: predictions,
+      results: results,
+      won: won,
+      payout: payout,
+      commitment_sig: commitment_sig,
+      bet_sig: bet_sig,
+      settlement_sig: settlement_sig,
+      created_at: created_at,
+      settled_at: settled_at
+    }
+  end
+
+  @doc """
   Get game details from Mnesia.
   """
   def get_game(game_id) do
     case :mnesia.dirty_read({:coin_flip_games, game_id}) do
-      [{:coin_flip_games, ^game_id, user_id, wallet_address, server_seed, commitment_hash,
-        nonce, status, vault_type, bet_amount, difficulty, predictions, results,
-        won, payout, commitment_sig, bet_sig, settlement_sig, created_at, settled_at}] ->
-        {:ok, %{
-          game_id: game_id,
-          user_id: user_id,
-          wallet_address: wallet_address,
-          server_seed: server_seed,
-          commitment_hash: commitment_hash,
-          nonce: nonce,
-          status: status,
-          vault_type: vault_type,
-          bet_amount: bet_amount,
-          difficulty: difficulty,
-          predictions: predictions,
-          results: results,
-          won: won,
-          payout: payout,
-          commitment_sig: commitment_sig,
-          bet_sig: bet_sig,
-          settlement_sig: settlement_sig,
-          created_at: created_at,
-          settled_at: settled_at
-        }}
-
-      [] ->
-        {:error, :not_found}
+      [record] -> {:ok, record_to_game(record)}
+      [] -> {:error, :not_found}
     end
   end
 
