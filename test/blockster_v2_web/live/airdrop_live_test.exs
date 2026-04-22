@@ -565,6 +565,16 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       end
     end
 
+    test "single-winner round renders collapsed 'Winner took all' summary (AIRDROP-01)",
+         %{conn: conn} do
+      # The default create_drawn_round fixture has exactly one entrant with
+      # all 33 winners sharing one wallet — perfect single-winner repro.
+      {:ok, _view, html} = live(conn, ~p"/airdrop")
+
+      assert html =~ "Winner took all 33 positions"
+      assert html =~ "One winner took all"
+    end
+
     test "winners table collapses by default and toggles via Show all button", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/airdrop")
 
