@@ -2197,17 +2197,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
     end
   end
 
-  defp format_balance(amount) when is_float(amount) and amount != 0.0 and amount > -1.0 and amount < 1.0 do
-    # Use enough decimals so small PnL values (e.g. +0.0002 on a 0.01 bet) don't show as 0.00
+  defp format_balance(amount) when is_number(amount) and amount != 0 and amount > -1 and amount < 1 do
+    # Use enough decimals so small PnL values (e.g. +0.0002 on a 0.01 bet)
+    # don't show as 0.00. Coerce `amount / 1.0` — the settler may deliver
+    # integer payouts via PubSub.
+    a = amount / 1.0
+
     decimals = cond do
-      abs(amount) >= 0.01 -> 4
-      abs(amount) >= 0.0001 -> 6
+      abs(a) >= 0.01 -> 4
+      abs(a) >= 0.0001 -> 6
       true -> 8
     end
-    :erlang.float_to_binary(amount, decimals: decimals) |> String.trim_trailing("0") |> add_comma_delimiters()
+
+    :erlang.float_to_binary(a, decimals: decimals) |> String.trim_trailing("0") |> add_comma_delimiters()
   end
-  defp format_balance(amount) when is_float(amount), do: :erlang.float_to_binary(amount, decimals: 2) |> add_comma_delimiters()
-  defp format_balance(amount) when is_integer(amount), do: :erlang.float_to_binary(amount / 1, decimals: 2) |> add_comma_delimiters()
+
+  defp format_balance(amount) when is_number(amount),
+    do: :erlang.float_to_binary(amount / 1.0, decimals: 2) |> add_comma_delimiters()
+
   defp format_balance(_), do: "0.00"
 
   defp format_integer(amount) when is_integer(amount) do
@@ -2217,19 +2224,22 @@ defmodule BlocksterV2Web.CoinFlipLive do
   defp format_integer(amount) when is_float(amount), do: format_integer(trunc(amount))
   defp format_integer(_), do: "0"
 
-  defp format_bet_amount(amount) when is_float(amount) and amount >= 1.0 do
-    if amount == Float.floor(amount) do
-      format_integer(trunc(amount))
+  defp format_bet_amount(amount) when is_number(amount) and amount >= 1 do
+    a = amount / 1.0
+
+    if a == Float.floor(a) do
+      format_integer(trunc(a))
     else
-      :erlang.float_to_binary(amount, decimals: 2)
+      :erlang.float_to_binary(a, decimals: 2)
     end
   end
-  defp format_bet_amount(amount) when is_float(amount) and amount > 0 do
-    # Small values — show enough decimals to be meaningful
-    :erlang.float_to_binary(amount, decimals: 4) |> String.trim_trailing("0")
+
+  defp format_bet_amount(amount) when is_number(amount) and amount > 0 do
+    # Small values — show enough decimals to be meaningful.
+    :erlang.float_to_binary(amount / 1.0, decimals: 4) |> String.trim_trailing("0")
   end
-  defp format_bet_amount(amount) when is_float(amount), do: "0"
-  defp format_bet_amount(amount) when is_integer(amount), do: format_integer(amount)
+
+  defp format_bet_amount(amount) when is_number(amount), do: "0"
   defp format_bet_amount(_), do: "0"
 
   defp add_comma_delimiters(number_string) do
