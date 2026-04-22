@@ -10,6 +10,7 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
   use BlocksterV2Web.LiveCase, async: false
 
   alias BlocksterV2.{Shop, Repo}
+  alias BlocksterV2.Accounts.User
   alias BlocksterV2.Shop.{ProductVariant, ProductImage}
   alias BlocksterV2.Blog.Hub
 
@@ -437,6 +438,107 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
 
       assert html =~ "Coming Soon"
       refute html =~ "add_to_cart"
+    end
+  end
+
+  # ============================================================================
+  # SHOP-04: BUX discount cap fallback
+  #
+  # Before the fix, `bux_max_discount = 0/nil` was treated as 100% discount
+  # allowed — a user with enough BUX could redeem the full list value of any
+  # un-migrated product. The flip (gated on SHOP_BUX_CAP_ENFORCED) makes
+  # `0/nil` mean "BUX discount disabled (0%)".
+  # ============================================================================
+
+  describe "SHOP-04 BUX discount fallback" do
+    setup do
+      # Default flag ON so tests assert the hardened behaviour. Individual
+      # tests that want the legacy path override with put_env + on_exit.
+      System.put_env("SHOP_BUX_CAP_ENFORCED", "true")
+      on_exit(fn -> System.delete_env("SHOP_BUX_CAP_ENFORCED") end)
+
+      :mnesia.start()
+
+      case :mnesia.create_table(:user_solana_balances,
+             attributes: [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance],
+             type: :set,
+             ram_copies: [node()]
+           ) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+      end
+
+      :ok
+    end
+
+    defp create_user_with_bux(bux_balance) do
+      unique_id = System.unique_integer([:positive])
+
+      pubkey =
+        :crypto.strong_rand_bytes(32)
+        |> Base.encode32(case: :lower, padding: false)
+        |> String.replace(~r/[0il]/, "A")
+        |> String.slice(0, 44)
+
+      user =
+        User.web3auth_registration_changeset(%{
+          "wallet_address" => pubkey,
+          "email" => "shop04_#{unique_id}@example.com",
+          "username" => "shop04u#{unique_id}",
+          "auth_method" => "web3auth_email"
+        })
+        |> Repo.insert!()
+
+      :mnesia.dirty_write(
+        :user_solana_balances,
+        {:user_solana_balances, user.id, user.wallet_address, System.system_time(:second), 0.0,
+         bux_balance * 1.0}
+      )
+
+      user
+    end
+
+    test "product with bux_max_discount=0 resolves to 0% effective discount (flag on)", %{
+      conn: conn,
+      product_no_discount: _product
+    } do
+      user = create_user_with_bux(22_000)
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/shop/trezor-safe-5")
+
+      # Full list price renders, no discount panel active.
+      assert html =~ "$179.00"
+      # The hardened path sets effective_max = 0 so the "Max" hint collapses.
+      assert html =~ "Max: 0"
+      # The 100%-off exploit path never renders.
+      refute html =~ "100% off"
+      refute html =~ "Max: 17,900"
+    end
+
+    test "product with bux_max_discount=0 still allows 100% discount under legacy flag (flag off)",
+         %{conn: conn, product_no_discount: _product} do
+      System.put_env("SHOP_BUX_CAP_ENFORCED", "false")
+
+      user = create_user_with_bux(22_000)
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/shop/trezor-safe-5")
+
+      # Legacy path treats 0 as 100% allowed; whole $179 is redeemable.
+      assert html =~ "Max: 17,900"
+    end
+
+    test "product with explicit bux_max_discount=40 applies the cap (unchanged by fix)", %{
+      conn: conn
+    } do
+      user = create_user_with_bux(22_000)
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/shop/phantom-ghost-crewneck")
+
+      assert html =~ "(40% off)"
+      assert html =~ "Max: 2,200"
     end
   end
 end

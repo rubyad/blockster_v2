@@ -64,9 +64,18 @@ defmodule BlocksterV2Web.ShopLive.Show do
           0.0
         end
 
-        # Calculate max tokens based on BUX discount setting (0 = uncapped, treat as 100%)
+        # SHOP-04: when `bux_max_discount = 0/nil`, treat as BUX discount
+        # disabled (0%) under the hardened path. Legacy behaviour (100%
+        # fallback) is gated on SHOP_BUX_CAP_ENFORCED for local dev only.
         bux_discount = (product.bux_max_discount || 0) |> to_float()
-        effective_discount = if bux_discount > 0, do: bux_discount, else: 100.0
+
+        effective_discount =
+          cond do
+            bux_discount > 0 -> bux_discount
+            BlocksterV2.Shop.BuxDiscountConfig.cap_enforced?() -> 0.0
+            true -> 100.0
+          end
+
         product_price = (product.price || 0) |> to_float()
         max_bux_tokens = (product_price * effective_discount / 100) / @token_value_usd
 
