@@ -223,29 +223,12 @@ defmodule BlocksterV2.CoinFlipGame do
         Logger.debug("[CoinFlipGame] Game #{game_id} already settled, skipping")
         {:ok, %{signature: game.settlement_sig, already_settled: true}}
 
-      {:ok, game} when game.status == :placed ->
-        case settle_bet(game.wallet_address, game.nonce, game.server_seed, game.won, game.payout, game.vault_type) do
-          {:ok, signature} ->
-            mark_game_settled(game_id, game, signature)
-            update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
-            broadcast_pool_activity(game)
-            broadcast_bet_settled(game.vault_type)
-            Logger.info("[CoinFlipGame] Game #{game_id} settled: #{signature}")
-            {:ok, %{signature: signature}}
+      {:ok, game} when game.status == :manual_review ->
+        Logger.debug("[CoinFlipGame] Game #{game_id} in manual_review — skipping settle attempts")
+        {:error, :manual_review}
 
-          {:error, reason} ->
-            if is_already_settled_error?(reason) do
-              Logger.info("[CoinFlipGame] Game #{game_id} was already settled on-chain, marking as settled")
-              mark_game_settled(game_id, game, "already_settled_on_chain")
-              update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
-              broadcast_pool_activity(game)
-              broadcast_bet_settled(game.vault_type)
-              {:ok, %{signature: "already_settled_on_chain", already_settled: true}}
-            else
-              Logger.error("[CoinFlipGame] Failed to settle game #{game_id}: #{inspect(reason)}")
-              {:error, reason}
-            end
-        end
+      {:ok, game} when game.status == :placed ->
+        attempt_settle(game_id, game, game.server_seed)
 
       {:ok, _game} ->
         {:error, :bet_not_placed}
@@ -253,6 +236,85 @@ defmodule BlocksterV2.CoinFlipGame do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp attempt_settle(game_id, game, server_seed) do
+    case settle_bet(game.wallet_address, game.nonce, server_seed, game.won, game.payout, game.vault_type) do
+      {:ok, signature} ->
+        mark_game_settled(game_id, game, signature)
+        update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
+        broadcast_pool_activity(game)
+        broadcast_bet_settled(game.vault_type)
+        broadcast_game_settled(game, signature)
+        Logger.info("[CoinFlipGame] Game #{game_id} settled: #{signature}")
+        {:ok, %{signature: signature}}
+
+      {:error, {:commitment_mismatch, onchain_commitment, _computed}} ->
+        handle_commitment_mismatch(game_id, game, onchain_commitment)
+
+      {:error, reason} ->
+        if is_already_settled_error?(reason) do
+          Logger.info("[CoinFlipGame] Game #{game_id} was already settled on-chain, marking as settled")
+          mark_game_settled(game_id, game, "already_settled_on_chain")
+          update_user_betting_stats(game.user_id, game.vault_type, game.bet_amount, game.won, game.payout)
+          broadcast_pool_activity(game)
+          broadcast_bet_settled(game.vault_type)
+          broadcast_game_settled(game, "already_settled_on_chain")
+          {:ok, %{signature: "already_settled_on_chain", already_settled: true}}
+        else
+          Logger.error("[CoinFlipGame] Failed to settle game #{game_id}: #{inspect(reason)}")
+          {:error, reason}
+        end
+    end
+  end
+
+  # CF-01 recovery path. The settler reported SHA256(our server_seed) does
+  # NOT match the on-chain bet_order.commitment_hash. This is the
+  # pending_commitment race: two submit_commitment calls landed between
+  # place_bet attempts and the chain stored commitment B while Mnesia's
+  # per-game record holds seed A. Look up the Mnesia row whose
+  # commitment_hash matches what's actually on chain; if we find a seed
+  # whose SHA256 matches, resettle with THAT seed. If not, this bet is
+  # unrecoverable — mark it :manual_review so the background settler
+  # stops retrying (see CoinFlipBetSettler + PR 2b dead-letter queue).
+  defp handle_commitment_mismatch(game_id, game, onchain_commitment) when is_binary(onchain_commitment) do
+    case get_game_by_commitment_hash(onchain_commitment) do
+      {:ok, alt_game} when alt_game.game_id == game_id ->
+        # Same game — the on-chain commitment matches our stored
+        # commitment_hash but SHA256(seed) doesn't. Internal corruption:
+        # stored seed doesn't hash to stored commitment. Mark manual_review.
+        Logger.error(
+          "[CoinFlipGame] Game #{game_id} commitment_mismatch points back to the same row — " <>
+            "stored server_seed does not hash to stored commitment_hash. Marking manual_review."
+        )
+        mark_game_manual_review(game_id, game, "commitment_mismatch_self")
+        {:error, :manual_review}
+
+      {:ok, alt_game} ->
+        Logger.warning(
+          "[CoinFlipGame] Game #{game_id} commitment_mismatch — on-chain commitment " <>
+            "#{onchain_commitment} matches game #{alt_game.game_id}; resettling with its seed"
+        )
+        # Flag the original (now-orphaned) game for manual_review so it
+        # doesn't get retried. Then re-submit settlement with the correct
+        # seed but the original bet's nonce/vault/payout.
+        mark_game_manual_review(game_id, game, "commitment_mismatch_superseded_by_#{alt_game.game_id}")
+        attempt_settle(game_id, game, alt_game.server_seed)
+
+      {:error, :not_found} ->
+        Logger.error(
+          "[CoinFlipGame] Game #{game_id} commitment_mismatch — no Mnesia seed matches on-chain " <>
+            "commitment #{onchain_commitment}. Marking manual_review."
+        )
+        mark_game_manual_review(game_id, game, "commitment_mismatch_no_seed")
+        {:error, :manual_review}
+    end
+  end
+
+  defp handle_commitment_mismatch(game_id, game, _nil_or_bad_hash) do
+    Logger.error("[CoinFlipGame] Game #{game_id} commitment_mismatch with no onchain hash — marking manual_review")
+    mark_game_manual_review(game_id, game, "commitment_mismatch_bad_response")
+    {:error, :manual_review}
   end
 
   defp is_already_settled_error?(reason) when is_binary(reason) do
@@ -285,6 +347,79 @@ defmodule BlocksterV2.CoinFlipGame do
       now                         # settled_at
     }
     :mnesia.dirty_write(updated_record)
+  end
+
+  # Park a bet in :manual_review so the background settler stops retrying
+  # it. Writes a short reason into the settlement_sig slot for debugging
+  # (the slot is unused for unsettled bets; no real signature is lost).
+  defp mark_game_manual_review(game_id, game, reason) do
+    now = System.system_time(:second)
+    updated_record = {
+      :coin_flip_games,
+      game_id,
+      game.user_id,
+      game.wallet_address,
+      game.server_seed,
+      game.commitment_hash,
+      game.nonce,
+      :manual_review,
+      game.vault_type,
+      game.bet_amount,
+      game.difficulty,
+      game.predictions,
+      game.results,
+      game.won,
+      game.payout,
+      game.commitment_sig,
+      game.bet_sig,
+      "manual_review:#{reason}",
+      game.created_at,
+      now
+    }
+    :mnesia.dirty_write(updated_record)
+  end
+
+  # User-scoped broadcast so both direct settlement (from the LV settle call)
+  # AND background CoinFlipBetSettler settlements update the user's
+  # "Recent games" panel live. settlement_sig is passed in because `game`
+  # in the caller's scope is a snapshot from BEFORE mark_game_settled wrote
+  # the new signature. Falls back silently if PubSub isn't running (test
+  # env without the supervisor).
+  defp broadcast_game_settled(game, settlement_sig) do
+    user_id = game.user_id
+
+    payload = %{
+      game_id: game.game_id,
+      vault_type:
+        if(is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)),
+      bet_amount: game.bet_amount,
+      predictions: game.predictions,
+      results: game.results,
+      won: game.won,
+      payout: game.payout,
+      commitment_hash: game.commitment_hash,
+      server_seed: game.server_seed,
+      nonce: game.nonce,
+      commitment_sig: game.commitment_sig,
+      bet_sig: game.bet_sig,
+      settlement_sig: settlement_sig
+    }
+
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "coin_flip_settlement:#{user_id}",
+      {:new_settled_game, payload}
+    )
+
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "coin_flip_settlement:#{user_id}",
+      {:game_settled, game.game_id}
+    )
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
   end
 
   defp broadcast_pool_activity(game) do
@@ -711,6 +846,21 @@ defmodule BlocksterV2.CoinFlipGame do
 
           {:error, _} ->
             {:error, "Invalid response"}
+        end
+
+      # Settler's structured 409 for SHA256(seed) ≠ bet_order.commitment_hash.
+      # Carries both hashes so callers can attempt recovery via Mnesia lookup
+      # keyed on the on-chain commitment — or route the bet to manual_review
+      # if no matching seed exists locally.
+      {:ok, %{status_code: 409, body: resp_body}} ->
+        case Jason.decode(resp_body) do
+          {:ok, %{"error" => "commitment_mismatch"} = payload} ->
+            {:error,
+             {:commitment_mismatch, Map.get(payload, "onchain_commitment_hash"),
+              Map.get(payload, "computed_commitment_hash")}}
+
+          _ ->
+            {:error, "HTTP 409: #{resp_body}"}
         end
 
       {:ok, %{status_code: code, body: body}} ->

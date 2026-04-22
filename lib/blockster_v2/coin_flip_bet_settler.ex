@@ -96,6 +96,12 @@ defmodule BlocksterV2.CoinFlipBetSettler do
         Logger.info("[CoinFlipBetSettler] Settled bet #{bet.game_id}: #{sig}")
         :ok
 
+      # CoinFlipGame already parked the bet as :manual_review and logged
+      # the reason — no need to retry. PR 2b's dead-letter queue takes
+      # over from here with the admin-review UI.
+      {:error, :manual_review} ->
+        :manual_review
+
       {:error, reason} ->
         reason_str = if is_binary(reason), do: reason, else: inspect(reason)
 
