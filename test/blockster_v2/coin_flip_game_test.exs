@@ -668,4 +668,53 @@ defmodule BlocksterV2.CoinFlipGameTest do
       assert {:error, :manual_review} = BlocksterV2.CoinFlipGame.settle_game("parked_mr")
     end
   end
+
+  # ============================================================================
+  # CF-09 — Profit math lock-in (uses trunc/div to match on-chain u64 truncation)
+  # ============================================================================
+
+  describe "max_payout/2 (CF-09)" do
+    # Audit examples: 0.05 × 0.02 = 0.001 SOL profit, 0.05 × 0.98 = 0.049 SOL
+    # profit, 100 × 0.98 = 98 BUX profit. These work out to these max_payout
+    # values once the per-mode multiplier is applied.
+
+    test "1.02x difficulty (-4) on 0.05 SOL" do
+      # 0.05 × 10200 / 10000 = 0.051
+      assert BlocksterV2.CoinFlipGame.max_payout(0.05, -4) == 0.051
+      # Profit = payout - bet = 0.001 (± IEEE-754 slop — assert_in_delta
+      # because 0.051 - 0.05 evaluates to 9.999999999999994e-4)
+      assert_in_delta BlocksterV2.CoinFlipGame.max_payout(0.05, -4) - 0.05, 0.001, 1.0e-9
+    end
+
+    test "1.98x difficulty (1) on 0.05 SOL" do
+      # 0.05 × 19800 / 10000 = 0.099
+      assert BlocksterV2.CoinFlipGame.max_payout(0.05, 1) == 0.099
+      # Profit = 0.049 per audit
+      assert_in_delta BlocksterV2.CoinFlipGame.max_payout(0.05, 1) - 0.05, 0.049, 1.0e-9
+    end
+
+    test "1.98x difficulty (1) on 100 BUX" do
+      # 100 × 19800 / 10000 = 198
+      assert BlocksterV2.CoinFlipGame.max_payout(100, 1) == 198.0
+      # Profit = 98 per audit
+      assert BlocksterV2.CoinFlipGame.max_payout(100, 1) - 100 == 98.0
+    end
+
+    test "truncates (does not round up) — matches on-chain u64 floor" do
+      # CLAUDE.md: payout computation MUST use trunc/div so the LV-computed
+      # payout never exceeds the on-chain max_payout (which uses integer
+      # division). Regression: if this line ever gets rewritten with
+      # Float.round, integer-boundary cases like 0.0001 × 1.32 = 0.000132
+      # would round to 0.00013 and on-chain settlement would reject as
+      # PayoutExceedsMax — confirm truncation behaviour instead.
+      multiplier_1_32 = 13200
+      bet = 0.0001
+      raw = bet * multiplier_1_32 / 10000
+      # Float math: raw ≈ 0.000132000...
+      # With decimals=9 and trunc: trunc(0.000132 * 1e9) / 1e9 = 132000 / 1e9
+      # = 0.000132
+      expected = trunc(raw * :math.pow(10, 9)) / :math.pow(10, 9)
+      assert BlocksterV2.CoinFlipGame.max_payout(bet, -1) == expected
+    end
+  end
 end
