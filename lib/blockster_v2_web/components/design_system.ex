@@ -644,8 +644,12 @@ defmodule BlocksterV2Web.DesignSystem do
                     </svg>
                   </.link>
 
-                  <%= if BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) and
-                         BlocksterV2.WalletSelfCustody.Auth.feature_enabled?() do %>
+                  <%= if BlocksterV2.WalletSelfCustody.Auth.feature_enabled?() do %>
+                    <%!-- Label differs by auth method: web3auth users get
+                         the "self-custody" affordance + lime pulse dot;
+                         external-wallet users see a plain "Wallet" overview
+                         (same route, Export card hidden on the page). --%>
+                    <% web3auth? = BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) %>
                     <.link
                       navigate={~p"/wallet"}
                       class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
@@ -656,8 +660,12 @@ defmodule BlocksterV2Web.DesignSystem do
                           <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
                       </span>
-                      <span class="flex-1 font-medium">Wallet &amp; self-custody</span>
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <span class="flex-1 font-medium">
+                        <%= if web3auth?, do: "Wallet & self-custody", else: "Wallet" %>
+                      </span>
+                      <%= if web3auth? do %>
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <% end %>
                       <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                         <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>

@@ -78,14 +78,21 @@ defmodule BlocksterV2Web.WalletLive.IndexTest do
       assert html =~ "Self-custody"
     end
 
-    test "external-wallet user is redirected away with an info flash", %{conn: conn} do
+    test "external-wallet user sees the page but without the Export card", %{conn: conn} do
       user = create_wallet_user()
       conn = log_in_user(conn, user)
 
-      assert {:error, {:live_redirect, %{to: "/", flash: %{"info" => flash}}}} =
-               live(conn, ~p"/wallet")
+      {:ok, _view, html} = live(conn, ~p"/wallet")
 
-      assert flash =~ "external wallet"
+      # Page loads + shows balance / receive / send
+      assert html =~ "Your wallet"
+      assert html =~ "Send SOL"
+      # Auth-source pill is branded for wallet users
+      assert html =~ "Connected wallet"
+      # Export card is hidden — phx-hook=Web3AuthExport is only rendered
+      # when web3auth? is true
+      refute html =~ "Web3AuthExport"
+      refute html =~ "Take full custody"
     end
 
     test "anonymous user is redirected home", %{conn: conn} do

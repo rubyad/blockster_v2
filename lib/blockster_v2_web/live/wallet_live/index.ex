@@ -36,22 +36,11 @@ defmodule BlocksterV2Web.WalletLive.Index do
       not WalletAuth.feature_enabled?() ->
         {:ok,
          socket
-         |> put_flash(:error, "Self-custody panel is not yet available.")
+         |> put_flash(:error, "Wallet panel is not yet available.")
          |> push_navigate(to: ~p"/")}
 
       is_nil(current_user) ->
         {:ok, push_navigate(socket, to: ~p"/")}
-
-      not WalletAuth.web3auth_user?(current_user) ->
-        # External-wallet users already have self-custody via their wallet
-        # extension. Bounce them to their profile with a helpful note.
-        {:ok,
-         socket
-         |> put_flash(
-           :info,
-           "You're signed in with an external wallet — use your wallet app to manage SOL and keys."
-         )
-         |> push_navigate(to: ~p"/")}
 
       true ->
         mount_authorized(current_user, socket)
@@ -59,12 +48,17 @@ defmodule BlocksterV2Web.WalletLive.Index do
   end
 
   defp mount_authorized(current_user, socket) do
-    audit = WalletSelfCustody.list_recent_for_user(current_user.id, 5)
+    # Only Web3Auth social-login users see the Export card — external-wallet
+    # users (Phantom/Solflare/Backpack) already manage their keys in the
+    # wallet extension. Everyone else can still view balance + receive + send.
+    web3auth? = WalletAuth.web3auth_user?(current_user)
+    audit = if web3auth?, do: WalletSelfCustody.list_recent_for_user(current_user.id, 5), else: []
     sol_usd_price = fetch_sol_usd_price()
 
     socket =
       socket
       |> assign(:page_title, "Your wallet")
+      |> assign(:web3auth?, web3auth?)
       |> assign(:sol_balance, 0.0)
       |> assign(:bux_balance, 0.0)
       |> assign(:sol_usd_price, sol_usd_price)
@@ -405,7 +399,8 @@ defmodule BlocksterV2Web.WalletLive.Index do
   def display_auth_source("web3auth_x"), do: "X login"
   def display_auth_source("web3auth_twitter"), do: "X login"
   def display_auth_source("web3auth_telegram"), do: "Telegram login"
-  def display_auth_source(_), do: "Social login"
+  def display_auth_source("wallet"), do: "Connected wallet"
+  def display_auth_source(_), do: "Signed in"
 
   def display_auth_noun("web3auth_email"), do: "email address"
   def display_auth_noun("web3auth_google"), do: "Google account"
@@ -413,7 +408,8 @@ defmodule BlocksterV2Web.WalletLive.Index do
   def display_auth_noun("web3auth_x"), do: "X account"
   def display_auth_noun("web3auth_twitter"), do: "X account"
   def display_auth_noun("web3auth_telegram"), do: "Telegram account"
-  def display_auth_noun(_), do: "social login"
+  def display_auth_noun("wallet"), do: "Solana wallet"
+  def display_auth_noun(_), do: "sign-in"
 
   def audit_event_label("withdrawal_initiated"), do: "Withdrawal initiated"
   def audit_event_label("withdrawal_confirmed"), do: "Withdrawal confirmed"

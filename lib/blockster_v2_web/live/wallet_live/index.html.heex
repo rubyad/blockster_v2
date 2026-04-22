@@ -93,8 +93,12 @@
         Your wallet
       </h1>
       <p class="mt-4 text-[14px] md:text-[15px] text-neutral-500 leading-relaxed">
-        This Solana wallet was derived from your <%= display_auth_noun(@current_user.auth_method) %>.
-        Receive SOL, withdraw to another address, or export your private key and take full custody.
+        <%= if @web3auth? do %>
+          This Solana wallet was derived from your <%= display_auth_noun(@current_user.auth_method) %>.
+          Receive SOL, withdraw to another address, or export your private key and take full custody.
+        <% else %>
+          Your connected <%= display_auth_noun(@current_user.auth_method) %> — balance, receive address, and outbound transfers at a glance.
+        <% end %>
       </p>
     </div>
 
@@ -245,7 +249,10 @@
       <div class="border-t border-neutral-100 px-6 md:px-10 py-3 flex items-center gap-4 text-[9px] font-mono uppercase tracking-[0.14em] text-neutral-400">
         <span>ID · <%= String.slice(@current_user.wallet_address, 0..5) %></span>
         <span class="hidden sm:inline">·</span>
-        <span class="hidden sm:inline">ED25519 · derived · mpc-threshold</span>
+        <span class="hidden sm:inline">
+          ED25519 ·
+          <%= if @web3auth?, do: "derived · mpc-threshold", else: "self-custody · external wallet" %>
+        </span>
         <span class="ml-auto">REV 01</span>
       </div>
     </section>
@@ -265,7 +272,10 @@
       <section
         id="send-sol-region"
         phx-hook="Web3AuthWithdraw"
-        class="md:col-span-7 relative bg-white rounded-[24px] ring-1 ring-black/5 overflow-hidden min-w-0"
+        class={[
+          "relative bg-white rounded-[24px] ring-1 ring-black/5 overflow-hidden min-w-0",
+          if(@web3auth?, do: "md:col-span-7", else: "md:col-span-12")
+        ]}
         style="box-shadow: 0 20px 60px -25px rgba(0,0,0,0.1), 0 2px 10px -4px rgba(0,0,0,0.04);"
         data-sol-usd-price={@sol_usd_price}
         data-sol-balance={@sol_balance}
@@ -553,11 +563,16 @@
       </section>
 
       <%!-- ══════════════════════════════════════════════════════════════
-           EXPORT PRIVATE KEY CARD
+           EXPORT PRIVATE KEY CARD (Web3Auth users only)
+           External-wallet users (Phantom/Solflare/Backpack) manage their
+           own keys in the wallet extension — the export flow doesn't
+           apply to them. For those users the Send card grows to full
+           width above; this whole section is skipped.
            Three stages: idle (collapsed warning) → intent (expanded with
            checkbox) → reveal (dark vault with tab toggle + blur-hover key
            + 30s countdown).
       ══════════════════════════════════════════════════════════════ --%>
+      <%= if @web3auth? do %>
       <section
         id="export-key-region"
         phx-hook="Web3AuthExport"
@@ -960,6 +975,7 @@
             </div>
         <% end %>
       </section>
+      <% end %>
     </div>
 
     <%!-- ══════════════════════════════════════════════════════════════════

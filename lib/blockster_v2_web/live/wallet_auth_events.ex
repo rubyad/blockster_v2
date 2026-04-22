@@ -39,7 +39,10 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                     %{id: id} -> id
                     _ -> nil
                   end
-                  user_changed? = prev_user_id != nil and prev_user_id != user.id
+
+                  already_signed_in_here? = prev_user_id != nil
+                  user_changed? = already_signed_in_here? and prev_user_id != user.id
+                  same_user_reauth? = already_signed_in_here? and prev_user_id == user.id
 
                   socket =
                     socket
@@ -62,10 +65,18 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                       # re-read the now-updated session cookie.
                       {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
 
+                    same_user_reauth? ->
+                      # Same user as the LiveView already has — this fires
+                      # when a silent wallet-reconnect re-enters the full auth
+                      # path despite the session already being valid. Just
+                      # sync assigns; redirecting here would reload the page,
+                      # re-trigger auto-reconnect, and loop forever.
+                      {:halt, socket}
+
                     true ->
-                      # Returning user signed in — the WebSocket's session map
-                      # was captured BEFORE login (empty `wallet_address`), so
-                      # any subsequent live-navigate to a different page would
+                      # Fresh sign-in (no prior current_user) — the WebSocket's
+                      # session map was captured BEFORE login, so any
+                      # subsequent live-navigate to a different page would
                       # re-mount with a stale session and lose current_user.
                       # Force a full HTTP reload so the new session cookie is
                       # picked up fresh. Land on the homepage — small UX cost
@@ -198,14 +209,37 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
       def handle_event("wallet_reconnected", %{"pubkey" => pubkey}, socket) do
         if BlocksterV2Web.WalletAuthEvents.valid_pubkey?(pubkey) do
-          socket =
-            socket
-            |> assign(:wallet_address, pubkey)
-            |> assign(:connecting, false)
-            |> assign(:pending_wallet_auth, pubkey)
-            |> push_event("persist_session", %{wallet_address: pubkey})
+          already_signed_in_here? =
+            case socket.assigns[:current_user] do
+              %{wallet_address: ^pubkey} -> true
+              _ -> false
+            end
 
-          {:noreply, socket}
+          if already_signed_in_here? do
+            # Silent-reconnect case: the LiveView mounted with current_user
+            # already loaded from the session cookie, AND the reconnected
+            # wallet matches that user. Just sync the wallet_address assign
+            # and stop — pushing persist_session here would kick off a
+            # `session_persisted → :wallet_authenticated → redirect(to: "/")`
+            # chain that reloads the page, which on re-mount triggers
+            # another auto-reconnect… i.e. an infinite reload loop.
+            {:noreply,
+             socket
+             |> assign(:wallet_address, pubkey)
+             |> assign(:connecting, false)}
+          else
+            # No session yet (or session cookie was invalidated) — run the
+            # full persist flow so the cookie gets (re-)minted and the
+            # LiveView picks up current_user on the next mount.
+            socket =
+              socket
+              |> assign(:wallet_address, pubkey)
+              |> assign(:connecting, false)
+              |> assign(:pending_wallet_auth, pubkey)
+              |> push_event("persist_session", %{wallet_address: pubkey})
+
+            {:noreply, socket}
+          end
         else
           {:noreply, socket}
         end
