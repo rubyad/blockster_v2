@@ -172,6 +172,42 @@ defmodule BlocksterV2.PoolPositions do
     end
   end
 
+  @doc """
+  Admin-invoked recovery: wipes the cost-basis row for a `{user_id,
+  vault_type}` so the next render will re-seed it from current on-chain
+  LP × current_lp_price (via `seed_if_missing/4`).
+
+  Use this to correct positions whose cost basis drifted while the
+  POOL-03/06 bug was live (pre-fix tx_confirmed silently skipped
+  `record_withdraw` because `lp_price` was never on the socket).
+  The historical cost basis can't be perfectly reconstructed from
+  `:pool_activities` alone — that table doesn't carry `lp_price` per
+  activity — so re-seeding at "now" is the best-effort recovery.
+
+  CLAUDE.md: this is the ONLY way to mutate pool-position state outside
+  of the normal deposit/withdraw path. Do NOT delete `priv/mnesia/*`.
+
+  Returns `:ok` regardless of whether a row existed.
+  """
+  @spec reset_position(integer(), String.t()) :: :ok
+  def reset_position(user_id, vault_type)
+      when is_integer(user_id) and vault_type in ["sol", "bux"] do
+    key = {user_id, vault_type}
+    :mnesia.dirty_delete({@table, key})
+    Logger.info("[PoolPositions] Reset cost-basis row for user=#{user_id} vault=#{vault_type}")
+    :ok
+  rescue
+    e ->
+      Logger.warning("[PoolPositions] reset_position failed: #{inspect(e)}")
+      :ok
+  catch
+    :exit, reason ->
+      Logger.warning("[PoolPositions] reset_position exited: #{inspect(reason)}")
+      :ok
+  end
+
+  def reset_position(_, _), do: :ok
+
   # ── Private helpers ──
 
   defp write(user_id, vault_type, total_cost, total_lp, realized_gain) do
