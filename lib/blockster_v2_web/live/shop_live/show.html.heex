@@ -565,16 +565,30 @@
             <% else %>
               <% cart_usd = if @tokens_to_redeem > 0, do: max(@product.price * @quantity - @tokens_to_redeem * @token_value_usd, 0), else: @product.price * @quantity %>
               <% cart_sol = BlocksterV2.Shop.Pricing.usd_to_sol(cart_usd, @sol_usd) %>
-              <button
-                phx-click="add_to_cart"
-                class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
-              >
-                Add to cart · {BlocksterV2.Shop.Pricing.format_sol(cart_sol)} SOL
-                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <button class="w-full text-center text-[12px] text-neutral-500 hover:text-[#141414] font-medium py-2 underline cursor-pointer">
-                Buy it now
-              </button>
+              <%!-- SHOP-08: if computed SOL price is 0 but the product is not free,
+                   the discount configuration is broken — disable Add-to-cart rather
+                   than let the user walk away with a zero-priced item. --%>
+              <% free_price_exploit? = cart_usd <= 0 and @product.price > 0 %>
+              <%= if free_price_exploit? do %>
+                <button
+                  disabled
+                  title="Discount configuration invalid — contact support"
+                  class="w-full inline-flex items-center justify-center gap-2 bg-neutral-300 text-neutral-500 px-5 py-3.5 rounded-full text-[14px] font-bold cursor-not-allowed"
+                >
+                  Add to cart unavailable
+                </button>
+              <% else %>
+                <button
+                  phx-click="add_to_cart"
+                  class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                >
+                  Add to cart · {BlocksterV2.Shop.Pricing.format_sol(cart_sol)} SOL
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="w-full text-center text-[12px] text-neutral-500 hover:text-[#141414] font-medium py-2 underline cursor-pointer">
+                  Buy it now
+                </button>
+              <% end %>
             <% end %>
             <%= if @added_to_cart do %>
               <.link

@@ -326,7 +326,27 @@ defmodule BlocksterV2Web.ShopLive.Show do
         has_colors = (product_config && product_config.has_colors && Enum.any?(product.colors)) ||
                      (is_nil(product_config) && Enum.any?(product.colors))
 
+        # SHOP-08: defensive guard. The disabled Add-to-cart button in HEEx is
+        # the primary UX block; this is the server-side backstop for anyone
+        # synthesising the event directly. If the post-discount USD is 0 but
+        # the product's list price is > 0, the discount configuration is
+        # broken (likely a SHOP-04 regression or manipulated tokens_to_redeem).
+        final_usd =
+          if bux_tokens > 0,
+            do: max(product.price * quantity - bux_tokens * @token_value_usd, 0),
+            else: product.price * quantity
+
+        free_price_exploit? = final_usd <= 0 and product.price > 0
+
         cond do
+          free_price_exploit? ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "Discount configuration invalid — contact support."
+             )}
+
           has_sizes && is_nil(selected_size) ->
             {:noreply, put_flash(socket, :error, "Please select a size")}
 

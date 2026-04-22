@@ -544,6 +544,35 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
       assert html =~ "(40% off)"
       assert html =~ "Max: 2,200"
     end
+
+    # SHOP-08: the button-level + server-side guards. Exploit requires the
+    # legacy path PLUS a client that bypasses the disabled HEEx button.
+    test "SHOP-08 Add-to-cart button disables + server rejects when final price is 0 on a priced product",
+         %{conn: conn} do
+      # Flip to legacy so max_bux_tokens resolves to 17,900 and a user with
+      # 22,000 BUX pre-fills the full discount — same state the exploit hit.
+      System.put_env("SHOP_BUX_CAP_ENFORCED", "false")
+
+      user = create_user_with_bux(22_000)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, ~p"/shop/trezor-safe-5")
+
+      # Drive the token input to the legacy max so cart_usd collapses to 0.
+      view
+      |> form("form[phx-change='update_tokens']", %{"tokens" => "17900"})
+      |> render_change()
+
+      html = render(view)
+      # HEEx guard: Add-to-cart becomes the "unavailable" button.
+      assert html =~ "Add to cart unavailable"
+      assert html =~ "Discount configuration invalid"
+
+      # Server-side guard: even if the client sends add_to_cart directly,
+      # the handler refuses to create a cart item.
+      html = render_click(view, "add_to_cart", %{})
+      assert html =~ "Discount configuration invalid"
+    end
   end
 
   # ============================================================================
