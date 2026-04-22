@@ -113,9 +113,8 @@ defmodule BlocksterV2Web.NotificationLive.Referrals do
   defp format_number(n) when is_integer(n), do: Integer.to_string(n)
   defp format_number(n), do: to_string(n)
 
-  defp format_amount(n) when is_float(n) and n < 0.01, do: "<0.01"
-  defp format_amount(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 2)
-  defp format_amount(n) when is_integer(n), do: Integer.to_string(n)
+  defp format_amount(n) when is_number(n) and n < 0.01, do: "<0.01"
+  defp format_amount(n) when is_number(n), do: :erlang.float_to_binary(n / 1.0, decimals: 2)
   defp format_amount(n), do: to_string(n)
 
   defp format_time(nil), do: ""

@@ -642,22 +642,22 @@ defmodule BlocksterV2Web.PoolComponents do
 
   @doc false
   def format_change_pct(pct) when is_number(pct) and pct >= 0 do
-    "+#{:erlang.float_to_binary(pct, decimals: 2)}%"
+    "+#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"
   end
 
   def format_change_pct(pct) when is_number(pct) do
-    "#{:erlang.float_to_binary(pct, decimals: 2)}%"
+    "#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"
   end
 
   def format_change_pct(_), do: nil
 
   @doc false
   def format_number(val) when is_number(val) and val >= 1_000_000 do
-    "#{:erlang.float_to_binary(val / 1_000_000, decimals: 2)}M"
+    "#{:erlang.float_to_binary(val / 1.0 / 1_000_000, decimals: 2)}M"
   end
 
   def format_number(val) when is_number(val) and val >= 1_000 do
-    "#{:erlang.float_to_binary(val / 1_000, decimals: 2)}k"
+    "#{:erlang.float_to_binary(val / 1.0 / 1_000, decimals: 2)}k"
   end
 
   def format_number(val) when is_number(val) and val > 0 do
@@ -679,11 +679,11 @@ defmodule BlocksterV2Web.PoolComponents do
 
   @doc false
   def format_integer(val) when is_number(val) and val >= 1_000_000 do
-    "#{:erlang.float_to_binary(val / 1_000_000, decimals: 1)}M"
+    "#{:erlang.float_to_binary(val / 1.0 / 1_000_000, decimals: 1)}M"
   end
 
   def format_integer(val) when is_number(val) and val >= 1_000 do
-    "#{:erlang.float_to_binary(val / 1_000, decimals: 1)}k"
+    "#{:erlang.float_to_binary(val / 1.0 / 1_000, decimals: 1)}k"
   end
 
   def format_integer(val) when is_number(val), do: "#{trunc(val)}"
@@ -692,7 +692,7 @@ defmodule BlocksterV2Web.PoolComponents do
   @doc false
   def format_win_rate(total_bets, total_wins) when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
     pct = total_wins / total_bets * 100
-    "#{:erlang.float_to_binary(pct, decimals: 1)}%"
+    "#{:erlang.float_to_binary(pct / 1.0, decimals: 1)}%"
   end
 
   def format_win_rate(_, _), do: "0.0%"
@@ -700,14 +700,14 @@ defmodule BlocksterV2Web.PoolComponents do
   @doc false
   def format_win_rate_value(total_bets, total_wins) when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
     pct = total_wins / total_bets * 100
-    :erlang.float_to_binary(pct, decimals: 1)
+    :erlang.float_to_binary(pct / 1.0, decimals: 1)
   end
 
   def format_win_rate_value(_, _), do: "0.0"
 
   @doc false
   def format_house_edge(pct) when is_number(pct) do
-    :erlang.float_to_binary(pct, decimals: 1)
+    :erlang.float_to_binary(pct / 1.0, decimals: 1)
   end
 
   def format_house_edge(_), do: "0.0"

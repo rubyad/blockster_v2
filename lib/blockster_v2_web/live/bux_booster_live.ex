@@ -2191,7 +2191,7 @@ defmodule BlocksterV2Web.BuxBoosterLive do
   defp format_usd(nil, _amount), do: nil
   defp format_usd(_price, nil), do: nil
   defp format_usd(price, amount) when is_number(price) and is_number(amount) do
-    usd_value = price * amount
+    usd_value = price * amount / 1.0
     cond do
       usd_value >= 1_000_000 -> "$#{:erlang.float_to_binary(usd_value / 1_000_000, decimals: 2)}M"
       usd_value >= 1_000 -> "$#{:erlang.float_to_binary(usd_value / 1_000, decimals: 2)}K"

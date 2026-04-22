@@ -1168,14 +1168,18 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
   defp generate_referral_link(_), do: nil
 
-  def format_referral_number(number) when is_float(number) do
-    if number == trunc(number) do
-      Integer.to_string(trunc(number))
+  def format_referral_number(number) when is_number(number) do
+    # Coerce `number / 1.0` before `float_to_binary` to tolerate both
+    # integer and float PubSub payloads (see cross-cutting §1).
+    n = number / 1.0
+
+    if n == trunc(n) do
+      Integer.to_string(trunc(n))
     else
-      :erlang.float_to_binary(number, decimals: 2)
+      :erlang.float_to_binary(n, decimals: 2)
     end
   end
-  def format_referral_number(number) when is_integer(number), do: Integer.to_string(number)
+
   def format_referral_number(_), do: "0"
 
   def truncate_wallet(nil), do: "-"
@@ -1278,17 +1282,20 @@ defmodule BlocksterV2Web.MemberLive.Show do
 
   def format_number(_), do: "0"
 
-  # Format multiplier value (show 1 decimal if needed)
-  def format_multiplier(val) when is_float(val) do
-    if val == trunc(val) do
-      Integer.to_string(trunc(val))
+  # Format multiplier value (show 1 decimal if needed). Tolerates
+  # integer PubSub payloads via `val / 1.0` coercion — see cross-cutting §1.
+  def format_multiplier(%Decimal{} = val), do: format_multiplier(Decimal.to_float(val))
+
+  def format_multiplier(val) when is_number(val) do
+    v = val / 1.0
+
+    if v == trunc(v) do
+      Integer.to_string(trunc(v))
     else
-      :erlang.float_to_binary(val, decimals: 1)
+      :erlang.float_to_binary(v, decimals: 1)
     end
   end
 
-  def format_multiplier(val) when is_integer(val), do: Integer.to_string(val)
-  def format_multiplier(%Decimal{} = val), do: format_multiplier(Decimal.to_float(val))
   def format_multiplier(_), do: "0"
 
   # Generate user initials from a user struct

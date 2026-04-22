@@ -37,14 +37,20 @@ defmodule BlocksterV2.Shop.Pricing do
   Formats a SOL amount for display. Uses more precision for small values so
   a $10 item doesn't show as "0.06 SOL" and round to zero.
   """
-  def format_sol(sol) when is_number(sol) and sol >= 1, do: :erlang.float_to_binary(sol, decimals: 2)
-  def format_sol(sol) when is_number(sol) and sol >= 0.01, do: :erlang.float_to_binary(sol, decimals: 3)
-  def format_sol(sol) when is_number(sol), do: :erlang.float_to_binary(sol, decimals: 4)
+  def format_sol(sol) when is_number(sol) and sol >= 1,
+    do: :erlang.float_to_binary(sol / 1.0, decimals: 2)
+
+  def format_sol(sol) when is_number(sol) and sol >= 0.01,
+    do: :erlang.float_to_binary(sol / 1.0, decimals: 3)
+
+  def format_sol(sol) when is_number(sol), do: :erlang.float_to_binary(sol / 1.0, decimals: 4)
   def format_sol(_), do: "0.00"
 
   @doc """
   Formats a USD amount for display. Two decimals, leading dollar sign.
   """
-  def format_usd(usd) when is_number(usd), do: "$" <> :erlang.float_to_binary(usd, decimals: 2)
+  def format_usd(usd) when is_number(usd),
+    do: "$" <> :erlang.float_to_binary(usd / 1.0, decimals: 2)
+
   def format_usd(_), do: "$0.00"
 end

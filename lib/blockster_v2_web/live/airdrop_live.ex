@@ -1622,7 +1622,7 @@ defmodule BlocksterV2Web.AirdropLive do
 
   defp compute_pool_share(amount, total) do
     pct = amount / (total + amount) * 100
-    "#{:erlang.float_to_binary(pct, decimals: 2)}%"
+    "#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"
   end
 
   defp compute_odds_text(0, _), do: "—"
@@ -1645,7 +1645,7 @@ defmodule BlocksterV2Web.AirdropLive do
     pool = total + amount
     share = amount / max(pool, 1)
     expected_dollars = share * (prize_total_cents / 100)
-    "~$#{:erlang.float_to_binary(expected_dollars, decimals: 2)}"
+    "~$#{:erlang.float_to_binary(expected_dollars / 1.0, decimals: 2)}"
   end
 
   # Drawn-state Solscan helpers
