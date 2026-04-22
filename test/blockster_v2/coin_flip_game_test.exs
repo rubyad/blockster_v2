@@ -567,4 +567,105 @@ defmodule BlocksterV2.CoinFlipGameTest do
       assert results == [:heads, :heads, :tails, :tails, :heads]
     end
   end
+
+  # ============================================================================
+  # CF-01 regression — commitment-hash seed recovery + manual_review
+  # ============================================================================
+
+  describe "get_game_by_commitment_hash/1 (CF-01)" do
+    test "returns the matching game when commitment_hash is stored" do
+      now = System.system_time(:second)
+
+      raw_a = :crypto.strong_rand_bytes(32)
+      seed_a = Base.encode16(raw_a, case: :lower)
+      commit_a = :crypto.hash(:sha256, raw_a) |> Base.encode16(case: :lower)
+
+      raw_b = :crypto.strong_rand_bytes(32)
+      seed_b = Base.encode16(raw_b, case: :lower)
+      commit_b = :crypto.hash(:sha256, raw_b) |> Base.encode16(case: :lower)
+
+      # Two games for the SAME user — simulates the audit's "three rapid bets"
+      # scenario where the on-chain commitment winds up tagging the wrong
+      # seed if we looked up only by (user, nonce).
+      :mnesia.dirty_write(
+        {:coin_flip_games, "game_a", 42, "wallet1", seed_a, commit_a, 0,
+         :placed, :sol, 0.05, 1, [:heads], [:heads], true, 0.099,
+         "commit_sig_a", "bet_sig_a", nil, now, nil}
+      )
+
+      :mnesia.dirty_write(
+        {:coin_flip_games, "game_b", 42, "wallet1", seed_b, commit_b, 1,
+         :placed, :sol, 0.05, 1, [:tails], [:tails], false, 0,
+         "commit_sig_b", "bet_sig_b", nil, now, nil}
+      )
+
+      assert {:ok, game_a} = BlocksterV2.CoinFlipGame.get_game_by_commitment_hash(commit_a)
+      assert game_a.game_id == "game_a"
+      assert game_a.server_seed == seed_a
+
+      assert {:ok, game_b} = BlocksterV2.CoinFlipGame.get_game_by_commitment_hash(commit_b)
+      assert game_b.game_id == "game_b"
+      assert game_b.server_seed == seed_b
+    end
+
+    test "returns :not_found when no game matches the hash" do
+      assert {:error, :not_found} =
+               BlocksterV2.CoinFlipGame.get_game_by_commitment_hash(String.duplicate("0", 64))
+    end
+
+    test "two sibling games for the same user are each settleable against their own commitment" do
+      # Regression for CF-01 root cause (see audit): when two bets fire
+      # in quick succession, seed A must SHA256 to commit A and seed B
+      # must SHA256 to commit B — and the lookup must return the right
+      # row for each hash independently. This is what the CF-01 recovery
+      # path relies on.
+      raw_a = :crypto.strong_rand_bytes(32)
+      seed_a = Base.encode16(raw_a, case: :lower)
+      commit_a = :crypto.hash(:sha256, raw_a) |> Base.encode16(case: :lower)
+
+      raw_b = :crypto.strong_rand_bytes(32)
+      seed_b = Base.encode16(raw_b, case: :lower)
+      commit_b = :crypto.hash(:sha256, raw_b) |> Base.encode16(case: :lower)
+
+      now = System.system_time(:second)
+
+      :mnesia.dirty_write(
+        {:coin_flip_games, "cfsibA", 77, "wlt", seed_a, commit_a, 0, :placed,
+         :bux, 100, 1, [:heads], [:heads], true, 198, "cs_a", "bs_a", nil, now, nil}
+      )
+
+      :mnesia.dirty_write(
+        {:coin_flip_games, "cfsibB", 77, "wlt", seed_b, commit_b, 1, :placed,
+         :bux, 100, 1, [:tails], [:tails], true, 198, "cs_b", "bs_b", nil, now, nil}
+      )
+
+      # Independent retrievability via their own hash
+      {:ok, g_a} = BlocksterV2.CoinFlipGame.get_game_by_commitment_hash(commit_a)
+      {:ok, g_b} = BlocksterV2.CoinFlipGame.get_game_by_commitment_hash(commit_b)
+
+      # Each game's stored server_seed must SHA256 to its own commitment —
+      # this is the property the pre-submit settler assertion relies on.
+      assert :crypto.hash(:sha256, Base.decode16!(g_a.server_seed, case: :lower))
+             |> Base.encode16(case: :lower) == commit_a
+
+      assert :crypto.hash(:sha256, Base.decode16!(g_b.server_seed, case: :lower))
+             |> Base.encode16(case: :lower) == commit_b
+    end
+  end
+
+  describe "settle_game/1 with :manual_review status (CF-01)" do
+    test "short-circuits with {:error, :manual_review} and does NOT attempt the settler" do
+      # If settle_game tried the network we'd see a timeout or crash; no
+      # settler is running in test env.
+      now = System.system_time(:second)
+
+      :mnesia.dirty_write(
+        {:coin_flip_games, "parked_mr", 99, "wallet_mr", "seed_mr", "commit_mr", 3,
+         :manual_review, :sol, 0.05, 1, [:heads], [:heads], false, 0,
+         "cs", "bs", "manual_review:commitment_mismatch_no_seed", now, now}
+      )
+
+      assert {:error, :manual_review} = BlocksterV2.CoinFlipGame.settle_game("parked_mr")
+    end
+  end
 end
