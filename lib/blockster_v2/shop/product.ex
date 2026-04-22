@@ -1,4 +1,22 @@
 defmodule BlocksterV2.Shop.Product do
+  @moduledoc """
+  Ecto schema for a shop product.
+
+  ## BUX discount semantics (SHOP-04)
+
+  `bux_max_discount` is a percentage in `[0, 100]`.
+
+    * `0` (or `nil`) — BUX discount explicitly disabled for this product.
+      The shop renderer treats this as "no discount allowed" under the
+      hardened fallback (`SHOP_BUX_CAP_ENFORCED=true`, default in prod).
+    * `1..100` — BUX discount enabled, capped at the given percentage.
+
+  There is no separate `bux_enabled` field; the cap itself is the toggle.
+  The changeset validates the range but accepts `0` as a valid "disabled"
+  state. Enforcement of the 0-⇒-no-discount semantic lives in
+  `BlocksterV2Web.ShopLive.Show` and `BlocksterV2.Shop.BuxDiscountConfig`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -13,7 +31,7 @@ defmodule BlocksterV2.Shop.Product do
     field :status, :string, default: "draft"
     field :tags, {:array, :string}, default: []
 
-    # Token discount settings (percentage 0-100)
+    # Token discount settings (percentage 0-100). See moduledoc for semantics.
     field :bux_max_discount, :integer, default: 0
     field :hub_token_max_discount, :integer, default: 0
 
