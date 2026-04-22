@@ -327,6 +327,23 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       assert html =~ "≈"
     end
 
+    # POOL-01: the amount input used to sit on a bare `<input phx-keyup=…>`.
+    # Post-fix the input is wrapped in `<form phx-change="update_amount">` so
+    # programmatic form events (the path Phoenix uses in production) also
+    # hit the handler. This test exercises the phx-change form path.
+    test "programmatic phx-change on the amount form fires update_amount handler",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+
+      html =
+        view
+        |> form("form[phx-change='update_amount']", %{"amount" => "2.75"})
+        |> render_change()
+
+      assert html =~ "≈"
+      assert html =~ ~s(value="2.75")
+    end
+
     test "max button sets max balance for deposit", %{conn: conn} do
       user = create_user()
       set_solana_balances(user, 3.5, 1000.0)

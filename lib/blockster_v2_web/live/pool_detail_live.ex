@@ -236,9 +236,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   # ── Amount Input ──
 
-  def handle_event("update_amount", %{"value" => val}, socket) do
-    {:noreply, assign(socket, amount: val)}
-  end
+  # Two payload shapes: the phx-keyup (%{"value" => ...}) fires per-keystroke
+  # from the <input>; the phx-change on the wrapping <form> (POOL-01 fix)
+  # fires with the form's name map (%{"amount" => ...}).
+  def handle_event("update_amount", %{"value" => val}, socket),
+    do: {:noreply, assign(socket, amount: val)}
+
+  def handle_event("update_amount", %{"amount" => val}, socket),
+    do: {:noreply, assign(socket, amount: val)}
 
   def handle_event("set_max", _params, socket) do
     vault_type = socket.assigns.vault_type
@@ -713,7 +718,11 @@ defmodule BlocksterV2Web.PoolDetailLive do
                       </button>
                     </div>
                   </div>
-                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+                  <%!-- POOL-01: phx-keyup alone on a bare <input> doesn't fire the
+                       LiveView event in LV 1.x without a form wrapper. Wrap so the
+                       phx-change on the form is the primary binding and phx-keyup
+                       stays as the instant-feedback secondary. --%>
+                  <form phx-change="update_amount" class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
                     <input
                       type="text"
                       inputmode="decimal"
@@ -726,7 +735,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
                       class="flex-1 bg-transparent border-0 outline-none font-mono font-bold text-[28px] text-[#141414] tracking-tight w-full focus:outline-none"
                     />
                     <div class="text-[14px] text-neutral-500 shrink-0"><%= @deposit_token %></div>
-                  </div>
+                  </form>
                   <div class="flex items-center justify-between mt-2 text-[10px] font-mono text-neutral-400">
                     <span>Balance · <%= format_balance(@deposit_balance) %> <%= @deposit_token %></span>
                     <span><%= estimate_dollar_value(@amount, @deposit_token) %></span>
