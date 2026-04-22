@@ -908,19 +908,33 @@ defmodule BlocksterV2Web.PoolDetailLive do
   end
   defp parse_amount(_), do: 0.0
 
-  defp format_max(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_max(val) when is_integer(val) and val > 0, do: Integer.to_string(val)
+  # Format helpers accept both integer and float. PubSub payloads
+  # (e.g. `{:bux_balance_updated, 1_000}`) deliver integer balances, so
+  # `is_float`-only guards used to silently skip the decimal branches and
+  # render integers as "1000" instead of "1.00k". Coerce `val / 1.0`
+  # inside every clause.
+  defp format_max(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_max(_), do: "0"
 
-  defp format_balance(val) when is_float(val) and val >= 1000, do: "#{:erlang.float_to_binary(val / 1000, decimals: 2)}k"
-  defp format_balance(val) when is_float(val) and val >= 1, do: :erlang.float_to_binary(val, decimals: 2)
-  defp format_balance(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_balance(val) when is_integer(val), do: Integer.to_string(val)
+  defp format_balance(val) when is_number(val) and val >= 1000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1000, decimals: 2)}k"
+
+  defp format_balance(val) when is_number(val) and val >= 1,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 2)
+
+  defp format_balance(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_balance(_), do: "0"
 
-  defp format_lp(val) when is_float(val) and val >= 1000, do: "#{:erlang.float_to_binary(val / 1000, decimals: 2)}k"
-  defp format_lp(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_lp(val) when is_integer(val), do: Integer.to_string(val)
+  defp format_lp(val) when is_number(val) and val >= 1000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1000, decimals: 2)}k"
+
+  defp format_lp(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_lp(_), do: "0"
 
   defp format_lp_price(val) when is_number(val) and val > 0, do: :erlang.float_to_binary(val / 1.0, decimals: 6)
@@ -1098,8 +1112,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     cond do
       val <= 0 -> "0"
-      val >= 1 -> :erlang.float_to_binary(val, decimals: 2)
-      true -> :erlang.float_to_binary(val, decimals: 4)
+      val >= 1 -> :erlang.float_to_binary(val / 1.0, decimals: 2)
+      true -> :erlang.float_to_binary(val / 1.0, decimals: 4)
     end
   end
 
@@ -1165,11 +1179,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
         _ -> 0.0
       end
 
+    # SHOP/POOL: coerce to float before `:erlang.float_to_binary` — `worth`
+    # can be an integer if `user_lp` and `lp_price` are both integer-typed
+    # (never true today, but cheap insurance against PubSub integer payloads).
     worth_str =
       cond do
-        worth >= 1000 -> "#{:erlang.float_to_binary(worth / 1000, decimals: 2)}k"
-        worth >= 1 -> :erlang.float_to_binary(worth, decimals: 3)
-        true -> :erlang.float_to_binary(worth, decimals: 4)
+        worth >= 1000 -> "#{:erlang.float_to_binary(worth / 1.0 / 1000, decimals: 2)}k"
+        worth >= 1 -> :erlang.float_to_binary(worth / 1.0, decimals: 3)
+        true -> :erlang.float_to_binary(worth / 1.0, decimals: 4)
       end
 
     usd_str =
@@ -1220,7 +1237,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp compute_new_share_pct(user_lp, supply, _lp_price, _amount, _tab), do: compute_share_pct(user_lp, supply)
 
   defp format_pool_share(pct) when is_number(pct) and pct >= 1,
-    do: "#{:erlang.float_to_binary(pct, decimals: 2)}%"
+    do: "#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"
 
   defp format_pool_share(pct) when is_number(pct) and pct > 0, do: "<1%"
   defp format_pool_share(_), do: "0%"
@@ -1230,8 +1247,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     cond do
       abs(delta) < 0.01 -> ""
-      delta > 0 -> "(+#{:erlang.float_to_binary(delta, decimals: 2)}%)"
-      true -> "(#{:erlang.float_to_binary(delta, decimals: 2)}%)"
+      delta > 0 -> "(+#{:erlang.float_to_binary(delta / 1.0, decimals: 2)}%)"
+      true -> "(#{:erlang.float_to_binary(delta / 1.0, decimals: 2)}%)"
     end
   end
 
