@@ -617,7 +617,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
                 <div class="text-[11px] text-neutral-500 font-mono mb-4">
                   <%= position_value_line(@user_lp, @lp_price, @token) %>
                 </div>
-                <div class="grid grid-cols-2 gap-2 pt-3 border-t border-neutral-200">
+                <div class="grid grid-cols-3 gap-2 pt-3 border-t border-neutral-200">
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Cost basis</div>
                     <div class="font-mono font-bold text-[14px] text-[#141414]">
@@ -628,6 +628,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Unrealized P/L</div>
                     <div class={"font-mono font-bold text-[14px] " <> pnl_color(@position_summary)}>
                       <%= format_pnl(@position_summary, @token) %>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Realized P/L</div>
+                    <div class={"font-mono font-bold text-[14px] " <> realized_color(@position_summary)}>
+                      <%= format_realized_gain(@position_summary, @token) %>
                     </div>
                   </div>
                 </div>
@@ -1170,6 +1176,28 @@ defmodule BlocksterV2Web.PoolDetailLive do
   end
 
   defp format_pnl(_, _), do: "—"
+
+  defp format_realized_gain(%{realized_gain: gain}, token) when is_number(gain) do
+    sign = cond do
+      gain > 0.0001 -> "+ "
+      gain < -0.0001 -> "− "
+      true -> ""
+    end
+
+    "#{sign}#{format_position_amount(abs(gain), token)} #{token}"
+  end
+
+  defp format_realized_gain(_, _), do: "—"
+
+  defp realized_color(%{realized_gain: gain}) when is_number(gain) do
+    cond do
+      gain > 0.0001 -> "text-[#16A34A]"
+      gain < -0.0001 -> "text-[#DC2626]"
+      true -> "text-[#141414]"
+    end
+  end
+
+  defp realized_color(_), do: "text-[#141414]"
 
   defp pnl_color(%{unrealized_pnl: pnl}) when is_number(pnl) do
     cond do
