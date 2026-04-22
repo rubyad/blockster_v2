@@ -292,10 +292,20 @@
                       data-max={:erlang.float_to_binary(effective_max / 1, decimals: 2)}
                       class="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-[16px] font-mono font-bold text-[#141414] focus:outline-none focus:border-[#141414]"
                     />
+                    <%!-- SHOP-05 / SHOP-04: disable Max when the product has no BUX cap. --%>
+                    <% max_disabled = effective_max <= 0 %>
                     <button
                       type="button"
                       phx-click="use_max_tokens"
-                      class="bg-[#0a0a0a] text-white px-4 py-2.5 rounded-xl text-[12px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                      disabled={max_disabled}
+                      title={if(max_disabled, do: "Discount not available on this product", else: nil)}
+                      class={[
+                        "px-4 py-2.5 rounded-xl text-[12px] font-bold transition-colors",
+                        if(max_disabled,
+                          do: "bg-neutral-200 text-neutral-400 cursor-not-allowed",
+                          else: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22] cursor-pointer"
+                        )
+                      ]}
                     >
                       Max
                     </button>

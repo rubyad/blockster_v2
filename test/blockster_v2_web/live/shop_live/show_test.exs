@@ -514,6 +514,10 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
       # The 100%-off exploit path never renders.
       refute html =~ "100% off"
       refute html =~ "Max: 17,900"
+      # SHOP-05: Max button is disabled when the product has no cap.
+      assert html =~ "Discount not available on this product"
+      # The Max button renders with `cursor-not-allowed` + a `disabled` tooltip.
+      assert html =~ "cursor-not-allowed"
     end
 
     test "product with bux_max_discount=0 still allows 100% discount under legacy flag (flag off)",
