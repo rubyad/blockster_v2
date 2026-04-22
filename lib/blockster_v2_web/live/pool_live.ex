@@ -728,24 +728,41 @@ defmodule BlocksterV2Web.PoolLive do
 
   defp parse_amount(_), do: 0.0
 
-  defp format_max(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_max(val) when is_integer(val) and val > 0, do: Integer.to_string(val)
+  # Coerce `val / 1.0` inside each clause — PubSub payloads can deliver
+  # integer balances and the `is_float` guards used to drop them into an
+  # integer-stringified branch (no decimal format). See PR 1b cross-cut §1.
+  defp format_max(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_max(_), do: "0"
 
-  defp format_balance(val) when is_float(val) and val >= 1000, do: "#{:erlang.float_to_binary(val / 1000, decimals: 2)}k"
-  defp format_balance(val) when is_float(val) and val >= 1, do: :erlang.float_to_binary(val, decimals: 2)
-  defp format_balance(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_balance(val) when is_integer(val), do: Integer.to_string(val)
+  defp format_balance(val) when is_number(val) and val >= 1000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1000, decimals: 2)}k"
+
+  defp format_balance(val) when is_number(val) and val >= 1,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 2)
+
+  defp format_balance(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_balance(_), do: "0"
 
-  defp format_lp(val) when is_float(val) and val >= 1000, do: "#{:erlang.float_to_binary(val / 1000, decimals: 2)}k"
-  defp format_lp(val) when is_float(val) and val > 0, do: :erlang.float_to_binary(val, decimals: 4)
-  defp format_lp(val) when is_integer(val), do: Integer.to_string(val)
+  defp format_lp(val) when is_number(val) and val >= 1000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1000, decimals: 2)}k"
+
+  defp format_lp(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 4)
+
   defp format_lp(_), do: "0"
 
-  defp format_tvl(val) when is_number(val) and val >= 1_000_000, do: "#{:erlang.float_to_binary(val / 1_000_000, decimals: 2)}M"
-  defp format_tvl(val) when is_number(val) and val >= 1000, do: "#{:erlang.float_to_binary(val / 1000, decimals: 2)}k"
-  defp format_tvl(val) when is_number(val) and val > 0, do: :erlang.float_to_binary(val / 1.0, decimals: 2)
+  defp format_tvl(val) when is_number(val) and val >= 1_000_000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1_000_000, decimals: 2)}M"
+
+  defp format_tvl(val) when is_number(val) and val >= 1000,
+    do: "#{:erlang.float_to_binary(val / 1.0 / 1000, decimals: 2)}k"
+
+  defp format_tvl(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 2)
   defp format_tvl(_), do: "0"
 
   defp format_price(val) when is_number(val) and val > 0, do: :erlang.float_to_binary(val / 1.0, decimals: 4)
@@ -763,7 +780,7 @@ defmodule BlocksterV2Web.PoolLive do
     case {parse_amount(amount), lp_price} do
       {a, p} when a > 0 and is_number(p) and p > 0 ->
         result = if multiply, do: a * p, else: a / p
-        :erlang.float_to_binary(result, decimals: 4)
+        :erlang.float_to_binary(result / 1.0, decimals: 4)
 
       _ ->
         "0"
@@ -774,7 +791,7 @@ defmodule BlocksterV2Web.PoolLive do
     pct = user_lp / total_supply * 100
 
     cond do
-      pct >= 1 -> "#{:erlang.float_to_binary(pct, decimals: 2)}%"
+      pct >= 1 -> "#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"
       pct > 0 -> "<1%"
       true -> "0%"
     end
