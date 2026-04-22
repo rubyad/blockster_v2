@@ -2032,7 +2032,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   @impl true
   def handle_async(:sync_post_settle, {:ok, balances}, socket) do
-    {:noreply, assign(socket, :balances, balances)}
+    # CF-08: after the Mnesia cache is repopulated post-settlement, push the
+    # fresh balances into the shared :token_balances topic so the header
+    # balance pill (BuxBalanceHook) re-renders without waiting for the next
+    # async broadcast. The :balances assign drives the sidebar stats;
+    # :token_balances drives the header pill — keep them in sync.
+    if user_id = socket.assigns[:current_user] && socket.assigns.current_user.id do
+      BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+    end
+
+    merged_token_balances = Map.merge(socket.assigns[:token_balances] || %{}, balances)
+
+    {:noreply,
+     socket
+     |> assign(:balances, balances)
+     |> assign(:token_balances, merged_token_balances)}
   end
 
   def handle_async(:sync_post_settle, _, socket), do: {:noreply, socket}
