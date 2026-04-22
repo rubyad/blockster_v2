@@ -382,16 +382,6 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         {:noreply, socket}
       end
 
-      def handle_event("start_apple_login", _params, socket) do
-        socket =
-          socket
-          |> assign(:connecting, true)
-          |> assign(:connecting_provider, "apple")
-          |> push_event("start_web3auth_login", %{provider: "apple"})
-
-        {:noreply, socket}
-      end
-
       def handle_event("start_telegram_login", _params, socket) do
         # Telegram requires a two-step flow: widget → /api/auth/telegram/verify
         # returns a Blockster JWT → THEN start_web3auth_login with that JWT.
@@ -479,11 +469,16 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       end
 
       def handle_event("web3auth_error", %{"error" => error}, socket) do
+        # Keep the wallet selector open so the user can retry immediately
+        # without navigating away. Web3Auth failures are often transient
+        # (backend 502s, popup blockers) — a visible modal + flash is a
+        # better recovery path than silently returning to the page.
         {:noreply,
          socket
          |> assign(:connecting, false)
          |> assign(:connecting_provider, nil)
-         |> put_flash(:error, "Sign-in failed: #{error}")}
+         |> assign(:show_wallet_selector, true)
+         |> put_flash(:error, error)}
       end
 
       # Telegram widget payload arrives here after user approves in the

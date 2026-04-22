@@ -235,8 +235,8 @@ defmodule BlocksterV2Web.WalletComponentsTest do
 
       assert html =~ ~s(phx-click="start_x_login")
       assert html =~ ~s(phx-click="start_google_login")
-      assert html =~ ~s(phx-click="start_apple_login")
       assert html =~ ~s(phx-click="start_telegram_login")
+      refute html =~ ~s(phx-click="start_apple_login")
     end
 
     test "hides email + social section when social_login_enabled is false" do
@@ -401,7 +401,7 @@ defmodule BlocksterV2Web.WalletComponentsTest do
   # ── wallet_selector_modal/1 · State C (Web3Auth connecting) ────
 
   describe "wallet_selector_modal/1 · web3auth connecting state" do
-    test "renders State C when connecting with provider email" do
+    test "renders State C when connecting with provider email (no-popup copy)" do
       assigns = %{}
 
       html =
@@ -416,16 +416,16 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         """)
 
       assert html =~ "wallet-modal-backdrop"
-      assert html =~ "Opening email sign-in"
-      assert html =~ "Popup launched"
-      assert html =~ "Awaiting credentials"
+      # Email flow is fully in-modal (CUSTOM JWT, no popup) — copy must reflect that.
+      assert html =~ "Signing you in"
+      assert html =~ "No popup"
+      assert html =~ "Verifying"
     end
 
-    test "renders correct provider title for twitter/google/apple/telegram" do
-      for {provider, display} <- [
+    test "renders correct provider headline for twitter/google/telegram" do
+      for {provider, headline} <- [
             {"twitter", "Opening X"},
             {"google", "Opening Google"},
-            {"apple", "Opening Apple"},
             {"telegram", "Opening Telegram"}
           ] do
         assigns = %{provider: provider}
@@ -441,8 +441,8 @@ defmodule BlocksterV2Web.WalletComponentsTest do
           />
           """)
 
-        assert html =~ display,
-               "expected provider #{provider} title \"#{display}\" in rendered HTML"
+        assert html =~ headline,
+               "expected provider #{provider} headline \"#{headline}\" in rendered HTML"
       end
     end
   end

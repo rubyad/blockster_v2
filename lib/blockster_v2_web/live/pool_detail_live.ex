@@ -791,12 +791,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
               <%!-- Helpful info card --%>
               <div class="mt-4 bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
                 <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-2">How earnings work</div>
-                <p class="text-[11px] text-neutral-600 leading-[1.55] mb-2">
+                <p class="text-[11px] text-neutral-600 leading-[1.55] mb-3">
                   Every losing bet adds to the <%= @token %> vault. Every winning bet pays out from it. Over time, the sub-1% house edge grows the LP price.
                 </p>
-                <.link navigate={~p"/pool"} class="inline-flex items-center gap-1 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors cursor-pointer">
-                  Read the bankroll docs →
-                </.link>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono">
+                  <.link navigate={~p"/docs/pools"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">How pools work ↗</.link>
+                  <.link navigate={~p"/docs/smart-contracts"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">Smart contracts ↗</.link>
+                  <.link navigate={~p"/docs/security-audit"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
+                </div>
               </div>
 
               <%= if @current_user && @user_lp > 0 do %>

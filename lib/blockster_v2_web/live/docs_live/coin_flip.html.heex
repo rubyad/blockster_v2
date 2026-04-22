@@ -1,0 +1,560 @@
+<BlocksterV2Web.DocsComponents.docs_shell
+  current_user={@current_user}
+  active="/docs/coin-flip"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  announcement_banner={assigns[:announcement_banner]}
+>
+  <BlocksterV2Web.DocsComponents.docs_hero
+    eyebrow="Games · Coin Flip"
+    title="Coin Flip"
+    description="A Solana-native, provably-fair coin-flip game. Heads or tails, single flip or chains of up to five. Every bet is placed, committed, revealed, and settled on-chain."
+  />
+
+  <BlocksterV2Web.DocsComponents.page_toc items={[
+    %{id: "overview", label: "Overview"},
+    %{id: "round", label: "The round lifecycle"},
+    %{id: "modes", label: "Win All vs Win One"},
+    %{id: "multipliers", label: "Difficulty & multipliers"},
+    %{id: "limits", label: "Bet limits"},
+    %{id: "placing", label: "Placing a bet"},
+    %{id: "settlement", label: "Settlement"},
+    %{id: "reclaim", label: "Stuck bets & reclaim"},
+    %{id: "nonce", label: "Nonce management"},
+    %{id: "instructions", label: "On-chain instructions"},
+    %{id: "edge-cases", label: "Edge cases"},
+    %{id: "faq", label: "FAQ"}
+  ]} />
+
+  <BlocksterV2Web.DocsComponents.section id="overview" title="Overview" eyebrow="01">
+    <p>
+      Coin Flip lives at <BlocksterV2Web.DocsComponents.inline_code>/play</BlocksterV2Web.DocsComponents.inline_code>. It is the flagship game on Blockster and the first to use the on-chain bankroll. A round consists of one to five independent, 50/50 flips. You predict each flip before it happens. We pay you according to the rules of the mode you picked.
+    </p>
+    <p>
+      The parts to know:
+    </p>
+    <ul>
+      <li><strong>Stake.</strong> Any amount of SOL or BUX above the minimum, up to a per-difficulty cap of roughly 0.5% of the vault.</li>
+      <li><strong>Mode.</strong> <em>Win All</em> requires every prediction to match. <em>Win One</em> requires at least one.</li>
+      <li><strong>Multipliers.</strong> Fixed payouts. From 1.02× (Win One, five flips, 96.9% hit rate) up to 31.68× (Win All, five flips, 3.125% hit rate). All variants are calibrated to a flat ~1% house edge.</li>
+      <li><strong>Randomness.</strong> Committed on-chain as a SHA-256 hash <em>before</em> you bet. Revealed at settlement. Anyone can verify.</li>
+      <li><strong>Custody.</strong> None. Your wager moves from your wallet to the on-chain vault when you sign; your payout moves back when we settle. We never hold it.</li>
+    </ul>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="round" title="The round lifecycle" eyebrow="02">
+    <p>
+      A Coin Flip round has four distinct on-chain moments. The UI stitches them together into a single experience, but it's useful to see the seams because they explain every piece of state and every signature you're asked for.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.ol_steps>
+      <:step title="Commitment submitted">
+        <p>
+          When you first land on <BlocksterV2Web.DocsComponents.inline_code>/play</BlocksterV2Web.DocsComponents.inline_code>, the server generates a random 32-byte <em>server seed</em>, computes its SHA-256 hash, and writes that hash to the Bankroll program as a commitment bound to your wallet and a nonce. This is the <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> instruction. Our settler keypair signs and pays the fee; you see nothing.
+        </p>
+      </:step>
+      <:step title="Bet placed">
+        <p>
+          You choose your mode, difficulty, bet size, and predictions, then click Start Game. The settler builds an unsigned <BlocksterV2Web.DocsComponents.inline_code>place_bet_sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>place_bet_bux</BlocksterV2Web.DocsComponents.inline_code> transaction. Your wallet signs it. When it confirms, your wager has left your wallet and is sitting in the vault; a <strong>BetOrder</strong> PDA has been created with status Pending.
+        </p>
+      </:step>
+      <:step title="Result revealed">
+        <p>
+          The server now combines the server seed, a deterministic client seed built from your bet parameters, and the bet's nonce. It hashes that triple with SHA-256. The first <em>N</em> bytes of the hash become your <em>N</em> flips (0-127 = heads, 128-255 = tails). The UI animates the reveal while the settler prepares the settlement transaction.
+        </p>
+      </:step>
+      <:step title="Settlement recorded">
+        <p>
+          The settler signs and submits a <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> transaction, passing the raw server seed as an argument. On-chain, the program computes <BlocksterV2Web.DocsComponents.inline_code>SHA256(server_seed)</BlocksterV2Web.DocsComponents.inline_code> and rejects the settlement unless it matches the earlier commitment. If you won, the vault sends your payout via a signed CPI. Either way the BetOrder account closes and its rent returns to the settler.
+        </p>
+      </:step>
+    </BlocksterV2Web.DocsComponents.ol_steps>
+
+    <BlocksterV2Web.DocsComponents.callout kind="info" title="Why split it into four steps?">
+      <p>
+        Commitment has to exist on-chain <em>before</em> the bet is placed, otherwise we could grind the server seed to produce losses. Settlement has to happen after the reveal so the outcome is provably tied to a seed we cannot change. Reclaim (step 4b) exists so a crashed settler can never steal your wager.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="modes" title="Win All vs Win One" eyebrow="03">
+    <p>
+      The mode determines what "winning" means when you chain multiple flips. The number of flips in the chain is determined by the <em>difficulty</em>, which doubles as an index into the multiplier table.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Win All">
+      <p>
+        The classic variant. You predict a sequence of <em>N</em> flips and win only if every prediction matches. Payouts roughly double each extra flip (minus the house edge), so chains of five pay 31.68× but are correct only 1/32 = 3.125% of the time.
+      </p>
+      <p>
+        Difficulty indices +1 through +5 correspond to Win All of 1, 2, 3, 4, and 5 flips respectively. Difficulty +1 is just a single heads/tails call at about 2×.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Win One">
+      <p>
+        The "safe" variant. You predict <em>N</em> flips and win if <em>any</em> prediction matches. At least one match is very likely — the odds of zero matches across <em>N</em> flips are just 0.5ⁿ — so the multipliers sit close to 1× but your hit rate is close to 100%.
+      </p>
+      <p>
+        Difficulty indices −1 through −4 correspond to Win One of 2, 3, 4, and 5 flips respectively. Harder indices (more flips) mean a higher hit probability and a smaller multiplier.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.callout kind="note" title="Flat ~1% house edge">
+      <p>
+        Any bet with multiplier <em>M</em> and hit probability <em>p</em> has expected return <em>p × M</em>. All our multipliers are calibrated so that <em>p × M</em> is about 0.99 across <em>every</em> variant — Win One and Win All alike. Your choice is between "small wins often" and "big wins rarely", not between good odds and bad odds.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="multipliers" title="Difficulty & multiplier table" eyebrow="04">
+    <p>
+      Difficulty is a signed integer in the range −4 to +5. The on-chain registry stores it as an index 0–8 into a <BlocksterV2Web.DocsComponents.inline_code>[u16; 9]</BlocksterV2Web.DocsComponents.inline_code> array; the mapping is <BlocksterV2Web.DocsComponents.inline_code>−4→0, −3→1, …, −1→3, +1→4, +2→5, …, +5→8</BlocksterV2Web.DocsComponents.inline_code>. There is no zero difficulty.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.spec_table
+      title="Coin flip multipliers"
+      cols={[
+        %{key: :diff, label: "Difficulty"},
+        %{key: :mode, label: "Mode"},
+        %{key: :flips, label: "Flips"},
+        %{key: :multiplier, label: "Multiplier"},
+        %{key: :bps, label: "Stored (bps)", mono: true},
+        %{key: :prob, label: "Hit prob"},
+        %{key: :edge, label: "House edge"}
+      ]}
+      rows={[
+        %{diff: "−4", mode: "Win One", flips: "5", multiplier: "1.02×", bps: "10,200", prob: "96.875%", edge: "~1.2%"},
+        %{diff: "−3", mode: "Win One", flips: "4", multiplier: "1.05×", bps: "10,500", prob: "93.75%", edge: "~1.6%"},
+        %{diff: "−2", mode: "Win One", flips: "3", multiplier: "1.13×", bps: "11,300", prob: "87.5%", edge: "~1.1%"},
+        %{diff: "−1", mode: "Win One", flips: "2", multiplier: "1.32×", bps: "13,200", prob: "75.0%", edge: "~1.0%"},
+        %{diff: "+1", mode: "Win All", flips: "1", multiplier: "1.98×", bps: "19,800", prob: "50.0%", edge: "~1.0%"},
+        %{diff: "+2", mode: "Win All", flips: "2", multiplier: "3.96×", bps: "39,600", prob: "25.0%", edge: "~1.0%"},
+        %{diff: "+3", mode: "Win All", flips: "3", multiplier: "7.92×", bps: "79,200", prob: "12.5%", edge: "~1.0%"},
+        %{diff: "+4", mode: "Win All", flips: "4", multiplier: "15.84×", bps: "158,400", prob: "6.25%", edge: "~1.0%"},
+        %{diff: "+5", mode: "Win All", flips: "5", multiplier: "31.68×", bps: "316,800", prob: "3.125%", edge: "~1.0%"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="note" title="Reading the table">
+      <p>
+        Win One and Win All of the <em>same number of flips</em> use completely different multipliers because they solve opposite sides of the coin: Win One cashes often at low pay, Win All cashes rarely at high pay. In expected value they're nearly identical — the house edge is ~1% across the board. Pick the row whose win/loss rhythm suits you, not the one that "looks" better.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+
+    <BlocksterV2Web.DocsComponents.subsection title="How the on-chain number is packed">
+      <p>
+        The <BlocksterV2Web.DocsComponents.inline_code>multipliers</BlocksterV2Web.DocsComponents.inline_code> field of a <BlocksterV2Web.DocsComponents.inline_code>GameEntry</BlocksterV2Web.DocsComponents.inline_code> is a <BlocksterV2Web.DocsComponents.inline_code>[u16; 9]</BlocksterV2Web.DocsComponents.inline_code> and cannot hold a number above 65,535. Because 31.68× in bps is 316,800, the stored values are <em>scaled down by 100</em>. The program multiplies them back by 100 at read time (see <BlocksterV2Web.DocsComponents.inline_code>MULTIPLIER_SCALE</BlocksterV2Web.DocsComponents.inline_code> in <BlocksterV2Web.DocsComponents.inline_code>state/game_registry.rs</BlocksterV2Web.DocsComponents.inline_code>).
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="limits" title="Bet limits" eyebrow="05">
+    <p>
+      Every bet is bounded by three guards enforced on-chain. If any one fails, placement reverts and no funds move. All three are computed dynamically from the live vault state, so the limits you saw a minute ago are not necessarily the limits you see now.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Placement guards"
+      rows={[
+        {"amount ≥ min_bet", "The game's configured minimum, in lamports (SOL) or base units (BUX). Stored per-game in the registry."},
+        {"amount ≤ max_bet_for_difficulty", "Formula: (net_vault_balance × max_bet_bps / 10000) × 20000 / multiplier_bps. Harder difficulties → lower max. At net 100 SOL, max_bet_bps 10, 1.98× multiplier, the cap is ~0.101 SOL."},
+        {"potential_profit ≤ net_vault_balance", "Even if your bet passes the per-difficulty cap, the program rejects it if paying you out at the max multiplier would drain more than the vault's net balance (after rent and existing liability)."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.code_block
+      lang="rust"
+      title="math.rs :: calculate_max_bet_for_difficulty"
+      code={~S"""
+pub fn calculate_max_bet_for_difficulty(
+    net_balance: u64,
+    max_bet_bps: u16,
+    multiplier_bps: u64,
+) -> Result<u64> {
+    if net_balance == 0 || multiplier_bps == 0 { return Ok(0); }
+    // base_max_bet = net_balance × max_bet_bps / 10_000
+    let base = (net_balance as u128)
+        .checked_mul(max_bet_bps as u128)?
+        .checked_div(BPS_DENOMINATOR as u128)?;
+    // max_bet = base × 20_000 / multiplier_bps
+    let result = base.checked_mul(20_000u128)?.checked_div(multiplier_bps as u128)?;
+    Ok(result as u64)
+}
+"""}
+    />
+
+    <p>
+      The <BlocksterV2Web.DocsComponents.inline_code>20000</BlocksterV2Web.DocsComponents.inline_code> constant is intentional. It makes the maximum <em>potential</em> payout a constant percentage of the vault regardless of which difficulty you chose, which means the vault's solvency guarantee is independent of player behaviour.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="placing" title="Placing a bet" eyebrow="06">
+    <p>
+      From your perspective there is one click and (usually) one signature. From the system's perspective it is a dance between the browser, the Elixir backend, the settler service, and the on-chain program.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.code_block
+      lang="txt"
+      title="Bet placement sequence"
+      code={~S"""
+[Browser]                [Phoenix LiveView]            [Settler]              [Solana]
+    |                           |                          |                      |
+    | start_game (click)        |                          |                      |
+    |------------------------->|                          |                      |
+    |                           | build_place_bet_tx        |                      |
+    |                           |------------------------->|                      |
+    |                           |                          | getLatestBlockhash   |
+    |                           |                          |-------------------->|
+    |                           |<---- unsigned tx --------|                      |
+    | sign_place_bet {tx}       |                          |                      |
+    |<--------------------------|                          |                      |
+    | (wallet signs + sends)    |                          |                      |
+    |----------------------------------------------------------> place_bet_*     |
+    |                           |                          |                      |
+    |                           |                          |  sig + confirmation  |
+    | bet_confirmed {sig}       |                          |                      |
+    |-------------------------->|                          |                      |
+    |                           | reveal flips (animation) |                      |
+    |                           | spawn settle_game(...)   |                      |
+    |                           |------------------------->|                      |
+    |                           |                          | settle_bet submitted |
+    |                           |                          |-------------------->|
+    |                           |                          |  sig + payout        |
+    |                           |<---- sig ----------------|                      |
+    | settlement_complete {sig} |                          |                      |
+    |<--------------------------|                          |                      |
+"""}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="Who signs what">
+      <p>
+        Two signatures are involved in a <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> transaction: yours as the <BlocksterV2Web.DocsComponents.inline_code>player</BlocksterV2Web.DocsComponents.inline_code> (authorising the wager transfer) and the settler's as the <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> (paying the lamports to allocate the BetOrder PDA). The settler partial-signs the transaction before it's handed to your wallet.
+      </p>
+      <p>
+        The <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> identity is checked on-chain against <BlocksterV2Web.DocsComponents.inline_code>game_registry.settler</BlocksterV2Web.DocsComponents.inline_code>. This prevents any third party from spending our rent lamports, and also binds the BetOrder to the current settler keypair so that rent rebates on settlement only go where we expect.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Zero-SOL bettors (social login)">
+      <p>
+        For users who sign in with social login (Web3Auth) and have no SOL in their wallet, the settler can be switched to <em>full</em> fee-payer mode. In that case the settler signs the whole transaction, pays all the fees, and you just authorise the wager transfer — never blocking new users on "go buy SOL first." This is controlled by the <BlocksterV2Web.DocsComponents.inline_code>feePayerMode</BlocksterV2Web.DocsComponents.inline_code> flag on the <BlocksterV2Web.DocsComponents.inline_code>/build-place-bet</BlocksterV2Web.DocsComponents.inline_code> endpoint.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="settlement" title="Settlement" eyebrow="07">
+    <p>
+      Once your bet is confirmed, the UI kicks off settlement as a fire-and-forget background task. This is important because the Coin Flip UX is optimistic: you see the flip animate and your payout credited before the settlement transaction has actually confirmed.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Happy path: fire-and-forget">
+      <p>
+        Right after <BlocksterV2Web.DocsComponents.inline_code>bet_confirmed</BlocksterV2Web.DocsComponents.inline_code>, the LiveView spawns an unlinked Elixir process that calls the settler's <BlocksterV2Web.DocsComponents.inline_code>/settle-bet</BlocksterV2Web.DocsComponents.inline_code> endpoint. The settler signs a <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> transaction (passing <BlocksterV2Web.DocsComponents.inline_code>server_seed</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>won</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>payout</BlocksterV2Web.DocsComponents.inline_code>) and submits it. The LiveView gets back a <BlocksterV2Web.DocsComponents.inline_code>settlement_complete</BlocksterV2Web.DocsComponents.inline_code> message and writes the signature to Mnesia.
+      </p>
+      <p>
+        Nothing in the UI waits for this. You can start your next bet as soon as the flip animation finishes. If settlement crashes mid-flight, the banner described below catches it within 30 seconds.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Safety net: the 1-minute settler">
+      <p>
+        A cluster-wide GenServer called <BlocksterV2Web.DocsComponents.inline_code>CoinFlipBetSettler</BlocksterV2Web.DocsComponents.inline_code> (registered as a global singleton) runs every minute. It queries Mnesia for bets with status <BlocksterV2Web.DocsComponents.inline_code>:placed</BlocksterV2Web.DocsComponents.inline_code> that are at least two minutes old and attempts to settle them. If the settler returns <BlocksterV2Web.DocsComponents.inline_code>AccountNotInitialized</BlocksterV2Web.DocsComponents.inline_code> it means the BetOrder never actually landed on-chain, and the record is marked failed so the loop stops retrying.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="What settlement actually does on-chain">
+      <p>
+        The <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> handler does three critical validations before touching any money:
+      </p>
+      <ol>
+        <li><BlocksterV2Web.DocsComponents.inline_code>SHA256(server_seed) == bet_order.commitment_hash</BlocksterV2Web.DocsComponents.inline_code> — else <BlocksterV2Web.DocsComponents.inline_code>InvalidServerSeed</BlocksterV2Web.DocsComponents.inline_code>.</li>
+        <li><BlocksterV2Web.DocsComponents.inline_code>elapsed ≤ game_registry.bet_timeout</BlocksterV2Web.DocsComponents.inline_code> (default 120s) — else <BlocksterV2Web.DocsComponents.inline_code>OrderExpired</BlocksterV2Web.DocsComponents.inline_code>.</li>
+        <li><BlocksterV2Web.DocsComponents.inline_code>payout ≤ bet_order.max_payout</BlocksterV2Web.DocsComponents.inline_code> — else <BlocksterV2Web.DocsComponents.inline_code>PayoutExceedsMax</BlocksterV2Web.DocsComponents.inline_code>.</li>
+      </ol>
+      <p>
+        If all three pass, the program transfers the payout from the vault to the player (only when <em>won</em> and payout is positive), updates <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>house_profit</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_bets</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_volume</BlocksterV2Web.DocsComponents.inline_code>, the player's lifetime stats, and emits a <BlocksterV2Web.DocsComponents.inline_code>BetSettled</BlocksterV2Web.DocsComponents.inline_code> event. The BetOrder PDA is closed and its rent (~0.002 SOL) is returned to the original <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> — always the settler.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Referral rewards">
+      <p>
+        If you lose a bet and have set a referrer, the settlement also pays <strong>1% of your lost wager</strong> to your tier-1 referrer and another <strong>0.5%</strong> to your tier-2 referrer (the person who referred your referrer). These transfers are best-effort — if they fail for any reason (missing ATA, insufficient lamports to create it) the program emits <BlocksterV2Web.DocsComponents.inline_code>ReferralRewardFailed</BlocksterV2Web.DocsComponents.inline_code> and continues. Settlement never reverts because of a failed referral payout.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="reclaim" title="Stuck bets & reclaim" eyebrow="08">
+    <p>
+      If the settler is down, or the settlement transaction fails to confirm, your wager will sit in the vault with your BetOrder account still in <BlocksterV2Web.DocsComponents.inline_code>Pending</BlocksterV2Web.DocsComponents.inline_code> status. After the configured timeout you — and only you — can reclaim your original wager directly from the vault.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Timing"
+      rows={[
+        {"On-chain timeout", "120 seconds (game_registry.bet_timeout; settlement rejected past this)"},
+        {"UI banner threshold", "5 minutes (300s) — gives the 1-minute settler a few retries first"},
+        {"Banner poll interval", "30 seconds"},
+        {"Cluster settler interval", "60 seconds, only touches bets ≥120s old"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="How reclaim works">
+      <p>
+        When the UI detects a Pending bet older than 5 minutes, it shows a yellow banner on <BlocksterV2Web.DocsComponents.inline_code>/play</BlocksterV2Web.DocsComponents.inline_code> with a <em>Reclaim</em> button. Clicking it calls the settler's <BlocksterV2Web.DocsComponents.inline_code>/build-reclaim-expired</BlocksterV2Web.DocsComponents.inline_code> endpoint, which returns an unsigned transaction calling the <BlocksterV2Web.DocsComponents.inline_code>reclaim_expired</BlocksterV2Web.DocsComponents.inline_code> instruction. You sign it with your wallet.
+      </p>
+      <p>
+        On-chain, the program checks that you own the bet (<BlocksterV2Web.DocsComponents.inline_code>has_one = player</BlocksterV2Web.DocsComponents.inline_code>), that the bet's status is still <BlocksterV2Web.DocsComponents.inline_code>Pending</BlocksterV2Web.DocsComponents.inline_code>, and that the timeout has actually passed (<BlocksterV2Web.DocsComponents.inline_code>elapsed > bet_timeout</BlocksterV2Web.DocsComponents.inline_code>, strictly greater). If all three pass, it refunds your original wager (not the potential payout, not a fee, just the wager) and closes the BetOrder. Rent goes back to the settler.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.callout kind="success" title="Reclaim is the kill switch for trust">
+      <p>
+        The settler cannot hold your money hostage. It cannot lose your money. The worst it can do is make you wait 2 minutes before you sign one more transaction to get your wager back. Reclaim is the reason the game is non-custodial.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Reclaimed bets don't count">
+      <p>
+        A reclaimed bet does <em>not</em> increment <BlocksterV2Web.DocsComponents.inline_code>total_bets</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>total_volume</BlocksterV2Web.DocsComponents.inline_code> and doesn't touch <BlocksterV2Web.DocsComponents.inline_code>house_profit</BlocksterV2Web.DocsComponents.inline_code>. It only decrements <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>unsettled_count</BlocksterV2Web.DocsComponents.inline_code>. An expired bet is treated as if it never happened.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="nonce" title="Nonce management" eyebrow="09">
+    <p>
+      The nonce is what binds a commitment to a specific bet and prevents any form of replay. Every time you bet, the program increments your <BlocksterV2Web.DocsComponents.inline_code>player_state.nonce</BlocksterV2Web.DocsComponents.inline_code>. The next commitment must target a nonce at least as large. A BetOrder's PDA seed includes the nonce, so two bets with the same nonce would collide on account creation.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Mnesia vs on-chain">
+      <p>
+        We keep a local copy of the nonce in Mnesia so that opening <BlocksterV2Web.DocsComponents.inline_code>/play</BlocksterV2Web.DocsComponents.inline_code> is instant — we don't wait for an RPC round-trip. But on-chain is the source of truth. On init, we compute <BlocksterV2Web.DocsComponents.inline_code>next = max(mnesia_next, onchain_next)</BlocksterV2Web.DocsComponents.inline_code>. If there's drift we log a warning.
+      </p>
+      <p>
+        If the on-chain program rejects a commitment with <BlocksterV2Web.DocsComponents.inline_code>NonceMismatch</BlocksterV2Web.DocsComponents.inline_code>, the UI re-initialises, which re-reads the on-chain nonce and tries again with a higher value.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Pre-committed futures">
+      <p>
+        The program allows the settler to commit for any nonce greater than or equal to <BlocksterV2Web.DocsComponents.inline_code>player_state.nonce</BlocksterV2Web.DocsComponents.inline_code>, not just equal. That leaves room for batching or pre-committing several future seeds in advance. The current backend does not use this — each bet gets its own fresh commitment — but the capability exists on-chain.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="instructions" title="On-chain instructions used by Coin Flip" eyebrow="10">
+    <p>
+      Four of the Bankroll program's 22 instructions are part of the Coin Flip lifecycle. See the <.link navigate={~p"/docs/smart-contracts"}>Smart Contracts</.link> page for the full reference; here we summarise just what Coin Flip touches.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.spec_table
+      cols={[
+        %{key: :name, label: "Instruction", mono: true},
+        %{key: :signer, label: "Signers"},
+        %{key: :purpose, label: "Purpose"}
+      ]}
+      rows={[
+        %{name: "submit_commitment", signer: "Settler", purpose: "Write SHA256(server_seed) for a given (player, nonce) pair. Runs before every bet."},
+        %{name: "place_bet_sol / place_bet_bux", signer: "Player + Settler", purpose: "Transfer the wager into the vault, create the BetOrder PDA, bind it to the prior commitment, clear the commitment."},
+        %{name: "settle_bet", signer: "Settler", purpose: "Reveal server_seed, verify the hash matches, pay the player if won, close the BetOrder."},
+        %{name: "reclaim_expired", signer: "Player", purpose: "After 120 seconds, lets the player claw their wager back if the settler never settled. Does not count the bet in stats."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="submit_commitment — full signature">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/submit_commitment.rs"
+        code={~S"""
+pub fn submit_commitment(
+    ctx: Context<SubmitCommitment>,
+    player_key: Pubkey,
+    nonce: u64,
+    commitment_hash: [u8; 32],
+) -> Result<()>
+
+Accounts:
+  settler           — Signer, mut         (must equal game_registry.settler)
+  game_registry     — PDA ["game_registry"]
+  player_state      — PDA ["player", player_key], init_if_needed, payer=settler
+  system_program
+
+Errors: UnauthorizedSettler, Paused, NonceMismatch (if nonce < existing nonce)
+Emits:  CommitmentSubmitted { player, nonce, commitment_hash }
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="place_bet_sol — full signature">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/place_bet_sol.rs"
+        code={~S"""
+pub fn place_bet_sol(
+    ctx: Context<PlaceBetSol>,
+    game_id: u64,
+    nonce: u64,
+    amount: u64,        // lamports
+    difficulty: u8,     // 0..9 index
+) -> Result<()>
+
+Accounts:
+  player            — Signer, mut
+  rent_payer        — Signer, mut         (must equal game_registry.settler)
+  game_registry     — PDA ["game_registry"]   (paused check)
+  sol_vault         — PDA ["sol_vault"],  mut  (receives wager)
+  sol_vault_state   — PDA ["sol_vault_state"], mut
+  player_state      — PDA ["player", player.key()], mut, has_one=player
+  bet_order         — PDA ["bet", player.key(), nonce_le], init, payer=rent_payer
+  system_program
+
+Pre-checks:
+  rent_payer == game_registry.settler               → InvalidRentPayer
+  game_id is registered and game.active             → GameNotFound
+  nonce == player_state.pending_nonce               → NonceMismatch
+  player_state.pending_commitment != [0u8; 32]      → NoCommitment
+  amount >= game.min_bet                            → BetTooSmall
+  amount <= calculate_max_bet_for_difficulty(...)   → BetTooLarge
+  max_payout - amount <= net_balance                → MaxPayoutExceedsCapacity
+
+Side effects:
+  · transfer SOL from player to sol_vault (amount)
+  · create BetOrder with status Pending and commitment_hash copied from player_state
+  · clear player_state.pending_commitment
+  · increment player_state.nonce
+  · update sol_vault_state (total_liability, unsettled_count, unsettled_bets)
+  · emit BetPlaced
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="settle_bet — full signature">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/settle_bet.rs"
+        code={~S"""
+pub fn settle_bet(
+    ctx: Context<SettleBet>,
+    nonce: u64,
+    server_seed: [u8; 32],
+    won: bool,
+    payout: u64,
+) -> Result<()>
+
+Signer:  settler (constraint == game_registry.settler)
+Closes:  bet_order → rent_payer
+
+Pre-checks:
+  SHA256(server_seed) == bet_order.commitment_hash  → InvalidServerSeed
+  unix_now - bet_order.created_at <= bet_timeout    → OrderExpired
+  payout <= bet_order.max_payout                    → PayoutExceedsMax
+  bet_order.status == Pending                       → OrderNotPending
+
+Side effects:
+  if won and payout > 0:
+    CPI transfer payout from vault to player (signed by vault PDA)
+  else:
+    process_*_referral_rewards (best-effort, emits RewardPaid/Failed)
+
+  update vault stats (total_liability, house_profit, total_bets, ...)
+  update player_state (total_orders, total_wagered_*, net_pnl_*)
+  close bet_order → rent_payer
+  emit BetSettled { player, nonce, won, amount, payout, vault_type, server_seed }
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="reclaim_expired — full signature">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/reclaim_expired.rs"
+        code={~S"""
+pub fn reclaim_expired(ctx: Context<ReclaimExpired>, nonce: u64) -> Result<()>
+
+Signer:  player
+Closes:  bet_order → rent_payer (the original settler)
+
+Pre-checks:
+  bet_order.player == player.key()                  → InvalidServerSeed (misleading name)
+  bet_order.rent_payer matches stored pubkey        → InvalidRentPayer
+  bet_order.status == Pending                       → OrderNotPending
+  unix_now - bet_order.created_at > bet_timeout     → OrderNotExpired
+
+Side effects:
+  refund bet_order.amount from vault to player (SOL or BUX)
+  decrement vault_state.total_liability by max_payout
+  decrement vault_state.unsettled_count, unsettled_bets
+  close bet_order → rent_payer
+  emit BetReclaimed { player, nonce, amount, vault_type }
+  · total_bets and house_profit are NOT touched — expired bets don't count
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="edge-cases" title="Edge cases" eyebrow="11">
+    <BlocksterV2Web.DocsComponents.subsection title="The UI deducted my balance but the bet failed">
+      <p>
+        The LiveView deducts your local balance the instant the wallet returns <BlocksterV2Web.DocsComponents.inline_code>bet_confirmed</BlocksterV2Web.DocsComponents.inline_code>, before settlement lands. If the settlement transaction reverts, the local balance is refreshed from chain during the next balance sync (usually within 30 seconds). Your on-chain balance is always correct.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Settlement kicks off before the reveal animation ends">
+      <p>
+        It does, intentionally. The settlement tx typically confirms within one slot (~400ms). Letting the animation run concurrently gives us a smoother feel without extending the wait. If settlement fails mid-animation, the UI silently swallows it and the 1-minute settler takes over.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Floating-point precision">
+      <p>
+        The Elixir backend uses <BlocksterV2Web.DocsComponents.inline_code>trunc/1</BlocksterV2Web.DocsComponents.inline_code> (not <BlocksterV2Web.DocsComponents.inline_code>Float.round/1</BlocksterV2Web.DocsComponents.inline_code>) to compute the payout it submits to <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code>. On-chain, the program uses u64 integer arithmetic. If those two diverged, the on-chain check <BlocksterV2Web.DocsComponents.inline_code>payout ≤ max_payout</BlocksterV2Web.DocsComponents.inline_code> would fail. We match truncation behaviour deliberately to keep them aligned.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="What if you double-click Start Game?">
+      <p>
+        The first click consumes the pending commitment (the program clears <BlocksterV2Web.DocsComponents.inline_code>pending_commitment</BlocksterV2Web.DocsComponents.inline_code> on placement). The second click would hit <BlocksterV2Web.DocsComponents.inline_code>NoCommitment</BlocksterV2Web.DocsComponents.inline_code> on-chain. The UI disables the button while the first tx is in-flight as a UX belt; the program provides the suspenders.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="faq" title="FAQ" eyebrow="12">
+    <BlocksterV2Web.DocsComponents.subsection title="Why is there a house edge?">
+      <p>
+        Without one, the pool could not pay its costs and would drift to zero in expectation. Our edge is small (around 1% on Win All variants) because we care more about volume and fairness than about margin per bet.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Can the settler see the server seed before I bet?">
+      <p>
+        It generated the seed. The point of the commit-reveal scheme is not that you trust the settler didn't know the seed — it's that the settler committed to one specific seed on-chain before you bet, and the program will not let it reveal a different seed later. The seed is fixed the moment <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> lands.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="What happens during a program pause?">
+      <p>
+        If the authority toggles the global <BlocksterV2Web.DocsComponents.inline_code>paused</BlocksterV2Web.DocsComponents.inline_code> flag, <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> start reverting with <BlocksterV2Web.DocsComponents.inline_code>Paused</BlocksterV2Web.DocsComponents.inline_code>. But <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>reclaim_expired</BlocksterV2Web.DocsComponents.inline_code> still work — so any bet you have in flight can still be resolved. This is intentional.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Is there a maximum I can win in a day?">
+      <p>
+        There is no per-day cap, but the program's per-bet cap (<BlocksterV2Web.DocsComponents.inline_code>potential_profit ≤ net_balance</BlocksterV2Web.DocsComponents.inline_code>) means you can never drain the vault in a single bet. The max-bet formula is recomputed on every placement from the live vault balance.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <div class="mt-16 pt-8 border-t border-[#E8EAF0] flex items-center justify-between gap-4 flex-wrap">
+    <.link navigate={~p"/docs"} class="text-[13px] text-[#515B70] hover:text-[#141414] underline cursor-pointer">← Back to overview</.link>
+    <.link navigate={~p"/docs/provably-fair"} class="text-[13px] font-haas_bold_75 text-[#141414] hover:underline cursor-pointer">Next: Provably fair →</.link>
+  </div>
+</BlocksterV2Web.DocsComponents.docs_shell>

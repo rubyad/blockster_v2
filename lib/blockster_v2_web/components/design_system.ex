@@ -490,80 +490,340 @@ defmodule BlocksterV2Web.DesignSystem do
                   <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
                 </svg>
               </button>
-              <%!-- User dropdown menu --%>
-              <div id="ds-header-user-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
-                <div class="py-1">
+              <%!-- ──────────────────────────────────────────────────────────────
+                   User dropdown — precision-instrument refinement.
+                   Matches the wallet modal + wallet page aesthetic: hairline
+                   tick ruler, monospace micro-labels, inset balance panel,
+                   diagnostic footer.
+              ─────────────────────────────────────────────────────────────── --%>
+              <div
+                id="ds-header-user-menu"
+                class="ds-user-menu absolute right-0 mt-2 w-[320px] bg-white rounded-2xl ring-1 ring-black/5 hidden z-50 overflow-hidden"
+                style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.04);"
+              >
+                <%!-- Hairline tick ruler (family-resemblance detail) --%>
+                <div class="ds-user-menu-ruler" aria-hidden="true"></div>
+
+                <%!-- ── Identity block ───────────────────────────────────── --%>
+                <div class="p-4 pt-5 pb-3">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-[9px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                      Account
+                    </span>
+                    <span class="text-neutral-300 text-xs">·</span>
+                    <div class="flex items-center gap-1">
+                      <span class="w-1 h-1 rounded-full bg-[#22C55E]" aria-hidden="true"></span>
+                      <span class="text-[9px] uppercase tracking-[0.14em] font-mono text-neutral-500">
+                        signed in
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-violet-500 ring-2 ring-white shadow-sm flex-shrink-0 grid place-items-center">
+                      <span class="text-[13px] font-bold text-white/95 leading-none" style="letter-spacing: -0.02em;">
+                        <%= ds_user_initial(@current_user) %>
+                      </span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="text-[14.5px] font-bold text-[#141414] truncate leading-tight" style="letter-spacing: -0.015em;">
+                        <%= ds_user_display_name(@current_user) %>
+                      </div>
+                      <div class="mt-1">
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#CAFC00]/10 ring-1 ring-[#CAFC00]/30">
+                          <span class="w-1 h-1 rounded-full bg-[#141414]" aria-hidden="true"></span>
+                          <span class="text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-[#141414]">
+                            <%= ds_auth_source_label(@current_user.auth_method) %>
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <%!-- Copy-address affordance --%>
+                  <button
+                    type="button"
+                    id="ds-user-copy-address"
+                    phx-hook="CopyToClipboard"
+                    data-copy-text={@current_user.wallet_address}
+                    class="group mt-3 w-full flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors cursor-pointer"
+                    aria-label="Copy wallet address"
+                  >
+                    <svg class="w-3 h-3 text-neutral-400 copy-icon-default flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                      <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <svg class="w-3 h-3 text-[#22C55E] copy-icon hidden flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <code class="flex-1 min-w-0 text-[10.5px] font-mono text-neutral-500 group-hover:text-[#141414] transition-colors text-left truncate tabular-nums">
+                      <%= ds_truncate_addr(@current_user.wallet_address) %>
+                    </code>
+                    <span class="copy-text text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-neutral-400 group-hover:text-[#141414] transition-colors flex-shrink-0">
+                      copy
+                    </span>
+                  </button>
+                </div>
+
+                <%!-- ── Balances panel ───────────────────────────────────── --%>
+                <div class="px-4 pb-4">
+                  <div class="flex items-center justify-between mb-2 px-1">
+                    <span class="text-[9px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                      Balances
+                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-1 h-1 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <span class="text-[9px] uppercase tracking-[0.14em] font-mono text-neutral-400">
+                        live
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="rounded-xl bg-neutral-50 ring-1 ring-black/[0.04] overflow-hidden">
+                    <%!-- SOL row --%>
+                    <div class="flex items-center gap-3 px-3.5 py-3">
+                      <img
+                        src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                        alt=""
+                        class="w-7 h-7 rounded-full flex-shrink-0 ring-1 ring-white shadow-sm object-cover"
+                        aria-hidden="true"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <div class="text-[12.5px] font-bold text-[#141414] leading-none" style="letter-spacing: -0.01em;">
+                          SOL
+                        </div>
+                        <div class="text-[10px] text-neutral-400 font-mono tabular-nums mt-1">
+                          ≈ $<%= ds_format_usd(Map.get(@token_balances, "SOL", 0), Map.get(assigns, :sol_usd_price, 0)) %>
+                        </div>
+                      </div>
+                      <div class="text-[13px] font-mono font-bold text-[#141414] tabular-nums" style="letter-spacing: -0.015em;">
+                        <%= ds_format_sol(Map.get(@token_balances, "SOL", 0)) %>
+                      </div>
+                    </div>
+
+                    <div class="border-t border-neutral-200/60"></div>
+
+                    <%!-- BUX row --%>
+                    <div class="flex items-center gap-3 px-3.5 py-3">
+                      <img
+                        src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                        alt=""
+                        class="w-7 h-7 rounded-full flex-shrink-0 ring-1 ring-white shadow-sm object-cover"
+                        aria-hidden="true"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <div class="text-[12.5px] font-bold text-[#141414] leading-none" style="letter-spacing: -0.01em;">
+                          BUX
+                        </div>
+                        <div class="text-[10px] text-neutral-400 font-mono tabular-nums mt-1">
+                          engagement token
+                        </div>
+                      </div>
+                      <div class="text-[13px] font-mono font-bold text-[#141414] tabular-nums" style="letter-spacing: -0.015em;">
+                        <%= ds_format_bux(Map.get(@token_balances, "BUX", 0)) %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- ── Menu items ───────────────────────────────────────── --%>
+                <div class="border-t border-neutral-100 py-1">
                   <.link
                     navigate={~p"/member/#{@user_slug}"}
-                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
+                    class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                   >
-                    My Profile
+                    <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
+                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M4 17c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span class="flex-1 font-medium">My profile</span>
+                    <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                   </.link>
-                  <%!-- Wallet panel — only for Web3Auth social-login users.
-                       External-wallet users already have self-custody via
-                       their wallet extension. --%>
+
                   <%= if BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) and
                          BlocksterV2.WalletSelfCustody.Auth.feature_enabled?() do %>
                     <.link
                       navigate={~p"/wallet"}
-                      class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                     >
-                      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <rect x="3" y="6" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M3 9h14M14 12h.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
+                        <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                          <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                      </span>
+                      <span class="flex-1 font-medium">Wallet &amp; self-custody</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
-                      <span>Wallet &amp; self-custody</span>
                     </.link>
                   <% end %>
-                  <%!-- Token balance detail --%>
-                  <div class="border-t border-gray-100 py-1">
-                    <% bux_detail = Map.get(@token_balances, "BUX", 0) %>
-                    <div class="flex items-center justify-between px-4 py-1.5 text-xs text-gray-600">
-                      <div class="flex items-center gap-2">
-                        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full object-cover" />
-                        <span class="font-medium">BUX</span>
-                      </div>
-                      <span class="font-mono tabular-nums">{Number.Delimit.number_to_delimited(bux_detail, precision: 2)}</span>
-                    </div>
-                  </div>
-                  <div class="border-t border-gray-100"></div>
-                  <button
-                    phx-click="disconnect_wallet"
-                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+
+                  <.link
+                    navigate={~p"/notifications"}
+                    class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                   >
-                    Disconnect Wallet
-                  </button>
-                  <%!-- Admin section --%>
-                  <%= if @current_user.is_author || @current_user.is_admin do %>
-                    <div class="border-t border-gray-100 my-1"></div>
-                    <div class="px-4 py-1 text-xs text-gray-400 font-semibold uppercase">Admin</div>
-                    <.link navigate={~p"/new"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Create Article</.link>
-                    <%= if @current_user.is_admin do %>
-                      <.link navigate={~p"/admin"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Dashboard</.link>
-                      <.link navigate={~p"/admin/posts"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Posts</.link>
-                      <.link navigate={~p"/admin/events"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Events</.link>
-                      <.link navigate={~p"/admin/campaigns"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Campaigns</.link>
-                      <.link navigate={~p"/admin/categories"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Categories</.link>
-                      <.link navigate={~p"/hubs/admin"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Hubs</.link>
-                      <.link navigate={~p"/admin/products"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Products</.link>
-                      <.link navigate={~p"/admin/orders"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Orders</.link>
-                      <.link navigate={~p"/admin/product-categories"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Product Categories</.link>
-                      <.link navigate={~p"/admin/product-tags"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Product Tags</.link>
-                      <.link navigate={~p"/admin/artists"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Artists</.link>
-                      <.link navigate={~p"/admin/waitlist"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Waitlist</.link>
-                      <.link navigate={~p"/admin/flagged-accounts"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Flagged Accounts</.link>
-                      <.link navigate={~p"/admin/stats"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Bet Stats</.link>
-                      <.link navigate={~p"/admin/content"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Content Generator</.link>
-                      <div class="border-t border-gray-100 my-1"></div>
-                      <.link navigate={~p"/admin/notifications/campaigns"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Notification Campaigns</.link>
-                      <.link navigate={~p"/admin/notifications/analytics"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Notification Analytics</.link>
-                      <.link navigate={~p"/admin/ai-manager"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">AI Manager</.link>
-                      <.link navigate={~p"/admin/banners"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Ad Banners</.link>
-                      <.link navigate={~p"/admin/promo"} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Promo Dashboard</.link>
+                    <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
+                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M5 9a5 5 0 0110 0v3l1.5 2.5h-13L5 12V9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                        <path d="M8 16a2 2 0 004 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span class="flex-1 font-medium">Notifications</span>
+                    <%= if @unread_notification_count > 0 do %>
+                      <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-[#141414] text-white text-[10px] font-bold tabular-nums">
+                        <%= if @unread_notification_count > 99, do: "99+", else: @unread_notification_count %>
+                      </span>
+                    <% else %>
+                      <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     <% end %>
-                  <% end %>
+                  </.link>
+                </div>
+
+                <%!-- ── Admin (collapsed) ────────────────────────────────── --%>
+                <%= if @current_user.is_author || @current_user.is_admin do %>
+                  <details class="ds-admin-details border-t border-neutral-100 group">
+                    <summary class="flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors cursor-pointer list-none">
+                      <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
+                        <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                          <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                          <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                          <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                      </span>
+                      <span class="flex-1 font-medium">Admin tools</span>
+                      <svg class="w-3 h-3 text-neutral-400 transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </summary>
+
+                    <div class="pb-2 bg-neutral-50/40">
+                      <div class="px-4 pt-2 pb-1.5 flex items-center gap-2">
+                        <span class="text-[9px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                          Admin
+                        </span>
+                        <div class="flex-1 border-t border-neutral-200/60"></div>
+                      </div>
+
+                      <.link navigate={~p"/new"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">
+                        Create article
+                      </.link>
+
+                      <%= if @current_user.is_admin do %>
+                        <.link navigate={~p"/admin"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Dashboard</.link>
+                        <.link navigate={~p"/admin/posts"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Posts</.link>
+                        <.link navigate={~p"/admin/events"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Events</.link>
+                        <.link navigate={~p"/admin/campaigns"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Campaigns</.link>
+                        <.link navigate={~p"/admin/categories"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Categories</.link>
+                        <.link navigate={~p"/hubs/admin"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Hubs</.link>
+                        <.link navigate={~p"/admin/products"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Products</.link>
+                        <.link navigate={~p"/admin/orders"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Orders</.link>
+                        <.link navigate={~p"/admin/product-categories"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Product categories</.link>
+                        <.link navigate={~p"/admin/product-tags"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Product tags</.link>
+                        <.link navigate={~p"/admin/artists"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Artists</.link>
+                        <.link navigate={~p"/admin/waitlist"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Waitlist</.link>
+                        <.link navigate={~p"/admin/flagged-accounts"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Flagged accounts</.link>
+                        <.link navigate={~p"/admin/stats"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Bet stats</.link>
+                        <.link navigate={~p"/admin/content"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Content generator</.link>
+
+                        <div class="px-4 pt-2 pb-1.5 mt-1 flex items-center gap-2">
+                          <span class="text-[9px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                            Growth
+                          </span>
+                          <div class="flex-1 border-t border-neutral-200/60"></div>
+                        </div>
+
+                        <.link navigate={~p"/admin/notifications/campaigns"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Notification campaigns</.link>
+                        <.link navigate={~p"/admin/notifications/analytics"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Notification analytics</.link>
+                        <.link navigate={~p"/admin/ai-manager"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">AI manager</.link>
+                        <.link navigate={~p"/admin/banners"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Ad banners</.link>
+                        <.link navigate={~p"/admin/promo"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Promo dashboard</.link>
+                      <% end %>
+                    </div>
+                  </details>
+                <% end %>
+
+                <%!-- ── Disconnect ───────────────────────────────────────── --%>
+                <div class="border-t border-neutral-100 py-1">
+                  <button
+                    type="button"
+                    phx-click="disconnect_wallet"
+                    class="group w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-neutral-500 hover:bg-red-50/60 hover:text-red-600 transition-colors cursor-pointer"
+                  >
+                    <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-red-200 grid place-items-center transition-all">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M12 4H5a1 1 0 00-1 1v10a1 1 0 001 1h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M9 10h8m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                    <span class="flex-1 font-medium text-left">Sign out</span>
+                  </button>
+                </div>
+
+                <%!-- ── Diagnostic footer ────────────────────────────────── --%>
+                <div class="border-t border-neutral-100 px-4 py-2 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.14em] text-neutral-400 bg-neutral-50/40">
+                  <span>Signed in</span>
+                  <span class="text-neutral-300">·</span>
+                  <span>ED25519</span>
+                  <span class="text-neutral-300">·</span>
+                  <span><%= ds_short_pubkey(@current_user.wallet_address) %></span>
+                  <span class="ml-auto">REV 01</span>
                 </div>
               </div>
+
+              <style>
+                .ds-user-menu-ruler {
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  height: 6px;
+                  background-image:
+                    repeating-linear-gradient(
+                      to right,
+                      transparent 0,
+                      transparent 7px,
+                      rgba(20, 20, 20, 0.10) 7px,
+                      rgba(20, 20, 20, 0.10) 8px
+                    ),
+                    linear-gradient(
+                      to right,
+                      transparent,
+                      rgba(202, 252, 0, 0.7) 25%,
+                      rgba(202, 252, 0, 0.7) 75%,
+                      transparent
+                    );
+                  background-size: 100% 100%, 100% 1px;
+                  background-position: 0 0, 0 5px;
+                  background-repeat: repeat-x, no-repeat;
+                  pointer-events: none;
+                }
+                @keyframes dsMenuEnter {
+                  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+                  to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .ds-user-menu:not(.hidden) {
+                  animation: dsMenuEnter 160ms cubic-bezier(0.2, 0.8, 0.4, 1);
+                  transform-origin: top right;
+                }
+                @keyframes dsMenuPulse {
+                  0%, 100% { opacity: 1; transform: scale(1); }
+                  50%      { opacity: 0.5; transform: scale(1.3); }
+                }
+                .ds-user-menu .ds-pulse {
+                  animation: dsMenuPulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+                .ds-admin-details summary::-webkit-details-marker { display: none; }
+                .ds-admin-details summary::marker { content: ''; }
+              </style>
             </div>
           <% else %>
             <%!-- Anonymous: Connect Wallet --%>
@@ -859,6 +1119,7 @@ defmodule BlocksterV2Web.DesignSystem do
               <li><.link navigate={~p"/"} class="text-white/70 hover:text-white transition-colors">Latest</.link></li>
               <li><.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">Hubs</.link></li>
               <li><.link navigate={~p"/how-it-works"} class="text-white/70 hover:text-white transition-colors">How it works</.link></li>
+              <li><.link navigate={~p"/docs"} class="text-white/70 hover:text-white transition-colors">Docs</.link></li>
             </ul>
           </div>
 
@@ -4213,4 +4474,84 @@ defmodule BlocksterV2Web.DesignSystem do
   end
 
   defp parse_reward(_), do: 0
+
+  # ── User-dropdown helpers (ds_ prefix avoids collision) ──
+
+  defp ds_user_display_name(%{username: username}) when is_binary(username) and username != "",
+    do: username
+
+  defp ds_user_display_name(%{wallet_address: addr}) when is_binary(addr),
+    do: ds_truncate_addr(addr)
+
+  defp ds_user_display_name(_), do: "Account"
+
+  defp ds_user_initial(%{username: u}) when is_binary(u) and u != "" do
+    u |> String.first() |> String.upcase()
+  end
+
+  defp ds_user_initial(%{wallet_address: a}) when is_binary(a) and a != "" do
+    a |> String.first() |> String.upcase()
+  end
+
+  defp ds_user_initial(_), do: "?"
+
+  defp ds_truncate_addr(nil), do: "—"
+  defp ds_truncate_addr(addr) when byte_size(addr) < 10, do: addr
+
+  defp ds_truncate_addr(addr) do
+    "#{String.slice(addr, 0..3)}…#{String.slice(addr, -4..-1)}"
+  end
+
+  defp ds_short_pubkey(nil), do: "—"
+  defp ds_short_pubkey(addr) when byte_size(addr) < 6, do: addr
+  defp ds_short_pubkey(addr), do: String.slice(addr, 0..5)
+
+  defp ds_auth_source_label("wallet"), do: "Wallet"
+  defp ds_auth_source_label("email"), do: "Email"
+  defp ds_auth_source_label("web3auth_email"), do: "Email login"
+  defp ds_auth_source_label("web3auth_google"), do: "Google"
+  defp ds_auth_source_label("web3auth_apple"), do: "Apple"
+  defp ds_auth_source_label("web3auth_x"), do: "X login"
+  defp ds_auth_source_label("web3auth_twitter"), do: "X login"
+  defp ds_auth_source_label("web3auth_telegram"), do: "Telegram"
+  defp ds_auth_source_label(_), do: "Signed in"
+
+  defp ds_format_sol(balance) when is_number(balance) and balance >= 1000,
+    do: :erlang.float_to_binary(balance * 1.0, decimals: 2)
+
+  defp ds_format_sol(balance) when is_number(balance),
+    do: :erlang.float_to_binary(balance * 1.0, decimals: 4)
+
+  defp ds_format_sol(_), do: "0.0000"
+
+  defp ds_format_bux(balance) when is_number(balance) do
+    {int, dec} =
+      (balance * 1.0)
+      |> :erlang.float_to_binary(decimals: 2)
+      |> String.split(".", parts: 2)
+      |> case do
+        [i, d] -> {i, d}
+        [i] -> {i, "00"}
+      end
+
+    grouped =
+      int
+      |> String.to_charlist()
+      |> Enum.reverse()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.reverse/1)
+      |> Enum.reverse()
+      |> Enum.intersperse(?,)
+      |> List.flatten()
+      |> to_string()
+
+    "#{grouped}.#{dec}"
+  end
+
+  defp ds_format_bux(_), do: "0.00"
+
+  defp ds_format_usd(sol_balance, price) when is_number(sol_balance) and is_number(price),
+    do: :erlang.float_to_binary(sol_balance * price * 1.0, decimals: 2)
+
+  defp ds_format_usd(_, _), do: "0.00"
 end

@@ -173,12 +173,18 @@ export const Web3Auth = {
       // Stale session → clear before re-connecting
       if (this._web3auth.connected) {
         try { await this._web3auth.logout() } catch (_) {}
+        await this._waitForConnectorSettle(2000)
       }
 
       const loginParams = await this._loginParamsFor(provider, email_hint, AUTH_CONNECTION)
       if (!loginParams) return
 
-      this._provider = await this._web3auth.connectTo(
+      // Web3Auth.init() resolves BEFORE its internal connector rehydrate
+      // finishes — the connect runs inside a fire-and-forget event listener
+      // for CONNECTORS_UPDATED. Calling connectTo before the state machine
+      // settles throws "Wallet connector is not ready yet". _connectWithRetry
+      // waits for settle + retries the retriable transient states.
+      this._provider = await this._connectWithRetry(
         WALLET_CONNECTORS.AUTH,
         loginParams,
       )
@@ -190,7 +196,7 @@ export const Web3Auth = {
       await this._completeLogin(provider)
     } catch (e) {
       console.error("[Web3Auth] login failed", e)
-      this.pushEvent("web3auth_error", { error: e?.message || "Login failed" })
+      this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
     }
   },
 
@@ -212,8 +218,6 @@ export const Web3Auth = {
         }
       case "google":
         return { authConnection: AUTH_CONNECTION.GOOGLE }
-      case "apple":
-        return { authConnection: AUTH_CONNECTION.APPLE }
       case "twitter":
         return { authConnection: AUTH_CONNECTION.TWITTER }
       case "telegram": {
@@ -241,6 +245,7 @@ export const Web3Auth = {
 
       if (this._web3auth.connected) {
         try { await this._web3auth.logout() } catch (_) {}
+        await this._waitForConnectorSettle(2000)
       }
 
       const loginParams = {
@@ -252,7 +257,7 @@ export const Web3Auth = {
         },
       }
 
-      this._provider = await this._web3auth.connectTo(
+      this._provider = await this._connectWithRetry(
         WALLET_CONNECTORS.AUTH,
         loginParams,
       )
@@ -264,7 +269,7 @@ export const Web3Auth = {
       await this._completeLogin(provider)
     } catch (e) {
       console.error("[Web3Auth] jwt login failed", e)
-      this.pushEvent("web3auth_error", { error: e?.message || "Sign-in failed" })
+      this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
     }
   },
 
@@ -638,6 +643,41 @@ export const Web3Auth = {
       },
     }
   },
+}
+
+// Translate raw Web3Auth SDK exceptions into a message the user can actually
+// act on. The SDK cascades nested errors and surfaces only the leaf ("Web3Auth
+// idToken must be present"), which is meaningless to a user when the real
+// cause is a 502 from Web3Auth's auth-service backend or a popup blocker.
+function friendlyWeb3AuthError(e) {
+  const msg = e?.message || String(e || "Sign-in failed")
+  const code = e?.code
+
+  // "idToken must be present" always means Web3Auth's external_token call
+  // came back empty — usually their backend is 502ing, sometimes it's a
+  // transient network drop. Surface that instead of the leaf error.
+  if (/idToken must be present/i.test(msg)) {
+    return "Web3Auth sign-in is temporarily unavailable. Please try again in a moment."
+  }
+  if (/failed to (connect|get|fetch).*auth/i.test(msg)) {
+    return "Web3Auth sign-in failed to complete. Please try again."
+  }
+  if (/network|fetch|502|503|504|bad gateway/i.test(msg)) {
+    return "Network error reaching Web3Auth. Please try again."
+  }
+  if (/popup.*(closed|cancel|block)/i.test(msg)) {
+    return "Sign-in window closed before completing. Please try again."
+  }
+  if (/user cancell?ed/i.test(msg)) {
+    return "Sign-in cancelled."
+  }
+  // -32603 is JSON-RPC "internal error" — Web3Auth uses it for a broad
+  // grab-bag of backend failures; the leaf message is rarely useful.
+  if (code === -32603) {
+    return "Web3Auth service error. Please try again in a moment."
+  }
+
+  return msg
 }
 
 // Expose to other modules that might need to distinguish sources — especially

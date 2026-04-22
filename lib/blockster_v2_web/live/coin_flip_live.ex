@@ -215,6 +215,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px]">
                 Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
               </p>
+              <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
+                <.link navigate={~p"/docs/coin-flip"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How Coin Flip works ↗</.link>
+                <.link navigate={~p"/docs/provably-fair"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Verify a game ↗</.link>
+                <.link navigate={~p"/docs/security-audit"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
+              </div>
             </div>
             <div class="col-span-12 md:col-span-5">
               <div class="grid grid-cols-3 gap-3">

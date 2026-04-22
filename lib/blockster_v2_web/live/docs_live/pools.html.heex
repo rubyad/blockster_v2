@@ -1,0 +1,523 @@
+<BlocksterV2Web.DocsComponents.docs_shell
+  current_user={@current_user}
+  active="/docs/pools"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  announcement_banner={assigns[:announcement_banner]}
+>
+  <BlocksterV2Web.DocsComponents.docs_hero
+    eyebrow="Bankroll · Pools & LP"
+    title="The pools that back every bet."
+    description="Blockster runs two independent liquidity pools — one in SOL, one in BUX — that collectively act as the house. Depositors receive LP tokens (SOL-LP, BUX-LP) whose price appreciates when bettors lose and falls when they win."
+  />
+
+  <BlocksterV2Web.DocsComponents.page_toc items={[
+    %{id: "overview", label: "Overview"},
+    %{id: "dual", label: "Dual-vault architecture"},
+    %{id: "lp-tokens", label: "SOL-LP & BUX-LP LP tokens"},
+    %{id: "price", label: "How the LP price is computed"},
+    %{id: "deposit", label: "Depositing"},
+    %{id: "withdraw", label: "Withdrawing"},
+    %{id: "cost-basis", label: "Cost basis & P/L"},
+    %{id: "history", label: "Price history & chart"},
+    %{id: "risk", label: "Risk profile"},
+    %{id: "referrals", label: "Referrals"},
+    %{id: "instructions", label: "On-chain instructions"}
+  ]} />
+
+  <BlocksterV2Web.DocsComponents.section id="overview" title="Overview" eyebrow="01">
+    <p>
+      The pool pages live at <BlocksterV2Web.DocsComponents.inline_code>/pool</BlocksterV2Web.DocsComponents.inline_code> (index) and <BlocksterV2Web.DocsComponents.inline_code>/pool/sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>/pool/bux</BlocksterV2Web.DocsComponents.inline_code> (detail). Each detail page lets you deposit, withdraw, and watch the LP price move in real time as bets settle.
+    </p>
+    <p>
+      Mechanically, each pool is an AMM-style share pool <em>without</em> a pair. You put in SOL (or BUX), the program mints you LP tokens at the current share price, and you get back the same token — plus your slice of whatever the pool earned (or minus your slice of whatever the pool lost) — whenever you withdraw. There is nothing to swap, no impermanent loss, no external oracle.
+    </p>
+    <p>
+      When bettors lose, their wagers stay in the vault and the LP price rises. When bettors win, the vault pays them and the LP price falls. Over a large enough sample, the house edge (~1% on Win-All variants) ensures LPs are paid for taking the other side.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.callout kind="info" title="LP = house">
+      <p>
+        Depositing into either pool is equivalent to buying a proportional share of the house. You earn the casino's edge, and you also absorb its swings. Not a market-neutral strategy.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="dual" title="Dual-vault architecture" eyebrow="02">
+    <p>
+      The Bankroll program maintains two fully separate vaults. They share the same program, the same pause toggle, the same registry of games — but their state, their liquidity, their LP tokens, and their accounting are entirely independent.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.spec_table
+      title="Vault PDAs"
+      cols={[
+        %{key: :vault, label: "Vault"},
+        %{key: :holds, label: "Holds"},
+        %{key: :state, label: "State PDA", mono: true},
+        %{key: :lp, label: "LP mint"},
+        %{key: :decimals, label: "Decimals"}
+      ]}
+      rows={[
+        %{vault: "SOL", holds: "Native SOL (system-owned PDA)", state: "[\"sol_vault_state\"]", lp: "SOL-LP", decimals: "9"},
+        %{vault: "BUX", holds: "BUX SPL tokens (token account PDA)", state: "[\"bux_vault_state\"]", lp: "BUX-LP", decimals: "9"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="Why separate vaults?">
+      <p>
+        A player placing a SOL bet wants their win (or refund) in SOL. A player placing a BUX bet wants it in BUX. Mixing the two would require an oracle and swap logic and introduce slippage risk that has nothing to do with the game. Keeping them separate also lets LPs take explicit exposure to whichever token they care about — you can be long SOL without touching BUX, or vice versa.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="The SOL vault is a SystemAccount, not a token account">
+      <p>
+        The SOL vault holds native lamports. Its PDA is a <BlocksterV2Web.DocsComponents.inline_code>SystemAccount</BlocksterV2Web.DocsComponents.inline_code> seeded as <BlocksterV2Web.DocsComponents.inline_code>[b"sol_vault"]</BlocksterV2Web.DocsComponents.inline_code>. Transfers out of it happen via <BlocksterV2Web.DocsComponents.inline_code>anchor_lang::system_program::transfer</BlocksterV2Web.DocsComponents.inline_code> with the vault's PDA signer seeds. There is no ATA, no token program, no SPL wrapper.
+      </p>
+      <p>
+        The BUX vault, by contrast, is a proper SPL token account at <BlocksterV2Web.DocsComponents.inline_code>[b"bux_token_account"]</BlocksterV2Web.DocsComponents.inline_code>. Its authority is itself (the program signs CPIs with the same PDA that holds the tokens).
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="lp-tokens" title="SOL-LP & BUX-LP LP tokens" eyebrow="03">
+    <p>
+      When you deposit into a vault, the program mints you LP tokens. These are plain SPL tokens — you can keep them in your wallet, transfer them, import them into any Solana-compatible wallet. They are also the <em>only</em> way to withdraw from the vault.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="SOL-LP — SOL pool LP"
+      rows={[
+        {"Mint PDA seeds", "[\"bsol_mint\"]"},
+        {"Mint authority seeds", "[\"bsol_mint_authority\"]"},
+        {"Decimals", "9 (same as SOL)"},
+        {"Metadata", "Created via Metaplex Token Metadata CPI (create_lp_metadata instruction)"},
+        {"Supply", "Grows on deposit (mint), shrinks on withdrawal (burn)"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="BUX-LP — BUX pool LP"
+      rows={[
+        {"Mint PDA seeds", "[\"bbux_mint\"]"},
+        {"Mint authority seeds", "[\"bbux_mint_authority\"]"},
+        {"Decimals", "9"},
+        {"Metadata", "Created via Metaplex Token Metadata CPI"},
+        {"Supply", "Grows on deposit (mint), shrinks on withdrawal (burn)"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="warning" title="Minimum liquidity burn">
+      <p>
+        On the very first deposit into a pool, 10,000 base units of LP are permanently burned (locked in the program). This is a standard AMM defence against donation attacks, inherited from the FateSwap pattern. For SOL it's 0.00001 SOL-LP — negligible at any realistic deposit size, but it means the first LP receives <BlocksterV2Web.DocsComponents.inline_code>amount - 10,000</BlocksterV2Web.DocsComponents.inline_code>, not exactly <BlocksterV2Web.DocsComponents.inline_code>amount</BlocksterV2Web.DocsComponents.inline_code>.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="price" title="How the LP price is computed" eyebrow="04">
+    <p>
+      LP price is not oracular, not voted on, not set by anyone. It's a pure function of two numbers: the <em>effective balance</em> of the vault and the <em>current supply</em> of the LP token. Both are read directly from on-chain state.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.code_block
+      lang="math"
+      title="LP price formula"
+      code={~S"""
+effective_balance = vault_balance - rent_exempt - total_liability
+lp_price          = effective_balance / lp_supply
+"""}
+    />
+
+    <ul>
+      <li><strong>vault_balance</strong> — for SOL, the lamports sitting in the vault PDA. For BUX, the <BlocksterV2Web.DocsComponents.inline_code>amount</BlocksterV2Web.DocsComponents.inline_code> field of the vault's token account.</li>
+      <li><strong>rent_exempt</strong> — the minimum lamports the vault account needs to stay rent-exempt. Deducted so we don't accidentally promise liquidity we don't actually have. Only applies to the SOL vault.</li>
+      <li><strong>total_liability</strong> — the sum of <em>max payouts</em> for every pending bet. If bettors have bets in flight, those future payouts are already booked against the vault. Effective balance is what's left after they're all (hypothetically) paid out at their maximum.</li>
+      <li><strong>lp_supply</strong> — the current supply of SOL-LP or BUX-LP, read from the mint account on-chain.</li>
+    </ul>
+
+    <BlocksterV2Web.DocsComponents.subsection title="On-chain implementation">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="math.rs :: calculate_lp_price"
+        code={~S"""
+pub const LP_PRICE_PRECISION: u64 = 1_000_000_000; // 1e9
+
+pub fn calculate_lp_price(effective_balance: u64, lp_supply: u64) -> Result<u64> {
+    if lp_supply == 0 {
+        return Ok(LP_PRICE_PRECISION); // 1.0 when pool is empty
+    }
+    let numerator = (effective_balance as u128)
+        .checked_mul(LP_PRICE_PRECISION as u128)?;
+    let price = numerator.checked_div(lp_supply as u128)?;
+    Ok(price as u64) // price × 1e9, so 1_200_000_000 means 1.2
+}
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Why subtract liability?">
+      <p>
+        Without the subtraction, the LP price would spike the instant a bet is placed (the vault balance just grew by the wager) and crash the instant it's settled as a win. Subtracting <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code> smooths that out by pre-booking the worst-case payout. The price only moves when the bet is actually resolved — up on losses, down on wins.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="A worked example">
+      <p>
+        Start with a SOL vault holding 100 SOL and 100 SOL-LP outstanding. LP price = 1.0. A bettor wagers 1 SOL at 1.98× on Win All 2.
+      </p>
+      <ul>
+        <li><strong>Immediately after placement:</strong> vault holds 101 SOL, total_liability += 1.98 SOL. Effective balance = 101 − 1.98 = 99.02 SOL. LP price = 0.9902. A small dip because we've booked the worst case.</li>
+        <li><strong>If the bettor loses:</strong> total_liability −= 1.98, vault still holds 101 SOL. Effective = 101. LP price = 1.01. You made 1% on the house edge.</li>
+        <li><strong>If the bettor wins:</strong> vault pays 1.98 SOL (now holds 99.02), total_liability −= 1.98. Effective = 99.02. LP price = 0.9902. You're down 0.98%.</li>
+      </ul>
+      <p>
+        That symmetric movement — small up on losses, small down on wins — <em>is</em> the LP's return profile. Over thousands of bets, the house edge wins.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="deposit" title="Depositing" eyebrow="05">
+    <p>
+      Depositing swaps your underlying token (SOL or BUX) for LP tokens at the current price. The math is deliberately simple and matches every major AMM you've used: you get a proportional share of the pool's current value.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.code_block
+      lang="math"
+      title="LP tokens minted for a deposit"
+      code={~S"""
+// First-ever deposit (lp_supply == 0):
+lp_to_mint = amount - MINIMUM_LIQUIDITY   // 10_000 burned forever
+
+// Subsequent deposits:
+lp_to_mint = amount × lp_supply / effective_balance
+"""}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="Sequence">
+      <BlocksterV2Web.DocsComponents.ol_steps>
+        <:step title="Enter an amount">
+          <p>The <BlocksterV2Web.DocsComponents.inline_code>/pool/sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>/pool/bux</BlocksterV2Web.DocsComponents.inline_code> page previews how many LP tokens you'll receive based on the current on-chain price. That preview is computed from the exact same formula the program uses, so it's not a quote — it's the answer (subject to tiny slippage if a bet settles between your click and landing).</p>
+        </:step>
+        <:step title="Click deposit, sign the transaction">
+          <p>The settler builds an unsigned <BlocksterV2Web.DocsComponents.inline_code>deposit_sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>deposit_bux</BlocksterV2Web.DocsComponents.inline_code> transaction. Your wallet signs it. If you're using Web3Auth with no SOL, the settler partial-signs as fee payer so you don't need a balance for fees.</p>
+        </:step>
+        <:step title="The program moves tokens and mints LP">
+          <p>On-chain, the program validates <BlocksterV2Web.DocsComponents.inline_code>amount > 0</BlocksterV2Web.DocsComponents.inline_code>, computes the LP tokens to mint, transfers your tokens into the vault, and mints LP tokens to your ATA — creating that ATA if it doesn't exist yet.</p>
+        </:step>
+        <:step title="Cost basis is recorded locally">
+          <p>When the transaction confirms, the LiveView records your deposit (amount + LP price at deposit time) into Mnesia's <BlocksterV2Web.DocsComponents.inline_code>user_pool_positions</BlocksterV2Web.DocsComponents.inline_code> table so we can show you accurate P/L later. This is local bookkeeping — the on-chain LP tokens are the source of truth for your share.</p>
+        </:step>
+      </BlocksterV2Web.DocsComponents.ol_steps>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Deposit instruction accounts">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/deposit_sol.rs"
+        code={~S"""
+pub fn deposit_sol(ctx: Context<DepositSol>, amount: u64) -> Result<()>
+
+Accounts:
+  depositor              — Signer, mut
+  game_registry          — PDA ["game_registry"]                  (paused check)
+  sol_vault              — PDA ["sol_vault"], mut                 (receives SOL)
+  sol_vault_state        — PDA ["sol_vault_state"], mut
+  bsol_mint              — PDA ["bsol_mint"], mut
+  bsol_mint_authority    — PDA ["bsol_mint_authority"]             (signer seeds)
+  depositor_bsol_account — ATA (depositor, bsol_mint), init_if_needed
+  system_program
+  token_program
+  associated_token_program
+  rent
+
+Errors: Paused, ZeroAmount, DepositTooSmall (first deposit only), MathOverflow
+Emits:  SolDeposited { depositor, sol_amount, lp_minted, vault_balance, lp_supply }
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="withdraw" title="Withdrawing" eyebrow="06">
+    <p>
+      Withdrawing burns some of your LP tokens and returns a proportional slice of the underlying token. Because LP price can have moved since you deposited, you may get more or less than you put in — that's the whole point.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.code_block
+      lang="math"
+      title="Underlying returned for an LP burn"
+      code={~S"""
+available_balance = vault_balance - rent_exempt - total_liability
+underlying_out    = lp_burned × available_balance / lp_supply
+
+// Both must be > 0; program errors WithdrawTooLarge if underlying_out rounds to 0
+// Program errors InsufficientLiquidity if underlying_out > available_balance
+"""}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="warning" title="Available ≠ vault balance">
+      <p>
+        When bettors have bets in flight, part of the vault is effectively locked as liability. Withdrawals are capped at <em>available</em> balance, not the raw vault balance. If you try to withdraw more than available, the program reverts with <BlocksterV2Web.DocsComponents.inline_code>InsufficientLiquidity</BlocksterV2Web.DocsComponents.inline_code> — wait for pending bets to settle and try again.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+
+    <BlocksterV2Web.DocsComponents.subsection title="No withdrawal fee">
+      <p>
+        There is no deposit or withdrawal fee. The house takes its edge from bet outcomes, not from LP flows. Gas (roughly 5,000 lamports) is the only cost, and in Web3Auth mode the settler can sponsor it for you.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Withdraw instruction accounts">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="instructions/withdraw_sol.rs"
+        code={~S"""
+pub fn withdraw_sol(ctx: Context<WithdrawSol>, lp_amount: u64) -> Result<()>
+
+Accounts:
+  withdrawer              — Signer, mut
+  game_registry           — PDA ["game_registry"]                  (paused check)
+  sol_vault               — PDA ["sol_vault"], mut                 (pays out SOL)
+  sol_vault_state         — PDA ["sol_vault_state"], mut
+  bsol_mint               — PDA ["bsol_mint"], mut
+  withdrawer_bsol_account — ATA, mut                               (burned from)
+  system_program
+  token_program
+
+Errors: Paused, ZeroAmount, InsufficientLiquidity, WithdrawTooLarge, MathOverflow
+Emits:  SolWithdrawn { withdrawer, sol_amount, lp_burned, vault_balance, lp_supply }
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="cost-basis" title="Cost basis & unrealised P/L" eyebrow="07">
+    <p>
+      The pool detail page shows your cost basis, unrealised P/L, and realised gains. These are client-side conveniences — the protocol itself doesn't track them — stored in a Mnesia table called <BlocksterV2Web.DocsComponents.inline_code>user_pool_positions</BlocksterV2Web.DocsComponents.inline_code>.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="user_pool_positions schema"
+      rows={[
+        {"id", "{user_id, vault_type}  —  composite primary key"},
+        {"total_cost", "Running sum of underlying tokens you deposited (minus the cost you've realised via withdrawals)"},
+        {"total_lp", "Running LP token balance (local copy; on-chain is canonical)"},
+        {"realized_gain", "Cumulative gain/loss from past withdrawals"},
+        {"updated_at", "Unix timestamp of the last deposit/withdraw"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.subsection title="Deposit accounting (average cost basis)">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="elixir"
+        title="pool_positions.ex :: record_deposit"
+        code={~S"""
+def record_deposit(user_id, vault_type, amount, lp_price) do
+  lp_received = amount / lp_price
+  case get(user_id, vault_type) do
+    nil ->
+      write(user_id, vault_type, amount, lp_received, 0.0)
+    %{total_cost: tc, total_lp: tl, realized_gain: rg} ->
+      write(user_id, vault_type, tc + amount, tl + lp_received, rg)
+  end
+end
+"""}
+      />
+      <p>
+        Every deposit grows your cost basis by the amount deposited and your LP balance by <BlocksterV2Web.DocsComponents.inline_code>amount / lp_price</BlocksterV2Web.DocsComponents.inline_code>. Your <em>average</em> cost per LP is always <BlocksterV2Web.DocsComponents.inline_code>total_cost / total_lp</BlocksterV2Web.DocsComponents.inline_code>.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Withdraw accounting (proportional removal)">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="elixir"
+        title="pool_positions.ex :: record_withdraw"
+        code={~S"""
+def record_withdraw(user_id, vault_type, lp_burned, lp_price) do
+  %{total_cost: tc, total_lp: tl, realized_gain: rg} = get(user_id, vault_type)
+  avg_cost_per_lp  = tc / tl
+  cost_removed     = lp_burned * avg_cost_per_lp
+  proceeds         = lp_burned * lp_price
+  realized_delta   = proceeds - cost_removed      # can be negative
+
+  new_cost = tc - cost_removed
+  new_lp   = tl - lp_burned
+  write(user_id, vault_type, new_cost, new_lp, rg + realized_delta)
+end
+"""}
+      />
+      <p>
+        When you burn LP, your cost basis drops proportionally and the difference between proceeds and the retired cost is added to <BlocksterV2Web.DocsComponents.inline_code>realized_gain</BlocksterV2Web.DocsComponents.inline_code>. A full withdrawal zeros out both <BlocksterV2Web.DocsComponents.inline_code>total_cost</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>total_lp</BlocksterV2Web.DocsComponents.inline_code> (floating-point residuals below 10⁻⁹ are clamped to zero).
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Unrealised P/L">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="math"
+        title="pool_positions.ex :: summary"
+        code={~S"""
+current_value  = current_lp × current_lp_price
+unrealized_pnl = current_value - total_cost
+total_pnl      = unrealized_pnl + realized_gain
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Pre-existing holders are seeded on first render">
+      <p>
+        If you acquired SOL-LP or BUX-LP before the position tracking existed (or transferred from another wallet), you won't have a row in <BlocksterV2Web.DocsComponents.inline_code>user_pool_positions</BlocksterV2Web.DocsComponents.inline_code>. On your first load of the detail page we call <BlocksterV2Web.DocsComponents.inline_code>seed_if_missing/4</BlocksterV2Web.DocsComponents.inline_code>, which writes <BlocksterV2Web.DocsComponents.inline_code>cost_basis = current_lp × current_lp_price</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>realized_gain = 0</BlocksterV2Web.DocsComponents.inline_code>.
+      </p>
+      <p>
+        Translation: your P/L will read as zero on that first visit, and accrue from there. If you want true historical cost, you'd need to read your on-chain transaction history and reconstruct it manually.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="history" title="Price history & real-time chart" eyebrow="08">
+    <p>
+      Both pool detail pages display a sparkline of LP price over time, with selectable 1H / 24H / 7D / 30D / All timeframes. The data is collected by a cluster-wide GenServer and broadcast to every connected client via PubSub.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Collection">
+      <ul>
+        <li><strong>Periodic poll</strong> — <BlocksterV2Web.DocsComponents.inline_code>LpPriceTracker</BlocksterV2Web.DocsComponents.inline_code> pulls <BlocksterV2Web.DocsComponents.inline_code>/pool-stats</BlocksterV2Web.DocsComponents.inline_code> from the settler once per minute. Writes are throttled: if the last write was &lt;60s ago we skip.</li>
+        <li><strong>Event-driven</strong> — Whenever a <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> is confirmed, the tracker gets a <BlocksterV2Web.DocsComponents.inline_code>&lbrace;:bet_settled, vault_type&rbrace;</BlocksterV2Web.DocsComponents.inline_code> message and writes a new price point immediately with <BlocksterV2Web.DocsComponents.inline_code>force: true</BlocksterV2Web.DocsComponents.inline_code>, bypassing the throttle. This is why the chart jiggles the moment a bet settles.</li>
+        <li><strong>Pruning</strong> — Once per day we delete everything older than 30 days.</li>
+      </ul>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Downsampling">
+      <p>
+        Reading "the last 30 days" at 1-minute resolution would be ~43,000 points, too many to render smoothly. Each timeframe has a bucket size; points are grouped into buckets and the last point of each bucket is returned.
+      </p>
+
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :tf, label: "Timeframe", mono: true},
+          %{key: :window, label: "Window"},
+          %{key: :bucket, label: "Bucket size"}
+        ]}
+        rows={[
+          %{tf: "1H", window: "3,600 s", bucket: "60 s"},
+          %{tf: "24H", window: "86,400 s", bucket: "300 s"},
+          %{tf: "7D", window: "604,800 s", bucket: "1,800 s"},
+          %{tf: "30D", window: "2,592,000 s", bucket: "7,200 s"},
+          %{tf: "All", window: "unbounded", bucket: "86,400 s"}
+        ]}
+      />
+
+      <p>
+        Below 500 points we skip downsampling entirely, so short histories look identical to raw data.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Live updates">
+      <p>
+        The LiveView subscribes to <BlocksterV2Web.DocsComponents.inline_code>pool_chart:vault_type</BlocksterV2Web.DocsComponents.inline_code> on mount. When a new point is recorded, PubSub fires a <BlocksterV2Web.DocsComponents.inline_code>chart_point</BlocksterV2Web.DocsComponents.inline_code> message. The LiveView pushes a <BlocksterV2Web.DocsComponents.inline_code>chart_update</BlocksterV2Web.DocsComponents.inline_code> JS event, the chart hook appends it without re-fetching history.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="risk" title="Risk profile" eyebrow="09">
+    <p>
+      Being an LP here is not a deposit account. It is an investment with specific, large, quantifiable risks.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="1. Short-run drawdowns">
+      <p>
+        A single lucky bettor can push LP price down by several percent in a few seconds. Five wins in a row at the 31.68× difficulty — each at the maximum bet — could dent the pool by a material percentage even though the expected value is strongly positive. Drawdowns of 5–10% over an hour are plausible. You have no insurance against them.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="2. Smart-contract risk">
+      <p>
+        Your deposit is locked in an on-chain program. If that program has a bug that lets someone drain the vault, your LP tokens go to zero with it. Our program has been reviewed (see the <.link navigate={~p"/docs/security-audit"}>Security Audit</.link>), but no review eliminates this risk entirely.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="3. Authority risk">
+      <p>
+        The program has an authority keypair that can pause operations, register new games, and change per-game config (including multipliers). A compromised authority key could in principle push multipliers above 2×, turning every bet into a negative-EV trade for the LP. We document this fully in the audit and are actively planning to migrate authority to a multisig before mainnet. For now, LPs are trusting the authority keypair is secure.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="4. Liquidity risk">
+      <p>
+        Withdrawals are capped at <em>available</em> balance — the vault balance minus the rent buffer minus the outstanding liability. If many bets are pending simultaneously, a withdrawal might fail until those bets settle. In practice bets settle in seconds, so this is a latency issue, not a solvency one.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="5. Referral drag">
+      <p>
+        Losing bets trigger referral rewards (1% tier-1 plus up to 0.5% tier-2) that come <em>out of the vault</em>. LPs subsidise the referral programme; the house does not take a separate cut to fund it. This is already baked into the effective house edge (~0.5–0.7% net to LPs on Win All variants after referrals) but worth being aware of.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="referrals" title="Referrals" eyebrow="10">
+    <p>
+      Every player has exactly one tier-1 referrer (one-time set) and an auto-resolved tier-2 referrer (their referrer's referrer). When a player loses a bet, the settlement instruction pays a percentage of the lost wager to each referrer directly from the vault.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Referral rates (configurable via update_config)"
+      rows={[
+        {"Tier-1", "100 bps (1%) of lost wager"},
+        {"Tier-2", "50 bps (0.5%) of lost wager"},
+        {"Combined cap", "500 bps — enforced by update_config"},
+        {"Per-tier cap", "500 bps — enforced by update_config"},
+        {"Payout currency", "Same as the bet (SOL → SOL, BUX → BUX)"},
+        {"Failure mode", "ReferralRewardFailed event; settlement continues"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="info" title="Referrals are best-effort">
+      <p>
+        If the referrer's ATA doesn't exist, or the CPI transfer fails for any other reason, the program emits <BlocksterV2Web.DocsComponents.inline_code>ReferralRewardFailed</BlocksterV2Web.DocsComponents.inline_code> and continues. Bet settlement <em>never</em> reverts on a failed referral payout — prioritising the player's outcome over the referrer's reward.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Anti-loop protection">
+      <p>
+        The program blocks self-referral (<BlocksterV2Web.DocsComponents.inline_code>player_key != referrer_key</BlocksterV2Web.DocsComponents.inline_code>) and zeroes tier-2 if it would point back at the player (closing a two-hop loop). It does not enumerate long cycles, but since tier-2 is auto-resolved at <BlocksterV2Web.DocsComponents.inline_code>set_referrer</BlocksterV2Web.DocsComponents.inline_code> time and cannot be changed later, the chain length is capped at 2 by construction.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="instructions" title="On-chain instructions used by pools" eyebrow="11">
+    <p>
+      Four of the program's 22 instructions are pool-facing. They are mirror pairs across SOL and BUX — same logic, different accounts.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.spec_table
+      cols={[
+        %{key: :name, label: "Instruction", mono: true},
+        %{key: :signer, label: "Signer"},
+        %{key: :purpose, label: "Purpose"}
+      ]}
+      rows={[
+        %{name: "deposit_sol", signer: "Depositor", purpose: "Transfer SOL into vault, mint SOL-LP to depositor's ATA"},
+        %{name: "withdraw_sol", signer: "Withdrawer", purpose: "Burn SOL-LP, transfer SOL out of vault"},
+        %{name: "deposit_bux", signer: "Depositor", purpose: "Transfer BUX into vault, mint BUX-LP to depositor's ATA"},
+        %{name: "withdraw_bux", signer: "Withdrawer", purpose: "Burn BUX-LP, transfer BUX out of vault"},
+        %{name: "create_lp_metadata", signer: "Authority", purpose: "One-time CPI to Metaplex to attach name/symbol/URI metadata to SOL-LP or BUX-LP mint"}
+      ]}
+    />
+
+    <p>
+      All four deposit/withdraw variants reject when <BlocksterV2Web.DocsComponents.inline_code>game_registry.paused == true</BlocksterV2Web.DocsComponents.inline_code>, and they don't take any game-level arguments — deposits are not associated with a specific game.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <div class="mt-16 pt-8 border-t border-[#E8EAF0] flex items-center justify-between gap-4 flex-wrap">
+    <.link navigate={~p"/docs/provably-fair"} class="text-[13px] text-[#515B70] hover:text-[#141414] underline cursor-pointer">← Provably fair</.link>
+    <.link navigate={~p"/docs/smart-contracts"} class="text-[13px] font-haas_bold_75 text-[#141414] hover:underline cursor-pointer">Next: Smart contracts →</.link>
+  </div>
+</BlocksterV2Web.DocsComponents.docs_shell>

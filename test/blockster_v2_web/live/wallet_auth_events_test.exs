@@ -97,13 +97,6 @@ defmodule BlocksterV2Web.WalletAuthEventsTest do
       assert html =~ "provider=google"
     end
 
-    test "start_apple_login sets connecting_provider=apple", %{conn: conn} do
-      {:ok, view, _html} = render_host(conn)
-      render_hook(view, "start_apple_login", %{})
-      html = render(view)
-      assert html =~ "provider=apple"
-    end
-
     test "start_telegram_login sets connecting_provider=telegram", %{conn: conn} do
       {:ok, view, _html} = render_host(conn)
       render_hook(view, "start_telegram_login", %{})

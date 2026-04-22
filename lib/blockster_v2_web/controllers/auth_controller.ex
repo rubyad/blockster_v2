@@ -237,20 +237,29 @@ defmodule BlocksterV2Web.AuthController do
   Verifies the Web3Auth-issued ID token (ES256 signed by api-auth.web3auth.io)
   and creates or looks up the user. Sets a session cookie on success.
   """
-  def verify_web3auth(conn, %{"wallet_address" => wallet_address, "id_token" => id_token})
+  def verify_web3auth(conn, %{"wallet_address" => wallet_address, "id_token" => id_token} = params)
       when is_binary(wallet_address) and is_binary(id_token) do
     case BlocksterV2.Auth.Web3Auth.verify_id_token(id_token,
            expected_wallet_pubkey: wallet_address
          ) do
       {:ok, claims} ->
+        # Web3Auth's JWT doesn't carry an `authConnection` claim — that field
+        # only exists in the browser's userInfo response. The client pushes
+        # the provider it actually used; fold it into claims so
+        # `auth_method_for/1` can pick the right label (web3auth_x vs
+        # web3auth_email vs web3auth_telegram) instead of defaulting to email.
+        claims =
+          case params["provider"] do
+            p when is_binary(p) and p != "" -> Map.put(claims, :client_provider, p)
+            _ -> claims
+          end
+
         case BlocksterV2.Accounts.get_or_create_user_by_web3auth(claims) do
           {:ok, user, session, is_new_user} ->
-            source =
-              case claims.auth_connection do
-                "twitter" -> "web3auth_x"
-                "custom" -> "web3auth_telegram"
-                _ -> "web3auth_email"
-              end
+            # Prefer the server-decided auth_method on the user row over
+            # re-deriving from claims — keeps the telemetry label consistent
+            # with what the user actually sees on their profile.
+            source = user.auth_method || "web3auth_email"
 
             UserEvents.track(user.id, "daily_login", %{source: source})
 

@@ -1,0 +1,150 @@
+<BlocksterV2Web.DocsComponents.docs_shell
+  current_user={@current_user}
+  active="/docs"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  announcement_banner={assigns[:announcement_banner]}
+>
+  <BlocksterV2Web.DocsComponents.docs_hero
+    eyebrow="Blockster docs · v1.0"
+    title="How Blockster works, from the bet to the byte."
+    description="Every last mechanic in our on-chain games and liquidity pools — the math, the smart contracts, the provably-fair scheme, and an independent security audit of the program that holds the money."
+  />
+
+  <BlocksterV2Web.DocsComponents.stat_row>
+    <:stat label="Games live" value="1" sub="Coin Flip (game_id 1)" />
+    <:stat label="Vaults" value="2" sub="SOL · BUX" />
+    <:stat label="LP tokens" value="SOL-LP · BUX-LP" sub="9-decimal SPL" />
+    <:stat label="Program" value="49up...T2tm" sub="Solana · Anchor" />
+  </BlocksterV2Web.DocsComponents.stat_row>
+
+  <BlocksterV2Web.DocsComponents.section id="what" title="What is Blockster?">
+    <p>
+      Blockster is a Solana-native content platform with a casino and a liquidity pool stapled to it. Every post you read earns BUX. Every BUX you earn — and every SOL you deposit — can be wagered on a fully on-chain coin flip, or staked in one of our two liquidity pools to earn the house edge as yield.
+    </p>
+    <p>
+      There is no custodian, no promise, no "trust us." The pools, the bets, the settlement, and the payouts all live in a single Anchor program (<BlocksterV2Web.DocsComponents.inline_code>49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm</BlocksterV2Web.DocsComponents.inline_code>) deployed to Solana. Your coin-flip outcome is computed off-chain from a seed we committed on-chain <em>before</em> you placed your bet — you can always verify it yourself.
+    </p>
+    <p>
+      These docs cover every piece of that system, top to bottom. They are written for people who want to know how the sausage is actually made.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="where-to-start" title="Where to start">
+    <p>
+      Pick the path that fits what you're trying to do. Each page links forward to the next logical step, so reading from the top works just as well.
+    </p>
+
+    <div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <.link navigate={~p"/docs/coin-flip"} class="group block p-5 rounded-xl border border-[#E8EAF0] bg-white hover:border-[#141414] transition-colors cursor-pointer">
+        <div class="text-[10px] uppercase tracking-[0.18em] text-[#9AA0AE] font-bold mb-2">01 · Games</div>
+        <div class="font-haas_bold_75 text-[17px] text-[#141414] mb-1.5 group-hover:underline">Coin Flip</div>
+        <div class="text-[13px] text-[#515B70] leading-[1.5]">Heads or tails, single flips up to chains of five. Multipliers from 1.02× to 31.68×. All settlement happens on-chain.</div>
+      </.link>
+
+      <.link navigate={~p"/docs/provably-fair"} class="group block p-5 rounded-xl border border-[#E8EAF0] bg-white hover:border-[#141414] transition-colors cursor-pointer">
+        <div class="text-[10px] uppercase tracking-[0.18em] text-[#9AA0AE] font-bold mb-2">02 · Verify</div>
+        <div class="font-haas_bold_75 text-[17px] text-[#141414] mb-1.5 group-hover:underline">Provably fair</div>
+        <div class="text-[13px] text-[#515B70] leading-[1.5]">The commit-reveal scheme that makes every flip reproducible. Includes a step-by-step "verify it yourself" walkthrough.</div>
+      </.link>
+
+      <.link navigate={~p"/docs/pools"} class="group block p-5 rounded-xl border border-[#E8EAF0] bg-white hover:border-[#141414] transition-colors cursor-pointer">
+        <div class="text-[10px] uppercase tracking-[0.18em] text-[#9AA0AE] font-bold mb-2">03 · Yield</div>
+        <div class="font-haas_bold_75 text-[17px] text-[#141414] mb-1.5 group-hover:underline">Pools & LP</div>
+        <div class="text-[13px] text-[#515B70] leading-[1.5]">Deposit SOL or BUX, receive SOL-LP or BUX-LP LP tokens. LP price rises when bettors lose. Dual-vault, on-chain, non-custodial.</div>
+      </.link>
+
+      <.link navigate={~p"/docs/smart-contracts"} class="group block p-5 rounded-xl border border-[#E8EAF0] bg-white hover:border-[#141414] transition-colors cursor-pointer">
+        <div class="text-[10px] uppercase tracking-[0.18em] text-[#9AA0AE] font-bold mb-2">04 · Reference</div>
+        <div class="font-haas_bold_75 text-[17px] text-[#141414] mb-1.5 group-hover:underline">Smart contracts</div>
+        <div class="text-[13px] text-[#515B70] leading-[1.5]">Every instruction, every PDA, every account, every error code, every event. The full reference for developers and auditors.</div>
+      </.link>
+
+      <.link navigate={~p"/docs/security-audit"} class="group block p-5 rounded-xl border border-[#141414] bg-[#0A0F1C] text-white hover:bg-[#141414] transition-colors cursor-pointer md:col-span-2">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] uppercase tracking-[0.18em] text-[#CAFC00] font-bold mb-2">05 · Security</div>
+            <div class="font-haas_bold_75 text-[20px] mb-1.5 group-hover:underline">Full security audit</div>
+            <div class="text-[13px] text-white/70 leading-[1.5] max-w-[520px]">Independent line-by-line review of the Blockster Bankroll Anchor program. 22 instructions, 7 account structs, 32 error codes. Findings published in full.</div>
+          </div>
+          <div class="shrink-0 hidden md:flex items-center gap-2 text-[11px] font-mono text-white/50">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00]"></span>
+            <span>0 CRITICAL · 0 HIGH · 2 MEDIUM</span>
+          </div>
+        </div>
+      </.link>
+    </div>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="addresses" title="Canonical addresses">
+    <p>
+      These are the on-chain addresses that back everything in these docs. They are deployed on Solana devnet today and will be re-deployed to mainnet with the same seed derivations (PDAs) at launch.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Programs & mints"
+      rows={[
+        {"Bankroll program", "49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm"},
+        {"Airdrop program", "wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG"},
+        {"BUX mint", "7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX"},
+        {"SOL-LP mint (PDA)", "seeds = [\"bsol_mint\"]"},
+        {"BUX-LP mint (PDA)", "seeds = [\"bbux_mint\"]"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Vault PDAs (on-chain addresses)"
+      rows={[
+        {"SOL vault", "seeds = [\"sol_vault\"]"},
+        {"SOL vault state", "seeds = [\"sol_vault_state\"]"},
+        {"BUX vault token account", "seeds = [\"bux_token_account\"]"},
+        {"BUX vault state", "seeds = [\"bux_vault_state\"]"},
+        {"Game registry", "seeds = [\"game_registry\"]"},
+        {"Player state (per player)", "seeds = [\"player\", player_pubkey]"},
+        {"Bet order (per bet)", "seeds = [\"bet\", player_pubkey, nonce_le_bytes]"},
+        {"Referral state (per referrer)", "seeds = [\"referral\", referrer_pubkey]"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="note" title="Verify on Solscan">
+      <p>
+        Paste any address above into <a href="https://solscan.io/?cluster=devnet" target="_blank" rel="noopener">solscan.io (devnet)</a> to see the live account state, instruction history, and token balances. Every deposit, bet, settlement, and withdrawal is public.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="conventions" title="Conventions used in these docs">
+    <p>There are a few things we do throughout that are worth noting up front so you can skim fluently.</p>
+
+    <ul>
+      <li><strong>Basis points (bps).</strong> 10,000 bps = 100%. A 1.98× multiplier is stored as <BlocksterV2Web.DocsComponents.inline_code>19800</BlocksterV2Web.DocsComponents.inline_code> bps. A 1% referral rate is <BlocksterV2Web.DocsComponents.inline_code>100</BlocksterV2Web.DocsComponents.inline_code> bps.</li>
+      <li><strong>Token decimals.</strong> SOL has 9 decimals (1 SOL = 10⁹ lamports). BUX has 9 decimals (1 BUX = 10⁹ base units). SOL-LP and BUX-LP LP tokens both have 9 decimals and inherit the precision of their underlying vault.</li>
+      <li><strong>Integer math everywhere.</strong> On-chain math uses u64 with u128 intermediates for overflow safety. Division <em>truncates</em>. Off-chain math uses <BlocksterV2Web.DocsComponents.inline_code>trunc/1</BlocksterV2Web.DocsComponents.inline_code>, not <BlocksterV2Web.DocsComponents.inline_code>Float.round/1</BlocksterV2Web.DocsComponents.inline_code>, to match.</li>
+      <li><strong>PDAs.</strong> Program-Derived Addresses are account addresses that a program can sign for. Every persistent piece of state in the bankroll lives at a PDA with a specific seed formula — we list them all above.</li>
+      <li><strong>Lamports.</strong> The base unit of SOL. 1 SOL = 1,000,000,000 lamports. On-chain balances and bet amounts are always denominated in lamports.</li>
+    </ul>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="disclaimer" title="A word on risk">
+    <BlocksterV2Web.DocsComponents.callout kind="warning" title="Read before you play or deposit">
+      <p>
+        <strong>Gambling is risk.</strong> Every coin flip has a house edge. Over time, the house wins. You can lose everything you wager. Do not play with money you can't afford to lose. Do not play if gambling is illegal in your jurisdiction.
+      </p>
+      <p>
+        <strong>Liquidity provision is risk.</strong> LPs are the house. When bettors win, the vault pays them — and the LP price falls. A cold streak for the house is a real drawdown for you. Over a long enough horizon, the house edge wins, but "long enough" can be longer than your patience.
+      </p>
+      <p>
+        Nothing in these docs is financial advice. Every number in these docs is pulled from the source — so you can verify it — but that verification is your responsibility, not ours.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+</BlocksterV2Web.DocsComponents.docs_shell>

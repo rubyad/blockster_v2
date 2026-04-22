@@ -450,6 +450,11 @@ defmodule BlocksterV2Web.PoolIndexLive do
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[560px]">
                 Deposit SOL or BUX into the bankroll. Earn from every losing bet, get paid in real time, withdraw anytime. The bankroll is the bank — and the depositors are the house.
               </p>
+              <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
+                <.link navigate={~p"/docs/pools"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How pools work ↗</.link>
+                <.link navigate={~p"/docs/smart-contracts"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Smart contracts ↗</.link>
+                <.link navigate={~p"/docs/security-audit"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
+              </div>
             </div>
             <div class="col-span-12 md:col-span-5">
               <div class="grid grid-cols-3 gap-3">

@@ -388,7 +388,12 @@ export const SolanaWallet = {
         const resp = await fetch("/api/auth/web3auth/session", {
           method: "POST",
           headers: { "content-type": "application/json", "x-csrf-token": csrf },
-          body: JSON.stringify({ wallet_address, id_token }),
+          // Include provider so the server can set the correct auth_method.
+          // Web3Auth's JWT does NOT carry an `authConnection` claim — the
+          // server can't reliably infer twitter/google/email from claims
+          // alone, so it defaults to "web3auth_email" and mislabels non-email
+          // logins. The client knows the provider exactly; trust it.
+          body: JSON.stringify({ wallet_address, id_token, provider }),
         })
         if (resp.ok) {
           const json = await resp.json()

@@ -148,7 +148,11 @@ defmodule BlocksterV2.Accounts.User do
       :email_verified
     ])
     |> put_change(:is_verified, true)
-    |> put_change(:email_verified, auth_method == "web3auth_email")
+    # email_verified is ONLY true when we actually have an email on file —
+    # otherwise the Settings page shows a green "Verified" badge for an
+    # email field that reads "No email set", and the multiplier system
+    # credits a verified email the user never supplied.
+    |> put_email_verified(auth_method, Map.get(attrs, "email"))
     |> put_telegram_connected_at(auth_method)
     |> validate_required([:wallet_address, :auth_method])
     |> validate_inclusion(:auth_method, [
@@ -168,6 +172,15 @@ defmodule BlocksterV2.Accounts.User do
     |> unique_constraint(:x_user_id,
          message: "this X account is already connected to another user"
        )
+  end
+
+  defp put_email_verified(changeset, "web3auth_email", email)
+       when is_binary(email) and email != "" do
+    put_change(changeset, :email_verified, true)
+  end
+
+  defp put_email_verified(changeset, _auth_method, _email) do
+    put_change(changeset, :email_verified, false)
   end
 
   defp put_telegram_connected_at(changeset, "web3auth_telegram") do

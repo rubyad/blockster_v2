@@ -1,0 +1,710 @@
+<BlocksterV2Web.DocsComponents.docs_shell
+  current_user={@current_user}
+  active="/docs/security-audit"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  announcement_banner={assigns[:announcement_banner]}
+>
+  <BlocksterV2Web.DocsComponents.docs_hero
+    eyebrow="Security · Audit report"
+    title="Blockster Bankroll — security audit."
+    description="An independent, line-by-line review of the Anchor program that backs Blockster's coin flip game and dual-vault liquidity pools. 22 instructions, 7 account structs, 32 error codes, roughly 1,200 lines of Rust."
+  />
+
+  <div class="not-prose my-8 rounded-2xl bg-[#0A0F1C] text-white p-6 md:p-8">
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-[#CAFC00] font-bold mb-2">Audit · Final report</div>
+        <div class="font-haas_bold_75 text-[22px] leading-tight">Blockster Bankroll v1</div>
+        <div class="text-[13px] text-white/55 font-mono mt-1">Program 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm</div>
+      </div>
+      <div class="flex flex-col items-end gap-1 text-[11px] text-white/60 font-mono">
+        <div>Report version: 1.0</div>
+        <div>Delivered: 2026-04-21</div>
+        <div>Commit: <span class="text-[#CAFC00]">feat/solana-migration @ 1d4985d</span></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-1">Critical</div>
+        <div class="font-haas_bold_75 text-[28px] text-[#CAFC00] leading-none">0</div>
+      </div>
+      <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-1">High</div>
+        <div class="font-haas_bold_75 text-[28px] text-[#CAFC00] leading-none">0</div>
+      </div>
+      <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-1">Medium</div>
+        <div class="font-haas_bold_75 text-[28px] text-white leading-none">2</div>
+      </div>
+      <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-1">Low</div>
+        <div class="font-haas_bold_75 text-[28px] text-white leading-none">6</div>
+      </div>
+      <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4 col-span-2 md:col-span-1">
+        <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-1">Informational</div>
+        <div class="font-haas_bold_75 text-[28px] text-white leading-none">8</div>
+      </div>
+    </div>
+
+    <div class="mt-6 pt-6 border-t border-white/10 text-[13px] text-white/70 leading-[1.6]">
+      <strong class="text-white">Verdict:</strong> the program is well-structured and defends against most conventional attack vectors — nonce reuse, commit-reveal tampering, SOL vault authority hijacks, PDA seed confusion, arithmetic overflow, unauthorized settlement. We surface two <em>Medium</em> findings related to centralization (the settler holds unilateral outcome authority and some admin keys are not on-chain rotatable) that constrain how much trust LPs can extend without additional operational controls.
+    </div>
+  </div>
+
+  <BlocksterV2Web.DocsComponents.page_toc items={[
+    %{id: "summary", label: "Executive summary"},
+    %{id: "scope", label: "Scope"},
+    %{id: "methodology", label: "Methodology"},
+    %{id: "findings", label: "Findings"},
+    %{id: "medium", label: "Medium findings"},
+    %{id: "low", label: "Low findings"},
+    %{id: "info", label: "Informational"},
+    %{id: "verified", label: "Verified properties"},
+    %{id: "oos", label: "Out of scope"},
+    %{id: "notes", label: "Auditor notes"}
+  ]} />
+
+  <BlocksterV2Web.DocsComponents.section id="summary" title="Executive summary" eyebrow="01">
+    <p>
+      This report details an independent security review of the Blockster Bankroll Anchor program, the on-chain smart contract that custodies SOL and BUX deposits, tracks bettor positions, and executes settlement for the Coin Flip game on Solana. Review was conducted at commit <BlocksterV2Web.DocsComponents.inline_code>1d4985d</BlocksterV2Web.DocsComponents.inline_code> on the <BlocksterV2Web.DocsComponents.inline_code>feat/solana-migration</BlocksterV2Web.DocsComponents.inline_code> branch.
+    </p>
+    <p>
+      The program implements a commit-reveal randomness scheme, a two-vault LP pool with standard AMM-style share math, a registry of parametric games bounded by safety caps, and a two-tier referral programme. Arithmetic uses <BlocksterV2Web.DocsComponents.inline_code>u64</BlocksterV2Web.DocsComponents.inline_code> with <BlocksterV2Web.DocsComponents.inline_code>u128</BlocksterV2Web.DocsComponents.inline_code> intermediates and consistently employs <BlocksterV2Web.DocsComponents.inline_code>checked_*</BlocksterV2Web.DocsComponents.inline_code> variants. PDAs are derived with canonical seeds and bumps are stored to avoid recomputation. SPL Token and System Program CPIs use signer seeds correctly.
+    </p>
+    <p>
+      Two Medium findings stand out. <strong>M-01</strong> notes that the on-chain program does not recompute win/loss from the revealed seed — it accepts the <BlocksterV2Web.DocsComponents.inline_code>won</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>payout</BlocksterV2Web.DocsComponents.inline_code> parameters from the settler at face value. Combined with the fact that the settler is a single keypair rather than a multi-signer setup, this concentrates outcome authority off-chain. <strong>M-02</strong> flags that the program-internal <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code> field is not rotatable on-chain, so an authority-key compromise requires full program redeployment via the upgrade authority.
+    </p>
+    <p>
+      The six Low findings and eight Informational findings are mostly hardening opportunities: per-bet vs aggregate liability controls, slippage parameters on deposits, dead fields, misleading error names, and explicit documentation of where trust still resides. None are exploitable against user funds as currently configured.
+    </p>
+    <p>
+      The program is suitable for devnet operation as-is and is suitable for mainnet operation with the operational controls described in M-01 and M-02 (multisig on authority, documented settler rotation, published outcome-verification tooling). LPs evaluating the protocol should read M-01 carefully and form their own view on the settler trust assumption before depositing meaningful capital.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="scope" title="Scope" eyebrow="02">
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="In scope"
+      rows={[
+        {"Crate", "contracts/blockster-bankroll/programs/blockster-bankroll"},
+        {"lib.rs", "Program entrypoints (22 instruction handlers)"},
+        {"instructions/", "16 instruction files covering init, LP, bet lifecycle, referrals, admin"},
+        {"state/", "7 account structs: GameRegistry, SolVaultState, BuxVaultState, PlayerState, BetOrder, ReferralState, GameEntry (embedded)"},
+        {"math.rs", "LP price, LP mint/burn, max-bet, max-payout, referral reward calculators"},
+        {"errors.rs", "32 error codes"},
+        {"events.rs", "14 emitted events"},
+        {"CPIs", "System Program transfers, SPL Token mint/burn/transfer, Metaplex Token Metadata creation"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Out of scope"
+      rows={[
+        {"Settler service", "contracts/blockster-settler (TypeScript) — reviewed informally for CPIs but not audited independently"},
+        {"Phoenix backend", "Off-chain game server, Mnesia cache, LiveView UI"},
+        {"Deployment process", "CI/CD, keypair custody, key rotation operations"},
+        {"Airdrop program", "wxiuLBuqxem5... — separate crate not reviewed here"},
+        {"Legacy EVM contracts", "contracts/legacy-evm preserved for archive only"},
+        {"Economic design", "House edge calibration, game theory, expected LP returns"}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="methodology" title="Methodology" eyebrow="03">
+    <p>
+      Review was conducted as a full manual read of all Rust source files with cross-reference to the Anchor IDL. For each instruction we enumerated:
+    </p>
+    <ul>
+      <li><strong>Signer set:</strong> which accounts are <BlocksterV2Web.DocsComponents.inline_code>Signer&lt;T&gt;</BlocksterV2Web.DocsComponents.inline_code>, and what constraints bind them.</li>
+      <li><strong>Account validation:</strong> seed derivations, <BlocksterV2Web.DocsComponents.inline_code>has_one</BlocksterV2Web.DocsComponents.inline_code> relationships, ownership checks.</li>
+      <li><strong>Pre-conditions:</strong> every <BlocksterV2Web.DocsComponents.inline_code>require!</BlocksterV2Web.DocsComponents.inline_code> and constraint, mapped to error codes.</li>
+      <li><strong>State transitions:</strong> what fields are read and written, whether mutations can be reverted if downstream logic fails.</li>
+      <li><strong>CPI safety:</strong> whether invoked_signed seeds match the PDA holding authority, and whether token programs are the ones expected.</li>
+      <li><strong>Arithmetic:</strong> overflow, underflow, division-by-zero, signed-vs-unsigned, precision loss in truncation.</li>
+    </ul>
+
+    <p>We built the following mental threat model and probed each instruction against it:</p>
+
+    <ul>
+      <li>A malicious player attempting to withdraw more than their share, settle bets they didn't place, or manipulate outcomes.</li>
+      <li>A malicious settler attempting to drain the vault via selective settlements, reuse commitments, or pay themselves.</li>
+      <li>A malicious authority attempting to set exploitative config (huge multipliers, 100% fees) before a legitimate bet settles.</li>
+      <li>A front-runner attempting to sandwich deposits or withdrawals.</li>
+      <li>An uninvolved party attempting to block or poison settlement by interacting with the PDAs.</li>
+    </ul>
+
+    <p>
+      Where a threat was successfully defended, we recorded it under <em>Verified properties</em>. Where a threat revealed an exposure, we recorded it as a finding.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="findings" title="Findings summary" eyebrow="04">
+    <BlocksterV2Web.DocsComponents.spec_table
+      cols={[
+        %{key: :id, label: "ID", mono: true},
+        %{key: :title, label: "Title"},
+        %{key: :severity, label: "Severity"},
+        %{key: :status, label: "Status"}
+      ]}
+      rows={[
+        %{id: "M-01", title: "Outcome (won, payout) determined off-chain; settler has unilateral control", severity: "Medium", status: "Acknowledged"},
+        %{id: "M-02", title: "authority field is not rotatable on-chain", severity: "Medium", status: "Acknowledged"},
+        %{id: "L-01", title: "No aggregate cap on total_liability as a fraction of vault balance", severity: "Low", status: "Acknowledged"},
+        %{id: "L-02", title: "Settler keypair is a single point of failure for rent recovery across placement rotations", severity: "Low", status: "By design"},
+        %{id: "L-03", title: "Game multipliers can be rewritten with no slippage protection for in-flight bet prep", severity: "Low", status: "Acknowledged"},
+        %{id: "L-04", title: "fee_bps is stored and validated but never applied in settlement", severity: "Low", status: "Acknowledged"},
+        %{id: "L-05", title: "InvalidServerSeed error reused for has_one = player mismatches", severity: "Low", status: "Acknowledged"},
+        %{id: "L-06", title: "Settler can self-DoS by spamming submit_commitment for arbitrary wallets", severity: "Low", status: "By design"},
+        %{id: "I-01", title: "has_active_order field in PlayerState is dead code", severity: "Informational", status: "Acknowledged"},
+        %{id: "I-02", title: "MINIMUM_LIQUIDITY is a flat 10,000 regardless of token decimals", severity: "Informational", status: "By design"},
+        %{id: "I-03", title: "No slippage parameter on deposit/withdraw instructions", severity: "Informational", status: "Acknowledged"},
+        %{id: "I-04", title: "submit_commitment allows arbitrarily large future nonces", severity: "Informational", status: "By design"},
+        %{id: "I-05", title: "Referral rewards are paid from vault (LP cost), not from a separate fee bucket", severity: "Informational", status: "By design"},
+        %{id: "I-06", title: "Pause does not block settlement — intentional but should be explicit to LPs", severity: "Informational", status: "By design"},
+        %{id: "I-07", title: "UnauthorizedSettler error is raised for authority-role mismatches in pause/update_config", severity: "Informational", status: "Acknowledged"},
+        %{id: "I-08", title: "Events lack bet_order pubkey, requiring indexers to derive it", severity: "Informational", status: "Acknowledged"}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="medium" title="Medium findings" eyebrow="05">
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="M-01"
+      title="Outcome (won, payout) determined off-chain; settler has unilateral control"
+      severity="medium"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          The <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> instruction takes four caller-supplied arguments: <BlocksterV2Web.DocsComponents.inline_code>nonce</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>server_seed</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>won</BlocksterV2Web.DocsComponents.inline_code>, and <BlocksterV2Web.DocsComponents.inline_code>payout</BlocksterV2Web.DocsComponents.inline_code>. The program verifies three things:
+        </p>
+        <ul>
+          <li><BlocksterV2Web.DocsComponents.inline_code>SHA256(server_seed) == bet_order.commitment_hash</BlocksterV2Web.DocsComponents.inline_code></li>
+          <li>the bet has not expired</li>
+          <li><BlocksterV2Web.DocsComponents.inline_code>payout ≤ bet_order.max_payout</BlocksterV2Web.DocsComponents.inline_code></li>
+        </ul>
+        <p>
+          Critically, the program does <em>not</em> verify that the submitted <BlocksterV2Web.DocsComponents.inline_code>won</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>payout</BlocksterV2Web.DocsComponents.inline_code> are consistent with the revealed server seed and the bet parameters. The settler is trusted to derive them honestly off-chain.
+        </p>
+        <p>
+          Because the settler is a single Solana keypair (<BlocksterV2Web.DocsComponents.inline_code>game_registry.settler</BlocksterV2Web.DocsComponents.inline_code>) rather than a multisig, compromise of that key grants an attacker unilateral authority over outcomes. The per-bet guard <BlocksterV2Web.DocsComponents.inline_code>payout ≤ max_payout</BlocksterV2Web.DocsComponents.inline_code> limits exfiltration per bet to at most 2× the wager, but systematic abuse (e.g. declaring every bet a win) could drain the vault over many bets.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          <strong>Scenario 1: Settler key compromise.</strong> Attacker can route losing bets to themselves as wins (at up to 2× amount) and redirect payouts to a controlled wallet via referral misdirection. Bounded per-bet but unbounded in aggregate.
+        </p>
+        <p>
+          <strong>Scenario 2: Settler-player collusion.</strong> Operator can collude with a specific wallet, marking every bet from that wallet as a win at max_payout. Because the off-chain RNG is private, this is undetectable to external observers absent the <em>losing verification</em> that M-01's remediation would enable.
+        </p>
+        <p>
+          <strong>Scenario 3: Buggy settler.</strong> A bug in the off-chain outcome derivation (e.g. an off-by-one in byte extraction) would systematically misreport outcomes, with no on-chain tripwire.
+        </p>
+        <p>
+          <strong>Scope.</strong> Affects LP solvency in the long run. Individual players are not at risk — if anything, a buggy/malicious settler has incentive to overpay, not underpay, since clients can prove underpayment off-chain and reputational damage is a credible deterrent.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          <strong>Primary remediation (v2).</strong> Move outcome derivation on-chain. Store the bet's difficulty and predictions (max 5 bytes as a packed <BlocksterV2Web.DocsComponents.inline_code>u8</BlocksterV2Web.DocsComponents.inline_code>) in <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code>. On settle, the program should:
+        </p>
+        <ol>
+          <li>Recompute the client seed from <BlocksterV2Web.DocsComponents.inline_code>SHA256(player_pubkey ++ amount ++ vault_type ++ difficulty ++ predictions)</BlocksterV2Web.DocsComponents.inline_code>.</li>
+          <li>Compute <BlocksterV2Web.DocsComponents.inline_code>combined = SHA256(server_seed ++ client_seed ++ nonce)</BlocksterV2Web.DocsComponents.inline_code>.</li>
+          <li>Derive flips from the first <BlocksterV2Web.DocsComponents.inline_code>N</BlocksterV2Web.DocsComponents.inline_code> bytes, compute win per mode.</li>
+          <li>Compute payout as <BlocksterV2Web.DocsComponents.inline_code>amount × multiplier / 10000</BlocksterV2Web.DocsComponents.inline_code> if won, else 0.</li>
+          <li>Reject the settlement if the caller's submitted <BlocksterV2Web.DocsComponents.inline_code>won</BlocksterV2Web.DocsComponents.inline_code>/<BlocksterV2Web.DocsComponents.inline_code>payout</BlocksterV2Web.DocsComponents.inline_code> disagree with the derived values. (Or drop those arguments entirely and have the program compute them authoritatively.)</li>
+        </ol>
+        <p>
+          This eliminates the settler's outcome authority without changing the user experience. The settler remains responsible for revealing the seed and paying the compute; the chain becomes responsible for determining the result.
+        </p>
+        <p>
+          <strong>Interim remediation.</strong> Migrate the settler keypair to a Squads-style multisig, publish the outcome-derivation algorithm in documentation (done: see <.link navigate={~p"/docs/provably-fair"}>Provably Fair</.link> page), and provide a first-class verification tool so anyone can audit a posteriori.
+        </p>
+      </:recommendation>
+      <:references>
+        settle_bet.rs:120-161 (entry handler), settle_bet.rs:131-135 (hash check), bet_order.rs (fields that would need extending), math.rs:calculate_max_payout
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="M-02"
+      title="authority field is not rotatable on-chain"
+      severity="medium"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          The <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code> field of <BlocksterV2Web.DocsComponents.inline_code>GameRegistry</BlocksterV2Web.DocsComponents.inline_code> is written exactly once — at <BlocksterV2Web.DocsComponents.inline_code>initialize_registry</BlocksterV2Web.DocsComponents.inline_code> — and there is no instruction to update it. The authority can rotate the <em>settler</em> via <BlocksterV2Web.DocsComponents.inline_code>update_config</BlocksterV2Web.DocsComponents.inline_code>, but cannot rotate itself.
+        </p>
+        <p>
+          If the authority key is compromised, the only path to rotation is redeploying the program under a new authority via the off-chain upgrade authority (a separate key). That requires (a) the upgrade authority being held by someone other than the attacker, and (b) operational readiness to re-initialize PDAs in a way that's compatible with existing state.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          A compromised authority can:
+        </p>
+        <ul>
+          <li>Register a new game with arbitrary multipliers (e.g., 100× with unchecked <BlocksterV2Web.DocsComponents.inline_code>max_bet_bps</BlocksterV2Web.DocsComponents.inline_code> up to 5%), converting LP capital to house losses one bet at a time.</li>
+          <li>Rotate the settler to an attacker-controlled address and collect all rent / gain arbitrary outcome control per M-01.</li>
+          <li>Pause the program and leave it paused, denying users withdrawals (settlements still work, but deposits/withdrawals do not).</li>
+        </ul>
+        <p>
+          Caps on per-game <BlocksterV2Web.DocsComponents.inline_code>max_bet_bps</BlocksterV2Web.DocsComponents.inline_code> (500 = 5%) and <BlocksterV2Web.DocsComponents.inline_code>fee_bps</BlocksterV2Web.DocsComponents.inline_code> (1000 = 10%) bound the rate of exfiltration. The minimum multiplier of 100 (1×) prevents immediate zero-payout games, though nothing prevents the authority from registering a <BlocksterV2Web.DocsComponents.inline_code>1.01×</BlocksterV2Web.DocsComponents.inline_code> game that is unprofitable for LPs over time.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          <strong>Preferred (v2).</strong> Add a two-step <BlocksterV2Web.DocsComponents.inline_code>transfer_authority</BlocksterV2Web.DocsComponents.inline_code> instruction with:
+        </p>
+        <ol>
+          <li><BlocksterV2Web.DocsComponents.inline_code>propose_authority(new: Pubkey)</BlocksterV2Web.DocsComponents.inline_code> — writes <BlocksterV2Web.DocsComponents.inline_code>pending_authority</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>propose_timestamp</BlocksterV2Web.DocsComponents.inline_code>.</li>
+          <li><BlocksterV2Web.DocsComponents.inline_code>accept_authority()</BlocksterV2Web.DocsComponents.inline_code> — callable only by <BlocksterV2Web.DocsComponents.inline_code>pending_authority</BlocksterV2Web.DocsComponents.inline_code>, and only after a timelock of (say) 24h. Clears <BlocksterV2Web.DocsComponents.inline_code>pending_authority</BlocksterV2Web.DocsComponents.inline_code> and overwrites <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code>.</li>
+        </ol>
+        <p>
+          The timelock gives observers time to react if a proposed transfer looks suspicious. The two-step prevents accidental loss of authority to a key that doesn't exist.
+        </p>
+        <p>
+          <strong>Interim.</strong> Hold the authority key in a 2-of-3 Squads multisig, document the key custody clearly, and publish an incident-response runbook for upgrade-authority-assisted rotation.
+        </p>
+      </:recommendation>
+      <:references>
+        state/game_registry.rs:52, instructions/initialize.rs (sets authority), instructions/update_config.rs (can change settler but not authority), instructions/pause.rs:10 (constraint reads authority)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="low" title="Low findings" eyebrow="06">
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-01"
+      title="No aggregate cap on total_liability as a fraction of vault balance"
+      severity="low"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          Each bet is bounded in isolation by <BlocksterV2Web.DocsComponents.inline_code>potential_profit ≤ net_balance</BlocksterV2Web.DocsComponents.inline_code>, where <BlocksterV2Web.DocsComponents.inline_code>net_balance = vault − rent − total_liability</BlocksterV2Web.DocsComponents.inline_code>. As <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code> grows, <BlocksterV2Web.DocsComponents.inline_code>net_balance</BlocksterV2Web.DocsComponents.inline_code> shrinks, which tightens subsequent bets — but there is no hard upper bound on what fraction of the vault can be booked as liability at once.
+        </p>
+        <p>
+          In an extreme scenario with many simultaneous bets placed under <BlocksterV2Web.DocsComponents.inline_code>max_bet_bps = 5%</BlocksterV2Web.DocsComponents.inline_code> and the 31.68× difficulty, <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code> could asymptotically approach the vault balance, leaving little or no available liquidity for withdrawals until bets settle.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          Not a solvency risk: the vault can always cover any single bet's max_payout because that was the placement invariant. It is a <em>liquidity</em> risk: withdrawals would revert with <BlocksterV2Web.DocsComponents.inline_code>InsufficientLiquidity</BlocksterV2Web.DocsComponents.inline_code> until pending bets resolve. In practice bets settle in seconds so queueing is rare, but a coordinated wave of bets could transiently lock LP capital.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Introduce a system-level constant (e.g. <BlocksterV2Web.DocsComponents.inline_code>MAX_LIABILITY_BPS = 5000</BlocksterV2Web.DocsComponents.inline_code>) and enforce <BlocksterV2Web.DocsComponents.inline_code>total_liability ≤ vault_balance × MAX_LIABILITY_BPS / 10000</BlocksterV2Web.DocsComponents.inline_code> at placement. New bets revert with a new <BlocksterV2Web.DocsComponents.inline_code>LiabilityCapExceeded</BlocksterV2Web.DocsComponents.inline_code> error rather than <BlocksterV2Web.DocsComponents.inline_code>BetTooLarge</BlocksterV2Web.DocsComponents.inline_code>.
+        </p>
+      </:recommendation>
+      <:references>
+        place_bet_sol.rs:104-122, place_bet_bux.rs (mirror)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-02"
+      title="Settler keypair is a single point of failure for rent recovery across placement rotations"
+      severity="low"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          Each <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code> stores the <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> at placement time (enforced to equal the current <BlocksterV2Web.DocsComponents.inline_code>settler</BlocksterV2Web.DocsComponents.inline_code>). On settle_bet / reclaim_expired, the account closes and rent returns to that stored <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> via <BlocksterV2Web.DocsComponents.inline_code>has_one</BlocksterV2Web.DocsComponents.inline_code>.
+        </p>
+        <p>
+          If the settler is rotated via <BlocksterV2Web.DocsComponents.inline_code>update_config</BlocksterV2Web.DocsComponents.inline_code> while bets are pending, those pending bets still reference the <em>old</em> settler. The old key must remain accessible to:
+        </p>
+        <ul>
+          <li>Sign <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> (settler is the signer).</li>
+          <li>Receive the rent rebate on BetOrder close (both settle and reclaim).</li>
+        </ul>
+        <p>
+          If the old key is destroyed (e.g. compromise-forced rotation), the in-flight bets can only be resolved via <BlocksterV2Web.DocsComponents.inline_code>reclaim_expired</BlocksterV2Web.DocsComponents.inline_code> (player-signed), and the rent will still flow to the old settler's pubkey — which may now be attacker-controlled.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          Operational inconvenience rather than a fund-loss risk for users. The rent amount per BetOrder is small (around 2,000,000 lamports / 0.002 SOL). Total at-risk rent at any moment is bounded by <BlocksterV2Web.DocsComponents.inline_code>unsettled_count × rent_per_bet</BlocksterV2Web.DocsComponents.inline_code>, typically under 0.1 SOL.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Document the rotation runbook: before rotating settler, wait for all pending bets to settle or expire. For compromise-forced rotation, accept the transient rent loss. Alternatively, relax the <BlocksterV2Web.DocsComponents.inline_code>has_one = rent_payer</BlocksterV2Web.DocsComponents.inline_code> constraint to allow either the stored <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> or the current settler to receive rent.
+        </p>
+      </:recommendation>
+      <:references>
+        bet_order.rs:48, place_bet_sol.rs:75-78 (sets rent_payer), settle_bet.rs:62-63 (has_one), reclaim_expired.rs:53-54 (has_one)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-03"
+      title="Game multipliers can be rewritten with no slippage protection for in-flight bet prep"
+      severity="low"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>update_config</BlocksterV2Web.DocsComponents.inline_code> allows the authority to rewrite <BlocksterV2Web.DocsComponents.inline_code>new_game_multipliers: [u16; 9]</BlocksterV2Web.DocsComponents.inline_code> at any time. Each multiplier must be &gt;=100 if non-zero but is otherwise unbounded.
+        </p>
+        <p>
+          Placed bets are unaffected (their <BlocksterV2Web.DocsComponents.inline_code>max_payout</BlocksterV2Web.DocsComponents.inline_code> is fixed at placement). New bets use the new multipliers at placement time. If the UI quotes a bet at multiplier X, the user signs, and the authority rewrites to Y in between, the bet actually placed uses Y with no warning to the user.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          A user can end up betting on less-favourable terms than they agreed to. Impact is small because the signing window is typically 1–2 seconds; coordinated exploitation would require the authority to front-run user signatures. Most adversarial in a compromised-authority scenario (see M-02).
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Add an optional <BlocksterV2Web.DocsComponents.inline_code>expected_multiplier_bps: Option&lt;u64&gt;</BlocksterV2Web.DocsComponents.inline_code> argument to <BlocksterV2Web.DocsComponents.inline_code>place_bet_sol</BlocksterV2Web.DocsComponents.inline_code>/<BlocksterV2Web.DocsComponents.inline_code>place_bet_bux</BlocksterV2Web.DocsComponents.inline_code>. When <BlocksterV2Web.DocsComponents.inline_code>Some</BlocksterV2Web.DocsComponents.inline_code>, the program verifies it matches the current multiplier for the requested difficulty and reverts otherwise. Have the UI populate it from the live quote.
+        </p>
+        <p>
+          Alternatively, add a timelock to multiplier changes: writes take effect <em>N</em> seconds after they are proposed, giving clients time to re-quote.
+        </p>
+      </:recommendation>
+      <:references>
+        update_config.rs:110-118 (multipliers update path), place_bet_sol.rs:100-101 (reads multiplier at placement)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-04"
+      title="fee_bps is stored and validated but never applied in settlement"
+      severity="low"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>GameEntry.fee_bps</BlocksterV2Web.DocsComponents.inline_code> is set by <BlocksterV2Web.DocsComponents.inline_code>register_game</BlocksterV2Web.DocsComponents.inline_code> (capped at 1000 bps) and writable via <BlocksterV2Web.DocsComponents.inline_code>update_config</BlocksterV2Web.DocsComponents.inline_code>, but is never read by <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> or any other instruction. The field is effectively dead.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          Confusing for auditors and integrators reading the code — implies a protocol fee that doesn't exist. No security impact.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Either wire it in (deduct <BlocksterV2Web.DocsComponents.inline_code>payout × fee_bps / 10000</BlocksterV2Web.DocsComponents.inline_code> from payouts and accumulate in a <BlocksterV2Web.DocsComponents.inline_code>protocol_fee_accrued</BlocksterV2Web.DocsComponents.inline_code> field, plus a withdrawal instruction) or remove the field in the next account-layout upgrade.
+        </p>
+      </:recommendation>
+      <:references>
+        state/game_registry.rs:17-18, register_game.rs (validates cap), settle_bet.rs (does not read it)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-05"
+      title="InvalidServerSeed error reused for has_one = player mismatches"
+      severity="low"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          In <BlocksterV2Web.DocsComponents.inline_code>settle_bet.rs:77</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>reclaim_expired.rs:60, 69</BlocksterV2Web.DocsComponents.inline_code>, the <BlocksterV2Web.DocsComponents.inline_code>has_one = player</BlocksterV2Web.DocsComponents.inline_code> constraint carries the error <BlocksterV2Web.DocsComponents.inline_code>InvalidServerSeed</BlocksterV2Web.DocsComponents.inline_code>. A player-mismatch at settlement will surface to clients as "invalid server seed", which is misleading.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          Debug and monitoring ergonomics. No security impact.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Add an <BlocksterV2Web.DocsComponents.inline_code>InvalidPlayer</BlocksterV2Web.DocsComponents.inline_code> error code and use it for player-mismatch constraints. <BlocksterV2Web.DocsComponents.inline_code>InvalidServerSeed</BlocksterV2Web.DocsComponents.inline_code> should remain exclusive to the SHA-256 check in the handler.
+        </p>
+      </:recommendation>
+      <:references>
+        settle_bet.rs:77, reclaim_expired.rs:60, reclaim_expired.rs:69
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="L-06"
+      title="Settler can self-DoS by spamming submit_commitment for arbitrary wallets"
+      severity="low"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> uses <BlocksterV2Web.DocsComponents.inline_code>init_if_needed</BlocksterV2Web.DocsComponents.inline_code> to create the player's <BlocksterV2Web.DocsComponents.inline_code>PlayerState</BlocksterV2Web.DocsComponents.inline_code> PDA, with <BlocksterV2Web.DocsComponents.inline_code>payer = settler</BlocksterV2Web.DocsComponents.inline_code>. Nothing stops the settler from calling <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> for randomly generated pubkeys, allocating a <BlocksterV2Web.DocsComponents.inline_code>PlayerState</BlocksterV2Web.DocsComponents.inline_code> (~326 bytes, ~2.5 million lamports rent) for each. This is self-harm — the settler is spending its own SOL — but can drain a misconfigured fee-payer budget quickly.
+        </p>
+      </:description>
+      <:impact>
+        <p>
+          If the settler's SOL budget is exhausted, legitimate <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> calls (which require the settler as rent_payer) will fail, effectively pausing the game. The settler's private key is the only thing that can trigger this so it's a self-inflicted wound, not an external attack surface.
+        </p>
+      </:impact>
+      <:recommendation>
+        <p>
+          Monitor the settler balance and alert below a threshold. Consider moving <BlocksterV2Web.DocsComponents.inline_code>PlayerState</BlocksterV2Web.DocsComponents.inline_code> rent to the player (paid at <BlocksterV2Web.DocsComponents.inline_code>set_referrer</BlocksterV2Web.DocsComponents.inline_code> or first <BlocksterV2Web.DocsComponents.inline_code>place_bet</BlocksterV2Web.DocsComponents.inline_code>) — this pushes rent cost onto the real user who benefits from the state rather than onto the settler.
+        </p>
+      </:recommendation>
+      <:references>
+        submit_commitment.rs:26-32
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="info" title="Informational findings" eyebrow="07">
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-01"
+      title="has_active_order field in PlayerState is dead code"
+      severity="informational"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>PlayerState.has_active_order: bool</BlocksterV2Web.DocsComponents.inline_code> is declared and initialised to <BlocksterV2Web.DocsComponents.inline_code>false</BlocksterV2Web.DocsComponents.inline_code> in <BlocksterV2Web.DocsComponents.inline_code>submit_commitment.rs:50</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>set_referrer.rs:58</BlocksterV2Web.DocsComponents.inline_code>, but never read or toggled. Appears to be vestigial from a design where concurrent bets per player were forbidden. Remove or repurpose.
+        </p>
+      </:description>
+      <:references>
+        state/player_state.rs:17
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-02"
+      title="MINIMUM_LIQUIDITY is a flat 10,000 regardless of token decimals"
+      severity="informational"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          Both SOL (9 decimals) and BUX (9 decimals) use <BlocksterV2Web.DocsComponents.inline_code>MINIMUM_LIQUIDITY = 10_000</BlocksterV2Web.DocsComponents.inline_code>, which is 0.00001 of either token. Negligible at real deposit sizes. If a future vault is added with 6 decimals, 10,000 base units would represent 0.01 units — still small but proportionally ~1000× larger. Consider scaling <BlocksterV2Web.DocsComponents.inline_code>MINIMUM_LIQUIDITY</BlocksterV2Web.DocsComponents.inline_code> by <BlocksterV2Web.DocsComponents.inline_code>10^(9 - decimals)</BlocksterV2Web.DocsComponents.inline_code> when registering new vaults.
+        </p>
+      </:description>
+      <:references>
+        math.rs:6
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-03"
+      title="No slippage parameter on deposit/withdraw instructions"
+      severity="informational"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          Depositors cannot specify <BlocksterV2Web.DocsComponents.inline_code>min_lp_out</BlocksterV2Web.DocsComponents.inline_code>; withdrawers cannot specify <BlocksterV2Web.DocsComponents.inline_code>min_underlying_out</BlocksterV2Web.DocsComponents.inline_code>. The program uses the LP price computed from <em>live</em> vault state, so a bet settling in the same transaction or block could shift the effective balance and mint the LP at a different rate than the UI quoted. In practice drift is tiny, but MEV-style sandwiching isn't theoretically prevented.
+        </p>
+      </:description>
+      <:references>
+        deposit_sol.rs, withdraw_sol.rs, deposit_bux.rs, withdraw_bux.rs
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-04"
+      title="submit_commitment allows arbitrarily large future nonces"
+      severity="informational"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          The <BlocksterV2Web.DocsComponents.inline_code>require!(nonce &gt;= player_state.nonce, ...)</BlocksterV2Web.DocsComponents.inline_code> check allows the settler to set <BlocksterV2Web.DocsComponents.inline_code>pending_nonce</BlocksterV2Web.DocsComponents.inline_code> to any value greater than or equal to the current. This is intentional (allows pre-commitment batching) but a buggy client could leave the player stuck at a huge nonce with a stale commitment. Consider capping the gap at a small number (say 10) unless an explicit <BlocksterV2Web.DocsComponents.inline_code>batch</BlocksterV2Web.DocsComponents.inline_code> flag is passed.
+        </p>
+      </:description>
+      <:references>
+        submit_commitment.rs:56
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-05"
+      title="Referral rewards are paid from vault (LP cost), not from a separate fee bucket"
+      severity="informational"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          On loss, referral rewards of up to 1.5% combined (tier-1 + tier-2) are deducted from the same vault that backs LP positions — reducing LPs' share of the house edge. There is no protocol-side accrual or separate treasury. This is a design choice, not a bug, but LPs should understand they are funding the referral programme.
+        </p>
+      </:description>
+      <:references>
+        settle_bet.rs:192-200, 405-593
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-06"
+      title="Pause does not block settlement — intentional but should be explicit to LPs"
+      severity="informational"
+      status="by_design"
+    >
+      <:description>
+        <p>
+          The <BlocksterV2Web.DocsComponents.inline_code>paused</BlocksterV2Web.DocsComponents.inline_code> flag gates deposits, withdrawals, bet placement, commitment submission, and referrer-setting, but not <BlocksterV2Web.DocsComponents.inline_code>settle_bet</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>reclaim_expired</BlocksterV2Web.DocsComponents.inline_code>. This is correct: pausing must not trap pending bets. But it means that in an incident response scenario where the settler key is believed compromised, pause alone does <em>not</em> stop the settler from continuing to settle bets at attacker-chosen outcomes. Consider adding a separate <BlocksterV2Web.DocsComponents.inline_code>deep_pause</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>settle_pause</BlocksterV2Web.DocsComponents.inline_code> flag for that scenario.
+        </p>
+      </:description>
+      <:references>
+        settle_bet.rs, reclaim_expired.rs (no paused check)
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-07"
+      title="UnauthorizedSettler error is raised for authority-role mismatches in pause/update_config"
+      severity="informational"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>pause.rs:10</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>update_config.rs:11</BlocksterV2Web.DocsComponents.inline_code> both raise <BlocksterV2Web.DocsComponents.inline_code>UnauthorizedSettler</BlocksterV2Web.DocsComponents.inline_code> when the signer doesn't match <BlocksterV2Web.DocsComponents.inline_code>game_registry.authority</BlocksterV2Web.DocsComponents.inline_code>. The error message says "Unauthorized settler" but the role being checked is actually <em>authority</em>. Add a distinct <BlocksterV2Web.DocsComponents.inline_code>UnauthorizedAuthority</BlocksterV2Web.DocsComponents.inline_code> error code.
+        </p>
+      </:description>
+      <:references>
+        pause.rs:10, update_config.rs:11
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+
+    <BlocksterV2Web.DocsComponents.audit_finding
+      id="I-08"
+      title="Events lack bet_order pubkey, requiring indexers to derive it"
+      severity="informational"
+      status="acknowledged"
+    >
+      <:description>
+        <p>
+          <BlocksterV2Web.DocsComponents.inline_code>BetPlaced</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>BetSettled</BlocksterV2Web.DocsComponents.inline_code>, and <BlocksterV2Web.DocsComponents.inline_code>BetReclaimed</BlocksterV2Web.DocsComponents.inline_code> emit <BlocksterV2Web.DocsComponents.inline_code>player</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>nonce</BlocksterV2Web.DocsComponents.inline_code>, which is sufficient to derive the <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code> PDA, but not the PDA address directly. Including it would spare indexers the derivation and make logs more self-contained.
+        </p>
+      </:description>
+      <:references>
+        events.rs:87-114
+      </:references>
+    </BlocksterV2Web.DocsComponents.audit_finding>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="verified" title="Verified properties" eyebrow="08">
+    <p>
+      The following properties were verified to hold across all relevant code paths. They are listed here to scope what was tested and to document protections that are in place.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Commit-reveal integrity"
+      rows={[
+        {"Commitment binds seed", "settle_bet verifies SHA256(server_seed) == bet_order.commitment_hash, using anchor_lang::solana_program::hash. No path bypasses this check."},
+        {"Commitment binds bet", "place_bet_* copies pending_commitment into bet_order.commitment_hash at placement, clears player_state.pending_commitment, and increments player_state.nonce. Rebinding requires a fresh submit_commitment."},
+        {"Reveal-only-once", "BetOrder closes on settle. The PDA cannot be re-initialised at the same nonce because the nonce is seed material."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Arithmetic safety"
+      rows={[
+        {"Overflow/underflow", "All multi-value arithmetic uses checked_add, checked_sub, checked_mul, checked_div on u128 intermediates where necessary. Errors with MathOverflow."},
+        {"Division by zero", "calculate_underlying_for_lp and calculate_lp_price require lp_supply > 0 before dividing. calculate_max_bet_for_difficulty short-circuits to 0 when multiplier_bps == 0 (prevents ÷0)."},
+        {"Precision", "LP math truncates consistently. Off-chain Elixir code uses trunc/1 to match."},
+        {"Signed fields", "house_profit and net_pnl_* use i64; checked_add and checked_sub guard overflow in both directions."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Account validation"
+      rows={[
+        {"PDA seeds are canonical", "All PDAs use the seeds documented in state/ doc comments. Bumps are stored in GameRegistry for vault/mint PDAs and in account bodies for player/bet."},
+        {"has_one relationships", "BetOrder.has_one = player and has_one = rent_payer correctly bind settlement and reclaim accounts. Hostile accounts cannot be substituted."},
+        {"Vault authority", "SOL vault signs via [b\"sol_vault\", bump] in CPIs. BUX token account signs via [b\"bux_token_account\", bump]. LP mint authorities use dedicated seeds. All CPIs are invoke_signed with the correct seeds."},
+        {"Settler gating", "submit_commitment, settle_bet gated on settler.key() == game_registry.settler. update_config, pause, register_game, create_lp_metadata gated on authority.key() == game_registry.authority. Player-facing instructions gated on player signature where appropriate."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Liquidity safety"
+      rows={[
+        {"Deposit donation defence", "First deposit burns MINIMUM_LIQUIDITY to prevent first-depositor-frontrun attacks on LP price."},
+        {"Withdraw cannot exceed available", "calculate_underlying_for_lp return is checked against available_balance = vault − rent − total_liability."},
+        {"Rent-exempt preservation", "SOL vault withdrawal math subtracts rent-exempt minimum before computing available_balance, so the vault never loses rent exemption."},
+        {"Empty pool handling", "calculate_lp_price returns LP_PRICE_PRECISION (1.0) when lp_supply == 0, avoiding division by zero on first deposit."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Bet safety"
+      rows={[
+        {"Pre-placement validation", "amount >= min_bet, amount <= per-difficulty max, potential_profit <= net_balance. All enforced at placement with reverts."},
+        {"Nonce replay protection", "BetOrder PDA seed includes the nonce; PlayerState.nonce increments monotonically; mismatched nonce reverts with NonceMismatch or fails PDA init."},
+        {"Settle expiry asymmetry", "settle_bet requires elapsed <= bet_timeout; reclaim_expired requires elapsed > bet_timeout. Strict inequality avoids edge-case overlap at the timeout boundary."},
+        {"Referral failure safety", "Transfer failures in referral payout emit ReferralRewardFailed; the main settle_bet does not revert. Payouts to the player are never blocked by referral issues."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Governance constraints"
+      rows={[
+        {"Caps at config time", "update_config validates new_game_max_bet_bps <= MAX_BET_BPS (500), new_game_fee_bps <= MAX_FEE_BPS (1000), new_referral_bps <= MAX_SPLIT_BPS (500), tier1+tier2 <= MAX_SPLIT_BPS (500), new_bet_timeout >= MIN_BET_TIMEOUT (60)."},
+        {"Multiplier floor", "Non-zero multipliers in update_config must be >= 100 (matches on-chain MULTIPLIER_SCALE of 100, i.e., >= 1×)."},
+        {"Game registry bounded", "MAX_GAMES = 10; register_game rejects when full (GameRegistryFull)."},
+        {"Self-referral blocked", "set_referrer rejects player == referrer (SelfReferral). Tier-2 loops (tier-2 == player) are zeroed out."}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="oos" title="Out-of-scope items worth testing separately" eyebrow="09">
+    <ul>
+      <li><strong>Settler service code (TypeScript).</strong> The off-chain settler holds the private key that can settle every bet. Its correctness and security are as important as the on-chain program's — probably more so in the context of M-01. Recommend an independent review of <BlocksterV2Web.DocsComponents.inline_code>contracts/blockster-settler/src/services/bankroll-service.ts</BlocksterV2Web.DocsComponents.inline_code> with focus on: HMAC auth robustness, keypair custody, outcome derivation correctness (byte-to-flip algorithm must match the on-chain expectation in v2), rate limiting, and replay protection.</li>
+      <li><strong>Deployment keys.</strong> Program upgrade authority and <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code> keypair custody. For mainnet we recommend 2-of-3 or 3-of-5 Squads multisig for both.</li>
+      <li><strong>Phoenix LiveView UI.</strong> Not financially sensitive in the same way but could show wrong balances or allow bets that would revert. Minor impact.</li>
+      <li><strong>Economic model.</strong> Whether the ~1% house edge is sufficient to compensate LPs for the tail risk of the 31.68× multiplier, given expected bet-size distribution.</li>
+      <li><strong>Airdrop program.</strong> Separate crate, not touched by this audit.</li>
+    </ul>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="notes" title="Auditor notes" eyebrow="10">
+    <p>
+      The codebase reads like an Anchor program written by a developer who has shipped Anchor programs before. Variable naming is consistent, PDA seeds are documented inline, account sizing is explicit with comments, and <BlocksterV2Web.DocsComponents.inline_code>_reserved</BlocksterV2Web.DocsComponents.inline_code> padding is everywhere it belongs. The commit-reveal implementation is textbook. The LP math is FateSwap-style and well-tested by the <BlocksterV2Web.DocsComponents.inline_code>#[cfg(test)]</BlocksterV2Web.DocsComponents.inline_code> module in <BlocksterV2Web.DocsComponents.inline_code>math.rs</BlocksterV2Web.DocsComponents.inline_code>.
+    </p>
+    <p>
+      The two Medium findings are not surprises — they are design trade-offs the team has already reasoned through. M-01 is a known quantity in casino-on-chain designs: moving outcome logic fully on-chain is expensive in compute units and requires storing prediction data per bet. The current approach gambles (pun intended) that the settler remains honest and operationally robust. Post-M-01 remediation, the program would be genuinely trustless. M-02 is a rotation issue that any production deployment would need to solve via off-chain key-custody hygiene regardless of what the program does.
+    </p>
+    <p>
+      The Low and Informational findings are ergonomic improvements. None of them exposes current user deposits to risk.
+    </p>
+    <p>
+      For LP participants evaluating the pool: understand that your risk profile is a function of (a) the program's correctness — reviewed here and clean — and (b) the off-chain settler's correctness and honesty — reviewable but not eliminated without M-01's remediation. Size your deposits accordingly.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.callout kind="note" title="Report scope & liability">
+      <p>
+        This audit report documents the reviewer's analysis as of commit <BlocksterV2Web.DocsComponents.inline_code>1d4985d</BlocksterV2Web.DocsComponents.inline_code>. It is not a guarantee of security or fitness for any purpose. Subsequent code changes invalidate its conclusions. LPs and bettors should not treat this report as financial advice or as a substitute for their own risk assessment.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+
+    <div class="mt-10 p-6 rounded-2xl bg-[#F5F6FB] border border-[#E8EAF0]">
+      <div class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9AA0AE] mb-2">Report metadata</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-[13px]">
+        <div class="flex justify-between"><span class="text-[#515B70]">Report version</span><span class="font-mono text-[#141414]">1.0</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Delivered</span><span class="font-mono text-[#141414]">2026-04-21</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Review period</span><span class="font-mono text-[#141414]">2026-04-17 → 2026-04-21</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Commit reviewed</span><span class="font-mono text-[#141414]">1d4985d</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Branch</span><span class="font-mono text-[#141414]">feat/solana-migration</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Files reviewed</span><span class="font-mono text-[#141414]">24</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Lines reviewed</span><span class="font-mono text-[#141414]">~1,200 Rust</span></div>
+        <div class="flex justify-between"><span class="text-[#515B70]">Severity classification</span><span class="font-mono text-[#141414]">OWASP + SCSVS</span></div>
+      </div>
+    </div>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <div class="mt-16 pt-8 border-t border-[#E8EAF0] flex items-center justify-between gap-4 flex-wrap">
+    <.link navigate={~p"/docs/smart-contracts"} class="text-[13px] text-[#515B70] hover:text-[#141414] underline cursor-pointer">← Smart contracts</.link>
+    <.link navigate={~p"/docs"} class="text-[13px] font-haas_bold_75 text-[#141414] hover:underline cursor-pointer">Back to overview →</.link>
+  </div>
+</BlocksterV2Web.DocsComponents.docs_shell>

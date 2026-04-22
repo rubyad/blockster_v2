@@ -423,8 +423,16 @@ defmodule BlocksterV2.Accounts do
 
   # Backfill social-login fields on an existing user (e.g. the user previously
   # logged in with plain wallet connect and is now using Web3Auth).
+  #
+  # auth_method is also re-derived on each login. For any given wallet_address
+  # Web3Auth can only produce ONE auth path (the MPC derivation is a pure
+  # function of (verifier, sub)), so the recomputed value is always stable —
+  # the update only fires when we're healing a historically mislabeled row
+  # (e.g. an X login stored as web3auth_email before the client_provider
+  # plumbing existed).
   defp maybe_update_web3auth_fields(%User{} = user, claims) do
     new_verifier = claims[:verifier] || claims["verifier"]
+    new_auth_method = auth_method_for(claims)
 
     patch =
       %{}
@@ -432,10 +440,33 @@ defmodule BlocksterV2.Accounts do
       |> maybe_put(:social_avatar_url, claims[:profile_image] || claims["profile_image"], user.social_avatar_url)
       |> maybe_put(:x_user_id, claims[:x_user_id] || claims["x_user_id"], user.x_user_id)
       |> maybe_put(:email, claims[:email] || claims["email"], user.email)
+      |> maybe_put(:auth_method, new_auth_method, user.auth_method)
 
     if map_size(patch) == 0 do
       {:ok, user}
     else
+      # If auth_method is changing, recompute email_verified under the same
+      # "email must actually exist" rule the registration changeset enforces.
+      # Without this an incorrect email_verified=true from the old buggy
+      # registration would survive the heal.
+      patch =
+        case patch[:auth_method] do
+          "web3auth_email" ->
+            patched_email = Map.get(patch, :email, user.email)
+
+            if is_binary(patched_email) and patched_email != "" do
+              patch
+            else
+              Map.put(patch, :email_verified, false)
+            end
+
+          new_method when is_binary(new_method) and new_method != "web3auth_email" ->
+            Map.put(patch, :email_verified, false)
+
+          _ ->
+            patch
+        end
+
       update_user(user, patch)
     end
   end
@@ -444,20 +475,53 @@ defmodule BlocksterV2.Accounts do
   defp maybe_put(map, _key, value, value), do: map
   defp maybe_put(map, key, value, _existing), do: Map.put(map, key, value)
 
-  # Map Web3Auth's authConnection claim to our auth_method enum.
-  # Custom JWT paths need a secondary lookup — both Telegram and email run
-  # through `authConnection: "custom"` — so we branch on the verifier name
-  # assigned in the Web3Auth dashboard (blockster-email vs blockster-telegram).
+  # Decide the user's `auth_method` label.
+  #
+  # Primary signal: the `:client_provider` that AuthController folded into
+  # claims from the JS hook — the browser knows exactly which tile the user
+  # clicked. The Web3Auth JWT does NOT include an `authConnection` claim, so
+  # relying on that defaulted every non-email login to "web3auth_email".
+  #
+  # Fallbacks (in order):
+  #   1. verifierId shape ("twitter|<id>" → X; matches normalize/1's x_user_id)
+  #   2. the telegram_user_id claim we set for our custom Telegram JWT
+  #   3. authConnection (only present when a legacy caller passes raw claims)
+  #   4. default to "web3auth_email" — the only flow where email_verified
+  #      gets force-set to true, so this must be the conservative fallback.
   defp auth_method_for(claims) do
-    case claims[:auth_connection] || claims["auth_connection"] do
-      "email_passwordless" -> "web3auth_email"
-      "google" -> "web3auth_email"
-      "apple" -> "web3auth_email"
-      "twitter" -> "web3auth_x"
-      "custom" -> custom_auth_method_for(claims)
-      _ -> "web3auth_email"
+    cond do
+      (provider = claims[:client_provider] || claims["client_provider"]) &&
+          auth_method_for_provider(provider) ->
+        auth_method_for_provider(provider)
+
+      is_binary(claims[:x_user_id] || claims["x_user_id"]) ->
+        "web3auth_x"
+
+      is_binary(claims[:telegram_user_id] || claims["telegram_user_id"]) ->
+        "web3auth_telegram"
+
+      true ->
+        case claims[:auth_connection] || claims["auth_connection"] do
+          "email_passwordless" -> "web3auth_email"
+          "google" -> "web3auth_email"
+          "apple" -> "web3auth_email"
+          "twitter" -> "web3auth_x"
+          "custom" -> custom_auth_method_for(claims)
+          _ -> "web3auth_email"
+        end
     end
   end
+
+  defp auth_method_for_provider("twitter"), do: "web3auth_x"
+  defp auth_method_for_provider("telegram"), do: "web3auth_telegram"
+  defp auth_method_for_provider("email"), do: "web3auth_email"
+  # google/apple Web3Auth users don't get the "email verified" bonus by
+  # default — they sign in with their Google/Apple account, not a verified
+  # Blockster-owned email. Keep them on web3auth_email as the closest label
+  # but the email_verified guard in the changeset handles the correctness.
+  defp auth_method_for_provider("google"), do: "web3auth_email"
+  defp auth_method_for_provider("apple"), do: "web3auth_email"
+  defp auth_method_for_provider(_), do: nil
 
   defp custom_auth_method_for(claims) do
     verifier =

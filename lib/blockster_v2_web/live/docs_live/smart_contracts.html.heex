@@ -1,0 +1,472 @@
+<BlocksterV2Web.DocsComponents.docs_shell
+  current_user={@current_user}
+  active="/docs/smart-contracts"
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  announcement_banner={assigns[:announcement_banner]}
+>
+  <BlocksterV2Web.DocsComponents.docs_hero
+    eyebrow="Technical · Smart contracts"
+    title="Blockster Bankroll — full reference."
+    description="The Anchor program backing every bet and every pool. Every instruction, every account, every PDA seed, every error code. Built to be read end-to-end by auditors and integrators."
+  />
+
+  <BlocksterV2Web.DocsComponents.page_toc items={[
+    %{id: "overview", label: "Program overview"},
+    %{id: "authority", label: "Authority model"},
+    %{id: "pdas", label: "PDAs and seeds"},
+    %{id: "accounts", label: "Account structures"},
+    %{id: "constants", label: "Constants"},
+    %{id: "instructions", label: "Instructions"},
+    %{id: "errors", label: "Error codes"},
+    %{id: "events", label: "Events"},
+    %{id: "pause", label: "Pause behaviour"},
+    %{id: "upgrade", label: "Upgrade authority"}
+  ]} />
+
+  <BlocksterV2Web.DocsComponents.section id="overview" title="Program overview" eyebrow="01">
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Identity"
+      rows={[
+        {"Program ID", "49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm"},
+        {"Cluster", "devnet (mainnet launch pending)"},
+        {"Framework", "Anchor 0.30+ (Rust)"},
+        {"Crate", "contracts/blockster-bankroll/programs/blockster-bankroll"},
+        {"Settler service", "contracts/blockster-settler (Node/TypeScript)"},
+        {"IDL", "contracts/blockster-bankroll/target/idl/blockster_bankroll.json"},
+        {"Number of instructions", "22"},
+        {"Number of account structs", "7"},
+        {"Number of error codes", "32"},
+        {"Number of emitted events", "14"}
+      ]}
+    />
+
+    <p>
+      The program is a single crate — no cross-program call chains that aren't standard CPIs (System, SPL Token, Metaplex Token Metadata). It holds two vaults (SOL + BUX), mints two LP tokens (SOL-LP + BUX-LP), registers up to 10 games with parametric multipliers, implements a commit-reveal settlement scheme, and supports a two-tier referral programme.
+    </p>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="authority" title="Authority model" eyebrow="02">
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Roles"
+      rows={[
+        {"authority", "Set once at initialize_registry, never changeable on-chain. Registers games, updates per-game config, toggles the global pause flag, creates LP metadata."},
+        {"settler", "Submits commitments, settles bets, pays the PDA rent for BetOrder accounts. Rotated via update_config."},
+        {"upgrade_authority", "Standard Solana upgrade authority on the program loader. Held off-chain, not referenced in program code."},
+        {"player", "Signs deposits, withdrawals, reclaims. No persistent privilege; the sender of each instruction."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="warning" title="authority is immutable on-chain">
+      <p>
+        The <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code> field of <BlocksterV2Web.DocsComponents.inline_code>GameRegistry</BlocksterV2Web.DocsComponents.inline_code> is set by <BlocksterV2Web.DocsComponents.inline_code>initialize_registry</BlocksterV2Web.DocsComponents.inline_code> and has no instruction that rotates it. If that key is compromised, rotation requires redeploying the program via the upgrade authority. We document this explicitly as a <.link navigate={~p"/docs/security-audit"}>Medium-severity audit finding</.link> with a known remediation path.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="pdas" title="PDAs and seeds" eyebrow="03">
+    <BlocksterV2Web.DocsComponents.spec_table
+      cols={[
+        %{key: :name, label: "PDA"},
+        %{key: :seeds, label: "Seeds", mono: true},
+        %{key: :owner, label: "Owner"},
+        %{key: :purpose, label: "Purpose"}
+      ]}
+      rows={[
+        %{name: "Game registry", seeds: "[b\"game_registry\"]", owner: "Program", purpose: "Singleton; holds authority, settler, game table, bumps, pause flag"},
+        %{name: "SOL vault", seeds: "[b\"sol_vault\"]", owner: "System", purpose: "Holds raw SOL lamports"},
+        %{name: "SOL vault state", seeds: "[b\"sol_vault_state\"]", owner: "Program", purpose: "Accounting: liability, house_profit, volume, stats"},
+        %{name: "BUX vault state", seeds: "[b\"bux_vault_state\"]", owner: "Program", purpose: "Accounting for the BUX pool"},
+        %{name: "BUX token account", seeds: "[b\"bux_token_account\"]", owner: "SPL Token", purpose: "Holds BUX tokens; authority = itself"},
+        %{name: "SOL-LP mint", seeds: "[b\"bsol_mint\"]", owner: "SPL Token", purpose: "LP token mint for the SOL pool"},
+        %{name: "SOL-LP mint authority", seeds: "[b\"bsol_mint_authority\"]", owner: "Program", purpose: "Signs SOL-LP mint/burn via CPI"},
+        %{name: "BUX-LP mint", seeds: "[b\"bbux_mint\"]", owner: "SPL Token", purpose: "LP token mint for the BUX pool"},
+        %{name: "BUX-LP mint authority", seeds: "[b\"bbux_mint_authority\"]", owner: "Program", purpose: "Signs BUX-LP mint/burn via CPI"},
+        %{name: "Player state", seeds: "[b\"player\", player_pubkey]", owner: "Program", purpose: "Per-player: pending commitment, nonce, referrer, lifetime stats"},
+        %{name: "Bet order", seeds: "[b\"bet\", player_pubkey, nonce.to_le_bytes()]", owner: "Program", purpose: "Per-bet: amount, max_payout, commitment, status; closes on settle/reclaim"},
+        %{name: "Referral state", seeds: "[b\"referral\", referrer_pubkey]", owner: "Program", purpose: "Per-referrer: cumulative rewards, referral count"}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="accounts" title="Account structures" eyebrow="04">
+    <BlocksterV2Web.DocsComponents.subsection title="GameRegistry">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="state/game_registry.rs"
+        code={~S"""
+#[account]
+pub struct GameRegistry {
+    pub authority: Pubkey,             // 32 — set once at init
+    pub settler: Pubkey,               // 32 — rotatable via update_config
+    pub bux_mint: Pubkey,              // 32
+    pub paused: bool,                  // 1
+    pub bet_timeout: i64,              // 8  — seconds before reclaim eligible
+    pub referral_bps: u16,             // 2  — tier-1 rate
+    pub tier2_referral_bps: u16,       // 2  — tier-2 rate
+    pub sol_vault_bump: u8,            // 1
+    pub sol_vault_state_bump: u8,      // 1
+    pub bux_vault_state_bump: u8,      // 1
+    pub bux_token_account_bump: u8,    // 1
+    pub bsol_mint_bump: u8,            // 1
+    pub bsol_mint_authority_bump: u8,  // 1
+    pub bbux_mint_bump: u8,            // 1
+    pub bbux_mint_authority_bump: u8,  // 1
+    pub game_count: u64,               // 8
+    pub games: [GameEntry; 10],        // 730
+    pub _reserved: [u8; 128],          // 128
+}
+
+pub struct GameEntry {
+    pub game_id: u64,                  // 8
+    pub name: [u8; 32],                // 32 — padded ASCII, e.g. b"coin_flip\0\0..."
+    pub active: bool,                  // 1
+    pub min_bet: u64,                  // 8  — lamports or BUX base units
+    pub max_bet_bps: u16,              // 2  — cap 500 (= 5%)
+    pub fee_bps: u16,                  // 2  — cap 1000 (= 10%), currently unused in settlement
+    pub multipliers: [u16; 9],         // 18 — stored as bps/100; e.g. 198 → 1.98×
+    pub _reserved: [u8; 2],            // 2
+}
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="SolVaultState and BuxVaultState">
+      <p>
+        Parallel structures — one per vault. Same fields, different account type for Anchor type safety.
+      </p>
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="state/sol_vault.rs (BuxVaultState is identical)"
+        code={~S"""
+#[account]
+pub struct SolVaultState {
+    pub total_deposited: u64,          // Cumulative deposits by LPs
+    pub total_withdrawn: u64,          // Cumulative withdrawals
+    pub total_liability: u64,          // Sum of max_payout for pending bets
+    pub unsettled_count: u64,          // Number of pending bets
+    pub unsettled_bets: u64,           // Sum of wager amounts for pending bets
+    pub house_profit: i64,             // Net vault P&L (signed, can be negative)
+    pub total_bets: u64,               // Lifetime settled bet count (excludes reclaimed)
+    pub total_volume: u64,             // Lifetime sum of settled wagers
+    pub total_payout: u64,             // Lifetime sum of paid-out winnings
+    pub largest_bet: u64,
+    pub largest_payout: u64,
+    pub lp_deposits_count: u64,
+    pub lp_withdrawals_count: u64,
+    pub total_referral_paid: u64,
+    pub _reserved: [u8; 128],
+}
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="PlayerState">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="state/player_state.rs"
+        code={~S"""
+#[account]
+pub struct PlayerState {
+    pub player: Pubkey,                // 32
+    pub pending_commitment: [u8; 32],  // SHA256 of server seed for pending_nonce
+    pub pending_nonce: u64,
+    pub nonce: u64,                    // Next nonce to use
+    pub has_active_order: bool,        // Reserved; currently not read or written
+
+    // Referrals
+    pub referrer: Pubkey,              // Tier-1; Pubkey::default if none
+    pub tier2_referrer: Pubkey,        // Auto-resolved at set_referrer
+
+    // Lifetime stats
+    pub total_orders: u64,
+    pub total_wagered_sol: u64,
+    pub total_wagered_bux: u64,
+    pub net_pnl_sol: i64,              // Can be negative
+    pub net_pnl_bux: i64,
+
+    pub bump: u8,
+    pub _reserved: [u8; 64],
+}
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="BetOrder">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="state/bet_order.rs"
+        code={~S"""
+pub enum BetOrderStatus { Pending, Settled, Expired }
+pub enum VaultType       { Sol, Bux }
+
+#[account]
+pub struct BetOrder {
+    pub player: Pubkey,
+    pub game_id: u64,
+    pub vault_type: VaultType,
+    pub amount: u64,                   // Wager
+    pub max_payout: u64,               // amount × multiplier_bps / 10_000
+    pub commitment_hash: [u8; 32],     // Copied from PlayerState at placement
+    pub nonce: u64,
+    pub status: BetOrderStatus,        // Always Pending while live
+    pub created_at: i64,               // unix_timestamp
+    pub bump: u8,
+    pub rent_payer: Pubkey,            // Locked at placement to game_registry.settler
+}
+"""}
+      />
+      <p>
+        BetOrder accounts close on settle_bet or reclaim_expired. The rent rebate goes back to <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> — the settler keypair in force at placement. Rotating the settler does not rotate <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> on already-placed bets.
+      </p>
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="ReferralState">
+      <BlocksterV2Web.DocsComponents.code_block
+        lang="rust"
+        title="state/referral_state.rs"
+        code={~S"""
+#[account]
+pub struct ReferralState {
+    pub referrer: Pubkey,
+    pub total_referrals: u64,          // Unique players who chose this referrer
+    pub total_earnings_sol: u64,
+    pub total_earnings_bux: u64,
+    pub bump: u8,
+    pub _reserved: [u8; 32],
+}
+"""}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="constants" title="Constants" eyebrow="05">
+    <BlocksterV2Web.DocsComponents.kv_table
+      rows={[
+        {"MINIMUM_LIQUIDITY", "10_000 — base units burned on first deposit (donation-attack defence)"},
+        {"MAX_GAMES", "10 — maximum registered games in the registry array"},
+        {"BPS_DENOMINATOR", "10_000 — 100% in basis points"},
+        {"MAX_FEE_BPS", "1_000 — 10% cap on per-game fee_bps"},
+        {"MAX_SPLIT_BPS", "500 — 5% cap on each referral tier"},
+        {"MAX_BET_BPS", "500 — 5% cap on per-game max_bet_bps"},
+        {"MIN_BET_TIMEOUT", "60 seconds — floor on game_registry.bet_timeout"},
+        {"LP_PRICE_PRECISION", "1_000_000_000 (1e9) — scaling factor for LP price display"},
+        {"MULTIPLIER_SCALE", "100 — multipliers are stored as bps/100 to fit u16"}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="instructions" title="Instructions" eyebrow="06">
+    <p>The program exposes 22 instructions organised into five groups. Each is listed below with signer requirements, arguments, side effects, and the errors it can raise.</p>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Initialization (one-time, authority-only)">
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :name, label: "Instruction", mono: true},
+          %{key: :args, label: "Args", mono: true},
+          %{key: :purpose, label: "Purpose"}
+        ]}
+        rows={[
+          %{name: "initialize_registry", args: "bet_timeout: i64", purpose: "Create GameRegistry, SolVaultState, BuxVaultState. Set authority, settler, bux_mint. Default referral_bps=100, tier2=50."},
+          %{name: "initialize_sol_pool", args: "—", purpose: "Create SOL-LP mint with program-owned mint authority PDA."},
+          %{name: "initialize_bux_pool", args: "—", purpose: "Create BUX-LP mint."},
+          %{name: "initialize_bux_vault", args: "—", purpose: "Create BUX token account PDA. Emits BankrollInitialized."},
+          %{name: "register_game", args: "game_id, name, min_bet, max_bet_bps, fee_bps, multipliers[9]", purpose: "Add a game to the registry (idempotent fails). Enforces bps caps and minimum multiplier values."},
+          %{name: "create_lp_metadata", args: "vault_type, name, symbol, uri", purpose: "CPI to Metaplex to attach metadata to SOL-LP or BUX-LP mint."}
+        ]}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Liquidity (anyone)">
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :name, label: "Instruction", mono: true},
+          %{key: :args, label: "Args", mono: true},
+          %{key: :purpose, label: "Purpose"}
+        ]}
+        rows={[
+          %{name: "deposit_sol", args: "amount: u64", purpose: "Move SOL into sol_vault, mint SOL-LP to depositor. Rejects if paused."},
+          %{name: "withdraw_sol", args: "lp_amount: u64", purpose: "Burn SOL-LP, move SOL out to withdrawer. Rejects if paused or if underlying > available_balance."},
+          %{name: "deposit_bux", args: "amount: u64", purpose: "Move BUX into vault, mint BUX-LP."},
+          %{name: "withdraw_bux", args: "lp_amount: u64", purpose: "Burn BUX-LP, move BUX out."}
+        ]}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Betting (commit-reveal)">
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :name, label: "Instruction", mono: true},
+          %{key: :signer, label: "Signer"},
+          %{key: :purpose, label: "Purpose"}
+        ]}
+        rows={[
+          %{name: "submit_commitment", signer: "settler", purpose: "Write SHA256(server_seed) to PlayerState. Nonce must be ≥ current player nonce. init_if_needed creates PlayerState first time."},
+          %{name: "place_bet_sol", signer: "player + settler (rent_payer)", purpose: "Transfer SOL wager, create BetOrder PDA, clear commitment, increment nonce. Enforces all placement guards."},
+          %{name: "place_bet_bux", signer: "player + settler (rent_payer)", purpose: "Same as place_bet_sol, but moves BUX."},
+          %{name: "settle_bet", signer: "settler", purpose: "Reveal server_seed (hash must match commitment). Pay player if won. Process referral rewards on loss. Close BetOrder and return rent."},
+          %{name: "reclaim_expired", signer: "player", purpose: "After bet_timeout, refund wager to player. Close BetOrder and return rent. Does not touch total_bets / house_profit."}
+        ]}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Referrals">
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :name, label: "Instruction", mono: true},
+          %{key: :signer, label: "Signer"},
+          %{key: :purpose, label: "Purpose"}
+        ]}
+        rows={[
+          %{name: "set_referrer", signer: "player", purpose: "One-time; set tier-1 referrer. Auto-resolves tier-2 from referrer's referrer. Blocks self-refer and two-hop loops. Creates ReferralState for the referrer if needed."}
+        ]}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+
+    <BlocksterV2Web.DocsComponents.subsection title="Admin (authority-only)">
+      <BlocksterV2Web.DocsComponents.spec_table
+        cols={[
+          %{key: :name, label: "Instruction", mono: true},
+          %{key: :args, label: "Args"},
+          %{key: :purpose, label: "Purpose"}
+        ]}
+        rows={[
+          %{name: "update_config", args: "all Option; may update: settler, bet_timeout, referral_bps, tier2_referral_bps, per-game config", purpose: "Partial update with caps enforced (max fee 10%, max split 5%, max bet 5%, min timeout 60s)."},
+          %{name: "pause", args: "paused: bool", purpose: "Toggle global paused flag. Blocks deposit/withdraw/place_bet/submit_commitment/set_referrer. Does NOT block settle_bet or reclaim_expired (intentional)."}
+        ]}
+      />
+    </BlocksterV2Web.DocsComponents.subsection>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="errors" title="Error codes" eyebrow="07">
+    <BlocksterV2Web.DocsComponents.spec_table
+      title="All program errors (defined in errors.rs)"
+      cols={[
+        %{key: :code, label: "Code", mono: true},
+        %{key: :name, label: "Name", mono: true},
+        %{key: :msg, label: "Meaning"}
+      ]}
+      rows={[
+        %{code: "6000", name: "Paused", msg: "Global pause flag is set."},
+        %{code: "6001", name: "ZeroAmount", msg: "Amount argument must be > 0."},
+        %{code: "6002", name: "MathOverflow", msg: "checked_* arithmetic overflowed/underflowed."},
+        %{code: "6003", name: "InvalidConfig", msg: "Configuration value out of valid range (e.g. multiplier < 100)."},
+        %{code: "6004", name: "FeeTooHigh", msg: "fee_bps or referral_bps exceeds its cap."},
+        %{code: "6005", name: "SplitTooHigh", msg: "tier-1 + tier-2 referral_bps exceeds MAX_SPLIT_BPS (500)."},
+        %{code: "6006", name: "BetTimeoutTooShort", msg: "bet_timeout below MIN_BET_TIMEOUT (60s)."},
+        %{code: "6007", name: "DepositTooSmall", msg: "First deposit below MINIMUM_LIQUIDITY, or subsequent deposit that would mint 0 LP."},
+        %{code: "6008", name: "InsufficientLiquidity", msg: "Withdrawal would exceed available_balance (after rent and liability)."},
+        %{code: "6009", name: "WithdrawTooLarge", msg: "lp_amount would redeem to 0 underlying (dust)."},
+        %{code: "6010", name: "GameRegistryFull", msg: "Attempt to register an 11th game."},
+        %{code: "6011", name: "GameAlreadyRegistered", msg: "Duplicate game_id at registration."},
+        %{code: "6012", name: "GameNotFound", msg: "Game ID absent or inactive at bet placement."},
+        %{code: "6013", name: "InvalidDifficulty", msg: "difficulty index ≥ 9."},
+        %{code: "6014", name: "MultipliersNotConfigured", msg: "Requested difficulty has stored multiplier == 0."},
+        %{code: "6015", name: "BetTooSmall", msg: "amount < game.min_bet."},
+        %{code: "6016", name: "BetTooLarge", msg: "amount > per-difficulty max_bet."},
+        %{code: "6017", name: "MaxPayoutExceedsCapacity", msg: "potential profit > net_balance."},
+        %{code: "6018", name: "ActiveBetExists", msg: "Reserved. Not currently raised."},
+        %{code: "6019", name: "NonceMismatch", msg: "nonce arg ≠ player_state.pending_nonce (or < existing nonce in submit_commitment)."},
+        %{code: "6020", name: "NoCommitment", msg: "player_state.pending_commitment is zeroed."},
+        %{code: "6021", name: "CommitmentMismatch", msg: "Reserved. Not currently raised (hash check uses InvalidServerSeed)."},
+        %{code: "6022", name: "InsufficientVaultBalance", msg: "Vault lacks funds for payout (defence-in-depth; should be unreachable given placement guards)."},
+        %{code: "6023", name: "OrderNotPending", msg: "BetOrder.status ≠ Pending."},
+        %{code: "6024", name: "OrderExpired", msg: "settle_bet called after bet_timeout elapsed. Use reclaim_expired."},
+        %{code: "6025", name: "OrderNotExpired", msg: "reclaim_expired called before bet_timeout elapsed."},
+        %{code: "6026", name: "InvalidServerSeed", msg: "SHA256(server_seed) ≠ bet_order.commitment_hash. Also reused for has_one=player mismatch (misleading message)."},
+        %{code: "6027", name: "PayoutExceedsMax", msg: "settle_bet payout arg > bet_order.max_payout."},
+        %{code: "6028", name: "SelfReferral", msg: "Player tried to set self as referrer."},
+        %{code: "6029", name: "ReferrerAlreadySet", msg: "Player already has a tier-1 referrer."},
+        %{code: "6030", name: "UnauthorizedSettler", msg: "Signer is not the registry settler or authority, depending on instruction."},
+        %{code: "6031", name: "InvalidVaultType", msg: "vault_type mismatch at settlement (e.g. BUX bet with missing player_bux_account)."},
+        %{code: "6032", name: "InvalidMint", msg: "Mint address doesn't match expected PDA."},
+        %{code: "6033", name: "InvalidRentPayer", msg: "rent_payer at placement ≠ game_registry.settler; or bet_order.rent_payer at settle/reclaim ≠ supplied account."}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="events" title="Events" eyebrow="08">
+    <BlocksterV2Web.DocsComponents.spec_table
+      title="All events (defined in events.rs)"
+      cols={[
+        %{key: :name, label: "Event", mono: true},
+        %{key: :trigger, label: "Triggered by"},
+        %{key: :fields, label: "Fields"}
+      ]}
+      rows={[
+        %{name: "BankrollInitialized", trigger: "initialize_bux_vault", fields: "authority, settler, sol_vault, bux_vault, bsol_mint, bbux_mint"},
+        %{name: "GameRegistered", trigger: "register_game", fields: "game_id, name, active"},
+        %{name: "ConfigUpdated", trigger: "update_config", fields: "field_id (1=settler, 2=timeout, 3=t1_bps, 4=t2_bps), old_value, new_value"},
+        %{name: "PauseToggled", trigger: "pause", fields: "paused"},
+        %{name: "SolDeposited", trigger: "deposit_sol", fields: "depositor, sol_amount, lp_minted, vault_balance, lp_supply"},
+        %{name: "SolWithdrawn", trigger: "withdraw_sol", fields: "withdrawer, sol_amount, lp_burned, vault_balance, lp_supply"},
+        %{name: "BuxDeposited", trigger: "deposit_bux", fields: "depositor, bux_amount, lp_minted, vault_balance, lp_supply"},
+        %{name: "BuxWithdrawn", trigger: "withdraw_bux", fields: "withdrawer, bux_amount, lp_burned, vault_balance, lp_supply"},
+        %{name: "CommitmentSubmitted", trigger: "submit_commitment", fields: "player, nonce, commitment_hash"},
+        %{name: "BetPlaced", trigger: "place_bet_*", fields: "player, game_id, vault_type, amount, max_payout, nonce"},
+        %{name: "BetSettled", trigger: "settle_bet", fields: "player, nonce, won, amount, payout, vault_type, server_seed"},
+        %{name: "BetReclaimed", trigger: "reclaim_expired", fields: "player, nonce, amount, vault_type"},
+        %{name: "ReferrerSet", trigger: "set_referrer", fields: "player, referrer, tier2_referrer"},
+        %{name: "ReferralRewardPaid", trigger: "settle_bet (on loss)", fields: "referrer, player, amount, vault_type, tier"},
+        %{name: "ReferralRewardFailed", trigger: "settle_bet (on loss, transfer failed)", fields: "referrer, player, amount, vault_type, tier"}
+      ]}
+    />
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="pause" title="Pause behaviour" eyebrow="09">
+    <p>
+      The authority can flip <BlocksterV2Web.DocsComponents.inline_code>game_registry.paused</BlocksterV2Web.DocsComponents.inline_code> at any time via the <BlocksterV2Web.DocsComponents.inline_code>pause</BlocksterV2Web.DocsComponents.inline_code> instruction. This is the emergency brake.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="What pause does and doesn't block"
+      rows={[
+        {"Blocks", "deposit_sol, withdraw_sol, deposit_bux, withdraw_bux, submit_commitment, place_bet_sol, place_bet_bux, set_referrer"},
+        {"Does not block", "settle_bet, reclaim_expired — so any pending bet can always be resolved"},
+        {"Does not block", "update_config, register_game, create_lp_metadata, pause itself — admin retains control during pause"}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="note" title="Why settle continues during pause">
+      <p>
+        If a pause were triggered while bets were in flight, blocking settlement would trap those bets until unpause. By letting settlement proceed, we keep existing bets moving toward resolution (win or reclaim) even if new activity is frozen.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <BlocksterV2Web.DocsComponents.section id="upgrade" title="Upgrade authority" eyebrow="10">
+    <p>
+      The program is deployed with a standard Solana upgrade authority — an Ed25519 keypair that can redeploy the program bytecode at any time. This is orthogonal to the program-internal <BlocksterV2Web.DocsComponents.inline_code>authority</BlocksterV2Web.DocsComponents.inline_code> role; in principle they could be the same key or different.
+    </p>
+
+    <BlocksterV2Web.DocsComponents.kv_table
+      title="Upgrade authority facts"
+      rows={[
+        {"Held by", "Settler keypair (devnet); will migrate to 2-of-3 multisig for mainnet"},
+        {"Rotation", "Solana CLI solana program set-upgrade-authority"},
+        {"Disabling upgrades", "Possible via solana program set-upgrade-authority --final (irreversible)"},
+        {"Compromise scenario", "Attacker could redeploy malicious bytecode and drain vaults. Mitigated by multisig hold on mainnet."}
+      ]}
+    />
+
+    <BlocksterV2Web.DocsComponents.callout kind="warning" title="LPs are trusting the upgrade authority">
+      <p>
+        A malicious upgrade can drain both vaults. This is true of every upgradable Solana program and is not unique to us. Before providing liquidity at scale you should verify where the upgrade authority resides and what the expected transition path to multisig or renunciation looks like.
+      </p>
+    </BlocksterV2Web.DocsComponents.callout>
+  </BlocksterV2Web.DocsComponents.section>
+
+  <div class="mt-16 pt-8 border-t border-[#E8EAF0] flex items-center justify-between gap-4 flex-wrap">
+    <.link navigate={~p"/docs/pools"} class="text-[13px] text-[#515B70] hover:text-[#141414] underline cursor-pointer">← Pools & LP</.link>
+    <.link navigate={~p"/docs/security-audit"} class="text-[13px] font-haas_bold_75 text-[#141414] hover:underline cursor-pointer">Next: Security audit →</.link>
+  </div>
+</BlocksterV2Web.DocsComponents.docs_shell>

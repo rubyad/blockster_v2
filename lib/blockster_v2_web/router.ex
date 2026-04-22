@@ -166,6 +166,14 @@ defmodule BlocksterV2Web.Router do
       live "/privacy", LegalLive.Privacy, :index
       live "/terms", LegalLive.Terms, :index
       live "/cookies", LegalLive.Cookies, :index
+
+      # Gitbook-style technical docs.
+      live "/docs", DocsLive.Index, :index
+      live "/docs/coin-flip", DocsLive.CoinFlip, :show
+      live "/docs/pools", DocsLive.Pools, :show
+      live "/docs/provably-fair", DocsLive.ProvablyFair, :show
+      live "/docs/smart-contracts", DocsLive.SmartContracts, :show
+      live "/docs/security-audit", DocsLive.SecurityAudit, :show
     end
 
     live_session :default,

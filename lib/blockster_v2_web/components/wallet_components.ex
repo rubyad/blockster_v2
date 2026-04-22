@@ -246,69 +246,101 @@ defmodule BlocksterV2Web.WalletComponents do
             </div>
 
           <% @connecting and @connecting_provider -> %>
-            <%!-- ── STATE C: Connecting to Web3Auth provider ── --%>
+            <%!-- ── STATE C: Signing in via Web3Auth ─────────────────
+                 Provider-aware copy — email goes through a CUSTOM JWT
+                 flow with NO popup; OAuth (X/Google) opens a provider
+                 popup; Telegram uses its widget. Helpers at the bottom
+                 of this module pick the right headline/subline/steps. --%>
             <div
               phx-click-away="hide_wallet_selector"
               class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
               style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
             >
-              <div class="flex items-center justify-end px-6 pt-6 pb-2">
+              <%!-- Atmospheric accent: brand glow bleeds in from the top-right
+                   corner. No emphasis, just depth. --%>
+              <div
+                class="pointer-events-none absolute -top-16 -right-16 w-48 h-48"
+                style="background: radial-gradient(circle, rgba(202,252,0,0.16), transparent 65%);"
+              ></div>
+
+              <%!-- Top bar — matches State A so the transition feels continuous --%>
+              <div class="relative flex items-center justify-between px-6 pt-6 pb-2">
+                <div class="flex items-center gap-2">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-md" />
+                  <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-bold">
+                    Signing in
+                  </span>
+                </div>
                 <button
                   phx-click="hide_wallet_selector"
                   class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
-                  aria-label="Close"
+                  aria-label="Cancel"
                 >
                   <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
 
-              <div class="px-6 pt-6 pb-4 flex flex-col items-center text-center">
-                <div class="relative mb-5">
-                  <div class={"w-20 h-20 rounded-2xl grid place-items-center ring-1 ring-white/40 " <> provider_badge_class(@connecting_provider)}>
-                    <.provider_icon_large provider={@connecting_provider} />
+              <%!-- Header: asymmetric, badge-left / text-right --%>
+              <div class="relative px-6 pt-7 pb-5">
+                <div class="flex items-start gap-4">
+                  <div class={"relative w-14 h-14 rounded-2xl grid place-items-center flex-shrink-0 ring-1 ring-white/40 " <> provider_badge_class(@connecting_provider)}>
+                    <.provider_icon_medium provider={@connecting_provider} />
                   </div>
-                  <svg class="absolute -inset-2 w-24 h-24 text-[#CAFC00] animate-spin" style="animation-duration: 0.9s;" viewBox="0 0 100 100" fill="none">
-                    <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 220" stroke-dashoffset="0"/>
-                  </svg>
-                </div>
-                <h2 class="text-[24px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
-                  Opening <%= provider_display_name(@connecting_provider) %>
-                </h2>
-                <p class="text-[13px] text-neutral-500 font-medium leading-relaxed max-w-[300px]">
-                  A popup will open — sign in there and we'll pop back here.
-                </p>
-              </div>
-
-              <div class="px-6 pt-2 pb-1">
-                <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
-                  <div class="h-full w-full rounded-full wallet-progress-shimmer"></div>
-                </div>
-              </div>
-
-              <div class="px-6 py-5">
-                <div class="space-y-3 text-[12px] font-medium">
-                  <div class="flex items-center gap-3">
-                    <div class="w-5 h-5 rounded-full bg-[#22C55E] grid place-items-center shrink-0">
-                      <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div class="flex-1 min-w-0 pt-0.5">
+                    <div class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-bold mb-1.5">
+                      <%= connecting_eyebrow(@connecting_provider) %>
                     </div>
-                    <span class="text-[#141414]">Popup launched</span>
-                    <span class="ml-auto text-[10px] font-mono text-neutral-400">0.1s</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <div class="w-5 h-5 rounded-full bg-[#CAFC00] grid place-items-center shrink-0">
-                      <div class="w-2 h-2 rounded-full bg-black wallet-pulse-dot"></div>
-                    </div>
-                    <span class="text-[#141414] font-bold">Awaiting credentials…</span>
-                    <span class="ml-auto text-[10px] font-mono text-neutral-400">live</span>
-                  </div>
-                  <div class="flex items-center gap-3 opacity-50">
-                    <div class="w-5 h-5 rounded-full border-2 border-dashed border-neutral-300 shrink-0"></div>
-                    <span class="text-neutral-500">Verify and sign in</span>
+                    <h2 class="text-[22px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-1.5"
+                        style="letter-spacing: -0.024em;">
+                      <%= connecting_headline(@connecting_provider) %>
+                    </h2>
+                    <p class="text-[12.5px] text-neutral-500 font-medium leading-relaxed">
+                      <%= connecting_subline(@connecting_provider) %>
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div class="pb-6"></div>
+              <%!-- Progress: single thin bar with a dark traversing shimmer.
+                   Indeterminate — we don't pretend to know step timing. --%>
+              <div class="relative px-6 pb-3">
+                <div class="relative h-[2px] bg-neutral-200/80 overflow-hidden rounded-full">
+                  <div
+                    class="absolute inset-y-0 left-[-40%] w-[40%] rounded-full wallet-traverse-bar"
+                    style="background: linear-gradient(90deg, transparent, #141414 45%, #141414 55%, transparent);"
+                  ></div>
+                </div>
+              </div>
+
+              <%!-- Step labels — slash-separated, mono. Current step bold.
+                   No checkmarks, no pulse dots; just editorial rhythm. --%>
+              <div class="px-6 pb-5">
+                <div class="flex items-center text-[10.5px] font-mono tracking-tight">
+                  <%= for {label, idx} <- Enum.with_index(connecting_steps(@connecting_provider)) do %>
+                    <%= if idx > 0 do %>
+                      <span class="px-2 text-neutral-300" aria-hidden="true">/</span>
+                    <% end %>
+                    <span class={if(idx == 0, do: "text-[#141414] font-bold", else: "text-neutral-400")}>
+                      <%= label %>
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Footer: signal indicator + visible cancel, so the modal
+                   is never a dead-end if something stalls. --%>
+              <div class="relative px-6 py-4 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/60">
+                <div class="flex items-center gap-2 text-[10.5px] text-neutral-500 font-mono">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#141414] wallet-signal-dot"></span>
+                  <span>secure channel</span>
+                </div>
+                <button
+                  phx-click="hide_wallet_selector"
+                  class="text-[11px] text-neutral-600 hover:text-[#141414] font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
 
           <% true -> %>
@@ -340,7 +372,7 @@ defmodule BlocksterV2Web.WalletComponents do
                 </h2>
                 <p class="text-[13px] text-neutral-500 font-medium leading-relaxed">
                   <%= if @social_login_enabled do %>
-                    Email for one-click betting, or connect your wallet.
+                    Sign in with your email or a social account — or connect your Solana wallet.
                   <% else %>
                     Pick the wallet you want to use to sign in. Blockster never sees your seed phrase or private keys.
                   <% end %>
@@ -476,9 +508,9 @@ defmodule BlocksterV2Web.WalletComponents do
                   </div>
                 <% end %>
 
-                <%!-- Social tiles: 2x2 mobile, 4-col desktop --%>
+                <%!-- Social tiles: 3 providers, flat row on all breakpoints --%>
                 <div class="px-6 pb-4">
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div class="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       phx-click="start_x_login"
@@ -496,15 +528,6 @@ defmodule BlocksterV2Web.WalletComponents do
                     >
                       <.provider_icon_small provider="google" />
                       <span class="text-[11px] font-bold text-[#141414]">Google</span>
-                    </button>
-                    <button
-                      type="button"
-                      phx-click="start_apple_login"
-                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
-                      aria-label="Continue with Apple"
-                    >
-                      <.provider_icon_small provider="apple" />
-                      <span class="text-[11px] font-bold text-[#141414]">Apple</span>
                     </button>
                     <button
                       type="button"
@@ -647,6 +670,20 @@ defmodule BlocksterV2Web.WalletComponents do
         0%   { background-position: 200% 0; }
         100% { background-position: -200% 0; }
       }
+      @keyframes walletTraverse {
+        0%   { transform: translateX(0); }
+        100% { transform: translateX(350%); }
+      }
+      .wallet-traverse-bar {
+        animation: walletTraverse 1.6s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+      }
+      @keyframes walletSignalBreathe {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: 0.35; transform: scale(0.8); }
+      }
+      .wallet-signal-dot {
+        animation: walletSignalBreathe 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
     </style>
     """
   end
@@ -738,14 +775,6 @@ defmodule BlocksterV2Web.WalletComponents do
     """
   end
 
-  defp provider_icon_small(%{provider: "apple"} = assigns) do
-    ~H"""
-    <svg class="w-5 h-5 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-    </svg>
-    """
-  end
-
   defp provider_icon_small(%{provider: "telegram"} = assigns) do
     ~H"""
     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -761,28 +790,29 @@ defmodule BlocksterV2Web.WalletComponents do
     """
   end
 
-  # ── Web3Auth Provider Icons (large, for State C hero badge) ──
+  # Medium provider icons — sized for the 56×56 badge in State C.
+  # Keep the glyph inset (≈24px) so the badge's color carries most of the weight.
 
-  defp provider_icon_large(%{provider: "email"} = assigns) do
+  defp provider_icon_medium(%{provider: "email"} = assigns) do
     ~H"""
-    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="5" width="18" height="14" rx="2"/>
       <path d="M3 7l9 6 9-6"/>
     </svg>
     """
   end
 
-  defp provider_icon_large(%{provider: "twitter"} = assigns) do
+  defp provider_icon_medium(%{provider: "twitter"} = assigns) do
     ~H"""
-    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
     </svg>
     """
   end
 
-  defp provider_icon_large(%{provider: "google"} = assigns) do
+  defp provider_icon_medium(%{provider: "google"} = assigns) do
     ~H"""
-    <svg class="w-10 h-10" viewBox="0 0 24 24">
+    <svg class="w-6 h-6" viewBox="0 0 24 24">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -791,25 +821,17 @@ defmodule BlocksterV2Web.WalletComponents do
     """
   end
 
-  defp provider_icon_large(%{provider: "apple"} = assigns) do
+  defp provider_icon_medium(%{provider: "telegram"} = assigns) do
     ~H"""
-    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-    </svg>
-    """
-  end
-
-  defp provider_icon_large(%{provider: "telegram"} = assigns) do
-    ~H"""
-    <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none">
+    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none">
       <path d="M5.5 11.5l12.4-4.8c.6-.2 1.1.1.9.9l-2.1 9.9c-.1.5-.5.7-1 .4l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-3.2 5.8-5.2c.3-.2-.1-.3-.4-.1L9.2 12.6l-3.1-1c-.7-.2-.7-.7.4-1.1z" fill="white"/>
     </svg>
     """
   end
 
-  defp provider_icon_large(assigns) do
+  defp provider_icon_medium(assigns) do
     ~H"""
-    <span class="text-4xl font-bold text-white/80">?</span>
+    <span class="text-2xl font-bold text-white/80">?</span>
     """
   end
 
@@ -822,21 +844,49 @@ defmodule BlocksterV2Web.WalletComponents do
   defp provider_badge_class("google"),
     do: "bg-white shadow-[0_8px_24px_rgba(66,133,244,0.25)] ring-1 ring-neutral-200"
 
-  defp provider_badge_class("apple"),
-    do: "bg-gradient-to-br from-black to-[#1a1a1a] shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
-
   defp provider_badge_class("telegram"),
     do: "bg-gradient-to-br from-[#37BBE4] to-[#1C93D1] shadow-[0_8px_24px_rgba(34,158,217,0.4)]"
 
   defp provider_badge_class(_),
     do: "bg-gradient-to-br from-neutral-700 to-neutral-800"
 
-  defp provider_display_name("email"), do: "email sign-in"
-  defp provider_display_name("twitter"), do: "X"
-  defp provider_display_name("google"), do: "Google"
-  defp provider_display_name("apple"), do: "Apple"
-  defp provider_display_name("telegram"), do: "Telegram"
-  defp provider_display_name(_), do: "sign-in"
+  # Eyebrow / headline / subline / steps for State C.
+  # Each provider takes a different path — the email flow uses a CUSTOM JWT
+  # so it NEVER opens a popup, while OAuth providers do. The copy reflects
+  # that so users aren't hunting for a popup that'll never appear.
+
+  defp connecting_eyebrow("email"), do: "Email sign-in"
+  defp connecting_eyebrow("twitter"), do: "Sign in via X"
+  defp connecting_eyebrow("google"), do: "Sign in via Google"
+  defp connecting_eyebrow("telegram"), do: "Sign in via Telegram"
+  defp connecting_eyebrow(_), do: "Signing in"
+
+  defp connecting_headline("email"), do: "Signing you in"
+  defp connecting_headline("twitter"), do: "Opening X"
+  defp connecting_headline("google"), do: "Opening Google"
+  defp connecting_headline("telegram"), do: "Opening Telegram"
+  defp connecting_headline(_), do: "One moment"
+
+  defp connecting_subline("email"),
+    do: "No popup — we're finishing things up here. Stay on this tab."
+
+  defp connecting_subline("twitter"),
+    do: "Approve the sign-in in the X popup that just opened. We'll bring you back when it's done."
+
+  defp connecting_subline("google"),
+    do: "Approve the sign-in in the Google popup. We'll bring you back when it's done."
+
+  defp connecting_subline("telegram"),
+    do: "Approve the Blockster login in Telegram's confirmation widget."
+
+  defp connecting_subline(_),
+    do: "Hang on — we're finishing up."
+
+  defp connecting_steps("email"), do: ["Verifying", "Generating keys", "Finishing up"]
+  defp connecting_steps("twitter"), do: ["Popup open", "Awaiting approval", "Finishing up"]
+  defp connecting_steps("google"), do: ["Popup open", "Awaiting approval", "Finishing up"]
+  defp connecting_steps("telegram"), do: ["Widget open", "Awaiting approval", "Finishing up"]
+  defp connecting_steps(_), do: ["Starting", "Working", "Finishing"]
 
   # ── Helpers ─────────────────────────────────────────────────
 
